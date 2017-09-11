@@ -1,0 +1,40 @@
+#!/usr/bin/env lua
+
+local inspect = require 'inspect'
+local argparse = require 'argparse'
+
+local parser = require 'titan-compiler.parser'
+
+local p = argparse('titan', 'Titan compiler')
+p:argument('input', 'Input file.')
+p:flag('--print-ast', 'Print the AST.')
+local args = p:parse()
+
+local function getcontents(filename)
+  local file = assert(io.open(filename, "r"))
+  local contents = file:read("*a")
+  file:close()
+  return contents
+end
+
+-- Work like assert, but don't print the stack trace
+local function check(value, msg)
+    if not value then
+        print(msg)
+        os.exit(1)
+    else
+        return value
+    end
+end
+
+local input
+if args.input == '-' then
+    input = io.read("*a")
+else
+    input = getcontents(args.input)
+end
+local ast = check(parser.parse(input))
+if args.print_ast then
+    print(inspect(ast))
+end
+
