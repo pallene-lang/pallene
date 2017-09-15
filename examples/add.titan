@@ -1,0 +1,6 @@
+-- Add two numbers
+
+function foo(x: integer, y: integer): integer
+    return x + y
+end
+
