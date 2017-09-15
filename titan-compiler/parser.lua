@@ -199,7 +199,7 @@ local function errorstostr(errors)
 end
 
 function parser.parse(input)
-	local result, errors = pg.parse(input, grammar)
+    local result, errors = pg.parse(input, grammar)
     if not result then
         return false, errorstostr(errors)
     else
