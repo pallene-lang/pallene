@@ -31,7 +31,7 @@ local input
 if args.input == '-' then
     input = io.read("*a")
 else
-    input = getcontents(args.input)
+    input = get_contents(args.input)
 end
 local ast = check(parser.parse(input))
 if args.print_ast then
