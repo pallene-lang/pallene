@@ -58,6 +58,7 @@ install:
   - luarocks install busted
   - luarocks install luacov
 #  - luarocks install luacov-coveralls
+  - luarocks make # This installs necessary runtime dependencies
 
 script:
   - busted -c -o gtest -v spec/
