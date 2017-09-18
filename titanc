@@ -10,11 +10,11 @@ p:argument('input', 'Input file.')
 p:flag('--print-ast', 'Print the AST.')
 local args = p:parse()
 
-local function getcontents(filename)
-  local file = assert(io.open(filename, "r"))
-  local contents = file:read("*a")
-  file:close()
-  return contents
+local function get_contents(filename)
+    local file = assert(io.open(filename, "r"))
+    local contents = file:read("*a")
+    file:close()
+    return contents
 end
 
 -- Work like assert, but don't print the stack trace
