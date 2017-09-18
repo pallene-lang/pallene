@@ -1,21 +1,14 @@
 #!/usr/bin/env lua
 
-local inspect = require 'inspect'
 local argparse = require 'argparse'
 
 local parser = require 'titan-compiler.parser'
+local util = require 'titan-compiler.util'
 
 local p = argparse('titan', 'Titan compiler')
 p:argument('input', 'Input file.')
 p:flag('--print-ast', 'Print the AST.')
 local args = p:parse()
-
-local function get_contents(filename)
-    local file = assert(io.open(filename, "r"))
-    local contents = file:read("*a")
-    file:close()
-    return contents
-end
 
 -- Work like assert, but don't print the stack trace
 local function check(value, msg)
@@ -31,10 +24,10 @@ local input
 if args.input == '-' then
     input = io.read("*a")
 else
-    input = get_contents(args.input)
+    input = util.get_file_contents(args.input)
 end
 local ast = check(parser.parse(input))
 if args.print_ast then
-    print(inspect(ast))
+    print(parser.pretty_print_ast(ast))
 end
 

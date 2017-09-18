@@ -19,8 +19,8 @@ types.Decl = {
 
 types.Stat = {
     Block   = {'stats'},
-    While   = {'exp', 'block'},
-    Repeat  = {'block', 'exp'},
+    While   = {'condition', 'block'},
+    Repeat  = {'block', 'condition'},
     If      = {'thens', 'elsestat'},
     For     = {'name', 'start', 'end', 'inc', 'block'},
     Assign  = {'var', 'exp'},
@@ -35,15 +35,11 @@ types.Then = {
 
 types.Var = {
     Name    = {'name'},
-    Index   = {'exp', 'exp'},
+    Index   = {'exp1', 'exp2'},
 }
 
 types.Exp = {
-    Nil     = {},
-    Bool    = {'bool'},
-    Integer = {'integer'},
-    Float   = {'float'},
-    String  = {'string'},
+    Value   = {'value'},
     Table   = {'exps'},
     Call    = {'exp', 'args'},
     Var     = {'var'},
@@ -66,9 +62,9 @@ for typename, conss in pairs(types) do
             if args.n ~= #fields then
                 error('missing arguments for ' .. typename .. '.' .. consname)
             end
-            local value = {_typename = typename, _tag = consname}
+            local value = {_type = typename, _tag = consname}
             for i, field in ipairs(fields) do
-                assert(field ~= '_typename')
+                assert(field ~= '_type')
                 assert(field ~= '_tag')
                 value[field] = args[i]
             end

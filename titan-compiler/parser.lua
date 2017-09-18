@@ -2,12 +2,38 @@ local parser = {}
 
 local pg = require 'parser-gen'
 local peg = require 'peg-parser'
-local ast = require 'titan-compiler.ast'
+local inspect = require 'inspect'
 
+local ast = require 'titan-compiler.ast'
+local lexer = require 'titan-compiler.lexer'
+
+--
 -- Functions used by the PEG grammar
+--
+
 local defs = {}
 
-defs.tonumber = tonumber
+for tokname, tokpat in pairs(lexer) do
+    defs[tokname] = tokpat
+end
+
+for type, conss in pairs(ast) do
+    for consname, cons in pairs(conss) do
+        defs[type .. '_' .. consname] = cons
+    end
+end
+
+function defs.tonil()
+    return nil
+end
+
+function defs.totrue()
+    return true
+end
+
+function defs.tofalse()
+    return false
+end
 
 function defs.opt(x)
     if x == '' then
@@ -21,170 +47,269 @@ function defs.boolopt(x)
     return x ~= ''
 end
 
-function defs.ifstat(exp, block, thens, elseopt)
-    table.insert(ast.Then.Then(exp, block), thens, 1) 
-    return ast.State.If(thens, elseopt)
-end
-
-function defs.defstat(decl, exp)
-    local decl = ast.Stat.Decl(decl)
-    local assign = ast.Stat.Assign(ast.Var.Name(decl.name), exp)
-    return decl, assign
-end
-
-function defs.totrue()
-    return true
-end
-
-function defs.tofalse()
-    return false
-end
-
-function defs.prefixname(name)
+function defs.name_exp(name)
     return ast.Exp.Var(ast.Var.Name(name))
 end
 
-function defs.varindex(prefix, suffixes, index)
-    local exp = prefix
-    for _, suffix in ipairs(suffixes) do
-        if suffix._typename == 'Call' then
-            exp = ast.Exp.Call(exp, suffix)
-        elseif suffix._typename == 'Exp' then
-            local var = ast.Var.Index(exp, suffix)
-            exp = ast.Exp.Var(var)
-        else
-            error('impossible')
-        end
-    end
-    return ast.Var.Index(exp, index)
+function defs.ifstat(exp, block, thens, elseopt)
+    table.insert(thens, 1, ast.Then.Then(exp, block)) 
+    return ast.Stat.If(thens, elseopt)
 end
 
--- Add ast constructors to defs
-for type, conss in pairs(ast) do
-    for consname, cons in pairs(conss) do
-        defs[type .. '_' .. consname] = cons
+function defs.defstat(decl, exp)
+    local declstat = ast.Stat.Decl(decl)
+    local assign = ast.Stat.Assign(ast.Var.Name(decl.name), exp)
+    return declstat, assign
+end
+
+function defs.fold_binop_left(matches)
+    local lhs = matches[1]
+    for i = 2, #matches, 2 do
+        local op  = matches[i]
+        local rhs = matches[i+1]
+        lhs = ast.Exp.Binop(lhs, op, rhs)
+    end
+    return lhs
+end
+
+function defs.binop_right(lhs, op, rhs)
+    if op then
+        return ast.Exp.Binop(lhs, op, rhs)
+    else
+        return lhs
     end
 end
+
+function defs.fold_unops(unops, exp)
+    for i = #unops, 1, -1 do
+        local op = unops[i]
+        exp = ast.Exp.Unop(op, exp)
+    end
+    return exp
+end
+
+-- We represent the suffix of an expression by a function that receives the
+-- base expression and returns a full expression including the suffix.
+
+function defs.suffix_funccall(args)
+    return function(exp)
+        return ast.Exp.Call(exp, ast.Args.Func(args))
+    end
+end
+
+function defs.suffix_methodcall(name, args)
+    return function(exp)
+        return ast.Exp.Call(exp, ast.Args.Method(name, args))
+    end
+end
+
+function defs.suffix_index(index)
+    return function(exp)
+        return ast.Exp.Var( ast.Var.Index(exp, index) )
+    end
+end
+
+function defs.fold_suffixes(exp, suffixes)
+    for i = 1, #suffixes do
+        local suf = suffixes[i]
+        exp = suf(exp)
+    end
+    return exp
+end
+
+function defs.exp2var(exp)
+    return exp.var
+end
+
+function defs.exp_is_var(_, pos, exp)
+    if exp._tag == 'Var' then
+        return pos, exp
+    else
+        return false
+    end
+end
+
+function defs.exp_is_call(_, pos, exp)
+    if exp._tag == 'Call' then
+        return pos, exp
+    else
+        return false
+    end
+end
+
+-- Add libraries to defs
 
 local grammar = pg.compile([[
 
     program         <- {| (toplevelfunc / toplevelvar)* |} !.
 
-    toplevelfunc    <- (localopt 'function' NAME
-                        '(' parlist ')' ':' type
-                        block 'end')                    -> TopLevel_Func
+    toplevelfunc    <- (localopt
+                        FUNCTION NAME
+                        LPAREN parlist RPAREN
+                        COLON type
+                        block END)                      -> TopLevel_Func
 
-    toplevelvar     <- (localopt decl '=' exp)          -> TopLevel_Var
+    toplevelvar     <- (localopt decl ASSIGN exp)       -> TopLevel_Var
 
-    localopt        <- ('local'?)                       -> boolopt
+    localopt        <- (LOCAL)?                         -> boolopt
 
-    parlist         <- {| (par (',' par)*)? |}          -- produces {Decl}
+    parlist         <- {| (decl (COMMA decl)*)? |}      -- produces {Decl}
 
-    par             <- (NAME ':' type)                  -> Decl_Decl
+    decl            <- (NAME (COLON type)? -> opt)      -> Decl_Decl
 
-    decl            <- (NAME (':' type)? -> opt)        -> Decl_Decl
-
-    type            <- (TYPENAME)                       -> Type_Basic 
-                     / ('{' type '}')                   -> Type_Array
+    type            <- (NIL -> 'nil')                   -> Type_Basic
+                     / (NAME)                           -> Type_Basic
+                     / (LCURLY type RCURLY)             -> Type_Array
 
     block           <- {| statement* returnstat? |}     -- produces {Stat}
 
-    statement       <- (';')                            -- ignore ';'
-                     / ('do' block 'end')               -> Stat_Block
-                     / ('while' exp 'do' block 'end')   -> Stat_While
-                     / ('repeat' block 'util' exp)      -> Stat_Repeat
-                     / ('if' exp 'then' block
-                        elseifstats elseopt 'end')      -> ifstat
-                     / ('for' NAME '=' exp ',' exp
-                        (',' exp)? -> opt
-                        'do' block 'end')               -> Stat_For
-                     / ('local' decl '=' exp)           -> defstat
-                     / (var '=' exp)                    -> Stat_Assign
-                     / (functioncall)                   -> Stat_Call
+    statement       <- (SEMICOLON)                      -- ignore
+                     / (DO block END)                   -> Stat_Block
+                     / (WHILE exp DO block END)         -> Stat_While
+                     / (REPEAT block UNTIL exp)         -> Stat_Repeat
+                     / (IF exp THEN block
+                        elseifstats elseopt END)        -> ifstat
+                     / (FOR NAME ASSIGN exp COMMA exp
+                        (COMMA exp)? -> opt
+                        DO block END)                   -> Stat_For
+                     / (LOCAL decl ASSIGN exp)          -> defstat
+                     / (var ASSIGN exp)                 -> Stat_Assign
+                     / (suffixedexp => exp_is_call)     -> Stat_Call
 
     elseifstats     <- {| elseifstat* |}                -- produces {Then}
 
-    elseifstat      <- ('elseif' exp 'then' block)      -> Then_Then
+    elseifstat      <- (ELSEIF exp THEN block)          -> Then_Then
 
-    elseopt         <- ('else' block)?                  -> opt
+    elseopt         <- (ELSE block)?                    -> opt
 
-    returnstat      <- ('return' (exp? -> opt) ';'?)    -> Stat_Return
+    returnstat      <- (RETURN (exp? -> opt) SEMICOLON?)-> Stat_Return
 
-    value           <- ('nil')                          -> Exp_Nil
-                     / (BOOL)                           -> Exp_Bool
-                     / (FLOAT)                          -> Exp_Float
-                     / (INTEGER)                        -> Exp_Integer
-                     / (STRING)                         -> Exp_String
+    op1             <- { OR }
+    op2             <- { AND }
+    op3             <- { EQ / NE / LT / GT / LE / GE }
+    op4             <- { BOR }
+    op5             <- { BXOR }
+    op6             <- { BAND }
+    op7             <- { SHL / SHR }
+    op8             <- { CONCAT }
+    op9             <- { ADD / SUB }
+    op10            <- { MUL / MOD / DIV / IDIV }
+    unop            <- { NOT / LEN / NEG / BNEG }
+    op12            <- { POW }
+
+    exp             <- e1
+    e1              <- {| e2  (op1  e2 )* |}            -> fold_binop_left
+    e2              <- {| e3  (op2  e3 )* |}            -> fold_binop_left
+    e3              <- {| e4  (op3  e4 )* |}            -> fold_binop_left
+    e4              <- {| e5  (op4  e5 )* |}            -> fold_binop_left
+    e5              <- {| e6  (op5  e6 )* |}            -> fold_binop_left
+    e6              <- {| e7  (op6  e7 )* |}            -> fold_binop_left
+    e7              <- {| e8  (op7  e8 )* |}            -> fold_binop_left
+    e8              <- (  e9  (op8  e8 )?  )            -> binop_right
+    e9              <- {| e10 (op9  e10)* |}            -> fold_binop_left
+    e10             <- {| e11 (op10 e11)* |}            -> fold_binop_left
+    e11             <- (  {| unop* |} e12  )            -> fold_unops
+    e12             <- (  suffixedexp (op12 e11)? )     -> binop_right
+
+    suffixedexp     <- ( simpleexp {| expsuffix* |} )   -> fold_suffixes
+
+    expsuffix       <- (funcargs)                       -> suffix_funccall
+                     / (COLON NAME funcargs)            -> suffix_methodcall
+                     / (LBRACKET exp RBRACKET)          -> suffix_index
+
+    simpleexp       <- (NIL -> tonil)                   -> Exp_Value
+                     / (FALSE -> tofalse)               -> Exp_Value
+                     / (TRUE -> totrue)                 -> Exp_Value
+                     / (NUMBER)                         -> Exp_Value
+                     / (STRING)                         -> Exp_Value
                      / (tablecons)                      -- produces Exp
-                     / (functioncall)                   -- produces Exp
-                     / (var)                            -> Exp_Var
-                     / ('(' exp ')')                    -- produces Exp
+                     / (NAME)                           -> name_exp
+                     / (LPAREN exp RPAREN)              -- produces Exp
 
-    exp             <- (unop exp)                       -> Exp_Unop
-                     / (value binop exp)                -> Exp_Binop
-                     / (value)                          -- produces Exp
+    var             <- (suffixedexp => exp_is_var)      -> exp2var
 
-    index           <- ('[' exp ']')                    -- produces Exp
-
-    call            <- (args)                           -> Args_Func
-                     / (':' NAME args)                  -> Args_Method
-
-    varprefix       <- ('(' exp ')')                    -- produces Exp
-                     / (NAME)                           -> prefixname
-
-    varsuffix       <- (call)                           -- produces Call
-                     / (index)                          -- produces Exp
-
-    var             <- (varprefix
-                        {| (varsuffix &varsuffix)* |}
-                        index)                          -> varindex
-                     / NAME                             -> Var_Name
-
-    functioncall    <- (NAME call)                      -> Exp_Call
-
-    args            <- ('(' explist ')')                -- produces {Exp}
+    funcargs        <- (LPAREN explist RPAREN)          -- produces {Exp}
                      / {| tablecons |}                  -- produces {Exp}
-                     / {| STRING -> Exp_String |}       -- produces {Exp}
+                     / {| STRING -> Exp_Value |}        -- produces {Exp}
 
-    explist         <- {| (exp (',' exp)*)? |}          -- produces {Exp}
+    explist         <- {| (exp (COMMA exp)*)? |}        -- produces {Exp}
 
-    tablecons       <- ('{' {| fieldlist? |} '}')       -> Exp_Table
+    tablecons       <- (LCURLY {| fieldlist? |} RCURLY) -> Exp_Table
 
     fieldlist       <- (exp (fieldsep exp)* fieldsep?)  -- produces Exp...
 
-    fieldsep        <- ';' / ','
+    fieldsep        <- SEMICOLON / COMMA
 
-    binop           <- {'+' / '-' / '*' / '/' / '//' / '^' / '%' /
-                        '&' / '~' / '|' / '>>' / '<<' / '..' /
-                        '<' / '<=' / '>' / '>=' / '==' / '~=' /
-                        'and' / 'or'}                   -- produces string
+    -- Create new rules for all our tokens, so parser-gen can
+    -- work its whitespace-skipping magic
+    
+    AND             <- %AND
+    BREAK           <- %BREAK
+    DO              <- %DO
+    ELSE            <- %ELSE
+    ELSEIF          <- %ELSEIF
+    END             <- %END
+    FOR             <- %FOR
+    FALSE           <- %FALSE
+    FUNCTION        <- %FUNCTION
+    GOTO            <- %GOTO
+    IF              <- %IF
+    IN              <- %IN
+    LOCAL           <- %LOCAL
+    NIL             <- %NIL
+    NOT             <- %NOT
+    OR              <- %OR
+    REPEAT          <- %REPEAT
+    RETURN          <- %RETURN
+    THEN            <- %THEN
+    TRUE            <- %TRUE
+    UNTIL           <- %UNTIL
+    WHILE           <- %WHILE
 
-    unop            <- {'-' / 'not' / '#' / '~'}        -- produces string
+    ADD             <- %ADD
+    SUB             <- %SUB
+    MUL             <- %MUL
+    MOD             <- %MOD
+    DIV             <- %DIV
+    IDIV            <- %IDIV
+    POW             <- %POW
+    LEN             <- %LEN
+    BAND            <- %BAND
+    BXOR            <- %BXOR
+    BOR             <- %BOR
+    SHL             <- %SHL
+    SHR             <- %SHR
+    CONCAT          <- %CONCAT
+    EQ              <- %EQ
+    LT              <- %LT
+    GT              <- %GT
+    NE              <- %NE
+    LE              <- %LE
+    GE              <- %GE
+    ASSIGN          <- %ASSIGN
+    LPAREN          <- %LPAREN
+    RPAREN          <- %RPAREN
+    LBRACKET        <- %LBRACKET
+    RBRACKET        <- %RBRACKET
+    LCURLY          <- %LCURLY
+    RCURLY          <- %RCURLY
+    SEMICOLON       <- %SEMICOLON
+    COMMA           <- %COMMA
+    DOT             <- %DOT
+    DOTS            <- %DOTS
+    DBLCOLON        <- %DBLCOLON
+    COLON           <- %COLON
 
-    BOOL            <- ('true')                         -> totrue
-                     / ('false')                        -> tofalse
+    NUMBER          <- %NUMBER
+    STRING          <- %STRING
+    NAME            <- %NAME
 
-    INTEGER         <- ([0-9]+ !NAME)                   -> tonumber
+    SKIP            <- (%SPACE / %COMMENT)
 
-    FLOAT           <- ([0-9]+'.'[0-9]+ !NAME)          -> tonumber
+    -- Synonyms
 
-    STRING          <- ("'" {(!"'" .)*} "'")            -- produces string
-                     / ('"' {(!'"' .)*} '"')            -- produces string
-
-    NAME            <- (!KEYWORD POSSIBLENAME)          -- produces string
-
-    POSSIBLENAME    <- {[a-zA-Z_][a-zA-Z0-9_]*}         -- produces string
-
-    TYPENAME        <- ('nil' / NAME)                   -- produces string
-
-    KEYWORD         <- ('and' / 'do' / 'else' / 'elseif' / 'end' /
-                        'false' / 'for' / 'function' / 'if' /
-                        'local' / 'nil' / 'not' / 'or' / 'repeat' /
-                        'return' / 'then' / 'true' / 'util' / 'while' )
-
-    COMMENT         <- ('--' (!%nl .)* %nl)
-
-    SKIP            <- (%s / %nl / COMMENT)
+    NEG             <- SUB
+    BNEG            <- BXOR
 
 ]], defs, false, true)
 
@@ -205,6 +330,10 @@ function parser.parse(input)
     else
         return result
     end
+end
+
+function parser.pretty_print_ast(ast)
+    return inspect(ast)
 end
 
 return parser
