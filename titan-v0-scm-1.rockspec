@@ -15,7 +15,9 @@ description = {
 }
 dependencies = {
    "lua ~> 5.3",
-   "parser-gen >= 1.0"
+   "parser-gen >= 1.0",
+   "inspect >= 3.1.0",
+   "argparse >= 0.5.0",
 }
 build = {
    type = "builtin",
