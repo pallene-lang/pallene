@@ -1,0 +1,64 @@
+{ {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = {},
+    islocal = true,
+    name = "f0",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  }, {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = {},
+    islocal = true,
+    name = "f1",
+    params = { {
+        _tag = "Decl",
+        _type = "Decl",
+        name = "x",
+        type = {
+          _tag = "Basic",
+          _type = "Type",
+          name = "int"
+        }
+      } },
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  }, {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = {},
+    islocal = true,
+    name = "f2",
+    params = { {
+        _tag = "Decl",
+        _type = "Decl",
+        name = "x",
+        type = {
+          _tag = "Basic",
+          _type = "Type",
+          name = "int"
+        }
+      }, {
+        _tag = "Decl",
+        _type = "Decl",
+        name = "y",
+        type = {
+          _tag = "Basic",
+          _type = "Type",
+          name = "int"
+        }
+      } },
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  } }

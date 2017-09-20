@@ -1,0 +1,23 @@
+function booleanops(): int
+    return not 1 or 2 and 3 and 4
+end
+
+function relational(): int
+    return (1 <= 2) == (4 < 5) == (6 ~= 7)
+end
+
+function bitwise(): int
+    return ~~1 ~ 2 << 3 >> 4 | 5 & 6
+end
+
+function concat(): string
+    return "a" .. "b" .. "c" -- right assoc
+end
+
+function arithmetic(): int
+    return - -1 / 2 + 3 * # "a"
+end
+
+function pow(): float
+    return -1 ^ -2 ^ 3 * 4 -- right assoc, stronger than prefix
+end

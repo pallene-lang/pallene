@@ -1,0 +1,85 @@
+{ {
+    _tag = "Var",
+    _type = "TopLevel",
+    decl = {
+      _tag = "Decl",
+      _type = "Decl",
+      name = "x1",
+      type = {
+        _tag = "Basic",
+        _type = "Type",
+        name = "nil"
+      }
+    },
+    islocal = true,
+    value = {
+      _tag = "Value",
+      _type = "Exp"
+    }
+  }, {
+    _tag = "Var",
+    _type = "TopLevel",
+    decl = {
+      _tag = "Decl",
+      _type = "Decl",
+      name = "x2",
+      type = {
+        _tag = "Basic",
+        _type = "Type",
+        name = "int"
+      }
+    },
+    islocal = true,
+    value = {
+      _tag = "Value",
+      _type = "Exp"
+    }
+  }, {
+    _tag = "Var",
+    _type = "TopLevel",
+    decl = {
+      _tag = "Decl",
+      _type = "Decl",
+      name = "x3",
+      type = {
+        _tag = "Array",
+        _type = "Type",
+        subtype = {
+          _tag = "Basic",
+          _type = "Type",
+          name = "int"
+        }
+      }
+    },
+    islocal = true,
+    value = {
+      _tag = "Value",
+      _type = "Exp"
+    }
+  }, {
+    _tag = "Var",
+    _type = "TopLevel",
+    decl = {
+      _tag = "Decl",
+      _type = "Decl",
+      name = "x4",
+      type = {
+        _tag = "Array",
+        _type = "Type",
+        subtype = {
+          _tag = "Array",
+          _type = "Type",
+          subtype = {
+            _tag = "Basic",
+            _type = "Type",
+            name = "int"
+          }
+        }
+      }
+    },
+    islocal = true,
+    value = {
+      _tag = "Value",
+      _type = "Exp"
+    }
+  } }

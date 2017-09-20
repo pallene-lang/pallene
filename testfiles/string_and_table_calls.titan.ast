@@ -1,0 +1,158 @@
+{ {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Call",
+        _type = "Stat",
+        callexp = {
+          _tag = "Call",
+          _type = "Exp",
+          args = {
+            _tag = "Func",
+            _type = "Args",
+            args = {}
+          },
+          exp = {
+            _tag = "Var",
+            _type = "Exp",
+            var = {
+              _tag = "Name",
+              _type = "Var",
+              name = "f"
+            }
+          }
+        }
+      }, {
+        _tag = "Call",
+        _type = "Stat",
+        callexp = {
+          _tag = "Call",
+          _type = "Exp",
+          args = {
+            _tag = "Func",
+            _type = "Args",
+            args = { {
+                _tag = "Value",
+                _type = "Exp",
+                value = "asd"
+              } }
+          },
+          exp = {
+            _tag = "Var",
+            _type = "Exp",
+            var = {
+              _tag = "Name",
+              _type = "Var",
+              name = "f"
+            }
+          }
+        }
+      }, {
+        _tag = "Call",
+        _type = "Stat",
+        callexp = {
+          _tag = "Call",
+          _type = "Exp",
+          args = {
+            _tag = "Func",
+            _type = "Args",
+            args = { {
+                _tag = "Table",
+                _type = "Exp",
+                exps = {}
+              } }
+          },
+          exp = {
+            _tag = "Var",
+            _type = "Exp",
+            var = {
+              _tag = "Name",
+              _type = "Var",
+              name = "f"
+            }
+          }
+        }
+      }, {
+        _tag = "Call",
+        _type = "Stat",
+        callexp = {
+          _tag = "Call",
+          _type = "Exp",
+          args = {
+            _tag = "Method",
+            _type = "Args",
+            args = {},
+            method = "m"
+          },
+          exp = {
+            _tag = "Var",
+            _type = "Exp",
+            var = {
+              _tag = "Name",
+              _type = "Var",
+              name = "o"
+            }
+          }
+        }
+      }, {
+        _tag = "Call",
+        _type = "Stat",
+        callexp = {
+          _tag = "Call",
+          _type = "Exp",
+          args = {
+            _tag = "Method",
+            _type = "Args",
+            args = { {
+                _tag = "Value",
+                _type = "Exp",
+                value = "asd"
+              } },
+            method = "m"
+          },
+          exp = {
+            _tag = "Var",
+            _type = "Exp",
+            var = {
+              _tag = "Name",
+              _type = "Var",
+              name = "o"
+            }
+          }
+        }
+      }, {
+        _tag = "Call",
+        _type = "Stat",
+        callexp = {
+          _tag = "Call",
+          _type = "Exp",
+          args = {
+            _tag = "Method",
+            _type = "Args",
+            args = { {
+                _tag = "Table",
+                _type = "Exp",
+                exps = {}
+              } },
+            method = "m"
+          },
+          exp = {
+            _tag = "Var",
+            _type = "Exp",
+            var = {
+              _tag = "Name",
+              _type = "Var",
+              name = "o"
+            }
+          }
+        }
+      } },
+    islocal = false,
+    name = "foo",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  } }

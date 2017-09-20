@@ -1,0 +1,9 @@
+function foo(): nil
+    f ()
+    f "asd"
+    f {}
+    
+    o:m ()
+    o:m "asd"
+    o:m {}
+end

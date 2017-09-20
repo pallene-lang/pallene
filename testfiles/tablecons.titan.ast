@@ -1,0 +1,76 @@
+{ {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Table",
+          _type = "Exp",
+          exps = {}
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Table",
+          _type = "Exp",
+          exps = { {
+              _tag = "Value",
+              _type = "Exp",
+              value = 1
+            }, {
+              _tag = "Value",
+              _type = "Exp",
+              value = 2
+            }, {
+              _tag = "Value",
+              _type = "Exp",
+              value = 3
+            } }
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Table",
+          _type = "Exp",
+          exps = { {
+              _tag = "Value",
+              _type = "Exp",
+              value = 1
+            }, {
+              _tag = "Value",
+              _type = "Exp",
+              value = 2
+            }, {
+              _tag = "Value",
+              _type = "Exp",
+              value = 3
+            } }
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      } },
+    islocal = false,
+    name = "foo",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  } }

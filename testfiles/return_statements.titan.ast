@@ -1,0 +1,73 @@
+{ {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Return",
+        _type = "Stat",
+        exp = false
+      } },
+    islocal = false,
+    name = "f1",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  }, {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Return",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = 1
+        }
+      } },
+    islocal = false,
+    name = "f2",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  }, {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Return",
+        _type = "Stat",
+        exp = false
+      } },
+    islocal = false,
+    name = "f3",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  }, {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Return",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = 1
+        }
+      } },
+    islocal = false,
+    name = "f4",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  } }

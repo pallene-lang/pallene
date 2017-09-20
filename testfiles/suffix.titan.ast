@@ -1,0 +1,85 @@
+{ {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Return",
+        _type = "Stat",
+        exp = {
+          _tag = "Unop",
+          _type = "Exp",
+          exp = {
+            _tag = "Binop",
+            _type = "Exp",
+            lhs = {
+              _tag = "Var",
+              _type = "Exp",
+              var = {
+                _tag = "Index",
+                _type = "Var",
+                exp1 = {
+                  _tag = "Call",
+                  _type = "Exp",
+                  args = {
+                    _tag = "Method",
+                    _type = "Args",
+                    args = {},
+                    method = "foo"
+                  },
+                  exp = {
+                    _tag = "Call",
+                    _type = "Exp",
+                    args = {
+                      _tag = "Func",
+                      _type = "Args",
+                      args = {}
+                    },
+                    exp = {
+                      _tag = "Var",
+                      _type = "Exp",
+                      var = {
+                        _tag = "Index",
+                        _type = "Var",
+                        exp1 = {
+                          _tag = "Var",
+                          _type = "Exp",
+                          var = {
+                            _tag = "Name",
+                            _type = "Var",
+                            name = "x"
+                          }
+                        },
+                        exp2 = {
+                          _tag = "Value",
+                          _type = "Exp",
+                          value = 1
+                        }
+                      }
+                    }
+                  }
+                },
+                exp2 = {
+                  _tag = "Value",
+                  _type = "Exp",
+                  value = 2
+                }
+              }
+            },
+            op = "^",
+            rhs = {
+              _tag = "Value",
+              _type = "Exp",
+              value = 3
+            }
+          },
+          op = "-"
+        }
+      } },
+    islocal = false,
+    name = "foo",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "int"
+    }
+  } }

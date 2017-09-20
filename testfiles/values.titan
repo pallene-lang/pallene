@@ -1,0 +1,10 @@
+local x : nil = nil
+
+function foo(): nil
+    x = false
+    x = true
+    x = 10
+    x = "asd"
+    x = y
+    x = ((1))
+end

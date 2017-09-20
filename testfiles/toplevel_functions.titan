@@ -1,0 +1,8 @@
+local function f0(): nil
+end
+
+local function f1(x:int): nil
+end
+
+local function f2(x:int, y:int): nil
+end

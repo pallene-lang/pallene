@@ -1,0 +1,113 @@
+{ {
+    _tag = "Var",
+    _type = "TopLevel",
+    decl = {
+      _tag = "Decl",
+      _type = "Decl",
+      name = "x",
+      type = {
+        _tag = "Basic",
+        _type = "Type",
+        name = "nil"
+      }
+    },
+    islocal = true,
+    value = {
+      _tag = "Value",
+      _type = "Exp"
+    }
+  }, {
+    _tag = "Func",
+    _type = "TopLevel",
+    block = { {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = false
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = true
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = 10
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = "asd"
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Var",
+          _type = "Exp",
+          var = {
+            _tag = "Name",
+            _type = "Var",
+            name = "y"
+          }
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      }, {
+        _tag = "Assign",
+        _type = "Stat",
+        exp = {
+          _tag = "Value",
+          _type = "Exp",
+          value = 1
+        },
+        var = {
+          _tag = "Name",
+          _type = "Var",
+          name = "x"
+        }
+      } },
+    islocal = false,
+    name = "foo",
+    params = {},
+    rettype = {
+      _tag = "Basic",
+      _type = "Type",
+      name = "nil"
+    }
+  } }

@@ -1,0 +1,4 @@
+function foo(): int
+    return - x[1]():foo()[2] ^ 3
+end
+

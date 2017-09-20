@@ -1,0 +1,8 @@
+local x1 : nil = nil
+
+local x2 : int = nil
+
+local x3 : { int } = nil
+
+local x4 : {{int}} = nil
+
