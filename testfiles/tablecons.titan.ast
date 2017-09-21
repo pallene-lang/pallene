@@ -1,67 +1,51 @@
 { {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Assign",
-        _type = "Stat",
+        _tag = "Stat_Assign",
         exp = {
-          _tag = "Table",
-          _type = "Exp",
+          _tag = "Exp_Table",
           exps = {}
         },
         var = {
-          _tag = "Name",
-          _type = "Var",
+          _tag = "Var_Name",
           name = "x"
         }
       }, {
-        _tag = "Assign",
-        _type = "Stat",
+        _tag = "Stat_Assign",
         exp = {
-          _tag = "Table",
-          _type = "Exp",
+          _tag = "Exp_Table",
           exps = { {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }, {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 2
             }, {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 3
             } }
         },
         var = {
-          _tag = "Name",
-          _type = "Var",
+          _tag = "Var_Name",
           name = "x"
         }
       }, {
-        _tag = "Assign",
-        _type = "Stat",
+        _tag = "Stat_Assign",
         exp = {
-          _tag = "Table",
-          _type = "Exp",
+          _tag = "Exp_Table",
           exps = { {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }, {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 2
             }, {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 3
             } }
         },
         var = {
-          _tag = "Name",
-          _type = "Var",
+          _tag = "Var_Name",
           name = "x"
         }
       } },
@@ -69,8 +53,7 @@
     name = "foo",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "nil"
     }
   } }

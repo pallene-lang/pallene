@@ -1,56 +1,41 @@
 { {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Unop",
-          _type = "Exp",
+          _tag = "Exp_Unop",
           exp = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Var",
-              _type = "Exp",
+              _tag = "Exp_Var",
               var = {
-                _tag = "Index",
-                _type = "Var",
+                _tag = "Var_Index",
                 exp1 = {
-                  _tag = "Call",
-                  _type = "Exp",
+                  _tag = "Exp_Call",
                   args = {
-                    _tag = "Method",
-                    _type = "Args",
+                    _tag = "Args_Method",
                     args = {},
                     method = "foo"
                   },
                   exp = {
-                    _tag = "Call",
-                    _type = "Exp",
+                    _tag = "Exp_Call",
                     args = {
-                      _tag = "Func",
-                      _type = "Args",
+                      _tag = "Args_Func",
                       args = {}
                     },
                     exp = {
-                      _tag = "Var",
-                      _type = "Exp",
+                      _tag = "Exp_Var",
                       var = {
-                        _tag = "Index",
-                        _type = "Var",
+                        _tag = "Var_Index",
                         exp1 = {
-                          _tag = "Var",
-                          _type = "Exp",
+                          _tag = "Exp_Var",
                           var = {
-                            _tag = "Name",
-                            _type = "Var",
+                            _tag = "Var_Name",
                             name = "x"
                           }
                         },
                         exp2 = {
-                          _tag = "Value",
-                          _type = "Exp",
+                          _tag = "Exp_Value",
                           value = 1
                         }
                       }
@@ -58,16 +43,14 @@
                   }
                 },
                 exp2 = {
-                  _tag = "Value",
-                  _type = "Exp",
+                  _tag = "Exp_Value",
                   value = 2
                 }
               }
             },
             op = "^",
             rhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 3
             }
           },
@@ -78,8 +61,7 @@
     name = "foo",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "int"
     }
   } }

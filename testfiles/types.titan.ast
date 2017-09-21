@@ -1,77 +1,59 @@
 { {
-    _tag = "Var",
-    _type = "TopLevel",
+    _tag = "TopLevel_Var",
     decl = {
-      _tag = "Decl",
-      _type = "Decl",
+      _tag = "Decl_Decl",
       name = "x1",
       type = {
-        _tag = "Basic",
-        _type = "Type",
+        _tag = "Type_Basic",
         name = "nil"
       }
     },
     islocal = true,
     value = {
-      _tag = "Value",
-      _type = "Exp"
+      _tag = "Exp_Value"
     }
   }, {
-    _tag = "Var",
-    _type = "TopLevel",
+    _tag = "TopLevel_Var",
     decl = {
-      _tag = "Decl",
-      _type = "Decl",
+      _tag = "Decl_Decl",
       name = "x2",
       type = {
-        _tag = "Basic",
-        _type = "Type",
+        _tag = "Type_Basic",
         name = "int"
       }
     },
     islocal = true,
     value = {
-      _tag = "Value",
-      _type = "Exp"
+      _tag = "Exp_Value"
     }
   }, {
-    _tag = "Var",
-    _type = "TopLevel",
+    _tag = "TopLevel_Var",
     decl = {
-      _tag = "Decl",
-      _type = "Decl",
+      _tag = "Decl_Decl",
       name = "x3",
       type = {
-        _tag = "Array",
-        _type = "Type",
+        _tag = "Type_Array",
         subtype = {
-          _tag = "Basic",
-          _type = "Type",
+          _tag = "Type_Basic",
           name = "int"
         }
       }
     },
     islocal = true,
     value = {
-      _tag = "Value",
-      _type = "Exp"
+      _tag = "Exp_Value"
     }
   }, {
-    _tag = "Var",
-    _type = "TopLevel",
+    _tag = "TopLevel_Var",
     decl = {
-      _tag = "Decl",
-      _type = "Decl",
+      _tag = "Decl_Decl",
       name = "x4",
       type = {
-        _tag = "Array",
-        _type = "Type",
+        _tag = "Type_Array",
         subtype = {
-          _tag = "Array",
-          _type = "Type",
+          _tag = "Type_Array",
           subtype = {
-            _tag = "Basic",
-            _type = "Type",
+            _tag = "Type_Basic",
             name = "int"
           }
         }
@@ -79,7 +61,6 @@
     },
     islocal = true,
     value = {
-      _tag = "Value",
-      _type = "Exp"
+      _tag = "Exp_Value"
     }
   } }

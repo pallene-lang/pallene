@@ -54,21 +54,20 @@ types.Args = {
 
 -- Create a function for each type constructor
 for typename, conss in pairs(types) do
-    ast[typename] = {}
     for consname, fields in pairs(conss) do
-        ast[typename][consname] = function(...)
+        local tag = typename .. '_' .. consname
+
+        ast[tag] = function(...)
             local args = table.pack(...)
-            -- print('>', typename .. '.' .. consname, ...)
             if args.n ~= #fields then
-                error('missing arguments for ' .. typename .. '.' .. consname)
+                error('missing arguments for ' .. tag)
             end
-            local value = {_type = typename, _tag = consname}
+            local node = { _tag = tag }
             for i, field in ipairs(fields) do
-                assert(field ~= '_type')
                 assert(field ~= '_tag')
-                value[field] = args[i]
+                node[field] = args[i]
             end
-            return value
+            return node
         end
     end
 end

@@ -1,31 +1,25 @@
 { {
-    _tag = "Var",
-    _type = "TopLevel",
+    _tag = "TopLevel_Var",
     decl = {
-      _tag = "Decl",
-      _type = "Decl",
+      _tag = "Decl_Decl",
       name = "x",
       type = false
     },
     islocal = true,
     value = {
-      _tag = "Value",
-      _type = "Exp",
+      _tag = "Exp_Value",
       value = 17
     }
   }, {
-    _tag = "Var",
-    _type = "TopLevel",
+    _tag = "TopLevel_Var",
     decl = {
-      _tag = "Decl",
-      _type = "Decl",
+      _tag = "Decl_Decl",
       name = "y",
       type = false
     },
     islocal = false,
     value = {
-      _tag = "Value",
-      _type = "Exp",
+      _tag = "Exp_Value",
       value = 18
     }
   } }

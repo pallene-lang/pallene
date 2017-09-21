@@ -17,10 +17,8 @@ for tokname, tokpat in pairs(lexer) do
     defs[tokname] = tokpat
 end
 
-for type, conss in pairs(ast) do
-    for consname, cons in pairs(conss) do
-        defs[type .. '_' .. consname] = cons
-    end
+for tag, cons in pairs(ast) do
+    defs[tag] = cons
 end
 
 function defs.tonil()
@@ -48,17 +46,17 @@ function defs.boolopt(x)
 end
 
 function defs.name_exp(name)
-    return ast.Exp.Var(ast.Var.Name(name))
+    return ast.Exp_Var(ast.Var_Name(name))
 end
 
 function defs.ifstat(exp, block, thens, elseopt)
-    table.insert(thens, 1, ast.Then.Then(exp, block)) 
-    return ast.Stat.If(thens, elseopt)
+    table.insert(thens, 1, ast.Then_Then(exp, block)) 
+    return ast.Stat_If(thens, elseopt)
 end
 
 function defs.defstat(decl, exp)
-    local declstat = ast.Stat.Decl(decl)
-    local assign = ast.Stat.Assign(ast.Var.Name(decl.name), exp)
+    local declstat = ast.Stat_Decl(decl)
+    local assign = ast.Stat_Assign(ast.Var_Name(decl.name), exp)
     return declstat, assign
 end
 
@@ -67,14 +65,14 @@ function defs.fold_binop_left(matches)
     for i = 2, #matches, 2 do
         local op  = matches[i]
         local rhs = matches[i+1]
-        lhs = ast.Exp.Binop(lhs, op, rhs)
+        lhs = ast.Exp_Binop(lhs, op, rhs)
     end
     return lhs
 end
 
 function defs.binop_right(lhs, op, rhs)
     if op then
-        return ast.Exp.Binop(lhs, op, rhs)
+        return ast.Exp_Binop(lhs, op, rhs)
     else
         return lhs
     end
@@ -83,7 +81,7 @@ end
 function defs.fold_unops(unops, exp)
     for i = #unops, 1, -1 do
         local op = unops[i]
-        exp = ast.Exp.Unop(op, exp)
+        exp = ast.Exp_Unop(op, exp)
     end
     return exp
 end
@@ -93,19 +91,19 @@ end
 
 function defs.suffix_funccall(args)
     return function(exp)
-        return ast.Exp.Call(exp, ast.Args.Func(args))
+        return ast.Exp_Call(exp, ast.Args_Func(args))
     end
 end
 
 function defs.suffix_methodcall(name, args)
     return function(exp)
-        return ast.Exp.Call(exp, ast.Args.Method(name, args))
+        return ast.Exp_Call(exp, ast.Args_Method(name, args))
     end
 end
 
 function defs.suffix_index(index)
     return function(exp)
-        return ast.Exp.Var( ast.Var.Index(exp, index) )
+        return ast.Exp_Var( ast.Var_Index(exp, index) )
     end
 end
 
@@ -122,7 +120,7 @@ function defs.exp2var(exp)
 end
 
 function defs.exp_is_var(_, pos, exp)
-    if exp._tag == 'Var' then
+    if exp._tag == 'Exp_Var' then
         return pos, exp
     else
         return false
@@ -130,7 +128,7 @@ function defs.exp_is_var(_, pos, exp)
 end
 
 function defs.exp_is_call(_, pos, exp)
-    if exp._tag == 'Call' then
+    if exp._tag == 'Exp_Call' then
         return pos, exp
     else
         return false

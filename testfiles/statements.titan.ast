@@ -1,207 +1,160 @@
 { {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "While",
-        _type = "Stat",
+        _tag = "Stat_While",
         block = {},
         condition = {
-          _tag = "Value",
-          _type = "Exp",
+          _tag = "Exp_Value",
           value = true
         }
       }, {
-        _tag = "Repeat",
-        _type = "Stat",
+        _tag = "Stat_Repeat",
         block = {},
         condition = {
-          _tag = "Value",
-          _type = "Exp",
+          _tag = "Exp_Value",
           value = false
         }
       }, {
-        _tag = "If",
-        _type = "Stat",
+        _tag = "Stat_If",
         elsestat = false,
         thens = { {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }
           } }
       }, {
-        _tag = "If",
-        _type = "Stat",
+        _tag = "Stat_If",
         elsestat = {},
         thens = { {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }
           } }
       }, {
-        _tag = "If",
-        _type = "Stat",
+        _tag = "Stat_If",
         elsestat = false,
         thens = { {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }
           }, {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 2
             }
           } }
       }, {
-        _tag = "If",
-        _type = "Stat",
+        _tag = "Stat_If",
         elsestat = {},
         thens = { {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }
           }, {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 2
             }
           } }
       }, {
-        _tag = "If",
-        _type = "Stat",
+        _tag = "Stat_If",
         elsestat = {},
         thens = { {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             }
           }, {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 2
             }
           }, {
-            _tag = "Then",
-            _type = "Then",
+            _tag = "Then_Then",
             block = {},
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 3
             }
           } }
       }, {
-        _tag = "Block",
-        _type = "Stat",
+        _tag = "Stat_Block",
         stats = { {
-            _tag = "Decl",
-            _type = "Stat",
+            _tag = "Stat_Decl",
             decl = {
-              _tag = "Decl",
-              _type = "Decl",
+              _tag = "Decl_Decl",
               name = "x",
               type = false
             }
           }, {
-            _tag = "Assign",
-            _type = "Stat",
+            _tag = "Stat_Assign",
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 10
             },
             var = {
-              _tag = "Name",
-              _type = "Var",
+              _tag = "Var_Name",
               name = "x"
             }
           }, {
-            _tag = "Assign",
-            _type = "Stat",
+            _tag = "Stat_Assign",
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 11
             },
             var = {
-              _tag = "Name",
-              _type = "Var",
+              _tag = "Var_Name",
               name = "x"
             }
           }, {
-            _tag = "Call",
-            _type = "Stat",
+            _tag = "Stat_Call",
             callexp = {
-              _tag = "Call",
-              _type = "Exp",
+              _tag = "Exp_Call",
               args = {
-                _tag = "Func",
-                _type = "Args",
+                _tag = "Args_Func",
                 args = { {
-                    _tag = "Value",
-                    _type = "Exp",
+                    _tag = "Exp_Value",
                     value = "Hello"
                   }, {
-                    _tag = "Value",
-                    _type = "Exp",
+                    _tag = "Exp_Value",
                     value = "World"
                   } }
               },
               exp = {
-                _tag = "Var",
-                _type = "Exp",
+                _tag = "Exp_Var",
                 var = {
-                  _tag = "Name",
-                  _type = "Var",
+                  _tag = "Var_Name",
                   name = "print"
                 }
               }
             }
           } }
       }, {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Var",
-          _type = "Exp",
+          _tag = "Exp_Var",
           var = {
-            _tag = "Name",
-            _type = "Var",
+            _tag = "Var_Name",
             name = "x"
           }
         }
@@ -210,8 +163,7 @@
     name = "statements",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "nil"
     }
   } }

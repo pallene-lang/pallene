@@ -1,45 +1,35 @@
 { {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Binop",
-          _type = "Exp",
+          _tag = "Exp_Binop",
           lhs = {
-            _tag = "Unop",
-            _type = "Exp",
+            _tag = "Exp_Unop",
             exp = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 1
             },
             op = "not"
           },
           op = "or",
           rhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Binop",
-              _type = "Exp",
+              _tag = "Exp_Binop",
               lhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 2
               },
               op = "and",
               rhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 3
               }
             },
             op = "and",
             rhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 4
             }
           }
@@ -49,67 +39,53 @@
     name = "booleanops",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "int"
     }
   }, {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Binop",
-          _type = "Exp",
+          _tag = "Exp_Binop",
           lhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Binop",
-              _type = "Exp",
+              _tag = "Exp_Binop",
               lhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 1
               },
               op = "<=",
               rhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 2
               }
             },
             op = "==",
             rhs = {
-              _tag = "Binop",
-              _type = "Exp",
+              _tag = "Exp_Binop",
               lhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 4
               },
               op = "<",
               rhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 5
               }
             }
           },
           op = "==",
           rhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 6
             },
             op = "~=",
             rhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 7
             }
           }
@@ -119,31 +95,23 @@
     name = "relational",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "int"
     }
   }, {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Binop",
-          _type = "Exp",
+          _tag = "Exp_Binop",
           lhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Unop",
-              _type = "Exp",
+              _tag = "Exp_Unop",
               exp = {
-                _tag = "Unop",
-                _type = "Exp",
+                _tag = "Exp_Unop",
                 exp = {
-                  _tag = "Value",
-                  _type = "Exp",
+                  _tag = "Exp_Value",
                   value = 1
                 },
                 op = "~"
@@ -152,44 +120,36 @@
             },
             op = "~",
             rhs = {
-              _tag = "Binop",
-              _type = "Exp",
+              _tag = "Exp_Binop",
               lhs = {
-                _tag = "Binop",
-                _type = "Exp",
+                _tag = "Exp_Binop",
                 lhs = {
-                  _tag = "Value",
-                  _type = "Exp",
+                  _tag = "Exp_Value",
                   value = 2
                 },
                 op = "<<",
                 rhs = {
-                  _tag = "Value",
-                  _type = "Exp",
+                  _tag = "Exp_Value",
                   value = 3
                 }
               },
               op = ">>",
               rhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 4
               }
             }
           },
           op = "|",
           rhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 5
             },
             op = "&",
             rhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 6
             }
           }
@@ -199,37 +159,29 @@
     name = "bitwise",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "int"
     }
   }, {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Binop",
-          _type = "Exp",
+          _tag = "Exp_Binop",
           lhs = {
-            _tag = "Value",
-            _type = "Exp",
+            _tag = "Exp_Value",
             value = "a"
           },
           op = "..",
           rhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = "b"
             },
             op = "..",
             rhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = "c"
             }
           }
@@ -239,31 +191,23 @@
     name = "concat",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "string"
     }
   }, {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Binop",
-          _type = "Exp",
+          _tag = "Exp_Binop",
           lhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Unop",
-              _type = "Exp",
+              _tag = "Exp_Unop",
               exp = {
-                _tag = "Unop",
-                _type = "Exp",
+                _tag = "Exp_Unop",
                 exp = {
-                  _tag = "Value",
-                  _type = "Exp",
+                  _tag = "Exp_Value",
                   value = 1
                 },
                 op = "-"
@@ -272,27 +216,22 @@
             },
             op = "/",
             rhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 2
             }
           },
           op = "+",
           rhs = {
-            _tag = "Binop",
-            _type = "Exp",
+            _tag = "Exp_Binop",
             lhs = {
-              _tag = "Value",
-              _type = "Exp",
+              _tag = "Exp_Value",
               value = 3
             },
             op = "*",
             rhs = {
-              _tag = "Unop",
-              _type = "Exp",
+              _tag = "Exp_Unop",
               exp = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = "a"
               },
               op = "#"
@@ -304,46 +243,35 @@
     name = "arithmetic",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "int"
     }
   }, {
-    _tag = "Func",
-    _type = "TopLevel",
+    _tag = "TopLevel_Func",
     block = { {
-        _tag = "Return",
-        _type = "Stat",
+        _tag = "Stat_Return",
         exp = {
-          _tag = "Binop",
-          _type = "Exp",
+          _tag = "Exp_Binop",
           lhs = {
-            _tag = "Unop",
-            _type = "Exp",
+            _tag = "Exp_Unop",
             exp = {
-              _tag = "Binop",
-              _type = "Exp",
+              _tag = "Exp_Binop",
               lhs = {
-                _tag = "Value",
-                _type = "Exp",
+                _tag = "Exp_Value",
                 value = 1
               },
               op = "^",
               rhs = {
-                _tag = "Unop",
-                _type = "Exp",
+                _tag = "Exp_Unop",
                 exp = {
-                  _tag = "Binop",
-                  _type = "Exp",
+                  _tag = "Exp_Binop",
                   lhs = {
-                    _tag = "Value",
-                    _type = "Exp",
+                    _tag = "Exp_Value",
                     value = 2
                   },
                   op = "^",
                   rhs = {
-                    _tag = "Value",
-                    _type = "Exp",
+                    _tag = "Exp_Value",
                     value = 3
                   }
                 },
@@ -354,8 +282,7 @@
           },
           op = "*",
           rhs = {
-            _tag = "Value",
-            _type = "Exp",
+            _tag = "Exp_Value",
             value = 4
           }
         }
@@ -364,8 +291,7 @@
     name = "pow",
     params = {},
     rettype = {
-      _tag = "Basic",
-      _type = "Type",
+      _tag = "Type_Basic",
       name = "float"
     }
   } }
