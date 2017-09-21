@@ -1,9 +1,12 @@
 { {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = false
-      } },
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = false
+        } }
+    },
     islocal = false,
     name = "f1",
     params = {},
@@ -13,13 +16,16 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Value",
-          value = 1
-        }
-      } },
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
+            _tag = "Exp_Value",
+            value = 1
+          }
+        } }
+    },
     islocal = false,
     name = "f2",
     params = {},
@@ -29,10 +35,13 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = false
-      } },
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = false
+        } }
+    },
     islocal = false,
     name = "f3",
     params = {},
@@ -42,13 +51,16 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Value",
-          value = 1
-        }
-      } },
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
+            _tag = "Exp_Value",
+            value = 1
+          }
+        } }
+    },
     islocal = false,
     name = "f4",
     params = {},

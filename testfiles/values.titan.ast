@@ -14,70 +14,73 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Assign",
-        exp = {
-          _tag = "Exp_Value",
-          value = false
-        },
-        var = {
-          _tag = "Var_Name",
-          name = "x"
-        }
-      }, {
-        _tag = "Stat_Assign",
-        exp = {
-          _tag = "Exp_Value",
-          value = true
-        },
-        var = {
-          _tag = "Var_Name",
-          name = "x"
-        }
-      }, {
-        _tag = "Stat_Assign",
-        exp = {
-          _tag = "Exp_Value",
-          value = 10
-        },
-        var = {
-          _tag = "Var_Name",
-          name = "x"
-        }
-      }, {
-        _tag = "Stat_Assign",
-        exp = {
-          _tag = "Exp_Value",
-          value = "asd"
-        },
-        var = {
-          _tag = "Var_Name",
-          name = "x"
-        }
-      }, {
-        _tag = "Stat_Assign",
-        exp = {
-          _tag = "Exp_Var",
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Assign",
+          exp = {
+            _tag = "Exp_Value",
+            value = false
+          },
           var = {
             _tag = "Var_Name",
-            name = "y"
+            name = "x"
           }
-        },
-        var = {
-          _tag = "Var_Name",
-          name = "x"
-        }
-      }, {
-        _tag = "Stat_Assign",
-        exp = {
-          _tag = "Exp_Value",
-          value = 1
-        },
-        var = {
-          _tag = "Var_Name",
-          name = "x"
-        }
-      } },
+        }, {
+          _tag = "Stat_Assign",
+          exp = {
+            _tag = "Exp_Value",
+            value = true
+          },
+          var = {
+            _tag = "Var_Name",
+            name = "x"
+          }
+        }, {
+          _tag = "Stat_Assign",
+          exp = {
+            _tag = "Exp_Value",
+            value = 10
+          },
+          var = {
+            _tag = "Var_Name",
+            name = "x"
+          }
+        }, {
+          _tag = "Stat_Assign",
+          exp = {
+            _tag = "Exp_Value",
+            value = "asd"
+          },
+          var = {
+            _tag = "Var_Name",
+            name = "x"
+          }
+        }, {
+          _tag = "Stat_Assign",
+          exp = {
+            _tag = "Exp_Var",
+            var = {
+              _tag = "Var_Name",
+              name = "y"
+            }
+          },
+          var = {
+            _tag = "Var_Name",
+            name = "x"
+          }
+        }, {
+          _tag = "Stat_Assign",
+          exp = {
+            _tag = "Exp_Value",
+            value = 1
+          },
+          var = {
+            _tag = "Var_Name",
+            name = "x"
+          }
+        } }
+    },
     islocal = false,
     name = "foo",
     params = {},

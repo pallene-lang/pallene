@@ -1,40 +1,43 @@
 { {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Binop",
-          lhs = {
-            _tag = "Exp_Unop",
-            exp = {
-              _tag = "Exp_Value",
-              value = 1
-            },
-            op = "not"
-          },
-          op = "or",
-          rhs = {
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
             _tag = "Exp_Binop",
             lhs = {
+              _tag = "Exp_Unop",
+              exp = {
+                _tag = "Exp_Value",
+                value = 1
+              },
+              op = "not"
+            },
+            op = "or",
+            rhs = {
               _tag = "Exp_Binop",
               lhs = {
-                _tag = "Exp_Value",
-                value = 2
+                _tag = "Exp_Binop",
+                lhs = {
+                  _tag = "Exp_Value",
+                  value = 2
+                },
+                op = "and",
+                rhs = {
+                  _tag = "Exp_Value",
+                  value = 3
+                }
               },
               op = "and",
               rhs = {
                 _tag = "Exp_Value",
-                value = 3
+                value = 4
               }
-            },
-            op = "and",
-            rhs = {
-              _tag = "Exp_Value",
-              value = 4
             }
           }
-        }
-      } },
+        } }
+    },
     islocal = false,
     name = "booleanops",
     params = {},
@@ -44,22 +47,38 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Binop",
-          lhs = {
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
             _tag = "Exp_Binop",
             lhs = {
               _tag = "Exp_Binop",
               lhs = {
-                _tag = "Exp_Value",
-                value = 1
+                _tag = "Exp_Binop",
+                lhs = {
+                  _tag = "Exp_Value",
+                  value = 1
+                },
+                op = "<=",
+                rhs = {
+                  _tag = "Exp_Value",
+                  value = 2
+                }
               },
-              op = "<=",
+              op = "==",
               rhs = {
-                _tag = "Exp_Value",
-                value = 2
+                _tag = "Exp_Binop",
+                lhs = {
+                  _tag = "Exp_Value",
+                  value = 4
+                },
+                op = "<",
+                rhs = {
+                  _tag = "Exp_Value",
+                  value = 5
+                }
               }
             },
             op = "==",
@@ -67,30 +86,17 @@
               _tag = "Exp_Binop",
               lhs = {
                 _tag = "Exp_Value",
-                value = 4
+                value = 6
               },
-              op = "<",
+              op = "~=",
               rhs = {
                 _tag = "Exp_Value",
-                value = 5
+                value = 7
               }
             }
-          },
-          op = "==",
-          rhs = {
-            _tag = "Exp_Binop",
-            lhs = {
-              _tag = "Exp_Value",
-              value = 6
-            },
-            op = "~=",
-            rhs = {
-              _tag = "Exp_Value",
-              value = 7
-            }
           }
-        }
-      } },
+        } }
+    },
     islocal = false,
     name = "relational",
     params = {},
@@ -100,61 +106,64 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Binop",
-          lhs = {
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
             _tag = "Exp_Binop",
             lhs = {
-              _tag = "Exp_Unop",
-              exp = {
+              _tag = "Exp_Binop",
+              lhs = {
                 _tag = "Exp_Unop",
                 exp = {
-                  _tag = "Exp_Value",
-                  value = 1
+                  _tag = "Exp_Unop",
+                  exp = {
+                    _tag = "Exp_Value",
+                    value = 1
+                  },
+                  op = "~"
                 },
                 op = "~"
               },
-              op = "~"
+              op = "~",
+              rhs = {
+                _tag = "Exp_Binop",
+                lhs = {
+                  _tag = "Exp_Binop",
+                  lhs = {
+                    _tag = "Exp_Value",
+                    value = 2
+                  },
+                  op = "<<",
+                  rhs = {
+                    _tag = "Exp_Value",
+                    value = 3
+                  }
+                },
+                op = ">>",
+                rhs = {
+                  _tag = "Exp_Value",
+                  value = 4
+                }
+              }
             },
-            op = "~",
+            op = "|",
             rhs = {
               _tag = "Exp_Binop",
               lhs = {
-                _tag = "Exp_Binop",
-                lhs = {
-                  _tag = "Exp_Value",
-                  value = 2
-                },
-                op = "<<",
-                rhs = {
-                  _tag = "Exp_Value",
-                  value = 3
-                }
+                _tag = "Exp_Value",
+                value = 5
               },
-              op = ">>",
+              op = "&",
               rhs = {
                 _tag = "Exp_Value",
-                value = 4
+                value = 6
               }
             }
-          },
-          op = "|",
-          rhs = {
-            _tag = "Exp_Binop",
-            lhs = {
-              _tag = "Exp_Value",
-              value = 5
-            },
-            op = "&",
-            rhs = {
-              _tag = "Exp_Value",
-              value = 6
-            }
           }
-        }
-      } },
+        } }
+    },
     islocal = false,
     name = "bitwise",
     params = {},
@@ -164,29 +173,32 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Binop",
-          lhs = {
-            _tag = "Exp_Value",
-            value = "a"
-          },
-          op = "..",
-          rhs = {
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
             _tag = "Exp_Binop",
             lhs = {
               _tag = "Exp_Value",
-              value = "b"
+              value = "a"
             },
             op = "..",
             rhs = {
-              _tag = "Exp_Value",
-              value = "c"
+              _tag = "Exp_Binop",
+              lhs = {
+                _tag = "Exp_Value",
+                value = "b"
+              },
+              op = "..",
+              rhs = {
+                _tag = "Exp_Value",
+                value = "c"
+              }
             }
           }
-        }
-      } },
+        } }
+    },
     islocal = false,
     name = "concat",
     params = {},
@@ -196,49 +208,52 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Binop",
-          lhs = {
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
             _tag = "Exp_Binop",
             lhs = {
-              _tag = "Exp_Unop",
-              exp = {
+              _tag = "Exp_Binop",
+              lhs = {
                 _tag = "Exp_Unop",
                 exp = {
-                  _tag = "Exp_Value",
-                  value = 1
+                  _tag = "Exp_Unop",
+                  exp = {
+                    _tag = "Exp_Value",
+                    value = 1
+                  },
+                  op = "-"
                 },
                 op = "-"
               },
-              op = "-"
-            },
-            op = "/",
-            rhs = {
-              _tag = "Exp_Value",
-              value = 2
-            }
-          },
-          op = "+",
-          rhs = {
-            _tag = "Exp_Binop",
-            lhs = {
-              _tag = "Exp_Value",
-              value = 3
-            },
-            op = "*",
-            rhs = {
-              _tag = "Exp_Unop",
-              exp = {
+              op = "/",
+              rhs = {
                 _tag = "Exp_Value",
-                value = "a"
+                value = 2
+              }
+            },
+            op = "+",
+            rhs = {
+              _tag = "Exp_Binop",
+              lhs = {
+                _tag = "Exp_Value",
+                value = 3
               },
-              op = "#"
+              op = "*",
+              rhs = {
+                _tag = "Exp_Unop",
+                exp = {
+                  _tag = "Exp_Value",
+                  value = "a"
+                },
+                op = "#"
+              }
             }
           }
-        }
-      } },
+        } }
+    },
     islocal = false,
     name = "arithmetic",
     params = {},
@@ -248,45 +263,48 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = { {
-        _tag = "Stat_Return",
-        exp = {
-          _tag = "Exp_Binop",
-          lhs = {
-            _tag = "Exp_Unop",
-            exp = {
-              _tag = "Exp_Binop",
-              lhs = {
-                _tag = "Exp_Value",
-                value = 1
-              },
-              op = "^",
-              rhs = {
-                _tag = "Exp_Unop",
-                exp = {
-                  _tag = "Exp_Binop",
-                  lhs = {
-                    _tag = "Exp_Value",
-                    value = 2
-                  },
-                  op = "^",
-                  rhs = {
-                    _tag = "Exp_Value",
-                    value = 3
-                  }
+    block = {
+      _tag = "Stat_Block",
+      stats = { {
+          _tag = "Stat_Return",
+          exp = {
+            _tag = "Exp_Binop",
+            lhs = {
+              _tag = "Exp_Unop",
+              exp = {
+                _tag = "Exp_Binop",
+                lhs = {
+                  _tag = "Exp_Value",
+                  value = 1
                 },
-                op = "-"
-              }
+                op = "^",
+                rhs = {
+                  _tag = "Exp_Unop",
+                  exp = {
+                    _tag = "Exp_Binop",
+                    lhs = {
+                      _tag = "Exp_Value",
+                      value = 2
+                    },
+                    op = "^",
+                    rhs = {
+                      _tag = "Exp_Value",
+                      value = 3
+                    }
+                  },
+                  op = "-"
+                }
+              },
+              op = "-"
             },
-            op = "-"
-          },
-          op = "*",
-          rhs = {
-            _tag = "Exp_Value",
-            value = 4
+            op = "*",
+            rhs = {
+              _tag = "Exp_Value",
+              value = 4
+            }
           }
-        }
-      } },
+        } }
+    },
     islocal = false,
     name = "pow",
     params = {},

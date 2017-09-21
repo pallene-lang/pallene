@@ -159,10 +159,10 @@ local grammar = pg.compile([[
                      / (NAME)                           -> Type_Basic
                      / (LCURLY type RCURLY)             -> Type_Array
 
-    block           <- {| statement* returnstat? |}     -- produces {Stat}
+    block           <- {| statement* returnstat? |}     -> Stat_Block
 
     statement       <- (SEMICOLON)                      -- ignore
-                     / (DO block END)                   -> Stat_Block
+                     / (DO block END)                   -- produces Stat_Block
                      / (WHILE exp DO block END)         -> Stat_While
                      / (REPEAT block UNTIL exp)         -> Stat_Repeat
                      / (IF exp THEN block

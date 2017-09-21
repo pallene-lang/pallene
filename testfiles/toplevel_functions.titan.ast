@@ -1,6 +1,9 @@
 { {
     _tag = "TopLevel_Func",
-    block = {},
+    block = {
+      _tag = "Stat_Block",
+      stats = {}
+    },
     islocal = true,
     name = "f0",
     params = {},
@@ -10,7 +13,10 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = {},
+    block = {
+      _tag = "Stat_Block",
+      stats = {}
+    },
     islocal = true,
     name = "f1",
     params = { {
@@ -27,7 +33,10 @@
     }
   }, {
     _tag = "TopLevel_Func",
-    block = {},
+    block = {
+      _tag = "Stat_Block",
+      stats = {}
+    },
     islocal = true,
     name = "f2",
     params = { {
