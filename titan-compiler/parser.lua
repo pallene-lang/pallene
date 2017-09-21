@@ -331,7 +331,13 @@ function parser.parse(input)
 end
 
 function parser.pretty_print_ast(ast)
-    return inspect(ast)
+    return inspect(ast, {
+        process = function(item, path)
+            if path[#path] ~= inspect.METATABLE then
+                return item
+            end
+        end
+    })
 end
 
 return parser

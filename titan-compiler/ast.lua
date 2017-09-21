@@ -57,12 +57,24 @@ for typename, conss in pairs(types) do
     for consname, fields in pairs(conss) do
         local tag = typename .. '_' .. consname
 
+        local mt = { __index = {
+            foreach = function(self, visitor, ...)
+                assert(type(visitor) == 'function')
+                for _, field in pairs(fields) do
+                    local ok, err = visitor(self[field], ...)
+                    if not ok then return false, err end
+                end
+                return true
+            end,
+        }}
+
         ast[tag] = function(...)
             local args = table.pack(...)
             if args.n ~= #fields then
                 error('missing arguments for ' .. tag)
             end
             local node = { _tag = tag }
+            setmetatable(node, mt)
             for i, field in ipairs(fields) do
                 assert(field ~= '_tag')
                 node[field] = args[i]
