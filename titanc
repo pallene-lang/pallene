@@ -2,6 +2,7 @@
 
 local argparse = require 'argparse'
 
+local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
 local util = require 'titan-compiler.util'
 
@@ -13,7 +14,7 @@ local args = p:parse()
 -- Work like assert, but don't print the stack trace
 local function check(value, msg)
     if not value then
-        print(arg[0] .. ": " .. msg)
+        print(arg[0] .. ": " .. tostring(msg))
         os.exit(1)
     else
         return value
@@ -30,4 +31,5 @@ local ast = check(parser.parse(input))
 if args.print_ast then
     print(parser.pretty_print_ast(ast))
 end
+check(checker.check(ast))
 
