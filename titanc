@@ -13,7 +13,7 @@ local args = p:parse()
 -- Work like assert, but don't print the stack trace
 local function check(value, msg)
     if not value then
-        print(msg)
+        print(arg[0] .. ": " .. msg)
         os.exit(1)
     else
         return value
@@ -24,7 +24,7 @@ local input
 if args.input == '-' then
     input = io.read("*a")
 else
-    input = util.get_file_contents(args.input)
+    input = check(util.get_file_contents(args.input))
 end
 local ast = check(parser.parse(input))
 if args.print_ast then

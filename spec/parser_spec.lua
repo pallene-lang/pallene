@@ -2,8 +2,8 @@ local parser = require 'titan-compiler.parser'
 local util = require 'titan-compiler.util'
 
 local function assert_parse(sourcefilename)
-    local source   = util.get_file_contents(sourcefilename)
-    local expected = util.get_file_contents(sourcefilename..".ast")
+    local source   = assert(util.get_file_contents(sourcefilename))
+    local expected = assert(util.get_file_contents(sourcefilename..".ast"))
     local ast, errors = parser.parse(source)
     local obtained
     if ast then
