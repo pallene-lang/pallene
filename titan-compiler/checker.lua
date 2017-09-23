@@ -28,7 +28,8 @@ local function bindvars(node, st, errors)
     elseif tag == "Decl_Decl" then
         st:add_symbol(node.name, node)
 
-    elseif tag == "Stat_Block" then
+    elseif tag == "Stat_Block" or
+           tag == "Stat_For" then
         st:with_block(visit_children, node, st, errors)
 
     elseif tag == "Var_Name" then

@@ -135,7 +135,9 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
--- Add libraries to defs
+function defs.name2decl(name)
+    return ast.Decl_Decl(name, false)
+end
 
 local grammar = pg.compile([[
 
@@ -167,7 +169,9 @@ local grammar = pg.compile([[
                      / (REPEAT block UNTIL exp)         -> Stat_Repeat
                      / (IF exp THEN block
                         elseifstats elseopt END)        -> ifstat
-                     / (FOR NAME ASSIGN exp COMMA exp
+                     / (FOR
+                        NAME -> name2decl
+                        ASSIGN exp COMMA exp
                         (COMMA exp)? -> opt
                         DO block END)                   -> Stat_For
                      / (LOCAL decl ASSIGN exp)          -> defstat
