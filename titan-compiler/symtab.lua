@@ -11,8 +11,13 @@ function symtab:open_block()
 end
 
 function symtab:close_block()
-    assert(#self.blocks > 0, "stack underflow")
     table.remove(self.blocks)
+end
+
+function symtab:with_block(body, ...)
+    self:open_block()
+    body(...)
+    self:close_block()
 end
 
 function symtab:add_symbol(name, decl)

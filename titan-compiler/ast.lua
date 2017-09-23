@@ -57,15 +57,17 @@ for typename, conss in pairs(types) do
     for consname, fields in pairs(conss) do
         local tag = typename .. '_' .. consname
 
+        local function iter(node, i)
+            i = i + 1
+            if i <= #fields then
+                return i, node[fields[i]]
+            end
+        end
+
         local mt = { __index = {
-            foreach = function(self, visitor, ...)
-                assert(type(visitor) == 'function')
-                for _, field in pairs(fields) do
-                    local ok, err = visitor(self[field], ...)
-                    if not ok then return false, err end
-                end
-                return true
-            end,
+            children = function(node)
+                return iter, node, 0
+            end
         }}
 
         ast[tag] = function(...)
