@@ -2,32 +2,34 @@ local checker = {}
 
 local symtab = require 'titan-compiler.symtab'
 
+local function visit_children(f, node, ...)
+    local tag = node._tag
+    if not tag then -- the node is an array
+        for _, child in ipairs(node) do
+            f(child, ...)
+        end
+    else
+        for _, child in node:children() do
+            f(child, ...)
+        end
+    end
+end
+
 local function bindvars(node, st, errors)
     if not node or type(node) ~= "table" then
         return
     end
 
-    local function bindvars_children()
-        for _, child in node:children() do
-            bindvars(child, st, errors)
-        end
-    end
-
     local tag = node._tag
-    if not tag then -- the node is an array
-        for _, elem in ipairs(node) do
-            bindvars(elem, st, errors)
-        end
-
-    elseif tag == "TopLevel_Func" then
+    if tag == "TopLevel_Func" then
         st:add_symbol(node.name, node)
-        st:with_block(bindvars_children)
+        st:with_block(visit_children, node, st, errors)
 
     elseif tag == "Decl_Decl" then
         st:add_symbol(node.name, node)
 
     elseif tag == "Stat_Block" then
-        st:with_block(bindvars_children)
+        st:with_block(visit_children, node, st, errors)
 
     elseif tag == "Var_Name" then
         node.decl = st:find_symbol(node.name)
@@ -38,7 +40,7 @@ local function bindvars(node, st, errors)
         end
 
     else
-        bindvars_children()
+        visit_children(node, st, errors)
     end
 end
 
