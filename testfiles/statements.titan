@@ -4,11 +4,10 @@ local function statements(): nil
 
     repeat until false 
 
-    if 1 then end
-    if 1 then else end
-    if 1 then elseif 2 then end
-    if 1 then elseif 2 then else end
-    if 1 then elseif 2 then elseif 3 then else end
+    if 10 then end
+    if 20 then else end
+    if 30 then elseif 40 then end
+    if 50 then elseif 60 then else end
 
     do
         local x = 10; x = 11

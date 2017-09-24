@@ -1,6 +1,6 @@
 function foo(): nil
     f ()
-    f "asd"
+    f "qwe"
     f {}
     
     o:m ()

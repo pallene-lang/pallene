@@ -1,8 +1,8 @@
-local function f0(): nil
+local function fA(): nil
 end
 
-local function f1(x:int): nil
+local function fB(x:int): nil
 end
 
-local function f2(x:int, y:int): nil
+local function fC(x:int, y:int): nil
 end

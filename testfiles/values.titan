@@ -1,6 +1,5 @@
-local x : nil = nil
-
 function foo(): nil
+    x = nil
     x = false
     x = true
     x = 10
