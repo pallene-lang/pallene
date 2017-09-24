@@ -133,28 +133,28 @@ describe("Titan parser", function()
             
             { _tag = "Stat_If",
                 thens = {
-                    { _tag = "Then_Then", exp = { value = 10 } },
+                    { _tag = "Then_Then", condition = { value = 10 } },
                 },
               elsestat = false, },
 
             { _tag = "Stat_If",
                 thens = {
-                    { _tag = "Then_Then", exp = { value = 20 } },
+                    { _tag = "Then_Then", condition = { value = 20 } },
                 },
                 elsestat = { _tag = "Stat_Block" }, },
 
 
             { _tag = "Stat_If",
                 thens = {
-                    { _tag = "Then_Then", exp = { value = 30 } },
-                    { _tag = "Then_Then", exp = { value = 40 } },
+                    { _tag = "Then_Then", condition = { value = 30 } },
+                    { _tag = "Then_Then", condition = { value = 40 } },
                 },
                 elsestat = false, },
 
             { _tag = "Stat_If",
               thens = {
-                    { _tag = "Then_Then", exp = { value = 50 } },
-                    { _tag = "Then_Then", exp = { value = 60 } },
+                    { _tag = "Then_Then", condition = { value = 50 } },
+                    { _tag = "Then_Then", condition = { value = 60 } },
                 },
                 elsestat = { _tag = "Stat_Block" }, },
 

@@ -30,7 +30,7 @@ types.Stat = {
 }
 
 types.Then = {
-    Then    = {'exp', 'block'},
+    Then    = {'condition', 'block'},
 }
 
 types.Var = {
