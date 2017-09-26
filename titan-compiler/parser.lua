@@ -135,8 +135,6 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
--- Add libraries to defs
-
 local grammar = pg.compile([[
 
     program         <- {| (toplevelfunc / toplevelvar)* |} !.
@@ -167,7 +165,8 @@ local grammar = pg.compile([[
                      / (REPEAT block UNTIL exp)         -> Stat_Repeat
                      / (IF exp THEN block
                         elseifstats elseopt END)        -> ifstat
-                     / (FOR NAME ASSIGN exp COMMA exp
+                     / (FOR decl
+                        ASSIGN exp COMMA exp
                         (COMMA exp)? -> opt
                         DO block END)                   -> Stat_For
                      / (LOCAL decl ASSIGN exp)          -> defstat

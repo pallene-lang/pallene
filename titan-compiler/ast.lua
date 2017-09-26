@@ -22,7 +22,7 @@ types.Stat = {
     While   = {'condition', 'block'},
     Repeat  = {'block', 'condition'},
     If      = {'thens', 'elsestat'},
-    For     = {'name', 'start', 'end', 'inc', 'block'},
+    For     = {'decl', 'start', 'finish', 'inc', 'block'},
     Assign  = {'var', 'exp'},
     Decl    = {'decl'},
     Call    = {'callexp'},
@@ -30,7 +30,7 @@ types.Stat = {
 }
 
 types.Then = {
-    Then    = {'exp', 'block'},
+    Then    = {'condition', 'block'},
 }
 
 types.Var = {

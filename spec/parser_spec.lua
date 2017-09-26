@@ -133,28 +133,28 @@ describe("Titan parser", function()
             
             { _tag = "Stat_If",
                 thens = {
-                    { _tag = "Then_Then", exp = { value = 10 } },
+                    { _tag = "Then_Then", condition = { value = 10 } },
                 },
               elsestat = false, },
 
             { _tag = "Stat_If",
                 thens = {
-                    { _tag = "Then_Then", exp = { value = 20 } },
+                    { _tag = "Then_Then", condition = { value = 20 } },
                 },
                 elsestat = { _tag = "Stat_Block" }, },
 
 
             { _tag = "Stat_If",
                 thens = {
-                    { _tag = "Then_Then", exp = { value = 30 } },
-                    { _tag = "Then_Then", exp = { value = 40 } },
+                    { _tag = "Then_Then", condition = { value = 30 } },
+                    { _tag = "Then_Then", condition = { value = 40 } },
                 },
                 elsestat = false, },
 
             { _tag = "Stat_If",
               thens = {
-                    { _tag = "Then_Then", exp = { value = 50 } },
-                    { _tag = "Then_Then", exp = { value = 60 } },
+                    { _tag = "Then_Then", condition = { value = 50 } },
+                    { _tag = "Then_Then", condition = { value = 60 } },
                 },
                 elsestat = { _tag = "Stat_Block" }, },
 
@@ -169,6 +169,17 @@ describe("Titan parser", function()
                         exp = { value = 11 } },
                     { _tag = "Stat_Call",
                         callexp = { _tag = "Exp_Call" } } } },
+
+            { _tag = "Stat_For",
+              block = {
+                stats = {
+                  { _tag = "Stat_Assign",
+                    exp = { var = { _tag = "Var_Name", name = "i" } },
+                    var = { _tag = "Var_Name", name = "i" } } } },
+              decl = { _tag = "Decl_Decl", name = "i", type = false },
+              finish = { _tag = "Exp_Value", value = 2 },
+              inc = { _tag = "Exp_Value", value = 3 },
+              start = { _tag = "Exp_Value", value = 1 } },
 
             { _tag = "Stat_Return", exp = { _tag = "Exp_Var" } },
         })
