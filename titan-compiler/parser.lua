@@ -21,10 +21,6 @@ for tag, cons in pairs(ast) do
     defs[tag] = cons
 end
 
-function defs.tonil()
-    return nil
-end
-
 function defs.totrue()
     return true
 end
@@ -43,6 +39,22 @@ end
 
 function defs.boolopt(x)
     return x ~= ''
+end
+
+function defs.nil_exp(--[[ s ]])
+    -- We can't call Exp_Nil directly in the parser because we
+    -- need to drop the string capture that comes by default.
+    return ast.Exp_Nil()
+end
+
+function defs.number_exp(n)
+    if math.type(n) == 'integer' then
+        return ast.Exp_Integer(n)
+    elseif math.type(n) == 'float' then
+        return ast.Exp_Float(n)
+    else
+        error("impossible")
+    end
 end
 
 function defs.name_exp(name)
@@ -214,11 +226,11 @@ local grammar = pg.compile([[
                      / (COLON NAME funcargs)            -> suffix_methodcall
                      / (LBRACKET exp RBRACKET)          -> suffix_index
 
-    simpleexp       <- (NIL -> tonil)                   -> Exp_Value
-                     / (FALSE -> tofalse)               -> Exp_Value
-                     / (TRUE -> totrue)                 -> Exp_Value
-                     / (NUMBER)                         -> Exp_Value
-                     / (STRING)                         -> Exp_Value
+    simpleexp       <- (NIL)                            -> nil_exp
+                     / (FALSE -> tofalse)               -> Exp_Bool
+                     / (TRUE -> totrue)                 -> Exp_Bool
+                     / (NUMBER)                         -> number_exp
+                     / (STRING)                         -> Exp_String
                      / (tablecons)                      -- produces Exp
                      / (NAME)                           -> name_exp
                      / (LPAREN exp RPAREN)              -- produces Exp
@@ -227,7 +239,7 @@ local grammar = pg.compile([[
 
     funcargs        <- (LPAREN explist RPAREN)          -- produces {Exp}
                      / {| tablecons |}                  -- produces {Exp}
-                     / {| STRING -> Exp_Value |}        -- produces {Exp}
+                     / {| STRING -> Exp_String |}       -- produces {Exp}
 
     explist         <- {| (exp (COMMA exp)*)? |}        -- produces {Exp}
 
