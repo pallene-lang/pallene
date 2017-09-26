@@ -135,10 +135,6 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
-function defs.name2decl(name)
-    return ast.Decl_Decl(name, false)
-end
-
 local grammar = pg.compile([[
 
     program         <- {| (toplevelfunc / toplevelvar)* |} !.
@@ -169,8 +165,7 @@ local grammar = pg.compile([[
                      / (REPEAT block UNTIL exp)         -> Stat_Repeat
                      / (IF exp THEN block
                         elseifstats elseopt END)        -> ifstat
-                     / (FOR
-                        NAME -> name2decl
+                     / (FOR decl
                         ASSIGN exp COMMA exp
                         (COMMA exp)? -> opt
                         DO block END)                   -> Stat_For
