@@ -39,7 +39,11 @@ types.Var = {
 }
 
 types.Exp = {
-    Value   = {'value'},
+    Nil     = {},
+    Bool    = {'value'},
+    Integer = {'value'},
+    Float   = {'value'},
+    String  = {'value'},
     Table   = {'exps'},
     Call    = {'exp', 'args'},
     Var     = {'var'},

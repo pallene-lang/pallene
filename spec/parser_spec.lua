@@ -92,14 +92,15 @@ describe("Titan parser", function()
         local program, err = parse_file("./testfiles/values.titan")
         assert.truthy(program)
         assert_ast(program[1].block.stats, {
-            { exp = { _tag = "Exp_Value", value = nil }},
-            { exp = { _tag = "Exp_Value", value = false }},
-            { exp = { _tag = "Exp_Value", value = true }},
-            { exp = { _tag = "Exp_Value", value = 10}},
-            { exp = { _tag = "Exp_Value", value = "asd" }},
+            { exp = { _tag = "Exp_Nil" }},
+            { exp = { _tag = "Exp_Bool", value = false }},
+            { exp = { _tag = "Exp_Bool", value = true }},
+            { exp = { _tag = "Exp_Integer", value = 10}},
+            { exp = { _tag = "Exp_Float", value = 10.0}},
+            { exp = { _tag = "Exp_String", value = "asd" }},
             { exp = { _tag = "Exp_Var", var = {
                         _tag = "Var_Name", name = "y" }}},
-            { exp = { _tag = "Exp_Value", value = 1 }},
+            { exp = { _tag = "Exp_Integer", value = 1 }},
         })
     end)
 
@@ -109,13 +110,13 @@ describe("Titan parser", function()
         assert_ast(program[1].block.stats, {
             { exp = { _tag = "Exp_Table", exps = {} }},
             { exp = { _tag = "Exp_Table", exps = {
-                { _tag = "Exp_Value", value = 10 },
-                { _tag = "Exp_Value", value = 20 },
-                { _tag = "Exp_Value", value = 30 }, }}},
+                { value = 10 },
+                { value = 20 },
+                { value = 30 }, }}},
             { exp = { _tag = "Exp_Table", exps = {
-                { _tag = "Exp_Value", value = 40 },
-                { _tag = "Exp_Value", value = 50 },
-                { _tag = "Exp_Value", value = 60 }, }}},
+                { value = 40 },
+                { value = 50 },
+                { value = 60 }, }}},
         })
     end)
 
@@ -124,12 +125,12 @@ describe("Titan parser", function()
         assert.truthy(program)
         assert_ast(program[1].block.stats, {
             { _tag = "Stat_While",
-              condition = { _tag = "Exp_Value" },
+              condition = { _tag = "Exp_Bool" },
               block = { _tag = "Stat_Block" } },
             
             { _tag = "Stat_Repeat",
               block = { _tag = "Stat_Block" },
-              condition = { _tag = "Exp_Value" }, },
+              condition = { _tag = "Exp_Bool" }, },
             
             { _tag = "Stat_If",
                 thens = {
@@ -177,9 +178,9 @@ describe("Titan parser", function()
                     exp = { var = { _tag = "Var_Name", name = "i" } },
                     var = { _tag = "Var_Name", name = "i" } } } },
               decl = { _tag = "Decl_Decl", name = "i", type = false },
-              finish = { _tag = "Exp_Value", value = 2 },
-              inc = { _tag = "Exp_Value", value = 3 },
-              start = { _tag = "Exp_Value", value = 1 } },
+              finish = { _tag = "Exp_Integer", value = 2 },
+              inc =    { _tag = "Exp_Integer", value = 3 },
+              start =  { _tag = "Exp_Integer", value = 1 } },
 
             { _tag = "Stat_Return", exp = { _tag = "Exp_Var" } },
         })
@@ -278,10 +279,10 @@ describe("Titan parser", function()
         assert_ast(program[1].block.stats[1].exp,
             { _tag = "Exp_Unop", op = "-",
                 exp = { _tag = "Exp_Binop", op = "^",
-                    rhs = { _tag = "Exp_Value", value = 3 },
+                    rhs = { value = 3 },
                     lhs = { _tag = "Exp_Var", var = {
                         _tag = "Var_Index",
-                        exp2 = { _tag = "Exp_Value", value = 2 },
+                        exp2 = { value = 2 },
                         exp1 = { _tag = "Exp_Call",
                             args = { _tag = "Args_Method", method = "foo" },
                             exp = { _tag = "Exp_Call",
@@ -308,7 +309,7 @@ describe("Titan parser", function()
             { callexp = {
                 _tag = "Exp_Call", args = {
                     _tag = "Args_Func", args = {
-                        { _tag = "Exp_Value", value = "qwe" } } } } },
+                        { _tag = "Exp_String", value = "qwe" } } } } },
             { callexp = {
                 _tag = "Exp_Call", args = {
                     _tag = "Args_Func", args = {
@@ -320,7 +321,7 @@ describe("Titan parser", function()
             { callexp = {
                 _tag = "Exp_Call", args = {
                     _tag = "Args_Method", args = {
-                        { _tag = "Exp_Value", value = "asd" } } } } },
+                        { _tag = "Exp_String", value = "asd" } } } } },
             { callexp = {
                 _tag = "Exp_Call", args = {
                     _tag = "Args_Method", args = {
