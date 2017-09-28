@@ -200,11 +200,17 @@ describe("Titan parser", function()
     end)
 
     it("return statements must be the last in the block", function()
-        pending("implement syntax errors")
+        local program, err =
+            parse_file("./testfiles/return_statement_not_last.titan")
+        assert.falsy(program)
+        assert.are.same("SyntaxError", err.label)
     end)
 
     it("does not allow extra semicolons after a return", function()
-        pending("implement syntax errors")
+        local program, err =
+            parse_file("./testfiles/return_statements_extra_semicolons.titan")
+        assert.falsy(program)
+        assert.are.same("SyntaxError", err.label)
     end)
 
     it("can parse binary and unary operators", function()
@@ -299,9 +305,10 @@ describe("Titan parser", function()
     end)
 
     it("only allows call expressions as statements", function()
-        pending("implement syntax errors")
-        -- 10
-        -- x[1]
+        local program, err =
+            parse_file("./testfiles/non_call_expression_statement.titan")
+        assert.falsy(program)
+        assert.are.same("SyntaxError", err.label)
     end)
 
     it("can parse calls without parenthesis", function()
