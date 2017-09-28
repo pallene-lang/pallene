@@ -1,4 +1,5 @@
 local lexer = require 'titan-compiler.lexer'
+local syntax_errors = require 'titan-compiler.syntax_errors'
 local lpeg = require 'lpeglabel'
 
 local function table_extend(t1, t2)
@@ -20,8 +21,9 @@ local function run_lexer(source)
         local found_j = nil
 
         for tokname, tokpat in pairs(lexer) do
-            local captures, j = lpeg.match(lpeg.Ct(tokpat) * lpeg.Cp(), source, i)
-            if captures then
+            local a, b, c = lpeg.match(lpeg.Ct(tokpat) * lpeg.Cp(), source, i)
+            if a then
+                local captures, j = a, b
                 if i == j then
                     return string.format(
                         "error: token %s matched the empty string",
@@ -35,6 +37,10 @@ local function run_lexer(source)
                     found_captures = captures
                     found_j = j
                 end
+            elseif b and b > 0 then
+                local errnum, suffix = b, c
+                local errcode = syntax_errors.int_to_label[errnum]
+                return { err = errcode }
             end
         end
 
@@ -53,6 +59,12 @@ end
 local function assert_lex(source, expected_tokens, expected_captures)
     local lexed    = run_lexer(source)
     local expected = { tokens = expected_tokens, captures = expected_captures }
+    assert.are.same(expected, lexed)
+end
+
+local function assert_error(source, expected_error )
+    local lexed    = run_lexer(source)
+    local expected = { err = expected_error }
     assert.are.same(expected, lexed)
 end
 
@@ -124,19 +136,19 @@ describe("Titan lexer", function()
     end)
 
     it("errors out on invalid numbers (instead of backtracking)", function()
-        pending('implement syntax errors')
-        -- 1abcdef
-        -- 1.2.3.4
-        -- 1e
-        -- 1e2e3
-        -- 1p5
-
-        -- .1.
-        -- 4..
+        assert_error("1abcdef", "MalformedNumber")
+        assert_error("1.2.3.4", "MalformedNumber")
+        assert_error("1e",      "MalformedNumber")
+        assert_error("1e2e3",   "MalformedNumber")
+        assert_error("1p5",     "MalformedNumber")
+        assert_error(".1.",     "MalformedNumber")
+        assert_error("4..",     "MalformedNumber")
         
-        -- local x = 1337require        -- this is accepted by Lua (!)
-        -- local x = 1337collectgarbage -- this is rejected by Lua (x is hexdigit)
-        -- 
+        -- This is actually accepted by Lua (!)
+        assert_error("local x = 1337require",        "MalformedNumber")
+
+        -- This is rejected by Lua ('c' is an hexdigit)
+        assert_error("local x = 1337collectgarbage", "MalformedNumber")
     end)
 
     it("can lex some short strings", function()
@@ -165,20 +177,22 @@ describe("Titan lexer", function()
     end)
 
     it("errors out on invalid excape sequences (instead of backtracking)", function()
-        pending("implement syntax errors")
-        -- error "\o"
+        assert_error([["\o"]], "InvalidEscape")
     end)
 
     it("errors out on unclosed strings (instead of backtracking)", function()
-        pending("implement syntax errors")
-        -- error "'
-        -- error "A
-        -- error "A\n
-        -- error "A\r
-        -- error "A\\\n\nB"
-        -- error "A\\\r\rB"
-        -- error [[]]
-        -- error [[]=]
+        assert_error('"\'',       "UnclosedShortString")
+        assert_error('"A',        "UnclosedShortString")
+        
+        assert_error('"A\n',      "UnclosedShortString")
+        assert_error('"A\r',      "UnclosedShortString")
+        assert_error('"A\\\n\nB', "UnclosedShortString")
+        assert_error('"A\\\r\rB', "UnclosedShortString")
+        
+        assert_error('"\\"',      "UnclosedShortString")
+        
+        assert_error("[[]",   "UnclosedLongString")
+        assert_error("[[]=]", "UnclosedLongString")
     end)
 
     it("can lex some long strings", function()
