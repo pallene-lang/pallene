@@ -68,9 +68,8 @@ function defs.ifstat(exp, block, thens, elseopt)
 end
 
 function defs.defstat(decl, exp)
-    local declstat = ast.Stat_Decl(decl)
-    local assign = ast.Stat_Assign(ast.Var_Name(decl.name), exp)
-    return declstat, assign
+    local declstat = ast.Stat_Decl(decl, exp)
+    return declstat
 end
 
 function defs.fold_binop_left(matches)

@@ -24,7 +24,7 @@ types.Stat = {
     If      = {'thens', 'elsestat'},
     For     = {'decl', 'start', 'finish', 'inc', 'block'},
     Assign  = {'var', 'exp'},
-    Decl    = {'decl'},
+    Decl    = {'decl', 'exp'},
     Call    = {'callexp'},
     Return  = {'exp'},
 }
