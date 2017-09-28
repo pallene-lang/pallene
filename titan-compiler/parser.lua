@@ -1,11 +1,12 @@
 local parser = {}
 
-local pg = require 'parser-gen'
-local peg = require 'peg-parser'
+local lpeg = require 'lpeglabel'
+local re = require 'relabel'
 local inspect = require 'inspect'
 
 local ast = require 'titan-compiler.ast'
 local lexer = require 'titan-compiler.lexer'
+local syntax_errors = require 'titan-compiler.syntax_errors'
 
 --
 -- Functions used by the PEG grammar
@@ -147,9 +148,10 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
-local grammar = pg.compile([[
+local grammar = re.compile([[
 
-    program         <- {| (toplevelfunc / toplevelvar)* |} !.
+    program         <-  SKIP*
+                        {| (toplevelfunc / toplevelvar)* |} !.
 
     toplevelfunc    <- (localopt
                         FUNCTION NAME
@@ -193,18 +195,19 @@ local grammar = pg.compile([[
 
     returnstat      <- (RETURN (exp? -> opt) SEMICOLON?)-> Stat_Return
 
-    op1             <- { OR }
-    op2             <- { AND }
-    op3             <- { EQ / NE / LT / GT / LE / GE }
-    op4             <- { BOR }
-    op5             <- { BXOR }
-    op6             <- { BAND }
-    op7             <- { SHL / SHR }
-    op8             <- { CONCAT }
-    op9             <- { ADD / SUB }
-    op10            <- { MUL / MOD / DIV / IDIV }
-    unop            <- { NOT / LEN / NEG / BNEG }
-    op12            <- { POW }
+    op1             <- ( OR -> 'or' )
+    op2             <- ( AND -> 'and' )
+    op3             <- ( EQ -> '==' / NE -> '~=' / LT -> '<' /
+                         GT -> '>'  / LE -> '<=' / GE -> '>=' )
+    op4             <- ( BOR -> '|' )
+    op5             <- ( BXOR -> '~' )
+    op6             <- ( BAND -> '&' )
+    op7             <- ( SHL -> '<<' / SHR -> '>>' )
+    op8             <- ( CONCAT -> '..' )
+    op9             <- ( ADD -> '+' / SUB -> '-' )
+    op10            <- ( MUL -> '*' / MOD -> '%%' / DIV -> '/' / IDIV -> '//' )
+    unop            <- ( NOT -> 'not' / LEN -> '#' / NEG -> '-' / BNEG -> '~' )
+    op12            <- ( POW -> '^' )
 
     exp             <- e1
     e1              <- {| e2  (op1  e2 )* |}            -> fold_binop_left
@@ -249,96 +252,96 @@ local grammar = pg.compile([[
 
     fieldsep        <- SEMICOLON / COMMA
 
-    -- Create new rules for all our tokens, so parser-gen can
-    -- work its whitespace-skipping magic
+    -- Create new rules for all our tokens, for the whitespace-skipping magic
+    -- Currently done by hand but this is something that parser-gen should be
+    -- able to do for us.
     
-    AND             <- %AND
-    BREAK           <- %BREAK
-    DO              <- %DO
-    ELSE            <- %ELSE
-    ELSEIF          <- %ELSEIF
-    END             <- %END
-    FOR             <- %FOR
-    FALSE           <- %FALSE
-    FUNCTION        <- %FUNCTION
-    GOTO            <- %GOTO
-    IF              <- %IF
-    IN              <- %IN
-    LOCAL           <- %LOCAL
-    NIL             <- %NIL
-    NOT             <- %NOT
-    OR              <- %OR
-    REPEAT          <- %REPEAT
-    RETURN          <- %RETURN
-    THEN            <- %THEN
-    TRUE            <- %TRUE
-    UNTIL           <- %UNTIL
-    WHILE           <- %WHILE
-
-    ADD             <- %ADD
-    SUB             <- %SUB
-    MUL             <- %MUL
-    MOD             <- %MOD
-    DIV             <- %DIV
-    IDIV            <- %IDIV
-    POW             <- %POW
-    LEN             <- %LEN
-    BAND            <- %BAND
-    BXOR            <- %BXOR
-    BOR             <- %BOR
-    SHL             <- %SHL
-    SHR             <- %SHR
-    CONCAT          <- %CONCAT
-    EQ              <- %EQ
-    LT              <- %LT
-    GT              <- %GT
-    NE              <- %NE
-    LE              <- %LE
-    GE              <- %GE
-    ASSIGN          <- %ASSIGN
-    LPAREN          <- %LPAREN
-    RPAREN          <- %RPAREN
-    LBRACKET        <- %LBRACKET
-    RBRACKET        <- %RBRACKET
-    LCURLY          <- %LCURLY
-    RCURLY          <- %RCURLY
-    SEMICOLON       <- %SEMICOLON
-    COMMA           <- %COMMA
-    DOT             <- %DOT
-    DOTS            <- %DOTS
-    DBLCOLON        <- %DBLCOLON
-    COLON           <- %COLON
-
-    NUMBER          <- %NUMBER
-    STRING          <- %STRING
-    NAME            <- %NAME
-
     SKIP            <- (%SPACE / %COMMENT)
+
+    AND             <- %AND SKIP*
+    BREAK           <- %BREAK SKIP*
+    DO              <- %DO SKIP*
+    ELSE            <- %ELSE SKIP*
+    ELSEIF          <- %ELSEIF SKIP*
+    END             <- %END SKIP*
+    FOR             <- %FOR SKIP*
+    FALSE           <- %FALSE SKIP*
+    FUNCTION        <- %FUNCTION SKIP*
+    GOTO            <- %GOTO SKIP*
+    IF              <- %IF SKIP*
+    IN              <- %IN SKIP*
+    LOCAL           <- %LOCAL SKIP*
+    NIL             <- %NIL SKIP*
+    NOT             <- %NOT SKIP*
+    OR              <- %OR SKIP*
+    REPEAT          <- %REPEAT SKIP*
+    RETURN          <- %RETURN SKIP*
+    THEN            <- %THEN SKIP*
+    TRUE            <- %TRUE SKIP*
+    UNTIL           <- %UNTIL SKIP*
+    WHILE           <- %WHILE SKIP*
+
+    ADD             <- %ADD SKIP*
+    SUB             <- %SUB SKIP*
+    MUL             <- %MUL SKIP*
+    MOD             <- %MOD SKIP*
+    DIV             <- %DIV SKIP*
+    IDIV            <- %IDIV SKIP*
+    POW             <- %POW SKIP*
+    LEN             <- %LEN SKIP*
+    BAND            <- %BAND SKIP*
+    BXOR            <- %BXOR SKIP*
+    BOR             <- %BOR SKIP*
+    SHL             <- %SHL SKIP*
+    SHR             <- %SHR SKIP*
+    CONCAT          <- %CONCAT SKIP*
+    EQ              <- %EQ SKIP*
+    LT              <- %LT SKIP*
+    GT              <- %GT SKIP*
+    NE              <- %NE SKIP*
+    LE              <- %LE SKIP*
+    GE              <- %GE SKIP*
+    ASSIGN          <- %ASSIGN SKIP*
+    LPAREN          <- %LPAREN SKIP*
+    RPAREN          <- %RPAREN SKIP*
+    LBRACKET        <- %LBRACKET SKIP*
+    RBRACKET        <- %RBRACKET SKIP*
+    LCURLY          <- %LCURLY SKIP*
+    RCURLY          <- %RCURLY SKIP*
+    SEMICOLON       <- %SEMICOLON SKIP*
+    COMMA           <- %COMMA SKIP*
+    DOT             <- %DOT SKIP*
+    DOTS            <- %DOTS SKIP*
+    DBLCOLON        <- %DBLCOLON SKIP*
+    COLON           <- %COLON SKIP*
+
+    NUMBER          <- %NUMBER SKIP*
+    STRING          <- %STRING SKIP*
+    NAME            <- %NAME SKIP*
 
     -- Synonyms
 
     NEG             <- SUB
     BNEG            <- BXOR
 
-]], defs, false, true)
-
-local function errorstostr(errors)
-    local msgs = {}
-    for _, err in ipairs(errors) do
-        local msg = string.format('%s at line %d (col %d)', err.msg, err.line,
-                                  err.col)
-        table.insert(msgs, msg)
-    end
-    return table.concat(msgs, '\n')
-end
+]], defs)
 
 function parser.parse(input)
-    local result, errors = pg.parse(input, grammar)
-    if not result then
-        return false, errorstostr(errors)
+    local ast, errnum, suffix = grammar:match(input)
+    if ast then
+        return ast
     else
-        return result
+        local pos = #input - #suffix + 1
+        local line, col = re.calcline(input, pos)
+        local label = syntax_errors.int_to_label[errnum]
+        return false, { line=line, col=col, label=label }
     end
+end
+
+function parser.error_to_string(err)
+    return string.format(
+            "Line %d Column %d: %s",
+            err.line, err.col, syntax_errors.label_to_msg[err.label])
 end
 
 function parser.pretty_print_ast(ast)

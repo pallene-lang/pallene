@@ -31,7 +31,13 @@ local function assert_ast(program, expected)
 end
 
 describe("Titan parser", function()
-    
+
+    it("can parse empty files with just whitespace and comments", function()
+        local program, err = parse_file("./testfiles/just_spaces.titan")
+        assert.truthy(program)
+        assert_ast(program, {})
+    end)
+
     it("can parse toplevel var declarations", function()
         local program, err = parse_file("./testfiles/toplevel_var.titan")
         assert.truthy(program)
