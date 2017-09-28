@@ -18,8 +18,9 @@ end
 
 function symtab:with_block(body, ...)
     self:open_block()
-    body(...)
-    return self:close_block()
+    local res = body(...)
+    self:close_block()
+    return res
 end
 
 function symtab:add_symbol(name, decl)
