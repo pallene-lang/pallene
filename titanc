@@ -12,24 +12,26 @@ p:flag('--print-ast', 'Print the AST.')
 local args = p:parse()
 
 -- Work like assert, but don't print the stack trace
-local function check(value, msg)
-    if not value then
-        print(arg[0] .. ": " .. tostring(msg))
-        os.exit(1)
-    else
-        return value
-    end
+local function exit(msg)
+    io.stderr:write(arg[0], ": ", msg, "\n")
+    os.exit(1)
 end
 
-local input
+local input, err
 if args.input == '-' then
     input = io.read("*a")
 else
-    input = check(util.get_file_contents(args.input))
+    input, errmsg = util.get_file_contents(args.input)
+    if not input then exit(errmsg) end
 end
-local ast = check(parser.parse(input))
+
+local ast, err = parser.parse(input)
+if not ast then exit(parser.error_to_string(err)) end
+
 if args.print_ast then
     print(parser.pretty_print_ast(ast))
 end
-check(checker.check(ast))
+
+local ok, errmsg = checker.check(ast)
+if not ok then exit(errsmg) end
 

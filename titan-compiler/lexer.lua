@@ -14,9 +14,12 @@
 -- lowercase.
 
 local lpeg = require 'lpeglabel'
-
 local P, R, S = lpeg.P, lpeg.R, lpeg.S
-local C, Cmt  = lpeg.C, lpeg.Cmt
+local C, Cb, Cg, Ct, Cmt = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt
+local T = lpeg.T
+
+local syntax_errors = require 'titan-compiler.syntax_errors'
+local labels = syntax_errors.label_to_int
 
 local lexer = {}
 
@@ -36,105 +39,99 @@ end
 -- weird things such as `1337require`.
 local number_start = P(".")^-1 * R("09")
 local expo = S("EePp") * S("+-")^-1
-local possible_number = #number_start * (expo + R("09", "AZ", "az") + ".")^1
-lexer.NUMBER = Cmt(possible_number, function(_, i, s)
+local possible_number = (expo + R("09", "AZ", "az") + ".")^1
+local good_number = Cmt(possible_number, function(_, i, s)
     local n = tonumber(s)
     if n then
         return i, n
     else
-        lex_error("todo: nice syntax error for malformed number")
+        return false
     end
 end)
+lexer.NUMBER = #number_start * (good_number + T(labels.MalformedNumber))
 
 --
 -- Strings
 --
 
--- If source[i] points to a newline sequence, skip it.
--- We use Lua's definition of newline sequence.
-local function skip_linebreak(source, i)
-    if string.match(source, "^\n\r", i) then return i + 2 end
-    if string.match(source, "^\r\n", i) then return i + 2 end
-    if string.match(source, "^\n", i)   then return i + 1 end
-    if string.match(source, "^\r", i)   then return i + 1 end
-    return i
+-- Lua's definition of a linebreak (used when skipping them inside strings)
+local linebreak =
+    P("\n\r") +
+    P("\r\n") +
+    P("\n") +
+    P("\r")
+
+local longstring
+do
+    local equals = P("=")^0
+    local open  = P("[") * Cg(equals, "open")  * P("[") * linebreak^-1
+    local close = P("]") * Cg(equals, "close") * P("]")
+
+    local matching_close =
+        close * Cmt( Cb("open") * Cb("close"),
+            function(source, i, open, close)
+                return open == close
+            end)
+
+    local contents = (-matching_close * P(1)) ^0
+
+    longstring = (
+        open * (
+            C(contents) * close +
+            T(labels.UnclosedLongString)
+        )
+    ) / function(contents) return contents end -- hide the group captures
 end
 
-local longstring_open  = P("[") * C( P("=")^0 ) * P("[")
-local longstring = Cmt(longstring_open, function(source, i, equals)
-    i = skip_linebreak(source, i)
-    local close_str = "]" .. equals .. "]"
-    local j, k = string.find(source, close_str, i, true)
-    if j then
-        return k+1, string.sub(source, i, j-1)
-    else
-        lex_error("TODO: friendly syntax error for EOF")
-    end
-end)
-
-local simple_escapes = {
-    ["a"]  = "\a",
-    ["b"]  = "\b",
-    ["f"]  = "\f",
-    ["n"]  = "\n",
-    ["r"]  = "\r",
-    ["t"]  = "\t",
-    ["v"]  = "\v",
-    ["\\"] = "\\",
-    ["\'"] = "\'",
-    ["\""] = "\"",
-}
-
-local function do_string_escape(source, i, parts)
-    if i > #source then
-        return nil
-    end
-
-    local c = string.sub(source,i,i);
-    i = i + 1
+local shortstring
+do
     
-    if simple_escapes[c] then
-        table.insert(parts, simple_escapes[c])
-    elseif c == "\n" or c == "\r" then
-        table.insert(parts, "\n") -- Same behaviour as Lua
-        i = skip_linebreak(source, i-1)
-    elseif string.match(c, "^[0-9]$") then
-        lex_error("TODO: implement \\ddd escapes")
-    elseif c == "u" then
-        lex_error("TODO: implement \\u escapes")
-    elseif c == "x" then
-        lex_error("TODO: implement \\x escapes")
-    elseif c == "z" then
-        lex_error("TODO: implement \\z")
-    else
-        lex_error("TODO: friendly syntax error for unknown escape")
-    end
+    local delimiter = P('"') + P("'")
+    
+    local open  = Cg(delimiter, 'open')
+    local close = Cg(delimiter, 'close')
 
-    return i
+    local matching_close =
+        close * Cmt( Cb('open')* Cb('close'),
+            function(source, i, open, close)
+                return open == close
+            end)
+
+    local escape_sequence = P("\\") * (
+        (-P(1) * T(labels.UnclosedShortString)) +
+        (P("a")  / "\a") +
+        (P("b")  / "\b") +
+        (P("f")  / "\f") +
+        (P("n")  / "\n") +
+        (P("r")  / "\r") +
+        (P("t")  / "\t") +
+        (P("v")  / "\v") +
+        (P("\\") / "\\") +
+        (P("\'") / "\'") +
+        (P("\"") / "\"") +
+        (linebreak / "\n") +
+        (#R("09") * T(labels.UnimplementedEscape_ddd)) +
+        (P("u") * T(labels.UnimplementedEscape_u)) +
+        (P("x") * T(labels.UnimplementedEscape_x)) +
+        (P("z") * T(labels.UnimplementedEscape_a)) +
+        T(labels.InvalidEscape)
+    )
+
+    local part = (
+        (S("\n\r") * T(labels.UnclosedShortString)) +
+        escape_sequence +
+        (C(P(1)))
+    )
+
+    local contents = (-matching_close * part)^0
+
+    shortstring = (
+        open * (
+            Ct(contents) * close +
+            T(labels.UnclosedShortString)
+        )
+    ) / function(parts) return table.concat(parts) end
 end
-
-local shortstring = Cmt( C(P('"') + P("'")), function(source, i, delimiter)
-    local parts = {}
-
-    while i <= #source do
-        
-        local c = string.sub(source,i,i);
-        i = i + 1
-
-        if c == delimiter then
-            return i, table.concat(parts)
-        elseif c == "\n" or c == "\r" then
-            lex_error("TODO: friendly syntax error for unfinished string (\\n)")
-        elseif c == "\\" then
-            i = do_string_escape(source, i, parts)
-            if not i then break end -- EOF error
-        else
-            table.insert(parts, c)
-        end
-    end
-
-    lex_error("TODO: friendly syntax error for unfinished string (EOF)")
-end)
 
 lexer.STRING = shortstring + longstring
 
@@ -215,7 +212,7 @@ end
 
 -- Additional conflicts
 lexer.DOT      = lexer.DOT      - (P(".") * R("09"))
-lexer.LBRACKET = lexer.LBRACKET - longstring_open
-lexer.SUB      = lexer.SUB      - comment_start
+lexer.LBRACKET = lexer.LBRACKET - (P("[") * P("=")^0 * P("["))
+lexer.SUB      = lexer.SUB      - P("--")
 
 return lexer

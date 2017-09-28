@@ -1,0 +1,5 @@
+-- When writing lpeg parsers it is easy to forget about
+-- comments and whitespace at the *start* of the file
+
+
+-- Blablabla

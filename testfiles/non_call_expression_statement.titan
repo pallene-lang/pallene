@@ -1,0 +1,4 @@
+-- This should be a syntax error
+function f()
+    17
+end
