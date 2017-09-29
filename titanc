@@ -3,12 +3,14 @@
 local argparse = require 'argparse'
 
 local checker = require 'titan-compiler.checker'
+local coder = require 'titan-compiler.coder'
 local parser = require 'titan-compiler.parser'
 local util = require 'titan-compiler.util'
 
 local p = argparse('titan', 'Titan compiler')
 p:argument('input', 'Input file.')
 p:flag('--print-ast', 'Print the AST.')
+p:option('-o --output', 'Input file.')
 local args = p:parse()
 
 -- Work like assert, but don't print the stack trace
@@ -25,6 +27,11 @@ else
     if not input then exit(errmsg) end
 end
 
+if not args.output then
+	local output_name = args.input:match("(.*)[.]titan$") or "titanc"
+    args.output = output_name .. ".c"
+end
+
 local ast, err = parser.parse(input)
 if not ast then exit(parser.error_to_string(err)) end
 
@@ -32,6 +39,11 @@ if args.print_ast then
     print(parser.pretty_print_ast(ast))
 end
 
-local ok, errmsg = checker.check(ast)
-if not ok then exit(errsmg) end
+--local ok, errmsg = checker.check(ast)
+--if not ok then exit(errsmg) end
 
+local generated_code = coder.generate(ast)
+local ok, errmsg = util.set_file_contents(args.output, generated_code)
+if not ok then exit(errmsg) end
+
+os.exit(0)

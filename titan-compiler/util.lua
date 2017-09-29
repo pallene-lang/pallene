@@ -14,4 +14,14 @@ function util.get_file_contents(filename)
     end
 end
 
+function util.set_file_contents(filename, contents)
+	local f, err = io.open(filename, "w")
+    if not f then
+		return false, err
+    end
+	f:write(contents)
+	f:close()
+	return true
+end
+
 return util
