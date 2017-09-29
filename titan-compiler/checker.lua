@@ -6,6 +6,10 @@ local types = require 'titan-compiler.types'
 local checkstat
 local checkexp
 
+-- Converts an AST type declaration into a typechecker type
+--   typenode: AST node
+--   errors: list of compile-time errors
+--   returns a type (from types.lua)
 local function typefromnode(typenode, errors)
     local tag = typenode._tag
     if tag == "Array" then
@@ -20,6 +24,13 @@ local function typefromnode(typenode, errors)
     end
 end
 
+-- First typecheck pass over the module, collects type information
+-- for top-level functions and variables and checks for duplicate definitions
+--   ast: AST for the whole module
+--   st: symbol table
+--   errors: list of compile-time errors
+--   annotates the top-level nodes with their types in a "_type" field
+--   annotates whether a top-level declaration is duplicated with a "_ignore" field
 local function firstpass(ast, st, errors)
     for _, tlnode in ipairs(ast) do
         local tag = tlnode._tag
@@ -38,13 +49,18 @@ local function firstpass(ast, st, errors)
         end
         if st:find_dup(name) then
             table.insert(errors, "duplicate function or variable declaration for " .. name)
-            tlnode.ignore = true
+            tlnode._ignore = true
         else
             st:add_symbol(name, tlnode)
         end
     end
 end
 
+-- Checks if two types are the same, and logs an error message otherwise
+--   term: string describing what is being compared
+--   expected: type that is expected
+--   found: type that was actually present
+--   errors: list of compile-time errors
 local function checkmatch(term, expected, found, errors)
     if not types.equals(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
@@ -52,6 +68,11 @@ local function checkmatch(term, expected, found, errors)
     end
 end
 
+-- Typechecks a repeat/until statement
+--   node: Stat_Repeat AST node
+--   st: symbol table
+--   errors: list of compile-time errors
+--   returns whether statement always returns from its function (always false for repeat/until)
 local function checkrepeat(node, st, errors)
     for _, stat in ipairs(node.block.stats) do
         checkstat(stat, st, errors)
@@ -60,6 +81,11 @@ local function checkrepeat(node, st, errors)
     return false
 end
 
+-- Typechecks a for loop statement
+--   node: Stat_For AST node
+--   st: symbol table
+--   errors: list of compile-time errors
+--   returns whether statement always returns from its function (always false for 'for' loop)
 local function checkfor(node, st, errors)
     checkstat(node.decl, st, errors)
     local ftype = node.decl._type
@@ -81,6 +107,11 @@ local function checkfor(node, st, errors)
     return false
 end
 
+-- Typechecks a block statement
+--   node: Stat_Block AST node
+--   st: symbol table
+--   errors: list of compile-time errors
+--   returns whether the block always returns from the containing function
 local function checkblock(node, st, errors)
     local ret = false
     for _, stat in node.stats do
@@ -89,6 +120,11 @@ local function checkblock(node, st, errors)
     return ret
 end
 
+-- Typechecks a stament or declararion
+--   node: A Decl_Decl or Stat_* AST node
+--   st: symbol table
+--   errors: list of compile-time errors
+--   returns whether statement always returns from its function (always false for repeat/until)
 function checkstat(node, st, errors)
     local tag = node._tag
     if tag == "Decl_Decl" then
@@ -135,7 +171,14 @@ function checkstat(node, st, errors)
     return false
 end
 
+-- Typechecks an expression
+--   node: Var_* or Exp_* AST node
+--   st: symbol table
+--   errors: list of compile-time errors
+--   context: expected type for this expression, if applicable
+--   annotates the node with its type in a "_type" field
 function checkexp(node, st, errors, context)
+    -- TODO coercions integer <-> float
     local tag = node._tag
     if tag == "Var_Name" then
         local decl = st:find_symbol(node.name) 
@@ -188,9 +231,88 @@ function checkexp(node, st, errors, context)
         checkexp(node.var, st, errors, context)
         node._type = node.var._type
     elseif tag == "Exp_Unop" then
-        -- TODO: check kind of operation, maybe have different kinds of AST nodes?
+        local op = node.op
+        checkexp(node.exp, st, errors)
+        local texp = node.exp._type
+        if op == '#' then
+            if not types.has_tag(texp, "Array") then
+                table.insert(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array")
+            end
+            node._type = types.Integer
+        elseif op == '-' then
+            if not types.equals(texp, types.Integer) and not types.equals(texp, types.Float) then
+                table.insert(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number")
+            end
+            node._exp = texp
+        elseif op == '~' then
+            if not types.equals(texp, types.Integer) then
+                table.insert(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer")
+            end
+            node._exp = types.Integer
+        elseif op == "not" then
+            node._type = types.Boolean
+        else
+            error("invalid unary operation " .. op)
+        end
     elseif tag == "Exp_Binop" then
-        -- TODO: same here, separate AST nodes by kind of binary operation
+        local op = node.op
+        checkexp(node.lhs, st, errors)
+        local tlhs = node.lhs._type
+        checkexp(node.rhs, st, errors)
+        local trhs = node.rhs._type
+        if op == "==" or op == "~=" then
+            if not types.equals(tlhs, trhs) then
+                table.insert(errors, "trying to compare values of different types: " ..
+                    types.tostring(tlhs) .. " and " .. types.tostring(trhs))
+            end
+            node._type = types.Boolean
+        elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
+            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+                table.insert(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number")
+            end
+            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+                table.insert(errors, "left hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number")
+            end
+            node._type = types.Boolean
+        elseif op == "+" or op == "-" or op == "*" then
+            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
+            end
+            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
+            end
+            if types.equals(tlhs, types.Float) or types.Equals(trhs, types.Float) then
+                node._type = types.Float
+            else
+                node._type = types.Integer
+            end
+        elseif op == "/" or op == "^" then
+            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
+            end
+            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
+            end
+            node._type = types.Float
+        elseif op == ".." then
+            if not types.equals(tlhs, types.String) and not types.equals(trhs, types.String) then
+                table.insert(errors, "neither side of a concatenation is a string, left side is " ..
+                    types.tostring(tlhs) .. " and right side is " .. types.tostring(trhs))
+            end
+            node._type = types.String
+        elseif op == "and" or op == "or" then
+            node._type = types.Boolean
+        elseif op == "%" or op == "//" or op == "~" or op == "|" or op == "&" or op == "<<" or op == ">>" then
+            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
+            end
+            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
+            end
+            node._type = types.Integer
+        else
+            error("invalid binary operation " .. op)
+        end
     elseif tag == "Exp_Call" then
         -- TODO: lookup function, check args, _type is return type
     else
@@ -198,21 +320,29 @@ function checkexp(node, st, errors, context)
     end
 end
 
+-- Typechecks a function body
+--   node: TopLevel_Func AST node
+--   st: symbol table
+--   errors: list of compile-time errors
 local function checkfunc(node, st, errors)
     st:add_symbol("$function", node) -- for return type
     for _, param in node.params do
         checkstat(param, st, errors)
     end
-    -- TODO: check if all paths through the function have returned
     local ret = st:with_block(checkstat, node.block, st, errors)
     if not ret and not types.equals(node._type.ret, types.Nil) then
         table.insert(errors, "function can return nil but return type is not nil")
     end
 end
 
+-- Second typechecking pass over the module, checks function bodies
+-- and rhs of top-level variable declarations
+--   ast: AST for the whole module
+--   st: symbol table
+--   errors: list of compile-time errors
 local function secondpass(ast, st, errors)
     for _, tlnode in ipairs(ast) do
-        if not tlnode.ignore then
+        if not tlnode._ignore then
             local tag = tlnode._tag
             if tag == "TopLevel_Func" then
                 st:with_block(checkfunc, node, st, errors)
@@ -223,14 +353,18 @@ local function secondpass(ast, st, errors)
     end
 end
 
+-- Entry point for the typechecker
+--   ast: AST for the whole module
+--   returns true if typechecking succeeds, or false and a list of type errors found
+--   annotates the AST with the types of its terms in "_type" fields
+--   annotates duplicate top-level declarations with a "_ignore" boolean field
 function checker.check(ast)
     local st = symtab.new()
     local errors = {}
     st:with_block(firstpass, ast, st, errors)
     st:with_block(secondpass, ast, st, errors)
-    -- TODO return all error messages
     if #errors > 0 then
-        return false, errors[1]
+        return false, errors
     end
     return true
 end
