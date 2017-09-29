@@ -167,9 +167,8 @@ describe("Titan parser", function()
 
             { _tag = "Stat_Block",
                 stats = {
-                    { _tag = "Stat_Decl", decl = { name = "x" } },
-                    { _tag = "Stat_Assign",
-                        var = { name = "x" },
+                    { _tag = "Stat_Decl",
+                        decl = { name = "x" },
                         exp = { value = 10 } },
                     { _tag = "Stat_Assign",
                         var = { name = "x" },
