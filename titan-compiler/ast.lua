@@ -49,6 +49,9 @@ types.Exp = {
     Var     = {'var'},
     Unop    = {'op', 'exp'},
     Binop   = {'lhs', 'op', 'rhs'},
+    ToFloat = { 'exp' },
+    ToInt   = { 'exp' },
+    ToStr   = { 'exp' }
 }
 
 types.Args = {

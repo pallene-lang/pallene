@@ -314,7 +314,41 @@ function checkexp(node, st, errors, context)
             error("invalid binary operation " .. op)
         end
     elseif tag == "Exp_Call" then
-        -- TODO: lookup function, check args, _type is return type
+        assert(node.exp._tag == "Var_Name", "function calls are first-order only!")
+        local fname = node.exp.name
+        local func =  st:find_symbol(fname) 
+        if func then
+            local ftype = func._type
+            local nparams = #ftype.params
+            local nargs = #node.args
+            local arity = math.max(nparams, nargs)
+            local moreargs, lessargs
+            for i = 1, arity do
+                local arg = node.arg[i]
+                local ptype = ftype.params[i]
+                if not arg then
+                    atype = ptype
+                else
+                    checkexp(arg, st, errors, ptype)
+                    atype = arg._type
+                end
+                if not ptype then
+                    ptype = atype
+                end
+                checkmatch("argument " .. i .. " of call to function " .. fname, ptype, atype, errors)
+            end
+            if nargs ~= nparams then
+                table.insert(errors, "function " .. fname .. " called with " .. nargs ..
+                    " arguments but expects " .. nparams)
+            end
+            node._type = ftype.ret
+        else
+            table.insert(errors, "function " .. fname .. " not found")
+            for _, arg in ipairs(node.args) do
+                checkexp(arg, st, errors)
+            end
+            node._type = types.Integer
+        end
     else
         error("typechecking not implemented for node type " .. tag)
     end
