@@ -2,6 +2,7 @@ local checker = {}
 
 local symtab = require 'titan-compiler.symtab'
 local types = require 'titan-compiler.types'
+local ast = require 'titan-compiler.ast'
 
 local checkstat
 local checkexp
@@ -21,6 +22,62 @@ local function typefromnode(typenode, errors)
             t = types.Integer
         end
         return t
+    end
+end
+
+-- Wraps an expression node in a coercion to integer if
+-- type of node is float
+--   node: expression node
+--   returns wrapped node, or original
+local function trytoint(node)
+    if types.equals(node._type, types.Float) then
+        local n = ast.ToInt(node)
+        n._type = types.Integer
+        return n
+    else
+        return node
+    end
+end
+
+-- Wraps an expression node in a coercion to float if
+-- type of node is integer
+--   node: expression node
+--   returns wrapped node, or original
+local function trytofloat(node)
+    if types.equals(node._type, types.Integer) then
+        local n = ast.ToFloat(node)
+        n._type = types.Float
+        return n
+    else
+        return node
+    end
+end
+
+-- Wraps an expression node in a coercion to string
+-- type of node is not string already
+--   node: expression node
+--   returns wrapped node, or original
+local function trytostr(node)
+    if not types.equals(node._type, types.String) then
+        local n = ast.ToStr(node)
+        n._type = types.String
+        return n
+    else
+        return node
+    end
+end
+
+-- tries to coerce node to target numeric type
+--    node: expression node
+--    target: target type
+--    returns node wrapped in a coercion, or original node
+local function trycoerce(node, target)
+    if types.equals(target, types.Integer) then
+        return trytoint(node)
+    elseif types.equals(target, types.Float) then
+        return trytofloat(node)
+    else
+        return node
     end
 end
 
@@ -95,12 +152,15 @@ local function checkfor(node, st, errors)
         node.decl._type = types.Integer
         ftype = types.Integer
     end
-    checkexp(node.start, st, errors, types.Integer)
+    checkexp(node.start, st, errors, ftype)
+    node.start = trycoerce(node.start, ftype)
     checkmatch("'for' start expression", ftype, node.start._type, errors)
-    checkexp(node.finish, st, errors, types.Integer)
+    checkexp(node.finish, st, errors, ftype)
+    node.finish = trycoerce(node.finish, ftype)
     checkmatch("'for' finish expression", ftype, node.finish._type, errors)
     if node.inc then
-        checkexp(node.inc, st, errors, types.Integer)
+        checkexp(node.inc, st, errors, ftype)
+        node.inc = trycoerce(node.inc, ftype)
         checkmatch("'for' step expression", ftype, node.inc._type, errors)
     end
     checkstat(node.block, st, errors)
@@ -133,6 +193,7 @@ function checkstat(node, st, errors)
     elseif tag == "Stat_Decl" then
         checkstat(node.decl, st, errors)
         checkexp(node.exp, st, errors, node.decl._type)
+        node.exp = trycoerce(node.exp, node.decl._type)
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors)
     elseif tag == "Stat_Block" then
@@ -147,13 +208,15 @@ function checkstat(node, st, errors)
     elseif tag == "Stat_Assign" then
         checkexp(node.var, st, errors)
         checkexp(node.exp, st, errors, node.var._type)
+        node.exp = trycoerce(node.exp, node.var._type)
         checkmatch("assignment", node.var._type, node.exp._type, errors)
     elseif tag == "Stat_Call" then
         checkexp(node.callexp, st, errors)
     elseif tag == "Stat_Return" then
         local tret = st:find_symbol("$function")._type.ret
         checkexp(node.exp, st, errors, tret)
-        checkmatch("return", tret, node.exp_type, errors)
+        node.exp = trycoerce(node.exp, tret)
+        checkmatch("return", tret, node.exp._type, errors)
         return true
     elseif tag == "Stat_If" then
         local ret = true
@@ -243,12 +306,14 @@ function checkexp(node, st, errors, context)
             if not types.equals(texp, types.Integer) and not types.equals(texp, types.Float) then
                 table.insert(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number")
             end
-            node._exp = texp
+            node._type = texp
         elseif op == '~' then
+            node.exp = trytoint(node.exp)
+            texp = node.exp._type
             if not types.equals(texp, types.Integer) then
                 table.insert(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer")
             end
-            node._exp = types.Integer
+            node._type = types.Integer
         elseif op == "not" then
             node._type = types.Boolean
         else
@@ -261,12 +326,26 @@ function checkexp(node, st, errors, context)
         checkexp(node.rhs, st, errors)
         local trhs = node.rhs._type
         if op == "==" or op == "~=" then
+            -- tries to coerce integer to float if either side is float
+            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+                node.lhs = trytofloat(node.lhs)
+                tlhs = node.lhs._type
+                node.rhs = trytofloat(node.rhs)
+                trhs = node.rhs._type
+            end
             if not types.equals(tlhs, trhs) then
                 table.insert(errors, "trying to compare values of different types: " ..
                     types.tostring(tlhs) .. " and " .. types.tostring(trhs))
             end
             node._type = types.Boolean
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
+            -- tries to coerce integer to float if either side is float
+            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+                node.lhs = trytofloat(node.lhs)
+                tlhs = node.lhs._type
+                node.rhs = trytofloat(node.rhs)
+                trhs = node.rhs._type
+            end
             if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
                 table.insert(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number")
             end
@@ -274,11 +353,18 @@ function checkexp(node, st, errors, context)
                 table.insert(errors, "left hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number")
             end
             node._type = types.Boolean
-        elseif op == "+" or op == "-" or op == "*" then
-            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+        elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
+            -- tries to coerce integer to float if other side is float
+            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+                node.lhs = trytofloat(node.lhs)
+                tlhs = node.lhs._type
+                node.rhs = trytofloat(node.rhs)
+                trhs = node.rhs._type
+            end
+            if not types.equals(tlhs, types.Float) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
             end
-            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+            if not types.equals(trhs, types.Float) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
             end
             if types.equals(tlhs, types.Float) or types.Equals(trhs, types.Float) then
@@ -287,6 +373,11 @@ function checkexp(node, st, errors, context)
                 node._type = types.Integer
             end
         elseif op == "/" or op == "^" then
+            -- always coerces to float if one side is integer
+            node.lhs = trytofloat(node.lhs)
+            tlhs = node.lhs._type
+            node.rhs = trytofloat(node.rhs)
+            trhs = node.rhs._type
             if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
             end
@@ -295,18 +386,27 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.Float
         elseif op == ".." then
-            if not types.equals(tlhs, types.String) and not types.equals(trhs, types.String) then
-                table.insert(errors, "neither side of a concatenation is a string, left side is " ..
-                    types.tostring(tlhs) .. " and right side is " .. types.tostring(trhs))
+            -- always tries to coerce to string
+            node.lhs = trytostr(node.lhs)
+            tlhs = node.lhs._type
+            node.rhs = trytostr(node.rhs)
+            trhs = node.rhs._type
+            if types.equals(tlhs, types.Nil) or types.equals(trhs, types.Nil) then
+                table.insert(errors, "cannot concatenate with nil value")
             end
             node._type = types.String
         elseif op == "and" or op == "or" then
             node._type = types.Boolean
-        elseif op == "%" or op == "//" or op == "~" or op == "|" or op == "&" or op == "<<" or op == ">>" then
-            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+        elseif op == "~" or op == "|" or op == "&" or op == "<<" or op == ">>" then
+            -- always tries to coerce to integer
+            node.lhs = trytoint(node.lhs)
+            tlhs = node.lhs._type
+            node.rhs = trytoint(node.rhs)
+            trhs = node.rhs._type
+            if not types.equals(tlhs, types.Integer) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
             end
-            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+            if not types.equals(trhs, types.Integer) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
             end
             node._type = types.Integer
@@ -326,11 +426,13 @@ function checkexp(node, st, errors, context)
             for i = 1, arity do
                 local arg = node.arg[i]
                 local ptype = ftype.params[i]
+                local atype
                 if not arg then
                     atype = ptype
                 else
                     checkexp(arg, st, errors, ptype)
-                    atype = arg._type
+                    node.arg[i] = trycoerce(node.arg[i], ptype)
+                    atype = node.arg[i]._type
                 end
                 if not ptype then
                     ptype = atype
