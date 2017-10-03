@@ -13,15 +13,17 @@ local checkexp
 --   returns a type (from types.lua)
 local function typefromnode(typenode, errors)
     local tag = typenode._tag
-    if tag == "Array" then
+    if tag == "Type_Array" then
         return types.Array(typefromnode(typenode.subtype, errors))
-    else
+    elseif tag == "Type_Basic" then
         local t = types.Base(typenode.name)
         if not t then
             table.insert(errors, "type name " .. typenode.name .. " is invalid")
             t = types.Integer
         end
         return t
+    else
+        error("impossible")
     end
 end
 
@@ -31,7 +33,7 @@ end
 --   returns wrapped node, or original
 local function trytoint(node)
     if types.equals(node._type, types.Float) then
-        local n = ast.ToInt(node)
+        local n = ast.Expr_ToInt(node)
         n._type = types.Integer
         return n
     else
@@ -45,7 +47,7 @@ end
 --   returns wrapped node, or original
 local function trytofloat(node)
     if types.equals(node._type, types.Integer) then
-        local n = ast.ToFloat(node)
+        local n = ast.Expr_ToFloat(node)
         n._type = types.Float
         return n
     else
@@ -59,7 +61,7 @@ end
 --   returns wrapped node, or original
 local function trytostr(node)
     if not types.equals(node._type, types.String) then
-        local n = ast.ToStr(node)
+        local n = ast.Expr_ToStr(node)
         n._type = types.String
         return n
     else
@@ -95,14 +97,15 @@ local function firstpass(ast, st, errors)
         if tag == "TopLevel_Func" then
             name = tlnode.name
             local ptypes = {}
-            for _, pdecl in tlnode.params do
+            for _, pdecl in ipairs(tlnode.params) do
                 table.insert(ptypes, typefromnode(pdecl.type, errors))
             end
             tlnode._type = types.Function(ptypes, typefromnode(tlnode.rettype, errors))
-        else
-            assert(tag == "TopLevel_Var")
+        elseif tag == "TopLevel_Var" then
             name = tlnode.decl.name
             tlnode._type = typefromnode(tlnode.decl.type, errors)
+        else
+            error("impossible")
         end
         if st:find_dup(name) then
             table.insert(errors, "duplicate function or variable declaration for " .. name)
@@ -174,7 +177,7 @@ end
 --   returns whether the block always returns from the containing function
 local function checkblock(node, st, errors)
     local ret = false
-    for _, stat in node.stats do
+    for _, stat in ipairs(node.stats) do
         ret = ret or checkstat(stat, st, errors)
     end
     return ret
@@ -361,13 +364,13 @@ function checkexp(node, st, errors, context)
                 node.rhs = trytofloat(node.rhs)
                 trhs = node.rhs._type
             end
-            if not types.equals(tlhs, types.Float) then
+            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
             end
-            if not types.equals(trhs, types.Float) then
+            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
                 table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
             end
-            if types.equals(tlhs, types.Float) or types.Equals(trhs, types.Float) then
+            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
                 node._type = types.Float
             else
                 node._type = types.Integer
@@ -462,7 +465,7 @@ end
 --   errors: list of compile-time errors
 local function checkfunc(node, st, errors)
     st:add_symbol("$function", node) -- for return type
-    for _, param in node.params do
+    for _, param in ipairs(node.params) do
         checkstat(param, st, errors)
     end
     local ret = st:with_block(checkstat, node.block, st, errors)
@@ -481,7 +484,7 @@ local function secondpass(ast, st, errors)
         if not tlnode._ignore then
             local tag = tlnode._tag
             if tag == "TopLevel_Func" then
-                st:with_block(checkfunc, node, st, errors)
+                st:with_block(checkfunc, tlnode, st, errors)
             else
                 checkexp(tlnode.value, st, errors, tlnode._type)
             end
@@ -497,8 +500,8 @@ end
 function checker.check(ast)
     local st = symtab.new()
     local errors = {}
-    st:with_block(firstpass, ast, st, errors)
-    st:with_block(secondpass, ast, st, errors)
+    st:with_block(function() firstpass(ast, st, errors) end)
+    st:with_block(function() secondpass(ast, st, errors) end)
     if #errors > 0 then
         return false, errors
     end

@@ -1,0 +1,23 @@
+function sieve(N: Integer): {Integer}
+
+    local is_prime: {Boolean} = {}
+    is_prime[1] = false
+    for n:Integer = 2, N do
+        is_prime[n] = true
+    end
+
+    local nprimes: Integer = 0
+    local primes: {Integer} = {}
+
+    for n:Integer = 1, N do
+        if is_prime[n] then
+            nprimes = nprimes + 1;
+            primes[nprimes] = n
+            for m:Integer = n+n, N, n do
+                is_prime[m] = false
+            end
+        end
+    end
+
+    return primes
+end
