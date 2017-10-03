@@ -10,7 +10,7 @@ local util = require 'titan-compiler.util'
 local p = argparse('titan', 'Titan compiler')
 p:argument('input', 'Input file.')
 p:flag('--print-ast', 'Print the AST.')
-p:option('-o --output', 'Input file.')
+p:option('-o --output', 'Output file.')
 local args = p:parse()
 
 -- Work like assert, but don't print the stack trace
