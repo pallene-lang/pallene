@@ -64,8 +64,7 @@ script:
   - busted -c -o gtest -v spec/
 
 #after_success:
-#  - luacov -c $TRAVIS_BUILD_DIR/test/luacov.config
-#  - cd $TRAVIS_BUILD_DIR/test/ && bash <(curl -s https://codecov.io/bash)
+  - luacov && bash <(curl -s https://codecov.io/bash)
 
 notifications:
   email:
