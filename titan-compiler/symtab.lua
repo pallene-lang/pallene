@@ -11,13 +11,16 @@ function symtab:open_block()
 end
 
 function symtab:close_block()
+    local last = self.blocks[#self.blocks]
     table.remove(self.blocks)
+    return last
 end
 
 function symtab:with_block(body, ...)
     self:open_block()
-    body(...)
+    local res = body(...)
     self:close_block()
+    return res
 end
 
 function symtab:add_symbol(name, decl)
@@ -35,6 +38,10 @@ function symtab:find_symbol(name)
         end
     end
     return decl
+end
+
+function symtab:find_dup(name)
+    return self.blocks[#self.blocks][name]
 end
 
 return symtab

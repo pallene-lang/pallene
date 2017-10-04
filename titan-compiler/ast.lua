@@ -24,7 +24,7 @@ types.Stat = {
     If      = {'thens', 'elsestat'},
     For     = {'decl', 'start', 'finish', 'inc', 'block'},
     Assign  = {'var', 'exp'},
-    Decl    = {'decl'},
+    Decl    = {'decl', 'exp'},
     Call    = {'callexp'},
     Return  = {'exp'},
 }
@@ -49,6 +49,9 @@ types.Exp = {
     Var     = {'var'},
     Unop    = {'op', 'exp'},
     Binop   = {'lhs', 'op', 'rhs'},
+    ToFloat = { 'exp' },
+    ToInt   = { 'exp' },
+    ToStr   = { 'exp' }
 }
 
 types.Args = {
