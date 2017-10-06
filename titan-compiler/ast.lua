@@ -77,12 +77,12 @@ for typename, conss in pairs(types) do
             end
         }}
 
-        ast[tag] = function(...)
+        ast[tag] = function(pos, ...)
             local args = table.pack(...)
             if args.n ~= #fields then
                 error('missing arguments for ' .. tag)
             end
-            local node = { _tag = tag }
+            local node = { _tag = tag, _pos = pos }
             setmetatable(node, mt)
             for i, field in ipairs(fields) do
                 assert(field ~= '_tag')
