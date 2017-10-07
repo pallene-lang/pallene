@@ -10,7 +10,7 @@ local checkexp
 
 local function typeerror(errors, msg, pos)
 	local l, c = util.get_line_number(errors.subject, pos)
-	msg = string.format("%s:%d:%d: %s", errors.filename, l, c, msg)
+	msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
 	table.insert(errors, msg)
 end
 
@@ -516,7 +516,7 @@ function checker.check(ast, subject, filename)
     st:with_block(function() firstpass(ast, st, errors) end)
     st:with_block(function() secondpass(ast, st, errors) end)
     if #errors > 0 then
-        return false, errors
+        return false, table.concat(errors, "\n")
     end
     return true
 end

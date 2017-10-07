@@ -337,10 +337,9 @@ function parser.parse(input)
     end
 end
 
-function parser.error_to_string(err)
-    return string.format(
-            "Line %d Column %d: %s",
-            err.line, err.col, syntax_errors.label_to_msg[err.label])
+function parser.error_to_string(err, filename)
+    return string.format("%s:%d:%d: syntax error: %s",
+            filename, err.line, err.col, syntax_errors.label_to_msg[err.label])
 end
 
 function parser.pretty_print_ast(ast)
