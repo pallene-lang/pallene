@@ -27,15 +27,15 @@ else
 end
 
 local ast, err = parser.parse(input)
-if not ast then exit(parser.error_to_string(err)) end
+if not ast then exit(parser.error_to_string(err, args.input)) end
 
 if args.print_ast then
     print(parser.pretty_print_ast(ast))
     os.exit(0)
 end
 
-local ok, errmsgs = checker.check(ast)
-if not ok then exit( errmsgs[1] ) end
+local ok, errmsgs = checker.check(ast, input, args.input)
+if not ok then exit(errmsgs) end
 
 if args.print_types then
     print(parser.pretty_print_ast(ast))

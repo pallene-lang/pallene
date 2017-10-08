@@ -3,9 +3,16 @@ local checker = {}
 local symtab = require 'titan-compiler.symtab'
 local types = require 'titan-compiler.types'
 local ast = require 'titan-compiler.ast'
+local util = require 'titan-compiler.util'
 
 local checkstat
 local checkexp
+
+local function typeerror(errors, msg, pos)
+	local l, c = util.get_line_number(errors.subject, pos)
+	msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
+	table.insert(errors, msg)
+end
 
 -- Converts an AST type declaration into a typechecker type
 --   typenode: AST node
@@ -18,7 +25,7 @@ local function typefromnode(typenode, errors)
     elseif tag == "Type_Basic" then
         local t = types.Base(typenode.name)
         if not t then
-            table.insert(errors, "type name " .. typenode.name .. " is invalid")
+            typeerror(errors, "type name " .. typenode.name .. " is invalid", typenode._pos)
             t = types.Integer
         end
         return t
@@ -108,7 +115,7 @@ local function firstpass(ast, st, errors)
             error("impossible")
         end
         if st:find_dup(name) then
-            table.insert(errors, "duplicate function or variable declaration for " .. name)
+            typeerror(errors, "duplicate function or variable declaration for " .. name, tlnode._pos)
             tlnode._ignore = true
         else
             st:add_symbol(name, tlnode)
@@ -121,10 +128,12 @@ end
 --   expected: type that is expected
 --   found: type that was actually present
 --   errors: list of compile-time errors
-local function checkmatch(term, expected, found, errors)
+--	 pos: position of the term that is being compared
+local function checkmatch(term, expected, found, errors, pos)
     if not types.equals(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
-        table.insert(errors, string.format(msg, term, types.tostring(expected), types.tostring(found)))
+		msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
+		typeerror(errors, msg, pos)
     end
 end
 
@@ -151,20 +160,20 @@ local function checkfor(node, st, errors)
     local ftype = node.decl._type
     if not types.equals(ftype, types.Integer) and
         not types.equals(ftype, types.Float) then
-        table.insert(errors, "type of for control variable " .. node.decl.name .. " must be integer or float")
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
     end
     checkexp(node.start, st, errors, ftype)
     node.start = trycoerce(node.start, ftype)
-    checkmatch("'for' start expression", ftype, node.start._type, errors)
+    checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._pos)
     checkexp(node.finish, st, errors, ftype)
     node.finish = trycoerce(node.finish, ftype)
-    checkmatch("'for' finish expression", ftype, node.finish._type, errors)
+    checkmatch("'for' finish expression", ftype, node.finish._type, errors, node.finish._pos)
     if node.inc then
         checkexp(node.inc, st, errors, ftype)
         node.inc = trycoerce(node.inc, ftype)
-        checkmatch("'for' step expression", ftype, node.inc._type, errors)
+        checkmatch("'for' step expression", ftype, node.inc._type, errors, node.inc._pos)
     end
     checkstat(node.block, st, errors)
     return false
@@ -198,7 +207,7 @@ function checkstat(node, st, errors)
         checkexp(node.exp, st, errors, node.decl._type)
         node.exp = trycoerce(node.exp, node.decl._type)
         checkmatch("declaration of local variable " .. node.decl.name,
-            node.decl._type, node.exp._type, errors)
+            node.decl._type, node.exp._type, errors, node.decl._pos)
     elseif tag == "Stat_Block" then
         return st:with_block(checkblock, node, st, errors)
     elseif tag == "Stat_While" then
@@ -212,14 +221,14 @@ function checkstat(node, st, errors)
         checkexp(node.var, st, errors)
         checkexp(node.exp, st, errors, node.var._type)
         node.exp = trycoerce(node.exp, node.var._type)
-        checkmatch("assignment", node.var._type, node.exp._type, errors)
+        checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
     elseif tag == "Stat_Call" then
         checkexp(node.callexp, st, errors)
     elseif tag == "Stat_Return" then
         local tret = st:find_symbol("$function")._type.ret
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret)
-        checkmatch("return", tret, node.exp._type, errors)
+        checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
         return true
     elseif tag == "Stat_If" then
         local ret = true
@@ -227,7 +236,7 @@ function checkstat(node, st, errors)
             checkexp(thn.condition, st, errors, types.Boolean)
             ret = checkstat(thn.block, st, errors) and ret
         end
-        if node.elsestat then 
+        if node.elsestat then
             ret = checkstat(node.elsestat, st, errors) and ret
         end
         return ret
@@ -250,11 +259,11 @@ function checkexp(node, st, errors, context)
         local decl = st:find_symbol(node.name) 
         if not decl then
             -- TODO generate better error messages when we have the line num
-            local error = "variable '" .. node.name .. "' not declared"
-            table.insert(errors, error)
+            local msg = "variable '" .. node.name .. "' not declared"
+            typeerror(errors, msg, node._pos)
             node._type = types.Integer
         elseif decl._tag == "TopLevel_Func" then
-            table.insert(errors, "reference to function " .. node.name .. " outside of function call")
+            typeerror(errors, "reference to function " .. node.name .. " outside of function call", decl._pos)
             node._type = types.Integer
         else
             node.decl = decl
@@ -263,14 +272,14 @@ function checkexp(node, st, errors, context)
     elseif tag == "Var_Index" then
         checkexp(node.exp1, st, errors, context and types.Array(context))
         if not types.has_tag(node.exp1._type, "Array") then
-            table.insert(errors, "array expression in indexing is not an array but " 
-                .. types.tostring(node.exp1._type))
+            typeerror(errors, "array expression in indexing is not an array but "
+                .. types.tostring(node.exp1._type), node.exp1._pos)
             node._type = types.Integer
         else
             node._type = node.exp1._type.elem
         end
         checkexp(node.exp2, st, errors, types.Integer)
-        checkmatch("array indexing", types.Integer, node.exp2._type, errors)
+        checkmatch("array indexing", types.Integer, node.exp2._type, errors, node.exp2._pos)
     elseif tag == "Exp_Nil" then
         node._type = types.Nil
     elseif tag == "Exp_Bool" then
@@ -291,7 +300,7 @@ function checkexp(node, st, errors, context)
         local etype = etypes[1] or (context and context.elem) or types.Integer
         node._type = types.Array(etype)
         for i, exp in ipairs(node.exps) do
-            checkmatch("array initializer at position " .. i, etype, exp._type)
+            checkmatch("array initializer at position " .. i, etype, exp._type, errors, exp._pos)
         end
     elseif tag == "Exp_Var" then
         checkexp(node.var, st, errors, context)
@@ -300,21 +309,22 @@ function checkexp(node, st, errors, context)
         local op = node.op
         checkexp(node.exp, st, errors)
         local texp = node.exp._type
+		local pos = node._pos
         if op == '#' then
             if not types.has_tag(texp, "Array") then
-                table.insert(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array")
+                typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array", pos)
             end
             node._type = types.Integer
         elseif op == '-' then
             if not types.equals(texp, types.Integer) and not types.equals(texp, types.Float) then
-                table.insert(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number")
+                typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", pos)
             end
             node._type = texp
         elseif op == '~' then
             node.exp = trytoint(node.exp)
             texp = node.exp._type
             if not types.equals(texp, types.Integer) then
-                table.insert(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer")
+                typeerror(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer", pos)
             end
             node._type = types.Integer
         elseif op == "not" then
@@ -328,6 +338,7 @@ function checkexp(node, st, errors, context)
         local tlhs = node.lhs._type
         checkexp(node.rhs, st, errors)
         local trhs = node.rhs._type
+		local pos = node._pos
         if op == "==" or op == "~=" then
             -- tries to coerce integer to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
@@ -337,8 +348,8 @@ function checkexp(node, st, errors, context)
                 trhs = node.rhs._type
             end
             if not types.equals(tlhs, trhs) then
-                table.insert(errors, "trying to compare values of different types: " ..
-                    types.tostring(tlhs) .. " and " .. types.tostring(trhs))
+                typeerror(errors, "trying to compare values of different types: " ..
+                    types.tostring(tlhs) .. " and " .. types.tostring(trhs), pos)
             end
             node._type = types.Boolean
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
@@ -350,10 +361,10 @@ function checkexp(node, st, errors, context)
                 trhs = node.rhs._type
             end
             if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
-                table.insert(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number")
+                typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
-                table.insert(errors, "left hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number")
+                typeerror(errors, "left hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Boolean
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
@@ -365,10 +376,10 @@ function checkexp(node, st, errors, context)
                 trhs = node.rhs._type
             end
             if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
-                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
-                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
                 node._type = types.Float
@@ -382,10 +393,10 @@ function checkexp(node, st, errors, context)
             node.rhs = trytofloat(node.rhs)
             trhs = node.rhs._type
             if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
-                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
-                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Float
         elseif op == ".." then
@@ -395,7 +406,7 @@ function checkexp(node, st, errors, context)
             node.rhs = trytostr(node.rhs)
             trhs = node.rhs._type
             if types.equals(tlhs, types.Nil) or types.equals(trhs, types.Nil) then
-                table.insert(errors, "cannot concatenate with nil value")
+                typeerror(errors, "cannot concatenate with nil value", pos)
             end
             node._type = types.String
         elseif op == "and" or op == "or" then
@@ -407,10 +418,10 @@ function checkexp(node, st, errors, context)
             node.rhs = trytoint(node.rhs)
             trhs = node.rhs._type
             if not types.equals(tlhs, types.Integer) then
-                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number")
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(trhs, types.Integer) then
-                table.insert(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number")
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Integer
         else
@@ -419,7 +430,7 @@ function checkexp(node, st, errors, context)
     elseif tag == "Exp_Call" then
         assert(node.exp._tag == "Var_Name", "function calls are first-order only!")
         local fname = node.exp.name
-        local func =  st:find_symbol(fname) 
+        local func =  st:find_symbol(fname)
         if func then
             local ftype = func._type
             local nparams = #ftype.params
@@ -440,15 +451,15 @@ function checkexp(node, st, errors, context)
                 if not ptype then
                     ptype = atype
                 end
-                checkmatch("argument " .. i .. " of call to function " .. fname, ptype, atype, errors)
+                checkmatch("argument " .. i .. " of call to function " .. fname, ptype, atype, errors, node.exp._pos)
             end
             if nargs ~= nparams then
-                table.insert(errors, "function " .. fname .. " called with " .. nargs ..
-                    " arguments but expects " .. nparams)
+                typeerror(errors, "function " .. fname .. " called with " .. nargs ..
+                    " arguments but expects " .. nparams, node._pos)
             end
             node._type = ftype.ret
         else
-            table.insert(errors, "function " .. fname .. " not found")
+            typeerror(errors, "function " .. fname .. " not found", node._pos)
             for _, arg in ipairs(node.args) do
                 checkexp(arg, st, errors)
             end
@@ -470,7 +481,7 @@ local function checkfunc(node, st, errors)
     end
     local ret = st:with_block(checkstat, node.block, st, errors)
     if not ret and not types.equals(node._type.ret, types.Nil) then
-        table.insert(errors, "function can return nil but return type is not nil")
+        typeerror(errors, "function can return nil but return type is not nil", node._pos)
     end
 end
 
@@ -494,16 +505,18 @@ end
 
 -- Entry point for the typechecker
 --   ast: AST for the whole module
+--   subject: the string that generated the AST
+--	 filename: the file name that contains the subject
 --   returns true if typechecking succeeds, or false and a list of type errors found
 --   annotates the AST with the types of its terms in "_type" fields
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(ast)
+function checker.check(ast, subject, filename)
     local st = symtab.new()
-    local errors = {}
+    local errors = {subject = subject, filename = filename}
     st:with_block(function() firstpass(ast, st, errors) end)
     st:with_block(function() secondpass(ast, st, errors) end)
     if #errors > 0 then
-        return false, errors
+        return false, table.concat(errors, "\n")
     end
     return true
 end
