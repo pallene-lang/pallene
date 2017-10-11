@@ -11,6 +11,7 @@ local p = argparse('titan', 'Titan compiler')
 p:argument('input', 'Input file.')
 p:flag('--print-ast', 'Print the AST.')
 p:option('-o --output', 'Output file.')
+p:flag('--print-types', 'Print the AST with types.')
 local args = p:parse()
 
 -- Work like assert, but don't print the stack trace
@@ -33,17 +34,22 @@ if not args.output then
 end
 
 local ast, err = parser.parse(input)
-if not ast then exit(parser.error_to_string(err)) end
+if not ast then exit(parser.error_to_string(err, args.input)) end
 
 if args.print_ast then
     print(parser.pretty_print_ast(ast))
+    os.exit(0)
 end
 
---local ok, errmsg = checker.check(ast)
---if not ok then exit(errsmg) end
+local ok, errmsgs = checker.check(ast, input, args.input)
+if not ok then exit(errmsgs) end
+
+if args.print_types then
+    print(parser.pretty_print_ast(ast))
+    os.exit(0)
+end
 
 local generated_code = coder.generate(ast)
 local ok, errmsg = util.set_file_contents(args.output, generated_code)
 if not ok then exit(errmsg) end
 
-os.exit(0)

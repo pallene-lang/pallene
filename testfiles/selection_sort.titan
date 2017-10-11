@@ -1,0 +1,21 @@
+function selection_sort(xs: {Integer}): Nil
+    local N: Integer = #xs
+    for i: Integer = 1, N do
+
+        -- Find minimum
+        local min_i: Integer = i
+        local min_x: Integer = xs[i]
+        for j: Integer = i+1, N do
+            local y: Integer = xs[j]
+            if y < min_x then
+                min_i = j
+                min_x = y
+            end
+        end
+
+        -- Move it to the front
+        local tmp: Integer = xs[i]
+        xs[i] = xs[min_i]
+        xs[min_i] = tmp
+    end
+end
