@@ -266,7 +266,7 @@ function checkexp(node, st, errors, context)
             typeerror(errors, "reference to function " .. node.name .. " outside of function call", decl._pos)
             node._type = types.Integer
         else
-            node.decl = decl
+            node._decl = decl
             node._type = decl._type
         end
     elseif tag == "Var_Index" then
@@ -411,7 +411,7 @@ function checkexp(node, st, errors, context)
             node._type = types.String
         elseif op == "and" or op == "or" then
             node._type = types.Boolean
-        elseif op == "~" or op == "|" or op == "&" or op == "<<" or op == ">>" then
+        elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce to integer
             node.lhs = trytoint(node.lhs)
             tlhs = node.lhs._type
