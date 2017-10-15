@@ -5,15 +5,15 @@ local coder = {}
 local codeexp, codestat
 
 local function node2literal(node)
-	local tag = node._tag
-	if tag == "Exp_Integer" or tag == "Exp_Float" then
-		return tonumber(node.value)
-	elseif tag == "Exp_Unop" and node.op == "-" then
-		local lexp = node2literal(node.exp)
-		return lexp and -lexp
-	else
-		return nil
-	end
+    local tag = node._tag
+    if tag == "Exp_Integer" or tag == "Exp_Float" then
+        return tonumber(node.value)
+    elseif tag == "Exp_Unop" and node.op == "-" then
+        local lexp = node2literal(node.exp)
+        return lexp and -lexp
+    else
+        return nil
+    end
 end
 
 local function checktype(t, s, lin)
@@ -61,24 +61,24 @@ local function setslot(t, s, c)
 end
 
 local function ctype(t)
-	if types.equals(t, types.Integer) then return "lua_Integer"
-	elseif types.equals(t, types.Float) then return "lua_Number"
-	elseif types.equals(t, types.Boolean) then return "int"
-	elseif types.equals(t, types.Nil) then return "int"
-	elseif types.equals(t, types.String) then return "TString*"
-	elseif types.has_tag(t, "Array") then return "Table*"
-	else error("invalid type " .. types.tostring(t))
-	end
+    if types.equals(t, types.Integer) then return "lua_Integer"
+    elseif types.equals(t, types.Float) then return "lua_Number"
+    elseif types.equals(t, types.Boolean) then return "int"
+    elseif types.equals(t, types.Nil) then return "int"
+    elseif types.equals(t, types.String) then return "TString*"
+    elseif types.has_tag(t, "Array") then return "Table*"
+    else error("invalid type " .. types.tostring(t))
+    end
 end
 
 -- creates a new code generation context for a function
 local function newcontext()
-	return {
-		tmp = 1,    -- next temporary index (for generating temporary names)
-		nslots = 0, -- number of slots needed by function
-		depth = 0,  -- current stack depth
-		dstack = {} -- stack of stack depths
-	}
+    return {
+        tmp = 1,    -- next temporary index (for generating temporary names)
+        nslots = 0, -- number of slots needed by function
+        depth = 0,  -- current stack depth
+        dstack = {} -- stack of stack depths
+    }
 end
 
 local function newslot(ctx, name)
@@ -126,7 +126,7 @@ local function popd(ctx)
 end
 
 -- All the code generation functions for STATEMENTS take
--- the function context and the AST node and return the 
+-- the function context and the AST node and return the
 -- generated C code for the statement, as a string
 
 local function codeblock(ctx, node)
@@ -321,7 +321,7 @@ local function codeassignment(ctx, node)
         luaC_barrierback(L, _t, &_vv);
       ]], setslot(arr._type.elem, "&_vv", cexp))
     else
-      cset = setslot(arr._type.elem, "_slot", cexp)
+        error("invalid tag for lvalue of assignment: " .. tag)
     end
     return string.format([[
     {
@@ -396,7 +396,7 @@ local function codereturn(ctx, node)
 end
 
 function codestat(ctx, node)
-	local tag = node._tag
+    local tag = node._tag
     if tag == "Stat_Decl" then
       local cstats, cexp = codeexp(ctx, node.exp)
       local typ = node.decl._type
@@ -422,24 +422,24 @@ function codestat(ctx, node)
         }  
         ]], cdecl, cslot, cstats, node.decl._cvar, cexp, cset)
     elseif tag == "Stat_Block" then
-			return codeblock(ctx, node)
+        return codeblock(ctx, node)
     elseif tag == "Stat_While" then
-			return codewhile(ctx, node)
+        return codewhile(ctx, node)
     elseif tag == "Stat_Repeat" then
-			return coderepeat(ctx, node)
+        return coderepeat(ctx, node)
     elseif tag == "Stat_If" then
-			return codeif(ctx, node)
+        return codeif(ctx, node)
     elseif tag == "Stat_For" then
-			return codefor(ctx, node)
+        return codefor(ctx, node)
     elseif tag == "Stat_Assign" then
-			return codeassignment(ctx, node)
+        return codeassignment(ctx, node)
     elseif tag == "Stat_Call" then
 			local cstats, cexp = codecall(ctx, node)
 			return cstats .. "\n    " .. cexp .. ";"
     elseif tag == "Stat_Return" then
-			return codereturn(ctx, node)
+        return codereturn(ctx, node)
     else
-      error("code generation not implemented for node " .. tag)
+        error("code generation not implemented for node " .. tag)
     end
 end
 
@@ -450,26 +450,26 @@ end
 -- the preliminary code is always the empty string
 
 local function codevar(ctx, node)
-	return "", node._decl._cvar
+    return "", node.decl._cvar
 end
 
 local function codevalue(ctx, node)
-  local tag = node._tag
-  if tag == "Exp_Nil" then
-		return "", "0"
-	elseif tag == "Exp_Bool" then
-		return "", node.value and "1" or "0"
-	elseif tag == "Exp_Integer" then
-	  return "", string.format("%i", node.value)
-	elseif tag == "Exp_Float" then
-	  return "", string.format("%lf", node.value)
-	elseif tag == "Exp_String" then
-	  -- TODO: make a constant table so we can
-		-- allocate literal strings on module load time
-		error("code generation for literal strings not implemented")
-	else
-    error("invalid tag for a literal value: " .. tag)
-	end
+    local tag = node._tag
+    if tag == "Exp_Nil" then
+        return "", "0"
+    elseif tag == "Exp_Bool" then
+        return "", node.value and "1" or "0"
+    elseif tag == "Exp_Integer" then
+        return "", string.format("%i", node.value)
+    elseif tag == "Exp_Float" then
+        return "", string.format("%lf", node.value)
+    elseif tag == "Exp_String" then
+        -- TODO: make a constant table so we can
+        -- allocate literal strings on module load time
+        error("code generation for literal strings not implemented")
+    else
+        error("invalid tag for a literal value: " .. tag)
+    end
 end
 
 local function codetable(ctx, node)
@@ -605,19 +605,19 @@ function codeexp(ctx, node)
     elseif tag == "Var_Index" then
       return codeindex(ctx, node)
     elseif tag == "Exp_Nil" or
-    	   tag == "Exp_Bool" or
-    	   tag == "Exp_Integer" or
-    	   tag == "Exp_Float" or
-    	   tag == "Exp_String" then
-			return codevalue(ctx, node)
+         tag == "Exp_Bool" or
+         tag == "Exp_Integer" or
+         tag == "Exp_Float" or
+         tag == "Exp_String" then
+        return codevalue(ctx, node)
     elseif tag == "Exp_Table" then
-			return codetable(ctx, node)
+        return codetable(ctx, node)
     elseif tag == "Exp_Var" then
 			return codeexp(ctx, node.var)
     elseif tag == "Exp_Unop" then
-			return codeunaryop(ctx, node)
+        return codeunaryop(ctx, node)
     elseif tag == "Exp_Binop" then
-			return codebinaryop(ctx, node)
+        return codebinaryop(ctx, node)
     elseif tag == "Exp_Call" then
       return codecall(ctx, node)
     elseif tag == "Exp_ToFloat" then
@@ -642,7 +642,7 @@ function codeexp(ctx, node)
     elseif tag == "Exp_ToStr" then
       error("code generation for coercion to string not implemented")
     else
-      error("code generation not implemented for node " .. tag)
+        error("code generation not implemented for node " .. tag)
     end
 end
 
