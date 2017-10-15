@@ -229,6 +229,7 @@ function checkstat(node, st, errors)
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret)
         checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
+        node._type = tret
         return true
     elseif tag == "Stat_If" then
         local ret = true
