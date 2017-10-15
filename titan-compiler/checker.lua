@@ -9,9 +9,9 @@ local checkstat
 local checkexp
 
 local function typeerror(errors, msg, pos)
-	local l, c = util.get_line_number(errors.subject, pos)
-	msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
-	table.insert(errors, msg)
+    local l, c = util.get_line_number(errors.subject, pos)
+    msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
+    table.insert(errors, msg)
 end
 
 -- Converts an AST type declaration into a typechecker type
@@ -128,12 +128,12 @@ end
 --   expected: type that is expected
 --   found: type that was actually present
 --   errors: list of compile-time errors
---	 pos: position of the term that is being compared
+--   pos: position of the term that is being compared
 local function checkmatch(term, expected, found, errors, pos)
     if not types.equals(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
-		msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
-		typeerror(errors, msg, pos)
+        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
+        typeerror(errors, msg, pos)
     end
 end
 
@@ -309,7 +309,7 @@ function checkexp(node, st, errors, context)
         local op = node.op
         checkexp(node.exp, st, errors)
         local texp = node.exp._type
-		local pos = node._pos
+        local pos = node._pos
         if op == '#' then
             if not types.has_tag(texp, "Array") then
                 typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array", pos)
@@ -338,7 +338,7 @@ function checkexp(node, st, errors, context)
         local tlhs = node.lhs._type
         checkexp(node.rhs, st, errors)
         local trhs = node.rhs._type
-		local pos = node._pos
+        local pos = node._pos
         if op == "==" or op == "~=" then
             -- tries to coerce integer to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
@@ -506,7 +506,7 @@ end
 -- Entry point for the typechecker
 --   ast: AST for the whole module
 --   subject: the string that generated the AST
---	 filename: the file name that contains the subject
+--   filename: the file name that contains the subject
 --   returns true if typechecking succeeds, or false and a list of type errors found
 --   annotates the AST with the types of its terms in "_type" fields
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
