@@ -1,0 +1,69 @@
+-- Add two numbers
+
+function foo(x: integer, y: integer): integer
+    return x + y
+end
+
+function filltable(N: integer): { integer }
+    local xs: { integer } = {}
+    for i: integer = 1,N do
+        xs[i] = 10*i
+    end
+    return xs
+end
+
+
+function sieve(N: integer): {integer}
+
+    local is_prime: {boolean} = {}
+    is_prime[1] = false
+    for n: integer=2,N do
+        is_prime[n] = true
+    end
+
+    local nprimes: integer = 0
+    local primes: {integer} = {}
+
+    for n: integer=1,N do
+        if is_prime[n] then
+            nprimes = nprimes + 1;
+            primes[nprimes] = n
+            for m:integer = n+n, N, n do
+                is_prime[m] = false
+            end
+        end
+    end
+
+    return primes
+end
+
+
+function sort(xs: {integer}): nil
+    local N: integer = #xs
+    for i: integer=1,N do
+
+        -- Find minimum
+        local min_i: integer = i
+        local min_x: integer = xs[i]
+        for j: integer = i+1, N do
+            local y: integer = xs[j]
+            if y < min_x then
+                min_i = j
+                min_x = y
+            end
+        end
+
+        -- Move it to the front
+        local tmp: integer = xs[i]
+        xs[i] = xs[min_i]
+        xs[min_i] = tmp
+    end
+end
+
+function sum(N: integer): integer
+    local res = 0
+    for i: integer=1,N do
+        res = res + i
+    end
+    return res
+end

@@ -12,6 +12,7 @@ p:argument('input', 'Input file.')
 p:flag('--print-ast', 'Print the AST.')
 p:option('-o --output', 'Output file.')
 p:flag('--print-types', 'Print the AST with types.')
+p:option('-l --lua', 'Path to Lua source tree.')
 local args = p:parse()
 
 -- Work like assert, but don't print the stack trace
@@ -20,25 +21,33 @@ local function exit(msg)
     os.exit(1)
 end
 
+local modname
+
 local input, err
 if args.input == '-' then
     input = io.read("*a")
+    modname = "stdin"
 else
     input, errmsg = util.get_file_contents(args.input)
+    modname = args.input:match("([^/]*)[.]titan$") or "sample"
     if not input then exit(errmsg) end
 end
 
 if not args.output then
 	local output_name = args.input:match("(.*)[.]titan$") or "titanc"
-    args.output = output_name .. ".c"
+  args.output = output_name .. ".c"
+end
+
+if not args.lua then
+  args.lua = "lua/src/"
 end
 
 local ast, err = parser.parse(input)
 if not ast then exit(parser.error_to_string(err, args.input)) end
 
 if args.print_ast then
-    print(parser.pretty_print_ast(ast))
-    os.exit(0)
+  print(parser.pretty_print_ast(ast))
+  os.exit(0)
 end
 
 local ok, errmsgs = checker.check(ast, input, args.input)
@@ -49,7 +58,15 @@ if args.print_types then
     os.exit(0)
 end
 
-local generated_code = coder.generate(ast)
+local generated_code = coder.generate(modname, ast)
 local ok, errmsg = util.set_file_contents(args.output, generated_code)
 if not ok then exit(errmsg) end
+
+local CC = "gcc"
+local CFLAGS = "--std=c99 -O2 -Wall -I" .. args.lua .. " -fPIC"
+
+os.execute(string.format([[
+%s %s -shared %s -o %s.so
+]], CC, CFLAGS, args.output, modname))
+
 

@@ -1,3 +1,5 @@
+local types = require "titan-compiler.types"
+
 local coder = {}
 
 local codeexp, codestat
@@ -14,14 +16,44 @@ local function node2literal(node)
 	end
 end
 
+local function checktype(t, s, lin)
+  local tag
+	if types.equals(t, types.Integer) then tag = "integer"
+	elseif types.equals(t, types.Float) then tag = "float"
+	elseif types.equals(t, types.Boolean) then tag = "boolean"
+	elseif types.equals(t, types.Nil) then tag = "nil"
+	elseif types.equals(t, types.String) then tag = "string"
+	elseif types.has_tag(t, "Array") then tag = "table"
+  else 
+    error("invalid type " .. types.tostring(t))
+  end
+  return string.format([[
+    if(!ttis%s(%s)) luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
+  ]], tag, s, lin, tag, s)
+end
+
+local function getslot(t, c, s)
+  local tmpl
+	if types.equals(t, types.Integer) then tmpl = "%s = ivalue(%s);"
+	elseif types.equals(t, types.Float) then tmpl = "%s = fltvalue(%s);"
+	elseif types.equals(t, types.Boolean) then tmpl = "%s = bvalue(%s);"
+	elseif types.equals(t, types.Nil) then tmpl = "%s = 0;"
+	elseif types.equals(t, types.String) then tmpl = "%s = svalue(%s);"
+	elseif types.has_tag(t, "Array") then tmpl = "%s = hvalue(%s);"
+  else 
+    error("invalid type " .. types.tostring(t))
+  end
+  return string.format(tmpl, c, s)
+end
+
 local function setslot(t, s, c)
   local tmpl
 	if types.equals(t, types.Integer) then tmpl = "setivalue(%s, %s);"
 	elseif types.equals(t, types.Float) then tmpl = "setfltvalue(%s, %s);"
 	elseif types.equals(t, types.Boolean) then tmpl = "setbvalue(%s, %s);"
-	elseif types.equals(t, types.Nil) then tmpl = "setnilvalue(%s);"
-	elseif types.equals(t, types.String) then tmpl = "setsvalue(%s, %s);"
-	elseif types.has_tag(t, "Array") then tmpl = "sethvalue(%s, %s);"
+	elseif types.equals(t, types.Nil) then tmpl = "setnilvalue(%s); ((void)%s);"
+	elseif types.equals(t, types.String) then tmpl = "setsvalue(L, %s, %s);"
+	elseif types.has_tag(t, "Array") then tmpl = "sethvalue(L, %s, %s);"
   else 
     error("invalid type " .. types.tostring(t))
   end
@@ -49,8 +81,32 @@ local function newcontext()
 	}
 end
 
+local function newslot(ctx, name)
+	ctx.depth = ctx.depth + 1
+  if ctx.depth > ctx.nslots then ctx.nslots = ctx.depth end
+  return string.format([[
+    setnilvalue(L->top);
+    TValue *%s = L->top;
+    api_incr_top(L);
+  ]], name)
+end
+
+local function newtmp(ctx, typ, isgc)
+  local tmp = ctx.tmp
+  ctx.tmp = ctx.tmp + 1
+  if isgc then
+    return newslot(ctx, "_tmp_" .. tmp .. "_slot") .. string.format([[
+    %s _tmp_%d;  
+    ]], ctype(typ), tmp), "_tmp_" .. tmp, "_tmp_" .. tmp .. "_slot"
+  else
+    return string.format([[
+    %s _tmp_%d;  
+    ]], ctype(typ), tmp), "_tmp_" .. tmp
+  end
+end
+
 local function pushd(ctx)
-	table.insert(ctx.dstack, ctx.depth)
+  table.insert(ctx.dstack, ctx.depth)
 end
 
 local function popd(ctx)
@@ -58,19 +114,15 @@ local function popd(ctx)
 	local delta = ctx.depth - depth
 	ctx.depth = depth
 	if delta > 0 then
-		return string.format([[
-    lua_lock(L);
-    L->top -= %d;
-    lua_unlock(L);
-	]], delta)
+		return  [[
+      TValue *_savedtop = L->top;
+    ]],
+  [[
+    L->top = _savedtop;
+	]]
 	else
-		return nil
+		return "", ""
 	end
-end
-
-local function getslot(ctx)
-	ctx.depth = ctx.depth + 1
-	if ctx.depth > ctx.nslots then ctx.nslots = ctx.depth end
 end
 
 -- All the code generation functions for STATEMENTS take
@@ -82,55 +134,53 @@ local function codeblock(ctx, node)
 	pushd(ctx)
 	for _, stat in ipairs(node.stats) do
 		table.insert(stats, codestat(ctx, stat))
-	end
-	table.insert(stats, popd(ctx))
+  end
+  local push, pop = popd(ctx)
+  table.insert(stats, 1, push)
+	table.insert(stats, pop)
 	return "    {\n    " .. table.concat(stats, "\n    ") .. "\n    }"
 end
 
 local function codewhile(ctx, node)
-	pushd(ctx)
+  pushd(ctx)
 	local cstats, cexp = codeexp(ctx, node.condition)
 	local cblk = codestat(ctx, node.block)
-	local adjust = popd(ctx) or ""
+	local savetop, restoretop = popd(ctx)
 	return string.format([[
-    {
-		  while(1) {
+	  while(1) {
+      %s
+			%s
+			if(!(%s)) {
 			  %s
-			  if(!(%s)) {
-					%s
-					break;
-				}
-				%s
-				%s
-	    }
+				break;
+			}
+			%s
+			%s
 	  }
-	]], cstats, cexp, adjust, cblk, adjust)
+	]], savetop, cstats, cexp, restoretop, cblk, restoretop)
 end
 
 local function coderepeat(ctx, node)
 	pushd(ctx)
 	local cstats, cexp = codeexp(ctx, node.condition)
 	local cblk = codestat(ctx, node.block)
-	local adjust = popd(ctx) or ""
+	local savetop, restoretop = popd(ctx)
 	return string.format([[
-	  {
-		  while(1) {
-	      %s
-			  %s
-				if(%s) {
-					%s
-					break;
-				}
+	  while(1) {
+	    %s
+		  %s
+			if(%s) {
 				%s
-		  }
-	  }
-	]], cblk, cstats, cexp, adjust, adjust)
+				break;
+			}
+			%s
+		}
+	]], savetop, cblk, cstats, cexp, restoretop, restoretop)
 end
 
 local function codeif(ctx, node, idx)
 	idx = idx or 1
 	local cstats, cexp, cthn, cels
-	pushd(ctx)
 	if idx == #node.thens then -- last condition
 		cstats, cexp = codeexp(ctx, node.thens[idx].condition)
 		cthn = codestat(ctx, node.thens[idx].block)
@@ -140,16 +190,14 @@ local function codeif(ctx, node, idx)
 		cthn = codestat(ctx, node.thens[idx].block)
 		cels = codeif(ctx, node, idx + 1)
 	end
-	local adjust = popd(ctx) or ""
 	return string.format([[
 		{
 			%s
 			if(%s) {
 				%s
 			} %s
-			%s
 		}			
-  ]], cstats, cexp, cthn, cels, adjust)
+  ]], cstats, cexp, cthn, cels)
 end
 
 local function codefor(ctx, node)
@@ -167,7 +215,7 @@ local function codefor(ctx, node)
 		]], csstats, csexp)
     cfinish = string.format([[
 		%s
-		lua_Integer _forfin = %s;			
+		lua_Integer _forlimit = %s;			
 		]], cfstats, cfexp)
 	else
 		cstart = string.format([[
@@ -176,7 +224,7 @@ local function codefor(ctx, node)
 		]], csstats, csexp)
 		cfinish = string.format([[
 		%s
-		lua_Number _forfin = %s;			
+		lua_Number _forlimit = %s;			
 		]], cfstats, cfexp)
 	end	
 	if node.inc then
@@ -212,62 +260,58 @@ local function codefor(ctx, node)
 				]], cistats, ciexp)
 				cstep = node.decl._cvar .. " += _forstep"
 			end
-			ccmp = "0 < _forstep ? (" .. node.decl._cvar " <= _forlimit) : (_forlimit <= " .. node.decl._cvar .. ")"
+			ccmp = "0 < _forstep ? (" .. node.decl._cvar .. " <= _forlimit) : (_forlimit <= " .. node.decl._cvar .. ")"
 		end
 	else
 		if types.equals(node.decl._type, types.Integer) then
-			cstep = "node.decl._cvar = l_castU2S(l_castS2U(" .. node.decl._cvar .. ") + 1)"
+			cstep = node.decl._cvar .. " = l_castU2S(l_castS2U(" .. node.decl._cvar .. ") + 1)"
 		else
 			cstep = node.decl._cvar .. "+= 1.0"
 		end
 		ccmp = node.decl._cvar .. " <= _forlimit"
 	end
 	cblock = codestat(ctx, node.block)
-	local adjust = popd(ctx) or ""
+	local savetop, restoretop = popd(ctx)
 	return string.format([[
-    {		
+		{
+    %s
 		%s
 		%s
-		%s
-		for(%s = _forstart; %s; %s) %s
-		%s
+		for(%s = _forstart; %s; %s) {
+      %s
+      %s
+      %s
     }
-	]], cstart, cfinish, cinc, cdecl, ccmp, cstep, cblock, adjust)
+    }
+	]], cstart, cfinish, cinc, cdecl, ccmp, cstep, savetop, cblock, restoretop)
 end
 
 local function codeassignment(ctx, node)
   -- has to generate different code if lvar is just a variable
   -- or an array indexing.
   local vtag = node.var._tag
-  if tag == "Var_Name" then
-    pushd(ctx)
+  if vtag == "Var_Name" then
     local cstats, cexp = codeexp(ctx, node.exp)
     local cset = ""
     if types.is_gc(node.var._type) then
       cset = string.format([[
         /* update slot */
-        lua_lock(L);
         %s
-        lua_unlock(L);                
         ]], setslot(node.var._type, node.var._decl._slot, node.var._decl._cvar))
     end
-    local adjust = popd(ctx) or ""
     return string.format([[
     {
     %s
     %s = %s;
     %s
-    %s
     }  
-    ]], cstats, node.var._decl._cvar, cexp, cset, adjust)
-  elseif tag == "Var_Index" then
+    ]], cstats, node.var._decl._cvar, cexp, cset)
+  elseif vtag == "Var_Index" then
     local arr = node.var.exp1
     local idx = node.var.exp2
-    pushd(ctx)
     local castats, caexp = codeexp(ctx, arr)
     local cistats, ciexp = codeexp(ctx, idx)
     local cstats, cexp = codeexp(ctx, node.exp)
-    local adjust = popd(ctx) or ""
     local cset
     if types.is_gc(arr._type.elem) then
       -- write barrier
@@ -287,9 +331,9 @@ local function codeassignment(ctx, node)
       Table *_t = %s;
       lua_Integer _k = %s;
       unsigned int _actual_i = l_castS2U(_k) - 1;
-      unsigned int _asize = t->sizearray;
+      unsigned int _asize = _t->sizearray;
       if (_actual_i < _asize) {
-        TValue *_slot = &t->array[_actual_i];
+        TValue *_slot = &_t->array[_actual_i];
         %s
       } else if (_actual_i < 2*_asize) {
         unsigned int _hsize = sizenode(_t);
@@ -299,52 +343,84 @@ local function codeassignment(ctx, node)
       } else {
         TValue *_slot = (TValue *)luaH_getint(_t, _k);
         TValue _vk; setivalue(&_vk, _k);
-        if (_slot == luaO_nilobject)  /* no previous entry? */
+        if (ttisnil(_slot))  /* no previous entry? */
             _slot = luaH_newkey(L, _t, &_vk);  /* create one */
         %s
       }
-      %s
     }  
-    ]], castats, cistats, cstats, caexp, ciexp, cset, cset, cset, adjust)
+    ]], castats, cistats, cstats, caexp, ciexp, cset, cset, cset)
   else
-    error("invalid tag for lvalue of assignment: " .. tag)
+    error("invalid tag for lvalue of assignment: " .. vtag)
   end
 end
 
 local function codecall(ctx, node)
+  -- TODO: generate code for function call
+  error("code generation for function call not implemented")
 end
 
 local function codereturn(ctx, node)
 	local cstats, cexp = codeexp(ctx, node.exp)
 	if types.equals(node._type, types.String) then
-		return cstats .. "\n    " .. string.format([[
+		return string.format([[
 		{ 
+      %s
 			TString *ret = %s;
-		  lua_lock(L);
-		  setsvalue(L, _retslot, ret);
-			lua_unlock(L);
+      setsvalue(L, _retslot, ret);
+      L->top = _retslot + 1;
 			return ret;
-		}]], cexp)
+		}]], cstats, cexp)
 	elseif types.has_tag(node._type, "Array") then
-		return cstats .. "\n    " .. string.format([[
+		return string.format([[
 		{ 
+      %s
 			Table *ret = %s;
-		  lua_lock(L);
 		  sethvalue(L, _retslot, ret);
-			lua_unlock(L);
+      L->top = _retslot + 1;
 			return ret;
-		}]], cexp)
-	else
-		return cstats .. "\n    return " .. cexp .. ";"
+		}]], cstats, cexp)
+  else
+    if ctx.nslots > 0 then
+		  return string.format([[
+        %s
+        L->top = _retslot;
+        return %s;
+      ]], cstats, cexp)
+    else
+		  return string.format([[
+        %s
+        return %s;
+      ]], cstats, cexp)
+    end
 	end
 end
 
 function codestat(ctx, node)
 	local tag = node._tag
     if tag == "Stat_Decl" then
-			local cstats, cexp = codeexp(ctx, node.exp)
-			-- TODO: generate code for node.decl
-			-- TODO: store cexp into variable (and maybe slot) for node.decl
+      local cstats, cexp = codeexp(ctx, node.exp)
+      local typ = node.decl._type
+      node.decl._cvar = "_local_" .. node.decl.name
+      local cdecl = ctype(typ) .. " " .. node.decl._cvar .. ";"
+      local cslot = ""
+      local cset = ""
+      if types.is_gc(typ) then
+        node.decl._slot = "_localslot_" .. node.decl.name
+        cslot = newslot(ctx, node.decl._slot);
+        cset = string.format([[
+          /* update slot */
+          %s
+          ]], setslot(typ, node.decl._slot, node.decl._cvar))
+      end
+      return string.format([[
+        %s
+        %s
+        {
+        %s
+        %s = %s;
+        %s
+        }  
+        ]], cdecl, cslot, cstats, node.decl._cvar, cexp, cset)
     elseif tag == "Stat_Block" then
 			return codeblock(ctx, node)
     elseif tag == "Stat_While" then
@@ -359,8 +435,7 @@ function codestat(ctx, node)
 			return codeassignment(ctx, node)
     elseif tag == "Stat_Call" then
 			local cstats, cexp = codecall(ctx, node)
-			-- TODO: pop stack if return type is GC
-			return cstats .. "\n" .. cexp .. ";"
+			return cstats .. "\n    " .. cexp .. ";"
     elseif tag == "Stat_Return" then
 			return codereturn(ctx, node)
     else
@@ -398,12 +473,51 @@ local function codevalue(ctx, node)
 end
 
 local function codetable(ctx, node)
+  local stats = {}
+  local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, true)
+  local cinit = string.format([[
+    %s
+    %s = luaH_new(L);
+    sethvalue(L, %s, %s);
+  ]], ctmp, tmpname, tmpslot, tmpname)
+  table.insert(stats, cinit)
+  local slots = {}
+  for _, exp in ipairs(node.exps) do
+    local cstats, cexp = codeexp(ctx, exp)
+    local ctmpe, tmpename, tmpeslot = newtmp(ctx, node._type.elem, true)
+    table.insert(slots, tmpeslot)
+    table.insert(stats, string.format([[
+      %s
+      %s
+      %s = %s;
+      %s
+    ]], cstats, ctmpe, tmpename, cexp, setslot(node._type.elem, tmpeslot, tmpename)))
+  end
+  table.insert(stats, string.format([[
+    luaH_resizearray(L, %s, %d);
+  ]], tmpname, #node.exps))
+  local cbarrier = ""
+  for i, slot in ipairs(slots) do
+    table.insert(stats, string.format([[
+      setobj2t(L, &%s->array[%d], %s);
+    ]], tmpname, i-1, slot))
+    if types.is_gc(node._type.elem) then
+      table.insert(stats, string.format([[
+        luaC_barrierback(L, %s, %s);
+      ]], tmpname, slot))
+    end
+  end
+  return table.concat(stats, "\n"), tmpname
 end
 
 local function codeunaryop(ctx, node)
 	local op = node.op
-	if op == "not" then
-	elseif op == "#" then
+  if op == "not" then
+		local estats, ecode = codeexp(ctx, node.exp)
+    return estats, "!(" .. ecode .. ")"
+  elseif op == "#" then
+		local estats, ecode = codeexp(ctx, node.exp)
+    return estats, "luaH_getn(" .. ecode .. ")"    
 	else
 		local estats, ecode = codeexp(ctx, node.exp)
 		return estats, "(" .. op .. ecode .. ")"
@@ -415,9 +529,33 @@ local function codebinaryop(ctx, node)
 	if op == "//" then op = "/" end
 	if op == "~=" then op = "!=" end
 	if op == "and" then
+		local lstats, lcode = codeexp(ctx, node.lhs)
+    if types.equals(node.lhs._type, types.Boolean) then
+      local rstats, rcode = codeexp(ctx, node.rhs)
+      return lstats .. rstats, "(" .. lcode .. " && " .. rcode .. ")" 
+    elseif types.equals(node.lhs._type, types.Nil) then
+      return lstats, lcode
+    else
+      local rstats, rcode = codeexp(ctx, node.rhs)
+      return lstats .. rstats, "(" .. lcode .. ", " .. rcode .. ")"
+    end
 	elseif op == "or" then
-	elseif op == "^" then
-	elseif op == ".." then
+		local lstats, lcode = codeexp(ctx, node.lhs)
+    if types.equals(node.lhs._type, types.Boolean) then
+      local rstats, rcode = codeexp(ctx, node.rhs)
+      return lstats .. rstats, "(" .. lcode .. " || " .. rcode .. ")" 
+    elseif types.equals(node.lhs._type, types.Nil) then
+      local rstats, rcode = codeexp(ctx, node.rhs)
+      return lstats .. rstats, "(" .. lcode .. ", " .. rcode .. ")"
+    else
+      return lstats, lcode
+    end
+  elseif op == "^" then
+		local lstats, lcode = codeexp(ctx, node.lhs)
+		local rstats, rcode = codeexp(ctx, node.rhs)
+		return lstats .. rstats, "pow(" .. lcode .. ", " .. rcode .. ")"    
+  elseif op == ".." then
+    error("concatenation not implemented")
 	else
 		local lstats, lcode = codeexp(ctx, node.lhs)
 		local rstats, rcode = codeexp(ctx, node.rhs)
@@ -425,11 +563,47 @@ local function codebinaryop(ctx, node)
 	end
 end
 
+local function codeindex(ctx, node)
+  local castats, caexp = codeexp(ctx, node.exp1)
+  local cistats, ciexp = codeexp(ctx, node.exp2)
+  local typ = node._type
+  local ctmp, tmpname, tmpslot = newtmp(ctx, typ, types.is_gc(typ))
+  local cset = ""
+  local ccheck = checktype(typ, "_s", node._lin)
+  local cget = getslot(typ, tmpname, "_s")
+  if types.is_gc(typ) then
+    cset = setslot(typ, tmpslot, tmpname)
+  end
+  local stats = string.format([[
+    %s
+    {
+      %s
+      %s
+      Table *_t = %s;
+      lua_Integer _k = %s;
+      
+      unsigned int _actual_i = l_castS2U(_k) - 1;
+      
+      const TValue *_s;
+      if (_actual_i < _t->sizearray) {
+          _s = &_t->array[_actual_i];
+      } else {
+          _s = luaH_getint(_t, _k);
+      }
+
+      %s
+      %s
+      %s
+  }]], ctmp, castats, cistats, caexp, ciexp, ccheck, cget, cset)
+  return stats, tmpname
+end
+
 function codeexp(ctx, node)
     local tag = node._tag
-    if tag == "Var_Name" or
-	   tag == "Var_Index" then
-			return codevar(ctx, node)
+    if tag == "Var_Name" then
+      return codevar(ctx, node)
+    elseif tag == "Var_Index" then
+      return codeindex(ctx, node)
     elseif tag == "Exp_Nil" or
     	   tag == "Exp_Bool" or
     	   tag == "Exp_Integer" or
@@ -439,13 +613,34 @@ function codeexp(ctx, node)
     elseif tag == "Exp_Table" then
 			return codetable(ctx, node)
     elseif tag == "Exp_Var" then
-			return codevar(ctx, node)
+			return codeexp(ctx, node.var)
     elseif tag == "Exp_Unop" then
 			return codeunaryop(ctx, node)
     elseif tag == "Exp_Binop" then
 			return codebinaryop(ctx, node)
     elseif tag == "Exp_Call" then
-			return codecall(ctx, node)
+      return codecall(ctx, node)
+    elseif tag == "Exp_ToFloat" then
+      local cstat, cexp = codeexp(ctx, node.exp)
+      return cstat, "((lua_Number)" .. cexp .. ")"
+    elseif tag == "Exp_ToInt" then
+      local cstat, cexp = codeexp(ctx, node.exp)
+      local ctmp1, tmpname1 = newtmp(ctx, types.Float)
+      local ctmp2, tmpname2 = newtmp(ctx, types.Float)
+      local ctmp3, tmpname3 = newtmp(ctx, types.Integer)
+      local cfloor = string.format([[
+        %s
+        %s
+        %s
+        %s
+        %s = fltvalue(%s);
+        %s = l_floor(%s);
+        if (%s != %s) %s = 0; else lua_numbertointeger(%s, &%s);
+      ]], cstat, ctmp1, ctmp2, ctmp3, tmpname1, cexp, tmpname2, tmpname1, tmpname1, 
+        tmpname2, tmpname3, tmpname2, tmpname3)
+      return cfloor, tmpname3
+    elseif tag == "Exp_ToStr" then
+      error("code generation for coercion to string not implemented")
     else
       error("code generation not implemented for node " .. tag)
     end
@@ -465,72 +660,127 @@ local function codefuncdec(tlcontext, node)
 	if types.is_gc(node._type.ret) then
 	  ctx.nslots = 1
 	end
-	local cparams = {}
+	local cparams = { "lua_State *L" }
 	for i, param in ipairs(node.params) do
 		param._cvar = "_param_" .. param.name
 		table.insert(cparams, ctype(param._type) .. " " .. param._cvar)
 	end
 	local stats = {}
 	local body = codestat(ctx, node.block)
-	local nslots = ctx.nslots
-	table.insert(stats, string.format([[
+  local nslots = ctx.nslots
+  if nslots > 0 then
+	  table.insert(stats, string.format([[
   	/* function preamble: reserve needed stack space */
-	  lua_lock(L);
     if (L->stack_last - L->top > %d) { 
-		  if (L->ci->top < L->top + n) L->ci->top = L->top + n;
-		  lua_unlock(L); 
+		  if (L->ci->top < L->top + %d) L->ci->top = L->top + %d;
     } else {
-		  lua_unlock(L);
 		  lua_checkstack(L, %d);
-	  }]], nslots, nslots))
+    }]], nslots, nslots, nslots, nslots))
+  end
 	if types.is_gc(node._type.ret) then
 		table.insert(stats, [[
 	  /* reserve slot for return value */
-	  lua_lock(L);
 	  setnilvalue(L->top); 
-		Value *_retslot = L->top;
-		api_incr_top(L);
-	  lua_unlock(L);]])
-	end
+		TValue *_retslot = L->top;
+		api_incr_top(L);]])
+  elseif nslots > 0 then
+    table.insert(stats, [[
+    /* mark place to restore stack */
+    TValue *_retslot = L->top;]])
+  end
 	table.insert(stats, body)
-	if nslots > 1 then 
-		table.insert(stats, string.format([[
-	  lua_lock(L);
-	  L->top -= %d;
-	  lua_unlock(L);]], nslots - 1))
-	end
-	node._body = string.format([[
-	static %s %s_titan(lua_State *L, %s) {
+  if types.equals(node._type.ret, types.Nil) then
+    if nslots > 0 then
+      table.insert(stats, [[
+      L->top = _retslot;
+      return 0;]])
+    else
+      table.insert(stats, "    return 0;")
+    end
+  end
+  node._body = string.format([[
+	static %s %s_titan(%s) {
 	  %s
-	}]], ctype(node._type.ret), node.name, table.concat(cparams, ", "), table.concat(stats, "\n    "))
-end
-
-local function codedecl(islocal, decl, value)
+  }]], ctype(node._type.ret), node.name, table.concat(cparams, ", "), table.concat(stats, "\n    "))
+  -- generate Lua entry point
+  local stats = {}
+  table.insert(stats, "TValue *func = L->ci->func;")
+  local pnames = { "L" }
+  for i, param in ipairs(node.params) do
+    table.insert(pnames, param._cvar)
+    table.insert(stats, checktype(param._type, "(func+ " .. i .. ")", node._lin))
+    table.insert(stats, getslot(param._type, 
+      ctype(param._type) .. " " .. param._cvar, 
+      "(func+ " .. i .. ")"))
+  end
+  table.insert(stats, string.format([[
+    %s res = %s_titan(%s);
+    %s
+    api_incr_top(L);
+    return 1;
+  ]], ctype(node._type.ret), node.name, table.concat(pnames, ", "),
+      setslot(node._type.ret, "L->top", "res")))
+  node._luabody = string.format([[
+  static int %s_lua(lua_State *L) {
+    %s
+  }]], node.name, table.concat(stats, "\n"))
 end
 
 local function codevardec(node)
-	codedecl(node.islocal, node.decl, node.value)
+  -- TODO: generate code for global variables
+  error("code generation for global variables is not implemented")
 end
 
-function coder.generate(ast)
+local preamble = [[
+#include "lauxlib.h"
+#include "lualib.h"
+  
+#include "lapi.h"
+#include "lgc.h"
+#include "ltable.h"
+#include "lvm.h"
+  
+#include "lobject.h"
+]]
+
+local postamble = [[
+int luaopen_%s(lua_State *L) {
+  lua_newtable(L);
+  %s
+  return 1;
+}
+]]
+
+function coder.generate(modname, ast)
   local tlcontext = {
-		funcs = {},
-		vars = {}
+    module = modname,
 	}
+
+  local code = { preamble }
+  local funcs = {}
 
 	for _, node in pairs(ast) do
 		if not node._ignore then
 			local tag = node._tag
 			if tag == "TopLevel_Func" then
-				local body = codefuncdec(tlcontext, node)
+        codefuncdec(tlcontext, node)
+        table.insert(code, node._body)
+        table.insert(code, node._luabody)
+        table.insert(funcs, string.format([[
+          lua_pushcfunction(L, %s_lua);
+          lua_setfield(L, -2, "%s");
+        ]], node.name, node.name))
 			elseif tag == "TopLevel_Var" then
 				codevardec(tlcontext, node)
 			else
 				error("code generation not implemented for node " .. tag)
 			end
 		end
-	end
-	return ""
+  end
+  
+  table.insert(code, string.format(postamble, modname, table.concat(funcs, "\n")))
+
+	return table.concat(code, "\n\n")
 end
 
 return coder

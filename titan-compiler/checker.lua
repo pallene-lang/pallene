@@ -201,10 +201,16 @@ function checkstat(node, st, errors)
     local tag = node._tag
     if tag == "Decl_Decl" then
         st:add_symbol(node.name, node)
-        node._type = typefromnode(node.type, errors)
+        node._type = node._type or typefromnode(node.type, errors)
     elseif tag == "Stat_Decl" then
-        checkstat(node.decl, st, errors)
-        checkexp(node.exp, st, errors, node.decl._type)
+        if node.decl.type then
+          checkstat(node.decl, st, errors)
+          checkexp(node.exp, st, errors, node.decl._type)
+        else
+          checkexp(node.exp, st, errors)
+          node.decl._type = node.exp._type
+          checkstat(node.decl, st, errors)
+        end
         node.exp = trycoerce(node.exp, node.decl._type)
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl._pos)
@@ -228,6 +234,7 @@ function checkstat(node, st, errors)
         local tret = st:find_symbol("$function")._type.ret
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret)
+        node._type = tret
         checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
         return true
     elseif tag == "Stat_If" then
@@ -270,6 +277,8 @@ function checkexp(node, st, errors, context)
             node._type = decl._type
         end
     elseif tag == "Var_Index" then
+        local l, _ = util.get_line_number(errors.subject, node._pos)
+        node._lin = l
         checkexp(node.exp1, st, errors, context and types.Array(context))
         if not types.has_tag(node.exp1._type, "Array") then
             typeerror(errors, "array expression in indexing is not an array but "
@@ -338,7 +347,7 @@ function checkexp(node, st, errors, context)
         local tlhs = node.lhs._type
         checkexp(node.rhs, st, errors)
         local trhs = node.rhs._type
-		local pos = node._pos
+		    local pos = node._pos
         if op == "==" or op == "~=" then
             -- tries to coerce integer to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
@@ -410,6 +419,17 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.String
         elseif op == "and" or op == "or" then
+            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+              node.lhs = trytofloat(node.lhs)
+              tlhs = node.lhs._type
+              node.rhs = trytofloat(node.rhs)
+              trhs = node.rhs._type
+            end
+            if not types.equals(lhs, rhs) then
+              typeerror(errors, "left hand side of logical expression is a " ..
+               types.tostring(lhs) .. " but right hand side is a " ..
+               types.tostring(rhs), pos)
+            end
             node._type = types.Boolean
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce to integer
@@ -475,6 +495,8 @@ end
 --   st: symbol table
 --   errors: list of compile-time errors
 local function checkfunc(node, st, errors)
+    local l, _ = util.get_line_number(errors.subject, node._pos)
+    node._lin = l
     st:add_symbol("$function", node) -- for return type
     for _, param in ipairs(node.params) do
         checkstat(param, st, errors)
