@@ -703,7 +703,6 @@ local function codefuncdec(tlcontext, node)
   }]], ctype(node._type.ret), node.name, table.concat(cparams, ", "), table.concat(stats, "\n    "))
   -- generate Lua entry point
   local stats = {}
-  table.insert(stats, "TValue *func = L->ci->func;")
   local pnames = { "L" }
   for i, param in ipairs(node.params) do
     table.insert(pnames, param._cvar)
@@ -721,8 +720,10 @@ local function codefuncdec(tlcontext, node)
       setslot(node._type.ret, "L->top", "res")))
   node._luabody = string.format([[
   static int %s_lua(lua_State *L) {
+    TValue *func = L->ci->func;
+    if((L->top - func - 1) != %d) luaL_error(L, "calling Titan function %s with %%d arguments, but expected %d", L->top - func - 1);
     %s
-  }]], node.name, table.concat(stats, "\n"))
+  }]], node.name, #node.params, node.name, #node.params, table.concat(stats, "\n"))
 end
 
 local function codevardec(node)
