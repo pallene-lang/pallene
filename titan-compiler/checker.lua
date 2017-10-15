@@ -364,7 +364,7 @@ function checkexp(node, st, errors, context)
                 typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
-                typeerror(errors, "left hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Boolean
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
@@ -375,11 +375,11 @@ function checkexp(node, st, errors, context)
                 node.rhs = trytofloat(node.rhs)
                 trhs = node.rhs._type
             end
-            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+            if not (types.equals(tlhs, types.Integer) or types.equals(tlhs, types.Float)) then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
-            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
-                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+            if not (types.equals(trhs, types.Integer) or types.equals(trhs, types.Float)) then
+                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
                 node._type = types.Float
@@ -396,7 +396,7 @@ function checkexp(node, st, errors, context)
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
-                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Float
         elseif op == ".." then
@@ -421,7 +421,7 @@ function checkexp(node, st, errors, context)
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not types.equals(trhs, types.Integer) then
-                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Integer
         else
