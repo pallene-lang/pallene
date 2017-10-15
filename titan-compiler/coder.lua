@@ -428,7 +428,7 @@ function codestat(ctx, node)
     elseif tag == "Stat_Assign" then
         return codeassignment(ctx, node)
     elseif tag == "Stat_Call" then
-			local cstats, cexp = codecall(ctx, node)
+			local cstats, cexp = codecall(ctx, node.callexp)
 			return cstats .. "\n    " .. cexp .. ";"
     elseif tag == "Stat_Return" then
         return codereturn(ctx, node)

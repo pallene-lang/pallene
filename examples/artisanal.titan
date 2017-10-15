@@ -105,3 +105,42 @@ function test_fsf(n: integer): boolean
   end
   return res
 end
+
+-- the classic
+function fat(n: integer): integer
+  if n < 2 then
+    return 1
+  else
+    return n * fat(n-1)
+  end
+end
+
+-- another classic
+function partition(array: {integer}, p: integer, r: integer): integer
+    local x = array[r]
+    local i = p - 1
+    for j = p, r - 1 do
+        if array[j] <= x then
+            i = i + 1
+            local temp = array[i]
+            array[i] = array[j]
+            array[j] = temp
+        end
+    end
+    local temp = array[i + 1]
+    array[i + 1] = array[r]
+    array[r] = temp
+    return i + 1
+end
+
+function quicksort(array: {integer}, left: integer, right: integer): nil
+	if right > left then
+	    local pivotNewIndex = partition(array, left, right)
+	    quicksort(array, left, pivotNewIndex - 1)
+	    quicksort(array, pivotNewIndex + 1, right)
+	end
+end
+
+function qsort(array: {integer}): nil
+  quicksort(array, 1, #array)
+end

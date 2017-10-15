@@ -484,6 +484,7 @@ function checkexp(node, st, errors, context)
                     atype = ptype
                 else
                     checkexp(arg, st, errors, ptype)
+                    ptype = ptype or arg._type
                     args[i] = trycoerce(args[i], ptype)
                     atype = args[i]._type
                 end
