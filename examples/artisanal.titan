@@ -116,7 +116,7 @@ function fat(n: integer): integer
 end
 
 -- another classic
-function partition(array: {integer}, p: integer, r: integer): integer
+local function partition(array: {integer}, p: integer, r: integer): integer
     local x = array[r]
     local i = p - 1
     for j = p, r - 1 do

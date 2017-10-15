@@ -765,11 +765,13 @@ function coder.generate(modname, ast)
 			if tag == "TopLevel_Func" then
         codefuncdec(tlcontext, node)
         table.insert(code, node._body)
-        table.insert(code, node._luabody)
-        table.insert(funcs, string.format([[
-          lua_pushcfunction(L, %s_lua);
-          lua_setfield(L, -2, "%s");
-        ]], node.name, node.name))
+        if not node.islocal then
+          table.insert(code, node._luabody)
+          table.insert(funcs, string.format([[
+            lua_pushcfunction(L, %s_lua);
+            lua_setfield(L, -2, "%s");
+          ]], node.name, node.name))
+        end
 			elseif tag == "TopLevel_Var" then
 				codevardec(tlcontext, node)
 			else
