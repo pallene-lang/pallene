@@ -1,0 +1,146 @@
+-- Add two numbers
+
+function foo(x: integer, y: integer): integer
+    return x + y
+end
+
+function filltable(N: integer): { integer }
+    local xs: { integer } = {}
+    for i=1,N do
+        xs[i] = 10*i
+    end
+    return xs
+end
+
+function sieve(N: integer): {integer}
+
+    local is_prime: {boolean} = {}
+    is_prime[1] = false
+    for n=2,N do
+        is_prime[n] = true
+    end
+
+    local nprimes = 0
+    local primes: {integer} = {}
+
+    for n=1,N do
+        if is_prime[n] then
+            nprimes = nprimes + 1;
+            primes[nprimes] = n
+            for m = n+n, N, n do
+                is_prime[m] = false
+            end
+        end
+    end
+
+    return primes
+end
+
+
+function sort(xs: {integer}): nil
+    local N = #xs
+    for i=1,N do
+
+        -- Find minimum
+        local min_i = i
+        local min_x = xs[i]
+        for j = i+1, N do
+            local y = xs[j]
+            if y < min_x then
+                min_i = j
+                min_x = y
+            end
+        end
+
+        -- Move it to the front
+        local tmp = xs[i]
+        xs[i] = xs[min_i]
+        xs[min_i] = tmp
+    end
+end
+
+function sum(N: integer): integer
+    local res = 0
+    for i=1,N do
+        res = res + i
+    end
+    return res
+end
+
+function flatten(xs: {{integer}}): {integer}
+  local res: {integer} = {}
+  for i = 1, #xs do
+    for j = 1, #xs[i] do
+      res[#res+1] = xs[i][j]
+    end
+  end
+  return res
+end
+
+function split(xs: {integer}, n: integer): {{integer}}
+  local res: {{integer}} = {}
+  local lin = 0
+  local col = 1
+  for i = 1, #xs do
+    if i % n == 1 then
+      res[#res+1] = {}
+      lin = lin + 1
+      col = 1
+    end
+    res[lin][col] = xs[i]
+    col = col + 1
+  end
+  return res
+end
+
+function test_fsf(n: integer): boolean
+  local t1 = filltable(n)
+  local t2 = split(t1, 3)
+  local t3 = flatten(t2)
+  local res = true
+  for i = 1, #t1 do
+    if t1[i] ~= t3[i] then
+      return false
+    end
+  end
+  return res
+end
+
+-- the classic
+function fat(n: integer): integer
+  if n < 2 then
+    return 1
+  else
+    return n * fat(n-1)
+  end
+end
+
+-- another classic
+function partition(array: {integer}, p: integer, r: integer): integer
+    local x = array[r]
+    local i = p - 1
+    for j = p, r - 1 do
+        if array[j] <= x then
+            i = i + 1
+            local temp = array[i]
+            array[i] = array[j]
+            array[j] = temp
+        end
+    end
+    local temp = array[i + 1]
+    array[i + 1] = array[r]
+    array[r] = temp
+    return i + 1
+end
+
+function quicksort(array: {integer}, left: integer, right: integer): nil
+	if right > left then
+	    local pivotNewIndex = partition(array, left, right)
+	    quicksort(array, left, pivotNewIndex - 1)
+	    quicksort(array, pivotNewIndex + 1, right)
+	end
+end
+
+function qsort(array: {integer}): nil
+  quicksort(array, 1, #array)
+end

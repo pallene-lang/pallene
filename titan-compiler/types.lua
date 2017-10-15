@@ -13,7 +13,7 @@ local base_types = { "Integer", "Boolean", "String", "Nil", "Float" }
 
 for _, t in ipairs(base_types) do
     types[t] = { _tag = t }
-    base_types[t] = types[t]
+    base_types[string.lower(t)] = types[t]
 end
 
 function types.Base(name)
@@ -22,6 +22,10 @@ end
 
 function types.has_tag(t, name)
     return t._tag == name
+end
+
+function types.is_gc(t)
+    return t._tag == "String" or t._tag == "Array"
 end
 
 function types.equals(t1, t2)

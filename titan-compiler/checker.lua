@@ -156,16 +156,30 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for 'for' loop)
 local function checkfor(node, st, errors)
-    checkstat(node.decl, st, errors)
-    local ftype = node.decl._type
-    if not types.equals(ftype, types.Integer) and
+    local ftype
+    if node.decl.type then
+      checkstat(node.decl, st, errors)
+      ftype = node.decl._type
+      if not types.equals(ftype, types.Integer) and
         not types.equals(ftype, types.Float) then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
+      end
+      checkexp(node.start, st, errors, ftype)
+      node.start = trycoerce(node.start, ftype)
+    else
+      checkexp(node.start, st, errors)
+      ftype = node.start._type
+      node.decl._type = ftype
+      checkstat(node.decl, st, errors)
+      if not types.equals(ftype, types.Integer) and
+        not types.equals(ftype, types.Float) then
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
+        node.decl._type = types.Integer
+        ftype = types.Integer
+      end
     end
-    checkexp(node.start, st, errors, ftype)
-    node.start = trycoerce(node.start, ftype)
     checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._pos)
     checkexp(node.finish, st, errors, ftype)
     node.finish = trycoerce(node.finish, ftype)
@@ -201,10 +215,16 @@ function checkstat(node, st, errors)
     local tag = node._tag
     if tag == "Decl_Decl" then
         st:add_symbol(node.name, node)
-        node._type = typefromnode(node.type, errors)
+        node._type = node._type or typefromnode(node.type, errors)
     elseif tag == "Stat_Decl" then
-        checkstat(node.decl, st, errors)
-        checkexp(node.exp, st, errors, node.decl._type)
+        if node.decl.type then
+          checkstat(node.decl, st, errors)
+          checkexp(node.exp, st, errors, node.decl._type)
+        else
+          checkexp(node.exp, st, errors)
+          node.decl._type = node.exp._type
+          checkstat(node.decl, st, errors)
+        end
         node.exp = trycoerce(node.exp, node.decl._type)
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl._pos)
@@ -219,6 +239,10 @@ function checkstat(node, st, errors)
         st:with_block(checkfor, node, st, errors)
     elseif tag == "Stat_Assign" then
         checkexp(node.var, st, errors)
+        -- mark this variable as assigned to
+        if node.var._tag == "Var_Name" then
+          node.var._decl._assigned = true
+        end
         checkexp(node.exp, st, errors, node.var._type)
         node.exp = trycoerce(node.exp, node.var._type)
         checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
@@ -228,6 +252,7 @@ function checkstat(node, st, errors)
         local tret = st:find_symbol("$function")._type.ret
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret)
+        node._type = tret
         checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
         node._type = tret
         return true
@@ -267,10 +292,12 @@ function checkexp(node, st, errors, context)
             typeerror(errors, "reference to function " .. node.name .. " outside of function call", decl._pos)
             node._type = types.Integer
         else
-            node.decl = decl
+            node._decl = decl
             node._type = decl._type
         end
     elseif tag == "Var_Index" then
+        local l, _ = util.get_line_number(errors.subject, node._pos)
+        node._lin = l
         checkexp(node.exp1, st, errors, context and types.Array(context))
         if not types.has_tag(node.exp1._type, "Array") then
             typeerror(errors, "array expression in indexing is not an array but "
@@ -411,8 +438,19 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.String
         elseif op == "and" or op == "or" then
+            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+              node.lhs = trytofloat(node.lhs)
+              tlhs = node.lhs._type
+              node.rhs = trytofloat(node.rhs)
+              trhs = node.rhs._type
+            end
+            if not types.equals(lhs, rhs) then
+              typeerror(errors, "left hand side of logical expression is a " ..
+               types.tostring(lhs) .. " but right hand side is a " ..
+               types.tostring(rhs), pos)
+            end
             node._type = types.Boolean
-        elseif op == "~" or op == "|" or op == "&" or op == "<<" or op == ">>" then
+        elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce to integer
             node.lhs = trytoint(node.lhs)
             tlhs = node.lhs._type
@@ -429,25 +467,26 @@ function checkexp(node, st, errors, context)
             error("invalid binary operation " .. op)
         end
     elseif tag == "Exp_Call" then
-        assert(node.exp._tag == "Var_Name", "function calls are first-order only!")
-        local fname = node.exp.name
+        assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
+        local fname = node.exp.var.name
         local func =  st:find_symbol(fname)
         if func then
             local ftype = func._type
             local nparams = #ftype.params
-            local nargs = #node.args
+            local args = node.args.args
+            local nargs = #args
             local arity = math.max(nparams, nargs)
-            local moreargs, lessargs
             for i = 1, arity do
-                local arg = node.arg[i]
+                local arg = args[i]
                 local ptype = ftype.params[i]
                 local atype
                 if not arg then
                     atype = ptype
                 else
                     checkexp(arg, st, errors, ptype)
-                    node.arg[i] = trycoerce(node.arg[i], ptype)
-                    atype = node.arg[i]._type
+                    ptype = ptype or arg._type
+                    args[i] = trycoerce(args[i], ptype)
+                    atype = args[i]._type
                 end
                 if not ptype then
                     ptype = atype
@@ -461,7 +500,7 @@ function checkexp(node, st, errors, context)
             node._type = ftype.ret
         else
             typeerror(errors, "function " .. fname .. " not found", node._pos)
-            for _, arg in ipairs(node.args) do
+            for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
             node._type = types.Integer
@@ -476,6 +515,8 @@ end
 --   st: symbol table
 --   errors: list of compile-time errors
 local function checkfunc(node, st, errors)
+    local l, _ = util.get_line_number(errors.subject, node._pos)
+    node._lin = l
     st:add_symbol("$function", node) -- for return type
     for _, param in ipairs(node.params) do
         checkstat(param, st, errors)
@@ -514,8 +555,8 @@ end
 function checker.check(ast, subject, filename)
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
-    st:with_block(function() firstpass(ast, st, errors) end)
-    st:with_block(function() secondpass(ast, st, errors) end)
+    firstpass(ast, st, errors)
+    secondpass(ast, st, errors)
     if #errors > 0 then
         return false, table.concat(errors, "\n")
     end
