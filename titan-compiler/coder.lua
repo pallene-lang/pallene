@@ -321,7 +321,7 @@ local function codeassignment(ctx, node)
       } else {
         TValue *_slot = (TValue *)luaH_getint(_t, _k);
         TValue _vk; setivalue(&_vk, _k);
-        if (ttisnil(_slot))  /* no previous entry? */
+        if (_slot == luaO_nilobject)  /* no previous entry? */
             _slot = luaH_newkey(L, _t, &_vk);  /* create one */
         %s
       }
@@ -471,9 +471,11 @@ local function codetable(ctx, node)
       %s
     ]], cstats, ctmpe, tmpename, cexp, setslot(node._type.elem, tmpeslot, tmpename)))
   end
-  table.insert(stats, string.format([[
+  if #node.exps > 0 then
+    table.insert(stats, string.format([[
     luaH_resizearray(L, %s, %d);
-  ]], tmpname, #node.exps))
+    ]], tmpname, #node.exps))
+  end
   local cbarrier = ""
   for i, slot in ipairs(slots) do
     table.insert(stats, string.format([[
