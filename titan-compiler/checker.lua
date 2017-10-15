@@ -156,16 +156,30 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for 'for' loop)
 local function checkfor(node, st, errors)
-    checkstat(node.decl, st, errors)
-    local ftype = node.decl._type
-    if not types.equals(ftype, types.Integer) and
+    local ftype
+    if node.decl.type then
+      checkstat(node.decl, st, errors)
+      ftype = node.decl._type
+      if not types.equals(ftype, types.Integer) and
         not types.equals(ftype, types.Float) then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
+      end
+      checkexp(node.start, st, errors, ftype)
+      node.start = trycoerce(node.start, ftype)
+    else
+      checkexp(node.start, st, errors)
+      ftype = node.start._type
+      node.decl._type = ftype
+      checkstat(node.decl, st, errors)
+      if not types.equals(ftype, types.Integer) and
+        not types.equals(ftype, types.Float) then
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
+        node.decl._type = types.Integer
+        ftype = types.Integer
+      end
     end
-    checkexp(node.start, st, errors, ftype)
-    node.start = trycoerce(node.start, ftype)
     checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._pos)
     checkexp(node.finish, st, errors, ftype)
     node.finish = trycoerce(node.finish, ftype)

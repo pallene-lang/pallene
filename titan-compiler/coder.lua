@@ -321,7 +321,7 @@ local function codeassignment(ctx, node)
         luaC_barrierback(L, _t, &_vv);
       ]], setslot(arr._type.elem, "&_vv", cexp))
     else
-        error("invalid tag for lvalue of assignment: " .. tag)
+      cset = setslot(arr._type.elem, "_slot", cexp)
     end
     return string.format([[
     {
@@ -450,7 +450,7 @@ end
 -- the preliminary code is always the empty string
 
 local function codevar(ctx, node)
-    return "", node.decl._cvar
+    return "", node._decl._cvar
 end
 
 local function codevalue(ctx, node)
