@@ -467,25 +467,25 @@ function checkexp(node, st, errors, context)
             error("invalid binary operation " .. op)
         end
     elseif tag == "Exp_Call" then
-        assert(node.exp._tag == "Var_Name", "function calls are first-order only!")
-        local fname = node.exp.name
+        assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
+        local fname = node.exp.var.name
         local func =  st:find_symbol(fname)
         if func then
             local ftype = func._type
             local nparams = #ftype.params
-            local nargs = #node.args
+            local args = node.args.args
+            local nargs = #args
             local arity = math.max(nparams, nargs)
-            local moreargs, lessargs
             for i = 1, arity do
-                local arg = node.arg[i]
+                local arg = args[i]
                 local ptype = ftype.params[i]
                 local atype
                 if not arg then
                     atype = ptype
                 else
                     checkexp(arg, st, errors, ptype)
-                    node.arg[i] = trycoerce(node.arg[i], ptype)
-                    atype = node.arg[i]._type
+                    args[i] = trycoerce(args[i], ptype)
+                    atype = args[i]._type
                 end
                 if not ptype then
                     ptype = atype
@@ -499,7 +499,7 @@ function checkexp(node, st, errors, context)
             node._type = ftype.ret
         else
             typeerror(errors, "function " .. fname .. " not found", node._pos)
-            for _, arg in ipairs(node.args) do
+            for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
             node._type = types.Integer
@@ -554,8 +554,8 @@ end
 function checker.check(ast, subject, filename)
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
-    st:with_block(function() firstpass(ast, st, errors) end)
-    st:with_block(function() secondpass(ast, st, errors) end)
+    firstpass(ast, st, errors)
+    secondpass(ast, st, errors)
     if #errors > 0 then
         return false, table.concat(errors, "\n")
     end

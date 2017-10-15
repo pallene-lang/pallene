@@ -3,7 +3,7 @@ local symtab = {}
 symtab.__index = symtab
 
 function symtab.new()
-    return setmetatable({ blocks = {} }, symtab)
+    return setmetatable({ blocks = { {} } }, symtab)
 end
 
 function symtab:open_block()
@@ -38,6 +38,15 @@ function symtab:find_symbol(name)
         end
     end
     return decl
+end
+
+function symtab:dump()
+  for i, block in ipairs(self.blocks) do
+    print("BLOCK " .. i .. ":")
+    for name, decl in pairs(block) do
+      print(name, decl)
+    end
+  end
 end
 
 function symtab:find_dup(name)

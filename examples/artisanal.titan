@@ -92,3 +92,16 @@ function split(xs: {integer}, n: integer): {{integer}}
   end
   return res
 end
+
+function test_fsf(n: integer): boolean
+  local t1 = filltable(n)
+  local t2 = split(t1, 3)
+  local t3 = flatten(t2)
+  local res = true
+  for i = 1, #t1 do
+    if t1[i] ~= t3[i] then
+      return false
+    end
+  end
+  return res
+end

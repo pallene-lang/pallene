@@ -333,8 +333,24 @@ local function codeassignment(ctx, node)
 end
 
 local function codecall(ctx, node)
-  -- TODO: generate code for function call
-  error("code generation for function call not implemented")
+  local castats, caexps = {}, { "L" }
+  for _, arg in ipairs(node.args.args) do
+    local cstat, cexp = codeexp(ctx, arg)
+    table.insert(castats, cstat)
+    table.insert(caexps, cexp)
+  end
+  if types.is_gc(node._type) then
+    local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, true)
+    return string.format([[
+      %s
+      %s
+      %s = %s_titan(%s);
+      %s;
+    ]], table.concat(castats, "\n"), ctmp, tmpname, node.exp.var.name, 
+      table.concat(caexps, ", "), setslot(node._type, tmpslot, tmpname)), tmpname
+  else
+    return table.concat(castats, "\n"), node.exp.var.name .. "_titan(" .. table.concat(caexps, ", ") .. ")"
+  end  
 end
 
 local function codereturn(ctx, node)
@@ -361,7 +377,7 @@ local function codereturn(ctx, node)
     if ctx.nslots > 0 then
 		  return string.format([[
         %s
-        L->top = _retslot;
+        L->top = _base;
         return %s;
       ]], cstats, cexp)
     else
