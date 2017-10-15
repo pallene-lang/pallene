@@ -82,13 +82,12 @@ local function newcontext()
 end
 
 local function newslot(ctx, name)
+  local sdepth = ctx.depth
 	ctx.depth = ctx.depth + 1
   if ctx.depth > ctx.nslots then ctx.nslots = ctx.depth end
   return string.format([[
-    setnilvalue(L->top);
-    TValue *%s = L->top;
-    api_incr_top(L);
-  ]], name)
+    TValue *%s = _base + %d;
+  ]], name, sdepth)
 end
 
 local function newtmp(ctx, typ, isgc)
@@ -110,19 +109,7 @@ local function pushd(ctx)
 end
 
 local function popd(ctx)
-	local depth = table.remove(ctx.dstack)
-	local delta = ctx.depth - depth
-	ctx.depth = depth
-	if delta > 0 then
-		return  [[
-      TValue *_savedtop = L->top;
-    ]],
-  [[
-    L->top = _savedtop;
-	]]
-	else
-		return "", ""
-	end
+	ctx.depth = table.remove(ctx.dstack)
 end
 
 -- All the code generation functions for STATEMENTS take
@@ -135,47 +122,40 @@ local function codeblock(ctx, node)
 	for _, stat in ipairs(node.stats) do
 		table.insert(stats, codestat(ctx, stat))
   end
-  local push, pop = popd(ctx)
-  table.insert(stats, 1, push)
-	table.insert(stats, pop)
-	return "    {\n    " .. table.concat(stats, "\n    ") .. "\n    }"
+  popd(ctx)
+  return "    {\n    " .. table.concat(stats, "\n    ") .. "\n    }"
 end
 
 local function codewhile(ctx, node)
   pushd(ctx)
 	local cstats, cexp = codeexp(ctx, node.condition)
 	local cblk = codestat(ctx, node.block)
-	local savetop, restoretop = popd(ctx)
+	(ctx)
 	return string.format([[
 	  while(1) {
-      %s
 			%s
 			if(!(%s)) {
 			  %s
 				break;
 			}
 			%s
-			%s
 	  }
-	]], savetop, cstats, cexp, restoretop, cblk, restoretop)
+	]], cstats, cexp, restoretop, cblk)
 end
 
 local function coderepeat(ctx, node)
 	pushd(ctx)
 	local cstats, cexp = codeexp(ctx, node.condition)
 	local cblk = codestat(ctx, node.block)
-	local savetop, restoretop = popd(ctx)
+	popd(ctx)
 	return string.format([[
 	  while(1) {
-	    %s
 		  %s
 			if(%s) {
-				%s
 				break;
 			}
-			%s
 		}
-	]], savetop, cblk, cstats, cexp, restoretop, restoretop)
+	]], cblk, cstats, cexp)
 end
 
 local function codeif(ctx, node, idx)
@@ -271,7 +251,7 @@ local function codefor(ctx, node)
 		ccmp = node.decl._cvar .. " <= _forlimit"
 	end
 	cblock = codestat(ctx, node.block)
-	local savetop, restoretop = popd(ctx)
+	popd(ctx)
 	return string.format([[
 		{
     %s
@@ -279,11 +259,9 @@ local function codefor(ctx, node)
 		%s
 		for(%s = _forstart; %s; %s) {
       %s
-      %s
-      %s
     }
     }
-	]], cstart, cfinish, cinc, cdecl, ccmp, cstep, savetop, cblock, restoretop)
+	]], cstart, cfinish, cinc, cdecl, ccmp, cstep, cblock)
 end
 
 local function codeassignment(ctx, node)
@@ -657,42 +635,45 @@ end
 --   to the Lua stack when the function returns.
 local function codefuncdec(tlcontext, node)
   local ctx = newcontext()
+	local stats = {}
 	if types.is_gc(node._type.ret) then
-	  ctx.nslots = 1
+	  newslot(ctx, "_retslot");
 	end
 	local cparams = { "lua_State *L" }
 	for i, param in ipairs(node.params) do
-		param._cvar = "_param_" .. param.name
+    param._cvar = "_param_" .. param.name
+    if types.is_gc(param._type) and param._assigned then
+      param._slot = "_paramslot_" .. param.name
+      table.insert(stats, newslot(ctx, param._slot))
+    end
 		table.insert(cparams, ctype(param._type) .. " " .. param._cvar)
 	end
-	local stats = {}
 	local body = codestat(ctx, node.block)
   local nslots = ctx.nslots
   if nslots > 0 then
-	  table.insert(stats, string.format([[
+	  table.insert(stats, 1, string.format([[
   	/* function preamble: reserve needed stack space */
     if (L->stack_last - L->top > %d) { 
 		  if (L->ci->top < L->top + %d) L->ci->top = L->top + %d;
     } else {
 		  lua_checkstack(L, %d);
-    }]], nslots, nslots, nslots, nslots))
+    }
+    TValue *_base = L->top;
+    L->top += %d;
+    for(TValue *_s = L->top - 1; _base <= _s; _s--)
+      setnilvalue(_s);
+    ]], nslots, nslots, nslots, nslots, nslots))
   end
 	if types.is_gc(node._type.ret) then
 		table.insert(stats, [[
 	  /* reserve slot for return value */
-	  setnilvalue(L->top); 
-		TValue *_retslot = L->top;
-		api_incr_top(L);]])
-  elseif nslots > 0 then
-    table.insert(stats, [[
-    /* mark place to restore stack */
-    TValue *_retslot = L->top;]])
+		TValue *_retslot = _base;]])
   end
 	table.insert(stats, body)
   if types.equals(node._type.ret, types.Nil) then
     if nslots > 0 then
       table.insert(stats, [[
-      L->top = _retslot;
+      L->top = _base;
       return 0;]])
     else
       table.insert(stats, "    return 0;")
