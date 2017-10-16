@@ -40,7 +40,7 @@ end
 --   returns wrapped node, or original
 local function trytoint(node)
     if types.equals(node._type, types.Float) then
-        local n = ast.Expr_ToInt(node)
+        local n = ast.Exp_ToInt(node._pos, node)
         n._type = types.Integer
         return n
     else
@@ -54,7 +54,7 @@ end
 --   returns wrapped node, or original
 local function trytofloat(node)
     if types.equals(node._type, types.Integer) then
-        local n = ast.Expr_ToFloat(node)
+        local n = ast.Exp_ToFloat(node._pos, node)
         n._type = types.Float
         return n
     else
@@ -68,7 +68,7 @@ end
 --   returns wrapped node, or original
 local function trytostr(node)
     if not types.equals(node._type, types.String) then
-        local n = ast.Expr_ToStr(node)
+        local n = ast.Exp_ToStr(node._pos, node)
         n._type = types.String
         return n
     else
@@ -282,7 +282,7 @@ function checkexp(node, st, errors, context)
     -- TODO coercions integer <-> float
     local tag = node._tag
     if tag == "Var_Name" then
-        local decl = st:find_symbol(node.name) 
+        local decl = st:find_symbol(node.name)
         if not decl then
             -- TODO generate better error messages when we have the line num
             local msg = "variable '" .. node.name .. "' not declared"
