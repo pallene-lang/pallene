@@ -3,7 +3,7 @@ local types = require "titan-compiler.types"
 describe("Titan types", function()
 
     it("pretty-prints types", function()
-        assert.same("{ integer }", types.Array(types.Integer))
+        assert.same("{ integer }", types.tostring(types.Array(types.Integer)))
     end)
 
     it("checks if a type is garbage collected", function()
@@ -13,8 +13,8 @@ describe("Titan types", function()
     end)
 
     it("checks if a type matches a tag", function()
-        assert.truthy(types.has_type(types.String, "String"))
-        assert.truthy(types.has_type(types.Integer, "Integer"))
+        assert.truthy(types.has_tag(types.String, "String"))
+        assert.truthy(types.has_tag(types.Integer, "Integer"))
     end)
 
 end)
