@@ -13,12 +13,12 @@
 -- identifiers and it expects terminals to be uppercase and non-terminals to be
 -- lowercase.
 
-local lpeg = require 'lpeglabel'
+local lpeg = require "lpeglabel"
 local P, R, S = lpeg.P, lpeg.R, lpeg.S
 local C, Cb, Cg, Ct, Cmt = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt
 local T = lpeg.T
 
-local syntax_errors = require 'titan-compiler.syntax_errors'
+local syntax_errors = require "titan-compiler.syntax_errors"
 local labels = syntax_errors.label_to_int
 
 local lexer = {}
@@ -85,14 +85,14 @@ end
 
 local shortstring
 do
-    
+
     local delimiter = P('"') + P("'")
-    
-    local open  = Cg(delimiter, 'open')
-    local close = Cg(delimiter, 'close')
+
+    local open  = Cg(delimiter, "open")
+    local close = Cg(delimiter, "close")
 
     local matching_close =
-        close * Cmt( Cb('open')* Cb('close'),
+        close * Cmt( Cb("open")* Cb("close"),
             function(source, i, open, close)
                 return open == close
             end)
@@ -194,8 +194,8 @@ local symbols = {
     LPAREN   = "(", RPAREN   = ")",
     LBRACKET = "[", RBRACKET = "]",
     LCURLY   = "{", RCURLY   = "}",
-    SEMICOLON = ";", COMMA = ",", 
-    DOT = ".", DOTS = "...", DBLCOLON = "::", 
+    SEMICOLON = ";", COMMA = ",",
+    DOT = ".", DOTS = "...", DBLCOLON = "::",
     -- Titan:
     COLON = ":",
 }
