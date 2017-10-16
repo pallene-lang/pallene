@@ -162,7 +162,7 @@ local function checkfor(node, st, errors)
       ftype = node.decl._type
       if not types.equals(ftype, types.Integer) and
         not types.equals(ftype, types.Float) then
-        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
       end
@@ -175,7 +175,7 @@ local function checkfor(node, st, errors)
       checkstat(node.decl, st, errors)
       if not types.equals(ftype, types.Integer) and
         not types.equals(ftype, types.Float) then
-        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.delc._pos)
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
       end
