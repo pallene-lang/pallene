@@ -4,6 +4,189 @@ local types = require 'titan-compiler.types'
 
 describe("Titan type checker", function()
 
+    it("detects invalid types", function()
+        local code = [[
+            function fn(): foo
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("type name foo is invalid", err)
+    end)
+
+    it("coerces to integer", function()
+        local code = [[
+            function fn(): integer
+                local f: float = 1.0
+                local i: integer = f
+                return 1
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+        assert.same("Exp_ToInt", ast[1].block.stats[2].exp._tag)
+    end)
+
+    it("coerces to float", function()
+        local code = [[
+            function fn(): integer
+                local i: integer = 12
+                local f: float = i
+                return 1
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+        assert.same("Exp_ToFloat", ast[1].block.stats[2].exp._tag)
+    end)
+
+    it("catches duplicate declartions", function()
+        local code = [[
+            function fn(): integer
+                return 1
+            end
+            function fn(): integer
+                return 1
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("duplicate function", err)
+    end)
+
+    pending("catches mismatching types in locals", function()
+        local code = [[
+            function fn(): integer
+                local i: integer = 1
+                local s: string
+                s = i
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("expected string but found integer", err)
+    end)
+
+    it("catches mismatching types in arguments", function()
+        local code = [[
+            function fn(i: integer, s: string): integer
+                s = i
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("expected string but found integer", err)
+    end)
+
+    pending("type-checks 'for'", function()
+        local code = [[
+            function fn(x: integer): integer
+                for i = 1, 10 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+    end)
+
+    it("type-checks 'for'", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: integer = 0
+                for i = 1, 10 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+    end)
+
+    it("type-checks 'for' with a step", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: integer = 0
+                for i = 1, 10, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+    end)
+
+    it("catches 'for' errors in the start expression", function()
+        local code = [[
+            function fn(x: integer, s: string): integer
+                local i: integer = 0
+                for i = s, 10, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("'for' start expression", err)
+    end)
+
+    it("catches 'for' errors in the finish expression", function()
+        local code = [[
+            function fn(x: integer, s: string): integer
+                local i: integer = 0
+                for i = 1, s, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("'for' finish expression", err)
+    end)
+
+    it("catches 'for' errors in the step expression", function()
+        local code = [[
+            function fn(x: integer, s: string): integer
+                local i: integer = 0
+                for i = 1, 10, s do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("'for' step expression", err)
+    end)
+
+    it("detects nil returns on non-nil functions", function()
+        local code = [[
+            function fn(): integer
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("function can return nil", err)
+    end)
+
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
         it("coerces "..op.." to float if any side is a float", function()
             local code = [[
