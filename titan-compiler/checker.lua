@@ -1,9 +1,9 @@
 local checker = {}
 
-local symtab = require 'titan-compiler.symtab'
-local types = require 'titan-compiler.types'
-local ast = require 'titan-compiler.ast'
-local util = require 'titan-compiler.util'
+local symtab = require "titan-compiler.symtab"
+local types = require "titan-compiler.types"
+local ast = require "titan-compiler.ast"
+local util = require "titan-compiler.util"
 
 local checkstat
 local checkexp
@@ -338,17 +338,17 @@ function checkexp(node, st, errors, context)
         checkexp(node.exp, st, errors)
         local texp = node.exp._type
         local pos = node._pos
-        if op == '#' then
+        if op == "#" then
             if not types.has_tag(texp, "Array") then
                 typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array", pos)
             end
             node._type = types.Integer
-        elseif op == '-' then
+        elseif op == "-" then
             if not types.equals(texp, types.Integer) and not types.equals(texp, types.Float) then
                 typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", pos)
             end
             node._type = texp
-        elseif op == '~' then
+        elseif op == "~" then
             node.exp = trytoint(node.exp)
             texp = node.exp._type
             if not types.equals(texp, types.Integer) then

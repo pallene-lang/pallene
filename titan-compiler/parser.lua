@@ -1,12 +1,12 @@
 local parser = {}
 
-local lpeg = require 'lpeglabel'
-local re = require 'relabel'
-local inspect = require 'inspect'
+local lpeg = require "lpeglabel"
+local re = require "relabel"
+local inspect = require "inspect"
 
-local ast = require 'titan-compiler.ast'
-local lexer = require 'titan-compiler.lexer'
-local syntax_errors = require 'titan-compiler.syntax_errors'
+local ast = require "titan-compiler.ast"
+local lexer = require "titan-compiler.lexer"
+local syntax_errors = require "titan-compiler.syntax_errors"
 
 --
 -- Functions used by the PEG grammar
@@ -31,7 +31,7 @@ function defs.tofalse()
 end
 
 function defs.opt(x)
-    if x == '' then
+    if x == "" then
         return false
     else
         return x
@@ -39,7 +39,7 @@ function defs.opt(x)
 end
 
 function defs.boolopt(x)
-    return x ~= ''
+    return x ~= ""
 end
 
 function defs.nil_exp(pos--[[ s ]])
@@ -49,9 +49,9 @@ function defs.nil_exp(pos--[[ s ]])
 end
 
 function defs.number_exp(pos, n)
-    if math.type(n) == 'integer' then
+    if math.type(n) == "integer" then
         return ast.Exp_Integer(pos, n)
-    elseif math.type(n) == 'float' then
+    elseif math.type(n) == "float" then
         return ast.Exp_Float(pos, n)
     else
         error("impossible")
@@ -132,7 +132,7 @@ function defs.exp2var(exp)
 end
 
 function defs.exp_is_var(_, pos, exp)
-    if exp._tag == 'Exp_Var' then
+    if exp._tag == "Exp_Var" then
         return pos, exp
     else
         return false
@@ -140,7 +140,7 @@ function defs.exp_is_var(_, pos, exp)
 end
 
 function defs.exp_is_call(_, pos, exp)
-    if exp._tag == 'Exp_Call' then
+    if exp._tag == "Exp_Call" then
         return pos, exp
     else
         return false
@@ -254,7 +254,7 @@ local grammar = re.compile([[
     -- Create new rules for all our tokens, for the whitespace-skipping magic
     -- Currently done by hand but this is something that parser-gen should be
     -- able to do for us.
-    
+
     SKIP            <- (%SPACE / %COMMENT)
 
     AND             <- %AND SKIP*
