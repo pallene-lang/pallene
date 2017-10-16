@@ -130,7 +130,8 @@ local function codewhile(ctx, node)
     pushd(ctx)
     local cstats, cexp = codeexp(ctx, node.condition)
     local cblk = codestat(ctx, node.block)
-    (ctx)
+    popd(ctx)
+    local restoretop = "" -- FIXME
     return string.format([[
         while(1) {
             %s
@@ -226,7 +227,7 @@ local function codefor(ctx, node)
                 ccmp = "_forlimit <= " .. node.decl._cvar
             end
         else
-            local cistats, ciexp = codeexp(exp, node.inc)
+            local cistats, ciexp = codeexp(ctx, node.inc)
             if types.equals(node.decl._type, types.Integer) then
                 cinc = string.format([[
                     %s
@@ -250,7 +251,7 @@ local function codefor(ctx, node)
         end
         ccmp = node.decl._cvar .. " <= _forlimit"
     end
-    cblock = codestat(ctx, node.block)
+    local cblock = codestat(ctx, node.block)
     popd(ctx)
     return string.format([[
         {
