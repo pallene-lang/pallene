@@ -113,6 +113,56 @@ describe("Titan type checker", function()
         assert.truthy(ok)
     end)
 
+    it("type-checks 'while'", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: integer = 15
+                while x < 100 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+    end)
+
+    it("type-checks 'if'", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: integer = 15
+                if x < 100 then
+                    x = x + i
+                elseif x > 100 then
+                    x = x - i
+                else
+                    x = 100
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+    end)
+
+    it("checks code inside the 'while' black", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: integer = 15
+                while i do
+                    local s: string = i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("expected string but found integer", err)
+    end)
+
     it("type-checks 'for' with a step", function()
         local code = [[
             function fn(x: integer): integer
@@ -142,6 +192,21 @@ describe("Titan type checker", function()
         local ok, err = checker.check(ast, code, "test.titan")
         assert.falsy(ok)
         assert.match("'for' start expression", err)
+    end)
+
+    it("catches 'for' errors in the control variable", function()
+        local code = [[
+            function fn(x: integer, s: string): integer
+                for i: string = 1, s, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("control variable", err)
     end)
 
     it("catches 'for' errors in the finish expression", function()
