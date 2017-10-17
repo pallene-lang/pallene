@@ -122,6 +122,26 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
+    it("tests literals in 'for'", function()
+        local code = [[
+            function forstep(): integer
+                local v: integer = 0
+                for i = 1, 10, 2 do
+                    v = v + i
+                end
+                return v
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==25)")
+        assert.truthy(ok, err)
+    end)
+
     it("tests nil element in 'not'", function()
         local code = [[
             function testset(t: {integer}, i: integer, v: integer): integer
