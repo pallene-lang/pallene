@@ -784,6 +784,8 @@ local preamble = [[
 
 #include "lobject.h"
 
+#include <math.h>
+
 ]]
 
 local postamble = [[
