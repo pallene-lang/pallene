@@ -122,7 +122,7 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
-    it("tests literals in 'for'", function()
+    it("tests postive literals in 'for'", function()
         local code = [[
             function forstep(): integer
                 local v: integer = 0
@@ -139,6 +139,26 @@ describe("Titan code generator ", function()
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==25)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests negative literals in 'for'", function()
+        local code = [[
+            function forstep(): integer
+                local v: integer = 0
+                for i = 10, 1, -2 do
+                    v = v + i
+                end
+                return v
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==30)")
         assert.truthy(ok, err)
     end)
 
