@@ -245,7 +245,9 @@ function checkstat(node, st, errors)
         end
         checkexp(node.exp, st, errors, node.var._type)
         node.exp = trycoerce(node.exp, node.var._type)
-        checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+        if node.var._tag ~= "Var_Index" or not types.equals(node.exp._type, types.Nil) then
+            checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+        end
     elseif tag == "Stat_Call" then
         checkexp(node.callexp, st, errors)
     elseif tag == "Stat_Return" then

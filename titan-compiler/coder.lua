@@ -288,6 +288,7 @@ local function codeassignment(ctx, node)
     elseif vtag == "Var_Index" then
         local arr = node.var.exp1
         local idx = node.var.exp2
+        local etype = node.exp._type
         local castats, caexp = codeexp(ctx, arr)
         local cistats, ciexp = codeexp(ctx, idx)
         local cstats, cexp = codeexp(ctx, node.exp)
@@ -298,9 +299,9 @@ local function codeassignment(ctx, node)
                 TValue _vv; %s
                 setobj2t(L, _slot, &_vv);
                 luaC_barrierback(L, _t, &_vv);
-            ]], setslot(arr._type.elem, "&_vv", cexp))
+            ]], setslot(etype, "&_vv", cexp))
         else
-            cset = setslot(arr._type.elem, "_slot", cexp)
+            cset = setslot(etype, "_slot", cexp)
         end
         return string.format([[
             {

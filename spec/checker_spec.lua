@@ -84,7 +84,19 @@ describe("Titan type checker", function()
         assert.match("expected string but found integer", err)
     end)
 
-    pending("type-checks 'for'", function()
+    it("allows setting element of array as nil", function ()
+        local code = [[
+            function fn(): nil
+                local arr: {integer} = { 10, 20, 30 }
+                arr[1] = nil
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+    end)
+
+    it("type-checks 'for'", function()
         local code = [[
             function fn(x: integer): integer
                 for i = 1, 10 do
