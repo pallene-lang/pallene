@@ -128,7 +128,7 @@ end
 
 local function codewhile(ctx, node)
     pushd(ctx)
-    local cstats, cexp = codeexp(ctx, node.condition)
+    local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
     popd(ctx)
     local restoretop = "" -- FIXME
@@ -146,11 +146,12 @@ end
 
 local function coderepeat(ctx, node)
     pushd(ctx)
-    local cstats, cexp = codeexp(ctx, node.condition)
+    local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
     popd(ctx)
     return string.format([[
         while(1) {
+            %s
             %s
             if(%s) {
                 break;
@@ -163,11 +164,11 @@ local function codeif(ctx, node, idx)
     idx = idx or 1
     local cstats, cexp, cthn, cels
     if idx == #node.thens then -- last condition
-        cstats, cexp = codeexp(ctx, node.thens[idx].condition)
+        cstats, cexp = codeexp(ctx, node.thens[idx].condition, true)
         cthn = codestat(ctx, node.thens[idx].block)
         cels = node.elsestat and "else " .. codestat(ctx, node.elsestat) or ""
     else
-        cstats, cexp = codeexp(ctx, node.thens[idx].condition)
+        cstats, cexp = codeexp(ctx, node.thens[idx].condition, true)
         cthn = codestat(ctx, node.thens[idx].block)
         cels = codeif(ctx, node, idx + 1)
     end
@@ -510,10 +511,10 @@ local function codetable(ctx, node)
     return table.concat(stats, "\n"), tmpname
 end
 
-local function codeunaryop(ctx, node)
+local function codeunaryop(ctx, node, iscondition)
     local op = node.op
     if op == "not" then
-        local estats, ecode = codeexp(ctx, node.exp)
+        local estats, ecode = codeexp(ctx, node.exp, iscondition)
         return estats, "!(" .. ecode .. ")"
     elseif op == "#" then
         local estats, ecode = codeexp(ctx, node.exp)
@@ -524,31 +525,47 @@ local function codeunaryop(ctx, node)
     end
 end
 
-local function codebinaryop(ctx, node)
+local function codebinaryop(ctx, node, iscondition)
     local op = node.op
     if op == "//" then op = "/" end
     if op == "~=" then op = "!=" end
     if op == "and" then
-        local lstats, lcode = codeexp(ctx, node.lhs)
-        if types.equals(node.lhs._type, types.Boolean) then
-            local rstats, rcode = codeexp(ctx, node.rhs)
-            return lstats .. rstats, "(" .. lcode .. " && " .. rcode .. ")"
-        elseif types.equals(node.lhs._type, types.Nil) then
-            return lstats, lcode
+        local lstats, lcode = codeexp(ctx, node.lhs, iscondition)
+        local rstats, rcode = codeexp(ctx, node.rhs, iscondition)
+        if lstats == "" and rstats == "" then
+            return "(" .. lcode .. " && " .. rcode .. ")"
         else
-            local rstats, rcode = codeexp(ctx, node.rhs)
-            return lstats .. rstats, "(" .. lcode .. ", " .. rcode .. ")"
+            local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
+            local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
+            return string.format([[
+                %s
+                %s
+                %s = %s;
+                if(%s) {
+                  %s  
+                  %s = %s;
+                }
+                %s;
+            ]], lstats, ctmp, tmpname, lcode, tmpname, rstats, tmpname, rcode, tmpset), tmpname
         end
     elseif op == "or" then
-        local lstats, lcode = codeexp(ctx, node.lhs)
-        if types.equals(node.lhs._type, types.Boolean) then
-            local rstats, rcode = codeexp(ctx, node.rhs)
-            return lstats .. rstats, "(" .. lcode .. " || " .. rcode .. ")"
-        elseif types.equals(node.lhs._type, types.Nil) then
-            local rstats, rcode = codeexp(ctx, node.rhs)
-            return lstats .. rstats, "(" .. lcode .. ", " .. rcode .. ")"
+        local lstats, lcode = codeexp(ctx, node.lhs, true)
+        local rstats, rcode = codeexp(ctx, node.rhs, iscondition)
+        if lstats == "" and rstats == "" then
+            return "(" .. lcode .. " || " .. rcode .. ")"
         else
-            return lstats, lcode
+            local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
+            local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
+            return string.format([[
+                %s
+                %s
+                %s = %s;
+                if(!%s) {
+                  %s  
+                  %s = %s;
+                }
+                %s;
+            ]], lstats, ctmp, tmpname, lcode, tmpname, rstats, tmpname, rcode, tmpset), tmpname
         end
     elseif op == "^" then
         local lstats, lcode = codeexp(ctx, node.lhs)
@@ -563,7 +580,7 @@ local function codebinaryop(ctx, node)
     end
 end
 
-local function codeindex(ctx, node)
+local function codeindex(ctx, node, iscondition)
     local castats, caexp = codeexp(ctx, node.exp1)
     local cistats, ciexp = codeexp(ctx, node.exp2)
     local typ = node._type
@@ -573,6 +590,24 @@ local function codeindex(ctx, node)
     local cget = getslot(typ, tmpname, "_s")
     if types.is_gc(typ) then
         cset = setslot(typ, tmpslot, tmpname)
+    end
+    local cfinish
+    if iscondition then
+        cfinish = string.format([[
+          if(ttisnil(_s)) {
+            %s = 0;
+          } else {
+            %s
+            %s
+            %s
+          }
+        ]], tmpname, ccheck, cget, cset)
+    else
+        cfinish = string.format([[
+            %s
+            %s
+            %s
+        ]], ccheck, cget, cset)
     end
     local stats = string.format([[
         %s
@@ -592,18 +627,16 @@ local function codeindex(ctx, node)
             }
 
             %s
-            %s
-            %s
-    }]], ctmp, castats, cistats, caexp, ciexp, ccheck, cget, cset)
+    }]], ctmp, castats, cistats, caexp, ciexp, cfinish)
     return stats, tmpname
 end
 
-function codeexp(ctx, node)
+function codeexp(ctx, node, iscondition)
         local tag = node._tag
         if tag == "Var_Name" then
             return codevar(ctx, node)
         elseif tag == "Var_Index" then
-            return codeindex(ctx, node)
+            return codeindex(ctx, node, iscondition)
         elseif tag == "Exp_Nil" or
                  tag == "Exp_Bool" or
                  tag == "Exp_Integer" or
@@ -613,16 +646,19 @@ function codeexp(ctx, node)
         elseif tag == "Exp_Table" then
                 return codetable(ctx, node)
         elseif tag == "Exp_Var" then
-            return codeexp(ctx, node.var)
+            return codeexp(ctx, node.var, iscondition)
         elseif tag == "Exp_Unop" then
-                return codeunaryop(ctx, node)
+                return codeunaryop(ctx, node, iscondition)
         elseif tag == "Exp_Binop" then
-                return codebinaryop(ctx, node)
+                return codebinaryop(ctx, node, iscondition)
         elseif tag == "Exp_Call" then
             return codecall(ctx, node)
         elseif tag == "Exp_ToFloat" then
             local cstat, cexp = codeexp(ctx, node.exp)
             return cstat, "((lua_Number)" .. cexp .. ")"
+        elseif tag == "Exp_ToBool" then
+            local cstat, cexp = codeexp(ctx, node.exp, true)
+            return cstat, "((" .. cexp .. ") ? 1 : 0)"
         elseif tag == "Exp_ToInt" then
             local cstat, cexp = codeexp(ctx, node.exp)
             local ctmp1, tmpname1 = newtmp(ctx, types.Float)

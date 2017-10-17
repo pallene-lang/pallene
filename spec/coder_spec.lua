@@ -39,4 +39,156 @@ describe("Titan code generator ", function()
         local ok, err = call("titan_test", "arr={1,2,3};titan_test.delete(arr,3);assert(#arr==2)")
         assert.truthy(ok, err)
     end)
+
+    it("tests nil element", function()
+        local code = [[
+            function testset(t: {integer}, i: integer, v: integer): integer
+                if t[i] then
+                  return t[i]
+                else
+                  t[i] = v
+                  return t[i]
+                end
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests nil element in 'while'", function()
+        local code = [[
+            function testfill(t: {integer}, i: integer, v: integer): nil
+                while not t[i] and i > 0 do
+                    t[i] = v
+                    i = i - 1
+                end
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};titan_test.testfill(arr,5,2);assert(#arr==5)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests nil element in 'repeat'", function()
+        local code = [[
+            function testfill(t: {integer}, i: integer, v: integer): nil
+                repeat
+                    t[i] = v
+                    i = i - 1
+                until t[i] or i == 0
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};titan_test.testfill(arr,5,2);assert(#arr==5)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests nil element in 'not'", function()
+        local code = [[
+            function testset(t: {integer}, i: integer, v: integer): integer
+                if not t[i] then
+                  t[i] = v
+                end
+                return t[i]
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests nil element in 'and'", function()
+        local code = [[
+            function testset(t: {integer}, i: integer, v: integer): integer
+                if t[i] and v then
+                  return t[i]
+                else
+                  t[i] = v
+                  return t[i]
+                end
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests nil element in 'or'", function()
+        local code = [[
+            function testset(t: {integer}, i: integer, v: integer): integer
+                if not t[i] or not t[i] then
+                  t[i] = v
+                end
+                return t[i]
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests 'or' pattern", function()
+        local code = [[
+            function getor(t: {integer}, i: integer, v: integer): integer
+                return t[i] or v
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};assert(titan_test.getor(arr,1,2)==2);arr[1]=2;assert(titan_test.getor(arr,1,3)==2)")
+        assert.truthy(ok, err)
+    end)    
+
+    it("tests 'and' pattern", function()
+        local code = [[
+            function ternary(t: {integer}, i: integer, v1: integer, v2: integer): integer
+                return t[i] and v1 or v2
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={};assert(titan_test.ternary(arr,1,3,2)==2);arr[1]=2;assert(titan_test.ternary(arr,1,2,3)==2)")
+        assert.truthy(ok, err)
+    end)
 end)
+
+
