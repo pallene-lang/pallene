@@ -288,6 +288,23 @@ describe("Titan code generator ", function()
         local ok, err = call("titan_test", "assert(6==titan_test.sum(1,2,3))")
         assert.truthy(ok, err)
     end)
+
+    it("generates code for exponentiation", function()
+        local code = [[
+            function power(a: float, b: float): float
+                return a ^ b
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.power(2,3) == 8)")
+        assert.truthy(ok, err)
+    end)
+
 end)
 
 
