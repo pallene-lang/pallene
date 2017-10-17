@@ -62,11 +62,9 @@ local generated_code = coder.generate(modname, ast)
 local ok, errmsg = util.set_file_contents(args.output, generated_code)
 if not ok then exit(errmsg) end
 
-local CC = "gcc"
-local CFLAGS = "--std=c99 -O2 -Wall -I" .. args.lua .. " -fPIC"
+local CC = os.getenv("CC") or "gcc"
+local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
 
 os.execute(string.format([[
-%s %s -shared %s lua/src/liblua.a -o %s.so
-]], CC, CFLAGS, args.output, modname))
-
-
+%s %s -I%s -fPIC -shared %s lua/src/liblua.a -o %s.so
+]], CC, CFLAGS, args.lua, args.output, modname))
