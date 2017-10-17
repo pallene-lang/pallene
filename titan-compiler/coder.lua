@@ -37,7 +37,7 @@ local function checkandget(t, c, s, lin)
         return string.format([[
             if(ttisinteger(%s)) { %s = (lua_Number)ivalue(%s); }
             else if(ttisfloat(%s)) { %s = fltvalue(%s); }
-            else return luaL_error(L, "type error at line %d, expected float but found %%s", lua_typename(L, ttnov(%s)));
+            else luaL_error(L, "type error at line %d, expected float but found %%s", lua_typename(L, ttnov(%s)));
         ]], s, c, s, s, c, s, lin, s)
         elseif types.equals(t, types.Boolean) then tag = "boolean"
     elseif types.equals(t, types.Nil) then tag = "nil"
@@ -48,7 +48,7 @@ local function checkandget(t, c, s, lin)
     end
     return string.format([[
         if(ttis%s(%s)) { %s; }
-        else return luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
+        else luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
     ]], tag, s, getslot(t, c, s), lin, tag, s)
 end
 
@@ -101,11 +101,11 @@ local function newtmp(ctx, typ, isgc)
     ctx.tmp = ctx.tmp + 1
     if isgc then
         return newslot(ctx, "_tmp_" .. tmp .. "_slot") .. string.format([[
-            %s _tmp_%d;
+            %s _tmp_%d = 0;
         ]], ctype(typ), tmp), "_tmp_" .. tmp, "_tmp_" .. tmp .. "_slot"
     else
         return string.format([[
-            %s _tmp_%d;
+            %s _tmp_%d = 0;
         ]], ctype(typ), tmp), "_tmp_" .. tmp
     end
 end
@@ -749,7 +749,7 @@ local function codefuncdec(tlcontext, node)
     local pnames = { "L" }
     for i, param in ipairs(node.params) do
         table.insert(pnames, param._cvar)
-        table.insert(stats, ctype(param._type) .. " " .. param._cvar .. ";")
+        table.insert(stats, ctype(param._type) .. " " .. param._cvar .. " = 0;")
         table.insert(stats, checkandget(param._type, param._cvar, 
             "(func+ " .. i .. ")", node._lin))
     end
@@ -783,6 +783,7 @@ local preamble = [[
 #include "lvm.h"
 
 #include "lobject.h"
+
 ]]
 
 local postamble = [[
