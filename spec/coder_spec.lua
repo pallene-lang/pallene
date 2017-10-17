@@ -5,6 +5,8 @@ local coder = require 'titan-compiler.coder'
 local util = require 'titan-compiler.util'
 
 local function generate(ast, modname)
+    os.remove(modname .. ".c")
+    os.remove(modname .. ".so")
     local generated_code = coder.generate(modname, ast)
     local ok, errmsg = util.set_file_contents(modname .. ".c", generated_code)
     if not ok then return ok, errmsg end
@@ -187,6 +189,42 @@ describe("Titan code generator ", function()
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "arr={};assert(titan_test.ternary(arr,1,3,2)==2);arr[1]=2;assert(titan_test.ternary(arr,1,2,3)==2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("pass integers when expecting floats in array", function()
+        local code = [[
+            function sum(array: {float}): float
+                local res = 0.0
+                for i = 1, #array do
+                    res = res + array[i]
+                end
+                return res
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "arr={1,2,3};assert(6==titan_test.sum(arr))")
+        assert.truthy(ok, err)
+    end)
+
+    it("pass integers when expecting floats in argument", function()
+        local code = [[
+            function sum(a: float, b: float, c: float): float
+                return a + b + c
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(6==titan_test.sum(1,2,3))")
         assert.truthy(ok, err)
     end)
 end)

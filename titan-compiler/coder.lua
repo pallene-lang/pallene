@@ -16,22 +16,6 @@ local function node2literal(node)
     end
 end
 
-local function checktype(t, s, lin)
-    local tag
-    if types.equals(t, types.Integer) then tag = "integer"
-    elseif types.equals(t, types.Float) then tag = "float"
-    elseif types.equals(t, types.Boolean) then tag = "boolean"
-    elseif types.equals(t, types.Nil) then tag = "nil"
-    elseif types.equals(t, types.String) then tag = "string"
-    elseif types.has_tag(t, "Array") then tag = "table"
-    else
-        error("invalid type " .. types.tostring(t))
-    end
-    return string.format([[
-        if(!ttis%s(%s)) luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
-    ]], tag, s, lin, tag, s)
-end
-
 local function getslot(t, c, s)
     local tmpl
     if types.equals(t, types.Integer) then tmpl = "%s = ivalue(%s);"
@@ -44,6 +28,28 @@ local function getslot(t, c, s)
         error("invalid type " .. types.tostring(t))
     end
     return string.format(tmpl, c, s)
+end
+
+local function checkandget(t, c, s, lin)
+    local tag
+    if types.equals(t, types.Integer) then tag = "integer"
+    elseif types.equals(t, types.Float) then 
+        return string.format([[
+            if(ttisinteger(%s)) { %s = (lua_Number)ivalue(%s); }
+            else if(ttisfloat(%s)) { %s = fltvalue(%s); }
+            else return luaL_error(L, "type error at line %d, expected float but found %%s", lua_typename(L, ttnov(%s)));
+        ]], s, c, s, s, c, s, lin, s)
+        elseif types.equals(t, types.Boolean) then tag = "boolean"
+    elseif types.equals(t, types.Nil) then tag = "nil"
+    elseif types.equals(t, types.String) then tag = "string"
+    elseif types.has_tag(t, "Array") then tag = "table"
+    else
+        error("invalid type " .. types.tostring(t))
+    end
+    return string.format([[
+        if(ttis%s(%s)) { %s; }
+        else return luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
+    ]], tag, s, getslot(t, c, s), lin, tag, s)
 end
 
 local function setslot(t, s, c)
@@ -461,7 +467,7 @@ local function codevalue(ctx, node)
     elseif tag == "Exp_Integer" then
         return "", string.format("%i", node.value)
     elseif tag == "Exp_Float" then
-        return "", string.format("%lf", node.value)
+        return "", string.format("%f", node.value)
     elseif tag == "Exp_String" then
         -- TODO: make a constant table so we can
         -- allocate literal strings on module load time
@@ -586,8 +592,7 @@ local function codeindex(ctx, node, iscondition)
     local typ = node._type
     local ctmp, tmpname, tmpslot = newtmp(ctx, typ, types.is_gc(typ))
     local cset = ""
-    local ccheck = checktype(typ, "_s", node._lin)
-    local cget = getslot(typ, tmpname, "_s")
+    local ccheck = checkandget(typ, tmpname, "_s", node._lin)
     if types.is_gc(typ) then
         cset = setslot(typ, tmpslot, tmpname)
     end
@@ -599,15 +604,13 @@ local function codeindex(ctx, node, iscondition)
           } else {
             %s
             %s
-            %s
           }
-        ]], tmpname, ccheck, cget, cset)
+        ]], tmpname, ccheck, cset)
     else
         cfinish = string.format([[
             %s
             %s
-            %s
-        ]], ccheck, cget, cset)
+        ]], ccheck, cset)
     end
     local stats = string.format([[
         %s
@@ -746,10 +749,9 @@ local function codefuncdec(tlcontext, node)
     local pnames = { "L" }
     for i, param in ipairs(node.params) do
         table.insert(pnames, param._cvar)
-        table.insert(stats, checktype(param._type, "(func+ " .. i .. ")", node._lin))
-        table.insert(stats, getslot(param._type,
-            ctype(param._type) .. " " .. param._cvar,
-            "(func+ " .. i .. ")"))
+        table.insert(stats, ctype(param._type) .. " " .. param._cvar .. ";")
+        table.insert(stats, checkandget(param._type, param._cvar, 
+            "(func+ " .. i .. ")", node._lin))
     end
     table.insert(stats, string.format([[
         %s res = %s_titan(%s);
