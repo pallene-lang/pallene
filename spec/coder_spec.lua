@@ -305,6 +305,25 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
+    pending("handles coercion to integer", function()
+        local code = [[
+            function fn(): integer
+                local f: float = 1.0
+                local i: integer = f
+                return 1
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        assert.same("Exp_ToInt", ast[1].block.stats[2].exp._tag)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "local x = titan_test.fn(); assert(math.type(x) == 'integer')")
+        assert.truthy(ok, err)
+    end)
+
 end)
 
 
