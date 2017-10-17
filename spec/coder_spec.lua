@@ -305,6 +305,28 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
+    it("generates code for 'elseif'", function()
+        local code = [[
+            function getval(a: integer): integer
+                if a == 1 then
+                    return 10
+                elseif a == 2 then
+                    return 20
+                else
+                    return 30
+                end
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.getval(1) == 10);assert(titan_test.getval(2) == 20);assert(titan_test.getval(3) == 30)")
+        assert.truthy(ok, err)
+    end)
+
     pending("handles coercion to integer", function()
         local code = [[
             function fn(): integer
