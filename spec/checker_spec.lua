@@ -57,12 +57,12 @@ describe("Titan type checker", function()
         assert.falsy(ok)
         assert.match("duplicate function", err)
     end)
-
-    pending("catches mismatching types in locals", function()
+    
+    it("catches mismatching types in locals", function()
         local code = [[
-            function fn(): integer
+            function fn(): nil
                 local i: integer = 1
-                local s: string
+                local s: string = "foo"
                 s = i
             end
         ]]
