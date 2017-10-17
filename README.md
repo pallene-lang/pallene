@@ -18,11 +18,8 @@ For more information, please see the [reference manual](https://github.com/titan
 3. [inspect](https://github.com/kikito/inspect.lua) >= 3.1.0
 4. [argparse](https://github.com/mpeterv/argparse) >= 0.5.0
 
-# Requirements for running Titan code
-
-You need to build the Lua interpreter in the `lua` folder, and **must** run
-any Titan code through it, otherwise the code will not see the internal functions
-and other data that it needs from Lua.
+You need to build the Lua interpreter in the `lua` folder with `MYCFLAGS=-fPIC`,
+or `titanc` will not be able to build any Titan code.
 
 # Install
 
