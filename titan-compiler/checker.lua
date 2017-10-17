@@ -76,6 +76,20 @@ local function trytostr(node)
     end
 end
 
+-- Wraps an expression node in a coercion to boolean
+-- type of node is not boolean already
+--   node: expression node
+--   returns wrapped node, or original
+local function trytobool(node)
+    if not types.equals(node._type, types.Boolean) then
+        local n = ast.Exp_ToBool(node._pos, node)
+        n._type = types.Boolean
+        return n
+    else
+        return node
+    end
+end
+
 -- tries to coerce node to target numeric type
 --    node: expression node
 --    target: target type
@@ -245,7 +259,9 @@ function checkstat(node, st, errors)
         end
         checkexp(node.exp, st, errors, node.var._type)
         node.exp = trycoerce(node.exp, node.var._type)
-        checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+        if node.var._tag ~= "Var_Index" or not types.equals(node.exp._type, types.Nil) then
+            checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+        end
     elseif tag == "Stat_Call" then
         checkexp(node.callexp, st, errors)
     elseif tag == "Stat_Return" then
@@ -438,18 +454,26 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.String
         elseif op == "and" or op == "or" then
+            -- tries to coerce integer to float if other side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
               node.lhs = trytofloat(node.lhs)
               tlhs = node.lhs._type
               node.rhs = trytofloat(node.rhs)
               trhs = node.rhs._type
             end
-            if not types.equals(lhs, rhs) then
-              typeerror(errors, "left hand side of logical expression is a " ..
-               types.tostring(lhs) .. " but right hand side is a " ..
-               types.tostring(rhs), pos)
+            -- coerces other side to boolean if either side is boolean
+            if types.equals(tlhs, types.Boolean) or types.equals(trhs, types.Boolean) then
+                node.lhs = trytobool(node.lhs)
+                tlhs = node.lhs._type
+                node.rhs = trytobool(node.rhs)
+                trhs = node.rhs._type
             end
-            node._type = types.Boolean
+            if not types.equals(tlhs, trhs) then
+              typeerror(errors, "left hand side of logical expression is a " ..
+               types.tostring(tlhs) .. " but right hand side is a " ..
+               types.tostring(trhs), pos)
+            end
+            node._type = tlhs
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce to integer
             node.lhs = trytoint(node.lhs)

@@ -144,3 +144,7 @@ end
 function qsort(array: {integer}): nil
   quicksort(array, 1, #array)
 end
+
+function delete(array: {integer}, i: integer): nil
+  array[i] = nil
+end

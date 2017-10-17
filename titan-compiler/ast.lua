@@ -51,7 +51,8 @@ types.Exp = {
     Binop   = {"lhs", "op", "rhs"},
     ToFloat = { "exp" },
     ToInt   = { "exp" },
-    ToStr   = { "exp" }
+    ToStr   = { "exp" },
+    ToBool  = { "exp" }
 }
 
 types.Args = {
