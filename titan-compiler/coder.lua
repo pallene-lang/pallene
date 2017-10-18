@@ -790,10 +790,20 @@ local preamble = [[
 
 local postamble = [[
 int luaopen_%s(lua_State *L) {
+    %s_init(L);
     lua_newtable(L);
     %s
     return 1;
 }
+]]
+
+local init = [[
+void %s_init(lua_State *L) {
+    if(!_initialized) {
+        _initialized = 1;    
+        %s
+    }
+}    
 ]]
 
 function coder.generate(modname, ast)
@@ -802,7 +812,12 @@ function coder.generate(modname, ast)
     }
 
     local code = { preamble }
+
+    -- has this module already been initialized?
+    table.insert(code, "static int _initialized = 0;")
+
     local funcs = {}
+    local initvars = {}
 
     for _, node in pairs(ast) do
         if not node._ignore then
@@ -819,13 +834,17 @@ function coder.generate(modname, ast)
                 end
             elseif tag == "TopLevel_Var" then
                 codevardec(tlcontext, node)
+                table.insert(code, node._cdecl)
+                table.insert(initvars, node._init)
             else
                 error("code generation not implemented for node " .. tag)
             end
         end
     end
 
-    table.insert(code, string.format(postamble, modname, table.concat(funcs, "\n")))
+    table.insert(code, string.format(init, modname, table.concat(initvars, "\n")))
+
+    table.insert(code, string.format(postamble, modname, modname, table.concat(funcs, "\n")))
 
     return table.concat(code, "\n\n")
 end
