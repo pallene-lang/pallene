@@ -158,7 +158,9 @@ local grammar = re.compile([[
                            COLON type
                            block END)                       -> TopLevel_Func
 
-    toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
+    toplevelvar     <- ({} localopt 
+                         ({} NAME COLON type) -> Decl_Decl
+                                         ASSIGN exp)        -> TopLevel_Var
 
     localopt        <- (LOCAL)?                             -> boolopt
 

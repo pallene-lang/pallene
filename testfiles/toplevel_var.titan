@@ -1,3 +1,3 @@
-local x=17
+local x:integer=17
 
-y=18
+y:integer=18

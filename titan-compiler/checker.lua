@@ -125,6 +125,7 @@ local function firstpass(ast, st, errors)
         elseif tag == "TopLevel_Var" then
             name = tlnode.decl.name
             tlnode._type = typefromnode(tlnode.decl.type, errors)
+            tlnode._lin = util.get_line_number(errors.subject, tlnode._pos)
         else
             error("impossible")
         end
