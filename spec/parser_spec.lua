@@ -44,10 +44,10 @@ describe("Titan parser", function()
         assert_ast(program, {
             { _tag = "TopLevel_Var",
                 islocal = true,
-                decl = { name = "x", type = { _tag = "Type_Basic", name = "integer" } } },
+                decl = { name = "x", type = false } },
             { _tag = "TopLevel_Var",
                 islocal = false,
-                decl = { name = "y", type = { _tag = "Type_Basic", name = "integer" } } },
+                decl = { name = "y", type = false } },
         })
     end)
 

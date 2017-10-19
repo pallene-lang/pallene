@@ -104,8 +104,7 @@ local function trycoerce(node, target)
     end
 end
 
--- First typecheck pass over the module, collects type information
--- for top-level functions and variables and checks for duplicate definitions
+-- First typecheck pass over the module, typecheks module variables
 --   ast: AST for the whole module
 --   st: symbol table
 --   errors: list of compile-time errors
@@ -113,27 +112,51 @@ end
 --   annotates whether a top-level declaration is duplicated with a "_ignore" field
 local function firstpass(ast, st, errors)
     for _, tlnode in ipairs(ast) do
-        local tag = tlnode._tag
         local name
-        if tag == "TopLevel_Func" then
+        if tlnode._tag == "TopLevel_Var" then
+            name = tlnode.decl.name
+            if tlnode.decl.type then
+                tlnode._type = typefromnode(tlnode.decl.type, errors)
+                checkexp(tlnode.value, st, errors, tlnode._type)
+            else
+                checkexp(tlnode.value, st, errors)
+                tlnode._type = tlnode.value._type
+            end
+            tlnode._lin = util.get_line_number(errors.subject, tlnode._pos)
+            if st:find_dup(name) then
+                typeerror(errors, "duplicate variable declaration for " .. name, tlnode._pos)
+                tlnode._ignore = true
+            else
+                st:add_symbol(name, tlnode)
+            end
+        end
+    end
+end
+
+
+-- Second typecheck pass over the module, collects type information
+-- for top-level functions
+--   ast: AST for the whole module
+--   st: symbol table
+--   errors: list of compile-time errors
+--   annotates the top-level nodes with their types in a "_type" field
+--   annotates whether a top-level declaration is duplicated with a "_ignore" field
+local function secondpass(ast, st, errors)
+    for _, tlnode in ipairs(ast) do
+        local name
+        if tlnode._tag == "TopLevel_Func" then
             name = tlnode.name
             local ptypes = {}
             for _, pdecl in ipairs(tlnode.params) do
                 table.insert(ptypes, typefromnode(pdecl.type, errors))
             end
             tlnode._type = types.Function(ptypes, typefromnode(tlnode.rettype, errors))
-        elseif tag == "TopLevel_Var" then
-            name = tlnode.decl.name
-            tlnode._type = typefromnode(tlnode.decl.type, errors)
-            tlnode._lin = util.get_line_number(errors.subject, tlnode._pos)
-        else
-            error("impossible")
-        end
-        if st:find_dup(name) then
-            typeerror(errors, "duplicate function or variable declaration for " .. name, tlnode._pos)
-            tlnode._ignore = true
-        else
-            st:add_symbol(name, tlnode)
+            if st:find_dup(name) then
+                typeerror(errors, "duplicate function or variable declaration for " .. name, tlnode._pos)
+                tlnode._ignore = true
+            else
+                st:add_symbol(name, tlnode)
+            end
         end
     end
 end
@@ -552,19 +575,16 @@ local function checkfunc(node, st, errors)
     end
 end
 
--- Second typechecking pass over the module, checks function bodies
--- and rhs of top-level variable declarations
+-- Third typechecking pass over the module, checks function bodies
 --   ast: AST for the whole module
 --   st: symbol table
 --   errors: list of compile-time errors
-local function secondpass(ast, st, errors)
+local function thirdpass(ast, st, errors)
     for _, tlnode in ipairs(ast) do
         if not tlnode._ignore then
             local tag = tlnode._tag
             if tag == "TopLevel_Func" then
                 st:with_block(checkfunc, tlnode, st, errors)
-            else
-                checkexp(tlnode.value, st, errors, tlnode._type)
             end
         end
     end
@@ -582,6 +602,7 @@ function checker.check(ast, subject, filename)
     local errors = {subject = subject, filename = filename}
     firstpass(ast, st, errors)
     secondpass(ast, st, errors)
+    thirdpass(ast, st, errors)
     if #errors > 0 then
         return false, table.concat(errors, "\n")
     end
