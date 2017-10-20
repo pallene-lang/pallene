@@ -324,7 +324,6 @@ function checkexp(node, st, errors, context)
     if tag == "Var_Name" then
         local decl = st:find_symbol(node.name)
         if not decl then
-            -- TODO generate better error messages when we have the line num
             local msg = "variable '" .. node.name .. "' not declared"
             typeerror(errors, msg, node._pos)
             node._type = types.Integer
@@ -332,6 +331,7 @@ function checkexp(node, st, errors, context)
             typeerror(errors, "reference to function " .. node.name .. " outside of function call", decl._pos)
             node._type = types.Integer
         else
+            decl._used = true
             node._decl = decl
             node._type = decl._type
         end

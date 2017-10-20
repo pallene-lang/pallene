@@ -420,9 +420,25 @@ describe("Titan code generator ", function()
         local ok, err = checker.check(ast, code, "test.titan")
         assert.truthy(ok, err)
         assert.same("Exp_ToInt", ast[1].block.stats[2].exp._tag)
-        local ok, err = generate(ast, "titan_test1")
+        local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
-        local ok, err = call("titan_test1", "local x = titan_test1.fn(); assert(math.type(x) == 'integer')")
+        local ok, err = call("titan_test", "local x = titan_test.fn(); assert(math.type(x) == 'integer')")
+        assert.truthy(ok, err)
+    end)
+
+    it("handles unused locals", function()
+        local code = [[
+            function fn(): nil
+                local f: float = 1.0
+                local i: integer = f
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        assert.same("Exp_ToInt", ast[1].block.stats[2].exp._tag)
+        local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
     end)
 

@@ -434,28 +434,35 @@ function codestat(ctx, node)
     local tag = node._tag
     if tag == "Stat_Decl" then
         local cstats, cexp = codeexp(ctx, node.exp)
-        local typ = node.decl._type
-        node.decl._cvar = "_local_" .. node.decl.name
-        local cdecl = ctype(typ) .. " " .. node.decl._cvar .. ";"
-        local cslot = ""
-        local cset = ""
-        if types.is_gc(typ) then
-            node.decl._slot = "_localslot_" .. node.decl.name
-            cslot = newslot(ctx, node.decl._slot);
-            cset = string.format([[
-                /* update slot */
+        if node.decl._used then
+            local typ = node.decl._type
+            node.decl._cvar = "_local_" .. node.decl.name
+            local cdecl = ctype(typ) .. " " .. node.decl._cvar .. ";"
+            local cslot = ""
+            local cset = ""
+            if types.is_gc(typ) then
+                node.decl._slot = "_localslot_" .. node.decl.name
+                cslot = newslot(ctx, node.decl._slot);
+                cset = string.format([[
+                    /* update slot */
+                    %s
+                ]], setslot(typ, node.decl._slot, node.decl._cvar))
+            end
+            return string.format([[
                 %s
-            ]], setslot(typ, node.decl._slot, node.decl._cvar))
+                %s
+                {
+                    %s
+                    %s = %s;
+                    %s
+                }
+            ]], cdecl, cslot, cstats, node.decl._cvar, cexp, cset)
+        else
+            return string.format([[
+                %s
+                ((void)%s);
+            ]], cstats, cexp)
         end
-        return string.format([[
-            %s
-            %s
-            {
-                %s
-                %s = %s;
-                %s
-            }
-        ]], cdecl, cslot, cstats, node.decl._cvar, cexp, cset)
     elseif tag == "Stat_Block" then
         return codeblock(ctx, node)
     elseif tag == "Stat_While" then
