@@ -21,3 +21,23 @@ end
 function pow(): float
     return -1 ^ -2 ^ 3 * 4 -- right assoc, stronger than prefix
 end
+
+function concat2(): string
+    return x .. y .. z -- right assoc
+end
+
+function concat3(): string
+    return 1 .. 2
+end
+
+function concat4(): string
+    return 2.5 .. 1.5
+end
+
+function concat5(): string
+    return "a" .. 2 -- right assoc
+end
+
+function concat6(): string
+    return 2 .. "a" -- right assoc
+end

@@ -363,5 +363,17 @@ describe("Titan type checker", function()
         end)
     end
 
+    pending("cannot concatenate with boolean", function()
+        local code = [[
+            function fn(): nil
+                local s = "foo" .. true
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("cannot concatenate with boolean value", err)
+    end)
+
 end)
 

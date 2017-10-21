@@ -67,7 +67,8 @@ end
 --   node: expression node
 --   returns wrapped node, or original
 local function trytostr(node)
-    if not types.equals(node._type, types.String) then
+    local typ = node._type
+    if types.equals(typ, types.Float) or types.equals(typ, types.Integer) then
         local n = ast.Exp_ToStr(node._pos, node)
         n._type = types.String
         return n
@@ -379,8 +380,8 @@ function checkexp(node, st, errors, context)
         local texp = node.exp._type
         local pos = node._pos
         if op == "#" then
-            if not types.has_tag(texp, "Array") then
-                typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array", pos)
+            if not types.has_tag(texp, "Array") and not types.equals(texp, types.String) then
+                typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", pos)
             end
             node._type = types.Integer
         elseif op == "-" then
@@ -400,6 +401,18 @@ function checkexp(node, st, errors, context)
         else
             error("invalid unary operation " .. op)
         end
+    elseif tag == "Exp_Concat" then
+        for i, exp in ipairs(node.exps) do
+            checkexp(exp, st, errors, types.String)
+            -- always tries to coerce to string
+            exp = trytostr(exp)
+            node.exps[i] = exp
+            local texp = exp._type
+            if not types.equals(texp, types.String) then
+                typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", pos)
+            end
+        end
+        node._type = types.String
     elseif tag == "Exp_Binop" then
         local op = node.op
         checkexp(node.lhs, st, errors)
@@ -467,16 +480,6 @@ function checkexp(node, st, errors, context)
                 typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Float
-        elseif op == ".." then
-            -- always tries to coerce to string
-            node.lhs = trytostr(node.lhs)
-            tlhs = node.lhs._type
-            node.rhs = trytostr(node.rhs)
-            trhs = node.rhs._type
-            if types.equals(tlhs, types.Nil) or types.equals(trhs, types.Nil) then
-                typeerror(errors, "cannot concatenate with nil value", pos)
-            end
-            node._type = types.String
         elseif op == "and" or op == "or" then
             -- tries to coerce integer to float if other side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then

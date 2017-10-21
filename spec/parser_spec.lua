@@ -254,11 +254,7 @@ describe("Titan parser", function()
         )
 
         assert_ast(program[4].block.stats[1].exp,
-            { op = "..",
-                lhs = { value = "a" },
-                rhs = { op = "..",
-                    lhs = { value = "b" },
-                    rhs = { value = "c" } } }
+            { _tag = "Exp_String", value = "abc" }
         )
 
         assert_ast(program[5].block.stats[1].exp,
@@ -282,7 +278,14 @@ describe("Titan parser", function()
                                 rhs = { value = 3 } } } } },
                  rhs = { value = 4 } }
         )
-    end)
+
+        assert_ast(program[7].block.stats[1].exp,
+            { _tag = "Exp_Concat", exps = {
+                { var = { name = "x" } },
+                { var = { name = "y" } },
+                { var = { name = "z" } } } }
+    )
+end)
 
     it("can parse suffix operators", function()
         local program, err = parse_file("./testfiles/suffix.titan")
