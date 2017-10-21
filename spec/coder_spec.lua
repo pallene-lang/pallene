@@ -327,12 +327,92 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
-    pending("handles coercion to integer", function()
+    it("generates code for integer module-local variables", function()
+        local code = [[
+            local a: integer = 1
+            function geta(): integer
+                return a
+            end
+            function seta(x: integer): nil
+                a = x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.seta(2);assert(titan_test.geta() == 2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for float module-local variables", function()
+        local code = [[
+            local a: float = 1
+            function geta(): float
+                return a
+            end
+            function seta(x: float): nil
+                a = x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.seta(2);assert(titan_test.geta() == 2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for boolean module-local variables", function()
+        local code = [[
+            local a: boolean = true
+            function geta(): boolean
+                return a
+            end
+            function seta(x: boolean): nil
+                a = x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.geta() == true);titan_test.seta(false);assert(titan_test.geta() == false)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for array module-local variables", function()
+        local code = [[
+            local a: {integer} = {}
+            function len(): integer 
+                return #a
+            end
+            function seta(x: {integer}): nil
+                a = x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.len() == 0);titan_test.seta({1});assert(titan_test.len() == 1)")
+        assert.truthy(ok, err)
+    end)
+
+    it("handles coercion to integer", function()
         local code = [[
             function fn(): integer
                 local f: float = 1.0
                 local i: integer = f
-                return 1
+                return i
             end
         ]]
         local ast, err = parser.parse(code)
@@ -346,6 +426,89 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
+    it("handles unused locals", function()
+        local code = [[
+            function fn(): nil
+                local f: float = 1.0
+                local i: integer = f
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        assert.same("Exp_ToInt", ast[1].block.stats[2].exp._tag)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for integer exported variables", function()
+        local code = [[
+            a: integer = 1
+            function geta(): integer
+                return a
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.a = 2;assert(titan_test.geta() == 2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for exported float variables", function()
+        local code = [[
+            a: float = 1
+            function geta(): float
+                return a
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.a = 2;assert(titan_test.geta() == 2)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for exported boolean variables", function()
+        local code = [[
+            a: boolean = true
+            function geta(): boolean
+                return a
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.geta() == true);titan_test.a = false;assert(titan_test.geta() == false)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for exported array variables", function()
+        local code = [[
+            a: {integer} = {}
+            function len(): integer 
+                return #a
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.len() == 0);titan_test.a={1};assert(titan_test.len() == 1)")
+        assert.truthy(ok, err)
+    end)
 end)
 
 

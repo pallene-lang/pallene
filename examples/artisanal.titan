@@ -4,6 +4,44 @@ function foo(x: integer, y: integer): integer
     return x + y
 end
 
+function doublea(): integer
+    a = a * 2
+    return a
+end
+
+function doubleb(): integer
+    b = b * 2
+    return b
+end
+
+function setc(t: { integer }): nil
+    c = t
+end
+
+function sumc(): integer
+    local s = 0
+    for i = 1, #c do
+        s = s + c[i]
+    end
+    return s
+end
+
+function sumd(): integer
+    local s = 0
+    for i = 1, #d do
+        s = s + d[i]
+    end
+    return s
+end
+
+local a: integer = foo(2,3)
+
+b: integer = foo(10,5)
+
+local c: {integer} = {1,2,3}
+
+d: {integer} = {3,4,5}
+
 function filltable(N: integer): { integer }
     local xs: { integer } = {}
     for i=1,N do
