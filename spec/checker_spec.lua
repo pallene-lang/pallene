@@ -363,7 +363,7 @@ describe("Titan type checker", function()
         end)
     end
 
-    pending("cannot concatenate with boolean", function()
+    it("cannot concatenate with boolean", function()
         local code = [[
             function fn(): nil
                 local s = "foo" .. true
@@ -375,5 +375,51 @@ describe("Titan type checker", function()
         assert.match("cannot concatenate with boolean value", err)
     end)
 
+    it("cannot concatenate with nil", function()
+        local code = [[
+            function fn(): nil
+                local s = "foo" .. nil
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("cannot concatenate with nil value", err)
+    end)
+
+    it("cannot concatenate with array", function()
+        local code = [[
+            function fn(): nil
+                local s = "foo" .. {}
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("cannot concatenate with { integer } value", err)
+    end)
+
+    it("cannot concatenate with boolean", function()
+        local code = [[
+            function fn(): nil
+                local s = "foo" .. true
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("cannot concatenate with boolean value", err)
+    end)
+
+    it("can concatenate with integer and float", function()
+        local code = [[
+            function fn(): nil
+                local s = 1 .. 2.5
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok)
+    end)
 end)
 

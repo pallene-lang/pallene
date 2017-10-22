@@ -30,7 +30,7 @@ local function typefromnode(typenode, errors)
         end
         return t
     else
-        error("impossible")
+        error("invalid node tag " .. tag)
     end
 end
 
@@ -308,7 +308,7 @@ function checkstat(node, st, errors)
         end
         return ret
     else
-        error("typechecking not implemented for node type " .. tag)
+        error("invalid node tag " .. tag)
     end
     return false
 end
@@ -409,7 +409,7 @@ function checkexp(node, st, errors, context)
             node.exps[i] = exp
             local texp = exp._type
             if not types.equals(texp, types.String) then
-                typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", pos)
+                typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", exp._pos)
             end
         end
         node._type = types.String
@@ -557,7 +557,7 @@ function checkexp(node, st, errors, context)
             node._type = types.Integer
         end
     else
-        error("typechecking not implemented for node type " .. tag)
+        error("invalid node tag " .. tag)
     end
 end
 
