@@ -48,6 +48,7 @@ types.Exp = {
     Call    = {"exp", "args"},
     Var     = {"var"},
     Unop    = {"op", "exp"},
+    Concat  = {"exps"},
     Binop   = {"lhs", "op", "rhs"},
     ToFloat = { "exp" },
     ToInt   = { "exp" },

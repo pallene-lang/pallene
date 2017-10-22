@@ -4,6 +4,19 @@ local coder = {}
 
 local codeexp, codestat
 
+local function quotestr(s)
+    s = s:gsub("\\", "\\\\")
+        :gsub("\a", "\\a")
+        :gsub("\b", "\\b")
+        :gsub("\f", "\\f")
+        :gsub("\n", "\\n")
+        :gsub("\r", "\\r")
+        :gsub("\t", "\\t")
+        :gsub("\v", "\\v")
+        :gsub("\"", "\\\"")
+    return '"' .. s .. '"'
+end
+
 local function node2literal(node)
     local tag = node._tag
     if tag == "Exp_Integer" or tag == "Exp_Float" then
@@ -23,7 +36,7 @@ local function getslot(t, c, s)
     elseif types.equals(t, types.Float) then tmpl = "%s fltvalue(%s)"
     elseif types.equals(t, types.Boolean) then tmpl = "%s bvalue(%s)"
     elseif types.equals(t, types.Nil) then tmpl = "%s 0"
-    elseif types.equals(t, types.String) then tmpl = "%s svalue(%s)"
+    elseif types.equals(t, types.String) then tmpl = "%s tsvalue(%s)"
     elseif types.has_tag(t, "Array") then tmpl = "%s hvalue(%s)"
     else
         error("invalid type " .. types.tostring(t))
@@ -300,13 +313,14 @@ local function codeassignment(ctx, node)
     -- or an array indexing.
     local vtag = node.var._tag
     if vtag == "Var_Name" then
-        local cstats, cexp = codeexp(ctx, node.exp)
         if node.var._decl._tag == "TopLevel_Var" and not node.var._decl.islocal then
+            local cstats, cexp = codeexp(ctx, node.exp)
             return string.format([[
                 %s
                 %s;
             ]], cstats, setslot(node.var._type, node.var._decl._slot, cexp))
         else
+            local cstats, cexp = codeexp(ctx, node.exp, false, node.var._decl)
             local cset = ""
             if types.is_gc(node.var._type) then
                 cset = string.format([[
@@ -481,7 +495,7 @@ function codestat(ctx, node)
     elseif tag == "Stat_Return" then
         return codereturn(ctx, node)
     else
-        error("code generation not implemented for node " .. tag)
+        error("invalid node tag " .. tag)
     end
 end
 
@@ -499,7 +513,7 @@ local function codevar(ctx, node)
     end
 end
 
-local function codevalue(ctx, node)
+local function codevalue(ctx, node, target)
     local tag = node._tag
     if tag == "Exp_Nil" then
         return "", "0"
@@ -510,22 +524,38 @@ local function codevalue(ctx, node)
     elseif tag == "Exp_Float" then
         return "", string.format("%f", node.value)
     elseif tag == "Exp_String" then
-        -- TODO: make a constant table so we can
-        -- allocate literal strings on module load time
-        error("code generation for literal strings not implemented")
+        if target then
+            return "", string.format("luaS_new(L, %s)", quotestr(node.value))
+        else
+            local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
+            return string.format([[
+                %s
+                %s = luaS_new(L, %s);
+                setsvalue(L, %s, %s);
+            ]], ctmp, tmpname, quotestr(node.value), tmpslot, tmpname), tmpname
+        end
     else
         error("invalid tag for a literal value: " .. tag)
     end
 end
 
-local function codetable(ctx, node)
+local function codetable(ctx, node, target)
     local stats = {}
-    local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, true)
-    local cinit = string.format([[
-        %s
-        %s = luaH_new(L);
-        sethvalue(L, %s, %s);
-    ]], ctmp, tmpname, tmpslot, tmpname)
+    local cinit, ctmp, tmpname, tmpslot
+    if target then
+        ctmp, tmpname, tmpslot = "", target._cvar, target._slot
+        cinit = string.format([[
+            %s = luaH_new(L);
+            sethvalue(L, %s, %s);
+        ]], target._cvar, target._slot)
+    else
+        ctmp, tmpname, tmpslot = newtmp(ctx, node._type, true)
+        cinit = string.format([[
+            %s
+            %s = luaH_new(L);
+            sethvalue(L, %s, %s);
+        ]], ctmp, tmpname, tmpslot, tmpname)
+    end
     table.insert(stats, cinit)
     local slots = {}
     for _, exp in ipairs(node.exps) do
@@ -565,7 +595,11 @@ local function codeunaryop(ctx, node, iscondition)
         return estats, "!(" .. ecode .. ")"
     elseif op == "#" then
         local estats, ecode = codeexp(ctx, node.exp)
-        return estats, "luaH_getn(" .. ecode .. ")"
+        if types.has_tag(node.exp._type, "Array") then
+            return estats, "luaH_getn(" .. ecode .. ")"
+        else
+            return estats, "tsslen(" .. ecode .. ")"
+        end
     else
         local estats, ecode = codeexp(ctx, node.exp)
         return estats, "(" .. op .. ecode .. ")"
@@ -618,8 +652,6 @@ local function codebinaryop(ctx, node, iscondition)
         local lstats, lcode = codeexp(ctx, node.lhs)
         local rstats, rcode = codeexp(ctx, node.rhs)
         return lstats .. rstats, "pow(" .. lcode .. ", " .. rcode .. ")"
-    elseif op == ".." then
-        error("concatenation not implemented")
     else
         local lstats, lcode = codeexp(ctx, node.lhs)
         local rstats, rcode = codeexp(ctx, node.rhs)
@@ -675,55 +707,114 @@ local function codeindex(ctx, node, iscondition)
     return stats, tmpname
 end
 
-function codeexp(ctx, node, iscondition)
-        local tag = node._tag
-        if tag == "Var_Name" then
-            return codevar(ctx, node)
-        elseif tag == "Var_Index" then
-            return codeindex(ctx, node, iscondition)
-        elseif tag == "Exp_Nil" or
-                 tag == "Exp_Bool" or
-                 tag == "Exp_Integer" or
-                 tag == "Exp_Float" or
-                 tag == "Exp_String" then
-                return codevalue(ctx, node)
-        elseif tag == "Exp_Table" then
-                return codetable(ctx, node)
-        elseif tag == "Exp_Var" then
-            return codeexp(ctx, node.var, iscondition)
-        elseif tag == "Exp_Unop" then
-                return codeunaryop(ctx, node, iscondition)
-        elseif tag == "Exp_Binop" then
-                return codebinaryop(ctx, node, iscondition)
-        elseif tag == "Exp_Call" then
-            return codecall(ctx, node)
-        elseif tag == "Exp_ToFloat" then
-            local cstat, cexp = codeexp(ctx, node.exp)
-            return cstat, "((lua_Number)" .. cexp .. ")"
-        elseif tag == "Exp_ToBool" then
-            local cstat, cexp = codeexp(ctx, node.exp, true)
-            return cstat, "((" .. cexp .. ") ? 1 : 0)"
-        elseif tag == "Exp_ToInt" then
-            local cstat, cexp = codeexp(ctx, node.exp)
-            local ctmp1, tmpname1 = newtmp(ctx, types.Float)
-            local ctmp2, tmpname2 = newtmp(ctx, types.Float)
-            local ctmp3, tmpname3 = newtmp(ctx, types.Integer)
-            local cfloor = string.format([[
-                %s
-                %s
-                %s
+-- Generate code for expression 'node'
+-- 'iscondition' is 'true' if expression is used not for value but for
+--    controlling conditinal execution
+-- 'target' is not nil if expression is rvalue for a 'Var_Name' lvalue,
+--    in this case it will be the '_decl' of the lvalue
+function codeexp(ctx, node, iscondition, target)
+    local tag = node._tag
+    if tag == "Var_Name" then
+        return codevar(ctx, node)
+    elseif tag == "Var_Index" then
+        return codeindex(ctx, node, iscondition)
+    elseif tag == "Exp_Nil" or
+                tag == "Exp_Bool" or
+                tag == "Exp_Integer" or
+                tag == "Exp_Float" or
+                tag == "Exp_String" then
+            return codevalue(ctx, node, target)
+    elseif tag == "Exp_Table" then
+            return codetable(ctx, node, target)
+    elseif tag == "Exp_Var" then
+        return codeexp(ctx, node.var, iscondition)
+    elseif tag == "Exp_Unop" then
+            return codeunaryop(ctx, node, iscondition)
+    elseif tag == "Exp_Binop" then
+            return codebinaryop(ctx, node, iscondition)
+    elseif tag == "Exp_Call" then
+        return codecall(ctx, node, target)
+    elseif tag == "Exp_ToFloat" then
+        local cstat, cexp = codeexp(ctx, node.exp)
+        return cstat, "((lua_Number)" .. cexp .. ")"
+    elseif tag == "Exp_ToBool" then
+        local cstat, cexp = codeexp(ctx, node.exp, true)
+        return cstat, "((" .. cexp .. ") ? 1 : 0)"
+    elseif tag == "Exp_ToInt" then
+        local cstat, cexp = codeexp(ctx, node.exp)
+        local ctmp1, tmpname1 = newtmp(ctx, types.Float)
+        local ctmp2, tmpname2 = newtmp(ctx, types.Float)
+        local ctmp3, tmpname3 = newtmp(ctx, types.Integer)
+        local cfloor = string.format([[
+            %s
+            %s
+            %s
+            %s
+            %s = %s;
+            %s = l_floor(%s);
+            if (%s != %s) %s = 0; else lua_numbertointeger(%s, &%s);
+        ]], cstat, ctmp1, ctmp2, ctmp3, tmpname1, cexp, tmpname2, tmpname1, tmpname1,
+            tmpname2, tmpname3, tmpname2, tmpname3)
+        return cfloor, tmpname3
+    elseif tag == "Exp_ToStr" then
+        local cvt
+        local cstats, cexp = codeexp(ctx, node.exp)
+        if types.equals(node.exp._type, types.Integer) then
+            cvt = string.format("_integer2str(L, %s)", cexp)
+        elseif types.equals(node.exp._type, types.Float) then
+            cvt = string.format("_float2str(L, %s)", cexp)
+        else
+            error("invalid node type for coercion to string " .. types.tostring(node.exp._type))
+        end
+        if target then
+            return cstats, cvt
+        else
+            local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
+            return string.format([[
                 %s
                 %s = %s;
-                %s = l_floor(%s);
-                if (%s != %s) %s = 0; else lua_numbertointeger(%s, &%s);
-            ]], cstat, ctmp1, ctmp2, ctmp3, tmpname1, cexp, tmpname2, tmpname1, tmpname1,
-                tmpname2, tmpname3, tmpname2, tmpname3)
-            return cfloor, tmpname3
-        elseif tag == "Exp_ToStr" then
-            error("code generation for coercion to string not implemented")
-        else
-                error("code generation not implemented for node " .. tag)
+                setsvalue(L, %s, %s);
+            ]], ctmp, tmpname, cvt, tmpslot, tmpname), tmpname
         end
+    elseif tag == "Exp_Concat" then
+        local strs, copies = {}, {}
+        local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
+        for i, exp in ipairs(node.exps) do
+            local cstat, cexp = codeexp(ctx, exp)
+            table.insert(strs, string.format([[
+                %s
+                TString *_str%d = %s;
+                size_t _len%d = tsslen(_str%d);
+                _len += _len%d;
+            ]], cstat, i, cexp, i, i, i))
+            table.insert(copies, string.format([[
+                memcpy(_buff + _tl, getstr(_str%d), _len%d * sizeof(char));
+                _tl += _len%d;
+            ]], i, i, i))
+        end
+        return string.format([[
+          %s
+          {
+          size_t _len = 0;
+          size_t _tl = 0;
+          %s
+          if(_len <= LUAI_MAXSHORTLEN) {
+              char _buff[LUAI_MAXSHORTLEN];
+              %s
+              %s = luaS_newlstr(L, _buff, _len);
+          } else {
+              %s = luaS_createlngstrobj(L, _len);
+              char *_buff = getstr(%s);
+              %s
+          }
+          }
+          setsvalue(L, %s, %s);
+        ]], ctmp, table.concat(strs, "\n"), 
+            table.concat(copies, "\n"), tmpname, tmpname, tmpname,
+            table.concat(copies, "\n"), tmpslot, tmpname), tmpname
+    else
+        error("invalid node tag " .. tag)
+    end
 end
 
 -- Titan calling convention:
@@ -838,7 +929,8 @@ local function codevardec(tlctx, ctx, node)
 end
 
 local preamble = [[
-#include <stdio.h>
+#include <string.h>
+#include "luaconf.h"
 
 #include "lauxlib.h"
 #include "lualib.h"
@@ -846,11 +938,28 @@ local preamble = [[
 #include "lapi.h"
 #include "lgc.h"
 #include "ltable.h"
+#include "lstring.h"
 #include "lvm.h"
 
 #include "lobject.h"
 
 #include <math.h>
+
+#define MAXNUMBER2STR 50
+
+static char _cvtbuff[MAXNUMBER2STR];
+
+inline static TString* _integer2str (lua_State *L, lua_Integer i) {
+    size_t len;
+    len = lua_integer2str(_cvtbuff, sizeof(_cvtbuff), i);
+    return luaS_newlstr(L, _cvtbuff, len);
+}
+
+inline static TString* _float2str (lua_State *L, lua_Number f) {
+    size_t len;
+    len = lua_number2str(_cvtbuff, sizeof(_cvtbuff), f);
+    return luaS_newlstr(L, _cvtbuff, len);
+}
 
 ]]
 
@@ -904,7 +1013,7 @@ function coder.generate(modname, ast)
                     table.insert(gvars, node)
                 end
             else
-                error("code generation not implemented for node " .. tag)
+                error("invalid node tag " .. tag)
             end
         end
     end
@@ -925,7 +1034,7 @@ function coder.generate(modname, ast)
             elseif tag == "TopLevel_Var" then
                 -- ignore vars in second pass
             else
-                error("code generation not implemented for node " .. tag)
+                error("invalid node tag " .. tag)
             end
         end
     end

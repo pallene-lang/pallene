@@ -509,6 +509,118 @@ describe("Titan code generator ", function()
         local ok, err = call("titan_test", "assert(titan_test.len() == 0);titan_test.a={1};assert(titan_test.len() == 1)")
         assert.truthy(ok, err)
     end)
+
+    it("generates code for string length", function()
+        local code = [[
+            function len(a: string): integer 
+                return #a
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.len('foobar') == 6)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for string literals", function()
+        local code = [[
+            function lit(): string
+                return "foo\tbar\nbaz"
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.lit() == 'foo\\tbar\\nbaz')")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for string concatenation", function()
+        local code = [[
+            function concat(a: string): string
+                return a .. "foo"
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.concat('a') == 'afoo')")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for string coercion from integer", function()
+        local code = [[
+            function concat(a: string): string
+                return a .. 2
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.concat('a') == 'a2')")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for string coercion from float", function()
+        local code = [[
+            function concat(a: string): string
+                return a .. 2.5
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.concat('a') == 'a2.5')")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for string concatenation of several strings", function()
+        local code = [[
+            function concat(a: string, b: string, c: string, d: string, e: string): string
+                return a .. b .. c .. d .. e
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.concat('a','b','c','d','e') == 'abcde')")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for string concatenation resulting in long string", function()
+        local code = [[
+            function concat(a: string, b: string, c: string, d: string, e: string): string
+                return a .. b .. c .. d .. e
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.concat('aaaaaaaaaa','bbbbbbbbbb','cccccccccc','dddddddddd','eeeeeeeeee') == 'aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeee')")
+        assert.truthy(ok, err)
+    end)
 end)
 
 

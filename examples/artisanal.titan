@@ -34,9 +34,9 @@ function sumd(): integer
     return s
 end
 
-local a: integer = foo(2,3)
+local a: integer = 2
 
-b: integer = foo(10,5)
+b: integer = 10
 
 local c: {integer} = {1,2,3}
 
@@ -185,4 +185,16 @@ end
 
 function delete(array: {integer}, i: integer): nil
   array[i] = nil
+end
+
+function strlen(s: string): integer
+  return #s
+end
+
+function lit(): string
+  return "foo\tbar\nbaz"
+end
+
+function concat(a: string): string
+  return a .. "foo"
 end

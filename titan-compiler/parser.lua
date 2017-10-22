@@ -82,6 +82,26 @@ function defs.fold_binop_left(pos, matches)
     return lhs
 end
 
+function defs.binop_concat(pos, lhs, op, rhs)
+    if op then
+        if rhs._tag == "Exp_Concat" then
+            table.insert(rhs.exps, 1, lhs)
+            return rhs
+        elseif (lhs._tag == "Exp_String" or
+            lhs._tag == "Exp_Integer" or
+            lhs._tag == "Exp_Float") and 
+            (rhs._tag == "Exp_String" or
+            rhs._tag == "Exp_Integer" or
+            rhs._tag == "Exp_Float") then
+            return ast.Exp_String(pos, lhs.value .. rhs.value)
+        else
+            return ast.Exp_Concat(pos, { lhs, rhs })
+        end
+    else
+        return lhs
+    end
+end
+
 function defs.binop_right(pos, lhs, op, rhs)
     if op then
         return ast.Exp_Binop(pos, lhs, op, rhs)
@@ -216,7 +236,7 @@ local grammar = re.compile([[
     e5              <- ({} {| e6  (op5  e6 )* |})           -> fold_binop_left
     e6              <- ({} {| e7  (op6  e7 )* |})           -> fold_binop_left
     e7              <- ({} {| e8  (op7  e8 )* |})           -> fold_binop_left
-    e8              <- ({}    e9  (op8  e8 )?)              -> binop_right
+    e8              <- ({}    e9  (op8  e8 )?)              -> binop_concat
     e9              <- ({} {| e10 (op9  e10)* |})           -> fold_binop_left
     e10             <- ({} {| e11 (op10 e11)* |})           -> fold_binop_left
     e11             <- ({} {| unop* |} e12)                 -> fold_unops

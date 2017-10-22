@@ -18,17 +18,14 @@ local errors = {
     { label = "InvalidEscape",
         msg = "Invalid escape character in string" },
 
-    { label = "UnimplementedEscape_ddd",
-        msg = "\\ddd escape sequences have not been implemented yet."  },
+    { label = "MalformedEscape_ddd",
+        msg = "\\ddd escape sequences must have at most three digits."  },
 
-    { label = "UnimplementedEscape_u",
-        msg = "\\u escape sequences have not been implemented yet." },
+    { label = "MalformedEscape_u",
+        msg = "\\u escape sequence is malformed." },
 
-    { label = "UnimplementedEscape_x",
-        msg = "\\x escape sequences have not been implemented yet." },
-
-    { label = "UnimplementedEscape_a",
-        msg = "\\z escape sequences have not been implemented yet." },
+    { label = "MalformedEscape_x",
+        msg = "\\x escape sequences must have exactly two hexadecimal digits." },
 }
 
 syntax_errors.label_to_msg = {}

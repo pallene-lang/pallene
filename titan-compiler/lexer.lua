@@ -14,8 +14,11 @@
 -- lowercase.
 
 local lpeg = require "lpeglabel"
+
+lpeg.locale(lpeg)
+
 local P, R, S = lpeg.P, lpeg.R, lpeg.S
-local C, Cb, Cg, Ct, Cmt = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt
+local C, Cb, Cg, Ct, Cmt, Cc = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt, lpeg.Cc
 local T = lpeg.T
 
 local syntax_errors = require "titan-compiler.syntax_errors"
@@ -110,10 +113,11 @@ do
         (P("\'") / "\'") +
         (P("\"") / "\"") +
         (linebreak / "\n") +
-        (#R("09") * T(labels.UnimplementedEscape_ddd)) +
-        (P("u") * T(labels.UnimplementedEscape_u)) +
-        (P("x") * T(labels.UnimplementedEscape_x)) +
-        (P("z") * T(labels.UnimplementedEscape_a)) +
+        (C(R("09") * R("09")^-2)) / tonumber / string.char +
+        (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) + T(labels.MalformedEscape_u)))
+             / tonumber / utf8.char +
+        (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) + T(labels.MalformedEscape_x))) / tonumber / string.char +
+        (P("z") * lpeg.space^0) +
         T(labels.InvalidEscape)
     )
 
