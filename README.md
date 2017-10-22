@@ -6,10 +6,10 @@ Titan is a new programming language, designed to be a statically-typed,
 ahead-of-time compiled sister language to [Lua](http://www.lua.org). It is an
 application programming language with a focus on performance.
 
-This repository contains the work-in-progress for the initial prototype
-of the Titan compiler. It is under active development and it targets compiling Titan modules
+This repository contains the initial prototype
+of the Titan compiler. It compiles a single Titan module
 to C code in the [artisanal style](https://github.com/titan-lang/artisanal-titan).
-For more information, please see the [reference manual](https://github.com/titan-lang/titan-lang-docs/blob/master/manual.md).
+The syntax is a subset of Lua syntax, plus types, and is specified in `titan-v0.ebnf`.
 
 # Requirements for running the compiler
 
