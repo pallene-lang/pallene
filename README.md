@@ -37,6 +37,22 @@ If everything is all right with your `.titan` program this will generate an `.so
 file that you can `require` from Lua. You can call from Lua any functions that
 you have defined.
 
+# Running the test suite
+
+The test suite es written using Busted, which can be installed using LuaRocks:
+
+        $ luarocks install busted
+
+Then, you need to bulid the local copy of Lua, and run `busted` from the root directory
+of this repository:
+
+        $ cd lua
+        $ make linux MYCFLAGS=-fpic
+        $ cd ..
+        $ busted
+
+You may need to adapt the invocation of `make` above to your platform.
+
 # Compiler options
 
         --print-ast                     Print the AST.
