@@ -24,7 +24,7 @@ end
 
 local modname
 
-local input, err
+local input, errmsg
 if args.input == '-' then
     input = io.read("*a")
     modname = "stdin"
