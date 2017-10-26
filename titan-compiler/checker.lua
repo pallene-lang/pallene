@@ -612,6 +612,24 @@ local function thirdpass(ast, st, errors)
     end
 end
 
+-- Builds a type for the module from the types of its members
+--   ast: AST for the module
+--   returns "Module" type
+local function maketype(modname, ast)
+    local members = {}
+    for _, tlnode in ipairs(ast) do
+        if tlnode._tag ~= "TopLevel_Require" and not tlnode.islocal and not tlnode._ignore then
+            local tag = tlnode._tag
+            if tag == "TopLevel_Func" then
+                members[tlnode.name] = tlnode._type
+            elseif tag == "TopLevel_Var" then
+                members[tlnode.decl.name] = tlnode._type
+            end
+        end
+    end
+    return types.Module(modname, members)
+end
+
 -- Entry point for the typechecker
 --   ast: AST for the whole module
 --   subject: the string that generated the AST
@@ -619,7 +637,7 @@ end
 --   returns true if typechecking succeeds, or false and a list of type errors found
 --   annotates the AST with the types of its terms in "_type" fields
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(ast, subject, filename)
+function checker.check(modname, ast, subject, filename)
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
     firstpass(ast, st, errors)
@@ -628,7 +646,7 @@ function checker.check(ast, subject, filename)
     if #errors > 0 then
         return false, table.concat(errors, "\n")
     end
-    return true
+    return maketype(modname, ast)
 end
 
 return checker

@@ -9,6 +9,10 @@ function types.Array(etype)
     return { _tag = "Array", elem = etype }
 end
 
+function types.Module(modname, members)
+    return { _tag = "Module", name = modname, members = members }
+end
+
 local base_types = { "Integer", "Boolean", "String", "Nil", "Float" }
 
 for _, t in ipairs(base_types) do
