@@ -60,6 +60,7 @@ local function checkandget(t, c, s, lin)
     else
         error("invalid type " .. types.tostring(t))
     end
+    --return getslot(t, c, s) .. ";"
     return string.format([[
         if(ttis%s(%s)) { %s; }
         else luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
@@ -173,17 +174,23 @@ local function codewhile(ctx, node)
     local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
     popd(ctx)
-    local restoretop = "" -- FIXME
-    return string.format([[
-        while(1) {
-            %s
-            if(!(%s)) {
+    if cstats == "" then
+        return string.format([[
+            while(%s) {
                 %s
-                break;
             }
-            %s
-        }
-    ]], cstats, cexp, restoretop, cblk)
+        ]], cexp, cblk)
+    else
+        return string.format([[
+            while(1) {
+                %s
+                if(!(%s)) {
+                    break;
+                }
+                %s
+            }
+        ]], cstats, cexp, cblk)
+    end
 end
 
 local function coderepeat(ctx, node)
