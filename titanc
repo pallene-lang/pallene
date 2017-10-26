@@ -6,6 +6,7 @@ local checker = require 'titan-compiler.checker'
 local coder = require 'titan-compiler.coder'
 local parser = require 'titan-compiler.parser'
 local util = require 'titan-compiler.util'
+local pretty = require 'titan-compiler.pretty'
 
 local p = argparse('titan', 'Titan compiler')
 p:argument('input', 'Input file.')
@@ -59,7 +60,8 @@ if args.print_types then
 end
 
 local generated_code = coder.generate(modname, ast)
-local ok, errmsg = util.set_file_contents(args.output, generated_code)
+generated_code = pretty.reindent_c(generated_code)
+ok, errmsg = util.set_file_contents(args.output, generated_code)
 if not ok then exit(errmsg) end
 
 local CC = os.getenv("CC") or "gcc"
