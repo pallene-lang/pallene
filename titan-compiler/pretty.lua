@@ -6,7 +6,7 @@ function pretty.reindent_c(input)
     local blank = false
     for line in input:gmatch("([^\n]*)") do
         local do_print = true
-        line = line:match("^[ \t]*(.*)[ \t]*$")
+        line = line:match("^[ \t]*(.-)[ \t]*$")
         if #line == 0 then
             if blank or indent > 0 then
                 do_print = false
