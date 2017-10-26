@@ -8,7 +8,7 @@ local assert = assert
 
 local function run_checker(code)
     local ast = assert(parser.parse(code))
-    local ok, err = checker.check(ast, code, "test.titan")
+    local ok, err = checker.check("test", ast, code, "test.titan")
     return ok, err, ast
 end
 

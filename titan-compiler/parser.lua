@@ -58,6 +58,10 @@ function defs.number_exp(pos, n)
     end
 end
 
+function defs.qualname_exp(pos, modname, name)
+    return ast.Exp_Var(pos, ast.Var_QualName(pos, modname, name))
+end
+
 function defs.name_exp(pos, name)
     return ast.Exp_Var(pos, ast.Var_Name(pos, name))
 end
@@ -178,7 +182,8 @@ local grammar = re.compile([[
     program         <-  SKIP*
                         {| ( toplevelfunc
                            / toplevelvar
-                           / toplevelrecord )* |} !.
+                           / toplevelrecord
+                           / require )* |} !.
 
     toplevelfunc    <- ({} localopt
                            FUNCTION NAME
@@ -189,6 +194,8 @@ local grammar = re.compile([[
     toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
 
     toplevelrecord  <- ({} RECORD NAME recordfields END)    -> TopLevel_Record
+    require         <- ({} LOCAL NAME ASSIGN REQUIRE
+                         (LPAREN STRING RPAREN / STRING))   -> TopLevel_Require
 
     localopt        <- (LOCAL)?                             -> boolopt
 
@@ -259,7 +266,7 @@ local grammar = re.compile([[
     suffixedexp     <- (simpleexp {| expsuffix* |})         -> fold_suffixes
 
     expsuffix       <- ({} funcargs)                        -> suffix_funccall
-                     / ({} COLON NAME funcargs)             -> suffix_methodcall
+ --                  / ({} COLON NAME funcargs)             -> suffix_methodcall
                      / ({} LBRACKET exp RBRACKET)           -> suffix_bracket
                      / ({} DOT NAME)                        -> suffix_dot
 
@@ -269,6 +276,7 @@ local grammar = re.compile([[
                      / ({} NUMBER)                          -> number_exp
                      / ({} STRING)                          -> Exp_String
                      / (tablecons)                          -- produces Exp
+                     / ({} NAME DOT NAME)                   -> qualname_exp
                      / ({} NAME)                            -> name_exp
                      / (LPAREN exp RPAREN)                  -- produces Exp
 
@@ -315,6 +323,7 @@ local grammar = re.compile([[
     TRUE            <- %TRUE SKIP*
     UNTIL           <- %UNTIL SKIP*
     WHILE           <- %WHILE SKIP*
+    REQUIRE         <- %REQUIRE SKIP*
 
     ADD             <- %ADD SKIP*
     SUB             <- %SUB SKIP*

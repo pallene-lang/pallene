@@ -3,7 +3,7 @@ function foo(): nil
     f "qwe"
     f {}
     
-    o:m ()
-    o:m "asd"
-    o:m {}
+    --o:m ()
+    --o:m "asd"
+    --o:m {}
 end
