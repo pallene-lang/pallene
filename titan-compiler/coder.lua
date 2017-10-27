@@ -219,7 +219,7 @@ local function codeif(ctx, node, idx)
     else
         cstats, cexp = codeexp(ctx, node.thens[idx].condition, true)
         cthn = codestat(ctx, node.thens[idx].block)
-        cels = codeif(ctx, node, idx + 1)
+        cels = "else " .. codeif(ctx, node, idx + 1)
     end
     return string.format([[
         {

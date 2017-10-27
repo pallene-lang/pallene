@@ -327,6 +327,30 @@ describe("Titan code generator ", function()
         assert.truthy(ok, err)
     end)
 
+    it("generates code for 'elseif' with overlapping conditions", function()
+        local code = [[
+            function getval(a: integer): integer
+                local b = 0
+                if a > 2 then
+                    b = 10
+                elseif a > 1 then
+                    b = 20
+                else
+                    b = 30
+                end
+                return b
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.getval(2) == 20);assert(titan_test.getval(3) == 10);assert(titan_test.getval(1) == 30)")
+        assert.truthy(ok, err)
+    end)
+
     it("generates code for integer module-local variables", function()
         local code = [[
             local a: integer = 1
