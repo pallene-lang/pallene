@@ -54,7 +54,7 @@ if args.print_ast then
 end
 
 local ok, errmsgs = checker.check(modname, ast, input, args.input)
-if not ok then exit(errmsgs) end
+if errmsgs then exit(errmsgs) end
 
 if args.print_types then
     print(parser.pretty_print_ast(ast))

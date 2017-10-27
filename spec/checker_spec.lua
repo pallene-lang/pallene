@@ -4,8 +4,8 @@ local types = require 'titan-compiler.types'
 
 local function run_checker(code)
     local ast = assert(parser.parse(code))
-    local ok, err = checker.check("test", ast, code, "test.titan")
-    return ok, err, ast
+    local _, err = checker.check("test", ast, code, "test.titan")
+    return err == nil, err, ast
 end
 
 -- Return a version of t2 that only contains fields present in t1 (recursively)
@@ -823,5 +823,16 @@ describe("Titan type checker", function()
         assert.falsy(mod.members.foo)
     end)
 
+    it("fails to load modules that do not exist", function ()
+        local code = [[
+            local foo = require "foo"
+            local bar = require "bar.baz"
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local mod, err = checker.check("test", ast, code, "test.titan")
+        assert.match("no file './foo.titan'", err)
+        assert.match("no file './bar/baz.titan'", err)
+    end)
 end)
 

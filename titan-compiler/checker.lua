@@ -8,6 +8,8 @@ local util = require "titan-compiler.util"
 local checkstat
 local checkexp
 
+local required = {}
+
 local function typeerror(errors, msg, pos)
     local l, c = util.get_line_number(errors.subject, pos)
     msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
@@ -630,6 +632,50 @@ local function maketype(modname, ast)
     return types.Module(modname, members)
 end
 
+-- Gets type information for all required modules and puts
+-- it in the symbol table
+local function requirepass(ast, st, errors)
+    for _, tlnode in ipairs(ast) do
+        if tlnode._tag == "TopLevel_Require" then
+            local name = tlnode.modname
+            if st:find_dup(tlnode.localname) then
+                typeerror(errors, "duplicate declaration for " .. tlnode.localname, tlnode._pos)
+                tlnode._ignore = true
+            elseif required[name] == true then
+                typeerror(errors, "circular import of module '" .. name .. "'", tlnode._pos)
+            elseif required[name] then
+                tlnode._type = required[name]
+                st:add_symbol(tlnode.localname, tlnode)
+            else
+                local modtype, errs = checker.checkrequire(name)
+                if modtype then
+                    tlnode._type = modtype
+                    for _, err in ipairs(errs) do
+                        table.insert(errors, err)
+                    end
+                    st:add_symbol(tlnode.localname, tlnode)
+                else
+                    required[name] = nil
+                    typeerror(errors, "problem loading module '" .. name .. "': " .. errs, tlnode._pos)
+                end
+            end
+        end
+    end
+end
+
+function checker.checkrequire(modname)
+    local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
+    local modf, err = package.searchpath(modname, SEARCHPATH)
+    if not modf then return nil, err end
+    local input, err = util.get_file_contents(modf)
+    if not input then return nil, err end
+    local ast, err = parser.parse(input)
+    if not ast then return nil, parser.error_to_string(err, modf) end
+    local mod, errors = checker.check(modname, ast, input, modf)
+    required[modname] = mod
+    return mod, errors
+end
+
 -- Entry point for the typechecker
 --   ast: AST for the whole module
 --   subject: the string that generated the AST
@@ -640,13 +686,17 @@ end
 function checker.check(modname, ast, subject, filename)
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
+    required[modname] = true
+    requirepass(ast, st, errors)
     firstpass(ast, st, errors)
     secondpass(ast, st, errors)
     thirdpass(ast, st, errors)
+    required[modname] = maketype(modname, ast)
     if #errors > 0 then
-        return false, table.concat(errors, "\n")
+        return required[modname], table.concat(errors, "\n")
+    else
+        return required[modname]
     end
-    return maketype(modname, ast)
 end
 
 return checker
