@@ -208,7 +208,7 @@ local function codeif(ctx, node, idx)
     if idx == #node.thens then -- last condition
         cstats, cexp = codeexp(ctx, node.thens[idx].condition, true)
         cthn = codestat(ctx, node.thens[idx].block)
-        cels = node.elsestat and "else " .. codestat(ctx, node.elsestat) or ""
+        cels = node.elsestat and "else " .. codestat(ctx, node.elsestat):match("^[ \t]*(.*)") or ""
     else
         cstats, cexp = codeexp(ctx, node.thens[idx].condition, true)
         cthn = codestat(ctx, node.thens[idx].block)
@@ -219,7 +219,8 @@ local function codeif(ctx, node, idx)
             %s
             if(%s) {
                 %s
-            } %s
+            }
+			%s
         }
     ]], cstats, cexp, cthn, cels)
 end
