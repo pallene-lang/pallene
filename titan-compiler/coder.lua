@@ -219,15 +219,14 @@ local function codeif(ctx, node, idx)
     else
         cstats, cexp = codeexp(ctx, node.thens[idx].condition, true)
         cthn = codestat(ctx, node.thens[idx].block)
-        cels = "else " .. codeif(ctx, node, idx + 1)
+        cels = "else " .. codeif(ctx, node, idx + 1):match("^[ \t]*(.*)")
     end
     return string.format([[
         {
             %s
             if(%s) {
                 %s
-            }
-			%s
+            } %s
         }
     ]], cstats, cexp, cthn, cels)
 end
