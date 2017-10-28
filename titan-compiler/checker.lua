@@ -305,6 +305,8 @@ function checkstat(node, st, errors)
         end
         if node.elsestat then
             ret = checkstat(node.elsestat, st, errors) and ret
+		else
+			ret = false
         end
         return ret
     else

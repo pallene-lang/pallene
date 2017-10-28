@@ -26,7 +26,7 @@ local function call(modname, code)
     return os.execute(cmd)
 end
 
-describe("Titan code generator ", function()
+describe("Titan code generator", function()
     it("deletes array element", function()
         local code = [[
             function delete(array: {integer}, i: integer): nil
@@ -302,6 +302,23 @@ describe("Titan code generator ", function()
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.power(2,3) == 8)")
+        assert.truthy(ok, err)
+    end)
+
+    it("generates code for returning 'if'", function()
+        local code = [[
+			function abs(x:integer): integer
+    			if x < 0 then return -x end
+    			return x
+			end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "assert(titan_test.abs(-1) == 1);assert(titan_test.abs(0) == 0);assert(titan_test.abs(1) == 1)")
         assert.truthy(ok, err)
     end)
 

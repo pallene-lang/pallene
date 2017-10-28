@@ -262,6 +262,41 @@ describe("Titan type checker", function()
         local ok, err = checker.check(ast, code, "test.titan")
         assert.falsy(ok)
         assert.match("function can return nil", err)
+		code = [[
+			function getval(a:integer): integer
+    			if a == 1 then
+        			return 10
+    			elseif a == 2 then
+				else
+					return 30
+    			end
+			end
+		]]
+        ast, err = parser.parse(code)
+        ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(err)
+        assert.match("function can return nil", err)
+		code = [[
+			function getval(a:integer): integer
+    			if a == 1 then
+        			return 10
+    			elseif a == 2 then
+        			return 20
+    			else
+        			if a < 5 then
+            			if a == 3 then
+                			return 30
+            			end
+        			else
+            			return 50
+        			end
+    			end
+			end
+		]]
+        ast, err = parser.parse(code)
+        ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(err)
+        assert.match("function can return nil", err)
     end)
 
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
