@@ -245,7 +245,7 @@ local function checkblock(node, st, errors)
     return ret
 end
 
--- Typechecks a stament or declararion
+-- Typechecks a statement or declaration
 --   node: A Decl_Decl or Stat_* AST node
 --   st: symbol table
 --   errors: list of compile-time errors
@@ -523,7 +523,7 @@ function checkexp(node, st, errors, context)
         assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
         local fname = node.exp.var.name
         local func =  st:find_symbol(fname)
-        if func then
+        if func and func._tag == "Function" then
             local ftype = func._type
             local nparams = #ftype.params
             local args = node.args.args
@@ -551,6 +551,12 @@ function checkexp(node, st, errors, context)
                     " arguments but expects " .. nparams, node._pos)
             end
             node._type = ftype.ret
+        elseif func and func._tag ~= "Function" then
+            typeerror(errors, fname .. " is not a function", node._pos)
+            for _, arg in ipairs(node.args.args) do
+                checkexp(arg, st, errors)
+            end
+            node._type = types.Integer
         else
             typeerror(errors, "function " .. fname .. " not found", node._pos)
             for _, arg in ipairs(node.args.args) do

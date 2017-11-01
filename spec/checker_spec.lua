@@ -299,6 +299,19 @@ describe("Titan type checker", function()
         assert.match("function can return nil", err)
     end)
 
+    it("detects attempts to call non-functions", function()
+        local code = [[
+            function fn(): integer
+                local i: integer = 0
+                i()
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("is not a function", err)
+    end)
+
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
         it("coerces "..op.." to float if any side is a float", function()
             local code = [[
