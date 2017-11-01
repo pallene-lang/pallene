@@ -825,8 +825,8 @@ describe("Titan type checker", function()
 
     it("fails to load modules that do not exist", function ()
         local code = [[
-            local foo = require "foo"
-            local bar = require "bar.baz"
+            local foo = import "foo"
+            local bar = import "bar.baz"
         ]]
         local ast, err = parser.parse(code)
         assert.truthy(ast, err)

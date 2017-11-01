@@ -180,22 +180,18 @@ end
 local grammar = re.compile([[
 
     program         <-  SKIP*
-                        {| ( toplevelfunc
                            / toplevelvar
                            / toplevelrecord
-                           / require )* |} !.
+                           / import )* |} !.
 
-    toplevelfunc    <- ({} localopt
-                           FUNCTION NAME
-                           LPAREN parlist RPAREN
                            COLON type
                            block END)                       -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
 
     toplevelrecord  <- ({} RECORD NAME recordfields END)    -> TopLevel_Record
-    require         <- ({} LOCAL NAME ASSIGN REQUIRE
-                         (LPAREN STRING RPAREN / STRING))   -> TopLevel_Require
+    import         <- ({} LOCAL NAME ASSIGN IMPORT
+                         (LPAREN STRING RPAREN / STRING))   -> TopLevel_Import
 
     localopt        <- (LOCAL)?                             -> boolopt
 
@@ -323,7 +319,7 @@ local grammar = re.compile([[
     TRUE            <- %TRUE SKIP*
     UNTIL           <- %UNTIL SKIP*
     WHILE           <- %WHILE SKIP*
-    REQUIRE         <- %REQUIRE SKIP*
+    IMPORT          <- %IMPORT SKIP*
 
     ADD             <- %ADD SKIP*
     SUB             <- %SUB SKIP*

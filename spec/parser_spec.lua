@@ -344,15 +344,13 @@ end)
         })
     end)
 
-    it("can parse require", function ()
+    it("can parse import", function ()
         local program, err = parser.parse([[
-            local foo = require "module.foo"
-            local bar = require("module.bar")
+            local foo = import "module.foo"
         ]])
         assert.truthy(program)
         assert_ast(program, {
-            { _tag = "TopLevel_Require", localname = "foo", modname = "module.foo" },
-            { _tag = "TopLevel_Require", localname = "bar", modname = "module.bar" },
+            { _tag = "TopLevel_Import", localname = "foo", modname = "module.foo" },
         })
     end)
 

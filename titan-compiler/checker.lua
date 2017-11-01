@@ -8,7 +8,7 @@ local util = require "titan-compiler.util"
 local checkstat
 local checkexp
 
-local required = {}
+local imported = {}
 
 local function typeerror(errors, msg, pos)
     local l, c = util.get_line_number(errors.subject, pos)
@@ -620,7 +620,7 @@ end
 local function maketype(modname, ast)
     local members = {}
     for _, tlnode in ipairs(ast) do
-        if tlnode._tag ~= "TopLevel_Require" and not tlnode.islocal and not tlnode._ignore then
+        if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
             local tag = tlnode._tag
             if tag == "TopLevel_Func" then
                 members[tlnode.name] = tlnode._type
@@ -632,22 +632,22 @@ local function maketype(modname, ast)
     return types.Module(modname, members)
 end
 
--- Gets type information for all required modules and puts
+-- Gets type information for all imported modules and puts
 -- it in the symbol table
-local function requirepass(ast, st, errors)
+local function importpass(ast, st, errors)
     for _, tlnode in ipairs(ast) do
-        if tlnode._tag == "TopLevel_Require" then
+        if tlnode._tag == "TopLevel_Import" then
             local name = tlnode.modname
             if st:find_dup(tlnode.localname) then
                 typeerror(errors, "duplicate declaration for " .. tlnode.localname, tlnode._pos)
                 tlnode._ignore = true
-            elseif required[name] == true then
+            elseif imported[name] == true then
                 typeerror(errors, "circular import of module '" .. name .. "'", tlnode._pos)
-            elseif required[name] then
-                tlnode._type = required[name]
+            elseif imported[name] then
+                tlnode._type = imported[name]
                 st:add_symbol(tlnode.localname, tlnode)
             else
-                local modtype, errs = checker.checkrequire(name)
+                local modtype, errs = checker.checkimport(name)
                 if modtype then
                     tlnode._type = modtype
                     for _, err in ipairs(errs) do
@@ -655,7 +655,7 @@ local function requirepass(ast, st, errors)
                     end
                     st:add_symbol(tlnode.localname, tlnode)
                 else
-                    required[name] = nil
+                    imported[name] = nil
                     typeerror(errors, "problem loading module '" .. name .. "': " .. errs, tlnode._pos)
                 end
             end
@@ -663,7 +663,7 @@ local function requirepass(ast, st, errors)
     end
 end
 
-function checker.checkrequire(modname)
+function checker.checkimport(modname)
     local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
     local modf, err = package.searchpath(modname, SEARCHPATH)
     if not modf then return nil, err end
@@ -672,7 +672,7 @@ function checker.checkrequire(modname)
     local ast, err = parser.parse(input)
     if not ast then return nil, parser.error_to_string(err, modf) end
     local mod, errors = checker.check(modname, ast, input, modf)
-    required[modname] = mod
+    imported[modname] = mod
     return mod, errors
 end
 
@@ -686,16 +686,16 @@ end
 function checker.check(modname, ast, subject, filename)
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
-    required[modname] = true
-    requirepass(ast, st, errors)
+    imported[modname] = true
+    importpass(ast, st, errors)
     firstpass(ast, st, errors)
     secondpass(ast, st, errors)
     thirdpass(ast, st, errors)
-    required[modname] = maketype(modname, ast)
+    imported[modname] = maketype(modname, ast)
     if #errors > 0 then
-        return required[modname], table.concat(errors, "\n")
+        return imported[modname], table.concat(errors, "\n")
     else
-        return required[modname]
+        return imported[modname]
     end
 end
 
