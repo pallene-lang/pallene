@@ -89,7 +89,7 @@ function defs.binop_concat(pos, lhs, op, rhs)
             return rhs
         elseif (lhs._tag == "Exp_String" or
             lhs._tag == "Exp_Integer" or
-            lhs._tag == "Exp_Float") and 
+            lhs._tag == "Exp_Float") and
             (rhs._tag == "Exp_String" or
             rhs._tag == "Exp_Integer" or
             rhs._tag == "Exp_Float") then
@@ -133,9 +133,15 @@ function defs.suffix_methodcall(pos, name, args)
     end
 end
 
-function defs.suffix_index(pos, index)
+function defs.suffix_array(pos, index)
     return function(exp)
         return ast.Exp_Var(pos, ast.Var_Array(pos, exp, index))
+    end
+end
+
+function defs.suffix_dot(pos, name)
+    return function(exp)
+        return ast.Exp_Var(pos, ast.Var_Dot(pos, exp, name))
     end
 end
 
@@ -170,7 +176,9 @@ end
 local grammar = re.compile([[
 
     program         <-  SKIP*
-                        {| (toplevelfunc / toplevelvar)* |} !.
+                        {| ( toplevelfunc
+                           / toplevelvar
+                           / toplevelrecord )* |} !.
 
     toplevelfunc    <- ({} localopt
                            FUNCTION NAME
@@ -179,6 +187,8 @@ local grammar = re.compile([[
                            block END)                       -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
+
+    toplevelrecord  <- ({} RECORD NAME recordfields END)    -> TopLevel_Record
 
     localopt        <- (LOCAL)?                             -> boolopt
 
@@ -189,6 +199,10 @@ local grammar = re.compile([[
     type            <- ({} NIL -> 'nil')                    -> Type_Name
                      / ({} NAME)                            -> Type_Name
                      / ({} LCURLY type RCURLY)              -> Type_Array
+
+    recordfields    <- {| recordfield+ |}                   -- produces {Decl}
+
+    recordfield     <- ({} NAME COLON type)                 -> Decl_Decl
 
     block           <- ({} {| statement* returnstat? |})    -> Stat_Block
 
@@ -246,7 +260,8 @@ local grammar = re.compile([[
 
     expsuffix       <- ({} funcargs)                        -> suffix_funccall
                      / ({} COLON NAME funcargs)             -> suffix_methodcall
-                     / ({} LBRACKET exp RBRACKET)           -> suffix_index
+                     / ({} LBRACKET exp RBRACKET)           -> suffix_array
+                     / ({} DOT NAME)                        -> suffix_dot
 
     simpleexp       <- ({} NIL)                             -> nil_exp
                      / ({} FALSE -> tofalse)                -> Exp_Bool
@@ -283,8 +298,8 @@ local grammar = re.compile([[
     ELSE            <- %ELSE SKIP*
     ELSEIF          <- %ELSEIF SKIP*
     END             <- %END SKIP*
-    FOR             <- %FOR SKIP*
     FALSE           <- %FALSE SKIP*
+    FOR             <- %FOR SKIP*
     FUNCTION        <- %FUNCTION SKIP*
     GOTO            <- %GOTO SKIP*
     IF              <- %IF SKIP*
@@ -293,6 +308,7 @@ local grammar = re.compile([[
     NIL             <- %NIL SKIP*
     NOT             <- %NOT SKIP*
     OR              <- %OR SKIP*
+    RECORD          <- %RECORD SKIP*
     REPEAT          <- %REPEAT SKIP*
     RETURN          <- %RETURN SKIP*
     THEN            <- %THEN SKIP*
