@@ -43,7 +43,7 @@ describe("Titan type checker", function()
         assert.same("Exp_ToFloat", ast[1].block.stats[2].exp._tag)
     end)
 
-    it("catches duplicate declartions", function()
+    it("catches duplicate function declarations", function()
         local code = [[
             function fn(): integer
                 return 1
@@ -57,7 +57,98 @@ describe("Titan type checker", function()
         assert.falsy(ok)
         assert.match("duplicate function", err)
     end)
-    
+
+    it("catches duplicate variable declarations", function()
+        local code = {[[
+            local x = 1
+            x = 2
+        ]],
+        [[
+            local x: integer = 1
+            x = 2
+        ]],
+        }
+        for _, c in ipairs(code) do
+            local ast, err = parser.parse(c)
+            local ok, err = checker.check(ast, c, "test.titan")
+            assert.falsy(ok)
+            assert.match("duplicate variable", err)
+        end
+    end)
+
+    it("catches variable not declared", function()
+        local code = [[
+            function fn(): nil
+                local x:integer = 1
+                y = 2
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("variable '%w+' not declared", err)
+    end)
+
+    it("catches reference to function", function()
+        local code = [[
+            function fn(): nil
+                fn = 1
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("reference to function", err)
+    end)
+
+    it("catches array expression in indexing is not an array", function()
+        local code = [[
+            function fn(x: integer): nil
+                x[1] = 2
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("array expression in indexing is not an array", err)
+    end)
+
+    it("catches wrong use of length operator", function()
+        local code = [[
+            function fn(x: integer): integer
+                return #x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("trying to take the length", err)
+    end)
+
+    it("catches wrong use of unary minus", function()
+        local code = [[
+            function fn(x: boolean): boolean
+                return -x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("trying to negate a", err)
+    end)
+
+    it("catches wrong use of bitwise not", function()
+        local code = [[
+            function fn(x: boolean): boolean
+                return ~x
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.falsy(ok)
+        assert.match("trying to bitwise negate a", err)
+    end)
+
     it("catches mismatching types in locals", function()
         local code = [[
             function fn(): nil
@@ -254,15 +345,11 @@ describe("Titan type checker", function()
     end)
 
     it("detects nil returns on non-nil functions", function()
-        local code = [[
+        local code = {[[
             function fn(): integer
             end
-        ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
-        assert.falsy(ok)
-        assert.match("function can return nil", err)
-		code = [[
+        ]],
+        [[
 			function getval(a:integer): integer
     			if a == 1 then
         			return 10
@@ -271,12 +358,8 @@ describe("Titan type checker", function()
 					return 30
     			end
 			end
-		]]
-        ast, err = parser.parse(code)
-        ok, err = checker.check(ast, code, "test.titan")
-        assert.truthy(err)
-        assert.match("function can return nil", err)
-		code = [[
+		]],
+        [[
 			function getval(a:integer): integer
     			if a == 1 then
         			return 10
@@ -292,11 +375,14 @@ describe("Titan type checker", function()
         			end
     			end
 			end
-		]]
-        ast, err = parser.parse(code)
-        ok, err = checker.check(ast, code, "test.titan")
-        assert.truthy(err)
-        assert.match("function can return nil", err)
+		]],
+        }
+        for _, c in ipairs(code) do
+            local ast, err = parser.parse(c)
+            local ok, err = checker.check(ast, c, "test.titan")
+            assert.falsy(ok)
+            assert.match("function can return nil", err)
+        end
     end)
 
     it("detects attempts to call non-functions", function()
