@@ -4,7 +4,7 @@ local ast = {}
 local types = {}
 
 types.Type = {
-    Basic   = {"name"},
+    Name    = {"name"},
     Array   = {"subtype"},
 }
 

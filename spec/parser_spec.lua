@@ -84,13 +84,13 @@ describe("Titan parser", function()
         local program, err = parse_file("./testfiles/types.titan")
         assert.truthy(program)
         assert_ast(program, {
-            { decl = { type = { _tag = "Type_Basic", name = "nil" } } },
-            { decl = { type = { _tag = "Type_Basic", name = "int" } } },
+            { decl = { type = { _tag = "Type_Name", name = "nil" } } },
+            { decl = { type = { _tag = "Type_Name", name = "int" } } },
             { decl = { type = { _tag = "Type_Array", subtype =
-                                    {_tag = "Type_Basic", name = "int" } } } },
+                                    {_tag = "Type_Name", name = "int" } } } },
             { decl = { type = { _tag = "Type_Array", subtype =
                                 { _tag = "Type_Array", subtype =
-                                    {_tag = "Type_Basic", name = "int" } } } } },
+                                    {_tag = "Type_Name", name = "int" } } } } },
         })
     end)
 
@@ -133,11 +133,11 @@ describe("Titan parser", function()
             { _tag = "Stat_While",
               condition = { _tag = "Exp_Bool" },
               block = { _tag = "Stat_Block" } },
-            
+
             { _tag = "Stat_Repeat",
               block = { _tag = "Stat_Block" },
               condition = { _tag = "Exp_Bool" }, },
-            
+
             { _tag = "Stat_If",
                 thens = {
                     { _tag = "Then_Then", condition = { value = 10 } },
@@ -193,7 +193,7 @@ describe("Titan parser", function()
 
     it("can parse return statements", function()
         -- Just check if it succeeds or fails in all the cases.
-        
+
         local program, err = parse_file("./testfiles/return_statements.titan")
         assert.truthy(program)
     end)

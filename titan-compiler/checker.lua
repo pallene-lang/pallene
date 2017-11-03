@@ -22,7 +22,7 @@ local function typefromnode(typenode, errors)
     local tag = typenode._tag
     if tag == "Type_Array" then
         return types.Array(typefromnode(typenode.subtype, errors))
-    elseif tag == "Type_Basic" then
+    elseif tag == "Type_Name" then
         local t = types.Base(typenode.name)
         if not t then
             typeerror(errors, "type name " .. typenode.name .. " is invalid", typenode._pos)

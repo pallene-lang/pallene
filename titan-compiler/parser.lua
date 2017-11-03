@@ -186,8 +186,8 @@ local grammar = re.compile([[
 
     decl            <- ({} NAME (COLON type)? -> opt)       -> Decl_Decl
 
-    type            <- ({} NIL -> 'nil')                    -> Type_Basic
-                     / ({} NAME)                            -> Type_Basic
+    type            <- ({} NIL -> 'nil')                    -> Type_Name
+                     / ({} NAME)                            -> Type_Name
                      / ({} LCURLY type RCURLY)              -> Type_Array
 
     block           <- ({} {| statement* returnstat? |})    -> Stat_Block
