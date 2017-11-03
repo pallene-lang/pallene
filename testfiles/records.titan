@@ -1,0 +1,25 @@
+record Point
+    x: float
+    y: float
+end
+
+record List
+    p: {Point}
+    next: List
+end
+
+function foo(): nil
+    local p1 = Point.new(1.1, 2.2)
+
+    -- future syntax with initializer lists:
+    -- local p1: Point = { x = 3.3, y = 4.4 }
+    -- local p2: Point = { 5.5, 6.6 }
+
+    local l1: List = List.new({}, nil)
+
+    local a = p1.x + p1.y
+    local b = l1.p[1].x
+
+    p1.x = a
+end
+

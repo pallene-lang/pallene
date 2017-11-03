@@ -343,4 +343,75 @@ end)
                         { _tag = "Exp_Table" } } } } },
         })
     end)
+
+    it("can parse record declarations", function()
+        local program, err =
+            parse_file("./testfiles/records.titan")
+        assert.truthy(program)
+        assert_ast(program, {
+            { _tag = "TopLevel_Record",
+              name = "Point",
+              fields = {
+                { name = "x", type = { name = "float" } },
+                { name = "y", type = { name = "float" } } } },
+            { _tag = "TopLevel_Record",
+              name = "List",
+              fields = {
+                { name = "p",
+                  type = { subtype = { name = "Point" } } },
+                { name = "next", type = { name = "List" } } } },
+        })
+        assert_ast(program[3].block.stats, {
+            { decl = { name = "p1" },
+              exp = {
+                _tag = "Exp_Call",
+                args = { args = { { value = 1.1 }, { value = 2.2 } } },
+                exp = { var = {
+                  _tag = "Var_Dot",
+                  exp = { var = { name = "Point" } },
+                  name = "new" } } } },
+            { decl = {
+                name = "l1",
+                type = { name = "List" } },
+              exp = {
+                _tag = "Exp_Call",
+                args = { args = 
+                  { { _tag = "Exp_Table" }, { _tag = "Exp_Nil" } } },
+                exp = { var = {
+                  _tag = "Var_Dot",
+                  exp = { var = { name = "List" } },
+                  name = "new" } } } },
+            { decl = { name = "a" },
+              exp = {
+                op = "+",
+                lhs = {
+                  var = {
+                    _tag = "Var_Dot",
+                    exp = { var = { name = "p1" } },
+                    name = "x" } },
+                rhs = {
+                  var = {
+                    _tag = "Var_Dot",
+                    exp = { var = { name = "p1" } },
+                    name = "y" } } } },
+            { decl = { name = "b" },
+              exp = {
+                var = {
+                  _tag = "Var_Dot", 
+                  name = "x",
+                  exp = { var = {
+                    _tag = "Var_Array",
+                    exp2 = { value = 1 },
+                    exp1 = { var = {
+                      _tag = "Var_Dot",
+                      name = "p",
+                      exp = { var = {
+                        name = "l1" } } } } } } } } },
+            { var = {
+                _tag = "Var_Dot",
+                exp = { var = { name = "p1" } },
+                name = "x" },
+              exp = { var = { name = "a" } } }
+        })
+    end)
 end)
