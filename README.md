@@ -66,12 +66,12 @@ This is a *very* preliminary roadmap for Titan, where everything is
 subject to change, with things more likely to change the further
 they are in the roadmap:
 
-1.0 - integers, floats, booleans, strings, arrays, structs, maps, top-level functions, early-bound modules, basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments), standard library a subset of Lua's standard library, built using the C FFI
+0.8 - integers, floats, booleans, strings, arrays, structs, maps, top-level functions, early-bound modules, basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments), standard library a subset of Lua's standard library, built using the C FFI
 
-1.1 - first-class functions (still only in the top-level), tagged variants (unions of structs with some syntax for switching on the tag, multiple assignment/multiple returns, polymorphic functions, for-in, self-hosted compiler
+0.9 - first-class functions (still only in the top-level), tagged variants (unions of structs with some syntax for switching on the tag, multiple assignment/multiple returns, polymorphic functions, for-in, self-hosted compiler
 
-1.2 - nested and anonymous first-class functions with proper lexical scoping (closures), ":" syntax sugar
+0.10 - nested and anonymous first-class functions with proper lexical scoping (closures), ":" syntax sugar
 
-1.3 - classes with single inheritance, either Go/Java/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits, ":" method calls (this is not syntax sugar)
+0.11 - classes with single inheritance, either Go/Java/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits, ":" method calls (this is not syntax sugar)
 
-1.4 - operator overloading
+0.12 - operator overloading
