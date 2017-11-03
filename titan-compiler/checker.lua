@@ -278,9 +278,9 @@ function checkstat(node, st, errors)
         st:with_block(checkfor, node, st, errors)
     elseif tag == "Stat_Assign" then
         checkexp(node.var, st, errors)
-        -- mark this variable as assigned to
-        if node.var._tag == "Var_Name" then
-          node.var._decl._assigned = true
+        -- mark this declared variable as assigned to
+        if node.var._tag == "Var_Name" and node.var._decl then
+            node.var._decl._assigned = true
         end
         checkexp(node.exp, st, errors, node.var._type)
         node.exp = trycoerce(node.exp, node.var._type)
