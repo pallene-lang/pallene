@@ -1,0 +1,7 @@
+*.o
+*.a
+*.so
+
+# lua
+lua/src/lua
+lua/src/luac
