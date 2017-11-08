@@ -38,88 +38,120 @@ local function node2literal(node)
     end
 end
 
-local function getslot(t, c, s)
-    c = c and c .. " =" or ""
+local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
+    dst = dst and dst .. " =" or ""
     local tmpl
-    if types.equals(t, types.Integer) then tmpl = "%s ivalue(%s)"
-    elseif types.equals(t, types.Float) then tmpl = "%s fltvalue(%s)"
-    elseif types.equals(t, types.Boolean) then tmpl = "%s bvalue(%s)"
-    elseif types.equals(t, types.Nil) then tmpl = "%s 0"
-    elseif types.equals(t, types.String) then tmpl = "%s tsvalue(%s)"
-    elseif types.has_tag(t, "Array") then tmpl = "%s hvalue(%s)"
+    if types.equals(typ, types.Integer) then tmpl = "$DST ivalue($SRC)"
+    elseif types.equals(typ, types.Float) then tmpl = "$DST fltvalue($SRC)"
+    elseif types.equals(typ, types.Boolean) then tmpl = "$DST bvalue($SRC)"
+    elseif types.equals(typ, types.Nil) then tmpl = "$DST 0"
+    elseif types.equals(typ, types.String) then tmpl = "$DST tsvalue($SRC)"
+    elseif types.has_tag(typ, "Array") then tmpl = "$DST hvalue($SRC)"
     else
-        error("invalid type " .. types.tostring(t))
+        error("invalid type " .. types.tostring(typ))
     end
-    return string.format(tmpl, c, s)
+    return output(tmpl, { DST = dst, SRC = src })
 end
 
-local function checkandget(t, c, s, lin)
+local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string]], line --[[:number]])
     local tag
-    if types.equals(t, types.Integer) then tag = "integer"
-    elseif types.equals(t, types.Float) then 
-        return string.format([[
-            if(ttisinteger(%s)) { %s = (lua_Number)ivalue(%s); }
-            else if(ttisfloat(%s)) { %s = fltvalue(%s); }
-            else luaL_error(L, "type error at line %d, expected float but found %%s", lua_typename(L, ttnov(%s)));
-        ]], s, c, s, s, c, s, lin, s)
-        elseif types.equals(t, types.Boolean) then tag = "boolean"
-    elseif types.equals(t, types.Nil) then tag = "nil"
-    elseif types.equals(t, types.String) then tag = "string"
-    elseif types.has_tag(t, "Array") then tag = "table"
+    if types.equals(typ, types.Integer) then tag = "integer"
+    elseif types.equals(typ, types.Float) then
+        return output([[
+            if (ttisinteger($EXP)) {
+                $VAR = (lua_Number)ivalue($EXP);
+            } else if (ttisfloat($EXP)) {
+                $VAR = fltvalue($EXP);
+            } else {
+                luaL_error(L, "type error at line $LINE, expected float but found %s", lua_typename(L, ttnov($EXP)));
+            }
+        ]], {
+            EXP = exp,
+            VAR = cvar,
+            LINE = line,
+        })
+    elseif types.equals(typ, types.Boolean) then tag = "boolean"
+    elseif types.equals(typ, types.Nil) then tag = "nil"
+    elseif types.equals(typ, types.String) then tag = "string"
+    elseif types.has_tag(typ, "Array") then tag = "table"
     else
-        error("invalid type " .. types.tostring(t))
+        error("invalid type " .. types.tostring(typ))
     end
-    --return getslot(t, c, s) .. ";"
-    return string.format([[
-        if(ttis%s(%s)) { %s; }
-        else luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
-    ]], tag, s, getslot(t, c, s), lin, tag, s)
+    --return getslot(typ, cvar, exp) .. ";"
+    return output([[
+        if(ttis$TAG($EXP)) {
+            $GETSLOT;
+        } else {
+            luaL_error(L, "type error at line $LINE, expected $TAG but found %s", lua_typename(L, ttnov($EXP)));
+        }
+    ]], {
+        EXP = exp,
+        TAG = tag,
+        GETSLOT = getslot(typ, cvar, exp),
+        LINE = line,
+    })
 end
 
-local function checkandset(t, st, sl, lin)
+local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]], line --[[:number]])
     local tag
-    if types.equals(t, types.Integer) then tag = "integer"
-    elseif types.equals(t, types.Float) then 
-        return string.format([[
-            if(ttisinteger(%s)) { setfltvalue(%s, ((lua_Number)ivalue(%s))); }
-            else if(ttisfloat(%s)) { setobj2t(L, %s, %s); }
-            else luaL_error(L, "type error at line %d, expected float but found %%s", lua_typename(L, ttnov(%s)));
-        ]], sl, st, sl, sl, st, sl, lin, sl)
-        elseif types.equals(t, types.Boolean) then tag = "boolean"
-    elseif types.equals(t, types.Nil) then tag = "nil"
-    elseif types.equals(t, types.String) then tag = "string"
-    elseif types.has_tag(t, "Array") then tag = "table"
+    if types.equals(typ, types.Integer) then tag = "integer"
+    elseif types.equals(typ, types.Float) then
+        return output([[
+            if (ttisinteger($SRC)) {
+                setfltvalue($DST, ((lua_Number)ivalue($SRC)));
+            } else if (ttisfloat($SRC)) {
+                setobj2t(L, $DST, $SRC);
+            } else {
+                luaL_error(L, "type error at line $LINE, expected float but found %s", lua_typename(L, ttnov($SRC)));
+            }
+        ]], {
+            SRC = src,
+            DST = dst,
+            LINE = line,
+        })
+    elseif types.equals(typ, types.Boolean) then tag = "boolean"
+    elseif types.equals(typ, types.Nil) then tag = "nil"
+    elseif types.equals(typ, types.String) then tag = "string"
+    elseif types.has_tag(typ, "Array") then tag = "table"
     else
-        error("invalid type " .. types.tostring(t))
+        error("invalid type " .. types.tostring(typ))
     end
-    return string.format([[
-        if(ttis%s(%s)) { setobj2t(L, %s, %s); }
-        else luaL_error(L, "type error at line %d, expected %s but found %%s", lua_typename(L, ttnov(%s)));
-    ]], tag, sl, st, sl, lin, tag, sl)
+    return output([[
+        if (ttis$TAG($SRC)) {
+            setobj2t(L, $DST, $SRC);
+        } else {
+            luaL_error(L, "type error at line $LINE, expected $TAG but found %s", lua_typename(L, ttnov($SRC)));
+        }
+    ]], {
+        TAG = tag,
+        SRC = src,
+        DST = dst,
+        LINE = line,
+    })
 end
 
-local function setslot(t, s, c)
+local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
     local tmpl
-    if types.equals(t, types.Integer) then tmpl = "setivalue(%s, %s);"
-    elseif types.equals(t, types.Float) then tmpl = "setfltvalue(%s, %s);"
-    elseif types.equals(t, types.Boolean) then tmpl = "setbvalue(%s, %s);"
-    elseif types.equals(t, types.Nil) then tmpl = "setnilvalue(%s); ((void)%s);"
-    elseif types.equals(t, types.String) then tmpl = "setsvalue(L, %s, %s);"
-    elseif types.has_tag(t, "Array") then tmpl = "sethvalue(L, %s, %s);"
+    if types.equals(typ, types.Integer) then tmpl = "setivalue($DST, $SRC);"
+    elseif types.equals(typ, types.Float) then tmpl = "setfltvalue($DST, $SRC);"
+    elseif types.equals(typ, types.Boolean) then tmpl = "setbvalue($DST, $SRC);"
+    elseif types.equals(typ, types.Nil) then tmpl = "setnilvalue($DST); ((void)$SRC);"
+    elseif types.equals(typ, types.String) then tmpl = "setsvalue(L, $DST, $SRC);"
+    elseif types.has_tag(typ, "Array") then tmpl = "sethvalue(L, $DST, $SRC);"
     else
-        error("invalid type " .. types.tostring(t))
+        error("invalid type " .. types.tostring(typ))
     end
-    return string.format(tmpl, s, c)
+    return output(tmpl, { DST = dst, SRC = src })
 end
 
-local function ctype(t)
-    if types.equals(t, types.Integer) then return "lua_Integer"
-    elseif types.equals(t, types.Float) then return "lua_Number"
-    elseif types.equals(t, types.Boolean) then return "int"
-    elseif types.equals(t, types.Nil) then return "int"
-    elseif types.equals(t, types.String) then return "TString*"
-    elseif types.has_tag(t, "Array") then return "Table*"
-    else error("invalid type " .. types.tostring(t))
+local function ctype(typ --[[:table]])
+    if types.equals(typ, types.Integer) then return "lua_Integer"
+    elseif types.equals(typ, types.Float) then return "lua_Number"
+    elseif types.equals(typ, types.Boolean) then return "int"
+    elseif types.equals(typ, types.Nil) then return "int"
+    elseif types.equals(typ, types.String) then return "TString*"
+    elseif types.has_tag(typ, "Array") then return "Table*"
+    else error("invalid type " .. types.tostring(typ))
     end
 end
 
@@ -133,26 +165,39 @@ local function newcontext()
     }
 end
 
-local function newslot(ctx, name)
+local function newslot(ctx --[[:table]], name --[[:string]])
     local sdepth = ctx.depth
     ctx.depth = ctx.depth + 1
     if ctx.depth > ctx.nslots then ctx.nslots = ctx.depth end
-    return string.format([[
-        TValue *%s = _base + %d;
-    ]], name, sdepth)
+    return output([[
+    	TValue *$NAME = _base + $SDEPTH;
+    ]], {
+    	NAME = name,
+    	SDEPTH = sdepth,
+    })
 end
 
-local function newtmp(ctx, typ, isgc)
+local function newtmp(ctx --[[:table]], typ --[[:table]], isgc --[[:boolean]])
     local tmp = ctx.tmp
     ctx.tmp = ctx.tmp + 1
+    local tmpname = "_tmp_" .. tmp
     if isgc then
-        return newslot(ctx, "_tmp_" .. tmp .. "_slot") .. string.format([[
-            %s _tmp_%d = 0;
-        ]], ctype(typ), tmp), "_tmp_" .. tmp, "_tmp_" .. tmp .. "_slot"
+        local slotname = "_tmp_" .. tmp .. "_slot"
+        return output([[
+            $NEWSLOT
+            $TYPE $TMPNAME = 0;
+        ]], {
+            TYPE = ctype(typ),
+            NEWSLOT = newslot(ctx, slotname),
+            TMPNAME = tmpname,
+        }), tmpname, slotname
     else
-        return string.format([[
-            %s _tmp_%d = 0;
-        ]], ctype(typ), tmp), "_tmp_" .. tmp
+        return output([[
+            $TYPE $TMPNAME = 0;
+        ]], {
+            TYPE = ctype(typ),
+            TMPNAME = tmpname,
+        }), tmpname
     end
 end
 
@@ -175,7 +220,7 @@ local function codeblock(ctx, node)
         table.insert(stats, codestat(ctx, stat))
     end
     popd(ctx)
-    return "    {\n    " .. table.concat(stats, "\n    ") .. "\n    }"
+    return " {\n " .. table.concat(stats, "\n ") .. "\n }"
 end
 
 local function codewhile(ctx, node)
@@ -183,23 +228,29 @@ local function codewhile(ctx, node)
     local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
     popd(ctx)
+    local tmpl
     if cstats == "" then
-        return string.format([[
-            while(%s) {
-                %s
+        tmpl = [[
+            while($CEXP) {
+                $CBLK
             }
-        ]], cexp, cblk)
+        ]]
     else
-        return string.format([[
+        tmpl = [[
             while(1) {
-                %s
-                if(!(%s)) {
+                $CSTATS
+                if(!($CEXP)) {
                     break;
                 }
-                %s
+                $CBLK
             }
-        ]], cstats, cexp, cblk)
+        ]]
     end
+    return output(tmpl, {
+        CSTATS = cstats,
+        CEXP = cexp,
+        CBLK = cblk,
+    })
 end
 
 local function coderepeat(ctx, node)
@@ -207,15 +258,19 @@ local function coderepeat(ctx, node)
     local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
     popd(ctx)
-    return string.format([[
+    return output([[
         while(1) {
-            %s
-            %s
-            if(%s) {
+            $CBLK
+            $CSTATS
+            if($CEXP) {
                 break;
             }
         }
-    ]], cblk, cstats, cexp)
+    ]], {
+        CBLK = cblk,
+        CSTATS = cstats,
+        CEXP = cexp
+    })
 end
 
 local function codeif(ctx, node, idx)
@@ -230,14 +285,19 @@ local function codeif(ctx, node, idx)
         cthn = codestat(ctx, node.thens[idx].block)
         cels = "else " .. codeif(ctx, node, idx + 1):match("^[ \t]*(.*)")
     end
-    return string.format([[
+    return output([[
         {
-            %s
-            if(%s) {
-                %s
-            } %s
+            $CSTATS
+            if($CEXP) {
+                $CTHN
+            } $CELS
         }
-    ]], cstats, cexp, cthn, cels)
+    ]], {
+        CSTATS = cstats,
+        CEXP = cexp,
+        CTHN = cthn,
+        CELS = cels
+    })
 end
 
 local function codefor(ctx, node)
@@ -247,81 +307,101 @@ local function codefor(ctx, node)
     local csstats, csexp = codeexp(ctx, node.start)
     local cfstats, cfexp = codeexp(ctx, node.finish)
     local cinc = ""
-    local cstart, cfinish, cstep, ccmp
+    local cvtyp
     if types.equals(node.decl._type, types.Integer) then
-        cstart = string.format([[
-            %s
-            lua_Integer _forstart = %s;
-        ]], csstats, csexp)
-        cfinish = string.format([[
-            %s
-            lua_Integer _forlimit = %s;
-        ]], cfstats, cfexp)
+        cvtyp = "lua_Integer"
     else
-        cstart = string.format([[
-            %s
-            lua_Number _forstart = %s;
-        ]], csstats, csexp)
-        cfinish = string.format([[
-            %s
-            lua_Number _forlimit = %s;
-        ]], cfstats, cfexp)
+        cvtyp = "lua_Number"
     end
+    local cstart = output([[
+        $CSSTATS
+        $CVTYP _forstart = $CSEXP;
+    ]], {
+        CSSTATS = csstats,
+        CSEXP = csexp,
+        CVTYP = cvtyp,
+    })
+    local cfinish = output([[
+        $CFSTATS
+        $CVTYP _forlimit = $CFEXP;
+    ]], {
+        CFSTATS = cfstats,
+        CFEXP = cfexp,
+        CVTYP = cvtyp,
+    })
+    local cstep, ccmp
+    local subs = {
+        CVAR = node.decl._cvar,
+    }
     if node.inc then
         local ilit = node2literal(node.inc)
         if ilit then
             if ilit > 0 then
+                subs.ILIT = ilit
+                local tmpl
                 if types.equals(node.decl._type, types.Integer) then
-                    cstep = node.decl._cvar .. " = l_castU2S(l_castS2U(" .. node.decl._cvar .. ") + " .. tostring(ilit) .. ")"
+                    tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + $ILIT)"
                 else
-                    cstep = node.decl._cvar .. " += " .. tostring(ilit)
+                    tmpl = "$CVAR += $ILIT"
                 end
-                ccmp = node.decl._cvar .. " <= _forlimit"
+                cstep = output(tmpl, subs)
+                ccmp = output("$CVAR <= _forlimit", subs)
             else
+                subs.NEGILIT = ilit and -ilit
                 if types.equals(node.decl._type, types.Integer) then
-                    cstep = node.decl._cvar .. " = l_castU2S(l_castS2U(" .. node.decl._cvar .. ") - " .. tostring(-ilit) .. ")"
+                    cstep = output("$CVAR = l_castU2S(l_castS2U($CVAR) - $NEGILIT)", subs)
                 else
-                    cstep = node.decl._cvar .. " -= " .. tostring(ilit)
+                    cstep = output("$CVAR -= $ILIT", subs)
                 end
-                ccmp = "_forlimit <= " .. node.decl._cvar
+                ccmp = output("_forlimit <= $CVAR", subs)
             end
         else
             local cistats, ciexp = codeexp(ctx, node.inc)
+            cinc = output([[
+                $CISTATS
+                $CVTYP _forstep = $CIEXP;
+            ]], {
+                CISTATS = cistats,
+                CIEXP = ciexp,
+                CVTYP = cvtyp,
+            })
+            local tmpl
             if types.equals(node.decl._type, types.Integer) then
-                cinc = string.format([[
-                    %s
-                    lua_Integer _forstep = %s;
-                ]], cistats, ciexp)
-                cstep = node.decl._cvar .. " = l_castU2S(l_castS2U(" .. node.decl._cvar .. ") + l_castS2U(_forstep))"
+                tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + l_castS2U(_forstep))"
             else
-                cinc = string.format([[
-                    %s
-                    lua_Number _forstep = %s;
-                ]], cistats, ciexp)
-                cstep = node.decl._cvar .. " += _forstep"
+                tmpl = "$CVAR += _forstep"
             end
-            ccmp = "0 < _forstep ? (" .. node.decl._cvar .. " <= _forlimit) : (_forlimit <= " .. node.decl._cvar .. ")"
+            cstep = output(tmpl, subs)
+            ccmp = output("0 < _forstep ? ($CVAR <= _forlimit) : (_forlimit <= $CVAR)", subs)
         end
     else
         if types.equals(node.decl._type, types.Integer) then
-            cstep = node.decl._cvar .. " = l_castU2S(l_castS2U(" .. node.decl._cvar .. ") + 1)"
+            cstep = output("$CVAR = l_castU2S(l_castS2U($CVAR) + 1)", subs)
         else
-            cstep = node.decl._cvar .. "+= 1.0"
+            cstep = output("$CVAR += 1.0", subs)
         end
-        ccmp = node.decl._cvar .. " <= _forlimit"
+        ccmp = output("$CVAR <= _forlimit", subs)
     end
     local cblock = codestat(ctx, node.block)
     popd(ctx)
-    return string.format([[
+    return output([[
         {
-            %s
-            %s
-            %s
-            for(%s = _forstart; %s; %s) {
-                %s
+            $CSTART
+            $CFINISH
+            $CINC
+            for($CDECL = _forstart; $CCMP; $CSTEP) {
+                $CBLOCK
             }
         }
-    ]], cstart, cfinish, cinc, cdecl, ccmp, cstep, cblock)
+    ]], {
+        CSTART = cstart,
+        CFINISH = cfinish,
+        CINC = cinc,
+        CDECL = cdecl,
+        CCMP = ccmp,
+        CSTEP = cstep,
+        CBLOCK = cblock
+    })
 end
 
 local function codeassignment(ctx, node)
@@ -331,26 +411,36 @@ local function codeassignment(ctx, node)
     if vtag == "Var_Name" then
         if node.var._decl._tag == "TopLevel_Var" and not node.var._decl.islocal then
             local cstats, cexp = codeexp(ctx, node.exp)
-            return string.format([[
-                %s
-                %s;
-            ]], cstats, setslot(node.var._type, node.var._decl._slot, cexp))
+            return output([[
+                $CSTATS
+                $SETSLOT
+            ]], {
+                CSTATS = cstats,
+                SETSLOT = setslot(node.var._type, node.var._decl._slot, cexp)
+            })
         else
             local cstats, cexp = codeexp(ctx, node.exp, false, node.var._decl)
             local cset = ""
             if types.is_gc(node.var._type) then
-                cset = string.format([[
+                cset = output([[
                     /* update slot */
-                    %s
-                ]], setslot(node.var._type, node.var._decl._slot, node.var._decl._cvar))
+                    $SETSLOT
+                ]], {
+                    SETSLOT = setslot(node.var._type, node.var._decl._slot, node.var._decl._cvar)
+                })
             end
-            return string.format([[
+            return output([[
                 {
-                    %s
-                    %s = %s;
-                    %s
+                    $CSTATS
+                    $CVAR = $CEXP;
+                    $CSET
                 }
-            ]], cstats, node.var._decl._cvar, cexp, cset)
+            ]], {
+                CSTATS = cstats,
+                CVAR = node.var._decl._cvar,
+                CEXP = cexp,
+                CSET = cset,
+            })
         end
     elseif vtag == "Var_Index" then
         local arr = node.var.exp1
@@ -362,40 +452,49 @@ local function codeassignment(ctx, node)
         local cset
         if types.is_gc(arr._type.elem) then
             -- write barrier
-            cset = string.format([[
-                TValue _vv; %s
+            cset = output([[
+                TValue _vv;
+                $SETSLOT
                 setobj2t(L, _slot, &_vv);
                 luaC_barrierback(L, _t, &_vv);
-            ]], setslot(etype, "&_vv", cexp))
+            ]], {
+                SETSLOT = setslot(etype, "&_vv", cexp)
+            })
         else
             cset = setslot(etype, "_slot", cexp)
         end
-        return string.format([[
+        return output([[
             {
-                %s
-                %s
-                %s
-                Table *_t = %s;
-                lua_Integer _k = %s;
+                $CASTATS
+                $CISTATS
+                $CSTATS
+                Table *_t = $CAEXP;
+                lua_Integer _k = $CIEXP;
                 unsigned int _actual_i = l_castS2U(_k) - 1;
                 unsigned int _asize = _t->sizearray;
+                TValue *_slot;
                 if (_actual_i < _asize) {
-                    TValue *_slot = &_t->array[_actual_i];
-                    %s
+                    _slot = &_t->array[_actual_i];
                 } else if (_actual_i < 2*_asize) {
                     unsigned int _hsize = sizenode(_t);
                     luaH_resize(L, _t, 2*_asize, _hsize);
-                    TValue *_slot = &_t->array[_actual_i];
-                    %s
+                    _slot = &_t->array[_actual_i];
                 } else {
-                    TValue *_slot = (TValue *)luaH_getint(_t, _k);
+                    _slot = (TValue *)luaH_getint(_t, _k);
                     TValue _vk; setivalue(&_vk, _k);
                     if (_slot == luaO_nilobject)    /* no previous entry? */
                             _slot = luaH_newkey(L, _t, &_vk);    /* create one */
-                    %s
                 }
+                $CSET
             }
-        ]], castats, cistats, cstats, caexp, ciexp, cset, cset, cset)
+        ]], {
+            CASTATS = castats,
+            CISTATS = cistats,
+            CSTATS = cstats,
+            CAEXP = caexp,
+            CIEXP = ciexp,
+            CSET = cset
+        })
     else
         error("invalid tag for lvalue of assignment: " .. vtag)
     end
@@ -408,56 +507,69 @@ local function codecall(ctx, node)
         table.insert(castats, cstat)
         table.insert(caexps, cexp)
     end
+    local cstats = table.concat(castats, "\n")
+    local ccall = output("$NODENAME_titan($CAEXPS)", {
+        NODENAME = node.exp.var.name,
+        CAEXPS = table.concat(caexps, ", "),
+    })
     if types.is_gc(node._type) then
         local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, true)
-        return string.format([[
-            %s
-            %s
-            %s = %s_titan(%s);
-            %s;
-        ]], table.concat(castats, "\n"), ctmp, tmpname, node.exp.var.name,
-            table.concat(caexps, ", "), setslot(node._type, tmpslot, tmpname)), tmpname
+        return output([[
+            $CSTATS
+            $CTMP
+            $TMPNAME = $CCALL;
+            $SETSLOT;
+        ]], {
+            CSTATS = cstats,
+            CTMP = ctmp,
+            TMPNAME = tmpname,
+            CCALL = ccall,
+            SETSLOT = setslot(node._type, tmpslot, tmpname),
+        }), tmpname
     else
-        return table.concat(castats, "\n"), node.exp.var.name .. "_titan(" .. table.concat(caexps, ", ") .. ")"
+        return cstats, ccall
     end
 end
 
 local function codereturn(ctx, node)
     local cstats, cexp = codeexp(ctx, node.exp)
+    local tmpl
     if types.equals(node._type, types.String) then
-        return string.format([[
+        tmpl = [[
             {
-                %s
-                TString *ret = %s;
+                $CSTATS
+                TString *ret = $CEXP;
                 setsvalue(L, _retslot, ret);
                 L->top = _retslot + 1;
                 return ret;
             }
-        ]], cstats, cexp)
+        ]]
     elseif types.has_tag(node._type, "Array") then
-        return string.format([[
+        tmpl = [[
             {
-                %s
-                Table *ret = %s;
+                $CSTATS
+                Table *ret = $CEXP;
                 sethvalue(L, _retslot, ret);
                 L->top = _retslot + 1;
                 return ret;
             }
-        ]], cstats, cexp)
+        ]]
+    elseif ctx.nslots > 0 then
+        tmpl = [[
+            $CSTATS
+            L->top = _base;
+            return $CEXP;
+        ]]
     else
-        if ctx.nslots > 0 then
-            return string.format([[
-                %s
-                L->top = _base;
-                return %s;
-            ]], cstats, cexp)
-        else
-            return string.format([[
-                %s
-                return %s;
-            ]], cstats, cexp)
-        end
+        tmpl = [[
+            $CSTATS
+            return $CEXP;
+        ]]
     end
+    return output(tmpl, {
+        CSTATS = cstats,
+        CEXP = cexp,
+    })
 end
 
 function codestat(ctx, node)
@@ -473,25 +585,37 @@ function codestat(ctx, node)
             if types.is_gc(typ) then
                 node.decl._slot = "_localslot_" .. node.decl.name
                 cslot = newslot(ctx, node.decl._slot);
-                cset = string.format([[
+                cset = output([[
                     /* update slot */
-                    %s
-                ]], setslot(typ, node.decl._slot, node.decl._cvar))
+                    $SETSLOT
+                ]], {
+                    SETSLOT = setslot(typ, node.decl._slot, node.decl._cvar),
+                })
             end
-            return string.format([[
-                %s
-                %s
+            return output([[
+                $CDECL
+                $CSLOT
                 {
-                    %s
-                    %s = %s;
-                    %s
+                    $CSTATS
+                    $CVAR = $CEXP;
+                    $CSET
                 }
-            ]], cdecl, cslot, cstats, node.decl._cvar, cexp, cset)
+            ]], {
+                CDECL = cdecl,
+                CSLOT = cslot,
+                CSTATS = cstats,
+                CVAR = node.decl._cvar,
+                CEXP = cexp,
+                CSET = cset
+            })
         else
-            return string.format([[
-                %s
-                ((void)%s);
-            ]], cstats, cexp)
+            return output([[
+                $CSTATS
+                ((void)$CEXP);
+            ]], {
+                CSTATS = cstats,
+                CEXP = cexp
+            })
         end
     elseif tag == "Stat_Block" then
         return codeblock(ctx, node)
@@ -540,15 +664,21 @@ local function codevalue(ctx, node, target)
     elseif tag == "Exp_Float" then
         return "", string.format("%f", node.value)
     elseif tag == "Exp_String" then
+        local cstr = output("luaS_new(L, $QUOTED)", { QUOTED = quotestr(node.value) })
         if target then
-            return "", string.format("luaS_new(L, %s)", quotestr(node.value))
+            return "", cstr
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
-            return string.format([[
-                %s
-                %s = luaS_new(L, %s);
-                setsvalue(L, %s, %s);
-            ]], ctmp, tmpname, quotestr(node.value), tmpslot, tmpname), tmpname
+            return output([[
+                $CTMP
+                $TMPNAME = $CSTR;
+                setsvalue(L, $TMPSLOT, $TMPNAME);
+            ]], {
+                CTMP = ctmp,
+                TMPNAME = tmpname,
+                CSTR = cstr,
+                TMPSLOT = tmpslot,
+            }), tmpname
         end
     else
         error("invalid tag for a literal value: " .. tag)
