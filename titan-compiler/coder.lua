@@ -4,6 +4,15 @@ local coder = {}
 
 local codeexp, codestat
 
+local function output(code, vars)
+    local substitutions = setmetatable(vars, {
+        __index = function(_, k)
+            error("Internal compiler error: missing template variable " .. k)
+        end
+    })
+    return (string.gsub(code, "$([%u%d_]+)", substitutions))
+end
+
 local function quotestr(s)
     s = s:gsub("\\", "\\\\")
         :gsub("\a", "\\a")
