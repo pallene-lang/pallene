@@ -62,16 +62,39 @@ You may need to adapt the invocation of `make` above to your platform.
         
 # Tentative roadmap
 
-This is a *very* preliminary roadmap for Titan, where everything is
+This is a *very* preliminary roadmap towards Titan 1.0, where everything is
 subject to change, with things more likely to change the further
 they are in the roadmap:
 
-0.8 - integers, floats, booleans, strings, arrays, structs, maps, top-level functions, early-bound modules, basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments), standard library a subset of Lua's standard library, built using the C FFI
+## Supported
 
-0.9 - first-class functions (still only in the top-level), tagged variants (unions of structs with some syntax for switching on the tag, multiple assignment/multiple returns, polymorphic functions, for-in, self-hosted compiler
+* control structures
+* integers
+* floats
+* booleans
+* strings
+* arrays
+* top-level functions
 
-0.10 - nested and anonymous first-class functions with proper lexical scoping (closures), ":" syntax sugar
+## In progress
 
-0.11 - classes with single inheritance, either Go/Java/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits, ":" method calls (this is not syntax sugar)
+* early-bound modules
 
-0.12 - operator overloading
+## Next
+
+* structs
+* maps
+* basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments)
+* standard library a subset of Lua's standard library, built using the C FFI
+* first-class functions (still only in the top-level)
+* tagged variants (unions of structs with some syntax for switching on the tag)
+* multiple assignment/multiple returns
+* polymorphic functions
+* for-in
+* self-hosted compiler
+* nested and anonymous first-class functions with proper lexical scoping (closures)
+* ":" syntax sugar
+* classes with single inheritance, either Go/Java/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits
+* ":" method calls (not syntax sugar)
+* operator overloading
+* ...Titan 1.0!
