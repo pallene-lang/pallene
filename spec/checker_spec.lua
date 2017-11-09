@@ -2,6 +2,16 @@ local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
 
+local describe = describe
+local it = it
+local assert = assert
+
+local function run_checker(code)
+    local ast = parser.parse(code)
+    local ok, err = checker.check(ast, code, "test.titan")
+    return ok, err, ast
+end
+
 describe("Titan type checker", function()
 
     it("detects invalid types", function()
@@ -9,8 +19,7 @@ describe("Titan type checker", function()
             function fn(): foo
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("type name foo is invalid", err)
     end)
@@ -23,8 +32,7 @@ describe("Titan type checker", function()
                 return 1
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err, ast = run_checker(code)
         assert.truthy(ok)
         assert.same("Exp_ToInt", ast[1].block.stats[2].exp._tag)
     end)
@@ -37,8 +45,7 @@ describe("Titan type checker", function()
                 return 1
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err, ast = run_checker(code)
         assert.truthy(ok)
         assert.same("Exp_ToFloat", ast[1].block.stats[2].exp._tag)
     end)
@@ -52,8 +59,7 @@ describe("Titan type checker", function()
                 return 1
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("duplicate function", err)
     end)
@@ -69,8 +75,7 @@ describe("Titan type checker", function()
         ]],
         }
         for _, c in ipairs(code) do
-            local ast, err = parser.parse(c)
-            local ok, err = checker.check(ast, c, "test.titan")
+            local ok, err = run_checker(c)
             assert.falsy(ok)
             assert.match("duplicate variable", err)
         end
@@ -83,8 +88,7 @@ describe("Titan type checker", function()
                 y = 2
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("variable '%w+' not declared", err)
     end)
@@ -95,8 +99,7 @@ describe("Titan type checker", function()
                 fn = 1
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("reference to function", err)
     end)
@@ -107,8 +110,7 @@ describe("Titan type checker", function()
                 x[1] = 2
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("array expression in indexing is not an array", err)
     end)
@@ -119,8 +121,7 @@ describe("Titan type checker", function()
                 return #x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("trying to take the length", err)
     end)
@@ -131,8 +132,7 @@ describe("Titan type checker", function()
                 return -x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("trying to negate a", err)
     end)
@@ -143,8 +143,7 @@ describe("Titan type checker", function()
                 return ~x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("trying to bitwise negate a", err)
     end)
@@ -157,8 +156,7 @@ describe("Titan type checker", function()
                 s = i
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("expected string but found integer", err)
     end)
@@ -169,8 +167,7 @@ describe("Titan type checker", function()
                 s = i
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("expected string but found integer", err)
     end)
@@ -182,8 +179,7 @@ describe("Titan type checker", function()
                 arr[1] = nil
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok, err)
     end)
 
@@ -196,8 +192,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
 
@@ -211,8 +206,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
 
@@ -226,8 +220,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
 
@@ -245,8 +238,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
 
@@ -260,8 +252,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("expected string but found integer", err)
     end)
@@ -276,8 +267,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
 
@@ -291,8 +281,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("'for' start expression", err)
     end)
@@ -306,8 +295,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("control variable", err)
     end)
@@ -322,8 +310,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("'for' finish expression", err)
     end)
@@ -338,8 +325,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("'for' step expression", err)
     end)
@@ -350,36 +336,35 @@ describe("Titan type checker", function()
             end
         ]],
         [[
-			function getval(a:integer): integer
-    			if a == 1 then
-        			return 10
-    			elseif a == 2 then
-				else
-					return 30
-    			end
-			end
-		]],
+            function getval(a:integer): integer
+                if a == 1 then
+                    return 10
+                elseif a == 2 then
+                else
+                    return 30
+                end
+            end
+        ]],
         [[
-			function getval(a:integer): integer
-    			if a == 1 then
-        			return 10
-    			elseif a == 2 then
-        			return 20
-    			else
-        			if a < 5 then
-            			if a == 3 then
-                			return 30
-            			end
-        			else
-            			return 50
-        			end
-    			end
-			end
-		]],
+            function getval(a:integer): integer
+                if a == 1 then
+                    return 10
+                elseif a == 2 then
+                    return 20
+                else
+                    if a < 5 then
+                        if a == 3 then
+                            return 30
+                        end
+                    else
+                        return 50
+                    end
+                end
+            end
+        ]],
         }
         for _, c in ipairs(code) do
-            local ast, err = parser.parse(c)
-            local ok, err = checker.check(ast, c, "test.titan")
+            local ok, err = run_checker(c)
             assert.falsy(ok)
             assert.match("function can return nil", err)
         end
@@ -392,8 +377,7 @@ describe("Titan type checker", function()
                 i()
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("is not a function", err)
     end)
@@ -410,8 +394,7 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]]
-            local ast, err = parser.parse(code)
-            checker.check(ast, code, "test.titan")
+            local ok, err, ast = run_checker(code)
 
             assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
             assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
@@ -443,8 +426,7 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]]
-            local ast, err = parser.parse(code)
-            checker.check(ast, code, "test.titan")
+            local ok, err, ast = run_checker(code)
 
             assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
             assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
@@ -476,8 +458,7 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]]
-            local ast, err = parser.parse(code)
-            checker.check(ast, code, "test.titan")
+            local ok, err, ast = run_checker(code)
 
             assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
             assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
@@ -503,8 +484,7 @@ describe("Titan type checker", function()
                 local s = "foo" .. true
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with boolean value", err)
     end)
@@ -515,8 +495,7 @@ describe("Titan type checker", function()
                 local s = "foo" .. nil
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with nil value", err)
     end)
@@ -527,8 +506,7 @@ describe("Titan type checker", function()
                 local s = "foo" .. {}
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with { integer } value", err)
     end)
@@ -539,8 +517,7 @@ describe("Titan type checker", function()
                 local s = "foo" .. true
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with boolean value", err)
     end)
@@ -551,8 +528,7 @@ describe("Titan type checker", function()
                 local s = 1 .. 2.5
             end
         ]]
-        local ast, err = parser.parse(code)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
 end)
