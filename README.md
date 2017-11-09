@@ -82,19 +82,19 @@ they are in the roadmap:
 
 ## Next
 
-* structs
+* records (structs)
 * maps
 * basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments)
-* standard library a subset of Lua's standard library, built using the C FFI
+* standard library that is a subset of Lua's standard library, built using the C FFI
 * first-class functions (still only in the top-level)
-* tagged variants (unions of structs with some syntax for switching on the tag)
+* tagged variants (unions of structs with some syntax for switch/case on the tag)
 * multiple assignment/multiple returns
 * polymorphic functions
 * for-in
 * self-hosted compiler
 * nested and anonymous first-class functions with proper lexical scoping (closures)
-* ":" syntax sugar
-* classes with single inheritance, either Go/Java/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits
+* ":" syntax sugar for records of functions
+* classes with single inheritance, either Go/Java/C#/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits
 * ":" method calls (not syntax sugar)
 * operator overloading
 * ...Titan 1.0!
