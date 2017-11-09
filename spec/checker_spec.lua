@@ -531,5 +531,256 @@ describe("Titan type checker", function()
         local ok, err = run_checker(code)
         assert.truthy(ok)
     end)
+
+    for _, op in ipairs({"==", "~="}) do
+        it("can compare arrays of same type using " .. op, function()
+            local code = [[
+                function fn(a1: {integer}, a2: {integer}): boolean
+                    return a1 ]] .. op .. [[ a2
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~="}) do
+        it("can compare booleans using " .. op, function()
+            local code = [[
+                function fn(b1: string, b2: string): boolean
+                    return b1 ]] .. op .. [[ b2
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
+        it("can compare floats using " .. op, function()
+            local code = [[
+                function fn(f1: string, f2: string): boolean
+                    return f1 ]] .. op .. [[ f2
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
+        it("can compare integers using " .. op, function()
+            local code = [[
+                function fn(i1: string, i2: string): boolean
+                    return i1 ]] .. op .. [[ i2
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
+        it("can compare integers and floats using " .. op, function()
+            local code = [[
+                function fn(i: integer, f: float): boolean
+                    return i ]] .. op .. [[ f
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
+        it("can compare strings using " .. op, function()
+            local code = [[
+                function fn(s1: string, s2: string): boolean
+                    return s1 ]] .. op .. [[ s2
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~="}) do
+        it("cannot compare arrays of different types using " .. op, function()
+            local code = [[
+                function fn(a1: {integer}, a2: {float}): boolean
+                    return a1 ]] .. op .. [[ a2
+                end
+            ]]
+            local ast, err = parser.parse(code)
+            local ok, err = checker.check(ast, code, "test.titan")
+            assert.falsy(ok)
+            assert.match("trying to compare values of different types", err)
+        end)
+    end
+
+    for _, op in ipairs({"==", "~="}) do
+        for _, t1 in ipairs({"{integer}", "boolean", "float", "string"}) do
+            for _, t2 in ipairs({"{integer}", "boolean", "float", "string"}) do
+                if t1 ~= t2 then
+                    it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
+                        local code = [[
+                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
+                                return a ]] .. op .. [[ b
+                            end
+                        ]]
+                        local ast, err = parser.parse(code)
+                        local ok, err = checker.check(ast, code, "test.titan")
+                        assert.falsy(ok)
+                        assert.match("trying to compare values of different types", err)
+                    end)
+                end
+            end
+        end
+    end
+
+    for _, op in ipairs({"==", "~="}) do
+        for _, t1 in ipairs({"{integer}", "boolean", "integer", "string"}) do
+            for _, t2 in ipairs({"{integer}", "boolean", "integer", "string"}) do
+                if t1 ~= t2 then
+                    it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
+                        local code = [[
+                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
+                                return a ]] .. op .. [[ b
+                            end
+                        ]]
+                        local ast, err = parser.parse(code)
+                        local ok, err = checker.check(ast, code, "test.titan")
+                        assert.falsy(ok)
+                        assert.match("trying to compare values of different types", err)
+                    end)
+                end
+            end
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot compare " .. t .. " and float using " .. op, function()
+                local code = [[
+                    function fn(a: ]] .. t .. [[, b: float): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ast, err = parser.parse(code)
+                local ok, err = checker.check(ast, code, "test.titan")
+                assert.falsy(ok)
+                assert.match("left hand side of relational expression is", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot compare float and " .. t .. " using " .. op, function()
+                local code = [[
+                    function fn(a: float, b: ]] .. t .. [[): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ast, err = parser.parse(code)
+                local ok, err = checker.check(ast, code, "test.titan")
+                assert.falsy(ok)
+                assert.match("right hand side of relational expression is", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot compare " .. t .. " and integer using " .. op, function()
+                local code = [[
+                    function fn(a: ]] .. t .. [[, b: integer): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ast, err = parser.parse(code)
+                local ok, err = checker.check(ast, code, "test.titan")
+                assert.falsy(ok)
+                assert.match("left hand side of relational expression is", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot compare integer and " .. t .. " using " .. op, function()
+                local code = [[
+                    function fn(a: integer, b: ]] .. t .. [[): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ast, err = parser.parse(code)
+                local ok, err = checker.check(ast, code, "test.titan")
+                assert.falsy(ok)
+                assert.match("right hand side of relational expression is", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t in ipairs({"{integer}", "boolean"}) do
+            it("cannot compare " .. t .. " and string using " .. op, function()
+                local code = [[
+                    function fn(a: ]] .. t .. [[, b: string): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ast, err = parser.parse(code)
+                local ok, err = checker.check(ast, code, "test.titan")
+                assert.falsy(ok)
+                assert.match("left hand side of relational expression is", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t in ipairs({"{integer}", "boolean"}) do
+            it("cannot compare string and " .. t .. " using " .. op, function()
+                local code = [[
+                    function fn(a: string, b: ]] .. t .. [[): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ast, err = parser.parse(code)
+                local ok, err = checker.check(ast, code, "test.titan")
+                assert.falsy(ok)
+                assert.match("right hand side of relational expression is", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"<", ">", "<=", ">="}) do
+        for _, t1 in ipairs({"{integer}", "boolean"}) do
+            for _, t2 in ipairs({"{integer}", "boolean"}) do
+                it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
+                    local code = [[
+                        function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
+                            return a ]] .. op .. [[ b
+                        end
+                    ]]
+                    local ast, err = parser.parse(code)
+                    local ok, err = checker.check(ast, code, "test.titan")
+                    assert.falsy(ok)
+                    if t1 ~= t2 then
+                        assert.match("trying to use relational expression with", err)
+                    else
+                        assert.match("trying to use relational expression with two", err)
+                    end
+                end)
+            end
+        end
+    end
+
 end)
 

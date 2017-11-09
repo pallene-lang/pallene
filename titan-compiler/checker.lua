@@ -443,11 +443,22 @@ function checkexp(node, st, errors, context)
                 node.rhs = trytofloat(node.rhs)
                 trhs = node.rhs._type
             end
-            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
-                typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
-            end
-            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
-                typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+            if not types.equals(tlhs, trhs) then
+                if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) and types.equals(trhs, types.Integer) or types.equals(trhs, types.Float) then
+                    typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
+                elseif not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) and types.equals(tlhs, types.Integer) or types.equals(tlhs, types.Float) then
+                    typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                elseif not types.equals(tlhs, types.String) and types.equals(trhs, types.String) then
+                    typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a string", pos)
+                elseif not types.equals(trhs, types.String) and types.equals(tlhs, types.String) then
+                    typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a string", pos)
+                else
+                    typeerror(errors, "trying to use relational expression with " .. types.tostring(tlhs) .. " and " .. types.tostring(trhs), pos)
+                end
+            else
+                if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) and not types.equals(tlhs, types.String) then
+                    typeerror(errors, "trying to use relational expression with two " .. types.tostring(tlhs) .. " values", pos)
+                end
             end
             node._type = types.Boolean
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
