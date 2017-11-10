@@ -693,46 +693,75 @@ local function codetable(ctx, node, target)
     local stats = {}
     local cinit, ctmp, tmpname, tmpslot
     if target then
+        -- TODO: double check this code, it wan't covered by tests
+        -- and wan't passing anything to the second $TMPNAME placeholder
         ctmp, tmpname, tmpslot = "", target._cvar, target._slot
-        cinit = string.format([[
-            %s = luaH_new(L);
-            sethvalue(L, %s, %s);
-        ]], target._cvar, target._slot)
+        cinit = output([[
+            $TMPNAME = luaH_new(L);
+            sethvalue(L, $TMPSLOT, $TMPNAME);
+        ]], {
+            TMPNAME = tmpname,
+            TMPSLOT = tmpslot,
+        })
     else
         ctmp, tmpname, tmpslot = newtmp(ctx, node._type, true)
-        cinit = string.format([[
-            %s
-            %s = luaH_new(L);
-            sethvalue(L, %s, %s);
-        ]], ctmp, tmpname, tmpslot, tmpname)
+        cinit = output([[
+            $CTMP
+            $TMPNAME = luaH_new(L);
+            sethvalue(L, $TMPSLOT, $TMPNAME);
+        ]], {
+            CTMP = ctmp,
+            TMPNAME = tmpname,
+            TMPSLOT = tmpslot,
+        })
     end
     table.insert(stats, cinit)
     local slots = {}
     for _, exp in ipairs(node.exps) do
         local cstats, cexp = codeexp(ctx, exp)
         local ctmpe, tmpename, tmpeslot = newtmp(ctx, node._type.elem, true)
+
+        local code = output([[
+            $CSTATS
+            $CTMPE
+            $TMPENAME = $CEXP;
+            $SETSLOT
+        ]], {
+            CSTATS = cstats,
+            CTMPE = ctmpe,
+            TMPENAME = tmpename,
+            CEXP = cexp,
+            SETSLOT = setslot(node._type.elem, tmpeslot, tmpename),
+        })
+
         table.insert(slots, tmpeslot)
-        table.insert(stats, string.format([[
-            %s
-            %s
-            %s = %s;
-            %s
-        ]], cstats, ctmpe, tmpename, cexp, setslot(node._type.elem, tmpeslot, tmpename)))
+        table.insert(stats, code)
     end
     if #node.exps > 0 then
-        table.insert(stats, string.format([[
-        luaH_resizearray(L, %s, %d);
-        ]], tmpname, #node.exps))
+        table.insert(stats, output([[
+            luaH_resizearray(L, $TMPNAME, $SIZE);
+        ]], {
+            TMPNAME = tmpname,
+            SIZE = #node.exps
+        }))
+
     end
     local cbarrier = ""
     for i, slot in ipairs(slots) do
-        table.insert(stats, string.format([[
-            setobj2t(L, &%s->array[%d], %s);
-        ]], tmpname, i-1, slot))
+        table.insert(stats, output([[
+            setobj2t(L, &$TMPNAME->array[$INDEX], $SLOT);
+        ]], {
+            TMPNAME = tmpname,
+            INDEX = i-1,
+            SLOT = slot
+        }))
         if types.is_gc(node._type.elem) then
-            table.insert(stats, string.format([[
-                luaC_barrierback(L, %s, %s);
-            ]], tmpname, slot))
+            table.insert(stats, output([[
+                luaC_barrierback(L, $TMPNAME, $SLOT);
+            ]], {
+                TMPNAME = tmpname,
+                SLOT = slot,
+            }))
         end
     end
     return table.concat(stats, "\n"), tmpname
@@ -768,16 +797,25 @@ local function codebinaryop(ctx, node, iscondition)
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
             local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
-            return string.format([[
-                %s
-                %s
-                %s = %s;
-                if(%s) {
-                  %s
-                  %s = %s;
+            local code = output([[
+                $LSTATS
+                $CTMP
+                $TMPNAME = $LCODE;
+                if($TMPNAME) {
+                  $RSTATS
+                  $TMPNAME = $RCODE;
                 }
-                %s;
-            ]], lstats, ctmp, tmpname, lcode, tmpname, rstats, tmpname, rcode, tmpset), tmpname
+                $TMPSET;
+            ]], {
+                CTMP = ctmp,
+                TMPNAME = tmpname,
+                LSTATS = lstats,
+                LCODE = lcode,
+                RSTATS = rstats,
+                RCODE = rcode,
+                TMPSET = tmpset,
+            })
+            return code, tmpname
         end
     elseif op == "or" then
         local lstats, lcode = codeexp(ctx, node.lhs, true)
@@ -787,16 +825,25 @@ local function codebinaryop(ctx, node, iscondition)
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
             local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
-            return string.format([[
-                %s
-                %s
-                %s = %s;
-                if(!%s) {
-                  %s
-                  %s = %s;
+            local code = output([[
+                $LSTATS
+                $CTMP
+                $TMPNAME = $LCODE;
+                if(!$TMPNAME) {
+                  $RSTATS;
+                  $TMPNAME = $RCODE;
                 }
-                %s;
-            ]], lstats, ctmp, tmpname, lcode, tmpname, rstats, tmpname, rcode, tmpset), tmpname
+                $TMPSET;
+            ]], {
+                CTMP = ctmp,
+                TMPNAME = tmpname,
+                LSTATS = lstats,
+                LCODE = lcode,
+                RSTATS = rstats,
+                RCODE = rcode,
+                TMPSET = tmpset,
+            })
+            return code, tmpname
         end
     elseif op == "^" then
         local lstats, lcode = codeexp(ctx, node.lhs)
@@ -821,27 +868,34 @@ local function codeindex(ctx, node, iscondition)
     end
     local cfinish
     if iscondition then
-        cfinish = string.format([[
+        cfinish = output([[
           if(ttisnil(_s)) {
-            %s = 0;
+            $TMPNAME = 0;
           } else {
-            %s
-            %s
+            $CCHECK
+            $CSET
           }
-        ]], tmpname, ccheck, cset)
+        ]], {
+            TMPNAME = tmpname,
+            CCHECK = ccheck,
+            CSET = cset,
+        })
     else
-        cfinish = string.format([[
-            %s
-            %s
-        ]], ccheck, cset)
+        cfinish = output([[
+            $CCHECK
+            $CSET
+        ]], {
+            CCHECK = ccheck,
+            CSET = cset,
+        })
     end
-    local stats = string.format([[
-        %s
+    local stats = output([[
+        $CTMP
         {
-            %s
-            %s
-            Table *_t = %s;
-            lua_Integer _k = %s;
+            $CASTATS
+            $CISTATS
+            Table *_t = $CAEXP;
+            lua_Integer _k = $CIEXP;
 
             unsigned int _actual_i = l_castS2U(_k) - 1;
 
@@ -852,8 +906,15 @@ local function codeindex(ctx, node, iscondition)
                     _s = luaH_getint(_t, _k);
             }
 
-            %s
-    }]], ctmp, castats, cistats, caexp, ciexp, cfinish)
+            $CFINISH
+    }]], {
+        CTMP = ctmp,
+        CASTATS = castats,
+        CISTATS = cistats,
+        CAEXP = caexp,
+        CIEXP = ciexp,
+        CFINISH = cfinish
+    })
     return stats, tmpname
 end
 
@@ -895,24 +956,36 @@ function codeexp(ctx, node, iscondition, target)
         local ctmp1, tmpname1 = newtmp(ctx, types.Float)
         local ctmp2, tmpname2 = newtmp(ctx, types.Float)
         local ctmp3, tmpname3 = newtmp(ctx, types.Integer)
-        local cfloor = string.format([[
-            %s
-            %s
-            %s
-            %s
-            %s = %s;
-            %s = l_floor(%s);
-            if (%s != %s) %s = 0; else lua_numbertointeger(%s, &%s);
-        ]], cstat, ctmp1, ctmp2, ctmp3, tmpname1, cexp, tmpname2, tmpname1, tmpname1,
-            tmpname2, tmpname3, tmpname2, tmpname3)
+        local cfloor = output([[
+            $CSTAT
+            $CTMP1
+            $CTMP2
+            $CTMP3
+            $TMPNAME1 = $CEXP;
+            $TMPNAME2 = l_floor($TMPNAME1);
+            if ($TMPNAME1 != $TMPNAME2) {
+                $TMPNAME3 = 0;
+            } else {
+                lua_numbertointeger($TMPNAME2, &$TMPNAME3);
+            }
+        ]], {
+            CSTAT = cstat,
+            CEXP = cexp,
+            CTMP1 = ctmp1,
+            CTMP2 = ctmp2,
+            CTMP3 = ctmp3,
+            TMPNAME1 = tmpname1,
+            TMPNAME2 = tmpname2,
+            TMPNAME3 = tmpname3,
+        })
         return cfloor, tmpname3
     elseif tag == "Exp_ToStr" then
         local cvt
         local cstats, cexp = codeexp(ctx, node.exp)
         if types.equals(node.exp._type, types.Integer) then
-            cvt = string.format("_integer2str(L, %s)", cexp)
+            cvt = output("_integer2str(L, $EXP)", { EXP = cexp })
         elseif types.equals(node.exp._type, types.Float) then
-            cvt = string.format("_float2str(L, %s)", cexp)
+            cvt = output("_float2str(L, $EXP)", { EXP = cexp })
         else
             error("invalid node type for coercion to string " .. types.tostring(node.exp._type))
         end
@@ -920,48 +993,65 @@ function codeexp(ctx, node, iscondition, target)
             return cstats, cvt
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
-            return string.format([[
-                %s
-                %s = %s;
-                setsvalue(L, %s, %s);
-            ]], ctmp, tmpname, cvt, tmpslot, tmpname), tmpname
+            local code = output([[
+                $CTMP
+                $TMPNAME = $CVT;
+                setsvalue(L, $TMPSLOT, $TMPNAME);
+            ]], {
+                CTMP = ctmp,
+                TMPNAME = tmpname,
+                CVT = cvt,
+                TMPSLOT = tmpslot,
+            })
+            return code, tmpname
         end
     elseif tag == "Exp_Concat" then
         local strs, copies = {}, {}
         local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
         for i, exp in ipairs(node.exps) do
             local cstat, cexp = codeexp(ctx, exp)
-            table.insert(strs, string.format([[
-                %s
-                TString *_str%d = %s;
-                size_t _len%d = tsslen(_str%d);
-                _len += _len%d;
-            ]], cstat, i, cexp, i, i, i))
-            table.insert(copies, string.format([[
-                memcpy(_buff + _tl, getstr(_str%d), _len%d * sizeof(char));
-                _tl += _len%d;
-            ]], i, i, i))
+            table.insert(strs, output([[
+                $CSTAT
+                TString *_str$I = $CEXP;
+                size_t _len$I = tsslen(_str$I);
+                _len += _len$I;
+            ]], {
+                CSTAT = cstat,
+                I = i,
+                CEXP = cexp,
+            }))
+            table.insert(copies, output([[
+                memcpy(_buff + _tl, getstr(_str$I), _len$I * sizeof(char));
+                _tl += _len$I;
+            ]], {
+                I = i,
+            }))
         end
-        return string.format([[
-          %s
+        local code = output([[
+          $CTMP
           {
           size_t _len = 0;
           size_t _tl = 0;
-          %s
+          $STRS
           if(_len <= LUAI_MAXSHORTLEN) {
               char _buff[LUAI_MAXSHORTLEN];
-              %s
-              %s = luaS_newlstr(L, _buff, _len);
+              $COPIES
+              $TMPNAME = luaS_newlstr(L, _buff, _len);
           } else {
-              %s = luaS_createlngstrobj(L, _len);
-              char *_buff = getstr(%s);
-              %s
+              $TMPNAME = luaS_createlngstrobj(L, _len);
+              char *_buff = getstr($TMPNAME);
+              $COPIES
           }
           }
-          setsvalue(L, %s, %s);
-        ]], ctmp, table.concat(strs, "\n"),
-            table.concat(copies, "\n"), tmpname, tmpname, tmpname,
-            table.concat(copies, "\n"), tmpslot, tmpname), tmpname
+          setsvalue(L, $TMPSLOT, $TMPNAME);
+        ]], {
+            CTMP = ctmp,
+            STRS = table.concat(strs, "\n"),
+            COPIES = table.concat(copies, "\n"),
+            TMPNAME = tmpname,
+            TMPSLOT = tmpslot,
+        })
+        return code, tmpname
     else
         error("invalid node tag " .. tag)
     end
@@ -994,18 +1084,20 @@ local function codefuncdec(tlcontext, node)
     local body = codestat(ctx, node.block)
     local nslots = ctx.nslots
     if nslots > 0 then
-        table.insert(stats, 1, string.format([[
+        table.insert(stats, 1, output([[
         /* function preamble: reserve needed stack space */
-        if (L->stack_last - L->top > %d) {
-            if (L->ci->top < L->top + %d) L->ci->top = L->top + %d;
+        if (L->stack_last - L->top > $NSLOTS) {
+            if (L->ci->top < L->top + $NSLOTS) L->ci->top = L->top + $NSLOTS;
         } else {
-            lua_checkstack(L, %d);
+            lua_checkstack(L, $NSLOTS);
         }
         TValue *_base = L->top;
-        L->top += %d;
+        L->top += $NSLOTS;
         for(TValue *_s = L->top - 1; _base <= _s; _s--)
             setnilvalue(_s);
-        ]], nslots, nslots, nslots, nslots, nslots))
+        ]], {
+            NSLOTS = nslots,
+        }))
     end
     if types.is_gc(node._type.ret) then
         table.insert(stats, [[
@@ -1022,10 +1114,15 @@ local function codefuncdec(tlcontext, node)
             table.insert(stats, "        return 0;")
         end
     end
-    node._body = string.format([[
-    static %s %s_titan(%s) {
-        %s
-    }]], ctype(node._type.ret), node.name, table.concat(cparams, ", "), table.concat(stats, "\n        "))
+    node._body = output([[
+    static $RETTYPE $NAME($PARAMS) {
+        $BODY
+    }]], {
+        RETTYPE = ctype(node._type.ret),
+        NAME = node.name .. '_titan',
+        PARAMS = table.concat(cparams, ", "),
+        BODY = table.concat(stats, "\n")
+    })
     -- generate Lua entry point
     local stats = {}
     local pnames = { "L" }
@@ -1035,19 +1132,30 @@ local function codefuncdec(tlcontext, node)
         table.insert(stats, checkandget(param._type, param._cvar,
             "(func+ " .. i .. ")", node._lin))
     end
-    table.insert(stats, string.format([[
-        %s res = %s_titan(%s);
-        %s
+    table.insert(stats, output([[
+        $TYPE res = $NAME($PARAMS);
+        $SETSLOT
         api_incr_top(L);
         return 1;
-    ]], ctype(node._type.ret), node.name, table.concat(pnames, ", "),
-            setslot(node._type.ret, "L->top", "res")))
-    node._luabody = string.format([[
-    static int %s_lua(lua_State *L) {
+    ]], {
+        TYPE = ctype(node._type.ret),
+        NAME = node.name .. '_titan',
+        PARAMS = table.concat(pnames, ", "),
+        SETSLOT = setslot(node._type.ret, "L->top", "res"),
+    }))
+    node._luabody = output([[
+    static int $LUANAME(lua_State *L) {
         TValue *func = L->ci->func;
-        if((L->top - func - 1) != %d) luaL_error(L, "calling Titan function %s with %%d arguments, but expected %d", L->top - func - 1);
-        %s
-    }]], node.name, #node.params, node.name, #node.params, table.concat(stats, "\n"))
+        if((L->top - func - 1) != $EXPECTED) {
+            luaL_error(L, "calling Titan function $NAME with %d arguments, but expected %d", L->top - func - 1, $EXPECTED);
+        }
+        $BODY
+    }]], {
+        LUANAME = node.name .. '_lua',
+        EXPECTED = #node.params,
+        NAME = node.name,
+        BODY = table.concat(stats, "\n"),
+    })
 end
 
 local function codevardec(tlctx, ctx, node)
@@ -1055,26 +1163,36 @@ local function codevardec(tlctx, ctx, node)
     if node.islocal then
         node._cvar = "_global_" .. node.decl.name
         node._cdecl = "static " .. ctype(node._type) .. " " .. node._cvar .. ";"
-        node._init = string.format([[
-            %s
-            %s = %s;
-        ]], cstats, node._cvar, cexp)
+        node._init = output([[
+            $CSTATS
+            $CVAR = $CEXP;
+        ]], {
+            CSTATS = cstats,
+            CVAR = node._cvar,
+            CEXP = cexp,
+        })
         if types.is_gc(node._type) then
             node._slot = "_globalslot_" .. node.decl.name
             node._cdecl = "static TValue *" .. node._slot .. ";\n" ..
                 node._cdecl
-            node._init = string.format([[
-                %s
-                %s;
-                ]], node._init, setslot(node._type, node._slot, node._cvar))
+            node._init = output([[
+                $INIT
+                $SET;
+            ]], {
+                INIT = node._init,
+                SET = setslot(node._type, node._slot, node._cvar)
+            })
         end
     else
         node._slot = node.decl.name .. "_titanvar"
         node._cdecl = "TValue *" .. node._slot .. ";"
-        node._init = string.format([[
-            %s
-            %s;
-        ]], cstats, setslot(node._type, node._slot, cexp))
+        node._init = output([[
+            $CSTATS
+            $SET;
+        ]], {
+            CSTATS = cstats,
+            SET = setslot(node._type, node._slot, cexp)
+        })
     end
 end
 
@@ -1114,20 +1232,20 @@ inline static TString* _float2str (lua_State *L, lua_Number f) {
 ]]
 
 local postamble = [[
-int luaopen_%s(lua_State *L) {
-    %s_init(L);
+int $LUAOPEN_NAME(lua_State *L) {
+    $INITNAME(L);
     lua_newtable(L);
-    %s
-    luaL_setmetatable(L, "titan module %s");
+    $FUNCS
+    luaL_setmetatable(L, $MODNAMESTR);
     return 1;
 }
 ]]
 
 local init = [[
-void %s_init(lua_State *L) {
+void $INITNAME(lua_State *L) {
     if(!_initialized) {
         _initialized = 1;
-        %s
+        $INITVARS
     }
 }
 ]]
@@ -1176,10 +1294,13 @@ function coder.generate(modname, ast)
                 table.insert(code, node._body)
                 if not node.islocal then
                     table.insert(code, node._luabody)
-                    table.insert(funcs, string.format([[
-                        lua_pushcfunction(L, %s_lua);
-                        lua_setfield(L, -2, "%s");
-                    ]], node.name, node.name))
+                    table.insert(funcs, output([[
+                        lua_pushcfunction(L, $LUANAME);
+                        lua_setfield(L, -2, $NAMESTR);
+                    ]], {
+                        LUANAME = node.name .. '_lua',
+                        NAMESTR = quotestr(node.name),
+                    }))
                 end
             elseif tag == "TopLevel_Var" then
                 -- ignore vars in second pass
@@ -1193,29 +1314,35 @@ function coder.generate(modname, ast)
         local switch_get, switch_set = {}, {}
 
         for i, var in ipairs(gvars) do
-            table.insert(switch_get, string.format([[
-                case %d: setobj2t(L, L->top-1, %s); break;
-            ]], i, var._slot))
-            table.insert(switch_set, string.format([[
-                case %d: {
+            table.insert(switch_get, output([[
+                case $I: setobj2t(L, L->top-1, $SLOT); break;
+            ]], {
+                I = i,
+                SLOT = var._slot
+            }))
+            table.insert(switch_set, output([[
+                case $I: {
                     lua_pushvalue(L, 3);
-                    %s;
+                    $SETSLOT;
                     break;
                 }
-            ]], i, checkandset(var._type, var._slot, "L->top-1", var._lin)))
+            ]], {
+                I = i,
+                SETSLOT = checkandset(var._type, var._slot, "L->top-1", var._lin)
+            }))
         end
 
-        table.insert(code, string.format([[
+        table.insert(code, output([[
             static int __index(lua_State *L) {
                 lua_pushvalue(L, 2);
                 lua_rawget(L, lua_upvalueindex(1));
                 if(lua_isnil(L, -1)) {
                     return luaL_error(L,
-                        "global variable '%%s' does not exist in Titan module '%%s'",
-                        lua_tostring(L, 2), "%s");
+                        "global variable '%s' does not exist in Titan module '%s'",
+                        lua_tostring(L, 2), $MODSTR);
                 }
                 switch(lua_tointeger(L, -1)) {
-                    %s
+                    $SWITCH_GET
                 }
                 return 1;
             }
@@ -1225,37 +1352,41 @@ function coder.generate(modname, ast)
                 lua_rawget(L, lua_upvalueindex(1));
                 if(lua_isnil(L, -1)) {
                     return luaL_error(L,
-                        "global variable '%%s' does not exist in Titan module '%%s'",
-                        lua_tostring(L, 2), "%s");
+                        "global variable '%s' does not exist in Titan module '%s'",
+                        lua_tostring(L, 2), $MODSTR);
                 }
                 switch(lua_tointeger(L, -1)) {
-                    %s
+                    $SWITCH_SET
                 }
                 return 1;
             }
-         ]], modname, table.concat(switch_get, "\n"), modname, table.concat(switch_set, "\n")))
+         ]], {
+             MODSTR = quotestr(modname),
+             SWITCH_GET = table.concat(switch_get, "\n"),
+             SWITCH_SET = table.concat(switch_set, "\n"),
+         }))
 
         local nslots = initctx.nslots + #varslots + 1
 
-        table.insert(initvars, 1, string.format([[
-        luaL_newmetatable(L, "titan module %s"); /* push metatable */
+        table.insert(initvars, 1, output([[
+        luaL_newmetatable(L, $MODNAMESTR); /* push metatable */
         int _meta = lua_gettop(L);
         TValue *_base = L->top;
         /* protect it */
-        lua_pushliteral(L, "titan module %s");
+        lua_pushliteral(L, $MODNAMESTR);
         lua_setfield(L, -2, "__metatable");
         /* reserve needed stack space */
-        if (L->stack_last - L->top > %d) {
-            if (L->ci->top < L->top + %d) L->ci->top = L->top + %d;
+        if (L->stack_last - L->top > $NSLOTS) {
+            if (L->ci->top < L->top + $NSLOTS) L->ci->top = L->top + $NSLOTS;
         } else {
-            lua_checkstack(L, %d);
+            lua_checkstack(L, $NSLOTS);
         }
-        L->top += %d;
+        L->top += $NSLOTS;
         for(TValue *_s = L->top - 1; _base <= _s; _s--)
             setnilvalue(_s);
         Table *_map = luaH_new(L);
-        sethvalue(L, L->top-%d, _map);
-        lua_pushcclosure(L, __index, %d);
+        sethvalue(L, L->top-$VARSLOTS, _map);
+        lua_pushcclosure(L, __index, $VARSLOTS);
         TValue *_upvals = clCvalue(L->top-1)->upvalue;
         lua_setfield(L, _meta, "__index");
         sethvalue(L, L->top, _map);
@@ -1264,27 +1395,44 @@ function coder.generate(modname, ast)
         lua_setfield(L, _meta, "__newindex");
         L->top++;
         sethvalue(L, L->top-1, _map);
-        ]], modname, modname, nslots, nslots, nslots, nslots, nslots, #varslots+1,
-            #varslots+1))
+        ]], {
+            MODNAMESTR = quotestr("titan module "..modname),
+            NSLOTS = nslots,
+            VARSLOTS = #varslots+1,
+        }))
         for i, slot in ipairs(varslots) do
-            table.insert(initvars, i+1, string.format([[
-              %s = &_upvals[%d];
-            ]], slot, i))
+            table.insert(initvars, i+1, output([[
+              $SLOT = &_upvals[$I];
+            ]], {
+                SLOT = slot,
+                I = i
+            }))
         end
         for i, var in ipairs(gvars) do
-            table.insert(initvars, 2, string.format([[
-                lua_pushinteger(L, %d);
-                lua_setfield(L, -2, "%s");
-            ]], i, var.decl.name))
+            table.insert(initvars, 2, output([[
+                lua_pushinteger(L, $I);
+                lua_setfield(L, -2, $NAME);
+            ]], {
+                I = i,
+                NAME = quotestr(var.decl.name)
+            }))
         end
-        table.insert(initvars, string.format([[
+        table.insert(initvars, [[
         L->top = _base-1;
-        ]], modname))
+        ]])
     end
 
-    table.insert(code, string.format(init, modname, table.concat(initvars, "\n")))
+    table.insert(code, output(init, {
+        INITNAME = modname .. '_init',
+        INITVARS = table.concat(initvars, "\n")
+    }))
 
-    table.insert(code, string.format(postamble, modname, modname, table.concat(funcs, "\n"), modname))
+    table.insert(code, output(postamble, {
+        LUAOPEN_NAME = 'luaopen_' .. modname,
+        INITNAME = modname .. '_init',
+        FUNCS = table.concat(funcs, "\n"),
+        MODNAMESTR = quotestr("titan module "..modname),
+    }))
 
     return table.concat(code, "\n\n")
 end
