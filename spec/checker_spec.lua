@@ -539,8 +539,7 @@ describe("Titan type checker", function()
                     return a1 ]] .. op .. [[ a2
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.truthy(ok)
         end)
     end
@@ -552,8 +551,7 @@ describe("Titan type checker", function()
                     return b1 ]] .. op .. [[ b2
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.truthy(ok)
         end)
     end
@@ -565,8 +563,7 @@ describe("Titan type checker", function()
                     return f1 ]] .. op .. [[ f2
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.truthy(ok)
         end)
     end
@@ -578,8 +575,7 @@ describe("Titan type checker", function()
                     return i1 ]] .. op .. [[ i2
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.truthy(ok)
         end)
     end
@@ -591,8 +587,7 @@ describe("Titan type checker", function()
                     return i ]] .. op .. [[ f
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.truthy(ok)
         end)
     end
@@ -604,8 +599,7 @@ describe("Titan type checker", function()
                     return s1 ]] .. op .. [[ s2
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.truthy(ok)
         end)
     end
@@ -617,8 +611,7 @@ describe("Titan type checker", function()
                     return a1 ]] .. op .. [[ a2
                 end
             ]]
-            local ast, err = parser.parse(code)
-            local ok, err = checker.check(ast, code, "test.titan")
+            local ok, err = run_checker(code)
             assert.falsy(ok)
             assert.match("trying to compare values of different types", err)
         end)
@@ -634,8 +627,7 @@ describe("Titan type checker", function()
                                 return a ]] .. op .. [[ b
                             end
                         ]]
-                        local ast, err = parser.parse(code)
-                        local ok, err = checker.check(ast, code, "test.titan")
+                        local ok, err = run_checker(code)
                         assert.falsy(ok)
                         assert.match("trying to compare values of different types", err)
                     end)
@@ -654,8 +646,7 @@ describe("Titan type checker", function()
                                 return a ]] .. op .. [[ b
                             end
                         ]]
-                        local ast, err = parser.parse(code)
-                        local ok, err = checker.check(ast, code, "test.titan")
+                        local ok, err = run_checker(code)
                         assert.falsy(ok)
                         assert.match("trying to compare values of different types", err)
                     end)
@@ -672,8 +663,7 @@ describe("Titan type checker", function()
                         return a ]] .. op .. [[ b
                     end
                 ]]
-                local ast, err = parser.parse(code)
-                local ok, err = checker.check(ast, code, "test.titan")
+                local ok, err = run_checker(code)
                 assert.falsy(ok)
                 assert.match("left hand side of relational expression is", err)
             end)
@@ -688,8 +678,7 @@ describe("Titan type checker", function()
                         return a ]] .. op .. [[ b
                     end
                 ]]
-                local ast, err = parser.parse(code)
-                local ok, err = checker.check(ast, code, "test.titan")
+                local ok, err = run_checker(code)
                 assert.falsy(ok)
                 assert.match("right hand side of relational expression is", err)
             end)
@@ -704,8 +693,7 @@ describe("Titan type checker", function()
                         return a ]] .. op .. [[ b
                     end
                 ]]
-                local ast, err = parser.parse(code)
-                local ok, err = checker.check(ast, code, "test.titan")
+                local ok, err = run_checker(code)
                 assert.falsy(ok)
                 assert.match("left hand side of relational expression is", err)
             end)
@@ -720,8 +708,7 @@ describe("Titan type checker", function()
                         return a ]] .. op .. [[ b
                     end
                 ]]
-                local ast, err = parser.parse(code)
-                local ok, err = checker.check(ast, code, "test.titan")
+                local ok, err = run_checker(code)
                 assert.falsy(ok)
                 assert.match("right hand side of relational expression is", err)
             end)
@@ -736,8 +723,7 @@ describe("Titan type checker", function()
                         return a ]] .. op .. [[ b
                     end
                 ]]
-                local ast, err = parser.parse(code)
-                local ok, err = checker.check(ast, code, "test.titan")
+                local ok, err = run_checker(code)
                 assert.falsy(ok)
                 assert.match("left hand side of relational expression is", err)
             end)
@@ -752,8 +738,7 @@ describe("Titan type checker", function()
                         return a ]] .. op .. [[ b
                     end
                 ]]
-                local ast, err = parser.parse(code)
-                local ok, err = checker.check(ast, code, "test.titan")
+                local ok, err = run_checker(code)
                 assert.falsy(ok)
                 assert.match("right hand side of relational expression is", err)
             end)
@@ -769,8 +754,7 @@ describe("Titan type checker", function()
                             return a ]] .. op .. [[ b
                         end
                     ]]
-                    local ast, err = parser.parse(code)
-                    local ok, err = checker.check(ast, code, "test.titan")
+                    local ok, err = run_checker(code)
                     assert.falsy(ok)
                     if t1 ~= t2 then
                         assert.match("trying to use relational expression with", err)
