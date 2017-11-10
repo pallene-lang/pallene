@@ -769,7 +769,7 @@ local function codebinaryop(ctx, node, iscondition)
                 %s
                 %s = %s;
                 if(%s) {
-                  %s  
+                  %s
                   %s = %s;
                 }
                 %s;
@@ -788,7 +788,7 @@ local function codebinaryop(ctx, node, iscondition)
                 %s
                 %s = %s;
                 if(!%s) {
-                  %s  
+                  %s
                   %s = %s;
                 }
                 %s;
@@ -955,7 +955,7 @@ function codeexp(ctx, node, iscondition, target)
           }
           }
           setsvalue(L, %s, %s);
-        ]], ctmp, table.concat(strs, "\n"), 
+        ]], ctmp, table.concat(strs, "\n"),
             table.concat(copies, "\n"), tmpname, tmpname, tmpname,
             table.concat(copies, "\n"), tmpslot, tmpname), tmpname
     else
@@ -1028,7 +1028,7 @@ local function codefuncdec(tlcontext, node)
     for i, param in ipairs(node.params) do
         table.insert(pnames, param._cvar)
         table.insert(stats, ctype(param._type) .. " " .. param._cvar .. " = 0;")
-        table.insert(stats, checkandget(param._type, param._cvar, 
+        table.insert(stats, checkandget(param._type, param._cvar,
             "(func+ " .. i .. ")", node._lin))
     end
     table.insert(stats, string.format([[
@@ -1122,10 +1122,10 @@ int luaopen_%s(lua_State *L) {
 local init = [[
 void %s_init(lua_State *L) {
     if(!_initialized) {
-        _initialized = 1;    
+        _initialized = 1;
         %s
     }
-}    
+}
 ]]
 
 function coder.generate(modname, ast)
@@ -1144,7 +1144,7 @@ function coder.generate(modname, ast)
     local gvars = {}
 
     local initctx = newcontext()
-    
+
     for _, node in pairs(ast) do
         if not node._ignore then
             local tag = node._tag
@@ -1206,7 +1206,7 @@ function coder.generate(modname, ast)
                 lua_pushvalue(L, 2);
                 lua_rawget(L, lua_upvalueindex(1));
                 if(lua_isnil(L, -1)) {
-                    return luaL_error(L, 
+                    return luaL_error(L,
                         "global variable '%%s' does not exist in Titan module '%%s'",
                         lua_tostring(L, 2), "%s");
                 }
@@ -1220,19 +1220,19 @@ function coder.generate(modname, ast)
                 lua_pushvalue(L, 2);
                 lua_rawget(L, lua_upvalueindex(1));
                 if(lua_isnil(L, -1)) {
-                    return luaL_error(L, 
+                    return luaL_error(L,
                         "global variable '%%s' does not exist in Titan module '%%s'",
                         lua_tostring(L, 2), "%s");
                 }
                 switch(lua_tointeger(L, -1)) {
                     %s
                 }
-                return 1;                
+                return 1;
             }
          ]], modname, table.concat(switch_get, "\n"), modname, table.concat(switch_set, "\n")))
- 
+
         local nslots = initctx.nslots + #varslots + 1
-         
+
         table.insert(initvars, 1, string.format([[
         luaL_newmetatable(L, "titan module %s"); /* push metatable */
         int _meta = lua_gettop(L);
@@ -1257,14 +1257,14 @@ function coder.generate(modname, ast)
         sethvalue(L, L->top, _map);
         L->top++;
         lua_pushcclosure(L, __newindex, 1);
-        lua_setfield(L, _meta, "__newindex");        
+        lua_setfield(L, _meta, "__newindex");
         L->top++;
         sethvalue(L, L->top-1, _map);
         ]], modname, modname, nslots, nslots, nslots, nslots, nslots, #varslots+1,
             #varslots+1))
         for i, slot in ipairs(varslots) do
             table.insert(initvars, i+1, string.format([[
-              %s = &_upvals[%d];  
+              %s = &_upvals[%d];
             ]], slot, i))
         end
         for i, var in ipairs(gvars) do
@@ -1277,7 +1277,7 @@ function coder.generate(modname, ast)
         L->top = _base-1;
         ]], modname))
     end
-    
+
     table.insert(code, string.format(init, modname, table.concat(initvars, "\n")))
 
     table.insert(code, string.format(postamble, modname, modname, table.concat(funcs, "\n"), modname))
