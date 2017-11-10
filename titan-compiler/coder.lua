@@ -264,16 +264,19 @@ local function codewhile(ctx, node)
         tmpl = [[
             while($CEXP) {
                 $CBLK
+                $CHECKGC
             }
         ]]
     else
         tmpl = [[
             while(1) {
+                luaC_checkGC(L);
                 $CSTATS
                 if(!($CEXP)) {
                     break;
                 }
                 $CBLK
+                $CHECKGC
             }
         ]]
     end
@@ -281,6 +284,7 @@ local function codewhile(ctx, node)
         CSTATS = cstats,
         CEXP = cexp,
         CBLK = cblk,
+        CHECKGC = ctx.nslots > 0 and "luaC_checkGC(L);" or ""
     })
 end
 
@@ -296,11 +300,13 @@ local function coderepeat(ctx, node)
             if($CEXP) {
                 break;
             }
+            $CHECKGC
         }
     ]], {
         CBLK = cblk,
         CSTATS = cstats,
-        CEXP = cexp
+        CEXP = cexp,
+        CHECKGC = ctx.nslots > 0 and "luaC_checkGC(L);" or ""
     })
 end
 
@@ -424,6 +430,7 @@ local function codefor(ctx, node)
             $CINC
             for($CDECL = _forstart; $CCMP; $CSTEP) {
                 $CBLOCK
+                $CHECKGC
             }
         }
     ]], {
@@ -433,7 +440,8 @@ local function codefor(ctx, node)
         CDECL = cdecl,
         CCMP = ccmp,
         CSTEP = cstep,
-        CBLOCK = cblock
+        CBLOCK = cblock,
+        CHECKGC = ctx.nslots > 0 and "luaC_checkGC(L);" or ""
     })
 end
 
@@ -1120,6 +1128,7 @@ local function codefuncdec(tlcontext, node)
     local nslots = ctx.nslots
     if nslots > 0 then
         table.insert(stats, 1, render([[
+        luaC_checkGC(L);
         /* function preamble: reserve needed stack space */
         if (L->stack_last - L->top > $NSLOTS) {
             if (L->ci->top < L->top + $NSLOTS) L->ci->top = L->top + $NSLOTS;
