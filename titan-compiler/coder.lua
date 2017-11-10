@@ -191,6 +191,7 @@ local function newcontext()
     return {
         tmp = 1,    -- next temporary index (for generating temporary names)
         nslots = 0, -- number of slots needed by function
+        allocations = 0, -- number of allocations
         depth = 0,  -- current stack depth
         dstack = {} -- stack of stack depths
     }
@@ -199,6 +200,7 @@ end
 local function newslot(ctx --[[:table]], name --[[:string]])
     local sdepth = ctx.depth
     ctx.depth = ctx.depth + 1
+    ctx.allocations = ctx.allocations + 1
     if ctx.depth > ctx.nslots then ctx.nslots = ctx.depth end
     return render([[
     	TValue *$NAME = _base + $SDEPTH;
@@ -256,8 +258,10 @@ end
 
 local function codewhile(ctx, node)
     pushd(ctx)
+    local nallocs = ctx.allocations
     local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
+    nallocs = ctx.allocations - nallocs
     popd(ctx)
     local tmpl
     if cstats == "" then
@@ -284,14 +288,16 @@ local function codewhile(ctx, node)
         CSTATS = cstats,
         CEXP = cexp,
         CBLK = cblk,
-        CHECKGC = ctx.nslots > 0 and "luaC_checkGC(L);" or ""
+        CHECKGC = nallocs > 0 and "luaC_checkGC(L);" or ""
     })
 end
 
 local function coderepeat(ctx, node)
     pushd(ctx)
+    local nallocs = ctx.allocations
     local cstats, cexp = codeexp(ctx, node.condition, true)
     local cblk = codestat(ctx, node.block)
+    nallocs = ctx.allocations - nallocs
     popd(ctx)
     return render([[
         while(1) {
@@ -306,7 +312,7 @@ local function coderepeat(ctx, node)
         CBLK = cblk,
         CSTATS = cstats,
         CEXP = cexp,
-        CHECKGC = ctx.nslots > 0 and "luaC_checkGC(L);" or ""
+        CHECKGC = nallocs > 0 and "luaC_checkGC(L);" or ""
     })
 end
 
@@ -421,7 +427,9 @@ local function codefor(ctx, node)
         end
         ccmp = render("$CVAR <= _forlimit", subs)
     end
+    local nallocs = ctx.allocations
     local cblock = codestat(ctx, node.block)
+    nallocs = ctx.allocations - nallocs
     popd(ctx)
     return render([[
         {
@@ -441,7 +449,7 @@ local function codefor(ctx, node)
         CCMP = ccmp,
         CSTEP = cstep,
         CBLOCK = cblock,
-        CHECKGC = ctx.nslots > 0 and "luaC_checkGC(L);" or ""
+        CHECKGC = nallocs > 0 and "luaC_checkGC(L);" or ""
     })
 end
 
@@ -582,6 +590,7 @@ local function codereturn(ctx, node)
                 TString *ret = $CEXP;
                 setsvalue(L, _retslot, ret);
                 L->top = _retslot + 1;
+                luaC_checkGC(L);
                 return ret;
             }
         ]]
@@ -592,6 +601,7 @@ local function codereturn(ctx, node)
                 Table *ret = $CEXP;
                 sethvalue(L, _retslot, ret);
                 L->top = _retslot + 1;
+                luaC_checkGC(L);
                 return ret;
             }
         ]]
@@ -599,6 +609,7 @@ local function codereturn(ctx, node)
         tmpl = [[
             $CSTATS
             L->top = _base;
+            luaC_checkGC(L);
             return $CEXP;
         ]]
     else
@@ -1128,7 +1139,6 @@ local function codefuncdec(tlcontext, node)
     local nslots = ctx.nslots
     if nslots > 0 then
         table.insert(stats, 1, render([[
-        luaC_checkGC(L);
         /* function preamble: reserve needed stack space */
         if (L->stack_last - L->top > $NSLOTS) {
             if (L->ci->top < L->top + $NSLOTS) L->ci->top = L->top + $NSLOTS;
@@ -1153,6 +1163,7 @@ local function codefuncdec(tlcontext, node)
         if nslots > 0 then
             table.insert(stats, [[
             L->top = _base;
+            luaC_checkGC(L);
             return 0;]])
         else
             table.insert(stats, "        return 0;")
