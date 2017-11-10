@@ -4,13 +4,17 @@ local coder = {}
 
 local codeexp, codestat
 
-local function output(code, vars)
-    local substitutions = setmetatable(vars, {
-        __index = function(_, k)
+-- Barebones string-based template function for generating C code.
+-- Replaces $VAR placeholders in the `code` template by the corresponding
+-- strings in the `substs` table.
+local function output(code, substs)
+    return (string.gsub(code, "$([%w_]+)", function(k)
+        local v = substs[k]
+        if not v then
             error("Internal compiler error: missing template variable " .. k)
         end
-    })
-    return (string.gsub(code, "$([%u%d_]+)", substitutions))
+        return v
+    end))
 end
 
 local function quotestr(s)
