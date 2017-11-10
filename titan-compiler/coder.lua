@@ -17,19 +17,44 @@ local function output(code, substs)
     end))
 end
 
-local function quotestr(s)
-    s = s:gsub("\\", "\\\\")
-        :gsub("\a", "\\a")
-        :gsub("\b", "\\b")
-        :gsub("\f", "\\f")
-        :gsub("\n", "\\n")
-        :gsub("\r", "\\r")
-        :gsub("\t", "\\t")
-        :gsub("\v", "\\v")
-        :gsub("\"", "\\\"")
-    return '"' .. s .. '"'
+
+--
+-- Functions for C literals
+--
+
+-- Technically, we only need to escape the quote and backslash
+-- But quoting some extra things helps readability...
+local some_c_escape_sequences = {
+    ["\\"] = "\\\\",
+    ["\""] = "\\\"",
+    ["\a"] = "\\a",
+    ["\b"] = "\\b",
+    ["\f"] = "\\f",
+    ["\n"] = "\\n",
+    ["\r"] = "\\r",
+    ["\t"] = "\\t",
+    ["\v"] = "\\v",
+}
+
+local function c_string_literal(s)
+    return '"' .. (s:gsub('.', some_c_escape_sequences)) .. '"'
 end
 
+local function c_integer_literal(n)
+    return string.format("%i", n)
+end
+
+local function c_float_literal(n)
+    return string.format("%f", n)
+end
+
+
+-- Is this expression a numeric literal?
+-- If yes, return that number. If not, returns nil.
+--
+-- This limited form of constant-folding is enough to optimize things like for
+-- loops, since most of the time the loop step is a numeric literal.
+-- Note to self: A constant-folding optimization pass would obsolete this
 local function node2literal(node)
     local tag = node._tag
     if tag == "Exp_Integer" or tag == "Exp_Float" then
@@ -67,12 +92,12 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
             } else if (ttisfloat($EXP)) {
                 $VAR = fltvalue($EXP);
             } else {
-                luaL_error(L, "type error at line $LINE, expected float but found %s", lua_typename(L, ttnov($EXP)));
+                luaL_error(L, "type error at line %d, expected float but found %s", $LINE, lua_typename(L, ttnov($EXP)));
             }
         ]], {
             EXP = exp,
             VAR = cvar,
-            LINE = line,
+            LINE = c_integer_literal(line),
         })
     elseif types.equals(typ, types.Boolean) then tag = "boolean"
     elseif types.equals(typ, types.Nil) then tag = "nil"
@@ -86,13 +111,13 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
         if(ttis$TAG($EXP)) {
             $GETSLOT;
         } else {
-            luaL_error(L, "type error at line $LINE, expected $TAG but found %s", lua_typename(L, ttnov($EXP)));
+            luaL_error(L, "type error at line %d, expected $TAG but found %s", $LINE,  lua_typename(L, ttnov($EXP)));
         }
     ]], {
         EXP = exp,
         TAG = tag,
         GETSLOT = getslot(typ, cvar, exp),
-        LINE = line,
+        LINE = c_integer_literal(line),
     })
 end
 
@@ -106,12 +131,12 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
             } else if (ttisfloat($SRC)) {
                 setobj2t(L, $DST, $SRC);
             } else {
-                luaL_error(L, "type error at line $LINE, expected float but found %s", lua_typename(L, ttnov($SRC)));
+                luaL_error(L, "type error at line %d, expected float but found %s", $LINE, lua_typename(L, ttnov($SRC)));
             }
         ]], {
             SRC = src,
             DST = dst,
-            LINE = line,
+            LINE = c_integer_literal(line),
         })
     elseif types.equals(typ, types.Boolean) then tag = "boolean"
     elseif types.equals(typ, types.Nil) then tag = "nil"
@@ -124,13 +149,13 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
         if (ttis$TAG($SRC)) {
             setobj2t(L, $DST, $SRC);
         } else {
-            luaL_error(L, "type error at line $LINE, expected $TAG but found %s", lua_typename(L, ttnov($SRC)));
+            luaL_error(L, "type error at line %d, expected $TAG but found %s", $LINE,  lua_typename(L, ttnov($SRC)));
         }
     ]], {
         TAG = tag,
         SRC = src,
         DST = dst,
-        LINE = line,
+        LINE = c_integer_literal(line),
     })
 end
 
@@ -177,7 +202,7 @@ local function newslot(ctx --[[:table]], name --[[:string]])
     	TValue *$NAME = _base + $SDEPTH;
     ]], {
     	NAME = name,
-    	SDEPTH = sdepth,
+        DEPTH = c_integer_literal(sdepth),
     })
 end
 
@@ -341,7 +366,7 @@ local function codefor(ctx, node)
         local ilit = node2literal(node.inc)
         if ilit then
             if ilit > 0 then
-                subs.ILIT = ilit
+                subs.ILIT = c_integer_literal(ilit)
                 local tmpl
                 if types.equals(node.decl._type, types.Integer) then
                     tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + $ILIT)"
@@ -351,7 +376,7 @@ local function codefor(ctx, node)
                 cstep = output(tmpl, subs)
                 ccmp = output("$CVAR <= _forlimit", subs)
             else
-                subs.NEGILIT = ilit and -ilit
+                subs.NEGILIT = c_integer_literal(-ilit)
                 if types.equals(node.decl._type, types.Integer) then
                     cstep = output("$CVAR = l_castU2S(l_castS2U($CVAR) - $NEGILIT)", subs)
                 else
@@ -512,8 +537,8 @@ local function codecall(ctx, node)
         table.insert(caexps, cexp)
     end
     local cstats = table.concat(castats, "\n")
-    local ccall = output("$NODENAME_titan($CAEXPS)", {
-        NODENAME = node.exp.var.name,
+    local ccall = output("$NAME($CAEXPS)", {
+        NAME = node.exp.var.name .. '_titan',
         CAEXPS = table.concat(caexps, ", "),
     })
     if types.is_gc(node._type) then
@@ -664,11 +689,13 @@ local function codevalue(ctx, node, target)
     elseif tag == "Exp_Bool" then
         return "", node.value and "1" or "0"
     elseif tag == "Exp_Integer" then
-        return "", string.format("%i", node.value)
+        return "", c_integer_literal(node.value)
     elseif tag == "Exp_Float" then
-        return "", string.format("%f", node.value)
+        return "", c_float_literal(node.value)
     elseif tag == "Exp_String" then
-        local cstr = output("luaS_new(L, $QUOTED)", { QUOTED = quotestr(node.value) })
+        local cstr = output("luaS_new(L, $VALUE)", {
+            VALUE = c_string_literal(node.value)
+        })
         if target then
             return "", cstr
         else
@@ -1096,7 +1123,7 @@ local function codefuncdec(tlcontext, node)
         for(TValue *_s = L->top - 1; _base <= _s; _s--)
             setnilvalue(_s);
         ]], {
-            NSLOTS = nslots,
+            NSLOTS = c_integer_literal(nslots),
         }))
     end
     if types.is_gc(node._type.ret) then
@@ -1147,13 +1174,13 @@ local function codefuncdec(tlcontext, node)
     static int $LUANAME(lua_State *L) {
         TValue *func = L->ci->func;
         if((L->top - func - 1) != $EXPECTED) {
-            luaL_error(L, "calling Titan function $NAME with %d arguments, but expected %d", L->top - func - 1, $EXPECTED);
+            luaL_error(L, "calling Titan function %s with %d arguments, but expected %d", $NAME, L->top - func - 1, $EXPECTED);
         }
         $BODY
     }]], {
         LUANAME = node.name .. '_lua',
-        EXPECTED = #node.params,
-        NAME = node.name,
+        EXPECTED = c_integer_literal(#node.params),
+        NAME = c_string_literal(node.name),
         BODY = table.concat(stats, "\n"),
     })
 end
@@ -1299,7 +1326,7 @@ function coder.generate(modname, ast)
                         lua_setfield(L, -2, $NAMESTR);
                     ]], {
                         LUANAME = node.name .. '_lua',
-                        NAMESTR = quotestr(node.name),
+                        NAMESTR = c_string_literal(node.name),
                     }))
                 end
             elseif tag == "TopLevel_Var" then
@@ -1317,7 +1344,7 @@ function coder.generate(modname, ast)
             table.insert(switch_get, output([[
                 case $I: setobj2t(L, L->top-1, $SLOT); break;
             ]], {
-                I = i,
+                I = c_integer_literal(i),
                 SLOT = var._slot
             }))
             table.insert(switch_set, output([[
@@ -1327,7 +1354,7 @@ function coder.generate(modname, ast)
                     break;
                 }
             ]], {
-                I = i,
+                I = c_integer_literal(i),
                 SETSLOT = checkandset(var._type, var._slot, "L->top-1", var._lin)
             }))
         end
@@ -1361,7 +1388,7 @@ function coder.generate(modname, ast)
                 return 1;
             }
          ]], {
-             MODSTR = quotestr(modname),
+             MODSTR = c_string_literal(modname),
              SWITCH_GET = table.concat(switch_get, "\n"),
              SWITCH_SET = table.concat(switch_set, "\n"),
          }))
@@ -1396,16 +1423,16 @@ function coder.generate(modname, ast)
         L->top++;
         sethvalue(L, L->top-1, _map);
         ]], {
-            MODNAMESTR = quotestr("titan module "..modname),
-            NSLOTS = nslots,
-            VARSLOTS = #varslots+1,
+            MODNAMESTR = c_string_literal("titan module "..modname),
+            NSLOTS = c_integer_literal(nslots),
+            VARSLOTS = c_integer_literal(#varslots+1),
         }))
         for i, slot in ipairs(varslots) do
             table.insert(initvars, i+1, output([[
               $SLOT = &_upvals[$I];
             ]], {
                 SLOT = slot,
-                I = i
+                I = c_integer_literal(i),
             }))
         end
         for i, var in ipairs(gvars) do
@@ -1413,8 +1440,8 @@ function coder.generate(modname, ast)
                 lua_pushinteger(L, $I);
                 lua_setfield(L, -2, $NAME);
             ]], {
-                I = i,
-                NAME = quotestr(var.decl.name)
+                I = c_integer_literal(i),
+                NAME = c_string_literal(var.decl.name)
             }))
         end
         table.insert(initvars, [[
@@ -1431,7 +1458,7 @@ function coder.generate(modname, ast)
         LUAOPEN_NAME = 'luaopen_' .. modname,
         INITNAME = modname .. '_init',
         FUNCS = table.concat(funcs, "\n"),
-        MODNAMESTR = quotestr("titan module "..modname),
+        MODNAMESTR = c_string_literal("titan module "..modname),
     }))
 
     return table.concat(code, "\n\n")
