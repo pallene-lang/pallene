@@ -516,7 +516,7 @@ local function codeassignment(ctx, node)
                     _slot = (TValue *)luaH_getint(_t, _k);
                     TValue _vk; setivalue(&_vk, _k);
                     if (_slot == luaO_nilobject)    /* no previous entry? */
-                            _slot = luaH_newkey(L, _t, &_vk);    /* create one */
+                        _slot = luaH_newkey(L, _t, &_vk);   /* create one */
                 }
                 $CSET
             }
@@ -861,8 +861,8 @@ local function codebinaryop(ctx, node, iscondition)
                 $CTMP
                 $TMPNAME = $LCODE;
                 if(!$TMPNAME) {
-                  $RSTATS;
-                  $TMPNAME = $RCODE;
+                    $RSTATS;
+                    $TMPNAME = $RCODE;
                 }
                 $TMPSET;
             ]], {
@@ -932,9 +932,9 @@ local function codeindex(ctx, node, iscondition)
 
             const TValue *_s;
             if (_actual_i < _t->sizearray) {
-                    _s = &_t->array[_actual_i];
+                _s = &_t->array[_actual_i];
             } else {
-                    _s = luaH_getint(_t, _k);
+                _s = luaH_getint(_t, _k);
             }
 
             $CFINISH
@@ -1065,18 +1065,18 @@ function codeexp(ctx, node, iscondition, target)
         local code = render([[
           $CTMP
           {
-          size_t _len = 0;
-          size_t _tl = 0;
-          $STRS
-          if(_len <= LUAI_MAXSHORTLEN) {
-              char _buff[LUAI_MAXSHORTLEN];
-              $COPIES
-              $TMPNAME = luaS_newlstr(L, _buff, _len);
-          } else {
-              $TMPNAME = luaS_createlngstrobj(L, _len);
-              char *_buff = getstr($TMPNAME);
-              $COPIES
-          }
+              size_t _len = 0;
+              size_t _tl = 0;
+              $STRS
+              if(_len <= LUAI_MAXSHORTLEN) {
+                  char _buff[LUAI_MAXSHORTLEN];
+                  $COPIES
+                  $TMPNAME = luaS_newlstr(L, _buff, _len);
+              } else {
+                  $TMPNAME = luaS_createlngstrobj(L, _len);
+                  char *_buff = getstr($TMPNAME);
+                  $COPIES
+              }
           }
           setsvalue(L, $TMPSLOT, $TMPNAME);
         ]], {
@@ -1437,7 +1437,7 @@ function coder.generate(modname, ast)
         }))
         for i, slot in ipairs(varslots) do
             table.insert(initvars, i+1, render([[
-              $SLOT = &_upvals[$I];
+                $SLOT = &_upvals[$I];
             ]], {
                 SLOT = slot,
                 I = c_integer_literal(i),
