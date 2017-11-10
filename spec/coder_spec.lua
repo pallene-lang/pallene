@@ -102,7 +102,7 @@ describe("Titan code generator", function()
         assert.truthy(ok, err)
     end)
 
-    it("tests step value in 'for'", function()
+    it("tests integer step value in 'for'", function()
         local code = [[
             function forstep(f: integer, t: integer, s: integer): integer
                 local v: integer = 0
@@ -122,7 +122,7 @@ describe("Titan code generator", function()
         assert.truthy(ok, err)
     end)
 
-    it("tests postive literals in 'for'", function()
+    it("tests integer postive literals in 'for'", function()
         local code = [[
             function forstep(): integer
                 local v: integer = 0
@@ -142,7 +142,7 @@ describe("Titan code generator", function()
         assert.truthy(ok, err)
     end)
 
-    it("tests negative literals in 'for'", function()
+    it("tests integer negative literals in 'for'", function()
         local code = [[
             function forstep(): integer
                 local v: integer = 0
@@ -159,6 +159,66 @@ describe("Titan code generator", function()
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==30)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests float step value in 'for'", function()
+        local code = [[
+            function forstep(f: float, t: float, s: float): float
+                local v: float = 0
+                for i = f, t, s do
+                    v = v + i
+                end
+                return v
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "x = titan_test.forstep(1.5,10.5,0.5);assert(x==114.0)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests float postive literals in 'for'", function()
+        local code = [[
+            function forstep(): float
+                local v: float = 0
+                for i = 1.5, 10.5, 0.5 do
+                    v = v + i
+                end
+                return v
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==114.0)")
+        assert.truthy(ok, err)
+    end)
+
+    it("tests float negative literals in 'for'", function()
+        local code = [[
+            function forstep(): float
+                local v: float = 0
+                for i = 9.5, 1.5, -0.5 do
+                    v = v + i
+                end
+                return v
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check(ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==93.5)")
         assert.truthy(ok, err)
     end)
 
