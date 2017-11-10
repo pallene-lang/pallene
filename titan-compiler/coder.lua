@@ -368,21 +368,23 @@ local function codefor(ctx, node)
         local ilit = node2literal(node.inc)
         if ilit then
             if ilit > 0 then
-                subs.ILIT = c_integer_literal(ilit)
                 local tmpl
                 if types.equals(node.decl._type, types.Integer) then
+                    subs.ILIT = c_integer_literal(ilit)
                     tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + $ILIT)"
                 else
+                    subs.ILIT = c_float_literal(ilit)
                     tmpl = "$CVAR += $ILIT"
                 end
                 cstep = output(tmpl, subs)
                 ccmp = output("$CVAR <= _forlimit", subs)
             else
-                subs.NEGILIT = c_integer_literal(-ilit)
                 if types.equals(node.decl._type, types.Integer) then
+                    subs.NEGILIT = c_integer_literal(-ilit)
                     cstep = output("$CVAR = l_castU2S(l_castS2U($CVAR) - $NEGILIT)", subs)
                 else
-                    cstep = output("$CVAR -= $ILIT", subs)
+                    subs.NEGILIT = c_float_literal(-ilit)
+                    cstep = output("$CVAR -= $NEGILIT", subs)
                 end
                 ccmp = output("_forlimit <= $CVAR", subs)
             end
