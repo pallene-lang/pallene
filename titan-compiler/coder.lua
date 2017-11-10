@@ -108,14 +108,15 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
     end
     --return getslot(typ, cvar, exp) .. ";"
     return output([[
-        if(ttis$TAG($EXP)) {
+        if($PREDICATE($EXP)) {
             $GETSLOT;
         } else {
-            luaL_error(L, "type error at line %d, expected $TAG but found %s", $LINE,  lua_typename(L, ttnov($EXP)));
+            luaL_error(L, "type error at line %d, expected %s but found %s", $LINE, $TAG, lua_typename(L, ttnov($EXP)));
         }
     ]], {
         EXP = exp,
-        TAG = tag,
+        TAG = c_string_literal(tag),
+        PREDICATE = 'ttis'..tag,
         GETSLOT = getslot(typ, cvar, exp),
         LINE = c_integer_literal(line),
     })
@@ -146,13 +147,14 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
         error("invalid type " .. types.tostring(typ))
     end
     return output([[
-        if (ttis$TAG($SRC)) {
+        if ($PREDICATE($SRC)) {
             setobj2t(L, $DST, $SRC);
         } else {
-            luaL_error(L, "type error at line %d, expected $TAG but found %s", $LINE,  lua_typename(L, ttnov($SRC)));
+            luaL_error(L, "type error at line %d, expected %s but found %s", $LINE, $TAG, lua_typename(L, ttnov($SRC)));
         }
     ]], {
-        TAG = tag,
+        TAG = c_string_literal(tag),
+        PREDICATE = 'ttis'..tag,
         SRC = src,
         DST = dst,
         LINE = c_integer_literal(line),
@@ -202,7 +204,7 @@ local function newslot(ctx --[[:table]], name --[[:string]])
     	TValue *$NAME = _base + $SDEPTH;
     ]], {
     	NAME = name,
-        DEPTH = c_integer_literal(sdepth),
+        SDEPTH = c_integer_literal(sdepth),
     })
 end
 
@@ -1037,21 +1039,25 @@ function codeexp(ctx, node, iscondition, target)
         local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
         for i, exp in ipairs(node.exps) do
             local cstat, cexp = codeexp(ctx, exp)
+            local strvar = string.format('_str%d', i)
+            local lenvar = string.format('_len%d', i)
             table.insert(strs, output([[
                 $CSTAT
-                TString *_str$I = $CEXP;
-                size_t _len$I = tsslen(_str$I);
-                _len += _len$I;
+                TString *$STRVAR = $CEXP;
+                size_t $LENVAR = tsslen($STRVAR);
+                _len += $LENVAR;
             ]], {
                 CSTAT = cstat,
-                I = i,
                 CEXP = cexp,
+                STRVAR = strvar,
+                LENVAR = lenvar,
             }))
             table.insert(copies, output([[
-                memcpy(_buff + _tl, getstr(_str$I), _len$I * sizeof(char));
-                _tl += _len$I;
+                memcpy(_buff + _tl, getstr($STRVAR), $LENVAR * sizeof(char));
+                _tl += $LENVAR;
             ]], {
-                I = i,
+                STRVAR = strvar,
+                LENVAR = lenvar,
             }))
         end
         local code = output([[
