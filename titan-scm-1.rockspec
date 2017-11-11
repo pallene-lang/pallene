@@ -1,7 +1,7 @@
-package = "titan-v0"
+package = "titan"
 version = "scm-1"
 source = {
-   url = "git+https://github.com/titan-lang/titan-v0"
+   url = "git+https://github.com/titan-lang/titan"
 }
 description = {
    summary = "Initial prototype of the Titan compiler",
@@ -10,7 +10,7 @@ description = {
       This is a proof-of-concept, implementing a subset of
       the Titan language.
    ]],
-   homepage = "http://github.com/titan-lang/titan-v0",
+   homepage = "http://github.com/titan-lang/titan",
    license = "MIT"
 }
 dependencies = {

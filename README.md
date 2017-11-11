@@ -27,7 +27,7 @@ Titan must be installed in a standard location;
 [LuaRocks](http://luarocks.org) will do this, and will also install all dependencies automatically.
 
         $ [install luarocks]
-        $ luarocks install titan-lang-scm-1.rockspec
+        $ luarocks install titan-scm-1.rockspec
 
 # Usage
 
