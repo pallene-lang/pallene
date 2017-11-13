@@ -274,7 +274,6 @@ local function codewhile(ctx, node)
     else
         tmpl = [[
             while(1) {
-                luaC_checkGC(L);
                 $CSTATS
                 if(!($CEXP)) {
                     break;
