@@ -7,7 +7,7 @@ local it = it
 local assert = assert
 
 local function run_checker(code)
-    local ast = parser.parse(code)
+    local ast = assert(parser.parse(code))
     local ok, err = checker.check(ast, code, "test.titan")
     return ok, err, ast
 end
@@ -159,6 +159,19 @@ describe("Titan type checker", function()
         local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("expected string but found integer", err)
+    end)
+
+    it("function can call another function", function()
+        local code = [[
+            function fn1(): nil
+              fn2()
+            end
+
+            function fn2(): nil
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.truthy(ok)
     end)
 
     it("catches mismatching types in arguments", function()

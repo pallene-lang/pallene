@@ -534,7 +534,7 @@ function checkexp(node, st, errors, context)
         assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
         local fname = node.exp.var.name
         local func =  st:find_symbol(fname)
-        if func and func._tag == "Function" then
+        if func and func._type._tag == "Function" then
             local ftype = func._type
             local nparams = #ftype.params
             local args = node.args.args
@@ -562,7 +562,7 @@ function checkexp(node, st, errors, context)
                     " arguments but expects " .. nparams, node._pos)
             end
             node._type = ftype.ret
-        elseif func and func._tag ~= "Function" then
+        elseif func and func._type._tag ~= "Function" then
             typeerror(errors, fname .. " is not a function", node._pos)
             for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
