@@ -24,34 +24,32 @@ function util.set_file_contents(filename, contents)
     return true
 end
 
-local newline_cache = setmetatable({}, { __mode = "k" })
-
---- Given ordered sequence `xs`, search for `v`,
--- If `v` is not found, return the position of
--- the lowest item `x` in `xs` such that `x > v`.
 -- @param xs An ordered sequence of comparable items
 -- @param v A value comparable to the items in the list
--- @param min (optional) The initial position (default 1)
--- @param max (optional) The final position (default `#xs`)
--- @return The position of `v`, or the position of
--- the lowest item greater than it. Inserting `v` at
--- the returned position will always keep the sequence
--- ordered.
-local function binary_search(xs, v, min, max)
-    min, max = min or 1, max or #xs
-    if v < xs[min] then
-        return min
-    elseif v > xs[max] then
-        return max + 1
+-- @return The position of the first occurrence of `v` in the sequence or the
+-- position of the first item greater than `v` in the sequence, otherwise.
+-- Inserting `v` at the returned position will always keep the sequence ordered.
+local function binary_search(xs, v)
+    -- Invariants:
+    --   1 <= lo <= hi <= #xs + 1
+    --   xs[i] < v , if i < lo
+    --   xs[i] >= v, if i >= hi
+    local lo = 1
+    local hi = #xs + 1
+    while lo < hi do
+        -- Average, rounded down (lo <= mid < hi)
+        -- Lua's logical right shift works here even if the addition overflows
+        local mid = (lo + hi) >> 1
+        if xs[mid] < v then
+            lo = mid + 1
+        else
+            hi = mid
+        end
     end
-    local i = (min + max) // 2
-    if v < xs[i] then
-        return binary_search(xs, v, min, i - 1)
-    elseif v > xs[i] then
-        return binary_search(xs, v, i + 1, max)
-    end
-    return i
+    return lo
 end
+
+local newline_cache = setmetatable({}, { __mode = "k" })
 
 function util.get_line_number(subject, pos)
     local newlines
@@ -65,7 +63,8 @@ function util.get_line_number(subject, pos)
         newline_cache[subject] = newlines
     end
     local line = binary_search(newlines, pos)
-    return line, pos - (newlines[line - 1] or 0)
+    local col  = pos - (newlines[line - 1] or 0)
+    return line, col
 end
 
 return util
