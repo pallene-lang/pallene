@@ -51,4 +51,20 @@ describe("Titan utils", function()
         end
      end)
 
+    it("gets line numbers from strings (no newlines in program)", function()
+
+        local text = "abc"
+        local lc = {
+            { 1, 1 },
+            { 1, 2 },
+            { 1, 3 },
+        }
+        for i = 1, #lc do
+            local l, c = util.get_line_number(text, i)
+            assert.same(lc[i][1], l)
+            assert.same(lc[i][2], c)
+        end
+     end)
+
+
 end)
