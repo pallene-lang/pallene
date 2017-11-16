@@ -1,5 +1,16 @@
 local util = require "titan-compiler.util"
 
+local function check_get_line_number(text, line_numbers)
+    for i = 1, #line_numbers do
+        local expected_line = line_numbers[i][1]
+        local expected_col  = line_numbers[i][2]
+        local line, col = util.get_line_number(text, i)
+        assert.same(expected_line, line)
+        assert.same(expected_col,  col)
+    end
+end
+
+
 describe("Titan utils", function()
 
      it("returns error when a file doesn't exist", function()
@@ -21,9 +32,7 @@ describe("Titan utils", function()
      end)
 
      it("gets line numbers from strings", function()
-
-        local text = "a\nbbbbbb\n\ncde\nfghhh"
-        local lc = {
+         check_get_line_number("a\nbbbbbb\n\ncde\nfghhh", {
             { 1, 1 },
             { 1, 2 },
             { 2, 1 },
@@ -43,28 +52,15 @@ describe("Titan utils", function()
             { 5, 3 },
             { 5, 4 },
             { 5, 5 },
-        }
-        for i = 1, #lc do
-            local l, c = util.get_line_number(text, i)
-            assert.same(lc[i][1], l)
-            assert.same(lc[i][2], c)
-        end
+        })
      end)
 
     it("gets line numbers from strings (no newlines in program)", function()
-
-        local text = "abc"
-        local lc = {
+        check_get_line_number("abc", {
             { 1, 1 },
             { 1, 2 },
             { 1, 3 },
-        }
-        for i = 1, #lc do
-            local l, c = util.get_line_number(text, i)
-            assert.same(lc[i][1], l)
-            assert.same(lc[i][2], c)
-        end
+        })
      end)
-
 
 end)
