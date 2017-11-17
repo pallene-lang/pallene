@@ -135,7 +135,7 @@ end
 
 function defs.suffix_index(pos, index)
     return function(exp)
-        return ast.Exp_Var(pos, ast.Var_Index(pos, exp, index))
+        return ast.Exp_Var(pos, ast.Var_Array(pos, exp, index))
     end
 end
 

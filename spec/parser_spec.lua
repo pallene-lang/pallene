@@ -295,7 +295,7 @@ end)
                 exp = { _tag = "Exp_Binop", op = "^",
                     rhs = { value = 3 },
                     lhs = { _tag = "Exp_Var", var = {
-                        _tag = "Var_Index",
+                        _tag = "Var_Array",
                         exp2 = { value = 2 },
                         exp1 = { _tag = "Exp_Call",
                             args = { _tag = "Args_Method", method = "foo" },

@@ -35,7 +35,7 @@ types.Then = {
 
 types.Var = {
     Name    = {"name"},
-    Index   = {"exp1", "exp2"},
+    Array   = {"exp1", "exp2"},
 }
 
 types.Exp = {
