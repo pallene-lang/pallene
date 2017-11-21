@@ -174,7 +174,7 @@ describe("Titan code generator", function()
         ]]
         local ast, err = parser.parse(code)
         assert.truthy(ast, err)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
@@ -182,7 +182,7 @@ describe("Titan code generator", function()
         assert.truthy(ok, err)
     end)
 
-    it("tests float postive literals in 'for'", function()
+    it("tests float positive literals in 'for'", function()
         local code = [[
             function forstep(): float
                 local v: float = 0
@@ -194,7 +194,7 @@ describe("Titan code generator", function()
         ]]
         local ast, err = parser.parse(code)
         assert.truthy(ast, err)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
@@ -214,7 +214,7 @@ describe("Titan code generator", function()
         ]]
         local ast, err = parser.parse(code)
         assert.truthy(ast, err)
-        local ok, err = checker.check(ast, code, "test.titan")
+        local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
@@ -491,7 +491,7 @@ describe("Titan code generator", function()
     it("generates code for array module-local variables", function()
         local code = [[
             local a: {integer} = {}
-            function len(): integer 
+            function len(): integer
                 return #a
             end
             function seta(x: {integer}): nil
@@ -597,7 +597,7 @@ describe("Titan code generator", function()
     it("generates code for exported array variables", function()
         local code = [[
             a: {integer} = {}
-            function len(): integer 
+            function len(): integer
                 return #a
             end
         ]]
@@ -613,7 +613,7 @@ describe("Titan code generator", function()
 
     it("generates code for string length", function()
         local code = [[
-            function len(a: string): integer 
+            function len(a: string): integer
                 return #a
             end
         ]]
