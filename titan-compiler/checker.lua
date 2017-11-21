@@ -16,6 +16,20 @@ local function typeerror(errors, msg, pos)
     table.insert(errors, msg)
 end
 
+-- Checks if two types are the same, and logs an error message otherwise
+--   term: string describing what is being compared
+--   expected: type that is expected
+--   found: type that was actually present
+--   errors: list of compile-time errors
+--   pos: position of the term that is being compared
+local function checkmatch(term, expected, found, errors, pos)
+    if not types.equals(expected, found) then
+        local msg = "types in %s do not match, expected %s but found %s"
+        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
+        typeerror(errors, msg, pos)
+    end
+end
+
 -- Converts an AST type declaration into a typechecker type
 --   typenode: AST node
 --   errors: list of compile-time errors
@@ -130,6 +144,9 @@ local function firstpass(ast, st, errors)
                 typeerror(errors, "duplicate variable declaration for " .. name, tlnode._pos)
                 tlnode._ignore = true
             else
+                tlnode.value = trycoerce(tlnode.value, tlnode._type)
+                checkmatch("declaration of module variable " .. name,
+                    tlnode._type, tlnode.value._type, errors, tlnode._pos)
                 st:add_symbol(name, tlnode)
             end
         end
@@ -161,20 +178,6 @@ local function secondpass(ast, st, errors)
                 st:add_symbol(name, tlnode)
             end
         end
-    end
-end
-
--- Checks if two types are the same, and logs an error message otherwise
---   term: string describing what is being compared
---   expected: type that is expected
---   found: type that was actually present
---   errors: list of compile-time errors
---   pos: position of the term that is being compared
-local function checkmatch(term, expected, found, errors, pos)
-    if not types.equals(expected, found) then
-        local msg = "types in %s do not match, expected %s but found %s"
-        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
-        typeerror(errors, msg, pos)
     end
 end
 
@@ -333,9 +336,33 @@ function checkexp(node, st, errors, context)
             typeerror(errors, msg, node._pos)
             node._type = types.Integer
         elseif decl._tag == "TopLevel_Func" then
-            typeerror(errors, "reference to function " .. node.name .. " outside of function call", decl._pos)
+            typeerror(errors, "reference to function '" .. node.name .. "' outside of function call", decl._pos)
             node._type = types.Integer
         else
+            decl._used = true
+            node._decl = decl
+            node._type = decl._type
+        end
+    elseif tag == "Var_QualName" then
+        local mod = st:find_symbol(node.modname)
+        if not mod then
+            local msg = "module '" .. node.modname .. "' not imported"
+            typeerror(errors, msg, node._pos)
+            node._type = types.Integer
+        elseif not types.has_tag(mod._type, "Module") then
+            local msg = "identifier '" .. node.modname .. "' is not a module but a " .. types.tostring(mod._type)
+            typeerror(errors, msg, node._pos)
+            node._type = types.Integer
+        elseif not mod._type.members[node.name] then
+            local msg = "module variable '" .. node.name .. "' not found inside module '" .. node.modname .. "'"
+            typeerror(errors, msg, node._pos)
+            node._type = types.Integer
+        elseif types.has_tag(mod._type.members[node.name]._type, "Function") then
+            typeerror(errors, "reference to function '" .. node.name .. "' of module '" .. node.modname ..
+                "' outside of function call", node._pos)
+            node._type = types.Integer
+        else
+            local decl = mod._type.members[node.name]
             decl._used = true
             node._decl = decl
             node._type = decl._type
@@ -534,8 +561,20 @@ function checkexp(node, st, errors, context)
         end
     elseif tag == "Exp_Call" then
         assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
-        local fname = node.exp.var.name
-        local func =  st:find_symbol(fname)
+        local fname, func
+        local var = node.exp.var
+        if var._tag == "Var_Name" then
+            fname = var.name
+            func = st:find_symbol(fname)
+        elseif var._tag == "Var_QualName" then
+            fname = var.modname .. "." .. var.name
+            local mod = st:find_symbol(var.modname)
+            if mod then
+                func = mod.members[var.name]
+            end
+        else
+            error("invalid tag for function: ", var._tag)
+        end
         if func and func._type._tag == "Function" then
             local ftype = func._type
             local nparams = #ftype.params
@@ -623,9 +662,9 @@ local function maketype(modname, ast)
         if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
             local tag = tlnode._tag
             if tag == "TopLevel_Func" then
-                members[tlnode.name] = tlnode._type
+                members[tlnode.name] = tlnode
             elseif tag == "TopLevel_Var" then
-                members[tlnode.decl.name] = tlnode._type
+                members[tlnode.decl.name] = tlnode
             end
         end
     end

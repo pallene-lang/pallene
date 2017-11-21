@@ -815,8 +815,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "test",
             members = {
-                a = { _tag = "Integer" },
-                geta = { _tag = "Function" }
+                a = { _type = { _tag = "Integer" } },
+                geta = { _type = { _tag = "Function" } }
             }
         })
         assert.falsy(mod.members.b)
