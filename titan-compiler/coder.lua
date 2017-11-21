@@ -490,7 +490,7 @@ local function codeassignment(ctx, node)
                 CSET = cset,
             })
         end
-    elseif vtag == "Var_Array" then
+    elseif vtag == "Var_Bracket" then
         local arr = node.var.exp1
         local idx = node.var.exp2
         local etype = node.exp._type
@@ -976,7 +976,7 @@ function codeexp(ctx, node, iscondition, target)
     local tag = node._tag
     if tag == "Var_Name" then
         return codevar(ctx, node)
-    elseif tag == "Var_Array" then
+    elseif tag == "Var_Bracket" then
         return codeindex(ctx, node, iscondition)
     elseif tag == "Exp_Nil" or
                 tag == "Exp_Bool" or

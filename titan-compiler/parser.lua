@@ -133,9 +133,9 @@ function defs.suffix_methodcall(pos, name, args)
     end
 end
 
-function defs.suffix_array(pos, index)
+function defs.suffix_bracket(pos, index)
     return function(exp)
-        return ast.Exp_Var(pos, ast.Var_Array(pos, exp, index))
+        return ast.Exp_Var(pos, ast.Var_Bracket(pos, exp, index))
     end
 end
 
@@ -260,7 +260,7 @@ local grammar = re.compile([[
 
     expsuffix       <- ({} funcargs)                        -> suffix_funccall
                      / ({} COLON NAME funcargs)             -> suffix_methodcall
-                     / ({} LBRACKET exp RBRACKET)           -> suffix_array
+                     / ({} LBRACKET exp RBRACKET)           -> suffix_bracket
                      / ({} DOT NAME)                        -> suffix_dot
 
     simpleexp       <- ({} NIL)                             -> nil_exp

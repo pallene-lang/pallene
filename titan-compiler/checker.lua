@@ -284,7 +284,7 @@ function checkstat(node, st, errors)
         end
         checkexp(node.exp, st, errors, node.var._type)
         node.exp = trycoerce(node.exp, node.var._type)
-        if node.var._tag ~= "Var_Array" or not types.equals(node.exp._type, types.Nil) then
+        if node.var._tag ~= "Var_Bracket" or not types.equals(node.exp._type, types.Nil) then
             checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
         end
     elseif tag == "Stat_Call" then
@@ -338,7 +338,7 @@ function checkexp(node, st, errors, context)
             node._decl = decl
             node._type = decl._type
         end
-    elseif tag == "Var_Array" then
+    elseif tag == "Var_Bracket" then
         local l, _ = util.get_line_number(errors.subject, node._pos)
         node._lin = l
         checkexp(node.exp1, st, errors, context and types.Array(context))

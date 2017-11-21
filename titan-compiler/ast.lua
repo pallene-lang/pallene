@@ -36,7 +36,7 @@ types.Then = {
 
 types.Var = {
     Name    = {"name"},
-    Array   = {"exp1", "exp2"},
+    Bracket = {"exp1", "exp2"},
     Dot     = {"exp", "name"},
 }
 
