@@ -8,7 +8,7 @@ local util = require "titan-compiler.util"
 local checkstat
 local checkexp
 
-local imported = {}
+checker.imported = {}
 
 local function typeerror(errors, msg, pos)
     local l, c = util.get_line_number(errors.subject, pos)
@@ -634,20 +634,20 @@ end
 
 -- Gets type information for all imported modules and puts
 -- it in the symbol table
-local function importpass(ast, st, errors)
+local function importpass(ast, st, errors, loader)
     for _, tlnode in ipairs(ast) do
         if tlnode._tag == "TopLevel_Import" then
             local name = tlnode.modname
             if st:find_dup(tlnode.localname) then
                 typeerror(errors, "duplicate declaration for " .. tlnode.localname, tlnode._pos)
                 tlnode._ignore = true
-            elseif imported[name] == true then
+            elseif checker.imported[name] == true then
                 typeerror(errors, "circular import of module '" .. name .. "'", tlnode._pos)
-            elseif imported[name] then
-                tlnode._type = imported[name]
+            elseif checker.imported[name] then
+                tlnode._type = checker.imported[name].type
                 st:add_symbol(tlnode.localname, tlnode)
             else
-                local modtype, errs = checker.checkimport(name)
+                local modtype, errs = checker.checkimport(name, loader)
                 if modtype then
                     tlnode._type = modtype
                     for _, err in ipairs(errs) do
@@ -655,15 +655,18 @@ local function importpass(ast, st, errors)
                     end
                     st:add_symbol(tlnode.localname, tlnode)
                 else
-                    imported[name] = nil
-                    typeerror(errors, "problem loading module '" .. name .. "': " .. errs, tlnode._pos)
+                    checker.imported[name] = nil
+                    typeerror(errors, "problem loading module '" .. name .. "'", tlnode._pos)
+                    for _, err in ipairs(errs) do
+                        table.insert(errors, err)
+                    end
                 end
             end
         end
     end
 end
 
-function checker.checkimport(modname)
+local function defaultloader(modname)
     local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
     local modf, err = package.searchpath(modname, SEARCHPATH)
     if not modf then return nil, err end
@@ -671,9 +674,26 @@ function checker.checkimport(modname)
     if not input then return nil, err end
     local ast, err = parser.parse(input)
     if not ast then return nil, parser.error_to_string(err, modf) end
-    local mod, errors = checker.check(modname, ast, input, modf)
-    imported[modname] = mod
-    return mod, errors
+    return ast, input, modf
+end
+
+local function checkmodule(modname, ast, subject, filename, loader)
+    loader = loader or defaultloader
+    local st = symtab.new()
+    local errors = {subject = subject, filename = filename}
+    checker.imported[modname] = true
+    importpass(ast, st, errors, loader)
+    firstpass(ast, st, errors)
+    secondpass(ast, st, errors)
+    thirdpass(ast, st, errors)
+    checker.imported[modname] = { ast = ast, type = maketype(modname, ast), errors = errors }
+    return checker.imported[modname].type, errors
+end
+
+function checker.checkimport(modname, loader)
+    local ast, subject_or_err, filename = loader(modname)
+    if not ast then return nil, { subject_or_err } end
+    return checkmodule(modname, ast, subject_or_err, filename, loader)
 end
 
 -- Entry point for the typechecker
@@ -683,19 +703,13 @@ end
 --   returns true if typechecking succeeds, or false and a list of type errors found
 --   annotates the AST with the types of its terms in "_type" fields
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(modname, ast, subject, filename)
-    local st = symtab.new()
-    local errors = {subject = subject, filename = filename}
-    imported[modname] = true
-    importpass(ast, st, errors)
-    firstpass(ast, st, errors)
-    secondpass(ast, st, errors)
-    thirdpass(ast, st, errors)
-    imported[modname] = maketype(modname, ast)
+--   loader: the module loader, a function from module name to its AST, code, and filename or nil and an error
+function checker.check(modname, ast, subject, filename, loader)
+    local modtype, errors = checkmodule(modname, ast, subject, filename, loader or defaultloader)
     if #errors > 0 then
-        return imported[modname], table.concat(errors, "\n")
+        return modtype, table.concat(errors, "\n")
     else
-        return imported[modname]
+        return modtype
     end
 end
 
