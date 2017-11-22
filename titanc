@@ -24,19 +24,21 @@ end
 
 local modname
 
-local input, errmsg
+local input, err
 if args.input == '-' then
     input = io.read("*a")
     modname = "stdin"
 else
     input, errmsg = util.get_file_contents(args.input)
-    modname = args.input:match("([^/]*)[.]titan$") or "sample"
+    modname = args.input:match("([^/\\]*)[.]titan$") or "sample"
     if not input then exit(errmsg) end
 end
 
 if not args.output then
 	local output_name = args.input:match("(.*)[.]titan$") or "titanc"
   args.output = output_name .. ".c"
+else
+  modname = args.output:match("^(.*)[.]c$"):gsub("[/\\]", "_")
 end
 
 if not args.lua then
@@ -51,8 +53,8 @@ if args.print_ast then
   os.exit(0)
 end
 
-local ok, errmsgs = checker.check(ast, input, args.input)
-if not ok then exit(errmsgs) end
+local ok, errmsgs = checker.check(modname, ast, input, args.input)
+if errmsgs then exit(errmsgs) end
 
 if args.print_types then
     print(parser.pretty_print_ast(ast))

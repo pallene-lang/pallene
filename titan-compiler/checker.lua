@@ -8,10 +8,26 @@ local util = require "titan-compiler.util"
 local checkstat
 local checkexp
 
+checker.imported = {}
+
 local function typeerror(errors, msg, pos)
     local l, c = util.get_line_number(errors.subject, pos)
     msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
     table.insert(errors, msg)
+end
+
+-- Checks if two types are the same, and logs an error message otherwise
+--   term: string describing what is being compared
+--   expected: type that is expected
+--   found: type that was actually present
+--   errors: list of compile-time errors
+--   pos: position of the term that is being compared
+local function checkmatch(term, expected, found, errors, pos)
+    if not types.equals(expected, found) then
+        local msg = "types in %s do not match, expected %s but found %s"
+        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
+        typeerror(errors, msg, pos)
+    end
 end
 
 -- Converts an AST type declaration into a typechecker type
@@ -128,6 +144,9 @@ local function firstpass(ast, st, errors)
                 typeerror(errors, "duplicate variable declaration for " .. name, tlnode._pos)
                 tlnode._ignore = true
             else
+                tlnode.value = trycoerce(tlnode.value, tlnode._type)
+                checkmatch("declaration of module variable " .. name,
+                    tlnode._type, tlnode.value._type, errors, tlnode._pos)
                 st:add_symbol(name, tlnode)
             end
         end
@@ -159,20 +178,6 @@ local function secondpass(ast, st, errors)
                 st:add_symbol(name, tlnode)
             end
         end
-    end
-end
-
--- Checks if two types are the same, and logs an error message otherwise
---   term: string describing what is being compared
---   expected: type that is expected
---   found: type that was actually present
---   errors: list of compile-time errors
---   pos: position of the term that is being compared
-local function checkmatch(term, expected, found, errors, pos)
-    if not types.equals(expected, found) then
-        local msg = "types in %s do not match, expected %s but found %s"
-        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
-        typeerror(errors, msg, pos)
     end
 end
 
@@ -331,12 +336,38 @@ function checkexp(node, st, errors, context)
             typeerror(errors, msg, node._pos)
             node._type = types.Integer
         elseif decl._tag == "TopLevel_Func" then
-            typeerror(errors, "reference to function " .. node.name .. " outside of function call", decl._pos)
+            typeerror(errors, "reference to function '" .. node.name .. "' outside of function call", decl._pos)
             node._type = types.Integer
         else
             decl._used = true
             node._decl = decl
             node._type = decl._type
+        end
+    elseif tag == "Var_Dot" then
+        checkexp(node.exp, st, errors)
+        local texp = node.exp._type
+        if types.has_tag(texp, "Module") then
+            local mod = texp
+            if not mod.members[node.name] then
+                local msg = "module variable '" .. node.name .. "' not found inside module '" .. mod.name .. "'"
+                typeerror(errors, msg, node._pos)
+                node._type = types.Integer
+            elseif types.has_tag(mod.members[node.name]._type, "Function") then
+                typeerror(errors, "reference to function '" .. node.name .. "' of module '" .. mod.name ..
+                    "' outside of function call", node._pos)
+                node._type = types.Integer
+            else
+                local decl = mod.members[node.name]
+                decl._used = true
+                node._decl = decl
+                node._type = decl._type
+            end
+        elseif types.has_tag(texp, "Record") then
+            error("not implemented yet")
+        else
+            typeerror(errors, "trying to access member '" .. node.name ..
+            "' of value that is not a record or module but " .. types.tostring(texp), node._pos)
+            node._type = types.Integer
         end
     elseif tag == "Var_Bracket" then
         local l, _ = util.get_line_number(errors.subject, node._pos)
@@ -532,8 +563,27 @@ function checkexp(node, st, errors, context)
         end
     elseif tag == "Exp_Call" then
         assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
-        local fname = node.exp.var.name
-        local func =  st:find_symbol(fname)
+        local fname, func
+        local var = node.exp.var
+        if var._tag == "Var_Name" then
+            fname = var.name
+            func = st:find_symbol(fname)
+        elseif var._tag == "Var_Dot" then
+            local mod = var.exp
+            if mod._tag ~= "Exp_Var" or var.exp.var._tag ~= "Var_Name" then
+                typeerror(errors, "trying to call a function on something that is not a module", node._pos)
+                fname = var.name
+            else
+                local modname = var.exp.var.name
+                fname = modname .. "." .. var.name
+                local mod = st:find_symbol(modname)
+                if mod then
+                    func = mod.members[var.name]
+                end
+            end
+        else
+            error("invalid tag for function: ", var._tag)
+        end
         if func and func._type._tag == "Function" then
             local ftype = func._type
             local nparams = #ftype.params
@@ -612,6 +662,88 @@ local function thirdpass(ast, st, errors)
     end
 end
 
+-- Builds a type for the module from the types of its members
+--   ast: AST for the module
+--   returns "Module" type
+local function maketype(modname, ast)
+    local members = {}
+    for _, tlnode in ipairs(ast) do
+        if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
+            local tag = tlnode._tag
+            if tag == "TopLevel_Func" then
+                members[tlnode.name] = tlnode
+            elseif tag == "TopLevel_Var" then
+                members[tlnode.decl.name] = tlnode
+            end
+        end
+    end
+    return types.Module(modname, members)
+end
+
+-- Gets type information for all imported modules and puts
+-- it in the symbol table
+local function importpass(ast, st, errors, loader)
+    for _, tlnode in ipairs(ast) do
+        if tlnode._tag == "TopLevel_Import" then
+            local name = tlnode.modname
+            if st:find_dup(tlnode.localname) then
+                typeerror(errors, "duplicate declaration for " .. tlnode.localname, tlnode._pos)
+                tlnode._ignore = true
+            elseif checker.imported[name] == true then
+                typeerror(errors, "circular import of module '" .. name .. "'", tlnode._pos)
+            elseif checker.imported[name] then
+                tlnode._type = checker.imported[name].type
+                st:add_symbol(tlnode.localname, tlnode)
+            else
+                local modtype, errs = checker.checkimport(name, loader)
+                if modtype then
+                    tlnode._type = modtype
+                    for _, err in ipairs(errs) do
+                        table.insert(errors, err)
+                    end
+                    st:add_symbol(tlnode.localname, tlnode)
+                else
+                    checker.imported[name] = nil
+                    typeerror(errors, "problem loading module '" .. name .. "'", tlnode._pos)
+                    for _, err in ipairs(errs) do
+                        table.insert(errors, err)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function defaultloader(modname)
+    local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
+    local modf, err = package.searchpath(modname, SEARCHPATH)
+    if not modf then return nil, err end
+    local input, err = util.get_file_contents(modf)
+    if not input then return nil, err end
+    local ast, err = parser.parse(input)
+    if not ast then return nil, parser.error_to_string(err, modf) end
+    return ast, input, modf
+end
+
+local function checkmodule(modname, ast, subject, filename, loader)
+    loader = loader or defaultloader
+    local st = symtab.new()
+    local errors = {subject = subject, filename = filename}
+    checker.imported[modname] = true
+    importpass(ast, st, errors, loader)
+    firstpass(ast, st, errors)
+    secondpass(ast, st, errors)
+    thirdpass(ast, st, errors)
+    checker.imported[modname] = { ast = ast, type = maketype(modname, ast), errors = errors }
+    return checker.imported[modname].type, errors
+end
+
+function checker.checkimport(modname, loader)
+    local ast, subject_or_err, filename = loader(modname)
+    if not ast then return nil, { subject_or_err } end
+    return checkmodule(modname, ast, subject_or_err, filename, loader)
+end
+
 -- Entry point for the typechecker
 --   ast: AST for the whole module
 --   subject: the string that generated the AST
@@ -619,16 +751,14 @@ end
 --   returns true if typechecking succeeds, or false and a list of type errors found
 --   annotates the AST with the types of its terms in "_type" fields
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(ast, subject, filename)
-    local st = symtab.new()
-    local errors = {subject = subject, filename = filename}
-    firstpass(ast, st, errors)
-    secondpass(ast, st, errors)
-    thirdpass(ast, st, errors)
+--   loader: the module loader, a function from module name to its AST, code, and filename or nil and an error
+function checker.check(modname, ast, subject, filename, loader)
+    local modtype, errors = checkmodule(modname, ast, subject, filename, loader or defaultloader)
     if #errors > 0 then
-        return false, table.concat(errors, "\n")
+        return modtype, table.concat(errors, "\n")
+    else
+        return modtype
     end
-    return true
 end
 
 return checker

@@ -298,7 +298,7 @@ end)
                         _tag = "Var_Bracket",
                         exp2 = { value = 2 },
                         exp1 = { _tag = "Exp_Call",
-                            args = { _tag = "Args_Method", method = "foo" },
+                            args = { _tag = "Args_Func" },
                             exp = { _tag = "Exp_Call",
                                 args = { _tag = "Args_Func" },
                                 exp = { _tag = "Exp_Var",
@@ -330,7 +330,7 @@ end)
                     _tag = "Args_Func", args = {
                         { _tag = "Exp_Table" } } } } },
 
-            { callexp = {
+           --[[ { callexp = {
                 _tag = "Exp_Call", args = {
                     _tag = "Args_Method", args = { } } } },
             { callexp = {
@@ -340,7 +340,49 @@ end)
             { callexp = {
                 _tag = "Exp_Call", args = {
                     _tag = "Args_Method", args = {
-                        { _tag = "Exp_Table" } } } } },
+                           { _tag = "Exp_Table" } } } } }]]
+        })
+    end)
+
+    it("can parse import", function ()
+        local program, err = parser.parse([[
+            local foo = import "module.foo"
+        ]])
+        assert.truthy(program)
+        assert_ast(program, {
+            { _tag = "TopLevel_Import", localname = "foo", modname = "module.foo" },
+        })
+    end)
+
+    it("can parse references to module members", function ()
+        local program, err = parser.parse([[
+            function f(): nil
+                foo.bar = 50
+                print(foo.bar)
+                foo.write(a, b, c)
+            end
+        ]])
+        assert.truthy(program)
+        assert_ast(program[1].block.stats, {
+            { var = {
+                _tag = "Var_Dot",
+                exp = { _tag = "Exp_Var",
+                  var = { _tag = "Var_Name", name = "foo" }
+                },
+                name = "bar" } },
+            { callexp = { args = { args = { { var = {
+                _tag = "Var_Dot",
+                exp = { _tag = "Exp_Var",
+                  var = { _tag = "Var_Name", name = "foo" }
+                },
+              name = "bar" } } } } } },
+            { callexp = {
+                exp = { var = {
+                    _tag = "Var_Dot",
+                    exp = { _tag = "Exp_Var",
+                      var = { _tag = "Var_Name", name = "foo" }
+                    },
+                    name = "write" } } } }
         })
     end)
 

@@ -12,6 +12,7 @@ types.TopLevel = {
     Func    = {"islocal", "name", "params", "rettype", "block"},
     Var     = {"islocal", "decl", "value"},
     Record  = {"name", "fields"},
+    Import  = {"localname", "modname"}
 }
 
 types.Decl = {
@@ -37,7 +38,7 @@ types.Then = {
 types.Var = {
     Name    = {"name"},
     Bracket = {"exp1", "exp2"},
-    Dot     = {"exp", "name"},
+    Dot     = {"exp", "name"}
 }
 
 types.Exp = {

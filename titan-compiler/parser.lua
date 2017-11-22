@@ -178,7 +178,8 @@ local grammar = re.compile([[
     program         <-  SKIP*
                         {| ( toplevelfunc
                            / toplevelvar
-                           / toplevelrecord )* |} !.
+                           / toplevelrecord
+                           / import )* |} !.
 
     toplevelfunc    <- ({} localopt
                            FUNCTION NAME
@@ -191,6 +192,9 @@ local grammar = re.compile([[
     toplevelrecord  <- ({} RECORD NAME recordfields END)    -> TopLevel_Record
 
     localopt        <- (LOCAL)?                             -> boolopt
+
+    import         <- ({} LOCAL NAME ASSIGN IMPORT
+                         (LPAREN STRING RPAREN / STRING))   -> TopLevel_Import
 
     parlist         <- {| (decl (COMMA decl)*)? |}          -- produces {Decl}
 
@@ -259,7 +263,7 @@ local grammar = re.compile([[
     suffixedexp     <- (simpleexp {| expsuffix* |})         -> fold_suffixes
 
     expsuffix       <- ({} funcargs)                        -> suffix_funccall
-                     / ({} COLON NAME funcargs)             -> suffix_methodcall
+ --                  / ({} COLON NAME funcargs)             -> suffix_methodcall
                      / ({} LBRACKET exp RBRACKET)           -> suffix_bracket
                      / ({} DOT NAME)                        -> suffix_dot
 
@@ -315,6 +319,7 @@ local grammar = re.compile([[
     TRUE            <- %TRUE SKIP*
     UNTIL           <- %UNTIL SKIP*
     WHILE           <- %WHILE SKIP*
+    IMPORT          <- %IMPORT SKIP*
 
     ADD             <- %ADD SKIP*
     SUB             <- %SUB SKIP*
