@@ -365,17 +365,23 @@ end)
         assert.truthy(program)
         assert_ast(program[1].block.stats, {
             { var = {
-                _tag = "Var_QualName",
-                modname = "foo",
+                _tag = "Var_Dot",
+                exp = { _tag = "Exp_Var",
+                  var = { _tag = "Var_Name", name = "foo" }
+                },
                 name = "bar" } },
             { callexp = { args = { args = { { var = {
-                _tag = "Var_QualName",
-                modname = "foo",
-                name = "bar" } } } } } },
+                _tag = "Var_Dot",
+                exp = { _tag = "Exp_Var",
+                  var = { _tag = "Var_Name", name = "foo" }
+                },
+              name = "bar" } } } } } },
             { callexp = {
                 exp = { var = {
-                    _tag = "Var_QualName",
-                    modname = "foo",
+                    _tag = "Var_Dot",
+                    exp = { _tag = "Exp_Var",
+                      var = { _tag = "Var_Name", name = "foo" }
+                    },
                     name = "write" } } } }
         })
     end)

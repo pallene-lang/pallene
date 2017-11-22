@@ -37,8 +37,8 @@ types.Then = {
 
 types.Var = {
     Name    = {"name"},
-    Index   = {"exp1", "exp2"},
-    QualName = {"modname", "name"}
+    Bracket = {"exp1", "exp2"},
+    Dot     = {"exp", "name"}
 }
 
 types.Exp = {

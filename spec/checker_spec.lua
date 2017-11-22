@@ -3,9 +3,21 @@ local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
 
 local function run_checker(code)
+    checker.imported = {}
     local ast = assert(parser.parse(code))
     local _, err = checker.check("test", ast, code, "test.titan")
     return err == nil, err, ast
+end
+
+local function run_checker_modules(modules, main)
+    checker.imported = {}
+    local function loader(modname)
+        local ast, err = parser.parse(modules[modname])
+        if not ast then return nil, parser.error_to_string(err, modname .. ".titan") end
+        return ast, modules[modname], modname .. ".titan"
+    end
+    local _, err = checker.checkimport(main, loader)
+    return #err == 0, table.concat(err, "\n"), checker.imported
 end
 
 -- Return a version of t2 that only contains fields present in t1 (recursively)

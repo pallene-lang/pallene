@@ -343,29 +343,31 @@ function checkexp(node, st, errors, context)
             node._decl = decl
             node._type = decl._type
         end
-    elseif tag == "Var_QualName" then
-        local mod = st:find_symbol(node.modname)
-        if not mod then
-            local msg = "module '" .. node.modname .. "' not imported"
-            typeerror(errors, msg, node._pos)
-            node._type = types.Integer
-        elseif not types.has_tag(mod._type, "Module") then
-            local msg = "identifier '" .. node.modname .. "' is not a module but a " .. types.tostring(mod._type)
-            typeerror(errors, msg, node._pos)
-            node._type = types.Integer
-        elseif not mod._type.members[node.name] then
-            local msg = "module variable '" .. node.name .. "' not found inside module '" .. node.modname .. "'"
-            typeerror(errors, msg, node._pos)
-            node._type = types.Integer
-        elseif types.has_tag(mod._type.members[node.name]._type, "Function") then
-            typeerror(errors, "reference to function '" .. node.name .. "' of module '" .. node.modname ..
-                "' outside of function call", node._pos)
-            node._type = types.Integer
+    elseif tag == "Var_Dot" then
+        checkexp(node.exp, st, errors)
+        local texp = node.exp._type
+        if types.has_tag(texp, "Module") then
+            local mod = texp
+            if not mod.members[node.name] then
+                local msg = "module variable '" .. node.name .. "' not found inside module '" .. mod.name .. "'"
+                typeerror(errors, msg, node._pos)
+                node._type = types.Integer
+            elseif types.has_tag(mod.members[node.name]._type, "Function") then
+                typeerror(errors, "reference to function '" .. node.name .. "' of module '" .. mod.name ..
+                    "' outside of function call", node._pos)
+                node._type = types.Integer
+            else
+                local decl = mod.members[node.name]
+                decl._used = true
+                node._decl = decl
+                node._type = decl._type
+            end
+        elseif types.has_tag(texp, "Record") then
+            error("not implemented yet")
         else
-            local decl = mod._type.members[node.name]
-            decl._used = true
-            node._decl = decl
-            node._type = decl._type
+            typeerror(errors, "trying to access member '" .. node.name ..
+            "' of value that is not a record or module but " .. types.tostring(texp), node._pos)
+            node._type = types.Integer
         end
     elseif tag == "Var_Bracket" then
         local l, _ = util.get_line_number(errors.subject, node._pos)
@@ -566,11 +568,18 @@ function checkexp(node, st, errors, context)
         if var._tag == "Var_Name" then
             fname = var.name
             func = st:find_symbol(fname)
-        elseif var._tag == "Var_QualName" then
-            fname = var.modname .. "." .. var.name
-            local mod = st:find_symbol(var.modname)
-            if mod then
-                func = mod.members[var.name]
+        elseif var._tag == "Var_Dot" then
+            local mod = var.exp
+            if mod._tag ~= "Exp_Var" or var.exp.var._tag ~= "Var_Name" then
+                typeerror(errors, "trying to call a function on something that is not a module", node._pos)
+                fname = var.name
+            else
+                local modname = var.exp.var.name
+                fname = modname .. "." .. var.name
+                local mod = st:find_symbol(modname)
+                if mod then
+                    func = mod.members[var.name]
+                end
             end
         else
             error("invalid tag for function: ", var._tag)
