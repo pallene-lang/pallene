@@ -68,44 +68,30 @@ local function mods2so(mods)
 end
 
 local sources = { }
-local include_dirs = { [getpath(args.input)] = true }
 
-local generated_code, generated_header, deps = coder.generate(args.modname, ast)
+local generated_code, deps = coder.generate(args.modname, ast)
 table.insert(sources, { source = args.output, deps = mods2so(deps) })
 generated_code = pretty.reindent_c(generated_code)
-generated_header = pretty.reindent_c(generated_header)
 ok, errmsg = util.set_file_contents(args.output, generated_code)
-if not ok then exit(errmsg) end
-ok, errmsg = util.set_file_contents(args.header, generated_header)
 if not ok then exit(errmsg) end
 
 for name, mod in pairs(checker.imported) do
     if name ~= args.modname then
-        local code, header, deps = coder.generate(name, mod.ast)
+        local code, deps = coder.generate(name, mod.ast)
         code = pretty.reindent_c(code)
-        header = pretty.reindent_c(header)
         local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
         ok, errmsg = util.set_file_contents(filename, code)
         if not ok then exit(errmsg) end
-        ok, errmsg = util.set_file_contents(filename:gsub("[.]c", ".h"), header)
-        if not ok then exit(errmsg) end
         table.insert(sources, { source = filename, deps = mods2so(deps) })
-        include_dirs[getpath(filename)] = true
     end
 end
 
 local CC = os.getenv("CC") or "gcc"
 local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
 
-local includes = {}
-
-for inc, _ in pairs(include_dirs) do
-    table.insert(includes, "-I" .. inc)
-end
-
 for _, source in ipairs(sources) do
     local soname = source.source:gsub("[.]c$", ".so")
     os.execute(string.format([[
-%s %s -I%s %s -fPIC -shared %s %s lua/src/liblua.a -o %s
-]], CC, CFLAGS, args.lua, table.concat(includes, " "), source.source, table.concat(source.deps, " "), soname))
+%s %s -I%s -fPIC -shared %s %s lua/src/liblua.a -o %s
+]], CC, CFLAGS, args.lua, source.source, table.concat(source.deps, " "), soname))
 end

@@ -186,6 +186,19 @@ local function ctype(typ --[[:table]])
     end
 end
 
+local function externalsig(prefix, fname, ftype)
+    local params = { "lua_State *L" }
+    for i, ptype in ipairs(ftype.params) do
+        table.insert(params, ctype(ptype) .. " p" .. i)
+    end
+    return render("$RETTYPE $PREFIX$FNAME($PARAMS);", {
+        RETTYPE = ctype(ftype.ret),
+        PREFIX = prefix,
+        FNAME = fname,
+        PARAMS = table.concat(params, ", ")
+    })
+end
+
 -- creates a new code generation context for a function
 local function newcontext(tlcontext)
     return {
@@ -1284,8 +1297,6 @@ local preamble = [[
 
 #include <math.h>
 
-$INCLUDES
-
 #define MAXNUMBER2STR 50
 
 static char _cvtbuff[MAXNUMBER2STR];
@@ -1301,6 +1312,8 @@ inline static TString* _float2str (lua_State *L, lua_Number f) {
     len = lua_number2str(_cvtbuff, sizeof(_cvtbuff), f);
     return luaS_newlstr(L, _cvtbuff, len);
 }
+
+$INCLUDES
 
 ]]
 
@@ -1349,13 +1362,18 @@ function coder.generate(modname, ast)
         if not node._ignore then
             local tag = node._tag
             if tag == "TopLevel_Import" then
-                table.insert(includes, string.format('#include "%s.h"', node.modname:match("([^.]+)$")))
+                local mprefix = node._type.prefix
+                table.insert(includes, "void " .. mprefix .. "init" .. "(lua_State *L);")
                 table.insert(initmods, string.format("%sinit(L);", node._type.prefix))
                 table.insert(deps, node.modname)
-                local mprefix = node._type.prefix
-                for name, member in ipairs(node._type.members) do
+                for name, member in pairs(node._type.members) do
                     if not member._slot and not types.has_tag(member._type, "Function") then
                         member._slot = mprefix .. name .. "_titanvar"
+                    end
+                    if types.has_tag(member._type, "Function") then
+                        table.insert(includes, externalsig(mprefix, name .. "_titan", member._type))
+                    else
+                        table.insert(includes, "external TValue *" .. member._slot .. ";")
                     end
                 end
             else
@@ -1365,8 +1383,6 @@ function coder.generate(modname, ast)
     end
 
     local code = { render(preamble, { INCLUDES = table.concat(includes, "\n") }) }
-
-    local header = {}
 
     -- has this module already been initialized?
     table.insert(code, "static int _initialized = 0;")
@@ -1381,7 +1397,6 @@ function coder.generate(modname, ast)
                 table.insert(varslots, node._slot)
                 if not node.islocal then
                     table.insert(gvars, node)
-                    table.insert(header, "extern " .. node._cdecl)
                 end
             else
                 -- ignore everything else in this pass
@@ -1396,7 +1411,6 @@ function coder.generate(modname, ast)
                 codefuncdec(tlcontext, node)
                 table.insert(code, node._body)
                 if not node.islocal then
-                    table.insert(header, node._sig)
                     table.insert(code, node._luabody)
                     table.insert(funcs, render([[
                         lua_pushcfunction(L, $LUANAME);
@@ -1537,11 +1551,7 @@ function coder.generate(modname, ast)
         MODNAMESTR = c_string_literal("titan module "..modname),
     }))
 
-    table.insert(header, render(initsig, {
-        INITNAME = tlcontext.prefix .. 'init'
-    }))
-
-    return table.concat(code, "\n\n"), table.concat(header, "\n\n"), deps
+    return table.concat(code, "\n\n"), deps
 end
 
 return coder
