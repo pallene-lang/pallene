@@ -187,13 +187,14 @@ local function ctype(typ --[[:table]])
 end
 
 -- creates a new code generation context for a function
-local function newcontext()
+local function newcontext(tlcontext)
     return {
         tmp = 1,    -- next temporary index (for generating temporary names)
         nslots = 0, -- number of slots needed by function
         allocations = 0, -- number of allocations
         depth = 0,  -- current stack depth
-        dstack = {} -- stack of stack depths
+        dstack = {}, -- stack of stack depths
+        prefix = tlcontext.prefix -- prefix for module member functions and variables
     }
 end
 
@@ -550,6 +551,13 @@ end
 
 local function codecall(ctx, node)
     local castats, caexps = {}, { "L" }
+    local fname
+    local fnode = node.exp.var
+    if fnode._tag == "Var_Name" then
+        fname = ctx.prefix .. fnode.name .. '_titan'
+    elseif node.exp.var._tag == "Var_Dot" then
+        fname = fnode.exp._type.prefix .. fnode.name .. "_titan"
+    end
     for _, arg in ipairs(node.args.args) do
         local cstat, cexp = codeexp(ctx, arg)
         table.insert(castats, cstat)
@@ -557,7 +565,7 @@ local function codecall(ctx, node)
     end
     local cstats = table.concat(castats, "\n")
     local ccall = render("$NAME($CAEXPS)", {
-        NAME = node.exp.var.name .. '_titan',
+        NAME = fname,
         CAEXPS = table.concat(caexps, ", "),
     })
     if types.is_gc(node._type) then
@@ -1120,7 +1128,7 @@ end
 --     the Lua stack, and must be the only value pushed
 --     to the Lua stack when the function returns.
 local function codefuncdec(tlcontext, node)
-    local ctx = newcontext()
+    local ctx = newcontext(tlcontext)
     local stats = {}
     if types.is_gc(node._type.ret) then
         newslot(ctx, "_retslot");
@@ -1169,13 +1177,22 @@ local function codefuncdec(tlcontext, node)
         end
     end
     node._body = render([[
-    static $RETTYPE $NAME($PARAMS) {
+    $ISLOCAL $RETTYPE $NAME($PARAMS) {
         $BODY
     }]], {
+        ISLOCAL = node.islocal and "static" or "",
         RETTYPE = ctype(node._type.ret),
-        NAME = node.name .. '_titan',
+        NAME = tlcontext.prefix .. node.name .. '_titan',
         PARAMS = table.concat(cparams, ", "),
         BODY = table.concat(stats, "\n")
+    })
+    node._sig = render([[
+        $ISLOCAL $RETTYPE $NAME($PARAMS);
+    ]], {
+        ISLOCAL = node.islocal and "static" or "",
+        RETTYPE = ctype(node._type.ret),
+        NAME = tlcontext.prefix .. node.name .. '_titan',
+        PARAMS = table.concat(cparams, ", ")
     })
     -- generate Lua entry point
     local stats = {}
@@ -1193,7 +1210,7 @@ local function codefuncdec(tlcontext, node)
         return 1;
     ]], {
         TYPE = ctype(node._type.ret),
-        NAME = node.name .. '_titan',
+        NAME = tlcontext.prefix .. node.name .. '_titan',
         PARAMS = table.concat(pnames, ", "),
         SETSLOT = setslot(node._type.ret, "L->top", "res"),
     }))
@@ -1238,7 +1255,7 @@ local function codevardec(tlctx, ctx, node)
             })
         end
     else
-        node._slot = node.decl.name .. "_titanvar"
+        node._slot = tlctx.prefix .. node.decl.name .. "_titanvar"
         node._cdecl = "TValue *" .. node._slot .. ";"
         node._init = render([[
             $CSTATS
@@ -1266,6 +1283,8 @@ local preamble = [[
 #include "lobject.h"
 
 #include <math.h>
+
+$INCLUDES
 
 #define MAXNUMBER2STR 50
 
@@ -1295,10 +1314,15 @@ int $LUAOPEN_NAME(lua_State *L) {
 }
 ]]
 
+local initsig = [[
+    void $INITNAME(lua_State *L);
+]]
+
 local init = [[
 void $INITNAME(lua_State *L) {
     if(!_initialized) {
         _initialized = 1;
+        $INITMODULES
         $INITVARS
     }
 }
@@ -1307,35 +1331,60 @@ void $INITNAME(lua_State *L) {
 function coder.generate(modname, ast)
     local tlcontext = {
         module = modname,
+        prefix = modname:gsub("[.]", "_") .. "_"
     }
-
-    local code = { preamble }
-
-    -- has this module already been initialized?
-    table.insert(code, "static int _initialized = 0;")
 
     local funcs = {}
     local initvars = {}
     local varslots = {}
     local gvars = {}
+    local includes = {}
+    local initmods = {}
 
-    local initctx = newcontext()
+    local deps = {}
+
+    local initctx = newcontext(tlcontext)
 
     for _, node in pairs(ast) do
         if not node._ignore then
             local tag = node._tag
-            if tag == "TopLevel_Func" then
-                -- ignore functions in the first pass
-            elseif tag == "TopLevel_Var" then
+            if tag == "TopLevel_Import" then
+                table.insert(includes, string.format('#include "%s.h"', node.modname:match("([^.]+)$")))
+                table.insert(initmods, string.format("%sinit(L);", node._type.prefix))
+                table.insert(deps, node.modname)
+                local mprefix = node._type.prefix
+                for name, member in ipairs(node._type.members) do
+                    if not member._slot and not types.has_tag(member._type, "Function") then
+                        member._slot = mprefix .. name .. "_titanvar"
+                    end
+                end
+            else
+                -- ignore functions and variables in this pass
+            end
+        end
+    end
+
+    local code = { render(preamble, { INCLUDES = table.concat(includes, "\n") }) }
+
+    local header = {}
+
+    -- has this module already been initialized?
+    table.insert(code, "static int _initialized = 0;")
+
+    for _, node in pairs(ast) do
+        if not node._ignore then
+            local tag = node._tag
+            if tag == "TopLevel_Var" then
                 codevardec(tlcontext, initctx, node)
                 table.insert(code, node._cdecl)
                 table.insert(initvars, node._init)
                 table.insert(varslots, node._slot)
                 if not node.islocal then
                     table.insert(gvars, node)
+                    table.insert(header, "extern " .. node._cdecl)
                 end
             else
-                error("invalid node tag " .. tag)
+                -- ignore everything else in this pass
             end
         end
     end
@@ -1347,6 +1396,7 @@ function coder.generate(modname, ast)
                 codefuncdec(tlcontext, node)
                 table.insert(code, node._body)
                 if not node.islocal then
+                    table.insert(header, node._sig)
                     table.insert(code, node._luabody)
                     table.insert(funcs, render([[
                         lua_pushcfunction(L, $LUANAME);
@@ -1356,10 +1406,8 @@ function coder.generate(modname, ast)
                         NAMESTR = c_string_literal(node.name),
                     }))
                 end
-            elseif tag == "TopLevel_Var" then
-                -- ignore vars in second pass
             else
-                error("invalid node tag " .. tag)
+                -- ignore other nodes in second pass
             end
         end
     end
@@ -1477,18 +1525,23 @@ function coder.generate(modname, ast)
     end
 
     table.insert(code, render(init, {
-        INITNAME = modname .. '_init',
+        INITNAME = tlcontext.prefix .. 'init',
+        INITMODULES = table.concat(initmods, "\n"),
         INITVARS = table.concat(initvars, "\n")
     }))
 
     table.insert(code, render(postamble, {
-        LUAOPEN_NAME = 'luaopen_' .. modname,
-        INITNAME = modname .. '_init',
+        LUAOPEN_NAME = 'luaopen_' .. modname:gsub("[.]", "_"),
+        INITNAME = tlcontext.prefix .. 'init',
         FUNCS = table.concat(funcs, "\n"),
         MODNAMESTR = c_string_literal("titan module "..modname),
     }))
 
-    return table.concat(code, "\n\n")
+    table.insert(header, render(initsig, {
+        INITNAME = tlcontext.prefix .. 'init'
+    }))
+
+    return table.concat(code, "\n\n"), table.concat(header, "\n\n"), deps
 end
 
 return coder

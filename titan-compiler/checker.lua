@@ -1,5 +1,6 @@
 local checker = {}
 
+local parser = require "titan-compiler.parser"
 local symtab = require "titan-compiler.symtab"
 local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
@@ -722,7 +723,7 @@ local function checkmodule(modname, ast, subject, filename, loader)
     firstpass(ast, st, errors)
     secondpass(ast, st, errors)
     thirdpass(ast, st, errors)
-    checker.imported[modname] = { ast = ast, type = maketype(modname, ast), errors = errors }
+    checker.imported[modname] = { ast = ast, type = maketype(modname, ast), filename = filename, errors = errors }
     return checker.imported[modname].type, errors
 end
 

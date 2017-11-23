@@ -1,3 +1,5 @@
+local tab = import "examples.utils"
+
 -- Add two numbers
 
 function foo(x: integer, y: integer): integer
@@ -105,36 +107,10 @@ function sum(N: integer): integer
     return res
 end
 
-function flatten(xs: {{integer}}): {integer}
-  local res: {integer} = {}
-  for i = 1, #xs do
-    for j = 1, #xs[i] do
-      res[#res+1] = xs[i][j]
-    end
-  end
-  return res
-end
-
-function split(xs: {integer}, n: integer): {{integer}}
-  local res: {{integer}} = {}
-  local lin = 0
-  local col = 1
-  for i = 1, #xs do
-    if i % n == 1 then
-      res[#res+1] = {}
-      lin = lin + 1
-      col = 1
-    end
-    res[lin][col] = xs[i]
-    col = col + 1
-  end
-  return res
-end
-
 function test_fsf(n: integer): boolean
   local t1 = filltable(n)
-  local t2 = split(t1, 3)
-  local t3 = flatten(t2)
+  local t2 = tab.split(t1, 3)
+  local t3 = tab.flatten(t2)
   local res = true
   for i = 1, #t1 do
     if t1[i] ~= t3[i] then
