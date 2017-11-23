@@ -30,6 +30,14 @@ function defs.tofalse()
     return false
 end
 
+function defs.typeopt(pos, x)
+    if not x then
+        return defs.Type_Name(pos, "nil")
+    else
+        return x
+    end
+end
+
 function defs.opt(x)
     if x == "" then
         return false
@@ -37,7 +45,6 @@ function defs.opt(x)
         return x
     end
 end
-
 function defs.boolopt(x)
     return x ~= ""
 end
@@ -184,16 +191,18 @@ local grammar = re.compile([[
     toplevelfunc    <- ({} localopt
                            FUNCTION NAME
                            LPAREN parlist RPAREN
-                           COLON type
+                           typeopt
                            block END)                       -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
 
     toplevelrecord  <- ({} RECORD NAME recordfields END)    -> TopLevel_Record
 
+    typeopt         <- ({} (COLON type)?)                   -> typeopt
+
     localopt        <- (LOCAL)?                             -> boolopt
 
-    import         <- ({} LOCAL NAME ASSIGN IMPORT
+    import          <- ({} LOCAL NAME ASSIGN IMPORT
                          (LPAREN STRING RPAREN / STRING))   -> TopLevel_Import
 
     parlist         <- {| (decl (COMMA decl)*)? |}          -- produces {Decl}
