@@ -125,17 +125,6 @@ describe("Titan type checker", function()
         assert.match("variable '%w+' not declared", err)
     end)
 
-    it("catches reference to function", function()
-        local code = [[
-            function fn(): nil
-                fn = 1
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("reference to function", err)
-    end)
-
     it("catches array expression in indexing is not an array", function()
         local code = [[
             function fn(x: integer): nil
@@ -1089,6 +1078,129 @@ describe("Titan type checker", function()
             assert.falsy(ok)
             assert.match("expected integer but found nil", err)
         end
+    end)
+
+    it("catches use of function as first-class value", function ()
+        local code = [[
+            function foo(): integer
+                return foo
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("access a function", err)
+    end)
+
+    it("catches assignment to function", function ()
+        local code = [[
+            function foo(): integer
+                foo = 2
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("assign to a function", err)
+    end)
+
+    it("catches use of external function as first-class value", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+                function foo(): nil
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.foo
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("access a function", err)
+    end)
+
+    it("catches assignment to external function", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+                function foo(): nil
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    foo.foo = 2
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("assign to a function", err)
+    end)
+
+    it("catches use of module as first-class value", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("access module", err)
+    end)
+
+    it("catches assignment to module", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    foo = 2
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("assign to a module", err)
+    end)
+
+    it("catches call of external non-function", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.a()
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("'foo.a' is not a function", err)
+    end)
+
+    it("catches call if non-function function", function ()
+        local code = [[
+            local a = 2
+            function foo(): integer
+                return a()
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("'a' is not a function", err)
     end)
 
 end)

@@ -10,9 +10,9 @@ local checkexp
 
 checker.imported = {}
 
-local function typeerror(errors, msg, pos)
+local function typeerror(errors, msg, pos, ...)
     local l, c = util.get_line_number(errors.subject, pos)
-    msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, msg)
+    msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, string.format(msg, ...))
     table.insert(errors, msg)
 end
 
@@ -283,14 +283,21 @@ function checkstat(node, st, errors)
         st:with_block(checkfor, node, st, errors)
     elseif tag == "Stat_Assign" then
         checkexp(node.var, st, errors)
-        -- mark this declared variable as assigned to
-        if node.var._tag == "Var_Name" and node.var._decl then
-            node.var._decl._assigned = true
-        end
         checkexp(node.exp, st, errors, node.var._type)
-        node.exp = trycoerce(node.exp, node.var._type)
-        if node.var._tag ~= "Var_Bracket" or not types.equals(node.exp._type, types.Nil) then
-            checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+        local texp = node.var._type
+        if types.has_tag(texp, "Module") then
+            typeerror(errors, "trying to assign to a module", node._pos)
+        elseif types.has_tag(texp, "Function") then
+            typeerror(errors, "trying to assign to a function", node._pos)
+        else
+            -- mark this declared variable as assigned to
+            if node.var._tag == "Var_Name" and node.var._decl then
+                node.var._decl._assigned = true
+            end
+            node.exp = trycoerce(node.exp, node.var._type)
+            if node.var._tag ~= "Var_Bracket" or not types.equals(node.exp._type, types.Nil) then
+                checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+            end
         end
     elseif tag == "Stat_Call" then
         checkexp(node.callexp, st, errors)
@@ -335,26 +342,21 @@ function checkexp(node, st, errors, context)
             local msg = "variable '" .. node.name .. "' not declared"
             typeerror(errors, msg, node._pos)
             node._type = types.Integer
-        elseif decl._tag == "TopLevel_Func" then
-            typeerror(errors, "reference to function '" .. node.name .. "' outside of function call", decl._pos)
-            node._type = types.Integer
         else
             decl._used = true
             node._decl = decl
             node._type = decl._type
         end
     elseif tag == "Var_Dot" then
-        checkexp(node.exp, st, errors)
+        assert(node.exp.var, "left side of dot expression is not var")
+        checkexp(node.exp.var, st, errors)
+        node.exp._type = node.exp.var._type
         local texp = node.exp._type
         if types.has_tag(texp, "Module") then
             local mod = texp
             if not mod.members[node.name] then
                 local msg = "module variable '" .. node.name .. "' not found inside module '" .. mod.name .. "'"
                 typeerror(errors, msg, node._pos)
-                node._type = types.Integer
-            elseif types.has_tag(mod.members[node.name]._type, "Function") then
-                typeerror(errors, "reference to function '" .. node.name .. "' of module '" .. mod.name ..
-                    "' outside of function call", node._pos)
                 node._type = types.Integer
             else
                 local decl = mod.members[node.name]
@@ -406,7 +408,16 @@ function checkexp(node, st, errors, context)
         end
     elseif tag == "Exp_Var" then
         checkexp(node.var, st, errors, context)
-        node._type = node.var._type
+        local texp = node.var._type
+        if types.has_tag(texp, "Module") then
+            typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
+            node._type = types.Integer
+        elseif types.has_tag(texp, "Function") then
+            typeerror(errors, "trying to access a function as a first-class value", node._pos)
+            node._type = types.Integer
+        else
+            node._type = texp
+        end
     elseif tag == "Exp_Unop" then
         local op = node.op
         checkexp(node.exp, st, errors)
@@ -563,29 +574,12 @@ function checkexp(node, st, errors, context)
         end
     elseif tag == "Exp_Call" then
         assert(node.exp._tag == "Exp_Var", "function calls are first-order only!")
-        local fname, func
         local var = node.exp.var
-        if var._tag == "Var_Name" then
-            fname = var.name
-            func = st:find_symbol(fname)
-        elseif var._tag == "Var_Dot" then
-            local mod = var.exp
-            if mod._tag ~= "Exp_Var" or var.exp.var._tag ~= "Var_Name" then
-                typeerror(errors, "trying to call a function on something that is not a module", node._pos)
-                fname = var.name
-            else
-                local modname = var.exp.var.name
-                fname = modname .. "." .. var.name
-                local mod = st:find_symbol(modname)
-                if mod then
-                    func = mod.members[var.name]
-                end
-            end
-        else
-            error("invalid tag for function: ", var._tag)
-        end
-        if func and func._type._tag == "Function" then
-            local ftype = func._type
+        checkexp(var, st, errors)
+        node.exp._type = var._type
+        local fname = var._tag == "Var_Name" and var.name or (var.exp.var.name .. "." .. var.name)
+        if types.has_tag(var._type, "Function") then
+            local ftype = var._type
             local nparams = #ftype.params
             local args = node.args.args
             local nargs = #args
@@ -605,21 +599,15 @@ function checkexp(node, st, errors, context)
                 if not ptype then
                     ptype = atype
                 end
-                checkmatch("argument " .. i .. " of call to function " .. fname, ptype, atype, errors, node.exp._pos)
+                checkmatch("argument " .. i .. " of call to function '" .. fname .. "'", ptype, atype, errors, node.exp._pos)
             end
             if nargs ~= nparams then
                 typeerror(errors, "function " .. fname .. " called with " .. nargs ..
                     " arguments but expects " .. nparams, node._pos)
             end
             node._type = ftype.ret
-        elseif func and func._type._tag ~= "Function" then
-            typeerror(errors, fname .. " is not a function", node._pos)
-            for _, arg in ipairs(node.args.args) do
-                checkexp(arg, st, errors)
-            end
-            node._type = types.Integer
         else
-            typeerror(errors, "function " .. fname .. " not found", node._pos)
+            typeerror(errors, "'%s' is not a function but %s", node._pos, fname, types.tostring(var._type))
             for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
