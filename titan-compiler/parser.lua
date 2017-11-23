@@ -173,6 +173,8 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
+re.setlabels(syntax_errors.label_to_int)
+
 local grammar = re.compile([[
 
     program         <-  SKIP*
@@ -182,7 +184,7 @@ local grammar = re.compile([[
                            / import )* |} !.
 
     toplevelfunc    <- ({} localopt
-                           FUNCTION NAME
+                           FUNCTION (NAME / %{NameFunc})
                            LPAREN parlist RPAREN
                            COLON type
                            block END)                       -> TopLevel_Func

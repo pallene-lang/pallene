@@ -18,6 +18,7 @@ local errors = {
     { label = "InvalidEscape",
         msg = "Invalid escape character in string" },
 
+    --not used currently
     { label = "MalformedEscape_ddd",
         msg = "\\ddd escape sequences must have at most three digits."  },
 
@@ -26,6 +27,9 @@ local errors = {
 
     { label = "MalformedEscape_x",
         msg = "\\x escape sequences must have exactly two hexadecimal digits." },
+    
+    { label = "NameFunc",
+        msg = "Expected a function name after 'function'." },
 }
 
 syntax_errors.label_to_msg = {}
