@@ -1203,5 +1203,23 @@ describe("Titan type checker", function()
         assert.match("'a' is not a function", err)
     end)
 
+    it("correctly uses module function", function ()
+        local modules = {
+            foo = [[
+                function a(): integer
+                    return 42
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.a()
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.truthy(ok)
+    end)
+
 end)
 
