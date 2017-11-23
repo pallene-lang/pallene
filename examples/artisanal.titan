@@ -16,7 +16,7 @@ function doubleb(): integer
     return b
 end
 
-function setc(t: { integer }): nil
+function setc(t: { integer })
     c = t
 end
 
@@ -77,7 +77,7 @@ function sieve(N: integer): {integer}
 end
 
 
-function sort(xs: {integer}): nil
+function sort(xs: {integer})
     local N = #xs
     for i=1,N do
 
@@ -147,7 +147,7 @@ local function partition(array: {integer}, p: integer, r: integer): integer
     return i + 1
 end
 
-function quicksort(array: {integer}, left: integer, right: integer): nil
+function quicksort(array: {integer}, left: integer, right: integer)
 	if right > left then
 	    local pivotNewIndex = partition(array, left, right)
 	    quicksort(array, left, pivotNewIndex - 1)
@@ -155,11 +155,11 @@ function quicksort(array: {integer}, left: integer, right: integer): nil
 	end
 end
 
-function qsort(array: {integer}): nil
+function qsort(array: {integer})
   quicksort(array, 1, #array)
 end
 
-function delete(array: {integer}, i: integer): nil
+function delete(array: {integer}, i: integer)
   array[i] = nil
 end
 
@@ -175,6 +175,6 @@ function concat(a: string): string
   return tab.indent .. a .. "foo"
 end
 
-function setindent(a: string): nil
+function setindent(a: string)
   tab.indent = a
 end
