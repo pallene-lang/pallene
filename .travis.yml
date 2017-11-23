@@ -53,7 +53,7 @@ before_install:
   - pip install hererocks
   - hererocks lua_install -rlatest --$INSTALL_LUA
   - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
-  - cd lua; make linux MYCFLAGS=-fPIC; cd ..
+  - cd lua; make linux; cd ..
 
 install:
   - luarocks install busted

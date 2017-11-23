@@ -15,13 +15,13 @@ local function generate(ast, modname)
     local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
 
     local cc_cmd = string.format([[
-        %s %s -shared %s.c lua/src/liblua.a -o %s.so
+        %s %s -shared %s.c -o %s.so
         ]], CC, CFLAGS, modname, modname)
     return os.execute(cc_cmd)
 end
 
 local function call(modname, code)
-    local cmd = string.format("lua/src/lua -l %s -e \"%s\"",
+    local cmd = string.format("lua/src/titan -l %s -e \"%s\"",
         modname, code)
     return os.execute(cmd)
 end

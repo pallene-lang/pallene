@@ -1,4 +1,4 @@
-#!/usr/bin/env lua
+#!/usr/bin/env titan
 
 local argparse = require 'argparse'
 
@@ -92,6 +92,6 @@ local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
 for _, source in ipairs(sources) do
     local soname = source.source:gsub("[.]c$", ".so")
     os.execute(string.format([[
-%s %s -I%s -fPIC -shared %s %s lua/src/liblua.a -o %s
+%s %s -I%s -fPIC -shared %s %s -o %s
 ]], CC, CFLAGS, args.lua, source.source, table.concat(source.deps, " "), soname))
 end
