@@ -115,7 +115,7 @@ describe("Titan type checker", function()
 
     it("catches variable not declared", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local x:integer = 1
                 y = 2
             end
@@ -127,7 +127,7 @@ describe("Titan type checker", function()
 
     it("catches array expression in indexing is not an array", function()
         local code = [[
-            function fn(x: integer): nil
+            function fn(x: integer)
                 x[1] = 2
             end
         ]]
@@ -171,7 +171,7 @@ describe("Titan type checker", function()
 
     it("catches mismatching types in locals", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local i: integer = 1
                 local s: string = "foo"
                 s = i
@@ -184,11 +184,11 @@ describe("Titan type checker", function()
 
     it("function can call another function", function()
         local code = [[
-            function fn1(): nil
+            function fn1()
               fn2()
             end
 
-            function fn2(): nil
+            function fn2()
             end
         ]]
         local ok, err = run_checker(code)
@@ -208,7 +208,7 @@ describe("Titan type checker", function()
 
     it("allows setting element of array as nil", function ()
         local code = [[
-            function fn(): nil
+            function fn()
                 local arr: {integer} = { 10, 20, 30 }
                 arr[1] = nil
             end
@@ -514,7 +514,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with boolean", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. true
             end
         ]]
@@ -525,7 +525,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with nil", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. nil
             end
         ]]
@@ -536,7 +536,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with array", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. {}
             end
         ]]
@@ -547,7 +547,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with boolean", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. true
             end
         ]]
@@ -558,7 +558,7 @@ describe("Titan type checker", function()
 
     it("can concatenate with integer and float", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = 1 .. 2.5
             end
         ]]
@@ -806,7 +806,7 @@ describe("Titan type checker", function()
             function geta(): integer
                 return a
             end
-            local function foo(): nil end
+            local function foo() end
         ]]
         local ast, err = parser.parse(code)
         assert.truthy(ast, err)
@@ -840,7 +840,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer = 1
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -864,7 +864,7 @@ describe("Titan type checker", function()
             foo = [[
                 local bar = import "bar"
                 a: integer = nil
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -879,7 +879,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer =
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -948,7 +948,7 @@ describe("Titan type checker", function()
             function geta(): integer
                 return a
             end
-            local function foo(): nil end
+            local function foo() end
         ]] }
         local ok, err, mods = run_checker_modules(modules, "test")
         assert.truthy(ok)
@@ -979,7 +979,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer = 1
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -1003,7 +1003,7 @@ describe("Titan type checker", function()
             foo = [[
                 local bar = import "bar"
                 a: integer = nil
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -1018,7 +1018,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer =
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -1106,7 +1106,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer = 1
-                function foo(): nil
+                function foo()
                 end
             ]],
             bar = [[
@@ -1125,7 +1125,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer = 1
-                function foo(): nil
+                function foo()
                 end
             ]],
             bar = [[

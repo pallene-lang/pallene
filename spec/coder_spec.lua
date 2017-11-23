@@ -29,7 +29,7 @@ end
 describe("Titan code generator", function()
     it("deletes array element", function()
         local code = [[
-            function delete(array: {integer}, i: integer): nil
+            function delete(array: {integer}, i: integer)
                 array[i] = nil
             end
         ]]
@@ -66,7 +66,7 @@ describe("Titan code generator", function()
 
     it("tests nil element in 'while'", function()
         local code = [[
-            function testfill(t: {integer}, i: integer, v: integer): nil
+            function testfill(t: {integer}, i: integer, v: integer)
                 while not t[i] and i > 0 do
                     t[i] = v
                     i = i - 1
@@ -85,7 +85,7 @@ describe("Titan code generator", function()
 
     it("tests nil element in 'repeat'", function()
         local code = [[
-            function testfill(t: {integer}, i: integer, v: integer): nil
+            function testfill(t: {integer}, i: integer, v: integer)
                 repeat
                     t[i] = v
                     i = i - 1
@@ -434,7 +434,7 @@ describe("Titan code generator", function()
             function geta(): integer
                 return a
             end
-            function seta(x: integer): nil
+            function seta(x: integer)
                 a = x
             end
         ]]
@@ -454,7 +454,7 @@ describe("Titan code generator", function()
             function geta(): float
                 return a
             end
-            function seta(x: float): nil
+            function seta(x: float)
                 a = x
             end
         ]]
@@ -474,7 +474,7 @@ describe("Titan code generator", function()
             function geta(): boolean
                 return a
             end
-            function seta(x: boolean): nil
+            function seta(x: boolean)
                 a = x
             end
         ]]
@@ -494,7 +494,7 @@ describe("Titan code generator", function()
             function len(): integer
                 return #a
             end
-            function seta(x: {integer}): nil
+            function seta(x: {integer})
                 a = x
             end
         ]]
@@ -529,7 +529,7 @@ describe("Titan code generator", function()
 
     it("handles unused locals", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local f: float = 1.0
                 local i: integer = f
             end
