@@ -470,8 +470,8 @@ local function codeassignment(ctx, node)
     -- has to generate different code if lvar is just a variable
     -- or an array indexing.
     local vtag = node.var._tag
-    if vtag == "Var_Name" then
-        if node.var._decl._tag == "TopLevel_Var" and not node.var._decl.islocal then
+    if vtag == "Var_Name" or (vtag == "Var_Dot" and node.var._decl) then
+        if vtag == "Var_Dot" or (node.var._decl._tag == "TopLevel_Var" and not node.var._decl.islocal) then
             local cstats, cexp = codeexp(ctx, node.exp)
             return render([[
                 $CSTATS
@@ -718,7 +718,7 @@ end
 -- the preliminary code is always the empty string
 
 local function codevar(ctx, node)
-    if node._decl._tag == "TopLevel_Var" and not node._decl.islocal then
+    if node._tag == "Var_Dot" or (node._decl._tag == "TopLevel_Var" and not node._decl.islocal) then
         return "", getslot(node._type, nil, node._decl._slot)
     else
         return "", node._decl._cvar
@@ -995,7 +995,7 @@ end
 --    in this case it will be the '_decl' of the lvalue
 function codeexp(ctx, node, iscondition, target)
     local tag = node._tag
-    if tag == "Var_Name" then
+    if tag == "Var_Name" or (tag == "Var_Dot" and node._decl) then
         return codevar(ctx, node)
     elseif tag == "Var_Bracket" then
         return codeindex(ctx, node, iscondition)
@@ -1373,7 +1373,7 @@ function coder.generate(modname, ast)
                     if types.has_tag(member._type, "Function") then
                         table.insert(includes, externalsig(mprefix, name .. "_titan", member._type))
                     else
-                        table.insert(includes, "external TValue *" .. member._slot .. ";")
+                        table.insert(includes, "extern TValue *" .. member._slot .. ";")
                     end
                 end
             else

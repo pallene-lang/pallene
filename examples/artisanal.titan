@@ -172,5 +172,9 @@ function lit(): string
 end
 
 function concat(a: string): string
-  return a .. "foo"
+  return tab.indent .. a .. "foo"
+end
+
+function setindent(a: string): nil
+  tab.indent = a
 end
