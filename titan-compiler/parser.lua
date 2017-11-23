@@ -184,10 +184,10 @@ local grammar = re.compile([[
                            / import )* |} !.
 
     toplevelfunc    <- ({} localopt
-                           FUNCTION (NAME / %{NameFunc})
-                           LPAREN parlist RPAREN
-                           COLON type
-                           block END)                       -> TopLevel_Func
+                           FUNCTION (NAME / %{FuncName})
+                           (LPAREN / %{OParenPList}) parlist (RPAREN / %{CParenPList})
+                           (COLON / %{ColonFunc}) (type / %{TypeFunc})
+                           block (END / %{EndFunc}))        -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
 

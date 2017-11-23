@@ -28,8 +28,23 @@ local errors = {
     { label = "MalformedEscape_x",
         msg = "\\x escape sequences must have exactly two hexadecimal digits." },
     
-    { label = "NameFunc",
+    { label = "FuncName",
         msg = "Expected a function name after 'function'." },
+    
+    { label = "OParenPList",
+        msg = "Expected '(' for the parameter list." },
+    
+    { label = "CParenPList",
+        msg = "Expected ')' to close the parameter list." },
+    
+    { label = "ColonFunc",
+        msg = "Expected ':' after the parameter list." },
+    
+    { label = "TypeFunc",
+        msg = "Expected a type in function declaration." },
+    
+    { label = "EndFunc",
+        msg = "Expected 'end' to close the function body." },
 }
 
 syntax_errors.label_to_msg = {}
