@@ -184,14 +184,16 @@ local grammar = re.compile([[
                            / import )* |} !.
 
     toplevelfunc    <- ({} localopt
-                           FUNCTION (NAME / %{FuncName})
+                           FUNCTION (NAME / %{NameFunc})
                            (LPAREN / %{OParenPList}) parlist (RPAREN / %{CParenPList})
                            (COLON / %{ColonFunc}) (type / %{TypeFunc})
                            block (END / %{EndFunc}))        -> TopLevel_Func
 
-    toplevelvar     <- ({} localopt decl ASSIGN exp)        -> TopLevel_Var
+    toplevelvar     <- ({} localopt decl (ASSIGN / %{AssignVar})
+                           (exp / %{ExpVarDec}))            -> TopLevel_Var
 
-    toplevelrecord  <- ({} RECORD NAME recordfields END)    -> TopLevel_Record
+    toplevelrecord  <- ({} RECORD (NAME / %{NameRecord}) (recordfields / %{FieldRecord})
+                           (END / %{EndRecord}))            -> TopLevel_Record
 
     localopt        <- (LOCAL)?                             -> boolopt
 

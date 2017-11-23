@@ -28,7 +28,7 @@ local errors = {
     { label = "MalformedEscape_x",
         msg = "\\x escape sequences must have exactly two hexadecimal digits." },
     
-    { label = "FuncName",
+    { label = "NameFunc",
         msg = "Expected a function name after 'function'." },
     
     { label = "OParenPList",
@@ -45,6 +45,21 @@ local errors = {
     
     { label = "EndFunc",
         msg = "Expected 'end' to close the function body." },
+    
+    { label = "AssignVar",
+        msg = "Expected '=' after variable declaration." },
+    
+    { label = "ExpVarDec",
+        msg = "Expected an expression to initialize variable." },
+    
+    { label = "NameRecord",
+        msg = "Expected a record name after 'record'." },
+    
+    { label = "EndRecord",
+        msg = "Expected 'end' to close the record." },
+    
+    { label = "FieldRecord",
+        msg = "Expected a field in record declaration." },
 }
 
 syntax_errors.label_to_msg = {}
