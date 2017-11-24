@@ -1,4 +1,4 @@
-#!/usr/bin/env titan
+#!/usr/bin/env lua
 
 local argparse = require 'argparse'
 
