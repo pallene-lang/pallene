@@ -1367,11 +1367,11 @@ function coder.generate(modname, ast)
                 table.insert(initmods, string.format("%sinit(L);", node._type.prefix))
                 table.insert(deps, node.modname)
                 for name, member in pairs(node._type.members) do
-                    if not member._slot and not types.has_tag(member._type, "Function") then
+                    if not member._slot and not types.has_tag(member, "Function") then
                         member._slot = mprefix .. name .. "_titanvar"
                     end
-                    if types.has_tag(member._type, "Function") then
-                        table.insert(includes, externalsig(mprefix, name .. "_titan", member._type))
+                    if types.has_tag(member, "Function") then
+                        table.insert(includes, externalsig(mprefix, name .. "_titan", member))
                     else
                         table.insert(includes, "extern TValue *" .. member._slot .. ";")
                     end

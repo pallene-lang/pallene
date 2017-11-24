@@ -361,9 +361,8 @@ function checkexp(node, st, errors, context)
                 node._type = types.Integer
             else
                 local decl = mod.members[node.name]
-                decl._used = true
                 node._decl = decl
-                node._type = decl._type
+                node._type = decl
             end
         elseif types.has_tag(texp, "Record") then
             error("not implemented yet")
@@ -666,9 +665,9 @@ local function maketype(modname, ast)
         if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
             local tag = tlnode._tag
             if tag == "TopLevel_Func" then
-                members[tlnode.name] = tlnode
+                members[tlnode.name] = tlnode._type
             elseif tag == "TopLevel_Var" then
-                members[tlnode.decl.name] = tlnode
+                members[tlnode.decl.name] = tlnode._type
             end
         end
     end

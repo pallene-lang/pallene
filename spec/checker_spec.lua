@@ -816,8 +816,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "test",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                geta = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                geta = { _tag = "Function" }
             }
         })
         assert.falsy(mod.members.b)
@@ -853,8 +853,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "foo",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                foo = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                foo = { _tag = "Function" }
             }
         })
     end)
@@ -956,8 +956,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "test",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                geta = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                geta = { _tag = "Function" }
             }
         })
         assert.falsy(mods.test.type.members.b)
@@ -992,8 +992,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "foo",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                foo = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                foo = { _tag = "Function" }
             }
         })
     end)
