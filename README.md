@@ -15,8 +15,7 @@ The syntax is a subset of Lua syntax, plus types, and is specified in `titan-v0.
 
 First you need to build and install the Lua interpreter in the `lua` folder, 
 as it has the needed changes to `luaconf.h` to be able to load Titan modules. 
-The interpreter binary is `titan`, and apart from the changes in `luaconf.h`
-is identical to Lua 5.3.4.
+Apart from the changes in `luaconf.h` this interpreter is identical to Lua 5.3.4.
 The `package.cpath` of this interpreter has a `/usr/local/lib/titan/5.3.4/?.so`
 entry for any system-wide Titan modules.
 

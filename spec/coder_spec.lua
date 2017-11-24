@@ -38,7 +38,7 @@ end
 
 
 local function call(modname, code)
-    local cmd = string.format("lua/src/titan -l %s -e \"%s\"",
+    local cmd = string.format("lua/src/lua -l %s -e \"%s\"",
         modname, code)
     return os.execute(cmd)
 end

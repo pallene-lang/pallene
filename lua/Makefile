@@ -24,7 +24,7 @@ INSTALL_TMOD= $(INSTALL_TOP)/lib/titan/$R
 # you may have to run ranlib on the installed liblua.a.
 INSTALL= install -p
 INSTALL_EXEC= $(INSTALL) -m 0755
-INSTALL_DATA= $(INSTALL) -b -m 0644
+INSTALL_DATA= $(INSTALL) -m 0644
 #
 # If you don't have "install" you can use "cp" instead.
 # INSTALL= cp -p
@@ -41,10 +41,10 @@ RM= rm -f
 PLATS= aix bsd c89 freebsd generic linux macosx mingw posix solaris
 
 # What to install.
-TO_BIN= titan luac
+TO_BIN= lua luac
 TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp
-TO_LIB= libtitan.a
-TO_MAN= titan.1 luac.1
+TO_LIB= liblua.a
+TO_MAN= lua.1 luac.1
 
 # Lua version and release.
 V= 5.3
@@ -60,7 +60,7 @@ test:	dummy
 	src/lua -v
 
 install: dummy
-	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD)
+	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD) $(INSTALL_TMOD)
 	cd src && $(INSTALL_EXEC) $(TO_BIN) $(INSTALL_BIN)
 	cd src && $(INSTALL_DATA) $(TO_INC) $(INSTALL_INC)
 	cd src && $(INSTALL_DATA) $(TO_LIB) $(INSTALL_LIB)
