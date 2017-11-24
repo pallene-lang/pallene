@@ -26,11 +26,6 @@ local labels = syntax_errors.label_to_int
 
 local lexer = {}
 
-local function lex_error(message)
-    -- TODO: figure this out
-    error(message)
-end
-
 --
 -- Numbers
 --

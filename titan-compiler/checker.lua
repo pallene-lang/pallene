@@ -1,6 +1,5 @@
 local checker = {}
 
-local parser = require "titan-compiler.parser"
 local symtab = require "titan-compiler.symtab"
 local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"

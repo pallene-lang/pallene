@@ -217,9 +217,9 @@ local function newslot(ctx --[[:table]], name --[[:string]])
     ctx.allocations = ctx.allocations + 1
     if ctx.depth > ctx.nslots then ctx.nslots = ctx.depth end
     return render([[
-    	TValue *$NAME = _base + $SDEPTH;
+        TValue *$NAME = _base + $SDEPTH;
     ]], {
-    	NAME = name,
+        NAME = name,
         SDEPTH = c_integer_literal(sdepth),
     })
 end
@@ -816,7 +816,6 @@ local function codetable(ctx, node, target)
         }))
 
     end
-    local cbarrier = ""
     for i, slot in ipairs(slots) do
         table.insert(stats, render([[
             setobj2t(L, &$TMPNAME->array[$INDEX], $SLOT);
@@ -1325,10 +1324,6 @@ int $LUAOPEN_NAME(lua_State *L) {
     luaL_setmetatable(L, $MODNAMESTR);
     return 1;
 }
-]]
-
-local initsig = [[
-    void $INITNAME(lua_State *L);
 ]]
 
 local init = [[

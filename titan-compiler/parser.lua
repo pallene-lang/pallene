@@ -1,6 +1,5 @@
 local parser = {}
 
-local lpeg = require "lpeglabel"
 local re = require "relabel"
 local inspect = require "inspect"
 

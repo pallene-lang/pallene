@@ -1,7 +1,6 @@
 local parser = require  "titan-compiler.parser"
 local util = require "titan-compiler.util"
 local checker = require "titan-compiler.checker"
-local types = require "titan-compiler.types"
 local coder = require "titan-compiler.coder"
 local pretty = require "titan-compiler.pretty"
 
