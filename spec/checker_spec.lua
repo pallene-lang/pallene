@@ -1221,5 +1221,15 @@ describe("Titan type checker", function()
         assert.truthy(ok)
     end)
 
+    it("functions cannot have two parameters with the same name", function()
+        local code = [[
+            function f(a: integer, a: integer)
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match('duplicate parameter', err)
+    end)
+
 end)
 
