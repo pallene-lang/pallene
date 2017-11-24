@@ -136,7 +136,7 @@ is assumed that the function does not return anything or just returns `nil`.
 Parameters are a comma-separated list of `<name>: <type>`. Two parameters cannot
 have the same name. The body is a sequence of statements.
 
-### The Complete Syntax of Titan
+## The Complete Syntax of Titan
 
 Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, {A} means 0 or more As, and \[A\] means an optional A.
 
