@@ -31,10 +31,10 @@ local errors = {
     { label = "NameFunc",
         msg = "Expected a function name after 'function'." },
     
-    { label = "OParenPList",
+    { label = "OParPList",
         msg = "Expected '(' for the parameter list." },
     
-    { label = "CParenPList",
+    { label = "CParPList",
         msg = "Expected ')' to close the parameter list." },
     
     { label = "ColonFunc",
@@ -60,6 +60,30 @@ local errors = {
     
     { label = "FieldRecord",
         msg = "Expected a field in record declaration." },
+    
+    { label = "NameImport",
+        msg = "Expected a name after 'local'." },
+   
+   --this label is not thrown in rule 'import' because rule 'toplevelvar'
+   --matches an invalid input like "local bola import"
+   { label = "AssignImport",
+        msg = "Expected '=' ." },
+   
+   --this label is not thrown in rule 'import' because rule 'toplevelvar'
+   --matches an input like "local bola = X", given that X is valid expression,
+   --or throws a label when X is not a valid expression
+   { label = "ImportImport",
+        msg = "Expected 'import' keyword" },
+   
+   { label = "StringOParImport",
+        msg = "Expected the name of a module after '('" },
+   
+   { label = "CParImport",
+        msg = "Expected ')' to close import declaration" },
+   
+   { label = "StringImport",
+        msg = "Expected the name of a module after 'import'" },
+
 }
 
 syntax_errors.label_to_msg = {}
