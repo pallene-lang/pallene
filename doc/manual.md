@@ -62,7 +62,7 @@ declarations*. These can appear in any order, but the Titan compiler reorders
 them so all import statements come first (in the order they appear), followed by
 variable declarations (again in the order they appear), and finally by function
 declarations, so an imported module can be used anywhere in a module,
-an module variable can be used in any function as well as variable declarations
+a module variable can be used in any function as well as variable declarations
 that follow it, and module functions can be used in any other function.
 
 ### `import` statements
