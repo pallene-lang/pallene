@@ -4,6 +4,7 @@ local types = require 'titan-compiler.types'
 local coder = require 'titan-compiler.coder'
 local util = require 'titan-compiler.util'
 local pretty = require 'titan-compiler.pretty'
+local driver = require 'titan-compiler.driver'
 
 local function generate(ast, modname)
     os.remove(modname .. ".c")
@@ -21,44 +22,15 @@ local function generate(ast, modname)
     return os.execute(cc_cmd)
 end
 
-local function compile_module(name)
-    if not checker.imported[name].compiled then
-        local mod = checker.imported[name]
-        os.remove(name .. ".c")
-        os.remove(name .. ".so")
-        local code, deps = coder.generate(name, mod.ast)
-        code = pretty.reindent_c(code)
-        local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
-        local ok, err = util.set_file_contents(filename, code)
-        if not ok then return nil, err end
-        for i = 1, #deps do
-            compile_module(deps[i])
-            deps[i] = "./" .. deps[i] .. ".so"
-        end
-        local CC = "gcc"
-        local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
-        local cc_cmd = string.format([[
-            %s %s -shared %s.c %s -o %s.so
-            ]], CC, CFLAGS, name, table.concat(deps, " "), name)
-        --print(cc_cmd)
-        local ok, err = os.execute(cc_cmd)
-        if not ok then return nil, err end
-        checker.imported[name].compiled = true
-    end
-    return true
-end
-
 local function generate_modules(modules, main)
-    checker.imported = {}
-    local function loader(modname)
-        local ast, err = parser.parse(modules[modname])
-        if not ast then return false, parser.error_to_string(err, modname .. ".titan") end
-        return true, ast, modules[modname], modname .. ".titan"
-    end
-    local _, err = checker.checkimport(main, loader)
-    if not (#err == 0) then return nil, table.concat(err, "\n") end
-    for name, _ in pairs(checker.imported) do
-        local ok, err = compile_module(name)
+    local CC = "gcc"
+    local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
+    local imported = {}
+    local loader = driver.tableloader(modules, imported)
+    local _, errs = checker.checkimport(main, loader)
+    if not (#errs == 0) then return nil, table.concat(errs, "\n") end
+    for name, _ in pairs(imported) do
+        local ok, err = driver.compile_module(CC, CFLAGS, imported, name)
         if not ok then return nil, err end
     end
     return true

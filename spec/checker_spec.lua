@@ -1,23 +1,20 @@
 local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
+local driver = require 'titan-compiler.driver'
 
 local function run_checker(code)
-    checker.imported = {}
+    driver.imported = {}
     local ast = assert(parser.parse(code))
-    local _, err = checker.check("test", ast, code, "test.titan")
-    return err == nil, err, ast
+    local t, errs = checker.check("test", ast, code, "test.titan", driver.defaultloader)
+    return #errs == 0, table.concat(errs, "\n"), ast, t
 end
 
 local function run_checker_modules(modules, main)
-    checker.imported = {}
-    local function loader(modname)
-        local ast, err = parser.parse(modules[modname])
-        if not ast then return false, parser.error_to_string(err, modname .. ".titan") end
-        return true, ast, modules[modname], modname .. ".titan"
-    end
-    local _, err = checker.checkimport(main, loader)
-    return #err == 0, table.concat(err, "\n"), checker.imported
+    local imported = {}
+    local loader = driver.tableloader(modules, imported)
+    local _, errs = checker.checkimport(main, loader)
+    return #errs == 0, table.concat(errs, "\n"), imported
 end
 
 -- Return a version of t2 that only contains fields present in t1 (recursively)
@@ -808,10 +805,8 @@ describe("Titan type checker", function()
             end
             local function foo() end
         ]]
-        local ast, err = parser.parse(code)
-        assert.truthy(ast, err)
-        local mod, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(mod, err)
+        local ok, err, _, mod = run_checker(code)
+        assert.truthy(ok, err)
         assert_ast(mod, {
             _tag = "Module",
             name = "test",
@@ -829,9 +824,8 @@ describe("Titan type checker", function()
             local foo = import "foo"
             local bar = import "bar.baz"
         ]]
-        local ast, err = parser.parse(code)
-        assert.truthy(ast, err)
-        local mod, err = checker.check("test", ast, code, "test.titan")
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
         assert.match("no file './foo.titan'", err)
         assert.match("no file './bar/baz.titan'", err)
     end)

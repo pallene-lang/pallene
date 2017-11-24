@@ -7,6 +7,7 @@ local coder = require 'titan-compiler.coder'
 local parser = require 'titan-compiler.parser'
 local util = require 'titan-compiler.util'
 local pretty = require 'titan-compiler.pretty'
+local driver = require 'titan-compiler.driver'
 
 local p = argparse('titan', 'Titan compiler')
 p:argument('input', 'Input file.')
@@ -47,8 +48,8 @@ if args.print_ast then
   os.exit(0)
 end
 
-local ok, errmsgs = checker.check(args.modname, ast, input, args.input)
-if errmsgs then exit(errmsgs) end
+local _, errors = checker.check(args.modname, ast, input, args.input, driver.defaultloader)
+if #errors > 0 then exit(table.concat(errors, "\n")) end
 
 if args.print_types then
     print(parser.pretty_print_ast(ast))
@@ -59,52 +60,28 @@ local function getpath(fname)
     return fname:match("^(.*)[/\\]") or "."
 end
 
-local function mods2so(mods)
-    local sos = {}
-    for _, modname in ipairs(mods) do
-        table.insert(sos, checker.imported[modname].filename:gsub("[.]titan$", "") .. ".so")
-    end
-    return sos
+local generated_code, deps = coder.generate(args.modname, ast)
+
+for i = 1, #deps do
+    deps[i] = driver.imported[deps[i]].filename:gsub("[.]titan", ".so")
 end
 
-local generated_code, deps = coder.generate(args.modname, ast)
 generated_code = pretty.reindent_c(generated_code)
-ok, errmsg = util.set_file_contents(args.output, generated_code)
+local ok, errmsg = util.set_file_contents(args.output, generated_code)
 if not ok then exit(errmsg) end
 
 local CC = os.getenv("CC") or "gcc"
 local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
+CFLAGS = string.format("%s -I%s -fPIC", CFLAGS, args.lua)
 
-local function compile_module(name)
-    if not checker.imported[name].compiled then
-        local mod = checker.imported[name]
-        local code, deps = coder.generate(name, mod.ast)
-        code = pretty.reindent_c(code)
-        local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
-        local ok, err = util.set_file_contents(filename, code)
-        if not ok then return exit(err) end
-        for i = 1, #deps do
-            compile_module(deps[i])
-            deps[i] = mods2so(deps[i])
-        end
-        local soname = filename:gsub("[.]c$", ".so")
-        local cc_cmd = string.format([[
-            %s %s -I%s -fPIC -shared %s %s -o %s
-            ]], CC, CFLAGS, args.lua, filename, table.concat(deps, " "), soname)
-        --print(cc_cmd)
-        local ok, err = os.execute(cc_cmd)
-        if not ok then return exit(err) end
-        checker.imported[name].compiled = true
-    end
-end
-
-for name, _ in pairs(checker.imported) do
+for name, _ in pairs(driver.imported) do
     if name ~= args.modname then
-        compile_module(name)
+        local ok, err = driver.compile_module(CC, CFLAGS, driver.imported, name)
+        if not ok then exit(err) end
     end
 end
 
 local soname = args.output:gsub("[.]c$", ".so")
 os.execute(string.format([[
 %s %s -I%s -fPIC -shared %s %s -o %s
-]], CC, CFLAGS, args.lua, args.output, table.concat(mods2so(deps), " "), soname))
+]], CC, CFLAGS, args.lua, args.output, table.concat(deps, " "), soname))
