@@ -136,3 +136,56 @@ is assumed that the function does not return anything or just returns `nil`.
 Parameters are a comma-separated list of `<name>: <type>`. Two parameters cannot
 have the same name. The body is a sequence of statements.
 
+### The Complete Syntax of Titan
+
+Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, {A} means 0 or more As, and \[A\] means an optional A.
+
+    program ::= {tlfunc | tlvar}
+
+    tlfunc ::= [local] function Name '(' [parlist] ')'  ':' type block end
+
+    tlvar ::= [local] Name [':' type] '=' Numeral
+
+    parlist ::= Name ':' type {',' Name ':' type}
+
+    type ::= integer | float | boolean | string | '{' type '}' |
+
+    block ::= {stat} [retstat]
+
+    stat ::=  ';' |
+        var '=' exp |
+        functioncall |
+        do block end |
+        while exp do block end |
+        repeat block until exp |
+        if exp then block {elseif exp then block} [else block] end |
+        for Name '=' exp ',' exp [',' exp] do block end |
+        local name [':' type] '=' exp
+
+    retstat ::= return exp [';']
+
+    var ::=  Name | prefixexp '[' exp ']'
+
+    explist ::= exp {',' exp}
+
+    exp ::= nil | false | true | Numeral | LiteralString |
+        prefixexp | tableconstructor | exp binop exp | unop exp
+
+    prefixexp ::= var | functioncall | '(' exp ')'
+
+    functioncall ::= prefixexp args
+
+    args ::= '(' [explist] ')' | tableconstructor | LiteralString
+
+    tableconstructor ::= '{' [fieldlist] '}'
+
+    fieldlist ::= exp {fieldsep exp} [fieldsep]
+
+    fieldsep ::= ',' | ';'
+
+    binop ::=  '+' | '-' | '*' | '/' | '//' | '^' | '%' |
+        '&' | '~' | '|' | '>>' | '<<' | '..' |
+        '<' | '<=' | '>' | '>=' | '==' | '~=' |
+        and | or
+
+    unop ::= '-' | not | '#' | '~'
