@@ -140,15 +140,21 @@ have the same name. The body is a sequence of statements.
 
 Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, {A} means 0 or more As, and \[A\] means an optional A.
 
-    program ::= {tlfunc | tlvar}
+    program ::= {tlfunc | tlvar | tlrecord}
 
     tlfunc ::= [local] function Name '(' [parlist] ')'  ':' type block end
 
     tlvar ::= [local] Name [':' type] '=' Numeral
 
+    tlrecord ::= record Name recordfields end
+
     parlist ::= Name ':' type {',' Name ':' type}
 
-    type ::= integer | float | boolean | string | '{' type '}' |
+    type ::= integer | float | boolean | string | '{' type '}'
+
+    recordfields ::= recordfield {recordfield}
+
+    recordfield ::= Name ':' type
 
     block ::= {stat} [retstat]
 
@@ -164,7 +170,7 @@ Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, 
 
     retstat ::= return exp [';']
 
-    var ::=  Name | prefixexp '[' exp ']'
+    var ::=  Name | prefixexp '[' exp ']' | prefixexp '.' Name
 
     explist ::= exp {',' exp}
 
