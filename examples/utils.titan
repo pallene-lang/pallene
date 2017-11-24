@@ -1,0 +1,27 @@
+indent = "  "
+
+function flatten(xs: {{integer}}): {integer}
+  local res: {integer} = {}
+  for i = 1, #xs do
+    for j = 1, #xs[i] do
+      res[#res+1] = xs[i][j]
+    end
+  end
+  return res
+end
+
+function split(xs: {integer}, n: integer): {{integer}}
+  local res: {{integer}} = {}
+  local lin = 0
+  local col = 1
+  for i = 1, #xs do
+    if i % n == 1 then
+      res[#res+1] = {}
+      lin = lin + 1
+      col = 1
+    end
+    res[lin][col] = xs[i]
+    col = col + 1
+  end
+  return res
+end
