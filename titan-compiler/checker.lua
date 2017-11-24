@@ -711,12 +711,12 @@ end
 local function defaultloader(modname)
     local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
     local modf, err = package.searchpath(modname, SEARCHPATH)
-    if not modf then return nil, err end
+    if not modf then return false, err end
     local input, err = util.get_file_contents(modf)
-    if not input then return nil, err end
+    if not input then return false, err end
     local ast, err = parser.parse(input)
-    if not ast then return nil, parser.error_to_string(err, modf) end
-    return ast, input, modf
+    if not ast then return false, parser.error_to_string(err, modf) end
+    return true, ast, input, modf
 end
 
 local function checkmodule(modname, ast, subject, filename, loader)
@@ -733,9 +733,9 @@ local function checkmodule(modname, ast, subject, filename, loader)
 end
 
 function checker.checkimport(modname, loader)
-    local ast, subject_or_err, filename = loader(modname)
-    if not ast then return nil, { subject_or_err } end
-    return checkmodule(modname, ast, subject_or_err, filename, loader)
+    local ok, ast_or_err, subject, filename = loader(modname)
+    if not ok then return nil, { ast_or_err } end
+    return checkmodule(modname, ast_or_err, subject, filename, loader)
 end
 
 -- Entry point for the typechecker

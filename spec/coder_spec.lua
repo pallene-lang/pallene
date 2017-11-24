@@ -52,8 +52,8 @@ local function generate_modules(modules, main)
     checker.imported = {}
     local function loader(modname)
         local ast, err = parser.parse(modules[modname])
-        if not ast then return nil, parser.error_to_string(err, modname .. ".titan") end
-        return ast, modules[modname], modname .. ".titan"
+        if not ast then return false, parser.error_to_string(err, modname .. ".titan") end
+        return true, ast, modules[modname], modname .. ".titan"
     end
     local _, err = checker.checkimport(main, loader)
     if not (#err == 0) then return nil, table.concat(err, "\n") end
