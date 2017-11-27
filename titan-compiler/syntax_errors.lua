@@ -95,6 +95,12 @@ local errors = {
    
    { label = "RCurlyType",
         msg = "Expected '}' to close type specification." },
+   
+   { label = "ColonRecordField",
+        msg = "Expected ':' after the name of a record field." },
+   
+   { label = "TypeRecordField",
+        msg = "Expected a type name after ':'." },
 
 }
 

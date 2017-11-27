@@ -345,6 +345,20 @@ describe("Titan parser", function()
         assert.are.same("RCurlyType", err.label)
     end)
 
+    it("Expected ':' after the name of a record field.", function()
+        local program, err =
+            parse_file("./testfiles/parser/colonRecordField.titan")
+        assert.falsy(program)
+        assert.are.same("ColonRecordField", err.label)
+    end)
+
+    it("Expected a type name after ':'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeRecordField.titan")
+        assert.falsy(program)
+        assert.are.same("TypeRecordField", err.label)
+    end)
+
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")
         assert.truthy(program)
