@@ -70,7 +70,7 @@ local errors = {
         msg = "Expected '=' ." },
    
    --this label is not thrown in rule 'import' because rule 'toplevelvar'
-   --matches an input like "local bola = X", given that X is valid expression,
+   --matches an input like "local bola = X", given that X is a valid expression,
    --or throws a label when X is not a valid expression
    { label = "ImportImport",
         msg = "Expected 'import' keyword" },
