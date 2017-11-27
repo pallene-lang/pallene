@@ -221,8 +221,9 @@ local grammar = re.compile([[
     block           <- ({} {| statement* returnstat? |})    -> Stat_Block
 
     statement       <- (SEMICOLON)                          -- ignore
-                     / (DO block END)                       -- produces Stat_Block
-                     / ({} WHILE exp DO block END)          -> Stat_While
+                     / (DO block (END / %{EndBlock}))       -- produces Stat_Block
+                     / ({} WHILE (exp / %{ExpWhile}) (DO / %{DoWhile})
+                                 block (END / %{EndWhile})) -> Stat_While
                      / ({} REPEAT block UNTIL exp)          -> Stat_Repeat
                      / ({} IF exp THEN block
                            elseifstats elseopt END)         -> ifstat

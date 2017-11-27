@@ -358,6 +358,34 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("TypeRecordField", err.label)
     end)
+    
+		it("Expected 'end' to close block.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endBlock.titan")
+        assert.falsy(program)
+        assert.are.same("EndBlock", err.label)
+    end)
+
+    it("Expected an expression after 'while'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expWhile.titan")
+        assert.falsy(program)
+        assert.are.same("ExpWhile", err.label)
+    end)
+
+    it("Expected 'do' in while statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/doWhile.titan")
+        assert.falsy(program)
+        assert.are.same("DoWhile", err.label)
+    end)
+
+    it("Expected 'end' to close the while statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endWhile.titan")
+        assert.falsy(program)
+        assert.are.same("EndWhile", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")

@@ -101,7 +101,18 @@ local errors = {
    
    { label = "TypeRecordField",
         msg = "Expected a type name after ':'." },
+   
+   { label = "EndBlock",
+        msg = "Expected 'end' to close block." },
+   
+   { label = "ExpWhile",
+        msg = "Expected an expression after 'while'." },
 
+   { label = "DoWhile",
+        msg = "Expected 'do' in while statement." },
+   
+   { label = "EndWhile",
+        msg = "Expected 'end' to close the while statement." },
 }
 
 syntax_errors.label_to_msg = {}
