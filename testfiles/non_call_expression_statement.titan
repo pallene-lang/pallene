@@ -1,4 +1,4 @@
 -- This should be a syntax error
-function f()
+function f():int
     17
 end

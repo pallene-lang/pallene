@@ -202,14 +202,14 @@ describe("Titan parser", function()
         local program, err =
             parse_file("./testfiles/return_statement_not_last.titan")
         assert.falsy(program)
-        assert.are.same("SyntaxError", err.label)
+        assert.are.same("EndFunc", err.label)
     end)
 
     it("does not allow extra semicolons after a return", function()
         local program, err =
             parse_file("./testfiles/return_statements_extra_semicolons.titan")
         assert.falsy(program)
-        assert.are.same("SyntaxError", err.label)
+        assert.are.same("EndFunc", err.label)
     end)
 
     it("can parse binary and unary operators", function()
@@ -310,7 +310,7 @@ end)
         local program, err =
             parse_file("./testfiles/non_call_expression_statement.titan")
         assert.falsy(program)
-        assert.are.same("SyntaxError", err.label)
+        assert.are.same("EndFunc", err.label)
     end)
 
     it("can parse calls without parenthesis", function()
