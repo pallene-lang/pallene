@@ -67,22 +67,28 @@ local errors = {
    --this label is not thrown in rule 'import' because rule 'toplevelvar'
    --matches an invalid input like "local bola import"
    { label = "AssignImport",
-        msg = "Expected '=' ." },
+        msg = "Expected '='." },
    
    --this label is not thrown in rule 'import' because rule 'toplevelvar'
    --matches an input like "local bola = X", given that X is a valid expression,
    --or throws a label when X is not a valid expression
    { label = "ImportImport",
-        msg = "Expected 'import' keyword" },
+        msg = "Expected 'import' keyword." },
    
    { label = "StringOParImport",
-        msg = "Expected the name of a module after '('" },
+        msg = "Expected the name of a module after '('." },
    
    { label = "CParImport",
-        msg = "Expected ')' to close import declaration" },
+        msg = "Expected ')' to close import declaration." },
    
    { label = "StringImport",
-        msg = "Expected the name of a module after 'import'" },
+        msg = "Expected the name of a module after 'import'." },
+   
+   { label = "DeclParList",
+        msg = "Expected a variable name after ','." },
+   
+   { label = "TypeDecl",
+        msg = "Expected a type name after ':'." },
 
 }
 

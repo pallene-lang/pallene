@@ -199,12 +199,14 @@ local grammar = re.compile([[
 
     import         <- ({} LOCAL (NAME / %{NameImport}) (ASSIGN / %{AssignImport})
                           (IMPORT / %{ImportImport})
-                         (LPAREN (STRING / %{StringOParImport}) (RPAREN / %{CParImport}) /
+                          (LPAREN (STRING / %{StringOParImport}) (RPAREN / %{CParImport}) /
                           (STRING / %{StringImport})))      -> TopLevel_Import
 
-    parlist         <- {| (decl (COMMA decl)*)? |}          -- produces {Decl}
+    parlist         <- {| (decl (COMMA 
+                            (decl / %{DeclParList}))*)? |}  -- produces {Decl}
 
-    decl            <- ({} NAME (COLON type)? -> opt)       -> Decl_Decl
+    decl            <- ({} NAME (COLON
+                            (type / %{TypeDecl}))? -> opt)  -> Decl_Decl
 
     type            <- ({} NIL -> 'nil')                    -> Type_Name
                      / ({} NAME)                            -> Type_Name

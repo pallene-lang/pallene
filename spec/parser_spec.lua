@@ -316,6 +316,20 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("StringImport", err.label)
     end)
+    
+    it("Expected a variable name after ','.", function()
+        local program, err =
+            parse_file("./testfiles/parser/declParList.titan")
+        assert.falsy(program)
+        assert.are.same("DeclParList", err.label)
+    end)
+    
+    it("Expected a type name after ':'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeDecl.titan")
+        assert.falsy(program)
+        assert.are.same("TypeDecl", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")
