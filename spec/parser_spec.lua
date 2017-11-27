@@ -331,6 +331,20 @@ describe("Titan parser", function()
         assert.are.same("TypeDecl", err.label)
     end)
 
+    it("Expected a type name after '{'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeType.titan")
+        assert.falsy(program)
+        assert.are.same("TypeType", err.label)
+    end)
+
+    it("Expected '}' to close type specification.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rCurlyType.titan")
+        assert.falsy(program)
+        assert.are.same("RCurlyType", err.label)
+    end)
+
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")
         assert.truthy(program)

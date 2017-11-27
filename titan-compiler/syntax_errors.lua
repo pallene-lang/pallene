@@ -89,6 +89,12 @@ local errors = {
    
    { label = "TypeDecl",
         msg = "Expected a type name after ':'." },
+   
+   { label = "TypeType",
+        msg = "Expected a type name after '{'." },
+   
+   { label = "RCurlyType",
+        msg = "Expected '}' to close type specification." },
 
 }
 

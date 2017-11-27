@@ -210,7 +210,8 @@ local grammar = re.compile([[
 
     type            <- ({} NIL -> 'nil')                    -> Type_Name
                      / ({} NAME)                            -> Type_Name
-                     / ({} LCURLY type RCURLY)              -> Type_Array
+                     / ({} LCURLY (type / %{TypeType}) 
+                                  (RCURLY / %{RCurlyType})) -> Type_Array
 
     recordfields    <- {| recordfield+ |}                   -- produces {Decl}
 
