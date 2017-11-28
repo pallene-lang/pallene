@@ -119,6 +119,16 @@ local errors = {
    
    { label = "ExpRepeat",
         msg = "Expected an expression after 'until'." },
+ 
+   { label = "ExpIf",
+        msg = "Expected an expression after 'if'." },
+   
+   { label = "ThenIf",
+        msg = "Expected 'then' in if statement." },
+   
+   { label = "EndIf",
+        msg = "Expected 'end' to close the if statement." },
+
 }
 
 syntax_errors.label_to_msg = {}

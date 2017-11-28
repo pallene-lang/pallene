@@ -1,0 +1,6 @@
+function f ( x : int) : int
+  if then
+    x = x - 1
+  end
+  return 42
+end

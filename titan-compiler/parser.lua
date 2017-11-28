@@ -226,8 +226,9 @@ local grammar = re.compile([[
                                  block (END / %{EndWhile})) -> Stat_While
                      / ({} REPEAT block (UNTIL / %{UntilRepeat})
                                       (exp / %{ExpRepeat})) -> Stat_Repeat
-                     / ({} IF exp THEN block
-                           elseifstats elseopt END)         -> ifstat
+                     / ({} IF (exp / %{ExpIf}) (THEN / %{ThenIf}) block
+                           elseifstats elseopt 
+                           (END / %{EndIf}))                -> ifstat
                      / ({} FOR decl
                            ASSIGN exp COMMA exp
                            (COMMA exp)? -> opt
