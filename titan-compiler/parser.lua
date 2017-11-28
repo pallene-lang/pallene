@@ -224,7 +224,8 @@ local grammar = re.compile([[
                      / (DO block (END / %{EndBlock}))       -- produces Stat_Block
                      / ({} WHILE (exp / %{ExpWhile}) (DO / %{DoWhile})
                                  block (END / %{EndWhile})) -> Stat_While
-                     / ({} REPEAT block UNTIL exp)          -> Stat_Repeat
+                     / ({} REPEAT block (UNTIL / %{UntilRepeat})
+                                      (exp / %{ExpRepeat})) -> Stat_Repeat
                      / ({} IF exp THEN block
                            elseifstats elseopt END)         -> ifstat
                      / ({} FOR decl

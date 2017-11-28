@@ -435,6 +435,20 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("EndWhile", err.label)
     end)
+    
+    it("Expected 'until' in repeat statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/untilRepeat.titan")
+        assert.falsy(program)
+        assert.are.same("UntilRepeat", err.label)
+    end)
+
+    it("Expected an expression after 'until'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expRepeat.titan")
+        assert.falsy(program)
+        assert.are.same("ExpRepeat", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")

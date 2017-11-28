@@ -113,6 +113,12 @@ local errors = {
    
    { label = "EndWhile",
         msg = "Expected 'end' to close the while statement." },
+   
+   { label = "UntilRepeat",
+        msg = "Expected 'until' in repeat statement." },
+   
+   { label = "ExpRepeat",
+        msg = "Expected an expression after 'until'." },
 }
 
 syntax_errors.label_to_msg = {}
