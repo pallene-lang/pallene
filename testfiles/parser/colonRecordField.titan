@@ -1,0 +1,3 @@
+record A 
+  x  int
+end

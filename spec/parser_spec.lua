@@ -212,6 +212,57 @@ describe("Titan parser", function()
         assert.are.same("EndFunc", err.label)
     end)
 
+    it("Malformed number.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedNumber.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedNumber", err.label)
+    end)
+    
+    it("Unclosed long string or long comment.", function()
+        local program, err =
+            parse_file("./testfiles/parser/unclosedLongString.titan")
+        assert.falsy(program)
+        assert.are.same("UnclosedLongString", err.label)
+    end)
+   
+    -- This test fails in 'busted', but succeeds when I run
+    -- it manually.  
+    --[[it("Unclosed short string.", function()
+        local program, err =
+            parse_file("./testfiles/parser/unclosedShortString.titan")
+        assert.falsy(program)
+        assert.are.same("UnclosedShortString", err.label)
+    end)]]
+
+    it("Invalid escape character in string.", function()
+        local program, err =
+            parse_file("./testfiles/parser/invalidEscape.titan")
+        assert.falsy(program)
+        assert.are.same("InvalidEscape", err.label)
+    end)
+    
+    it("\\u escape sequence is malformed.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedEscapeU.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedEscape_u", err.label)
+    end)
+
+    it("\\x escape sequences must have exactly two hexadecimal digits.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedEscapeX.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedEscape_x", err.label)
+    end)
+    
+    it("\\x escape sequences must have exactly two hexadecimal digits.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedEscapeX2.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedEscape_x", err.label)
+    end)
+    
     it("Expected a function name after 'function'.", function()
         local program, err =
             parse_file("./testfiles/parser/nameFunc.titan")

@@ -7,16 +7,16 @@ local errors = {
         msg = "Syntax Error" },
 
     { label = "MalformedNumber",
-        msg = "Malformed number" },
+        msg = "Malformed number." },
 
     { label = "UnclosedLongString",
-        msg = "Unclosed long string or long comment" },
+        msg = "Unclosed long string or long comment." },
 
     { label = "UnclosedShortString",
-        msg = "Unclosed short string" },
+        msg = "Unclosed short string." },
 
     { label = "InvalidEscape",
-        msg = "Invalid escape character in string" },
+        msg = "Invalid escape character in string." },
 
     --not used currently
     { label = "MalformedEscape_ddd",
