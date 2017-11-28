@@ -226,14 +226,12 @@ describe("Titan parser", function()
         assert.are.same("UnclosedLongString", err.label)
     end)
    
-    -- This test fails in 'busted', but succeeds when I run
-    -- it manually.  
-    --[[it("Unclosed short string.", function()
+    it("Unclosed short string.", function()
         local program, err =
             parse_file("./testfiles/parser/unclosedShortString.titan")
         assert.falsy(program)
         assert.are.same("UnclosedShortString", err.label)
-    end)]]
+    end)
 
     it("Invalid escape character in string.", function()
         local program, err =
