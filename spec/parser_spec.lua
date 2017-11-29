@@ -505,6 +505,27 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("EndFor", err.label)
     end)
+   
+    it("Expected variable declaration after 'local'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/declLocal.titan")
+        assert.falsy(program)
+        assert.are.same("DeclLocal", err.label)
+    end)
+    
+    it("Expected '=' after variable declaration.", function()
+        local program, err =
+            parse_file("./testfiles/parser/assignLocal.titan")
+        assert.falsy(program)
+        assert.are.same("AssignLocal", err.label)
+    end)
+    
+    it("Expected an expression after '='.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expLocal.titan")
+        assert.falsy(program)
+        assert.are.same("ExpLocal", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")

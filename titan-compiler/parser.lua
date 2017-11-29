@@ -235,7 +235,8 @@ local grammar = re.compile([[
                            (COMMA (exp / %{Exp3For}))? -> opt
                            (DO / %{DoFor}) block
                            (END / %{EndFor}))               -> Stat_For
-                     / ({} LOCAL decl ASSIGN exp)           -> defstat
+                     / ({} LOCAL (decl / %{DeclLocal}) (ASSIGN / %{AssignLocal})
+                                 (exp / %{ExpLocal}))       -> defstat
                      / ({} var ASSIGN exp)                  -> Stat_Assign
                      / ({} (suffixedexp => exp_is_call))    -> Stat_Call
 

@@ -152,6 +152,15 @@ local errors = {
    
    { label = "EndFor",
         msg = "Expected 'end' to close the for statement." },
+   
+   { label = "DeclLocal",
+        msg = "Expected variable declaration after 'local'." },
+   
+   { label = "AssignLocal",
+        msg = "Expected '=' after variable declaration." },
+   
+   { label = "ExpLocal",
+        msg = "Expected an expression after '='." },
 
 }
 
