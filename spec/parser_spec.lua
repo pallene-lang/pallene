@@ -450,6 +450,27 @@ describe("Titan parser", function()
         assert.are.same("ExpRepeat", err.label)
     end)
 
+    it("Expected an expression after 'if'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expIf.titan")
+        assert.falsy(program)
+        assert.are.same("ExpIf", err.label)
+    end)
+    
+    it("Expected 'then' in if statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/thenIf.titan")
+        assert.falsy(program)
+        assert.are.same("ThenIf", err.label)
+    end)
+    
+    it("Expected 'end' to close the if statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endIf.titan")
+        assert.falsy(program)
+        assert.are.same("EndIf", err.label)
+    end)
+
     it("Expected variable declaration in for statement.", function()
         local program, err =
             parse_file("./testfiles/parser/declFor.titan")
