@@ -243,7 +243,8 @@ local grammar = re.compile([[
 
     elseifstats     <- {| elseifstat* |}                    -- produces {Then}
 
-    elseifstat      <- ({} ELSEIF exp THEN block)           -> Then_Then
+    elseifstat      <- ({} ELSEIF (exp / %{ExpElseIf})
+                           (THEN / %{ThenElseIf}) block)    -> Then_Then
 
     elseopt         <- (ELSE block)?                        -> opt
 

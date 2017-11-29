@@ -562,6 +562,20 @@ describe("Titan parser", function()
         assert.are.same("ExpAssign", err.label)
     end)
 
+    it("Expected an expression after 'elseif'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expElseIf.titan")
+        assert.falsy(program)
+        assert.are.same("ExpElseIf", err.label)
+    end)
+    
+    it("Expected 'then' in elseif statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/thenElseIf.titan")
+        assert.falsy(program)
+        assert.are.same("ThenElseIf", err.label)
+    end)
+
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")
         assert.truthy(program)

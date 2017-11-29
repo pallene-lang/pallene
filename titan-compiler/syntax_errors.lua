@@ -167,6 +167,12 @@ local errors = {
    
    { label = "ExpAssign",
         msg = "Expected an expression after '='." },
+   
+   { label = "ExpElseIf",
+        msg = "Expected an expression after 'elseif'." },
+   
+   { label = "ThenElseIf",
+        msg = "Expected 'then' in elseif statement." },
 
 }
 
