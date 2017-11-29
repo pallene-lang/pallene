@@ -237,7 +237,8 @@ local grammar = re.compile([[
                            (END / %{EndFor}))               -> Stat_For
                      / ({} LOCAL (decl / %{DeclLocal}) (ASSIGN / %{AssignLocal})
                                  (exp / %{ExpLocal}))       -> defstat
-                     / ({} var ASSIGN exp)                  -> Stat_Assign
+                     / ({} var (ASSIGN / %{AssignAssign})
+                               (exp / %{ExpAssign}))        -> Stat_Assign
                      / ({} (suffixedexp => exp_is_call))    -> Stat_Call
 
     elseifstats     <- {| elseifstat* |}                    -- produces {Then}

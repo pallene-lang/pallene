@@ -161,6 +161,12 @@ local errors = {
    
    { label = "ExpLocal",
         msg = "Expected an expression after '='." },
+   
+   { label = "AssignAssign",
+        msg = "Expected '=' after variable." },
+   
+   { label = "ExpAssign",
+        msg = "Expected an expression after '='." },
 
 }
 
