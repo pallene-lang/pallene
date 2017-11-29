@@ -450,6 +450,62 @@ describe("Titan parser", function()
         assert.are.same("ExpRepeat", err.label)
     end)
 
+    it("Expected variable declaration in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/declFor.titan")
+        assert.falsy(program)
+        assert.are.same("DeclFor", err.label)
+    end)
+
+    it("Expected '=' after variable declaration in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/assignFor.titan")
+        assert.falsy(program)
+        assert.are.same("AssignFor", err.label)
+    end)
+    
+    it("Expected an expression after '='.", function()
+        local program, err =
+            parse_file("./testfiles/parser/exp1For.titan")
+        assert.falsy(program)
+        assert.are.same("Exp1For", err.label)
+    end)
+
+    it("Expected ',' in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/commaFor.titan")
+        assert.falsy(program)
+        assert.are.same("CommaFor", err.label)
+    end)
+
+    it("Expected an expression after ','.", function()
+        local program, err =
+            parse_file("./testfiles/parser/exp2For.titan")
+        assert.falsy(program)
+        assert.are.same("Exp2For", err.label)
+    end)
+
+    it("Expected an expression after ','.", function()
+        local program, err =
+            parse_file("./testfiles/parser/exp3For.titan")
+        assert.falsy(program)
+        assert.are.same("Exp3For", err.label)
+    end)
+    
+    it("Expected 'do' in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/doFor.titan")
+        assert.falsy(program)
+        assert.are.same("DoFor", err.label)
+    end)
+
+    it("Expected 'end' to close the for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endFor.titan")
+        assert.falsy(program)
+        assert.are.same("EndFor", err.label)
+    end)
+
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")
         assert.truthy(program)

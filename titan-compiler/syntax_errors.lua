@@ -128,6 +128,30 @@ local errors = {
    
    { label = "EndIf",
         msg = "Expected 'end' to close the if statement." },
+   
+   { label = "DeclFor",
+        msg = "Expected variable declaration in for statement." },
+   
+   { label = "AssignFor",
+        msg = "Expected '=' after variable declaration in for statement." },
+   
+   { label = "Exp1For",
+        msg = "Expected an expression after '='." },
+   
+   { label = "CommaFor",
+        msg = "Expected ',' in for statement." },
+   
+   { label = "Exp2For",
+        msg = "Expected an expression after ','." },
+   
+   { label = "Exp3For",
+        msg = "Expected an expression after ','." },
+   
+   { label = "DoFor",
+        msg = "Expected 'do' in for statement." },
+   
+   { label = "EndFor",
+        msg = "Expected 'end' to close the for statement." },
 
 }
 

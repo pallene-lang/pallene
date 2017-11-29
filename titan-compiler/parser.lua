@@ -229,10 +229,12 @@ local grammar = re.compile([[
                      / ({} IF (exp / %{ExpIf}) (THEN / %{ThenIf}) block
                            elseifstats elseopt 
                            (END / %{EndIf}))                -> ifstat
-                     / ({} FOR decl
-                           ASSIGN exp COMMA exp
-                           (COMMA exp)? -> opt
-                           DO block END)                    -> Stat_For
+                     / ({} FOR (decl / %{DeclFor})
+                           (ASSIGN / %{AssignFor}) (exp / %{Exp1For}) 
+                           (COMMA / %{CommaFor}) (exp / %{Exp2For})
+                           (COMMA (exp / %{Exp3For}))? -> opt
+                           (DO / %{DoFor}) block
+                           (END / %{EndFor}))               -> Stat_For
                      / ({} LOCAL decl ASSIGN exp)           -> defstat
                      / ({} var ASSIGN exp)                  -> Stat_Assign
                      / ({} (suffixedexp => exp_is_call))    -> Stat_Call
