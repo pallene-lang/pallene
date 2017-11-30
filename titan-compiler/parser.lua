@@ -220,6 +220,11 @@ local grammar = re.compile([[
                      / ({} NAME)                                 -> Type_Name
                      / ({} LCURLY (type / %{TypeType})
                                   (RCURLY / %{RCurlyType}))      -> Type_Array
+                     / ({} typelist RARROW typelist)             -> Type_Function
+
+    typelist        <- LPAREN
+                       {| type (COMMA type)* |}
+                       RPAREN                                    -- produces {Type}
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
 
@@ -307,17 +312,17 @@ local grammar = re.compile([[
 
     var             <- (suffixedexp => exp_is_var)               -> exp2var
 
-    funcargs        <- (LPAREN explist 
+    funcargs        <- (LPAREN explist
                                (RPAREN / %{RParFuncArgs}))       -- produces {Exp}
                      / {| tablecons |}                           -- produces {Exp}
                      / {| ({} STRING) -> Exp_String |}           -- produces {Exp}
 
     explist         <- {| (exp (COMMA (exp / %{ExpExpList}))*)? |} -- produces {Exp}
 
-    tablecons       <- ({} LCURLY {| fieldlist? |} 
+    tablecons       <- ({} LCURLY {| fieldlist? |}
                                   (RCURLY / %{RCurlyTableCons})) -> Exp_Table
 
-    fieldlist       <- (exp (fieldsep (exp / !RCURLY %{ExpFieldList}))* 
+    fieldlist       <- (exp (fieldsep (exp / !RCURLY %{ExpFieldList}))*
                             fieldsep?)                           -- produces Exp...
 
     fieldsep        <- SEMICOLON / COMMA
@@ -386,6 +391,7 @@ local grammar = re.compile([[
     DOTS            <- %DOTS SKIP*
     DBLCOLON        <- %DBLCOLON SKIP*
     COLON           <- %COLON SKIP*
+    RARROW          <- %RARROW SKIP*
 
     NUMBER          <- %NUMBER SKIP*
     STRING          <- %STRING SKIP*

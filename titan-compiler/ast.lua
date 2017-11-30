@@ -6,6 +6,7 @@ local types = {}
 types.Type = {
     Name    = {"name"},
     Array   = {"subtype"},
+    Function= {"argtypes", "rettypes"},
 }
 
 types.TopLevel = {

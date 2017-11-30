@@ -91,6 +91,38 @@ describe("Titan parser", function()
             { decl = { type = { _tag = "Type_Array", subtype =
                                 { _tag = "Type_Array", subtype =
                                     {_tag = "Type_Name", name = "int" } } } } },
+
+            -- simple function type
+            { decl = { type = {
+                _tag = "Type_Function",
+                argtypes = { { _tag = "Type_Name", name = "a" } },
+                rettypes = { { _tag = "Type_Name", name = "b" } } } } },
+
+            -- multiple input parameters
+            { decl = { type = {
+                _tag = "Type_Function",
+                argtypes = {
+                    { _tag = "Type_Name", name = "a" },
+                    { _tag = "Type_Name", name = "b" } },
+                rettypes = { { _tag = "Type_Name", name = "c" } } } } },
+
+            -- right associativity of ->
+            { decl = { type = {
+                _tag = "Type_Function",
+                argtypes = { { _tag = "Type_Name", name = "a" } },
+                rettypes = { {
+                    _tag = "Type_Function",
+                    argtypes = { { _tag = "Type_Name", name = "b" } },
+                    rettypes = { { _tag = "Type_Name", name = "c" } } } } } } },
+
+            -- right associativity of ->
+            { decl = { type = {
+                _tag = "Type_Function",
+                argtypes = { {
+                    _tag = "Type_Function",
+                    argtypes = { { _tag = "Type_Name", name = "a" } },
+                    rettypes = { { _tag = "Type_Name", name = "b" } } } },
+                rettypes = { { _tag = "Type_Name", name = "c" } } } } },
         })
     end)
 

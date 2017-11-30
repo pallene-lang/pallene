@@ -28,6 +28,30 @@ The only time where no context is available is when you declaring a new
 variable and you have not given a type to it; in that case the array will have
 type `{ integer }`.
 
+### Functions
+
+Function types in Titan are created with the `->` type constructor. For
+example, `(a, b) -> (c)` is the function type for a function that receives one
+argument of type `a` and one of type `b` and returns a value of type `c`. The
+parentheses around the argument and return type lists are mandatory, even when
+there is a single type. For example, the type of functions that map ints to
+strings is `(int) -> (string)` and `int -> string` is a syntax error. Similarly,
+the type of functions that receive a `a` and return a function that maps `b`s to
+`c`s is `(a) -> ((b) -> (c))`. `(a) -> (b) -> (c)` is a syntax error.
+
+A titan variable of function type may refer to either statically-typed Titan
+functions or to dynamically typed Lua functions. When calling a
+dynamically-typed Lua function from Titan, Titan will check whether the Lua
+function returned the correct types and number of arguments and it will raise an
+error if it does not receive what it expected.
+
+#### Limitations
+
+In the current version of Titan, Titan functions can only return a single return
+value and an error is produced if a Lua functions called from Titan returns more
+than one return value. A future of version of Titan will implement multiple
+return values for functions.
+
 ### Records
 
 Records are nominal and should be declared in the top level, like the following
