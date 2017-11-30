@@ -192,7 +192,7 @@ local grammar = re.compile([[
     toplevelfunc    <- ({} localopt
                            FUNCTION (NAME / %{NameFunc})
                            (LPAREN / %{LParPList}) parlist (RPAREN / %{RParPList})
-                           (COLON / %{ColonFunc}) typeopt
+                           typeopt
                            block (END / %{EndFunc}))             -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl (ASSIGN / %{AssignVar})
@@ -210,7 +210,7 @@ local grammar = re.compile([[
 
     typeopt         <- ({} (COLON (type / %{TypeFunc}))?)        -> typeopt
 
-    parlist         <- {| (decl (COMMA 
+    parlist         <- {| (decl (COMMA
                             (decl / %{DeclParList}))*)? |}       -- produces {Decl}
 
     decl            <- ({} NAME (COLON
@@ -218,12 +218,12 @@ local grammar = re.compile([[
 
     type            <- ({} NIL -> 'nil')                         -> Type_Name
                      / ({} NAME)                                 -> Type_Name
-                     / ({} LCURLY (type / %{TypeType}) 
+                     / ({} LCURLY (type / %{TypeType})
                                   (RCURLY / %{RCurlyType}))      -> Type_Array
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
 
-    recordfield     <- ({} NAME (COLON / %{ColonRecordField}) 
+    recordfield     <- ({} NAME (COLON / %{ColonRecordField})
                                (type / %{TypeRecordField}))      -> Decl_Decl
 
     block           <- ({} {| statement* returnstat? |})         -> Stat_Block
@@ -235,10 +235,10 @@ local grammar = re.compile([[
                      / ({} REPEAT block (UNTIL / %{UntilRepeat})
                                       (exp / %{ExpRepeat}))      -> Stat_Repeat
                      / ({} IF (exp / %{ExpIf}) (THEN / %{ThenIf}) block
-                           elseifstats elseopt 
+                           elseifstats elseopt
                            (END / %{EndIf}))                     -> ifstat
                      / ({} FOR (decl / %{DeclFor})
-                           (ASSIGN / %{AssignFor}) (exp / %{Exp1For}) 
+                           (ASSIGN / %{AssignFor}) (exp / %{Exp1For})
                            (COMMA / %{CommaFor}) (exp / %{Exp2For})
                            (COMMA (exp / %{Exp3For}))? -> opt
                            (DO / %{DoFor}) block
