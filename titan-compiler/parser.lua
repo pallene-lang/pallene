@@ -185,7 +185,7 @@ local grammar = re.compile([[
 
     toplevelfunc    <- ({} localopt
                            FUNCTION (NAME / %{NameFunc})
-                           (LPAREN / %{OParPList}) parlist (RPAREN / %{CParPList})
+                           (LPAREN / %{LParPList}) parlist (RPAREN / %{RParPList})
                            (COLON / %{ColonFunc}) (type / %{TypeFunc})
                            block (END / %{EndFunc}))             -> TopLevel_Func
 
@@ -199,7 +199,7 @@ local grammar = re.compile([[
 
     import         <- ({} LOCAL (NAME / %{NameImport}) (ASSIGN / %{AssignImport})
                           (IMPORT / %{ImportImport})
-                          (LPAREN (STRING / %{StringOParImport}) (RPAREN / %{CParImport}) /
+                          (LPAREN (STRING / %{StringLParImport}) (RPAREN / %{RParImport}) /
                           (STRING / %{StringImport})))           -> TopLevel_Import
 
     parlist         <- {| (decl (COMMA 
@@ -281,11 +281,11 @@ local grammar = re.compile([[
     suffixedexp     <- (simpleexp {| expsuffix* |})              -> fold_suffixes
 
     expsuffix       <- ({} funcargs)                             -> suffix_funccall
- --                  / ({} COLON (NAME / %{NameColonExpsuf})
- --                              (funcargs / %{FuncargsExpsuf})) -> suffix_methodcall
-                     / ({} LBRACKET (exp / %{ExpExpsuf})
-                                (RBRACKET / %{RBracketExpsuf})) -> suffix_bracket
-                     / ({} DOT (NAME / %{NameDotExpsuf}))       -> suffix_dot
+ --                  / ({} COLON (NAME / %{NameColonExpSuf})
+ --                              (funcargs / %{FuncargsExpSuf})) -> suffix_methodcall
+                     / ({} LBRACKET (exp / %{ExpExpSuf})
+                                (RBRACKET / %{RBracketExpSuf})) -> suffix_bracket
+                     / ({} DOT (NAME / %{NameDotExpSuf}))       -> suffix_dot
 
     simpleexp       <- ({} NIL)                                  -> nil_exp
                      / ({} FALSE -> tofalse)                     -> Exp_Bool
@@ -294,7 +294,8 @@ local grammar = re.compile([[
                      / ({} STRING)                               -> Exp_String
                      / (tablecons)                               -- produces Exp
                      / ({} NAME)                                 -> name_exp
-                     / (LPAREN exp RPAREN)                       -- produces Exp
+                     / (LPAREN (exp / %{ExpSimpleExp})
+                               (RPAREN / %{RParSimpleExp}))      -- produces Exp
 
     var             <- (suffixedexp => exp_is_var)               -> exp2var
 

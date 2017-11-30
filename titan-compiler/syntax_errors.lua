@@ -31,10 +31,10 @@ local errors = {
     { label = "NameFunc",
         msg = "Expected a function name after 'function'." },
     
-    { label = "OParPList",
+    { label = "LParPList",
         msg = "Expected '(' for the parameter list." },
     
-    { label = "CParPList",
+    { label = "RParPList",
         msg = "Expected ')' to close the parameter list." },
     
     { label = "ColonFunc",
@@ -75,10 +75,10 @@ local errors = {
    { label = "ImportImport",
         msg = "Expected 'import' keyword." },
    
-   { label = "StringOParImport",
+   { label = "StringLParImport",
         msg = "Expected the name of a module after '('." },
    
-   { label = "CParImport",
+   { label = "RParImport",
         msg = "Expected ')' to close import declaration." },
    
    { label = "StringImport",
@@ -178,21 +178,27 @@ local errors = {
         msg = "Expected an expression after operator." },
   
    -- not used currently because the parser rule is commented 
-   { label = "NameColonExpsuf",
+   { label = "NameColonExpSuf",
         msg = "Expected a method name after ':'." },
    
    -- not used currently because the parser rule is commented 
-   { label = "FuncargsExpsuf",
+   { label = "FuncargsExpSuf",
         msg = "Expected a list of arguments." },
   
-   { label = "ExpExpsuf",
+   { label = "ExpExpSuf",
         msg = "Expected an expression after '['." },
    
-   { label = "RBracketExpsuf",
+   { label = "RBracketExpSuf",
         msg = "Expected ']' to match '['." },
    
-   { label = "NameDotExpsuf",
+   { label = "NameDotExpSuf",
         msg = "Expected a function name after '.'." },
+   
+   { label = "ExpSimpleExp",
+        msg = "Expected an expression after '('." },
+   
+   { label = "RParSimpleExp",
+        msg = "Expected ')' to match '('." },
 
 }
 

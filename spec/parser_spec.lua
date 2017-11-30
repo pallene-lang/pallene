@@ -270,16 +270,16 @@ describe("Titan parser", function()
 
     it("Expected '(' for the parameter list.", function()
         local program, err =
-            parse_file("./testfiles/parser/oParPList.titan")
+            parse_file("./testfiles/parser/lParPList.titan")
         assert.falsy(program)
-        assert.are.same("OParPList", err.label)
+        assert.are.same("LParPList", err.label)
     end)
     
 		it("Expected ')' to close the parameter list.", function()
         local program, err =
-            parse_file("./testfiles/parser/cParPList.titan")
+            parse_file("./testfiles/parser/rParPList.titan")
         assert.falsy(program)
-        assert.are.same("CParPList", err.label)
+        assert.are.same("RParPList", err.label)
     end)
 		
     it("Expected ':' after the parameter list.", function()
@@ -347,16 +347,16 @@ describe("Titan parser", function()
 
     it("Expected the name of a module after '('.", function()
         local program, err =
-            parse_file("./testfiles/parser/stringOParImport.titan")
+            parse_file("./testfiles/parser/stringLParImport.titan")
         assert.falsy(program)
-        assert.are.same("StringOParImport", err.label)
+        assert.are.same("StringLParImport", err.label)
     end)
 
     it("Expected ')' to close import declaration.", function()
         local program, err =
-            parse_file("./testfiles/parser/cParImport.titan")
+            parse_file("./testfiles/parser/rParImport.titan")
         assert.falsy(program)
-        assert.are.same("CParImport", err.label)
+        assert.are.same("RParImport", err.label)
     end)
 
     it("Expected the name of a module after 'import'.", function()
@@ -585,23 +585,37 @@ describe("Titan parser", function()
     
     it("Expected an expression after '['.", function()
         local program, err =
-            parse_file("./testfiles/parser/expExpsuf.titan")
+            parse_file("./testfiles/parser/expExpSuf.titan")
         assert.falsy(program)
-        assert.are.same("ExpExpsuf", err.label)
+        assert.are.same("ExpExpSuf", err.label)
     end)
     
     it("Expected ']' to match '['.", function()
         local program, err =
-            parse_file("./testfiles/parser/rBracketExpsuf.titan")
+            parse_file("./testfiles/parser/rBracketExpSuf.titan")
         assert.falsy(program)
-        assert.are.same("RBracketExpsuf", err.label)
+        assert.are.same("RBracketExpSuf", err.label)
     end)
     
     it("Expected a function name after '.'.", function()
         local program, err =
-            parse_file("./testfiles/parser/nameDotExpsuf.titan")
+            parse_file("./testfiles/parser/nameDotExpSuf.titan")
         assert.falsy(program)
-        assert.are.same("NameDotExpsuf", err.label)
+        assert.are.same("NameDotExpSuf", err.label)
+    end)
+    
+    it("Expected an expression after '('.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expSimpleExp.titan")
+        assert.falsy(program)
+        assert.are.same("ExpSimpleExp", err.label)
+    end)
+    
+    it("Expected ')' to match '('.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rParSimpleExp.titan")
+        assert.falsy(program)
+        assert.are.same("RParSimpleExp", err.label)
     end)
 
     it("can parse binary and unary operators", function()
