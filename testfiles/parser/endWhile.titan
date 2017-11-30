@@ -1,0 +1,6 @@
+function f ( x : int) : int
+  while x > 3 do 
+    x = x - 1
+  return 42
+	return 41
+end

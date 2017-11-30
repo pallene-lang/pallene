@@ -1,0 +1,6 @@
+function f ( x : int) : int
+  repeat   
+    x = x - 1
+  end
+  return 42
+end

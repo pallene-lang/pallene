@@ -202,14 +202,413 @@ describe("Titan parser", function()
         local program, err =
             parse_file("./testfiles/return_statement_not_last.titan")
         assert.falsy(program)
-        assert.are.same("SyntaxError", err.label)
+        assert.are.same("EndFunc", err.label)
     end)
 
     it("does not allow extra semicolons after a return", function()
         local program, err =
             parse_file("./testfiles/return_statements_extra_semicolons.titan")
         assert.falsy(program)
-        assert.are.same("SyntaxError", err.label)
+        assert.are.same("EndFunc", err.label)
+    end)
+
+    it("Malformed number.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedNumber.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedNumber", err.label)
+    end)
+
+    it("Unclosed long string or long comment.", function()
+        local program, err =
+            parse_file("./testfiles/parser/unclosedLongString.titan")
+        assert.falsy(program)
+        assert.are.same("UnclosedLongString", err.label)
+    end)
+
+    it("Unclosed short string.", function()
+        local program, err =
+            parse_file("./testfiles/parser/unclosedShortString.titan")
+        assert.falsy(program)
+        assert.are.same("UnclosedShortString", err.label)
+    end)
+
+    it("Invalid escape character in string.", function()
+        local program, err =
+            parse_file("./testfiles/parser/invalidEscape.titan")
+        assert.falsy(program)
+        assert.are.same("InvalidEscape", err.label)
+    end)
+
+    it("\\u escape sequence is malformed.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedEscapeU.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedEscape_u", err.label)
+    end)
+
+    it("\\x escape sequences must have exactly two hexadecimal digits.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedEscapeX.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedEscape_x", err.label)
+    end)
+
+    it("\\x escape sequences must have exactly two hexadecimal digits.", function()
+        local program, err =
+            parse_file("./testfiles/parser/malformedEscapeX2.titan")
+        assert.falsy(program)
+        assert.are.same("MalformedEscape_x", err.label)
+    end)
+
+    it("Expected a function name after 'function'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/nameFunc.titan")
+        assert.falsy(program)
+        assert.are.same("NameFunc", err.label)
+    end)
+
+    it("Expected '(' for the parameter list.", function()
+        local program, err =
+            parse_file("./testfiles/parser/lParPList.titan")
+        assert.falsy(program)
+        assert.are.same("LParPList", err.label)
+    end)
+
+		it("Expected ')' to close the parameter list.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rParPList.titan")
+        assert.falsy(program)
+        assert.are.same("RParPList", err.label)
+    end)
+
+    it("Expected a type in function declaration.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeFunc.titan")
+        assert.falsy(program)
+        assert.are.same("TypeFunc", err.label)
+    end)
+
+    it("Expected 'end' to close the function body.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endFunc.titan")
+        assert.falsy(program)
+        assert.are.same("EndFunc", err.label)
+    end)
+
+    it("Expected '=' after variable declaration.", function()
+        local program, err =
+            parse_file("./testfiles/parser/assignVar.titan")
+        assert.falsy(program)
+        assert.are.same("AssignVar", err.label)
+    end)
+
+    it("Expected an expression to initialize variable.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expVarDec.titan")
+        assert.falsy(program)
+        assert.are.same("ExpVarDec", err.label)
+    end)
+
+    it("Expected a record name after 'record'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/nameRecord.titan")
+        assert.falsy(program)
+        assert.are.same("NameRecord", err.label)
+    end)
+
+    it("Expected 'end' to close the record.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endRecord.titan")
+        assert.falsy(program)
+        assert.are.same("EndRecord", err.label)
+    end)
+
+    it("Expected a field in record declaration.", function()
+        local program, err =
+            parse_file("./testfiles/parser/fieldRecord.titan")
+        assert.falsy(program)
+        assert.are.same("FieldRecord", err.label)
+    end)
+
+    it("Expected a name after 'local'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/nameImport.titan")
+        assert.falsy(program)
+        assert.are.same("NameImport", err.label)
+    end)
+
+    it("Expected the name of a module after '('.", function()
+        local program, err =
+            parse_file("./testfiles/parser/stringLParImport.titan")
+        assert.falsy(program)
+        assert.are.same("StringLParImport", err.label)
+    end)
+
+    it("Expected ')' to close import declaration.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rParImport.titan")
+        assert.falsy(program)
+        assert.are.same("RParImport", err.label)
+    end)
+
+    it("Expected the name of a module after 'import'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/stringImport.titan")
+        assert.falsy(program)
+        assert.are.same("StringImport", err.label)
+    end)
+
+    it("Expected a variable name after ','.", function()
+        local program, err =
+            parse_file("./testfiles/parser/declParList.titan")
+        assert.falsy(program)
+        assert.are.same("DeclParList", err.label)
+    end)
+
+    it("Expected a type name after ':'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeDecl.titan")
+        assert.falsy(program)
+        assert.are.same("TypeDecl", err.label)
+    end)
+
+    it("Expected a type name after '{'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeType.titan")
+        assert.falsy(program)
+        assert.are.same("TypeType", err.label)
+    end)
+
+    it("Expected '}' to close type specification.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rCurlyType.titan")
+        assert.falsy(program)
+        assert.are.same("RCurlyType", err.label)
+    end)
+
+    it("Expected ':' after the name of a record field.", function()
+        local program, err =
+            parse_file("./testfiles/parser/colonRecordField.titan")
+        assert.falsy(program)
+        assert.are.same("ColonRecordField", err.label)
+    end)
+
+    it("Expected a type name after ':'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeRecordField.titan")
+        assert.falsy(program)
+        assert.are.same("TypeRecordField", err.label)
+    end)
+
+		it("Expected 'end' to close block.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endBlock.titan")
+        assert.falsy(program)
+        assert.are.same("EndBlock", err.label)
+    end)
+
+    it("Expected an expression after 'while'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expWhile.titan")
+        assert.falsy(program)
+        assert.are.same("ExpWhile", err.label)
+    end)
+
+    it("Expected 'do' in while statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/doWhile.titan")
+        assert.falsy(program)
+        assert.are.same("DoWhile", err.label)
+    end)
+
+    it("Expected 'end' to close the while statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endWhile.titan")
+        assert.falsy(program)
+        assert.are.same("EndWhile", err.label)
+    end)
+
+    it("Expected 'until' in repeat statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/untilRepeat.titan")
+        assert.falsy(program)
+        assert.are.same("UntilRepeat", err.label)
+    end)
+
+    it("Expected an expression after 'until'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expRepeat.titan")
+        assert.falsy(program)
+        assert.are.same("ExpRepeat", err.label)
+    end)
+
+    it("Expected an expression after 'if'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expIf.titan")
+        assert.falsy(program)
+        assert.are.same("ExpIf", err.label)
+    end)
+
+    it("Expected 'then' in if statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/thenIf.titan")
+        assert.falsy(program)
+        assert.are.same("ThenIf", err.label)
+    end)
+
+    it("Expected 'end' to close the if statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endIf.titan")
+        assert.falsy(program)
+        assert.are.same("EndIf", err.label)
+    end)
+
+    it("Expected variable declaration in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/declFor.titan")
+        assert.falsy(program)
+        assert.are.same("DeclFor", err.label)
+    end)
+
+    it("Expected '=' after variable declaration in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/assignFor.titan")
+        assert.falsy(program)
+        assert.are.same("AssignFor", err.label)
+    end)
+
+    it("Expected an expression after '='.", function()
+        local program, err =
+            parse_file("./testfiles/parser/exp1For.titan")
+        assert.falsy(program)
+        assert.are.same("Exp1For", err.label)
+    end)
+
+    it("Expected ',' in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/commaFor.titan")
+        assert.falsy(program)
+        assert.are.same("CommaFor", err.label)
+    end)
+
+    it("Expected an expression after ','.", function()
+        local program, err =
+            parse_file("./testfiles/parser/exp2For.titan")
+        assert.falsy(program)
+        assert.are.same("Exp2For", err.label)
+    end)
+
+    it("Expected an expression after ','.", function()
+        local program, err =
+            parse_file("./testfiles/parser/exp3For.titan")
+        assert.falsy(program)
+        assert.are.same("Exp3For", err.label)
+    end)
+
+    it("Expected 'do' in for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/doFor.titan")
+        assert.falsy(program)
+        assert.are.same("DoFor", err.label)
+    end)
+
+    it("Expected 'end' to close the for statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/endFor.titan")
+        assert.falsy(program)
+        assert.are.same("EndFor", err.label)
+    end)
+
+    it("Expected variable declaration after 'local'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/declLocal.titan")
+        assert.falsy(program)
+        assert.are.same("DeclLocal", err.label)
+    end)
+
+    it("Expected '=' after variable declaration.", function()
+        local program, err =
+            parse_file("./testfiles/parser/assignLocal.titan")
+        assert.falsy(program)
+        assert.are.same("AssignLocal", err.label)
+    end)
+
+    it("Expected an expression after '='.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expLocal.titan")
+        assert.falsy(program)
+        assert.are.same("ExpLocal", err.label)
+    end)
+
+    it("Expected '=' after variable.", function()
+        local program, err =
+            parse_file("./testfiles/parser/assignAssign.titan")
+        assert.falsy(program)
+        assert.are.same("AssignAssign", err.label)
+    end)
+
+    it("Expected an expression after '='.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expAssign.titan")
+        assert.falsy(program)
+        assert.are.same("ExpAssign", err.label)
+    end)
+
+    it("Expected an expression after 'elseif'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expElseIf.titan")
+        assert.falsy(program)
+        assert.are.same("ExpElseIf", err.label)
+    end)
+
+    it("Expected 'then' in elseif statement.", function()
+        local program, err =
+            parse_file("./testfiles/parser/thenElseIf.titan")
+        assert.falsy(program)
+        assert.are.same("ThenElseIf", err.label)
+    end)
+
+    it("Expected an expression after operator.", function()
+        local program, err =
+            parse_file("./testfiles/parser/opExp1.titan")
+        assert.falsy(program)
+        assert.are.same("OpExp", err.label)
+    end)
+
+    it("Expected an expression after '['.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expExpSuf.titan")
+        assert.falsy(program)
+        assert.are.same("ExpExpSuf", err.label)
+    end)
+
+    it("Expected ']' to match '['.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rBracketExpSuf.titan")
+        assert.falsy(program)
+        assert.are.same("RBracketExpSuf", err.label)
+    end)
+
+    it("Expected a function name after '.'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/nameDotExpSuf.titan")
+        assert.falsy(program)
+        assert.are.same("NameDotExpSuf", err.label)
+    end)
+
+    it("Expected an expression after '('.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expSimpleExp.titan")
+        assert.falsy(program)
+        assert.are.same("ExpSimpleExp", err.label)
+    end)
+
+    it("Expected ')' to match '('.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rParSimpleExp.titan")
+        assert.falsy(program)
+        assert.are.same("RParSimpleExp", err.label)
     end)
 
     it("can parse binary and unary operators", function()
@@ -310,7 +709,7 @@ end)
         local program, err =
             parse_file("./testfiles/non_call_expression_statement.titan")
         assert.falsy(program)
-        assert.are.same("SyntaxError", err.label)
+        assert.are.same("EndFunc", err.label)
     end)
 
     it("can parse calls without parenthesis", function()

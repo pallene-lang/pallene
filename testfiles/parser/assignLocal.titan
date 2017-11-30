@@ -1,0 +1,3 @@
+function f ( x : int) : int
+  local x  3
+end
