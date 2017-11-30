@@ -290,7 +290,7 @@ local grammar = re.compile([[
 
     expsuffix       <- ({} funcargs)                             -> suffix_funccall
  --                  / ({} COLON (NAME / %{NameColonExpSuf})
- --                              (funcargs / %{FuncargsExpSuf})) -> suffix_methodcall
+ --                              (funcargs / %{FuncArgsExpSuf})) -> suffix_methodcall
                      / ({} LBRACKET (exp / %{ExpExpSuf})
                                 (RBRACKET / %{RBracketExpSuf})) -> suffix_bracket
                      / ({} DOT (NAME / %{NameDotExpSuf}))       -> suffix_dot
@@ -307,7 +307,8 @@ local grammar = re.compile([[
 
     var             <- (suffixedexp => exp_is_var)               -> exp2var
 
-    funcargs        <- (LPAREN explist RPAREN)                   -- produces {Exp}
+    funcargs        <- (LPAREN explist 
+                               (RPAREN / %{RParFuncArgs}))       -- produces {Exp}
                      / {| tablecons |}                           -- produces {Exp}
                      / {| ({} STRING) -> Exp_String |}           -- produces {Exp}
 

@@ -610,6 +610,13 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("RParSimpleExp", err.label)
     end)
+    
+    it("Expected ')' to match '('.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rParFuncArgs.titan")
+        assert.falsy(program)
+        assert.are.same("RParFuncArgs", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")

@@ -182,7 +182,7 @@ local errors = {
         msg = "Expected a method name after ':'." },
    
    -- not used currently because the parser rule is commented 
-   { label = "FuncargsExpSuf",
+   { label = "FuncArgsExpSuf",
         msg = "Expected a list of arguments." },
   
    { label = "ExpExpSuf",
@@ -198,6 +198,9 @@ local errors = {
         msg = "Expected an expression after '('." },
    
    { label = "RParSimpleExp",
+        msg = "Expected ')'to match '('." },
+   
+   { label = "RParFuncArgs",
         msg = "Expected ')' to match '('." },
 
 }
