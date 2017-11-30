@@ -176,6 +176,23 @@ local errors = {
    
    { label = "OpExp",
         msg = "Expected an expression after operator." },
+  
+   -- not used currently because the parser rule is commented 
+   { label = "NameColonExpsuf",
+        msg = "Expected a method name after ':'." },
+   
+   -- not used currently because the parser rule is commented 
+   { label = "FuncargsExpsuf",
+        msg = "Expected a list of arguments." },
+  
+   { label = "ExpExpsuf",
+        msg = "Expected an expression after '['." },
+   
+   { label = "RBracketExpsuf",
+        msg = "Expected ']' to match '['." },
+   
+   { label = "NameDotExpsuf",
+        msg = "Expected a function name after '.'." },
 
 }
 

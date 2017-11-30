@@ -582,6 +582,27 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("OpExp", err.label)
     end)
+    
+    it("Expected an expression after '['.", function()
+        local program, err =
+            parse_file("./testfiles/parser/expExpsuf.titan")
+        assert.falsy(program)
+        assert.are.same("ExpExpsuf", err.label)
+    end)
+    
+    it("Expected ']' to match '['.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rBracketExpsuf.titan")
+        assert.falsy(program)
+        assert.are.same("RBracketExpsuf", err.label)
+    end)
+    
+    it("Expected a function name after '.'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/nameDotExpsuf.titan")
+        assert.falsy(program)
+        assert.are.same("NameDotExpsuf", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")

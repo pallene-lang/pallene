@@ -281,9 +281,11 @@ local grammar = re.compile([[
     suffixedexp     <- (simpleexp {| expsuffix* |})              -> fold_suffixes
 
     expsuffix       <- ({} funcargs)                             -> suffix_funccall
- --                  / ({} COLON NAME funcargs)                  -> suffix_methodcall
-                     / ({} LBRACKET exp RBRACKET)                -> suffix_bracket
-                     / ({} DOT NAME)                             -> suffix_dot
+ --                  / ({} COLON (NAME / %{NameColonExpsuf})
+ --                              (funcargs / %{FuncargsExpsuf})) -> suffix_methodcall
+                     / ({} LBRACKET (exp / %{ExpExpsuf})
+                                (RBRACKET / %{RBracketExpsuf})) -> suffix_bracket
+                     / ({} DOT (NAME / %{NameDotExpsuf}))       -> suffix_dot
 
     simpleexp       <- ({} NIL)                                  -> nil_exp
                      / ({} FALSE -> tofalse)                     -> Exp_Bool
