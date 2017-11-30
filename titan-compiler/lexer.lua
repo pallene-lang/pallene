@@ -198,8 +198,10 @@ local symbols = {
     DOT = ".", DOTS = "...", DBLCOLON = "::",
     -- Titan:
     COLON = ":",
+    RARROW = "->",
 }
 
+-- Enforce the longest match rule among the symbolic tokens.
 for tokname, symbol in pairs(symbols) do
     local pat = P(symbol)
     for _ , symbol2 in pairs(symbols) do
@@ -210,7 +212,7 @@ for tokname, symbol in pairs(symbols) do
     lexer[tokname] = pat
 end
 
--- Additional conflicts
+-- Enforce the longest match rule when a symbolic token is a prefix of a non-symbolic one.
 lexer.DOT      = lexer.DOT      - (P(".") * R("09"))
 lexer.LBRACKET = lexer.LBRACKET - (P("[") * P("=")^0 * P("["))
 lexer.SUB      = lexer.SUB      - P("--")

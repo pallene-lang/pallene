@@ -108,8 +108,10 @@ describe("Titan lexer", function()
         assert_lex("///", {"IDIV", "DIV"},       {})
         assert_lex("~=",  {"NE"},                {})
         assert_lex("~~=", {"BXOR", "NE"},        {})
+        assert_lex("->-", {"RARROW", "SUB"},     {})
+        assert_lex("-->", {"COMMENT"},           {})
     end)
-    
+
     it("can lex some integers", function()
         assert_lex("0",            {"NUMBER"}, {0})
         assert_lex("17",           {"NUMBER"}, {17})
@@ -143,7 +145,7 @@ describe("Titan lexer", function()
         assert_error("1p5",     "MalformedNumber")
         assert_error(".1.",     "MalformedNumber")
         assert_error("4..",     "MalformedNumber")
-        
+
         -- This is actually accepted by Lua (!)
         assert_error("local x = 1337require",        "MalformedNumber")
 
@@ -206,14 +208,14 @@ describe("Titan lexer", function()
     it("errors out on unclosed strings (instead of backtracking)", function()
         assert_error('"\'',       "UnclosedShortString")
         assert_error('"A',        "UnclosedShortString")
-        
+
         assert_error('"A\n',      "UnclosedShortString")
         assert_error('"A\r',      "UnclosedShortString")
         assert_error('"A\\\n\nB', "UnclosedShortString")
         assert_error('"A\\\r\rB', "UnclosedShortString")
-        
+
         assert_error('"\\"',      "UnclosedShortString")
-        
+
         assert_error("[[]",   "UnclosedLongString")
         assert_error("[[]=]", "UnclosedLongString")
     end)
@@ -226,7 +228,7 @@ describe("Titan lexer", function()
     it("can lex long strings with overlaping close brackets", function()
         assert_lex("[==[ Hi ]]]]=]==]", {"STRING"}, {" Hi ]]]]="})
     end)
-    
+
     it("can lex long strings touching square brackets", function()
         assert_lex("[[[a]]]", {"STRING", "RBRACKET"}, {"[a"})
         assert_lex("[  [[a]]]", {"LBRACKET", "SPACE", "STRING", "RBRACKET"}, {"a"})
@@ -258,7 +260,7 @@ describe("Titan lexer", function()
             "--]]",
             {"COMMENT"}, {}
         )
-        
+
         assert_lex(
             "---[[\n" ..
             "return 1\n" ..
