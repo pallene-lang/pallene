@@ -200,15 +200,18 @@
 
 #else			/* }{ */
 
+/* Titan: add search path for Titan libs to package.cpath */
+
 #define LUA_ROOT	"/usr/local/"
 #define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR "/"
 #define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR "/"
+#define LUA_TDIR	LUA_ROOT "lib/titan/" LUA_VDIR "." LUA_VERSION_RELEASE "/"
 #define LUA_PATH_DEFAULT  \
 		LUA_LDIR"?.lua;"  LUA_LDIR"?/init.lua;" \
 		LUA_CDIR"?.lua;"  LUA_CDIR"?/init.lua;" \
 		"./?.lua;" "./?/init.lua"
 #define LUA_CPATH_DEFAULT \
-		LUA_CDIR"?.so;" LUA_CDIR"loadall.so;" "./?.so"
+		LUA_TDIR"?.so;" LUA_CDIR"?.so;" LUA_CDIR"loadall.so;" "./?.so"
 #endif			/* } */
 
 
@@ -275,12 +278,7 @@
 ** give a warning about it. To avoid these warnings, change to the
 ** default definition.
 */
-#if defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
-    defined(__ELF__)		/* { */
-#define LUAI_FUNC	__attribute__((visibility("hidden"))) extern
-#else				/* }{ */
-#define LUAI_FUNC	extern
-#endif				/* } */
+#define LUAI_FUNC	LUA_API    /* Titan exports everything */
 
 #define LUAI_DDEC	LUAI_FUNC
 #define LUAI_DDEF	/* empty */

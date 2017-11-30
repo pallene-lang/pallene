@@ -1,6 +1,5 @@
 local parser = {}
 
-local lpeg = require "lpeglabel"
 local re = require "relabel"
 local inspect = require "inspect"
 
@@ -30,6 +29,14 @@ function defs.tofalse()
     return false
 end
 
+function defs.typeopt(pos, x)
+    if not x then
+        return defs.Type_Name(pos, "nil")
+    else
+        return x
+    end
+end
+
 function defs.opt(x)
     if x == "" then
         return false
@@ -37,7 +44,6 @@ function defs.opt(x)
         return x
     end
 end
-
 function defs.boolopt(x)
     return x ~= ""
 end
@@ -186,7 +192,7 @@ local grammar = re.compile([[
     toplevelfunc    <- ({} localopt
                            FUNCTION (NAME / %{NameFunc})
                            (LPAREN / %{LParPList}) parlist (RPAREN / %{RParPList})
-                           (COLON / %{ColonFunc}) (type / %{TypeFunc})
+                           (COLON / %{ColonFunc}) typeopt
                            block (END / %{EndFunc}))             -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl (ASSIGN / %{AssignVar})
@@ -197,10 +203,12 @@ local grammar = re.compile([[
 
     localopt        <- (LOCAL)?                                  -> boolopt
 
-    import         <- ({} LOCAL (NAME / %{NameImport}) (ASSIGN / %{AssignImport})
+    import          <- ({} LOCAL (NAME / %{NameImport}) (ASSIGN / %{AssignImport})
                           (IMPORT / %{ImportImport})
                           (LPAREN (STRING / %{StringLParImport}) (RPAREN / %{RParImport}) /
                           (STRING / %{StringImport})))           -> TopLevel_Import
+
+    typeopt         <- ({} (COLON (type / %{TypeFunc}))?)        -> typeopt
 
     parlist         <- {| (decl (COMMA 
                             (decl / %{DeclParList}))*)? |}       -- produces {Decl}

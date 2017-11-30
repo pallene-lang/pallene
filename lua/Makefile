@@ -17,6 +17,8 @@ INSTALL_LIB= $(INSTALL_TOP)/lib
 INSTALL_MAN= $(INSTALL_TOP)/man/man1
 INSTALL_LMOD= $(INSTALL_TOP)/share/lua/$V
 INSTALL_CMOD= $(INSTALL_TOP)/lib/lua/$V
+# Path for Titan libraries
+INSTALL_TMOD= $(INSTALL_TOP)/lib/titan/$R
 
 # How to install. If your install program does not support "-p", then
 # you may have to run ranlib on the installed liblua.a.
@@ -58,7 +60,7 @@ test:	dummy
 	src/lua -v
 
 install: dummy
-	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD)
+	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD) $(INSTALL_TMOD)
 	cd src && $(INSTALL_EXEC) $(TO_BIN) $(INSTALL_BIN)
 	cd src && $(INSTALL_DATA) $(TO_INC) $(INSTALL_INC)
 	cd src && $(INSTALL_DATA) $(TO_LIB) $(INSTALL_LIB)

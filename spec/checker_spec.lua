@@ -1,23 +1,20 @@
 local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
+local driver = require 'titan-compiler.driver'
 
 local function run_checker(code)
-    checker.imported = {}
+    driver.imported = {}
     local ast = assert(parser.parse(code))
-    local _, err = checker.check("test", ast, code, "test.titan")
-    return err == nil, err, ast
+    local t, errs = checker.check("test", ast, code, "test.titan", driver.defaultloader)
+    return #errs == 0, table.concat(errs, "\n"), ast, t
 end
 
 local function run_checker_modules(modules, main)
-    checker.imported = {}
-    local function loader(modname)
-        local ast, err = parser.parse(modules[modname])
-        if not ast then return nil, parser.error_to_string(err, modname .. ".titan") end
-        return ast, modules[modname], modname .. ".titan"
-    end
-    local _, err = checker.checkimport(main, loader)
-    return #err == 0, table.concat(err, "\n"), checker.imported
+    local imported = {}
+    local loader = driver.tableloader(modules, imported)
+    local _, errs = checker.checkimport(main, loader)
+    return #errs == 0, table.concat(errs, "\n"), imported
 end
 
 -- Return a version of t2 that only contains fields present in t1 (recursively)
@@ -115,7 +112,7 @@ describe("Titan type checker", function()
 
     it("catches variable not declared", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local x:integer = 1
                 y = 2
             end
@@ -125,20 +122,9 @@ describe("Titan type checker", function()
         assert.match("variable '%w+' not declared", err)
     end)
 
-    it("catches reference to function", function()
-        local code = [[
-            function fn(): nil
-                fn = 1
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("reference to function", err)
-    end)
-
     it("catches array expression in indexing is not an array", function()
         local code = [[
-            function fn(x: integer): nil
+            function fn(x: integer)
                 x[1] = 2
             end
         ]]
@@ -182,7 +168,7 @@ describe("Titan type checker", function()
 
     it("catches mismatching types in locals", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local i: integer = 1
                 local s: string = "foo"
                 s = i
@@ -195,11 +181,11 @@ describe("Titan type checker", function()
 
     it("function can call another function", function()
         local code = [[
-            function fn1(): nil
+            function fn1()
               fn2()
             end
 
-            function fn2(): nil
+            function fn2()
             end
         ]]
         local ok, err = run_checker(code)
@@ -219,7 +205,7 @@ describe("Titan type checker", function()
 
     it("allows setting element of array as nil", function ()
         local code = [[
-            function fn(): nil
+            function fn()
                 local arr: {integer} = { 10, 20, 30 }
                 arr[1] = nil
             end
@@ -525,7 +511,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with boolean", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. true
             end
         ]]
@@ -536,7 +522,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with nil", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. nil
             end
         ]]
@@ -547,7 +533,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with array", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. {}
             end
         ]]
@@ -558,7 +544,7 @@ describe("Titan type checker", function()
 
     it("cannot concatenate with boolean", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = "foo" .. true
             end
         ]]
@@ -569,7 +555,7 @@ describe("Titan type checker", function()
 
     it("can concatenate with integer and float", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local s = 1 .. 2.5
             end
         ]]
@@ -817,18 +803,16 @@ describe("Titan type checker", function()
             function geta(): integer
                 return a
             end
-            local function foo(): nil end
+            local function foo() end
         ]]
-        local ast, err = parser.parse(code)
-        assert.truthy(ast, err)
-        local mod, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(mod, err)
+        local ok, err, _, mod = run_checker(code)
+        assert.truthy(ok, err)
         assert_ast(mod, {
             _tag = "Module",
             name = "test",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                geta = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                geta = { _tag = "Function" }
             }
         })
         assert.falsy(mod.members.b)
@@ -840,9 +824,8 @@ describe("Titan type checker", function()
             local foo = import "foo"
             local bar = import "bar.baz"
         ]]
-        local ast, err = parser.parse(code)
-        assert.truthy(ast, err)
-        local mod, err = checker.check("test", ast, code, "test.titan")
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
         assert.match("no file './foo.titan'", err)
         assert.match("no file './bar/baz.titan'", err)
     end)
@@ -851,7 +834,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer = 1
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -864,8 +847,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "foo",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                foo = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                foo = { _tag = "Function" }
             }
         })
     end)
@@ -875,7 +858,7 @@ describe("Titan type checker", function()
             foo = [[
                 local bar = import "bar"
                 a: integer = nil
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -890,7 +873,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer =
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -959,7 +942,7 @@ describe("Titan type checker", function()
             function geta(): integer
                 return a
             end
-            local function foo(): nil end
+            local function foo() end
         ]] }
         local ok, err, mods = run_checker_modules(modules, "test")
         assert.truthy(ok)
@@ -967,8 +950,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "test",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                geta = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                geta = { _tag = "Function" }
             }
         })
         assert.falsy(mods.test.type.members.b)
@@ -990,7 +973,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer = 1
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -1003,8 +986,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "foo",
             members = {
-                a = { _type = { _tag = "Integer" } },
-                foo = { _type = { _tag = "Function" } }
+                a = { _tag = "Integer" },
+                foo = { _tag = "Function" }
             }
         })
     end)
@@ -1014,7 +997,7 @@ describe("Titan type checker", function()
             foo = [[
                 local bar = import "bar"
                 a: integer = nil
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -1029,7 +1012,7 @@ describe("Titan type checker", function()
         local modules = {
             foo = [[
                 a: integer =
-                function foo(): nil end
+                function foo() end
             ]],
             bar = [[
                 local foo = import "foo"
@@ -1089,6 +1072,157 @@ describe("Titan type checker", function()
             assert.falsy(ok)
             assert.match("expected integer but found nil", err)
         end
+    end)
+
+    it("catches use of function as first-class value", function ()
+        local code = [[
+            function foo(): integer
+                return foo
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("access a function", err)
+    end)
+
+    it("catches assignment to function", function ()
+        local code = [[
+            function foo(): integer
+                foo = 2
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("assign to a function", err)
+    end)
+
+    it("catches use of external function as first-class value", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+                function foo()
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.foo
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("access a function", err)
+    end)
+
+    it("catches assignment to external function", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+                function foo()
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    foo.foo = 2
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("assign to a function", err)
+    end)
+
+    it("catches use of module as first-class value", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("access module", err)
+    end)
+
+    it("catches assignment to module", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    foo = 2
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("assign to a module", err)
+    end)
+
+    it("catches call of external non-function", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.a()
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.falsy(ok)
+        assert.match("'foo.a' is not a function", err)
+    end)
+
+    it("catches call if non-function function", function ()
+        local code = [[
+            local a = 2
+            function foo(): integer
+                return a()
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("'a' is not a function", err)
+    end)
+
+    it("correctly uses module function", function ()
+        local modules = {
+            foo = [[
+                function a(): integer
+                    return 42
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.a()
+                end
+            ]]
+        }
+        local ok, err, mods = run_checker_modules(modules, "bar")
+        assert.truthy(ok)
+    end)
+
+    it("functions cannot have two parameters with the same name", function()
+        local code = [[
+            function f(a: integer, a: integer)
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match('duplicate parameter', err)
     end)
 
 end)

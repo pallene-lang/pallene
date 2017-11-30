@@ -823,7 +823,7 @@ end)
                 type = { name = "List" } },
               exp = {
                 _tag = "Exp_Call",
-                args = { args = 
+                args = { args =
                   { { _tag = "Exp_Table" }, { _tag = "Exp_Nil" } } },
                 exp = { var = {
                   _tag = "Var_Dot",
@@ -845,7 +845,7 @@ end)
             { decl = { name = "b" },
               exp = {
                 var = {
-                  _tag = "Var_Dot", 
+                  _tag = "Var_Dot",
                   name = "x",
                   exp = { var = {
                     _tag = "Var_Bracket",
@@ -860,6 +860,20 @@ end)
                 exp = { var = { name = "p1" } },
                 name = "x" },
               exp = { var = { name = "a" } } }
+        })
+    end)
+
+    it("can leave out nil in return type", function ()
+        local program, err = parser.parse([[
+            function foo()
+            end
+            local function bar()
+            end
+        ]])
+        assert.truthy(program)
+        assert_ast(program, {
+            { _tag = "TopLevel_Func", name = "foo", rettype = { name = "nil" } },
+            { _tag = "TopLevel_Func", name = "bar", rettype = { name = "nil" } },
         })
     end)
 end)

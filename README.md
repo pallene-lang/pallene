@@ -11,23 +11,27 @@ of the Titan compiler. It compiles a single Titan module
 to C code in the [artisanal style](https://github.com/titan-lang/artisanal-titan).
 The syntax is a subset of Lua syntax, plus types, and is specified in `titan-v0.ebnf`.
 
-# Requirements for running the compiler
-
-1. [Lua](http://www.lua.org/) >= 5.3.0
-2. [LPegLabel](https://github.com/sqmedeiros/lpeglabel) >= 1.0.0
-3. [inspect](https://github.com/kikito/inspect.lua) >= 3.1.0
-4. [argparse](https://github.com/mpeterv/argparse) >= 0.5.0
-
-You need to build the Lua interpreter in the `lua` folder with `MYCFLAGS=-fPIC`,
-or `titanc` will not be able to build any Titan code.
-
 # Install
 
-Titan must be installed in a standard location;
-[LuaRocks](http://luarocks.org) will do this, and will also install all dependencies automatically.
+First you need to build and install the Lua interpreter in the `lua` folder, 
+as it has the needed changes to `luaconf.h` to be able to load Titan modules. 
+Apart from the changes in `luaconf.h` this interpreter is identical to Lua 5.3.4.
+The `package.cpath` of this interpreter has a `/usr/local/lib/titan/5.3.4/?.so`
+entry for any system-wide Titan modules.
+
+You can install the Titan compiler itself using  [LuaRocks](http://luarocks.org)
+this will also install all dependencies automatically.
 
         $ [install luarocks]
         $ luarocks install titan-scm-1.rockspec
+
+
+# Requirements for running the compiler
+
+1. [LPegLabel](https://github.com/sqmedeiros/lpeglabel) >= 1.0.0
+2. [inspect](https://github.com/kikito/inspect.lua) >= 3.1.0
+3. [argparse](https://github.com/mpeterv/argparse) >= 0.5.0
+
 
 # Usage
 

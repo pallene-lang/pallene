@@ -10,7 +10,9 @@ function types.Array(etype)
 end
 
 function types.Module(modname, members)
-    return { _tag = "Module", name = modname, members = members }
+    return { _tag = "Module", name = modname,
+        prefix = modname:gsub("[.]", "_") .. "_",
+        members = members }
 end
 
 local base_types = { "Integer", "Boolean", "String", "Nil", "Float" }

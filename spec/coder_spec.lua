@@ -3,6 +3,8 @@ local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
 local coder = require 'titan-compiler.coder'
 local util = require 'titan-compiler.util'
+local pretty = require 'titan-compiler.pretty'
+local driver = require 'titan-compiler.driver'
 
 local function generate(ast, modname)
     os.remove(modname .. ".c")
@@ -15,10 +17,25 @@ local function generate(ast, modname)
     local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
 
     local cc_cmd = string.format([[
-        %s %s -shared %s.c lua/src/liblua.a -o %s.so
+        %s %s -shared %s.c -o %s.so
         ]], CC, CFLAGS, modname, modname)
     return os.execute(cc_cmd)
 end
+
+local function generate_modules(modules, main)
+    local CC = "gcc"
+    local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
+    local imported = {}
+    local loader = driver.tableloader(modules, imported)
+    local _, errs = checker.checkimport(main, loader)
+    if not (#errs == 0) then return nil, table.concat(errs, "\n") end
+    for name, _ in pairs(imported) do
+        local ok, err = driver.compile_module(CC, CFLAGS, imported, name)
+        if not ok then return nil, err end
+    end
+    return true
+end
+
 
 local function call(modname, code)
     local cmd = string.format("lua/src/lua -l %s -e \"%s\"",
@@ -29,7 +46,7 @@ end
 describe("Titan code generator", function()
     it("deletes array element", function()
         local code = [[
-            function delete(array: {integer}, i: integer): nil
+            function delete(array: {integer}, i: integer)
                 array[i] = nil
             end
         ]]
@@ -66,7 +83,7 @@ describe("Titan code generator", function()
 
     it("tests nil element in 'while'", function()
         local code = [[
-            function testfill(t: {integer}, i: integer, v: integer): nil
+            function testfill(t: {integer}, i: integer, v: integer)
                 while not t[i] and i > 0 do
                     t[i] = v
                     i = i - 1
@@ -85,7 +102,7 @@ describe("Titan code generator", function()
 
     it("tests nil element in 'repeat'", function()
         local code = [[
-            function testfill(t: {integer}, i: integer, v: integer): nil
+            function testfill(t: {integer}, i: integer, v: integer)
                 repeat
                     t[i] = v
                     i = i - 1
@@ -434,7 +451,7 @@ describe("Titan code generator", function()
             function geta(): integer
                 return a
             end
-            function seta(x: integer): nil
+            function seta(x: integer)
                 a = x
             end
         ]]
@@ -454,7 +471,7 @@ describe("Titan code generator", function()
             function geta(): float
                 return a
             end
-            function seta(x: float): nil
+            function seta(x: float)
                 a = x
             end
         ]]
@@ -474,7 +491,7 @@ describe("Titan code generator", function()
             function geta(): boolean
                 return a
             end
-            function seta(x: boolean): nil
+            function seta(x: boolean)
                 a = x
             end
         ]]
@@ -494,7 +511,7 @@ describe("Titan code generator", function()
             function len(): integer
                 return #a
             end
-            function seta(x: {integer}): nil
+            function seta(x: {integer})
                 a = x
             end
         ]]
@@ -529,7 +546,7 @@ describe("Titan code generator", function()
 
     it("handles unused locals", function()
         local code = [[
-            function fn(): nil
+            function fn()
                 local f: float = 1.0
                 local i: integer = f
             end
@@ -722,6 +739,46 @@ describe("Titan code generator", function()
         local ok, err = call("titan_test", "assert(titan_test.concat('aaaaaaaaaa','bbbbbbbbbb','cccccccccc','dddddddddd','eeeeeeeeee') == 'aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeee')")
         assert.truthy(ok, err)
     end)
+
+    it("correctly uses module function", function ()
+        local modules = {
+            foo = [[
+                function a(): integer
+                    return 42
+                end
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    return foo.a()
+                end
+            ]]
+        }
+        local ok, err = generate_modules(modules, "bar")
+        assert.truthy(ok, err)
+        local ok, err = call("bar", "assert(bar.bar() == 42)")
+        assert.truthy(ok, err)
+    end)
+
+    it("correctly uses module variable", function ()
+        local modules = {
+            foo = [[
+                a: integer = 1
+            ]],
+            bar = [[
+                local foo = import "foo"
+                function bar(): integer
+                    foo.a = 5
+                    return foo.a
+                end
+            ]]
+        }
+        local ok, err = generate_modules(modules, "bar")
+        assert.truthy(ok, err)
+        local ok, err = call("bar", "assert(bar.bar() == 5); assert((require 'foo').a == 5)")
+        assert.truthy(ok, err)
+    end)
+
 end)
 
 
