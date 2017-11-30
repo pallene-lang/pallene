@@ -173,6 +173,9 @@ local errors = {
    
    { label = "ThenElseIf",
         msg = "Expected 'then' in elseif statement." },
+   
+   { label = "OpExp",
+        msg = "Expected an expression after operator." },
 
 }
 
