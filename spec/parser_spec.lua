@@ -617,6 +617,27 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("RParFuncArgs", err.label)
     end)
+    
+    it("Expected an expression after ','", function()
+        local program, err =
+            parse_file("./testfiles/parser/expExpList.titan")
+        assert.falsy(program)
+        assert.are.same("ExpExpList", err.label)
+    end)
+
+    it("Expected '{' to match '}'.", function()
+        local program, err =
+            parse_file("./testfiles/parser/rCurlyTableCons.titan")
+        assert.falsy(program)
+        assert.are.same("RCurlyTableCons", err.label)
+    end)
+    
+    it("Expected an expression after ',' or ';'", function()
+        local program, err =
+            parse_file("./testfiles/parser/expFieldList.titan")
+        assert.falsy(program)
+        assert.are.same("ExpFieldList", err.label)
+    end)
 
     it("can parse binary and unary operators", function()
         local program, err = parse_file("./testfiles/operators.titan")

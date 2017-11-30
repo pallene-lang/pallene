@@ -312,11 +312,13 @@ local grammar = re.compile([[
                      / {| tablecons |}                           -- produces {Exp}
                      / {| ({} STRING) -> Exp_String |}           -- produces {Exp}
 
-    explist         <- {| (exp (COMMA exp)*)? |}                 -- produces {Exp}
+    explist         <- {| (exp (COMMA (exp / %{ExpExpList}))*)? |} -- produces {Exp}
 
-    tablecons       <- ({} LCURLY {| fieldlist? |} RCURLY)       -> Exp_Table
+    tablecons       <- ({} LCURLY {| fieldlist? |} 
+                                  (RCURLY / %{RCurlyTableCons})) -> Exp_Table
 
-    fieldlist       <- (exp (fieldsep exp)* fieldsep?)           -- produces Exp...
+    fieldlist       <- (exp (fieldsep (exp / !RCURLY %{ExpFieldList}))* 
+                            fieldsep?)                           -- produces Exp...
 
     fieldsep        <- SEMICOLON / COMMA
 

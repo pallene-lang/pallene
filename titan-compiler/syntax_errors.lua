@@ -202,6 +202,15 @@ local errors = {
    
    { label = "RParFuncArgs",
         msg = "Expected ')' to match '('." },
+   
+   { label = "ExpExpList",
+        msg = "Expected an expression after ','." },
+   
+   { label = "RCurlyTableCons",
+        msg = "Expected '{' to match '}'." },
+   
+   { label = "ExpFieldList",
+        msg = "Expected an expression after ',' or ';'." },
 
 }
 
