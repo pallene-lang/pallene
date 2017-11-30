@@ -220,11 +220,14 @@ local grammar = re.compile([[
                      / ({} NAME)                                 -> Type_Name
                      / ({} LCURLY (type / %{TypeType})
                                   (RCURLY / %{RCurlyType}))      -> Type_Array
-                     / ({} typelist RARROW typelist)             -> Type_Function
+                     / ({}
+                            typelist
+                            (RARROW / %{TypeRArrow})
+                            (typelist / %{TypeReturnTypes}) )    -> Type_Function
 
-    typelist        <- LPAREN
-                       {| type (COMMA type)* |}
-                       RPAREN                                    -- produces {Type}
+    typelist        <- ( LPAREN
+                         {| (type (COMMA (type / %{TypelistType}))*)? |}
+                         (RPAREN / %{RParenTypelist} ))          -- produces {Type}
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
 

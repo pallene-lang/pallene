@@ -6,6 +6,8 @@ local x3 : { int } = nil
 
 local x4 : {{int}} = nil
 
+local f0 : () -> () = nil
+
 local f1 : (a) -> (b) = nil
 
 local f2 : (a, b) -> (c) = nil

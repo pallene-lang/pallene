@@ -92,6 +92,12 @@ describe("Titan parser", function()
                                 { _tag = "Type_Array", subtype =
                                     {_tag = "Type_Name", name = "int" } } } } },
 
+            -- Empty list in function type
+            { decl = { type = {
+                _tag = "Type_Function",
+                argtypes = { },
+                rettypes = { } } } },
+
             -- simple function type
             { decl = { type = {
                 _tag = "Type_Function",
@@ -419,6 +425,34 @@ describe("Titan parser", function()
         assert.are.same("RCurlyType", err.label)
     end)
 
+    it("Expected type after ','", function()
+        local program, err =
+            parse_file("./testfiles/parser/typelistType.titan")
+        assert.falsy(program)
+        assert.are.same("TypelistType", err.label)
+    end)
+
+    it("Expected ')' to close type list", function()
+        local program, err =
+            parse_file("./testfiles/parser/rParenTypelist.titan")
+        assert.falsy(program)
+        assert.are.same("RParenTypelist", err.label)
+    end)
+
+    it("Expected '->' after ')' for a function type", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeRArrow.titan")
+        assert.falsy(program)
+        assert.are.same("TypeRArrow", err.label)
+    end)
+
+    it("Expected return types after `->` to finish the function type", function()
+        local program, err =
+            parse_file("./testfiles/parser/typeReturnTypes.titan")
+        assert.falsy(program)
+        assert.are.same("TypeReturnTypes", err.label)
+    end)
+
     it("Expected ':' after the name of a record field.", function()
         local program, err =
             parse_file("./testfiles/parser/colonRecordField.titan")
@@ -433,7 +467,7 @@ describe("Titan parser", function()
         assert.are.same("TypeRecordField", err.label)
     end)
 
-		it("Expected 'end' to close block.", function()
+    it("Expected 'end' to close block.", function()
         local program, err =
             parse_file("./testfiles/parser/endBlock.titan")
         assert.falsy(program)
@@ -642,14 +676,14 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("RParSimpleExp", err.label)
     end)
-    
+
     it("Expected ')' to match '('.", function()
         local program, err =
             parse_file("./testfiles/parser/rParFuncArgs.titan")
         assert.falsy(program)
         assert.are.same("RParFuncArgs", err.label)
     end)
-    
+
     it("Expected an expression after ','", function()
         local program, err =
             parse_file("./testfiles/parser/expExpList.titan")
@@ -663,7 +697,7 @@ describe("Titan parser", function()
         assert.falsy(program)
         assert.are.same("RCurlyTableCons", err.label)
     end)
-    
+
     it("Expected an expression after ',' or ';'", function()
         local program, err =
             parse_file("./testfiles/parser/expFieldList.titan")
