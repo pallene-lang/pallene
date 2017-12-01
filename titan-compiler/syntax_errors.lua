@@ -219,7 +219,7 @@ local errors = {
     { label = "ExpExpList",
         msg = "Expected an expression after ','." },
 
-    { label = "RCurlyTableCons",
+    { label = "RCurlyInitList",
         msg = "Expected '{' to match '}'." },
 
     { label = "ExpFieldList",

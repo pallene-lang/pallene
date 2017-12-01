@@ -325,7 +325,7 @@ local grammar = re.compile([[
                      / ({} TRUE -> totrue)                       -> Exp_Bool
                      / ({} NUMBER)                               -> number_exp
                      / ({} STRING)                               -> Exp_String
-                     / tablecons                                 -- produces Exp
+                     / initlist                                  -- produces Exp
                      / suffixedexp                               -- produces Exp
                      / prefixexp                                 -- produces Exp
 
@@ -334,16 +334,21 @@ local grammar = re.compile([[
 
     funcargs        <- (LPAREN explist
                                (RPAREN / %{RParFuncArgs}))       -- produces {Exp}
-                     / {| tablecons |}                           -- produces {Exp}
+                     / {| initlist |}                            -- produces {Exp}
                      / {| ({} STRING) -> Exp_String |}           -- produces {Exp}
 
     explist         <- {| (exp (COMMA (exp / %{ExpExpList}))*)? |} -- produces {Exp}
 
-    tablecons       <- ({} LCURLY {| fieldlist? |}
-                                  (RCURLY / %{RCurlyTableCons})) -> Exp_Table
+    initlist        <- ({} LCURLY {| fieldlist? |}
+                                  (RCURLY / %{RCurlyInitList})) -> Exp_InitList
 
-    fieldlist       <- (exp (fieldsep (exp / !RCURLY %{ExpFieldList}))*
-                            fieldsep?)                           -- produces Exp...
+    fieldlist       <- (field
+                        (fieldsep
+                         (field /
+                          !RCURLY %{ExpFieldList}))*
+                        fieldsep?)                          -- produces Field...
+
+    field           <- ({} (NAME ASSIGN)? -> opt exp)       -> Field_Field
 
     fieldsep        <- SEMICOLON / COMMA
 

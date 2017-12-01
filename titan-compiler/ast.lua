@@ -48,7 +48,7 @@ types.Exp = {
     Integer = {"value"},
     Float   = {"value"},
     String  = {"value"},
-    Table   = {"exps"},
+    InitList= {"fields"},
     Call    = {"exp", "args"},
     Var     = {"var"},
     Unop    = {"op", "exp"},
@@ -63,6 +63,10 @@ types.Exp = {
 types.Args = {
     Func    = {"args"},
     Method  = {"method", "args"},
+}
+
+types.Field = {
+    Field   = {"name", "exp"},
 }
 
 -- Create a function for each type constructor
