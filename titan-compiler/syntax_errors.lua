@@ -102,9 +102,6 @@ local errors = {
     { label = "RParenTypelist",
         msg = "Expected ')' to close type list" },
 
-    { label = "TypeRArrow",
-        msg = "Expected '->' after ')' for a function type" },
-
     { label = "TypeReturnTypes",
         msg = "Expected return types after `->` to finish the function type" },
 

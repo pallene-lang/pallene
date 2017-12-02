@@ -216,18 +216,21 @@ local grammar = re.compile([[
     decl            <- ({} NAME (COLON
                             (type / %{TypeDecl}))? -> opt)       -> Decl_Decl
 
-    type            <- ({} NIL -> 'nil')                         -> Type_Name
+    simpletype      <- ({} NIL -> 'nil')                         -> Type_Name
                      / ({} NAME)                                 -> Type_Name
                      / ({} LCURLY (type / %{TypeType})
                                   (RCURLY / %{RCurlyType}))      -> Type_Array
-                     / ({}
-                            typelist
-                            (RARROW / %{TypeRArrow})
-                            (typelist / %{TypeReturnTypes}) )    -> Type_Function
 
     typelist        <- ( LPAREN
                          {| (type (COMMA (type / %{TypelistType}))*)? |}
-                         (RPAREN / %{RParenTypelist} ))          -- produces {Type}
+                         (RPAREN / %{RParenTypelist}) )          -- produces {Type}
+
+    type            <- ( {} types RARROW
+                         (types / %{TypeReturnTypes}) )          -> Type_Function
+                     / simpletype                                -- produces Type
+
+    types           <- typelist                                  -- produces {Type}
+                     / {| simpletype |}
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
 

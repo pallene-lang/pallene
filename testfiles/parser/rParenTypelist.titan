@@ -1,1 +1,1 @@
-local f: (a -> b)
+local f: (a, b -> b

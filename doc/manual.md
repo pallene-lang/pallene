@@ -32,12 +32,13 @@ type `{ integer }`.
 
 Function types in Titan are created with the `->` type constructor. For
 example, `(a, b) -> (c)` is the function type for a function that receives one
-argument of type `a` and one of type `b` and returns a value of type `c`. The
-parentheses around the argument and return type lists are mandatory, even when
-there is a single type. For example, the type of functions that map ints to
-strings is `(int) -> (string)` and `int -> string` is a syntax error. Similarly,
-the type of functions that receive a `a` and return a function that maps `b`s to
-`c`s is `(a) -> ((b) -> (c))`. `(a) -> (b) -> (c)` is a syntax error.
+argument of type `a` and one of type `b` and returns a value of type `c`. For
+function types that only receive one input parameter or return a single value,
+the parentheses are optional. For example, `int -> string` is the type of
+functions that map `int` to `string`. The `->` type constructor is right
+associative. That is, `a -> b -> c` is equivalent to `a -> (b -> c)`, the type
+of functions that receive an `a` and return a function that receives a `b` and
+return a `c`.
 
 A titan variable of function type may refer to either statically-typed Titan
 functions or to dynamically typed Lua functions. When calling a

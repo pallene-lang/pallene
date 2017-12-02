@@ -129,6 +129,17 @@ describe("Titan parser", function()
                     argtypes = { { _tag = "Type_Name", name = "a" } },
                     rettypes = { { _tag = "Type_Name", name = "b" } } } },
                 rettypes = { { _tag = "Type_Name", name = "c" } } } } },
+
+            -- precedence of -> and ,
+            { decl = { type = {
+                _tag = "Type_Function",
+                argtypes = {
+                    { _tag = "Type_Name", name = "a" },
+                    { _tag = "Type_Function",
+                      argtypes = { { _tag = "Type_Name", name = "b" } },
+                      rettypes = { { _tag = "Type_Name", name = "c" } } },
+                    { _tag = "Type_Name", name = "d" } },
+                rettypes = { { _tag = "Type_Name", name = "e" } } } } },
         })
     end)
 
@@ -437,13 +448,6 @@ describe("Titan parser", function()
             parse_file("./testfiles/parser/rParenTypelist.titan")
         assert.falsy(program)
         assert.are.same("RParenTypelist", err.label)
-    end)
-
-    it("Expected '->' after ')' for a function type", function()
-        local program, err =
-            parse_file("./testfiles/parser/typeRArrow.titan")
-        assert.falsy(program)
-        assert.are.same("TypeRArrow", err.label)
     end)
 
     it("Expected return types after `->` to finish the function type", function()
