@@ -67,4 +67,18 @@ function util.get_line_number(subject, pos)
     return line, col
 end
 
+
+-- Barebones string-based template function for generating C/Lua code.
+-- Replaces $VAR placeholders in the `code` template by the corresponding
+-- strings in the `substs` table.
+function util.render(code, substs)
+    return (string.gsub(code, "$([%w_]+)", function(k)
+        local v = substs[k]
+        if not v then
+            error("Internal compiler error: missing template variable " .. k)
+        end
+        return v
+    end))
+end
+
 return util

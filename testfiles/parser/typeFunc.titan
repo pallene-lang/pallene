@@ -1,3 +1,0 @@
-function foo () :
-  local x = 3
-end

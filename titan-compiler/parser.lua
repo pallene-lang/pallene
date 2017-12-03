@@ -88,6 +88,7 @@ function defs.fold_binop_left(pos, matches)
     return lhs
 end
 
+-- Should this go on a separate constant propagation pass?
 function defs.binop_concat(pos, lhs, op, rhs)
     if op then
         if rhs._tag == "Exp_Concat" then

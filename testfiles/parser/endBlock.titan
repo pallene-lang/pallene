@@ -1,4 +1,0 @@
-function f ( x : int) : string
-  do
-
-  return "42"

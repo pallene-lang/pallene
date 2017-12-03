@@ -6,6 +6,11 @@ local errors = {
       label = "SyntaxError",
         msg = "Syntax Error" },
 
+    --
+    -- Lexer errors
+    -- (tested in spec/lexer_spec.lua)
+    --
+
     { label = "MalformedNumber",
         msg = "Malformed number." },
 
@@ -28,6 +33,11 @@ local errors = {
     { label = "MalformedEscape_x",
         msg = "\\x escape sequences must have exactly two hexadecimal digits." },
 
+    --
+    -- Parser errors
+    -- (tested in spec/parser_spec.lua)
+    --
+
     { label = "NameFunc",
         msg = "Expected a function name after 'function'." },
 
@@ -36,9 +46,6 @@ local errors = {
 
     { label = "RParPList",
         msg = "Expected ')' to close the parameter list." },
-
-    { label = "ColonFunc",
-        msg = "Expected ':' after the parameter list." },
 
     { label = "TypeFunc",
         msg = "Expected a type in function declaration." },

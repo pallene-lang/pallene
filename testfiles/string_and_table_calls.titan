@@ -1,9 +1,0 @@
-function foo(): nil
-    f ()
-    f "qwe"
-    f {}
-    
-    --o:m ()
-    --o:m "asd"
-    --o:m {}
-end

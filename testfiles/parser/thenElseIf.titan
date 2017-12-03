@@ -1,8 +1,0 @@
-function f ( x : int) : int
-  if x > 1 then
-    x = x - 1
-	elseif x > 0
-
-  end
-  return 42
-end

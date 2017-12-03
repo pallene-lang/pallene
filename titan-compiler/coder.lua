@@ -1,22 +1,11 @@
 local types = require "titan-compiler.types"
+local util  = require "titan-compiler.util"
 
 local coder = {}
 
 local codeexp, codestat
 
--- Barebones string-based template function for generating C code.
--- Replaces $VAR placeholders in the `code` template by the corresponding
--- strings in the `substs` table.
-local function render(code, substs)
-    return (string.gsub(code, "$([%w_]+)", function(k)
-        local v = substs[k]
-        if not v then
-            error("Internal compiler error: missing template variable " .. k)
-        end
-        return v
-    end))
-end
-
+local render = util.render
 
 --
 -- Functions for C literals
