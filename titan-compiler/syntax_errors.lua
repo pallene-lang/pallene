@@ -64,36 +64,36 @@ local errors = {
     { label = "NameImport",
         msg = "Expected a name after 'local'." },
 
-   --this label is not thrown in rule 'import' because rule 'toplevelvar'
-   --matches an invalid input like "local bola import"
-   { label = "AssignImport",
+    --this label is not thrown in rule 'import' because rule 'toplevelvar'
+    --matches an invalid input like "local bola import"
+    { label = "AssignImport",
         msg = "Expected '='." },
 
-   --this label is not thrown in rule 'import' because rule 'toplevelvar'
-   --matches an input like "local bola = X", given that X is a valid expression,
-   --or throws a label when X is not a valid expression
-   { label = "ImportImport",
+    --this label is not thrown in rule 'import' because rule 'toplevelvar'
+    --matches an input like "local bola = X", given that X is a valid expression,
+    --or throws a label when X is not a valid expression
+    { label = "ImportImport",
         msg = "Expected 'import' keyword." },
 
-   { label = "StringLParImport",
+    { label = "StringLParImport",
         msg = "Expected the name of a module after '('." },
 
-   { label = "RParImport",
+    { label = "RParImport",
         msg = "Expected ')' to close import declaration." },
 
-   { label = "StringImport",
+    { label = "StringImport",
         msg = "Expected the name of a module after 'import'." },
 
-   { label = "DeclParList",
+    { label = "DeclParList",
         msg = "Expected a variable name after ','." },
 
-   { label = "TypeDecl",
+    { label = "TypeDecl",
         msg = "Expected a type name after ':'." },
 
-   { label = "TypeType",
+    { label = "TypeType",
         msg = "Expected a type name after '{'." },
 
-   { label = "RCurlyType",
+    { label = "RCurlyType",
         msg = "Expected '}' to close type specification." },
 
     { label = "TypelistType",
@@ -105,120 +105,120 @@ local errors = {
     { label = "TypeReturnTypes",
         msg = "Expected return types after `->` to finish the function type" },
 
-   { label = "ColonRecordField",
+    { label = "ColonRecordField",
         msg = "Expected ':' after the name of a record field." },
 
-   { label = "TypeRecordField",
+    { label = "TypeRecordField",
         msg = "Expected a type name after ':'." },
 
-   { label = "EndBlock",
+    { label = "EndBlock",
         msg = "Expected 'end' to close block." },
 
-   { label = "ExpWhile",
+    { label = "ExpWhile",
         msg = "Expected an expression after 'while'." },
 
-   { label = "DoWhile",
+    { label = "DoWhile",
         msg = "Expected 'do' in while statement." },
 
-   { label = "EndWhile",
+    { label = "EndWhile",
         msg = "Expected 'end' to close the while statement." },
 
-   { label = "UntilRepeat",
+    { label = "UntilRepeat",
         msg = "Expected 'until' in repeat statement." },
 
-   { label = "ExpRepeat",
+    { label = "ExpRepeat",
         msg = "Expected an expression after 'until'." },
 
-   { label = "ExpIf",
+    { label = "ExpIf",
         msg = "Expected an expression after 'if'." },
 
-   { label = "ThenIf",
+    { label = "ThenIf",
         msg = "Expected 'then' in if statement." },
 
-   { label = "EndIf",
+    { label = "EndIf",
         msg = "Expected 'end' to close the if statement." },
 
-   { label = "DeclFor",
+    { label = "DeclFor",
         msg = "Expected variable declaration in for statement." },
 
-   { label = "AssignFor",
+    { label = "AssignFor",
         msg = "Expected '=' after variable declaration in for statement." },
 
-   { label = "Exp1For",
+    { label = "Exp1For",
         msg = "Expected an expression after '='." },
 
-   { label = "CommaFor",
+    { label = "CommaFor",
         msg = "Expected ',' in for statement." },
 
-   { label = "Exp2For",
+    { label = "Exp2For",
         msg = "Expected an expression after ','." },
 
-   { label = "Exp3For",
+    { label = "Exp3For",
         msg = "Expected an expression after ','." },
 
-   { label = "DoFor",
+    { label = "DoFor",
         msg = "Expected 'do' in for statement." },
 
-   { label = "EndFor",
+    { label = "EndFor",
         msg = "Expected 'end' to close the for statement." },
 
-   { label = "DeclLocal",
+    { label = "DeclLocal",
         msg = "Expected variable declaration after 'local'." },
 
-   { label = "AssignLocal",
+    { label = "AssignLocal",
         msg = "Expected '=' after variable declaration." },
 
-   { label = "ExpLocal",
+    { label = "ExpLocal",
         msg = "Expected an expression after '='." },
 
-   { label = "AssignAssign",
+    { label = "AssignAssign",
         msg = "Expected '=' after variable." },
 
-   { label = "ExpAssign",
+    { label = "ExpAssign",
         msg = "Expected an expression after '='." },
 
-   { label = "ExpElseIf",
+    { label = "ExpElseIf",
         msg = "Expected an expression after 'elseif'." },
 
-   { label = "ThenElseIf",
+    { label = "ThenElseIf",
         msg = "Expected 'then' in elseif statement." },
 
-   { label = "OpExp",
+    { label = "OpExp",
         msg = "Expected an expression after operator." },
 
    -- not used currently because the parser rule is commented
-   { label = "NameColonExpSuf",
+    { label = "NameColonExpSuf",
         msg = "Expected a method name after ':'." },
 
    -- not used currently because the parser rule is commented
-   { label = "FuncArgsExpSuf",
+    { label = "FuncArgsExpSuf",
         msg = "Expected a list of arguments." },
 
-   { label = "ExpExpSuf",
+    { label = "ExpExpSuf",
         msg = "Expected an expression after '['." },
 
-   { label = "RBracketExpSuf",
+    { label = "RBracketExpSuf",
         msg = "Expected ']' to match '['." },
 
-   { label = "NameDotExpSuf",
+    { label = "NameDotExpSuf",
         msg = "Expected a function name after '.'." },
 
-   { label = "ExpSimpleExp",
+    { label = "ExpSimpleExp",
         msg = "Expected an expression after '('." },
 
-   { label = "RParSimpleExp",
+    { label = "RParSimpleExp",
         msg = "Expected ')'to match '('." },
 
-   { label = "RParFuncArgs",
+    { label = "RParFuncArgs",
         msg = "Expected ')' to match '('." },
 
-   { label = "ExpExpList",
+    { label = "ExpExpList",
         msg = "Expected an expression after ','." },
 
-   { label = "RCurlyTableCons",
+    { label = "RCurlyTableCons",
         msg = "Expected '{' to match '}'." },
 
-   { label = "ExpFieldList",
+    { label = "ExpFieldList",
         msg = "Expected an expression after ',' or ';'." },
 
 }
