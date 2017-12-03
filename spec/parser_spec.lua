@@ -126,17 +126,9 @@ local function assert_statements_syntax_error(code, expected_error_label)
     assert_program_syntax_error(program_str, expected_error_label)
 end
 
-
 --
 --
 --
-
-
--- TODO: Get rid of this function; inline all the test cases
-local function parse_file(filename)
-    local input = assert(util.get_file_contents(filename))
-    return parser.parse(input)
-end
 
 describe("Titan parser", function()
     assert:set_parameter("TableFormatLevel", -1)
@@ -695,63 +687,6 @@ describe("Titan parser", function()
                         exp = { _tag = "Exp_Var", var = { _tag = "Var_Name",
                             name = "a" } } } } } } } })
     end)
-
-    --
-    -- These are actually lexer tests
-    -- We should add anything not yet in lexer_spec over there
-    -- and delete the rest
-    --
-    it("Malformed number.", function()
-        local program, err =
-            parse_file("./testfiles/parser/malformedNumber.titan")
-        assert.falsy(program)
-        assert.are.same("MalformedNumber", err.label)
-    end)
-
-    it("Unclosed long string or long comment.", function()
-        local program, err =
-            parse_file("./testfiles/parser/unclosedLongString.titan")
-        assert.falsy(program)
-        assert.are.same("UnclosedLongString", err.label)
-    end)
-
-    it("Unclosed short string.", function()
-        local program, err =
-            parse_file("./testfiles/parser/unclosedShortString.titan")
-        assert.falsy(program)
-        assert.are.same("UnclosedShortString", err.label)
-    end)
-
-    it("Invalid escape character in string.", function()
-        local program, err =
-            parse_file("./testfiles/parser/invalidEscape.titan")
-        assert.falsy(program)
-        assert.are.same("InvalidEscape", err.label)
-    end)
-
-    it("\\u escape sequence is malformed.", function()
-        local program, err =
-            parse_file("./testfiles/parser/malformedEscapeU.titan")
-        assert.falsy(program)
-        assert.are.same("MalformedEscape_u", err.label)
-    end)
-
-    it("\\x escape sequences must have exactly two hexadecimal digits.", function()
-        local program, err =
-            parse_file("./testfiles/parser/malformedEscapeX.titan")
-        assert.falsy(program)
-        assert.are.same("MalformedEscape_x", err.label)
-    end)
-
-    it("\\x escape sequences must have exactly two hexadecimal digits.", function()
-        local program, err =
-            parse_file("./testfiles/parser/malformedEscapeX2.titan")
-        assert.falsy(program)
-        assert.are.same("MalformedEscape_x", err.label)
-    end)
-    --
-    --
-    --
 
     it("uses specific error labels for some errors", function()
 
