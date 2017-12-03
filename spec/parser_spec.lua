@@ -438,19 +438,15 @@ describe("Titan parser", function()
     end)
 
     it("requires that return statements be the last in the block", function()
-        assert_program_syntax_error([[
-            function f(): nil
-                return 10
-                return 11
-            end
+        assert_statements_syntax_error([[
+            return 10
+            return 11
         ]], "EndFunc")
     end)
 
     it("does not allow extra semicolons after a return", function()
-        assert_program_syntax_error([[
-            function f(): nil
-                return;;
-            end
+        assert_statements_syntax_error([[
+            return;;
         ]], "EndFunc")
     end)
 
@@ -589,7 +585,9 @@ describe("Titan parser", function()
     end)
 
     it("only allows call expressions as statements", function()
-        assert_statements_syntax_error([[ 1 + 1 ]], "EndFunc")
+        assert_statements_syntax_error([[
+            1 + 1
+        ]], "EndFunc")
     end)
 
     it("can parse import", function ()
@@ -765,27 +763,17 @@ describe("Titan parser", function()
             end
         ]], "TypeDecl")
 
-        assert_program_syntax_error([[
-            function foo (a:{} ) : int
-            end
-        ]], "TypeType")
 
-        assert_program_syntax_error([[
-            function foo (a:{int ) : int
-            end
-        ]], "RCurlyType")
+        assert_type_syntax_error([[ {} ]], "TypeType")
 
-        assert_program_syntax_error([[
-            local f: (a,,,) -> b = nil
-        ]], "TypelistType")
+        assert_type_syntax_error([[ {int ]], "RCurlyType")
 
-        assert_program_syntax_error([[
-            local f: (a, b -> b
-        ]], "RParenTypelist")
+        assert_type_syntax_error([[ (a,,,) -> b ]], "TypelistType")
 
-        assert_program_syntax_error([[
-            local f: (a, b) -> = nil
-        ]], "TypeReturnTypes")
+        assert_type_syntax_error([[ (a, b -> b  ]], "RParenTypelist")
+
+        assert_type_syntax_error([[ (a, b) -> = nil ]], "TypeReturnTypes")
+
 
         assert_program_syntax_error([[
             record A
@@ -805,250 +793,149 @@ describe("Titan parser", function()
                 return "42"
         ]], "EndBlock")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                while do
-                    x = x - 1
-                end
-                return 42
+        assert_statements_syntax_error([[
+            while do
+                x = x - 1
             end
         ]], "ExpWhile")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                while x > 3
-                    x = x - 1
-                end
-                return 42
+        assert_statements_syntax_error([[
+            while x > 3
+                x = x - 1
             end
         ]], "DoWhile")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                while x > 3 do
-                    x = x - 1
-                    return 42
-                return 41
-            end
+        assert_statements_syntax_error([[
+            while x > 3 do
+                x = x - 1
+                return 42
+            return 41
         ]], "EndWhile")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                repeat
-                    x = x - 1
-                end
-                return 42
+        assert_statements_syntax_error([[
+            repeat
+                x = x - 1
             end
         ]], "UntilRepeat")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                repeat
-                    x = x - 1
-                until
-                return 42
-            end
+        assert_statements_syntax_error([[
+            repeat
+                x = x - 1
+            until
         ]], "ExpRepeat")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                if then
-                    x = x - 1
-                end
-                return 42
+        assert_statements_syntax_error([[
+            if then
+                x = x - 1
             end
         ]], "ExpIf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                if x > 10
-                    x = x - 1
-                end
-                return 42
+        assert_statements_syntax_error([[
+            if x > 10
+                x = x - 1
             end
         ]], "ThenIf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                if x > 10 then
-                    x = x - 1
-                    return 42
-                return 41
-            end
+        assert_statements_syntax_error([[
+            if x > 10 then
+                x = x - 1
+                return 42
+            return 41
         ]], "EndIf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for = 1, 10 do
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for = 1, 10 do
             end
         ]], "DeclFor")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x  1, 10 do
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for x  1, 10 do
             end
         ]], "AssignFor")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x = , 10 do
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for x = , 10 do
             end
         ]], "Exp1For")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x = 1 10 do
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for x = 1 10 do
             end
         ]], "CommaFor")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x = 1, do
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for x = 1, do
             end
         ]], "Exp2For")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x = 1, 10, do
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for x = 1, 10, do
             end
         ]], "Exp3For")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x = 1, 10, 1
-                end
-                return 42
+        assert_statements_syntax_error([[
+            for x = 1, 10, 1
             end
         ]], "DoFor")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                for x = 1, 10, 1 do
-                    return 42
-                return 41
-            end
+        assert_statements_syntax_error([[
+            for x = 1, 10, 1 do
+                return 42
+            return 41
         ]], "EndFor")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                local = 3
-            end
+        assert_statements_syntax_error([[
+            local = 3
         ]], "DeclLocal")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                local x  3
-            end
+        assert_statements_syntax_error([[
+            local x  3
         ]], "AssignLocal")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                local x =
-            end
+        assert_statements_syntax_error([[
+            local x =
         ]], "ExpLocal")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x
-            end
+        assert_statements_syntax_error([[
+            x
         ]], "AssignAssign")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x =
-            end
+        assert_statements_syntax_error([[
+            x =
         ]], "ExpAssign")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                if x > 1 then
-                    x = x - 1
-                elseif then
-                end
-                return 42
+        assert_statements_syntax_error([[
+            if x > 1 then
+                x = x - 1
+            elseif then
             end
         ]], "ExpElseIf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                if x > 1 then
-                    x = x - 1
-                elseif x > 0
-                end
-                return 42
+        assert_statements_syntax_error([[
+            if x > 1 then
+                x = x - 1
+            elseif x > 0
             end
         ]], "ThenElseIf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = 1 +
-            end
-        ]], "OpExp")
+        assert_expression_syntax_error([[ 1 + ]], "OpExp")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y[]
-            end
-        ]], "ExpExpSuf")
+        assert_expression_syntax_error([[ y[] ]], "ExpExpSuf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y[1
-            end
-        ]], "RBracketExpSuf")
+        assert_expression_syntax_error([[ y[1 ]], "RBracketExpSuf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y.()
-            end
-        ]], "NameDotExpSuf")
+        assert_expression_syntax_error([[ y.() ]], "NameDotExpSuf")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = ()
-            end
-        ]], "ExpSimpleExp")
+        assert_expression_syntax_error([[ () ]], "ExpSimpleExp")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = (42
-            end
-        ]], "RParSimpleExp")
+        assert_expression_syntax_error([[ (42 ]], "RParSimpleExp")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y(42
-            end
-        ]], "RParFuncArgs")
+        assert_expression_syntax_error([[ f(42 ]], "RParFuncArgs")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y(42,)
-            end
-        ]], "ExpExpList")
+        assert_expression_syntax_error([[ f(42,) ]], "ExpExpList")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y{42
-            end
-        ]], "RCurlyTableCons")
+        assert_expression_syntax_error([[ y{42 ]], "RCurlyTableCons")
 
-        assert_program_syntax_error([[
-            function f ( x : int) : int
-                x = y{42,,}
-            end
-        ]], "ExpFieldList")
+        assert_expression_syntax_error([[ y{42,,} ]], "ExpFieldList")
     end)
 end)
