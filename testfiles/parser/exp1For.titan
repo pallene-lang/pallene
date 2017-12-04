@@ -1,6 +1,0 @@
-function f ( x : int) : int
-  for x = , 10 do
-  
-  end
-  return 42
-end

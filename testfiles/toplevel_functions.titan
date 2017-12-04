@@ -1,8 +1,0 @@
-local function fA(): nil
-end
-
-local function fB(x:int): nil
-end
-
-local function fC(x:int, y:int): nil
-end

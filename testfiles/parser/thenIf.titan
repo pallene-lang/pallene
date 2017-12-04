@@ -1,6 +1,0 @@
-function f ( x : int) : int
-  if x > 10
-    x = x - 1
-  end
-  return 42
-end
