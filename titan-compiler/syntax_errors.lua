@@ -192,11 +192,9 @@ local errors = {
     { label = "OpExp",
         msg = "Expected an expression after operator." },
 
-   -- not used currently because the parser rule is commented
     { label = "NameColonExpSuf",
         msg = "Expected a method name after ':'." },
 
-   -- not used currently because the parser rule is commented
     { label = "FuncArgsExpSuf",
         msg = "Expected a list of arguments." },
 

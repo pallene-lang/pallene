@@ -928,6 +928,10 @@ describe("Titan parser", function()
 
         assert_expression_syntax_error([[ 1 + ]], "OpExp")
 
+        assert_expression_syntax_error([[ obj:() ]], "NameColonExpSuf")
+
+        assert_expression_syntax_error([[ obj:f + 1 ]], "FuncArgsExpSuf")
+
         assert_expression_syntax_error([[ y[] ]], "ExpExpSuf")
 
         assert_expression_syntax_error([[ y[1 ]], "RBracketExpSuf")
