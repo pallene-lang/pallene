@@ -386,7 +386,7 @@ describe("Titan parser", function()
     it("can parse do-while blocks", function()
         assert_statements_ast([[
             do
-                local x = 10; x = 11
+                local x = 10; (x) = 11
                 print("Hello", "World")
             end
         ]], {
@@ -585,6 +585,13 @@ describe("Titan parser", function()
     end)
 
     it("only allows call expressions as statements", function()
+        pending("this needs to be its own error code")
+        -- Currently the error messages mention something else
+
+        assert_statements_syntax_error([[
+            (f)
+        ]], "AssignAssign")
+
         assert_statements_syntax_error([[
             1 + 1
         ]], "EndFunc")
@@ -684,6 +691,11 @@ describe("Titan parser", function()
                         name = "b",
                         exp = { _tag = "Exp_Var", var = { _tag = "Var_Name",
                             name = "a" } } } } } } } })
+    end)
+
+    it("does not allow parentheses in the LHS of an assignment", function()
+        pending("we never made this be an error")
+        assert_statements_syntax_error([[ local (x) = 42 ]], "SyntaxError")
     end)
 
     it("uses specific error labels for some errors", function()
