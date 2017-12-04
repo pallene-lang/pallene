@@ -1456,6 +1456,13 @@ void $INITNAME(lua_State *L) {
 }
 ]]
 
+local modtypes = [[
+int $TYPESNAME(lua_State* L) {
+    lua_pushliteral(L, $TYPES);
+    return 1;
+}
+]]
+
 function coder.generate(modname, ast)
     local tlcontext = {
         module = modname,
@@ -1662,6 +1669,11 @@ function coder.generate(modname, ast)
         L->top = _base-1;
         ]])
     end
+
+    table.insert(code, render(modtypes, {
+        TYPESNAME = tlcontext.prefix .. "types",
+        TYPES = string.format("%q", types.serialize(types.maketype(modname, ast)))
+    }))
 
     table.insert(code, render(init, {
         INITNAME = tlcontext.prefix .. 'init',

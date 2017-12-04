@@ -68,4 +68,45 @@ function types.tostring(t)
     end
 end
 
+-- Builds a type for the module from the types of its public members
+--   ast: AST for the module
+--   returns "Module" type
+function types.maketype(modname, ast)
+    local members = {}
+    for _, tlnode in ipairs(ast) do
+        if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
+            local tag = tlnode._tag
+            if tag == "TopLevel_Func" then
+                members[tlnode.name] = tlnode._type
+            elseif tag == "TopLevel_Var" then
+                members[tlnode.decl.name] = tlnode._type
+            end
+        end
+    end
+    return types.Module(modname, members)
+end
+
+function types.serialize(t)
+    local tag = t._tag
+    if tag == "Array" then
+        return "Array(" ..types.serialize(t.elem) .. ")"
+    elseif tag == "Module" then
+        local members = {}
+        for name, member in pairs(t.members) do
+            table.insert(members, name .. " = " .. types.serialize(member))
+        end
+        return "Module('" .. t.name .. "',{" ..
+            table.concat(members, ",") .. "})"
+    elseif tag == "Function" then
+        local ptypes = {}
+        for _, pt in ipairs(t.params) do
+            table.insert(ptypes, types.serialize(pt))
+        end
+        return "Function({" .. table.concat(ptypes, ",") ..
+            "}," .. types.serialize(t.ret) .. ")"
+    else
+        return tag
+    end
+end
+
 return types

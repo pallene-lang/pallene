@@ -36,7 +36,6 @@ local function generate_modules(modules, main)
     return true
 end
 
-
 local function call(modname, code)
     local cmd = string.format("lua/src/lua -l %s -e \"%s\"",
         modname, code)
@@ -44,6 +43,11 @@ local function call(modname, code)
 end
 
 describe("Titan code generator", function()
+    after_each(function ()
+        os.execute("rm *.so")
+        os.execute("rm *.c")
+    end)
+
     it("deletes array element", function()
         local code = [[
             function delete(array: {integer}, i: integer)

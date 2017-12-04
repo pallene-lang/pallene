@@ -3,6 +3,7 @@ local util = require "titan-compiler.util"
 local checker = require "titan-compiler.checker"
 local coder = require "titan-compiler.coder"
 local pretty = require "titan-compiler.pretty"
+local types = require "titan-compiler.types"
 
 local driver = {}
 
@@ -15,7 +16,6 @@ local function mod2so(modf)
 end
 
 function driver.defaultloader(modname)
-    local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
     if driver.imported[modname] == CIRCULAR_MARK then
         driver.imported[modname] = nil
         return false, "circular reference to module"
@@ -24,6 +24,22 @@ function driver.defaultloader(modname)
         local mod = driver.imported[modname]
         return true, mod.type
     end
+    local SOPATH = "./?.so;/usr/local/lib/titan/0.5/?.so"
+    local modf, err = package.searchpath(modname, SOPATH)
+    if modf then
+        local typesf, err = package.loadlib(modf, modname:gsub("[%-.]", "_") .. "_types")
+        if typesf then
+            local ok, types_or_err = pcall(typesf)
+            if not ok then return false, types_or_err end
+            local modtf, err = load("return " .. types_or_err, modname, "t", types)
+            if not modtf then return false, err end
+            local ok, modt_or_err = pcall(modtf)
+            if not ok then return false, modt_or_err end
+            driver.imported[modname] = { type = modt_or_err, compiled = true }
+            return true, modt_or_err, {}
+        end
+    end
+    local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
     local modf, err = package.searchpath(modname, SEARCHPATH)
     if not modf then return false, err end
     local input, err = util.get_file_contents(modf)
@@ -59,6 +75,7 @@ function driver.tableloader(modtable, imported)
 end
 
 function driver.compile_module(CC, CFLAGS, modname, mod)
+    if mod.compiled then return true end
     local code = coder.generate(modname, mod.ast)
     code = pretty.reindent_c(code)
     local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
@@ -73,6 +90,7 @@ function driver.compile_module(CC, CFLAGS, modname, mod)
     --print(cc_cmd)
     local ok, err = os.execute(cc_cmd)
     if not ok then return nil, err end
+    mod.compiled = true
     return true
 end
 

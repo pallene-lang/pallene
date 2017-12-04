@@ -60,11 +60,7 @@ local function getpath(fname)
     return fname:match("^(.*)[/\\]") or "."
 end
 
-local generated_code, deps = coder.generate(args.modname, ast)
-
-for i = 1, #deps do
-    deps[i] = driver.imported[deps[i]].filename:gsub("[.]titan", ".so")
-end
+local generated_code = coder.generate(args.modname, ast)
 
 generated_code = pretty.reindent_c(generated_code)
 local ok, errmsg = util.set_file_contents(args.output, generated_code)
