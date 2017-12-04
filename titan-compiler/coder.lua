@@ -1320,10 +1320,11 @@ local libopen = [[
     #define TITAN_PATH_VAR     "TITAN_PATH"
     #define TITAN_PATH_SEP     "/"
     #define TITAN_PATH_DEFAULT "/usr/local/lib/titan/" TITAN_VER ";."
-    #define TITAN_LIBS_VAR     "TITAN_LIBS"
+    #define TITAN_PATH_KEY     "ec10e486-d8fd-11e7-87f4-e7e9581a929c"
+    #define TITAN_LIBS_KEY     "ecfc9174-d8fd-11e7-8be2-abbaa3ded45f"
 
     static void pushpath (lua_State *L) {
-        lua_pushliteral(L, TITAN_PATH_VAR TITAN_VER_SUFFIX);
+        lua_pushliteral(L, TITAN_PATH_KEY);
         lua_rawget(L, LUA_REGISTRYINDEX);
         if(lua_isnil(L, -1)) {
             lua_pop(L, 1);
@@ -1338,7 +1339,7 @@ local libopen = [[
                 path = luaL_gsub(L, path, "\1", TITAN_PATH_DEFAULT);
                 lua_remove(L, -2); /* remove result from 1st 'gsub' */
             }
-            lua_pushliteral(L, TITAN_PATH_VAR TITAN_VER_SUFFIX);
+            lua_pushliteral(L, TITAN_PATH_KEY);
             lua_pushvalue(L, -2);
             lua_rawset(L, LUA_REGISTRYINDEX);
         }
@@ -1381,13 +1382,13 @@ local libopen = [[
       lua_pushcfunction(L, gctm);
       lua_setfield(L, -2, "__gc");  /* set finalizer */
       lua_setmetatable(L, -2);
-      lua_pushliteral(L, TITAN_LIBS_VAR TITAN_VER_SUFFIX);
+      lua_pushliteral(L, TITAN_LIBS_KEY);
       lua_pushvalue(L, -2);
       lua_rawset(L, LUA_REGISTRYINDEX);
     }
 
     static void pushlibs(lua_State *L) {
-      lua_pushliteral(L, TITAN_LIBS_VAR TITAN_VER_SUFFIX);
+      lua_pushliteral(L, TITAN_LIBS_KEY);
       lua_rawget(L, LUA_REGISTRYINDEX);
       if(lua_isnil(L, -1)) {
         lua_pop(L, 1);
