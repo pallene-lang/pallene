@@ -83,5 +83,5 @@ end
 
 local soname = args.output:gsub("[.]c$", ".so")
 os.execute(string.format([[
-%s %s -I%s -fPIC -shared %s %s -o %s
-]], CC, CFLAGS, args.lua, args.output, table.concat(deps, " "), soname))
+%s %s -I%s -fPIC -shared %s -o %s
+]], CC, CFLAGS, args.lua, args.output, soname))

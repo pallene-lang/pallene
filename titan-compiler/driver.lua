@@ -75,8 +75,8 @@ function driver.compile_module(CC, CFLAGS, imported, name)
             deps[i] = mod2so(imported[deps[i]].filename)
         end
         local cc_cmd = string.format([[
-            %s %s -shared %s %s -o %s
-            ]], CC, CFLAGS, filename, table.concat(deps, " "), soname)
+            %s %s -shared %s -o %s
+            ]], CC, CFLAGS, filename, soname)
         --print(cc_cmd)
         local ok, err = os.execute(cc_cmd)
         if not ok then return nil, err end

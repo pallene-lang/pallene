@@ -15,7 +15,8 @@ end
 
 function types.Module(modname, members)
     return { _tag = "Module", name = modname,
-        prefix = modname:gsub("[.]", "_") .. "_",
+        prefix = modname:gsub("[%-.]", "_") .. "_",
+        file = modname:gsub("[.]", "/") .. ".so",
         members = members }
 end
 
