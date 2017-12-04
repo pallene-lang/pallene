@@ -202,8 +202,6 @@ describe("Titan lexer", function()
     end)
 
     it("rejects invalid decimal escapes", function()
-        pending("not implemented")
-        -- Currently crashes the compiler with a bad input to string.char
         assert_error([["\555"]], "MalformedEscape_decimal")
     end)
 

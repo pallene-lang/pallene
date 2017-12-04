@@ -95,6 +95,14 @@ do
                 return open == close
             end)
 
+    local decimal_escape = P("1") * R("09") * R("09") +
+        P("2") * R("04") * R("09") * -R("09") +
+        P("2") * P("5") * R("05") * -R("09") +
+        P("0") * R("09") * R("09") * -R("09") +
+        R("09") * R("09") * -R("09") +
+        R("09") * -R("09") +
+        R("09") * T(labels.MalformedEscape_decimal)
+
     local escape_sequence = P("\\") * (
         (-P(1) * T(labels.UnclosedShortString)) +
         (P("a")  / "\a") +
@@ -108,7 +116,7 @@ do
         (P("\'") / "\'") +
         (P("\"") / "\"") +
         (linebreak / "\n") +
-        (C(R("09") * R("09")^-2)) / tonumber / string.char +
+        C(decimal_escape) / tonumber / string.char +
         (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) + T(labels.MalformedEscape_u)))
              / tonumber / utf8.char +
         (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) + T(labels.MalformedEscape_x))) / tonumber / string.char +
