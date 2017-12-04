@@ -1316,7 +1316,7 @@ local libopen = [[
     #include <dlfcn.h>
 
     #define TITAN_VER          "0.5"
-    #define TITAN_VER_SUFFIX   "_" TITAN_VER
+    #define TITAN_VER_SUFFIX   "_0_5"
     #define TITAN_PATH_VAR     "TITAN_PATH"
     #define TITAN_PATH_SEP     "/"
     #define TITAN_PATH_DEFAULT "/usr/local/lib/titan/" TITAN_VER ";."
