@@ -205,6 +205,10 @@ describe("Titan lexer", function()
         assert_error([["\555"]], "MalformedEscape_decimal")
     end)
 
+    it("allows digits after decimal escape", function ()
+        assert_lex('"\\12340"', {"STRING"}, {"{40"})
+    end)
+
     it("rejects invalid hexadecimal escapes", function()
         assert_error([["\x"]],     "MalformedEscape_x")
         assert_error([["\xa"]],    "MalformedEscape_x")
