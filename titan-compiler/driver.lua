@@ -58,30 +58,21 @@ function driver.tableloader(modtable, imported)
     return loader
 end
 
-function driver.compile_module(CC, CFLAGS, imported, name)
-    if not imported[name].compiled then
-        local mod = imported[name]
-        local code, deps = coder.generate(name, mod.ast)
-        code = pretty.reindent_c(code)
-        local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
-        local soname = mod.filename:gsub("[.]titan$", "") .. ".so"
-        os.remove(filename)
-        os.remove(soname)
-        local ok, err = util.set_file_contents(filename, code)
-        if not ok then return nil, err end
-        for i = 1, #deps do
-            local ok, err = driver.compile_module(CC, CFLAGS, imported, deps[i])
-            if not ok then return nil, err end
-            deps[i] = mod2so(imported[deps[i]].filename)
-        end
-        local cc_cmd = string.format([[
-            %s %s -shared %s -o %s
-            ]], CC, CFLAGS, filename, soname)
-        --print(cc_cmd)
-        local ok, err = os.execute(cc_cmd)
-        if not ok then return nil, err end
-        imported[name].compiled = true
-    end
+function driver.compile_module(CC, CFLAGS, modname, mod)
+    local code = coder.generate(modname, mod.ast)
+    code = pretty.reindent_c(code)
+    local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
+    local soname = mod.filename:gsub("[.]titan$", "") .. ".so"
+    os.remove(filename)
+    os.remove(soname)
+    local ok, err = util.set_file_contents(filename, code)
+    if not ok then return nil, err end
+    local cc_cmd = string.format([[
+        %s %s -shared %s -o %s
+        ]], CC, CFLAGS, filename, soname)
+    --print(cc_cmd)
+    local ok, err = os.execute(cc_cmd)
+    if not ok then return nil, err end
     return true
 end
 

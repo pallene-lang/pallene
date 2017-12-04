@@ -74,9 +74,9 @@ local CC = os.getenv("CC") or "gcc"
 local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
 CFLAGS = string.format("%s -I%s -fPIC", CFLAGS, args.lua)
 
-for name, _ in pairs(driver.imported) do
+for name, mod in pairs(driver.imported) do
     if name ~= args.modname then
-        local ok, err = driver.compile_module(CC, CFLAGS, driver.imported, name)
+        local ok, err = driver.compile_module(CC, CFLAGS, name, mod)
         if not ok then exit(err) end
     end
 end
