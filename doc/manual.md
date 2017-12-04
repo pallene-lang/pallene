@@ -16,17 +16,15 @@ Array types in Titan have the form `{ t }`, where `t` is any Titan type
 (including other array types, so `{ { integer } }` is the type for an array of
 arrays of integers, for example.
 
-You can create an empty array with the `{}` expression: Titan will try to guess
+You can create an empty array with the `{}` expression: Titan will try to infer
 the type of this array from the context where you are creating it.
 For example, if you are assigning the new array to an array-typed variable, the
 array will have the same type of the variable.
 If you are passing the array as an argument to a function that expects an
 array-type parameter, the new array will have the same type as the parameter.
-If you are declaring a new variable with an explicit array type declaration,
-the new array will have the type you declared.
-The only time where no context is available is when you declaring a new
-variable and you have not given a type to it; in that case the array will have
-type `{ integer }`.
+When declaring a new variable, you should explicitly specify the type of the
+array; `local a = {}` will yield a compile time error.
+
 
 ### Functions
 
@@ -55,29 +53,27 @@ return values for functions.
 
 ### Records
 
-Records are nominal and should be declared in the top level, like the following
-example.
+Records types in Titan are nominal and should be declared in the top level,
+following the syntax `record Type (field: type)* end`. The following example
+declare a record `Point` with the fields `x` and `y` which are floats.
 
     record Point
         x: float
         y: float
     end
 
-    record Circle
-        center: Point
-        radius: float
-    end
+You can create records with initializer lists, assigning a value to each field
+either by it's name or positional order.
+For instance, you could initalize an instance of the record `Point` with: `{ x =
+3, y = 5 }`, `{ y = 5, x = 3 }` or `{ 3, 5 }`.
+In all those cases, the field `x` will receive the value `3` and the field `y`,
+`5`.
+Like arrays, Titan will try to infer the type of the initializer list, but it is
+necessary to specify the type of the record when declaring a new variable
+(`local p: Point = { 3, 5 }`).
 
-After the top level declaration, you may create records with the `.new`
-constructor:
-
-    local p = Point.new(1, 2)
-    local c = Circle.new(p, 3.5)
-
-You can access the fields with the dot operator:
-
-    local a = p.x
-    p.y = 2
+You can read and write from fields of a record instance using the dot operator
+`intance.field`. For example, `local x = p.x` and `p.y = 7`.
 
 ## Modules
 
