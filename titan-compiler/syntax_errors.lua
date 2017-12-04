@@ -227,6 +227,12 @@ local errors = {
     { label = "ExpFieldList",
         msg = "Expected an expression after ',' or ';'." },
 
+    { label = "ExpStat",
+        msg = "Expected a statement but found an expression that is not a function call"},
+
+    { label = "ExpAssign",
+        msg = "Expected a valid lvalue in the left side of assignment but found a regular expression" }
+
 }
 
 syntax_errors.label_to_msg = {}

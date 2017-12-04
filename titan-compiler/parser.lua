@@ -226,12 +226,18 @@ local grammar = re.compile([[
                          {| (type (COMMA (type / %{TypelistType}))*)? |}
                          (RPAREN / %{RParenTypelist}) )          -- produces {Type}
 
-    type            <- ( {} types RARROW
-                         (types / %{TypeReturnTypes}) )          -> Type_Function
-                     / simpletype                                -- produces Type
-
-    types           <- typelist                                  -- produces {Type}
+    rettype         <- {| ({} typelist RARROW
+                            (rettype / %{TypeReturnTypes})) -> Type_Function |}
+                     / {| ({} {| simpletype |} RARROW
+                            (rettype / %{TypeReturnTypes})) -> Type_Function |}
+                     / typelist
                      / {| simpletype |}
+
+    type            <- ({} typelist RARROW
+                           (rettype / %{TypeReturnTypes}))       -> Type_Function
+                     / ({} {| simpletype |} RARROW
+                           (rettype / %{TypeReturnTypes}))       -> Type_Function
+                     / simpletype
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
 
@@ -259,7 +265,9 @@ local grammar = re.compile([[
                                  (exp / %{ExpLocal}))            -> defstat
                      / ({} var (ASSIGN / %{AssignAssign})
                                (exp / %{ExpAssign}))             -> Stat_Assign
+                     / &(exp ASSIGN) %{ExpAssign}
                      / ({} (suffixedexp => exp_is_call))         -> Stat_Call
+                     / &exp %{ExpStat}
 
     elseifstats     <- {| elseifstat* |}                         -- produces {Then}
 
@@ -296,28 +304,33 @@ local grammar = re.compile([[
     e9              <- ({} {| e10 (op9  (e10 / %{OpExp}))* |})   -> fold_binop_left
     e10             <- ({} {| e11 (op10 (e11 / %{OpExp}))* |})   -> fold_binop_left
     e11             <- ({} {| unop* |}  e12)                     -> fold_unops
-    e12             <- ({} suffixedexp (op12 (e11 / %{OpExp}))?) -> binop_right
+    e12             <- ({} simpleexp (op12 (e11 / %{OpExp}))?)   -> binop_right
 
-    suffixedexp     <- (simpleexp {| expsuffix* |})              -> fold_suffixes
+    suffixedexp     <- (prefixexp {| expsuffix+ |})              -> fold_suffixes
 
     expsuffix       <- ({} funcargs)                             -> suffix_funccall
- --                  / ({} COLON (NAME / %{NameColonExpSuf})
- --                              (funcargs / %{FuncArgsExpSuf})) -> suffix_methodcall
+                     / ({} COLON (NAME / %{NameColonExpSuf})
+                                 (funcargs / %{FuncArgsExpSuf})) -> suffix_methodcall
                      / ({} LBRACKET (exp / %{ExpExpSuf})
-                                (RBRACKET / %{RBracketExpSuf})) -> suffix_bracket
-                     / ({} DOT (NAME / %{NameDotExpSuf}))       -> suffix_dot
+                                (RBRACKET / %{RBracketExpSuf}))  -> suffix_bracket
+                     / ({} DOT (NAME / %{NameDotExpSuf}))        -> suffix_dot
+
+    prefixexp       <- ({} NAME)                                 -> name_exp
+                     / (LPAREN (exp / %{ExpSimpleExp})
+                               (RPAREN / %{RParSimpleExp}))      -- produces Exp
+
 
     simpleexp       <- ({} NIL)                                  -> nil_exp
                      / ({} FALSE -> tofalse)                     -> Exp_Bool
                      / ({} TRUE -> totrue)                       -> Exp_Bool
                      / ({} NUMBER)                               -> number_exp
                      / ({} STRING)                               -> Exp_String
-                     / (tablecons)                               -- produces Exp
-                     / ({} NAME)                                 -> name_exp
-                     / (LPAREN (exp / %{ExpSimpleExp})
-                               (RPAREN / %{RParSimpleExp}))      -- produces Exp
+                     / tablecons                                 -- produces Exp
+                     / suffixedexp                               -- produces Exp
+                     / prefixexp                                 -- produces Exp
 
     var             <- (suffixedexp => exp_is_var)               -> exp2var
+                     / ({} NAME !expsuffix)                      -> name_exp -> exp2var
 
     funcargs        <- (LPAREN explist
                                (RPAREN / %{RParFuncArgs}))       -- produces {Exp}

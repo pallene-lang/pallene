@@ -34,7 +34,7 @@ end
 --
 
 local function assert_parses_successfuly(program_str)
-    local ast = parser.parse(program_str)
+    local ast, err = parser.parse(program_str)
     if not ast then
         error(string.format("Unexpected Titan syntax error: %s", err.label))
     end
@@ -278,7 +278,6 @@ describe("Titan parser", function()
                 rettypes = {
                     { _tag = "Type_Name", name = "c" } } }
 
-            pending("OOPS! I didn't actually implement the associativity correctly!")
             assert_type_ast("a -> b -> c",   ast1)
             assert_type_ast("a -> (b -> c)", ast1)
             assert_type_ast("(a -> b) -> c", ast2)
@@ -386,7 +385,7 @@ describe("Titan parser", function()
     it("can parse do-while blocks", function()
         assert_statements_ast([[
             do
-                local x = 10; (x) = 11
+                local x = 10; x = 11
                 print("Hello", "World")
             end
         ]], {
@@ -567,8 +566,6 @@ describe("Titan parser", function()
     end)
 
     it("can parse method calls without the optional parenthesis", function()
-        pending("These currently produce a syntax error")
-
         assert_expression_ast([[ o:m () ]],
             { _tag = "Exp_Call", args = {
                 _tag = "Args_Method", args = { } } })
@@ -585,16 +582,15 @@ describe("Titan parser", function()
     end)
 
     it("only allows call expressions as statements", function()
-        pending("this needs to be its own error code")
         -- Currently the error messages mention something else
 
         assert_statements_syntax_error([[
             (f)
-        ]], "AssignAssign")
+        ]], "ExpStat")
 
         assert_statements_syntax_error([[
             1 + 1
-        ]], "EndFunc")
+        ]], "ExpStat")
     end)
 
     it("can parse import", function ()
@@ -694,8 +690,8 @@ describe("Titan parser", function()
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()
-        pending("we never made this be an error")
-        assert_statements_syntax_error([[ local (x) = 42 ]], "SyntaxError")
+        assert_statements_syntax_error([[ local (x) = 42 ]], "DeclLocal")
+        assert_statements_syntax_error([[ (x) = 42 ]], "ExpAssign")
     end)
 
     it("uses specific error labels for some errors", function()
