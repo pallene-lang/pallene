@@ -23,9 +23,8 @@ local errors = {
     { label = "InvalidEscape",
         msg = "Invalid escape character in string." },
 
-    --not used currently
-    { label = "MalformedEscape_ddd",
-        msg = "\\ddd escape sequences must have at most three digits."  },
+    { label = "MalformedEscape_decimal",
+        msg = "Decimal escape too large" },
 
     { label = "MalformedEscape_u",
         msg = "\\u escape sequence is malformed." },
