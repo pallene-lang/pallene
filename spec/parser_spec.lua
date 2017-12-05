@@ -666,6 +666,26 @@ describe("Titan parser", function()
             { _tag = "Exp_InitList", fields = {
                 { name = "p",    exp = { _tag = "Exp_InitList" } },
                 { name = "next", exp = { _tag = "Exp_Nil" } } }})
+
+        assert_expression_ast([[ Point.new(1.1, 2.2) ]],
+            { _tag = "Exp_Call",
+                args = { args = {
+                  { value = 1.1 },
+                  { value = 2.2 } } },
+                exp = { var = {
+                    _tag = "Var_Dot",
+                    exp = { var = { name = "Point" } },
+                    name = "new" } } })
+
+        assert_expression_ast([[ List.new({}, nil) ]],
+            { _tag = "Exp_Call",
+                args = { args = {
+                  { _tag = "Exp_InitList" },
+                  { _tag = "Exp_Nil" } } },
+                exp = { var = {
+                    _tag = "Var_Dot",
+                    exp = { var = { name = "List" } },
+                    name = "new" } } })
     end)
 
     it("can parse record field access", function()
