@@ -5,14 +5,29 @@ local coder = require "titan-compiler.coder"
 local pretty = require "titan-compiler.pretty"
 local types = require "titan-compiler.types"
 
+local lfs = require "lfs"
+
 local driver = {}
 
 driver.imported = {}
+
+driver.TITAN_BIN_PATH = os.getenv("TITAN_PATH_0_5") or os.getenv("TITAN_PATH") or ".;/usr/local/lib/titan/0.5"
+driver.TITAN_SOURCE_PATH = "."
 
 local CIRCULAR_MARK = {}
 
 local function mod2so(modf)
     return modf:gsub("[.]titan$", "") .. ".so"
+end
+
+local function findmodule(paths, modname, extension)
+    local modf = modname:gsub("[.]", "/") .. extension
+    for path in paths:gmatch("[^;]+") do
+        local filename = path .. "/" .. modf
+        local mtime = lfs.attributes(filename, "modification")
+        if mtime then return mtime, filename end
+    end
+    return nil
 end
 
 function driver.defaultloader(modname)
@@ -24,31 +39,28 @@ function driver.defaultloader(modname)
         local mod = driver.imported[modname]
         return true, mod.type
     end
-    local SOPATH = "./?.so;/usr/local/lib/titan/0.5/?.so"
-    local modf, err = package.searchpath(modname, SOPATH)
-    if modf then
-        local typesf, err = package.loadlib(modf, modname:gsub("[%-.]", "_") .. "_types")
-        if typesf then
-            local ok, types_or_err = pcall(typesf)
-            if not ok then return false, types_or_err end
-            local modtf, err = load("return " .. types_or_err, modname, "t", types)
-            if not modtf then return false, err end
-            local ok, modt_or_err = pcall(modtf)
-            if not ok then return false, modt_or_err end
-            driver.imported[modname] = { type = modt_or_err, compiled = true }
-            return true, modt_or_err, {}
-        end
+    local mtime_bin, binf = findmodule(driver.TITAN_BIN_PATH, modname, ".so")
+    local mtime_src, srcf = findmodule(driver.TITAN_SOURCE_PATH, modname, ".titan")
+    if mtime_bin and (not mtime_src or mtime_bin >= mtime_src) then
+        local typesf, err = package.loadlib(binf, modname:gsub("[%-.]", "_") .. "_types")
+        if not typesf then return false, err end
+        local ok, types_or_err = pcall(typesf)
+        if not ok then return false, types_or_err end
+        local modtf, err = load("return " .. types_or_err, modname, "t", types)
+        if not modtf then return false, err end
+        local ok, modt_or_err = pcall(modtf)
+        if not ok then return false, modt_or_err end
+        driver.imported[modname] = { type = modt_or_err, compiled = true }
+        return true, modt_or_err, {}
     end
-    local SEARCHPATH = "./?.titan" -- TODO: make this a configuration option for titanc
-    local modf, err = package.searchpath(modname, SEARCHPATH)
-    if not modf then return false, err end
-    local input, err = util.get_file_contents(modf)
+    if not mtime_src then return false, "module '" .. modname .. "' not found" end
+    local input, err = util.get_file_contents(srcf)
     if not input then return false, err end
     local ast, err = parser.parse(input)
-    if not ast then return false, parser.error_to_string(err, modf) end
+    if not ast then return false, parser.error_to_string(err, srcf) end
     driver.imported[modname] = CIRCULAR_MARK
-    local modt, errors = checker.check(modname, ast, input, modf, driver.defaultloader)
-    driver.imported[modname] = { ast = ast, type = modt, filename = modf }
+    local modt, errors = checker.check(modname, ast, input, srcf, driver.defaultloader)
+    driver.imported[modname] = { ast = ast, type = modt, filename = srcf }
     return true, modt, errors
 end
 
