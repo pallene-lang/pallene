@@ -22,9 +22,11 @@ For example, if you are assigning the new array to an array-typed variable, the
 array will have the same type of the variable.
 If you are passing the array as an argument to a function that expects an
 array-type parameter, the new array will have the same type as the parameter.
-When declaring a new variable, you should explicitly specify the type of the
-array; `local a = {}` will yield a compile time error.
-
+If you are declaring a new variable with an explicit array type declaration,
+the new array will have the type you declared.
+The only time where no context is available is when you declaring a new
+variable and you have not given a type to it; in that case the array will have
+type `{ integer }`.
 
 ### Functions
 
@@ -62,18 +64,20 @@ declare a record `Point` with the fields `x` and `y` which are floats.
         y: float
     end
 
-You can create records with initializer lists, assigning a value to each field
-either by it's name or positional order.
-For instance, you could initalize an instance of the record `Point` with: `{ x =
-3, y = 5 }`, `{ y = 5, x = 3 }` or `{ 3, 5 }`.
+You can create records with initializer lists or using the `new` constructor.
+When using initializer lists, you must assign a value to each field of the
+record with the syntax `{ (field = value)* }`.
+The `Type.new()` constructor is automatically declared and receive a parameter
+for each field in the order they were declared.
+For instance, you could initialize an instance of the record `Point` with:
+`{ x = 3, y = 5 }`, `{ y = 5, x = 3 }` or `Point.new(3, 5)`.
 In all those cases, the field `x` will receive the value `3` and the field `y`,
 `5`.
-Like arrays, Titan will try to infer the type of the initializer list, but it is
-necessary to specify the type of the record when declaring a new variable
-(`local p: Point = { 3, 5 }`).
+Like arrays constructors, Titan will try to locally infer the type of
+initializer lists.
 
 You can read and write from fields of a record instance using the dot operator
-`intance.field`. For example, `local x = p.x` and `p.y = 7`.
+`instance.field`. For example, `local x = p.x` and `p.y = 7`.
 
 ## Modules
 
