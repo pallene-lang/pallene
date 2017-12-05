@@ -37,7 +37,7 @@ function driver.defaultloader(modname)
     end
     if driver.imported[modname] then
         local mod = driver.imported[modname]
-        return true, mod.type
+        return true, mod.type, {}
     end
     local mtime_bin, binf = findmodule(driver.TITAN_BIN_PATH, modname, ".so")
     local mtime_src, srcf = findmodule(driver.TITAN_SOURCE_PATH, modname, ".titan")
@@ -72,7 +72,7 @@ function driver.tableloader(modtable, imported)
         end
         if imported[modname] then
             local mod = imported[modname]
-            return true, mod.type
+            return true, mod.type, {}
         end
         local modf = "./" .. modname .. ".titan"
         local input = modtable[modname]
