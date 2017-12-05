@@ -1319,7 +1319,7 @@ local libopen = [[
     #define TITAN_VER_SUFFIX   "_0_5"
     #define TITAN_PATH_VAR     "TITAN_PATH"
     #define TITAN_PATH_SEP     "/"
-    #define TITAN_PATH_DEFAULT "/usr/local/lib/titan/" TITAN_VER ";."
+    #define TITAN_PATH_DEFAULT ".;/usr/local/lib/titan/" TITAN_VER
     #define TITAN_PATH_KEY     "ec10e486-d8fd-11e7-87f4-e7e9581a929c"
     #define TITAN_LIBS_KEY     "ecfc9174-d8fd-11e7-8be2-abbaa3ded45f"
 
