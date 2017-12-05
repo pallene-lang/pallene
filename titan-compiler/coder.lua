@@ -776,8 +776,7 @@ local function codetable(ctx, node, target)
     end
     table.insert(stats, cinit)
     local slots = {}
-    for _, field in ipairs(node.fields) do
-        local exp = field.exp
+    for _, exp in ipairs(node.exps) do
         local cstats, cexp = codeexp(ctx, exp)
         local ctmpe, tmpename, tmpeslot = newtmp(ctx, node._type.elem, true)
 
@@ -797,12 +796,12 @@ local function codetable(ctx, node, target)
         table.insert(slots, tmpeslot)
         table.insert(stats, code)
     end
-    if #node.fields > 0 then
+    if #node.exps > 0 then
         table.insert(stats, render([[
             luaH_resizearray(L, $TMPNAME, $SIZE);
         ]], {
             TMPNAME = tmpname,
-            SIZE = #node.fields
+            SIZE = #node.exps
         }))
 
     end
@@ -994,7 +993,7 @@ function codeexp(ctx, node, iscondition, target)
                 tag == "Exp_Float" or
                 tag == "Exp_String" then
             return codevalue(ctx, node, target)
-    elseif tag == "Exp_InitList" then
+    elseif tag == "Exp_ArrCons" then
             return codetable(ctx, node, target)
     elseif tag == "Exp_Var" then
         return codeexp(ctx, node.var, iscondition)

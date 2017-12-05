@@ -48,6 +48,7 @@ types.Exp = {
     Integer = {"value"},
     Float   = {"value"},
     String  = {"value"},
+    ArrCons = {"exps"},
     InitList= {"fields"},
     Call    = {"exp", "args"},
     Var     = {"var"},

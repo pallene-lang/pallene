@@ -315,19 +315,19 @@ describe("Titan parser", function()
 
     it("can parse table constructors", function()
         assert_expression_ast("{}",
-            { _tag = "Exp_InitList", fields = {} })
+            { _tag = "Exp_ArrCons", exps = {} })
 
         assert_expression_ast("{10,20,30}",
-            { _tag = "Exp_InitList", fields = {
-                { exp = { value = 10 } },
-                { exp = { value = 20 } },
-                { exp = { value = 30 } }, }})
+            { _tag = "Exp_ArrCons", exps = {
+                { value = 10 },
+                { value = 20 },
+                { value = 30 }, }})
 
         assert_expression_ast("{40;50;60;}", -- (semicolons)
-            { _tag = "Exp_InitList", fields = {
-                { exp = { value = 40 } },
-                { exp = { value = 50 } },
-                { exp = { value = 60 } }, }})
+            { _tag = "Exp_ArrCons", exps = {
+                { value = 40 },
+                { value = 50 },
+                { value = 60 }, }})
     end)
 
     describe("can parse while statements", function()
@@ -562,7 +562,7 @@ describe("Titan parser", function()
         assert_expression_ast([[ f {} ]],
             { _tag = "Exp_Call", args = {
                 _tag = "Args_Func", args = {
-                    { _tag = "Exp_InitList" } } } })
+                    { _tag = "Exp_ArrCons" } } } })
     end)
 
     it("can parse method calls without the optional parenthesis", function()
@@ -578,7 +578,7 @@ describe("Titan parser", function()
         assert_expression_ast([[ o:m {} ]],
             { _tag = "Exp_Call", args = {
                 _tag = "Args_Method", args = {
-                    { _tag = "Exp_InitList" } } } })
+                    { _tag = "Exp_ArrCons" } } } })
     end)
 
     it("only allows call expressions as statements", function()
@@ -664,8 +664,28 @@ describe("Titan parser", function()
 
         assert_expression_ast([[ { p = {}, next = nil } ]],
             { _tag = "Exp_InitList", fields = {
-                { name = "p",    exp = { _tag = "Exp_InitList" } },
+                { name = "p",    exp = { _tag = "Exp_ArrCons" } },
                 { name = "next", exp = { _tag = "Exp_Nil" } } }})
+
+        assert_expression_ast([[ Point.new(1.1, 2.2) ]],
+            { _tag = "Exp_Call",
+                args = { args = {
+                  { value = 1.1 },
+                  { value = 2.2 } } },
+                exp = { var = {
+                    _tag = "Var_Dot",
+                    exp = { var = { name = "Point" } },
+                    name = "new" } } })
+
+        assert_expression_ast([[ List.new({}, nil) ]],
+            { _tag = "Exp_Call",
+                args = { args = {
+                  { _tag = "Exp_ArrCons" },
+                  { _tag = "Exp_Nil" } } },
+                exp = { var = {
+                    _tag = "Var_Dot",
+                    exp = { var = { name = "List" } },
+                    name = "new" } } })
     end)
 
     it("can parse record field access", function()
@@ -943,8 +963,12 @@ describe("Titan parser", function()
 
         assert_expression_syntax_error([[ f(42,) ]], "ExpExpList")
 
-        assert_expression_syntax_error([[ y{42 ]], "RCurlyInitList")
+        assert_expression_syntax_error([[ y{42 ]], "RCurlyArrCons")
 
-        assert_expression_syntax_error([[ y{42,,} ]], "ExpFieldList")
+        assert_expression_syntax_error([[ y{42,,} ]], "ExpArrList")
+
+        assert_expression_syntax_error([[ y{x=42 ]], "RCurlyInitList")
+
+        assert_expression_syntax_error([[ y{x=42,,} ]], "FieldFieldList")
     end)
 end)
