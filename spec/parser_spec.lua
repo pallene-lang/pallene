@@ -711,11 +711,6 @@ describe("Titan parser", function()
         assert_statements_syntax_error([[ (x) = 42 ]], "ExpAssign")
     end)
 
-    it("does not allow mix array constructors and initalizer lists", function()
-        assert_expression_syntax_error([[ { x = 11, 22 } ]], "FieldFieldList")
-        assert_expression_syntax_error([[ { 11, y = 22 } ]], "RCurlyArrCons")
-    end)
-
     it("uses specific error labels for some errors", function()
 
         assert_program_syntax_error([[
