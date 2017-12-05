@@ -326,7 +326,6 @@ local grammar = re.compile([[
                      / ({} NUMBER)                               -> number_exp
                      / ({} STRING)                               -> Exp_String
                      / initlist                                  -- produces Exp
-                     / arrcons                                   -- produces Exp
                      / suffixedexp                               -- produces Exp
                      / prefixexp                                 -- produces Exp
 
@@ -336,24 +335,20 @@ local grammar = re.compile([[
     funcargs        <- (LPAREN explist
                                (RPAREN / %{RParFuncArgs}))       -- produces {Exp}
                      / {| initlist |}                            -- produces {Exp}
-                     / {| arrcons |}                             -- produces {Exp}
                      / {| ({} STRING) -> Exp_String |}           -- produces {Exp}
 
     explist         <- {| (exp (COMMA (exp / %{ExpExpList}))*)? |} -- produces {Exp}
 
-    arrcons         <- ({} LCURLY {| arrexplist? |}
-                        (RCURLY / %{RCurlyArrCons}))            -> Exp_ArrCons
+    initlist        <- ({} LCURLY {| fieldlist? |}
+                                  (RCURLY / %{RCurlyInitList})) -> Exp_InitList
 
-    arrexplist      <- (exp (fieldsep (exp / !RCURLY %{ExpArrList}))*
-                        fieldsep?)                              -- produces exp...
+    fieldlist       <- (field
+                        (fieldsep
+                         (field /
+                          !RCURLY %{ExpFieldList}))*
+                        fieldsep?)                          -- produces Field...
 
-    initlist        <- ({} LCURLY {| fieldlist |}
-                        (RCURLY / %{RCurlyInitList}))           -> Exp_InitList
-
-    fieldlist       <- (field (fieldsep (field / !RCURLY %{FieldFieldList}))*
-                        fieldsep?)                              -- produces Field...
-
-    field           <- ({} NAME ASSIGN exp)                     -> Field_Field
+    field           <- ({} (NAME ASSIGN)? -> opt exp)       -> Field_Field
 
     fieldsep        <- SEMICOLON / COMMA
 

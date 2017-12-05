@@ -219,17 +219,11 @@ local errors = {
     { label = "ExpExpList",
         msg = "Expected an expression after ','." },
 
-    { label = "RCurlyArrCons",
-        msg = "Expected '{' to match '}'." },
-
-    { label = "ExpArrList",
-        msg = "Expected an expression after ',' or ';'." },
-
     { label = "RCurlyInitList",
         msg = "Expected '{' to match '}'." },
 
-    { label = "FieldFieldList",
-        msg = "Expected an field initialization after ',' or ';'." },
+    { label = "ExpFieldList",
+        msg = "Expected an expression after ',' or ';'." },
 
     { label = "ExpStat",
         msg = "Expected a statement but found an expression that is not a function call"},

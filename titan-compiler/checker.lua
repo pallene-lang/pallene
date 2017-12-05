@@ -393,16 +393,18 @@ function checkexp(node, st, errors, context)
         node._type = types.Float
     elseif tag == "Exp_String" then
         node._type = types.String
-    elseif tag == "Exp_ArrCons" then
+    elseif tag == "Exp_InitList" then
         local econtext = context and context.elem
         local etypes = {}
-        for _, exp in ipairs(node.exps) do
+        for _, field in ipairs(node.fields) do
+            local exp = field.exp
             checkexp(exp, st, errors, econtext)
             table.insert(etypes, exp._type)
         end
         local etype = etypes[1] or (context and context.elem) or types.Integer
         node._type = types.Array(etype)
-        for i, exp in ipairs(node.exps) do
+        for i, field in ipairs(node.fields) do
+            local exp = field.exp
             checkmatch("array initializer at position " .. i, etype,
                        exp._type, errors, exp._pos)
         end
