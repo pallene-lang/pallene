@@ -665,24 +665,6 @@ local function thirdpass(ast, st, errors)
     end
 end
 
--- Builds a type for the module from the types of its members
---   ast: AST for the module
---   returns "Module" type
-local function maketype(modname, ast)
-    local members = {}
-    for _, tlnode in ipairs(ast) do
-        if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
-            local tag = tlnode._tag
-            if tag == "TopLevel_Func" then
-                members[tlnode.name] = tlnode._type
-            elseif tag == "TopLevel_Var" then
-                members[tlnode.decl.name] = tlnode._type
-            end
-        end
-    end
-    return types.Module(modname, members)
-end
-
 -- Gets type information for all imported modules and puts
 -- it in the symbol table
 local function importpass(ast, st, errors, loader)
@@ -731,7 +713,7 @@ function checker.check(modname, ast, subject, filename, loader)
     firstpass(ast, st, errors)
     secondpass(ast, st, errors)
     thirdpass(ast, st, errors)
-    return maketype(modname, ast), errors
+    return types.maketype(modname, ast), errors
 end
 
 return checker

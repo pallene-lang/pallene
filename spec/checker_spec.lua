@@ -837,8 +837,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err = run_checker(code)
         assert.falsy(ok)
-        assert.match("no file './foo.titan'", err)
-        assert.match("no file './bar/baz.titan'", err)
+        assert.match("module 'foo' not found", err)
+        assert.match("module 'bar.baz' not found", err)
     end)
 
     it("correctly imports modules that do exist", function ()
@@ -976,8 +976,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, ast = run_checker(code)
         assert.falsy(ok)
-        assert.match("no file './foo.titan'", err)
-        assert.match("no file './bar/baz.titan'", err)
+        assert.match("module 'foo' not found", err)
+        assert.match("module 'bar.baz' not found", err)
     end)
 
     it("correctly imports modules that do exist", function ()

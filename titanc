@@ -10,78 +10,46 @@ local pretty = require 'titan-compiler.pretty'
 local driver = require 'titan-compiler.driver'
 
 local p = argparse('titan', 'Titan compiler')
-p:argument('input', 'Input file.')
-p:option("-m --modname", 'Module name (defaults to input file stripped of ".titan" extension and with path characters replaced by ".".')
+p:argument('module', 'Names of the modules to compile.'):args("+")
 p:flag('--print-ast', 'Print the AST.')
-p:flag('--print-types', 'Print the AST with types.')
-p:option('-l --lua', 'Path to Lua source tree.')
+p:option('-l --lua', 'Path to Lua source tree (to find Lua headers, defaults to "lua/src").')
+p:option('-t --tree', 'Root of the source tree, used for looking for source modules (defaults to ".").')
 local args = p:parse()
 
 -- Work like assert, but don't print the stack trace
 local function exit(msg)
-    io.stderr:write(arg[0], ": ", msg, "\n")
+    io.stderr:write(msg, "\n")
     os.exit(1)
 end
 
-local modname
-
-local input, err
-input, errmsg = util.get_file_contents(args.input)
-if not input then exit(errmsg) end
-
-args.output = args.input:gsub("[.]titan$", ".c")
-args.header = args.input:gsub("[.]titan$", ".h")
-
-if not args.modname then
-    args.modname = args.input:match("(.*)[.]titan$"):gsub("[/\\]", ".")
+if args.tree then
+    driver.TITAN_SOURCE_PATH = args.tree
 end
 
 if not args.lua then
     args.lua = "lua/src/"
 end
 
-local ast, err = parser.parse(input)
-if not ast then exit(parser.error_to_string(err, args.input)) end
+local errors = {}
 
-if args.print_ast then
-  print(parser.pretty_print_ast(ast))
-  os.exit(0)
+for _, modname in ipairs(args.module) do
+    local ok, errs = checker.checkimport(modname, driver.defaultloader)
+    if #errs > 0 then table.insert(errors, table.concat(errs, "\n")) end
+    local ast = driver.imported[modname].ast
+    if args.print_ast and ast then
+        print(parser.pretty_print_ast(ast))
+    end
 end
 
-local _, errors = checker.check(args.modname, ast, input, args.input, driver.defaultloader)
 if #errors > 0 then exit(table.concat(errors, "\n")) end
-
-if args.print_types then
-    print(parser.pretty_print_ast(ast))
-    os.exit(0)
-end
-
-local function getpath(fname)
-    return fname:match("^(.*)[/\\]") or "."
-end
-
-local generated_code, deps = coder.generate(args.modname, ast)
-
-for i = 1, #deps do
-    deps[i] = driver.imported[deps[i]].filename:gsub("[.]titan", ".so")
-end
-
-generated_code = pretty.reindent_c(generated_code)
-local ok, errmsg = util.set_file_contents(args.output, generated_code)
-if not ok then exit(errmsg) end
 
 local CC = os.getenv("CC") or "gcc"
 local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
 CFLAGS = string.format("%s -I%s -fPIC", CFLAGS, args.lua)
 
-for name, _ in pairs(driver.imported) do
-    if name ~= args.modname then
-        local ok, err = driver.compile_module(CC, CFLAGS, driver.imported, name)
-        if not ok then exit(err) end
-    end
+for name, mod in pairs(driver.imported) do
+    local ok, err = driver.compile_module(CC, CFLAGS, name, mod)
+    if not ok then table.insert(errors, err) end
 end
 
-local soname = args.output:gsub("[.]c$", ".so")
-os.execute(string.format([[
-%s %s -I%s -fPIC -shared %s %s -o %s
-]], CC, CFLAGS, args.lua, args.output, table.concat(deps, " "), soname))
+if #errors > 0 then exit(table.concat(errors, "\n")) end

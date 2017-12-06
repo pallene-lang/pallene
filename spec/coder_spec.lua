@@ -29,13 +29,12 @@ local function generate_modules(modules, main)
     local loader = driver.tableloader(modules, imported)
     local _, errs = checker.checkimport(main, loader)
     if not (#errs == 0) then return nil, table.concat(errs, "\n") end
-    for name, _ in pairs(imported) do
-        local ok, err = driver.compile_module(CC, CFLAGS, imported, name)
+    for name, mod in pairs(imported) do
+        local ok, err = driver.compile_module(CC, CFLAGS, name, mod)
         if not ok then return nil, err end
     end
     return true
 end
-
 
 local function call(modname, code)
     local cmd = string.format("lua/src/lua -l %s -e \"%s\"",
@@ -44,6 +43,11 @@ local function call(modname, code)
 end
 
 describe("Titan code generator", function()
+    after_each(function ()
+        os.execute("rm *.so")
+        os.execute("rm *.c")
+    end)
+
     it("deletes array element", function()
         local code = [[
             function delete(array: {integer}, i: integer)

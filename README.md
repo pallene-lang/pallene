@@ -16,7 +16,7 @@ The syntax is a subset of Lua syntax, plus types, and is specified in `titan-v0.
 First you need to build and install the Lua interpreter in the `lua` folder, 
 as it has the needed changes to `luaconf.h` to be able to load Titan modules. 
 Apart from the changes in `luaconf.h` this interpreter is identical to Lua 5.3.4.
-The `package.cpath` of this interpreter has a `/usr/local/lib/titan/5.3.4/?.so`
+The `package.cpath` of this interpreter has a `/usr/local/lib/titan/0.5/?.so`
 entry for any system-wide Titan modules.
 
 You can install the Titan compiler itself using  [LuaRocks](http://luarocks.org)
@@ -31,15 +31,23 @@ this will also install all dependencies automatically.
 1. [LPegLabel](https://github.com/sqmedeiros/lpeglabel) >= 1.0.0
 2. [inspect](https://github.com/kikito/inspect.lua) >= 3.1.0
 3. [argparse](https://github.com/mpeterv/argparse) >= 0.5.0
-
+4. [luafilesystem](https://github.com/keplerproject/luafilesystem) >= 1.7.0
 
 # Usage
 
-        $ titanc [options] <input>
+        $ titanc [--print-ast] [--lua <path>] [--tree <path>] <module> [<module>]
 
-If everything is all right with your `.titan` program this will generate an `.so`
-file that you can `require` from Lua. You can call from Lua any functions that
-you have defined.
+The compiler takes a list of module names that you want to compile. Modules
+are looked up in the source tree (defaults to the current working directory,
+but you can override this with the `--tree` option), as well as in the Titan
+binary path, a semicolon-separated list of paths 
+(defaults to `.;/usr/local/lib/titan/0.5`, you can override with a `TITAN_PATH_0_5`
+or `TITAN_PATH` environment variable). A module gets compiled if its `.titan` file
+is newer than its binary, or a binary does not exist.
+
+If everything is all right with your modules this will generate shared libraries
+(in the same path as the module source) that you can `require` from Lua, and
+call any exported functions/access exported variables.
 
 # Running the test suite
 
