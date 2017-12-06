@@ -59,7 +59,7 @@ Then, you need to bulid the local copy of Lua, and run `busted` from the root di
 of this repository:
 
         $ cd lua
-        $ make linux MYCFLAGS=-fpic
+        $ make linux
         $ cd ..
         $ busted
 
@@ -68,8 +68,8 @@ You may need to adapt the invocation of `make` above to your platform.
 # Compiler options
 
         --print-ast                     Print the AST.
-        --print-types                   Print the AST with types.
-        -o <output>, --output <output>  Output file.
+        --lua <path>                    Path to the Lua sources (default 'lua/src')
+        --tree <path>                   Path to the source tree for your Titan modules (default '.')
         -h, --help                      Show this help message and exit.
         
 # Tentative roadmap
@@ -87,18 +87,18 @@ they are in the roadmap:
 * strings
 * arrays
 * top-level functions
+* early-bound modules
 
 ## In progress
 
-* early-bound modules
+* records (structs)
+* first-class functions (still only in the top-level)
 
 ## Next
 
-* records (structs)
 * maps
 * basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments)
 * standard library that is a subset of Lua's standard library, built using the C FFI
-* first-class functions (still only in the top-level)
 * tagged variants (unions of structs with some syntax for switch/case on the tag)
 * multiple assignment/multiple returns
 * polymorphic functions

@@ -34,10 +34,14 @@ local errors = {}
 
 for _, modname in ipairs(args.module) do
     local ok, errs = checker.checkimport(modname, driver.defaultloader)
-    if #errs > 0 then table.insert(errors, table.concat(errs, "\n")) end
-    local ast = driver.imported[modname].ast
-    if args.print_ast and ast then
-        print(parser.pretty_print_ast(ast))
+    if not ok then 
+        table.insert(errors, errs)
+    else
+        if #errs > 0 then table.insert(errors, table.concat(errs, "\n")) end
+        local ast = driver.imported[modname].ast
+        if args.print_ast and ast then
+            print(parser.pretty_print_ast(ast))
+        end
     end
 end
 
