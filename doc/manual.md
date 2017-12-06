@@ -173,13 +173,15 @@ have the same name. The body is a sequence of statements.
 
 Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, {A} means 0 or more As, and \[A\] means an optional A.
 
-    program ::= {tlfunc | tlvar | tlrecord}
+    program ::= {tlfunc | tlvar | tlrecord | tlimport}
 
     tlfunc ::= [local] function Name '(' [parlist] ')'  ':' type block end
 
     tlvar ::= [local] Name [':' type] '=' Numeral
 
     tlrecord ::= record Name recordfields end
+
+    tlimport ::= local Name '=' import LiteralString
 
     parlist ::= Name ':' type {',' Name ':' type}
 
