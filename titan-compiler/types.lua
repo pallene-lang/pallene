@@ -9,6 +9,10 @@ function types.Array(etype)
     return { _tag = "Array", elem = etype }
 end
 
+function types.InitList(elems)
+    return { _tag = "InitList", elems = elems }
+end
+
 function types.Module(modname, members)
     return { _tag = "Module", name = modname,
         prefix = modname:gsub("[.]", "_") .. "_",

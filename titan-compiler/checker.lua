@@ -396,17 +396,24 @@ function checkexp(node, st, errors, context)
     elseif tag == "Exp_InitList" then
         local econtext = context and context.elem
         local etypes = {}
+        local isarray = true
         for _, field in ipairs(node.fields) do
             local exp = field.exp
             checkexp(exp, st, errors, econtext)
             table.insert(etypes, exp._type)
+            isarray = isarray and not field.name
         end
-        local etype = etypes[1] or (context and context.elem) or types.Integer
-        node._type = types.Array(etype)
-        for i, field in ipairs(node.fields) do
-            local exp = field.exp
-            checkmatch("array initializer at position " .. i, etype,
-                       exp._type, errors, exp._pos)
+        if isarray then
+            local etype = etypes[1] or (context and context.elem)
+                          or types.Integer
+            node._type = types.Array(etype)
+            for i, field in ipairs(node.fields) do
+                local exp = field.exp
+                checkmatch("array initializer at position " .. i, etype,
+                           exp._type, errors, exp._pos)
+            end
+        else
+            node._type = types.InitList(etypes)
         end
     elseif tag == "Exp_Var" then
         checkexp(node.var, st, errors, context)

@@ -214,6 +214,17 @@ describe("Titan type checker", function()
         assert.truthy(ok, err)
     end)
 
+    it("catches named init list assigned to an array", function()
+        local code = [[
+            function fn(x: integer)
+                local arr: {integer} = { x = 10 }
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("expected { integer } but found initlist", err)
+    end)
+
     it("type-checks 'for'", function()
         local code = [[
             function fn(x: integer): integer
