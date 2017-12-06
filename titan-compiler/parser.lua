@@ -6,6 +6,7 @@ local inspect = require "inspect"
 local ast = require "titan-compiler.ast"
 local lexer = require "titan-compiler.lexer"
 local syntax_errors = require "titan-compiler.syntax_errors"
+local util = require "titan-compiler.util"
 
 --
 -- Functions used by the PEG grammar
@@ -435,7 +436,7 @@ function parser.parse(input)
         return ast
     else
         local pos = #input - #suffix + 1
-        local line, col = re.calcline(input, pos)
+        local line, col = util.get_line_number(input, pos)
         local label = syntax_errors.int_to_label[errnum]
         return false, { line=line, col=col, label=label }
     end
