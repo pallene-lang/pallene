@@ -1,12 +1,12 @@
-function selection_sort(xs: {Integer}): Nil
-    local N: Integer = #xs
-    for i: Integer = 1, N do
+function selection_sort(xs: {integer}): nil
+    local N: integer = #xs
+    for i: integer = 1, N do
 
         -- Find minimum
-        local min_i: Integer = i
-        local min_x: Integer = xs[i]
-        for j: Integer = i+1, N do
-            local y: Integer = xs[j]
+        local min_i: integer = i
+        local min_x: integer = xs[i]
+        for j: integer = i+1, N do
+            local y: integer = xs[j]
             if y < min_x then
                 min_i = j
                 min_x = y
@@ -14,7 +14,7 @@ function selection_sort(xs: {Integer}): Nil
         end
 
         -- Move it to the front
-        local tmp: Integer = xs[i]
+        local tmp: integer = xs[i]
         xs[i] = xs[min_i]
         xs[min_i] = tmp
     end

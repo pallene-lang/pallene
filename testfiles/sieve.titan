@@ -1,19 +1,19 @@
-function sieve(N: Integer): {Integer}
+function sieve(N: integer): {integer}
 
-    local is_prime: {Boolean} = {}
+    local is_prime: {boolean} = {}
     is_prime[1] = false
-    for n:Integer = 2, N do
+    for n:integer = 2, N do
         is_prime[n] = true
     end
 
-    local nprimes: Integer = 0
-    local primes: {Integer} = {}
+    local nprimes: integer = 0
+    local primes: {integer} = {}
 
-    for n:Integer = 1, N do
+    for n:integer = 1, N do
         if is_prime[n] then
             nprimes = nprimes + 1;
             primes[nprimes] = n
-            for m:Integer = n+n, N, n do
+            for m:integer = n+n, N, n do
                 is_prime[m] = false
             end
         end
