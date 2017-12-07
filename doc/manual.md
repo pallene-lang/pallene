@@ -153,7 +153,7 @@ members of imported modules).
 
 A function declaration has the syntax:
 
-    [local] function <name>([<params>])[: <rettype>]
+    [local] function <name>([<params>])[: <rettypes>]
         <body>
     end
 
@@ -163,8 +163,9 @@ as callable from Lua if you `require` the module.
 
 As with variables, `<name>` can be any valid identifier, but it is an error to
 declare two functions with the same name, or a function with the same name as
-a module variable. The return type `<rettype>` is optional, and if not given it
-is assumed that the function does not return anything or just returns `nil`.
+a module variable. The return types `<rettypes>` are optional, and if not given it
+is assumed that the function does not return anything or just returns `nil`. (Currently
+only functions with a single return type are implemented)
 
 Parameters are a comma-separated list of `<name>: <type>`. Two parameters cannot
 have the same name. The body is a sequence of statements.

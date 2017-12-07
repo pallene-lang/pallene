@@ -180,8 +180,10 @@ local function funpointer(fname, ftype)
     for i, ptype in ipairs(ftype.params) do
         table.insert(params, ctype(ptype))
     end
+    assert(#ftype.rettypes == 1)
+    local rettype = ftype.rettypes[1]
     return render("$RETTYPE (*$FNAME)($PARAMS)", {
-        RETTYPE = ctype(ftype.ret),
+        RETTYPE = ctype(rettype),
         FNAME = fname,
         PARAMS = table.concat(params, ", ")
     })
@@ -1135,7 +1137,9 @@ end
 local function codefuncdec(tlcontext, node)
     local ctx = newcontext(tlcontext)
     local stats = {}
-    if types.is_gc(node._type.ret) then
+    assert(#node._type.rettypes == 1)
+    local rettype = node._type.rettypes[1]
+    if types.is_gc(rettype) then
         newslot(ctx, "_retslot");
     end
     local cparams = { "lua_State *L" }
@@ -1165,13 +1169,13 @@ local function codefuncdec(tlcontext, node)
             NSLOTS = c_integer_literal(nslots),
         }))
     end
-    if types.is_gc(node._type.ret) then
+    if types.is_gc(rettype) then
         table.insert(stats, [[
         /* reserve slot for return value */
         TValue *_retslot = _base;]])
     end
     table.insert(stats, body)
-    if types.equals(node._type.ret, types.Nil) then
+    if types.equals(rettype, types.Nil) then
         if nslots > 0 then
             table.insert(stats, [[
             L->top = _base;
@@ -1186,7 +1190,7 @@ local function codefuncdec(tlcontext, node)
         $BODY
     }]], {
         ISLOCAL = node.islocal and "static" or "",
-        RETTYPE = ctype(node._type.ret),
+        RETTYPE = ctype(rettype),
         NAME = tlcontext.prefix .. node.name .. '_titan',
         PARAMS = table.concat(cparams, ", "),
         BODY = table.concat(stats, "\n")
@@ -1195,7 +1199,7 @@ local function codefuncdec(tlcontext, node)
         $ISLOCAL $RETTYPE $NAME($PARAMS);
     ]], {
         ISLOCAL = node.islocal and "static" or "",
-        RETTYPE = ctype(node._type.ret),
+        RETTYPE = ctype(rettype),
         NAME = tlcontext.prefix .. node.name .. '_titan',
         PARAMS = table.concat(cparams, ", ")
     })
@@ -1214,10 +1218,10 @@ local function codefuncdec(tlcontext, node)
         api_incr_top(L);
         return 1;
     ]], {
-        TYPE = ctype(node._type.ret),
+        TYPE = ctype(rettype),
         NAME = tlcontext.prefix .. node.name .. '_titan',
         PARAMS = table.concat(pnames, ", "),
-        SETSLOT = setslot(node._type.ret, "L->top", "res"),
+        SETSLOT = setslot(rettype, "L->top", "res"),
     }))
     node._luabody = render([[
     static int $LUANAME(lua_State *L) {

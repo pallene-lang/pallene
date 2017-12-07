@@ -45,6 +45,21 @@ local function typefromnode(typenode, errors)
             t = types.Integer
         end
         return t
+    elseif tag == "Type_Function" then
+        if #typenode.argtypes ~= 1 then
+            error("functions with 0 or 2+ return values are not yet implemented")
+        end
+
+        local ptypes = {}
+        for _, ptype in ipairs(typenode.argtypes) do
+            table.insert(ptypes, typefromnode(ptype, errors))
+        end
+        local rettypes = {}
+        for _, rettype in ipairs(typenode.rettypes) do
+            table.insert(rettypes, typefromnode(rettype, errors))
+        end
+
+        return types.Function(ptypes, rettypes)
     else
         error("invalid node tag " .. tag)
     end
@@ -165,12 +180,20 @@ local function secondpass(ast, st, errors)
     for _, tlnode in ipairs(ast) do
         local name
         if tlnode._tag == "TopLevel_Func" then
+            if #tlnode.rettypes ~= 1 then
+                error("functions with 0 or 2+ return values are not yet implemented")
+            end
+
             name = tlnode.name
             local ptypes = {}
             for _, pdecl in ipairs(tlnode.params) do
                 table.insert(ptypes, typefromnode(pdecl.type, errors))
             end
-            tlnode._type = types.Function(ptypes, typefromnode(tlnode.rettype, errors))
+            local rettypes = {}
+            for _, rt in ipairs(tlnode.rettypes) do
+                table.insert(rettypes, typefromnode(rt, errors))
+            end
+            tlnode._type = types.Function(ptypes, rettypes)
             if st:find_dup(name) then
                 typeerror(errors, "duplicate function or variable declaration for " .. name, tlnode._pos)
                 tlnode._ignore = true
@@ -302,7 +325,9 @@ function checkstat(node, st, errors)
     elseif tag == "Stat_Call" then
         checkexp(node.callexp, st, errors)
     elseif tag == "Stat_Return" then
-        local tret = st:find_symbol("$function")._type.ret
+        local ftype = st:find_symbol("$function")._type
+        assert(#ftype.rettypes == 1)
+        local tret = ftype.rettypes[1]
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret)
         node._type = tret
@@ -317,8 +342,8 @@ function checkstat(node, st, errors)
         end
         if node.elsestat then
             ret = checkstat(node.elsestat, st, errors) and ret
-		else
-			ret = false
+        else
+            ret = false
         end
         return ret
     else
@@ -614,7 +639,8 @@ function checkexp(node, st, errors, context)
                 typeerror(errors, "function " .. fname .. " called with " .. nargs ..
                     " arguments but expects " .. nparams, node._pos)
             end
-            node._type = ftype.ret
+            assert(#ftype.rettypes == 1)
+            node._type = ftype.rettypes[1]
         else
             typeerror(errors, "'%s' is not a function but %s", node._pos, fname, types.tostring(var._type))
             for _, arg in ipairs(node.args.args) do
@@ -644,8 +670,9 @@ local function checkfunc(node, st, errors)
             pnames[param.name] = true
         end
     end
+    assert(#node._type.rettypes == 1)
     local ret = st:with_block(checkstat, node.block, st, errors)
-    if not ret and not types.equals(node._type.ret, types.Nil) then
+    if not ret and not types.equals(node._type.rettypes[1], types.Nil) then
         typeerror(errors, "function can return nil but return type is not nil", node._pos)
     end
 end

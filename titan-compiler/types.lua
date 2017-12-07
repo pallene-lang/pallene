@@ -1,8 +1,8 @@
 
 local types = {}
 
-function types.Function(ptypes, rettype)
-    return { _tag = "Function", params = ptypes, ret = rettype }
+function types.Function(ptypes, rettypes)
+    return { _tag = "Function", params = ptypes, rettypes = rettypes }
 end
 
 function types.Array(etype)
@@ -44,18 +44,32 @@ function types.equals(t1, t2)
     if tag1 == "Array" and tag2 == "Array" then
         return types.equals(t1.elem, t2.elem)
     elseif tag1 == "Function" and tag2 == "Function" then
-        if types.equals(t1.ret, t2.ret) and (#t1.params == #t2.params) then
-            for i = 1, #t1.params do
-                if not types.equals(t1.params[i], t2.params[i]) then
-                    return false
-                end
-            end
-            return true
+        if #t1.params ~= #t2.params then
+            return false
         end
+
+        for i = 1, #t1.params do
+            if not types.equals(t1.params[i], t2.params[i]) then
+                return false
+            end
+        end
+
+        if #t1.rettypes ~= #t2.rettypes then
+            return false
+        end
+
+        for i = 1, #t1.rettypes do
+            if not types.equals(t1.rettypes[i], t2.rettypes[i]) then
+                return false
+            end
+        end
+
+        return true
+    elseif tag1 == tag2 then
+        return true
     else
-        return tag1 == tag2
+        return false
     end
-    return false
 end
 
 function types.tostring(t)
@@ -63,6 +77,7 @@ function types.tostring(t)
     if tag == "Array" then
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == "Function" then
+        error("not implemented")
     else
         return string.lower(tag)
     end
@@ -95,15 +110,23 @@ function types.serialize(t)
         for name, member in pairs(t.members) do
             table.insert(members, name .. " = " .. types.serialize(member))
         end
-        return "Module('" .. t.name .. "',{" ..
-            table.concat(members, ",") .. "})"
+        return "Module(" ..
+            "'" .. t.name .. "'" .. "," ..
+            "{" .. table.concat(members, ",") .. "}" ..
+            ")"
     elseif tag == "Function" then
         local ptypes = {}
         for _, pt in ipairs(t.params) do
             table.insert(ptypes, types.serialize(pt))
         end
-        return "Function({" .. table.concat(ptypes, ",") ..
-            "}," .. types.serialize(t.ret) .. ")"
+        local rettypes = {}
+        for _, rt in ipairs(t.rettypes) do
+            table.insert(rettypes, types.serialize(rt))
+        end
+        return "Function(" ..
+            "{" .. table.concat(ptypes, ",") .. "}" .. "," ..
+            "{" .. table.concat(rettypes, ",") .. "}" ..
+            ")"
     else
         return tag
     end

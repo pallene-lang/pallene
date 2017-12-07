@@ -200,8 +200,8 @@ describe("Titan parser", function()
             local function bar()
             end
         ]], {
-            { _tag = "TopLevel_Func", name = "foo", rettype = { name = "nil" } },
-            { _tag = "TopLevel_Func", name = "bar", rettype = { name = "nil" } },
+            { _tag = "TopLevel_Func", name = "foo", rettypes = { { name = "nil" } } },
+            { _tag = "TopLevel_Func", name = "bar", rettypes = { { name = "nil" } } },
         })
     end)
 

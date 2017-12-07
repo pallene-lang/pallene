@@ -30,9 +30,9 @@ function defs.tofalse()
     return false
 end
 
-function defs.typeopt(pos, x)
+function defs.rettypeopt(pos, x)
     if not x then
-        return defs.Type_Name(pos, "nil")
+        return { defs.Type_Name(pos, "nil") }
     else
         return x
     end
@@ -194,7 +194,7 @@ local grammar = re.compile([[
     toplevelfunc    <- ({} localopt
                            FUNCTION (NAME / %{NameFunc})
                            (LPAREN / %{LParPList}) parlist (RPAREN / %{RParPList})
-                           typeopt
+                           rettypeopt
                            block (END / %{EndFunc}))             -> TopLevel_Func
 
     toplevelvar     <- ({} localopt decl (ASSIGN / %{AssignVar})
@@ -210,7 +210,7 @@ local grammar = re.compile([[
                           (LPAREN (STRING / %{StringLParImport}) (RPAREN / %{RParImport}) /
                           (STRING / %{StringImport})))           -> TopLevel_Import
 
-    typeopt         <- ({} (COLON (type / %{TypeFunc}))?)        -> typeopt
+    rettypeopt      <- ({} (COLON (rettype / %{TypeFunc}))?)     -> rettypeopt
 
     parlist         <- {| (decl (COMMA
                             (decl / %{DeclParList}))*)? |}       -- produces {Decl}
