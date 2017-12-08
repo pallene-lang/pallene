@@ -322,7 +322,8 @@ local grammar = re.compile([[
                                (RPAREN / %{RParSimpleExp}))      -- produces Exp
 
 
-    castexp         <- ({} simpleexp AS type)                    -> Exp_Cast
+    castexp         <- ({} simpleexp AS
+                            (type / %{CastMissingType}))         -> Exp_Cast
                      / simpleexp                                 -- produces Exp
 
     simpleexp       <- ({} NIL)                                  -> nil_exp

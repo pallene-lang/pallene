@@ -706,6 +706,17 @@ describe("Titan parser", function()
                             name = "a" } } } } } } } })
     end)
 
+    it("can parse cast expressions", function()
+        assert_expression_ast([[ foo as integer ]],
+            { _tag = "Exp_Cast", exp = { _tag = "Exp_Var" }, target = { _tag = "Type_Name", name = "integer" } })
+        assert_expression_ast([[ a.b[1].c as integer ]],
+            { _tag = "Exp_Cast", exp = { _tag = "Exp_Var" }, target = { _tag = "Type_Name", name = "integer" } })
+        assert_expression_ast([[ foo as { integer } ]],
+            { _tag = "Exp_Cast", exp = { _tag = "Exp_Var" }, target = { _tag = "Type_Array" } })
+        assert_expression_ast([[ 2 + foo as integer ]],
+            { rhs = { _tag = "Exp_Cast", exp = { _tag = "Exp_Var" }, target = { _tag = "Type_Name", name = "integer" } }})
+    end)
+
     it("does not allow parentheses in the LHS of an assignment", function()
         assert_statements_syntax_error([[ local (x) = 42 ]], "DeclLocal")
         assert_statements_syntax_error([[ (x) = 42 ]], "ExpAssign")
@@ -966,5 +977,7 @@ describe("Titan parser", function()
         assert_expression_syntax_error([[ y{42 ]], "RCurlyInitList")
 
         assert_expression_syntax_error([[ y{42,,} ]], "ExpFieldList")
+
+        assert_expression_syntax_error([[ foo as ]], "CastMissingType")
     end)
 end)
