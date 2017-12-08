@@ -643,6 +643,15 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.Integer
         end
+    elseif tag == "Exp_Cast" then
+        node.target = typefromnode(node.target, errors)
+        checkexp(node.exp, st, errors, node.target)
+        if not types.coerceable(node.exp._type, node.target) or
+          not types.compatible(node.exp._type, node.target) then
+            typeerror(errors, "cannot cast '%s' to '%s'", node._pos,
+                types.tostring(node.exp._type), types.tostring(node.target))
+        end
+        node._type = node.target
     else
         error("invalid node tag " .. tag)
     end
