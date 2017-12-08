@@ -648,8 +648,10 @@ describe("Titan code generator", function()
 
     it("generates code for string literals", function()
         local code = [[
-            function lit(): string
-                return "foo\tbar\nbaz"
+            function fn(): string
+                --return "foo\tbar\nbaz"
+                local x: string = "foo"
+                return x
             end
         ]]
         local ast, err = parser.parse(code)
@@ -658,7 +660,8 @@ describe("Titan code generator", function()
         assert.truthy(ok, err)
         local ok, err = generate(ast, "titan_test")
         assert.truthy(ok, err)
-        local ok, err = call("titan_test", "assert(titan_test.lit() == 'foo\\tbar\\nbaz')")
+        --local ok, err = call("titan_test", "assert(titan_test.lit() == 'foo\\tbar\\nbaz')")
+        local ok, err = call("titan_test", "local x = titan_test.fn(); assert(x == 'foo')")
         assert.truthy(ok, err)
     end)
 
@@ -780,6 +783,61 @@ describe("Titan code generator", function()
         local ok, err = call("bar", "assert(bar.bar() == 5); assert((require 'foo').a == 5)")
         assert.truthy(ok, err)
     end)
+
+    local tovalue = {
+        integer = 1,
+        float = 1.5 ,
+        boolean = true,
+        string = "'foo'",
+        ["nil"] = "nil",
+        array = { type = "{integer}", val = "{1,2,3}", test = "x[3] == 3" }
+    }
+
+    for tag, val in pairs(tovalue) do
+        it("handles coercion to value from " .. tag, function ()
+            local typ = type(val) == "table" and val.type or tag
+            local v = type(val) == "table" and val.val or tostring(val)
+            local test = type(val) == "table" and val.test or "x == " .. tostring(val)
+            local code = util.render([[
+                function fn(): value
+                    local x: $TYPE = $VAL
+                    return x
+                end
+            ]], { TYPE = typ, VAL = v })
+            local ast, err = parser.parse(code)
+            assert.truthy(ast, err)
+            local ok, err = checker.check("test", ast, code, "test.titan")
+            assert.truthy(ok)
+            assert.are.same(#err, 0)
+            local ok, err = generate(ast, "titan_test")
+            assert.truthy(ok, err)
+            local code = 'local x = titan_test.fn(); assert(' .. test .. ')'
+            local ok, err = call("titan_test", code)
+            assert.truthy(ok, err)
+        end)
+
+        it("handles coercion from value to " .. tag, function ()
+            local typ = type(val) == "table" and val.type or tag
+            local v = type(val) == "table" and val.val or tostring(val)
+            local test = type(val) == "table" and val.test or "x == " .. tostring(val)
+            local code = util.render([[
+                function fn(): $TYPE
+                    local x: value = $VAL
+                    return x
+                end
+            ]], { TYPE = typ, VAL = v })
+            local ast, err = parser.parse(code)
+            assert.truthy(ast, err)
+            local ok, err = checker.check("test", ast, code, "test.titan")
+            assert.truthy(ok)
+            assert.are.same(#err, 0)
+            local ok, err = generate(ast, "titan_test")
+            assert.truthy(ok, err)
+            local code = 'local x = titan_test.fn(); assert(' .. test .. ')'
+            local ok, err = call("titan_test", code)
+            assert.truthy(ok, err)
+        end)
+    end
 
 end)
 

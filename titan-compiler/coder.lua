@@ -65,6 +65,7 @@ local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
     elseif types.equals(typ, types.Nil) then tmpl = "$DST 0"
     elseif types.equals(typ, types.String) then tmpl = "$DST tsvalue($SRC)"
     elseif types.has_tag(typ, "Array") then tmpl = "$DST hvalue($SRC)"
+    elseif types.equals(typ, types.Value) then tmpl = "$DST *($SRC)"
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -73,7 +74,26 @@ end
 
 local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string]], line --[[:number]])
     local tag
-    if types.equals(typ, types.Integer) then tag = "integer"
+    if types.equals(typ, types.Integer) then
+        return render([[
+            if (ttisinteger($EXP)) {
+                $VAR = ivalue($EXP);
+            } else if (ttisfloat($EXP)) {
+                float _v = fltvalue($EXP);
+                float _flt = l_floor(_v);
+                if (_v != _flt) {
+                    luaL_error(L, "type error at line %d, number '%f' has no integer representation", $LINE, _v);
+                } else {
+                    lua_numbertointeger(_flt, &$VAR);
+                }
+            } else {
+                luaL_error(L, "type error at line %d, expected integer but found %s", $LINE, lua_typename(L, ttnov($EXP)));
+            }
+        ]], {
+            EXP = exp,
+            VAR = cvar,
+            LINE = c_integer_literal(line)
+        })
     elseif types.equals(typ, types.Float) then
         return render([[
             if (ttisinteger($EXP)) {
@@ -88,14 +108,30 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
             VAR = cvar,
             LINE = c_integer_literal(line),
         })
-    elseif types.equals(typ, types.Boolean) then tag = "boolean"
+    elseif types.equals(typ, types.Boolean) then
+        return render([[
+            if (l_isfalse($EXP)) {
+                $VAR = 0;
+            } else {
+                $VAR = 1;
+            }
+        ]], {
+            EXP = exp,
+            VAR = cvar
+        })
     elseif types.equals(typ, types.Nil) then tag = "nil"
     elseif types.equals(typ, types.String) then tag = "string"
     elseif types.has_tag(typ, "Array") then tag = "table"
+    elseif types.equals(typ, types.Value) then
+        return render([[
+            setobj2t(L, &$VAR, $EXP);
+        ]], {
+            EXP = exp,
+            VAR = cvar
+        })
     else
         error("invalid type " .. types.tostring(typ))
     end
-    --return getslot(typ, cvar, exp) .. ";"
     return render([[
         if($PREDICATE($EXP)) {
             $GETSLOT;
@@ -132,6 +168,13 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
     elseif types.equals(typ, types.Nil) then tag = "nil"
     elseif types.equals(typ, types.String) then tag = "string"
     elseif types.has_tag(typ, "Array") then tag = "table"
+    elseif types.equals(typ, types.Value) then
+        return render([[
+            setobj2t(L, $DST, $SRC);
+        ]], {
+            SRC = src,
+            DST = dst,
+        })
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -158,6 +201,7 @@ local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
     elseif types.equals(typ, types.Nil) then tmpl = "setnilvalue($DST); ((void)$SRC);"
     elseif types.equals(typ, types.String) then tmpl = "setsvalue(L, $DST, $SRC);"
     elseif types.has_tag(typ, "Array") then tmpl = "sethvalue(L, $DST, $SRC);"
+    elseif types.equals(typ, types.Value) then tmpl = "setobj2t(L, $DST, &$SRC);"
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -171,8 +215,14 @@ local function ctype(typ --[[:table]])
     elseif types.equals(typ, types.Nil) then return "int"
     elseif types.equals(typ, types.String) then return "TString*"
     elseif types.has_tag(typ, "Array") then return "Table*"
+    elseif types.equals(typ, types.Value) then return "TValue"
     else error("invalid type " .. types.tostring(typ))
     end
+end
+
+local function initval(typ --[[:table]])
+    if types.equals(typ, types.Value) then return "{ {0}, 0 }"
+    else return "0" end
 end
 
 local function funpointer(fname, ftype)
@@ -226,18 +276,20 @@ local function newtmp(ctx --[[:table]], typ --[[:table]], isgc --[[:boolean]])
         local slotname = "_tmp_" .. tmp .. "_slot"
         return render([[
             $NEWSLOT
-            $TYPE $TMPNAME = 0;
+            $TYPE $TMPNAME = $INIT;
         ]], {
             TYPE = ctype(typ),
             NEWSLOT = newslot(ctx, slotname),
             TMPNAME = tmpname,
+            INIT = initval(typ)
         }), tmpname, slotname
     else
         return render([[
-            $TYPE $TMPNAME = 0;
+            $TYPE $TMPNAME = $INIT;
         ]], {
             TYPE = ctype(typ),
             TMPNAME = tmpname,
+            INIT = initval(typ)
         }), tmpname
     end
 end
@@ -597,28 +649,20 @@ end
 local function codereturn(ctx, node)
     local cstats, cexp = codeexp(ctx, node.exp)
     local tmpl
-    if types.equals(node._type, types.String) then
-        tmpl = [[
-            {
-                $CSTATS
-                TString *ret = $CEXP;
-                setsvalue(L, _retslot, ret);
-                L->top = _retslot + 1;
-                luaC_checkGC(L);
-                return ret;
-            }
-        ]]
-    elseif types.has_tag(node._type, "Array") then
-        tmpl = [[
-            {
-                $CSTATS
-                Table *ret = $CEXP;
-                sethvalue(L, _retslot, ret);
-                L->top = _retslot + 1;
-                luaC_checkGC(L);
-                return ret;
-            }
-        ]]
+    if types.is_gc(node._type) then
+        return render([[
+            $CSTATS
+            $CTYPE ret = $CEXP;
+            $SETSLOT
+            L->top = _retslot + 1;
+            luaC_checkGC(L);
+            return ret;
+        ]], {
+            CSTATS = cstats,
+            CEXP = cexp,
+            CTYPE = ctype(node._type),
+            SETSLOT = setslot(node._type, "_retslot", "ret")
+        })
     elseif ctx.nslots > 0 then
         tmpl = [[
             $CSTATS
@@ -1009,6 +1053,43 @@ function codeexp(ctx, node, iscondition, target)
             return codebinaryop(ctx, node, iscondition)
     elseif tag == "Exp_Call" then
         return codecall(ctx, node, target)
+    elseif tag == "Exp_Cast" and node.exp._tag == "Exp_Var" and node.exp.var._tag == "Var_Bracket" then
+        local t = node.exp.var._type
+        node.exp.var._type = node.target
+        local cstats, cexp = codeexp(ctx, node.exp.var, iscondition)
+        node.exp.var._type = t
+        return cstats, cexp
+    elseif tag == "Exp_Cast" and types.equals(node.exp._type, types.Value) then
+        local cstats, cexp = codeexp(ctx, node.exp, iscondition)
+        local ctmps, tmpnames = newtmp(ctx, node.exp._type)
+        local ctmpt, tmpnamet = newtmp(ctx, node.target)
+        local cget = checkandget(node._type, tmpnamet, "&" .. tmpnames, node._lin)
+        return render([[
+            $EXPSTATS
+            $TMPSOURCE
+            $SOURCE = $EXP;
+            $TMPTARGET
+            $CHECKANDGET
+        ]], {
+            EXPSTATS = cstats,
+            TMPSOURCE = ctmps,
+            SOURCE = tmpnames,
+            TMPTARGET = ctmpt,
+            EXP = cexp,
+            CHECKANDGET = cget
+        }), tmpnamet
+    elseif tag == "Exp_Cast" and types.equals(node.target, types.Value) then
+        local cstats, cexp = codeexp(ctx, node.exp, iscondition)
+        local ctmp, tmpname = newtmp(ctx, node.target)
+        return render([[
+            $EXPSTATS
+            $TMPTARGET
+            $SETSLOT
+        ]], {
+            EXPSTATS = cstats,
+            TMPTARGET = ctmp,
+            SETSLOT = setslot(node.exp._type, "&" .. tmpname, cexp)
+        }), tmpname
     elseif tag == "Exp_Cast" and types.equals(node.target, types.Float) then
         local cstat, cexp = codeexp(ctx, node.exp)
         return cstat, "((lua_Number)" .. cexp .. ")"
@@ -1028,7 +1109,7 @@ function codeexp(ctx, node, iscondition, target)
             $TMPNAME1 = $CEXP;
             $TMPNAME2 = l_floor($TMPNAME1);
             if ($TMPNAME1 != $TMPNAME2) {
-                $TMPNAME3 = 0;
+                luaL_error(L, "type error at line %d, number '%f' has no integer representation", $LINE, $TMPNAME1);
             } else {
                 lua_numbertointeger($TMPNAME2, &$TMPNAME3);
             }
@@ -1041,6 +1122,7 @@ function codeexp(ctx, node, iscondition, target)
             TMPNAME1 = tmpname1,
             TMPNAME2 = tmpname2,
             TMPNAME3 = tmpname3,
+            LINE = c_integer_literal(node._lin)
         })
         return cfloor, tmpname3
     elseif tag == "Exp_Cast" and types.equals(node.target, types.String) then
@@ -1208,7 +1290,7 @@ local function codefuncdec(tlcontext, node)
     local pnames = { "L" }
     for i, param in ipairs(node.params) do
         table.insert(pnames, param._cvar)
-        table.insert(stats, ctype(param._type) .. " " .. param._cvar .. " = 0;")
+        table.insert(stats, ctype(param._type) .. " " .. param._cvar .. " = " .. initval(param._type) .. ";")
         table.insert(stats, checkandget(param._type, param._cvar,
             "(func+ " .. i .. ")", node._lin))
     end
