@@ -23,7 +23,7 @@ checker.typeerror = typeerror
 --   errors: list of compile-time errors
 --   pos: position of the term that is being compared
 local function checkmatch(term, expected, found, errors, pos)
-    if not types.equals(expected, found) then
+    if types.coerceable(found, expected) or not types.compatible(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
         msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
         typeerror(errors, msg, pos)
@@ -65,72 +65,27 @@ local function typefromnode(typenode, errors)
     end
 end
 
--- Wraps an expression node in a coercion to integer if
--- type of node is float
---   node: expression node
---   returns wrapped node, or original
-local function trytoint(node)
-    if types.equals(node._type, types.Float) then
-        local n = ast.Exp_ToInt(node._pos, node)
-        n._type = types.Integer
-        return n
-    else
-        return node
-    end
-end
-
--- Wraps an expression node in a coercion to float if
--- type of node is integer
---   node: expression node
---   returns wrapped node, or original
-local function trytofloat(node)
-    if types.equals(node._type, types.Integer) then
-        local n = ast.Exp_ToFloat(node._pos, node)
-        n._type = types.Float
-        return n
-    else
-        return node
-    end
-end
-
--- Wraps an expression node in a coercion to string
--- type of node is not string already
---   node: expression node
---   returns wrapped node, or original
-local function trytostr(node)
-    local typ = node._type
-    if types.equals(typ, types.Float) or types.equals(typ, types.Integer) then
-        local n = ast.Exp_ToStr(node._pos, node)
-        n._type = types.String
-        return n
-    else
-        return node
-    end
-end
-
--- Wraps an expression node in a coercion to boolean
--- type of node is not boolean already
---   node: expression node
---   returns wrapped node, or original
-local function trytobool(node)
-    if not types.equals(node._type, types.Boolean) then
-        local n = ast.Exp_ToBool(node._pos, node)
-        n._type = types.Boolean
-        return n
-    else
-        return node
-    end
-end
-
--- tries to coerce node to target numeric type
+-- tries to coerce node to target type
 --    node: expression node
 --    target: target type
 --    returns node wrapped in a coercion, or original node
 local function trycoerce(node, target)
-    if types.equals(target, types.Integer) then
-        return trytoint(node)
-    elseif types.equals(target, types.Float) then
-        return trytofloat(node)
+    if types.coerceable(node._type, target) then
+        local n = ast.Exp_Cast(node._pos, node, target)
+        n._type = target
+        return n
+    else
+        return node
+    end
+end
+
+local function trytostr(node)
+    local source = node._type
+    if types.equals(source, types.Integer) or
+      types.equals(source, types.Float) then
+        local n = ast.Exp_Cast(node._pos, node, types.String)
+        n._type = types.String
+        return n
     else
         return node
     end
@@ -429,10 +384,10 @@ function checkexp(node, st, errors, context)
             isarray = isarray and not field.name
         end
         if isarray then
-            local etype = etypes[1] or (context and context.elem)
-                          or types.Integer
+            local etype = econtext or etypes[1] or types.Integer
             node._type = types.Array(etype)
             for i, field in ipairs(node.fields) do
+                field.exp = trycoerce(field.exp, etype)
                 local exp = field.exp
                 checkmatch("array initializer at position " .. i, etype,
                            exp._type, errors, exp._pos)
@@ -468,13 +423,14 @@ function checkexp(node, st, errors, context)
             end
             node._type = texp
         elseif op == "~" then
-            node.exp = trytoint(node.exp)
+            node.exp = trycoerce(node.exp, types.Integer)
             texp = node.exp._type
             if not types.equals(texp, types.Integer) then
                 typeerror(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer", pos)
             end
             node._type = types.Integer
         elseif op == "not" then
+            node.exp = trycoerce(node.exp, types.Boolean)
             node._type = types.Boolean
         else
             error("invalid unary operation " .. op)
@@ -499,25 +455,42 @@ function checkexp(node, st, errors, context)
         local trhs = node.rhs._type
         local pos = node._pos
         if op == "==" or op == "~=" then
-            -- tries to coerce integer to float if either side is float
+            -- tries to coerce to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
-                node.lhs = trytofloat(node.lhs)
+                node.lhs = trycoerce(node.lhs, types.Float)
                 tlhs = node.lhs._type
-                node.rhs = trytofloat(node.rhs)
+                node.rhs = trycoerce(node.rhs, types.Float)
                 trhs = node.rhs._type
             end
-            if not types.equals(tlhs, trhs) then
+            -- tries to coerce from value if other side is not value
+            if types.equals(tlhs, types.Value) then
+                node.lhs = trycoerce(node.lhs, trhs)
+                tlhs = node.lhs._type
+            elseif types.equals(trhs, types.Value) then
+                node.rhs = trycoerce(node.rhs, tlhs)
+                trhs = node.rhs._type
+            end
+            if not types.compatible(tlhs, trhs) then
                 typeerror(errors, "trying to compare values of different types: " ..
                     types.tostring(tlhs) .. " and " .. types.tostring(trhs), pos)
             end
             node._type = types.Boolean
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            -- tries to coerce integer to float if either side is float
+            -- tries to coerce to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
-                node.lhs = trytofloat(node.lhs)
+                node.lhs = trycoerce(node.lhs, types.Float)
                 tlhs = node.lhs._type
-                node.rhs = trytofloat(node.rhs)
+                node.rhs = trycoerce(node.rhs, types.Float)
                 trhs = node.rhs._type
+            elseif types.equals(tlhs, types.String) or types.equals(trhs, types.String) then
+                if types.equals(tlhs, types.Value) then
+                    node.lhs = trycoerce(node.lhs, types.String)
+                    tlhs = node.lhs._type
+                end
+                if types.equals(trhs, types.Value) then
+                    node.rhs = trycoerce(node.rhs, types.String)
+                    trhs = node.rhs._type
+                end
             end
             if not types.equals(tlhs, trhs) then
                 if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) and types.equals(trhs, types.Integer) or types.equals(trhs, types.Float) then
@@ -538,11 +511,18 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.Boolean
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            -- tries to coerce integer to float if other side is float
+            -- tries to coerce to float if other side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
-                node.lhs = trytofloat(node.lhs)
+                node.lhs = trycoerce(node.lhs, types.Float)
                 tlhs = node.lhs._type
-                node.rhs = trytofloat(node.rhs)
+                node.rhs = trycoerce(node.rhs, types.Float)
+                trhs = node.rhs._type
+            end
+            -- tries to coerce to integer if other side is integer
+            if types.equals(tlhs, types.Integer) or types.equals(trhs, types.Integer) then
+                node.lhs = trycoerce(node.lhs, types.Integer)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Integer)
                 trhs = node.rhs._type
             end
             if not (types.equals(tlhs, types.Integer) or types.equals(tlhs, types.Float)) then
@@ -557,31 +537,46 @@ function checkexp(node, st, errors, context)
                 node._type = types.Integer
             end
         elseif op == "/" or op == "^" then
-            -- always coerces to float if one side is integer
-            node.lhs = trytofloat(node.lhs)
+            -- always tries to coerce to float
+            node.lhs = trycoerce(node.lhs, types.Float)
             tlhs = node.lhs._type
-            node.rhs = trytofloat(node.rhs)
+            node.rhs = trycoerce(node.rhs, types.Float)
             trhs = node.rhs._type
-            if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) then
+            if not types.equals(tlhs, types.Float) then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
-            if not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) then
+            if not types.equals(trhs, types.Float) then
                 typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Float
         elseif op == "and" or op == "or" then
-            -- tries to coerce integer to float if other side is float
+            -- tries to coerce to boolean if other side is boolean
+            if types.equals(tlhs, types.Boolean) or types.equals(trhs, types.Boolean) then
+                node.lhs = trycoerce(node.lhs, types.Boolean)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Boolean)
+                trhs = node.rhs._type
+            end
+            -- tries to coerce to float if other side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
-              node.lhs = trytofloat(node.lhs)
+              node.lhs = trycoerce(node.lhs, types.Float)
               tlhs = node.lhs._type
-              node.rhs = trytofloat(node.rhs)
+              node.rhs = trycoerce(node.rhs, types.Float)
               trhs = node.rhs._type
             end
-            -- coerces other side to boolean if either side is boolean
-            if types.equals(tlhs, types.Boolean) or types.equals(trhs, types.Boolean) then
-                node.lhs = trytobool(node.lhs)
+            -- tries to coerce to integer if other side is integer
+            if types.equals(tlhs, types.Integer) or types.equals(trhs, types.Integer) then
+                node.lhs = trycoerce(node.lhs, types.Integer)
                 tlhs = node.lhs._type
-                node.rhs = trytobool(node.rhs)
+                node.rhs = trycoerce(node.rhs, types.Integer)
+                trhs = node.rhs._type
+            end
+            -- tries to coerce from value if other side is not value
+            if types.equals(tlhs, types.Value) then
+                node.lhs = trycoerce(node.lhs, trhs)
+                tlhs = node.lhs._type
+            elseif types.equals(trhs, types.Value) then
+                node.rhs = trycoerce(node.rhs, tlhs)
                 trhs = node.rhs._type
             end
             if not types.equals(tlhs, trhs) then
@@ -592,9 +587,9 @@ function checkexp(node, st, errors, context)
             node._type = tlhs
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce to integer
-            node.lhs = trytoint(node.lhs)
+            node.lhs = trycoerce(node.lhs, types.Integer)
             tlhs = node.lhs._type
-            node.rhs = trytoint(node.rhs)
+            node.rhs = trycoerce(node.rhs, types.Integer)
             trhs = node.rhs._type
             if not types.equals(tlhs, types.Integer) then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)

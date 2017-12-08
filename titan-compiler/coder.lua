@@ -1009,13 +1009,13 @@ function codeexp(ctx, node, iscondition, target)
             return codebinaryop(ctx, node, iscondition)
     elseif tag == "Exp_Call" then
         return codecall(ctx, node, target)
-    elseif tag == "Exp_ToFloat" then
+    elseif tag == "Exp_Cast" and types.equals(node.target, types.Float) then
         local cstat, cexp = codeexp(ctx, node.exp)
         return cstat, "((lua_Number)" .. cexp .. ")"
-    elseif tag == "Exp_ToBool" then
+    elseif tag == "Exp_Cast" and types.equals(node.target, types.Boolean) then
         local cstat, cexp = codeexp(ctx, node.exp, true)
         return cstat, "((" .. cexp .. ") ? 1 : 0)"
-    elseif tag == "Exp_ToInt" then
+    elseif tag == "Exp_Cast" and types.equals(node.target, types.Integer) then
         local cstat, cexp = codeexp(ctx, node.exp)
         local ctmp1, tmpname1 = newtmp(ctx, types.Float)
         local ctmp2, tmpname2 = newtmp(ctx, types.Float)
@@ -1043,7 +1043,7 @@ function codeexp(ctx, node, iscondition, target)
             TMPNAME3 = tmpname3,
         })
         return cfloor, tmpname3
-    elseif tag == "Exp_ToStr" then
+    elseif tag == "Exp_Cast" and types.equals(node.target, types.String) then
         local cvt
         local cstats, cexp = codeexp(ctx, node.exp)
         if types.equals(node.exp._type, types.Integer) then

@@ -20,7 +20,7 @@ function types.Module(modname, members)
         members = members }
 end
 
-local base_types = { "Integer", "Boolean", "String", "Nil", "Float" }
+local base_types = { "Integer", "Boolean", "String", "Nil", "Float", "Value" }
 
 for _, t in ipairs(base_types) do
     types[t] = { _tag = t }
@@ -36,7 +36,54 @@ function types.has_tag(t, name)
 end
 
 function types.is_gc(t)
-    return t._tag == "String" or t._tag == "Array"
+    return t._tag == "String" or t._tag == "Array" or t._tag == "Value"
+end
+
+function types.coerceable(source, target)
+    return (types.equals(source, types.Integer) and
+            types.equals(target, types.Float)) or
+           (types.equals(source, types.Float) and
+            types.equals(target, types.Integer)) or
+           (types.equals(target, types.Boolean) and
+            not types.equals(source, types.Boolean)) or
+           (types.equals(target, types.Value) and
+            not types.equals(source, types.Value)) or
+           (types.equals(source, types.Value) and
+            not types.equals(target, types.Value))
+end
+
+function types.compatible(t1, t2)
+    if types.equals(t1, t2) then
+        return true
+    elseif t1._tag == "Value" or t2._tag == "Value" then
+        return true
+    elseif t1._tag == "Array" and t2._tag == "Array" then
+        return types.compatible(t1.elem, t2.elem)
+    elseif t1._tag == "Function" and t2._tag == "Function" then
+        if #t1.params ~= #t2.params then
+            return false
+        end
+
+        for i = 1, #t1.params do
+            if not types.compatible(t1.params[i], t2.params[i]) then
+                return false
+            end
+        end
+
+        if #t1.rettypes ~= #t2.rettypes then
+            return false
+        end
+
+        for i = 1, #t1.rettypes do
+            if not types.compatible(t1.rettypes[i], t2.rettypes[i]) then
+                return false
+            end
+        end
+
+        return true
+    else
+        return false
+    end
 end
 
 function types.equals(t1, t2)
