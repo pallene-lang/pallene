@@ -837,6 +837,101 @@ describe("Titan code generator", function()
             local ok, err = call("titan_test", code)
             assert.truthy(ok, err)
         end)
+
+        it("handles coercion from value element to " .. tag, function ()
+            local typ = type(val) == "table" and val.type or tag
+            local v = type(val) == "table" and val.val or tostring(val)
+            local test = type(val) == "table" and val.test or "x == " .. tostring(val)
+            local code = util.render([[
+                function fn(): $TYPE
+                    local x: { value } = { $VAL }
+                    return x[1]
+                end
+            ]], { TYPE = typ, VAL = v })
+            local ast, err = parser.parse(code)
+            assert.truthy(ast, err)
+            local ok, err = checker.check("test", ast, code, "test.titan")
+            assert.truthy(ok)
+            assert.are.same(#err, 0)
+            local ok, err = generate(ast, "titan_test")
+            assert.truthy(ok, err)
+            local code = 'local x = titan_test.fn(); assert(' .. test .. ')'
+            local ok, err = call("titan_test", code)
+            assert.truthy(ok, err)
+        end)
+    end
+
+    it("handles coercion between arrays of values and other arrays", function ()
+        local code = util.render([[
+            function fn(): { value }
+                local x: { integer } = { 1, 2, 3 }
+                local y: { value } = x
+                local z: { integer } = y
+                return z
+            end
+        ]], { TYPE = typ, VAL = v })
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check("test", ast, code, "test.titan")
+        assert.truthy(ok)
+        assert.are.same(#err, 0)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local code = 'local x = titan_test.fn(); assert(x[3] == 3)'
+        local ok, err = call("titan_test", code)
+        assert.truthy(ok, err)
+    end)
+
+    local valfailures = {
+        integer = "'foo'",
+        float = "'foo'",
+        string = 2,
+        ["nil"] = 0,
+        table = { type = "{integer}", val = "10" }
+    }
+
+    for tag, val in pairs(valfailures) do
+        it("handles coercion failure from value to " .. tag, function ()
+            local typ = type(val) == "table" and val.type or tag
+            local v = type(val) == "table" and val.val or tostring(val)
+            local code = util.render([[
+                function fn(): $TYPE
+                    local x: value = $VAL
+                    return x
+                end
+            ]], { TYPE = typ, VAL = v })
+            local ast, err = parser.parse(code)
+            assert.truthy(ast, err)
+            local ok, err = checker.check("test", ast, code, "test.titan")
+            assert.truthy(ok)
+            assert.are.same(#err, 0)
+            local ok, err = generate(ast, "titan_test")
+            assert.truthy(ok, err)
+            local code = "local ok, err = pcall(titan_test.fn); assert(not ok); assert(err:match('expected " .. tag .. "'))"
+            local ok, err = call("titan_test", code)
+            assert.truthy(ok, err)
+        end)
+
+        it("handles coercion failure from value element to " .. tag, function ()
+            local typ = type(val) == "table" and val.type or tag
+            local v = type(val) == "table" and val.val or tostring(val)
+            local code = util.render([[
+                function fn(): $TYPE
+                    local x: {value} = {$VAL}
+                    return x[1]
+                end
+            ]], { TYPE = typ, VAL = v })
+            local ast, err = parser.parse(code)
+            assert.truthy(ast, err)
+            local ok, err = checker.check("test", ast, code, "test.titan")
+            assert.truthy(ok)
+            assert.are.same(#err, 0)
+            local ok, err = generate(ast, "titan_test")
+            assert.truthy(ok, err)
+            local code = "local ok, err = pcall(titan_test.fn); assert(not ok); assert(err:match('expected " .. tag .. "'))"
+            local ok, err = call("titan_test", code)
+            assert.truthy(ok, err)
+        end)
     end
 
 end)
