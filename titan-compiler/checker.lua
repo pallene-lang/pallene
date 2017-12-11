@@ -364,6 +364,8 @@ function checkexp(node, st, errors, context)
             node._type = node.exp1._type.elem
         end
         checkexp(node.exp2, st, errors, types.Integer)
+        -- always try to coerce index to integer
+        node.exp2 = trycoerce(node.exp2, types.Integer, errors)
         checkmatch("array indexing", types.Integer, node.exp2._type, errors, node.exp2._pos)
     elseif tag == "Exp_Nil" then
         node._type = types.Nil
@@ -425,13 +427,15 @@ function checkexp(node, st, errors, context)
             end
             node._type = texp
         elseif op == "~" then
-            node.exp = trycoerce(node.exp, types.Integer, errors)
+            -- always tries to coerce floats to integer
+            node.exp = types.equals(node.exp._type, types.Float) and trycoerce(node.exp, types.Integer, errors) or node.exp
             texp = node.exp._type
             if not types.equals(texp, types.Integer) then
                 typeerror(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer", pos)
             end
             node._type = types.Integer
         elseif op == "not" then
+            -- always coerces other values to a boolean
             node.exp = trycoerce(node.exp, types.Boolean, errors)
             node._type = types.Boolean
         else
@@ -440,7 +444,7 @@ function checkexp(node, st, errors, context)
     elseif tag == "Exp_Concat" then
         for i, exp in ipairs(node.exps) do
             checkexp(exp, st, errors, types.String)
-            -- always tries to coerce to string
+            -- always tries to coerce numbers to string
             exp = trytostr(exp)
             node.exps[i] = exp
             local texp = exp._type
@@ -457,19 +461,18 @@ function checkexp(node, st, errors, context)
         local trhs = node.rhs._type
         local pos = node._pos
         if op == "==" or op == "~=" then
+            -- tries to coerce to value if either side is value
+            if types.equals(tlhs, types.Value) or types.equals(trhs, types.Value) then
+                node.lhs = trycoerce(node.lhs, types.Value, errors)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Value, errors)
+                trhs = node.rhs._type
+            end
             -- tries to coerce to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
                 node.lhs = trycoerce(node.lhs, types.Float, errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Float, errors)
-                trhs = node.rhs._type
-            end
-            -- tries to coerce from value if other side is not value
-            if types.equals(tlhs, types.Value) then
-                node.lhs = trycoerce(node.lhs, trhs, errors)
-                tlhs = node.lhs._type
-            elseif types.equals(trhs, types.Value) then
-                node.rhs = trycoerce(node.rhs, tlhs, errors)
                 trhs = node.rhs._type
             end
             if not types.compatible(tlhs, trhs) then
@@ -478,21 +481,19 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.Boolean
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
+            -- tries to coerce to value if either side is value
+            if types.equals(tlhs, types.Value) or types.equals(trhs, types.Value) then
+                node.lhs = trycoerce(node.lhs, types.Value, errors)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Value, errors)
+                trhs = node.rhs._type
+            end
             -- tries to coerce to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
                 node.lhs = trycoerce(node.lhs, types.Float, errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Float, errors)
                 trhs = node.rhs._type
-            elseif types.equals(tlhs, types.String) or types.equals(trhs, types.String) then
-                if types.equals(tlhs, types.Value) then
-                    node.lhs = trycoerce(node.lhs, types.String, errors)
-                    tlhs = node.lhs._type
-                end
-                if types.equals(trhs, types.Value) then
-                    node.rhs = trycoerce(node.rhs, types.String, errors)
-                    trhs = node.rhs._type
-                end
             end
             if not types.equals(tlhs, trhs) then
                 if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) and types.equals(trhs, types.Integer) or types.equals(trhs, types.Float) then
@@ -513,37 +514,45 @@ function checkexp(node, st, errors, context)
             end
             node._type = types.Boolean
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            -- tries to coerce to float if other side is float
-            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
-                node.lhs = trycoerce(node.lhs, types.Float, errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Float, errors)
-                trhs = node.rhs._type
-            end
-            -- tries to coerce to integer if other side is integer
-            if types.equals(tlhs, types.Integer) or types.equals(trhs, types.Integer) then
-                node.lhs = trycoerce(node.lhs, types.Integer, errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Integer, errors)
-                trhs = node.rhs._type
-            end
             if not (types.equals(tlhs, types.Integer) or types.equals(tlhs, types.Float)) then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
             if not (types.equals(trhs, types.Integer) or types.equals(trhs, types.Float)) then
                 typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
+            -- tries to coerce to value if either side is value
+            if types.equals(tlhs, types.Value) or types.equals(trhs, types.Value) then
+                node.lhs = trycoerce(node.lhs, types.Value, errors)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Value, errors)
+                trhs = node.rhs._type
+            end
+            -- tries to coerce to float if either side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+                node.lhs = trycoerce(node.lhs, types.Float, errors)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Float, errors)
+                trhs = node.rhs._type
+            end
+            if types.equals(tlhs, types.Float) and types.equals(trhs, types.Float) then
                 node._type = types.Float
+            elseif types.equals(tlhs, types.Integer) and types.equals(trhs, types.Integer) then
+                node._type = types.Integer
             else
+                -- error
                 node._type = types.Integer
             end
         elseif op == "/" or op == "^" then
-            -- always tries to coerce to float
-            node.lhs = trycoerce(node.lhs, types.Float, errors)
-            tlhs = node.lhs._type
-            node.rhs = trycoerce(node.rhs, types.Float, errors)
-            trhs = node.rhs._type
+            if types.equals(tlhs, types.Integer) then
+                -- always tries to coerce to float
+                node.lhs = trycoerce(node.lhs, types.Float, errors)
+                tlhs = node.lhs._type
+            end
+            if types.equals(trhs, types.Integer) then
+                -- always tries to coerce to float
+                node.rhs = trycoerce(node.rhs, types.Float, errors)
+                trhs = node.rhs._type
+            end
             if not types.equals(tlhs, types.Float) then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
@@ -559,6 +568,13 @@ function checkexp(node, st, errors, context)
                 node.rhs = trycoerce(node.rhs, types.Boolean, errors)
                 trhs = node.rhs._type
             end
+            -- tries to coerce to value if other side is value
+            if types.equals(tlhs, types.Value) or types.equals(trhs, types.Value) then
+                node.lhs = trycoerce(node.lhs, types.Value, errors)
+                tlhs = node.lhs._type
+                node.rhs = trycoerce(node.rhs, types.Value, errors)
+                trhs = node.rhs._type
+            end
             -- tries to coerce to float if other side is float
             if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
               node.lhs = trycoerce(node.lhs, types.Float, errors)
@@ -566,32 +582,18 @@ function checkexp(node, st, errors, context)
               node.rhs = trycoerce(node.rhs, types.Float, errors)
               trhs = node.rhs._type
             end
-            -- tries to coerce to integer if other side is integer
-            if types.equals(tlhs, types.Integer) or types.equals(trhs, types.Integer) then
-                node.lhs = trycoerce(node.lhs, types.Integer, errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Integer, errors)
-                trhs = node.rhs._type
-            end
-            -- tries to coerce from value if other side is not value
-            if types.equals(tlhs, types.Value) then
-                node.lhs = trycoerce(node.lhs, trhs, errors)
-                tlhs = node.lhs._type
-            elseif types.equals(trhs, types.Value) then
-                node.rhs = trycoerce(node.rhs, tlhs, errors)
-                trhs = node.rhs._type
-            end
-            if not types.equals(tlhs, trhs) then
+            if not types.compatible(tlhs, trhs) then
               typeerror(errors, "left hand side of logical expression is a " ..
                types.tostring(tlhs) .. " but right hand side is a " ..
                types.tostring(trhs), pos)
             end
             node._type = tlhs
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
-            -- always tries to coerce to integer
-            node.lhs = trycoerce(node.lhs, types.Integer, errors)
+            -- always tries to coerce floats to integer
+            node.lhs = types.equals(node.lhs._type, types.Float) and trycoerce(node.lhs, types.Integer, errors) or node.lhs
             tlhs = node.lhs._type
-            node.rhs = trycoerce(node.rhs, types.Integer, errors)
+            -- always tries to coerce floats to integer
+            node.rhs = types.equals(node.rhs._type, types.Float) and trycoerce(node.rhs, types.Integer, errors) or node.rhs
             trhs = node.rhs._type
             if not types.equals(tlhs, types.Integer) then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
