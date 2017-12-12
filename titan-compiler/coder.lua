@@ -590,8 +590,10 @@ local function codeassignment(ctx, node)
                 } else {
                     _slot = (TValue *)luaH_getint(_t, _k);
                     TValue _vk; setivalue(&_vk, _k);
-                    if (_slot == luaO_nilobject)    /* no previous entry? */
-                        _slot = luaH_newkey(L, _t, &_vk);   /* create one */
+                    if (_slot == luaO_nilobject) {
+                        /* create new entry if no previous one */
+                        _slot = luaH_newkey(L, _t, &_vk);
+                    }
                 }
                 $CSET
             }
@@ -1245,8 +1247,9 @@ local function codefuncdec(tlcontext, node)
         }
         TValue *_base = L->top;
         L->top += $NSLOTS;
-        for(TValue *_s = L->top - 1; _base <= _s; _s--)
+        for(TValue *_s = L->top - 1; _base <= _s; _s--) {
             setnilvalue(_s);
+        }
         ]], {
             NSLOTS = c_integer_literal(nslots),
         }))
@@ -1414,10 +1417,15 @@ local libopen = [[
         lua_rawget(L, LUA_REGISTRYINDEX);
         if(lua_isnil(L, -1)) {
             lua_pop(L, 1);
+
+            /* Try the versioned name for the Titan Path variable */
             const char *path = getenv(TITAN_PATH_VAR TITAN_VER_SUFFIX);
-            if (path == NULL)  /* no environment variable? */
-                path = getenv(TITAN_PATH_VAR);  /* try unversioned name */
-            if (path == NULL)  { /* no environment variable? */
+            if (path == NULL) {
+                /* Try the unversioned name for the Titan Path variable */
+                path = getenv(TITAN_PATH_VAR);
+            }
+            if (path == NULL) {
+                /* No Titan Path environment variable */
                 path = TITAN_PATH_DEFAULT;
                 lua_pushstring(L, path);
             } else {
@@ -1454,7 +1462,8 @@ local libopen = [[
 
     static int gctm (lua_State *L) {
       lua_Integer n = luaL_len(L, 1);
-      for (; n >= 1; n--) {  /* for each handle, in reverse order */
+      /* for each handle, in reverse order */
+      for (; n >= 1; n--) {
         lua_rawgeti(L, 1, n);  /* get handle LIBS[n] */
         dlclose(lua_touserdata(L, -1));
         lua_pop(L, 1);  /* pop handle */
@@ -1716,8 +1725,9 @@ function coder.generate(modname, ast)
             lua_checkstack(L, $NSLOTS);
         }
         L->top += $NSLOTS;
-        for(TValue *_s = L->top - 1; _base <= _s; _s--)
+        for(TValue *_s = L->top - 1; _base <= _s; _s--) {
             setnilvalue(_s);
+        }
         Table *_map = luaH_new(L);
         sethvalue(L, L->top-$VARSLOTS, _map);
         lua_pushcclosure(L, __index, $VARSLOTS);
