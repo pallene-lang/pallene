@@ -934,6 +934,27 @@ describe("Titan code generator", function()
         end)
     end
 
+    it("pass value type in array index", function()
+        local code = [[
+            function read(array: {float}, i: value): float
+                return array[i]
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check("test", ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = generate(ast, "titan_test")
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", [[
+            arr={1,2,3}
+            assert(2==titan_test.read(arr, 2))
+            assert(2==titan_test.read(arr, 2.0))
+            assert(pcall(titan_test.read, arr, "foo") == false)
+        ]])
+        assert.truthy(ok, err)
+    end)
+
 end)
 
 

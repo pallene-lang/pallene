@@ -448,7 +448,9 @@ function checkexp(node, st, errors, context)
             exp = trytostr(exp)
             node.exps[i] = exp
             local texp = exp._type
-            if not types.equals(texp, types.String) then
+            if types.equals(texp, types.Value) then
+                typeerror(errors, "cannot concatenate with value of type 'value'", exp._pos)
+            elseif not types.equals(texp, types.String) then
                 typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", exp._pos)
             end
         end

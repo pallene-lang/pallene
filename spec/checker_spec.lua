@@ -488,6 +488,20 @@ describe("Titan type checker", function()
             assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
             assert.same(types.Integer, ast[1].block.stats[6].exp._type)
         end)
+
+        it("fails if one side of expression is value", function ()
+            local code = [[
+                function fn(): integer
+                    local i: value = 1
+                    local f: float = 1.5
+                    local i_f = i ]] .. op .. [[ f
+                    local f_i = f ]] .. op .. [[ i
+                end
+            ]]
+            local ok, err, ast = run_checker(code)
+            assert.falsy(ok)
+            assert.match("is a value instead of a number", err)
+        end)
     end
 
     for _, op in ipairs({"/", "^"}) do
@@ -519,6 +533,20 @@ describe("Titan type checker", function()
             assert.same(types.Float, ast[1].block.stats[6].exp.lhs._type)
             assert.same(types.Float, ast[1].block.stats[6].exp.rhs._type)
             assert.same(types.Float, ast[1].block.stats[6].exp._type)
+        end)
+
+        it("fails if one side of expression is value", function ()
+            local code = [[
+                function fn(): integer
+                    local i: value = 1
+                    local f: float = 1.5
+                    local i_f = i ]] .. op .. [[ f
+                    local f_i = f ]] .. op .. [[ i
+                end
+            ]]
+            local ok, err, ast = run_checker(code)
+            assert.falsy(ok)
+            assert.match("is a value instead of a number", err)
         end)
     end
 
@@ -564,6 +592,18 @@ describe("Titan type checker", function()
         local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with boolean value", err)
+    end)
+
+    it("cannot concatenate with type value", function()
+        local code = [[
+            function fn()
+                local v: value = "bar"
+                local s = "foo" .. v
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("cannot concatenate with value", err)
     end)
 
     it("can concatenate with integer and float", function()
