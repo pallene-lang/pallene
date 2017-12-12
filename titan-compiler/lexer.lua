@@ -166,7 +166,7 @@ local keywords = {
     "and", "break", "do", "else", "elseif", "end", "for", "false",
     "function", "goto", "if", "in", "local", "nil", "not", "or",
     "repeat", "return", "then", "true", "until", "while", "import",
-    "record"
+    "record", "as"
 }
 
 for _, keyword in ipairs(keywords) do

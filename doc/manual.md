@@ -9,6 +9,7 @@
 - `integer`
 - `float`
 - `string`
+- `value`
 
 ### Arrays
 
@@ -78,6 +79,50 @@ initializer lists.
 
 You can read and write from fields of a record instance using the dot operator
 `instance.field`. For example, `local x = p.x` and `p.y = 7`.
+
+### The `value` type
+
+If you declare that something has type `value` than it can hold values of any
+Titan type, as well as any value that comes from Lua. In particular, `{ value }`
+is the type of arrays that can hold any value.
+
+You can use an expression that evaluates to any type in a context that expects
+something with type `value`, and this is always safe (it will never throw a
+runtime error). For example, if variable `i` has type `integer` and variable
+`v` has type `value` then the assignment `v = i` always succeeds. Likewise,
+if `t` has type `{ value }` the assignment `t[1] = i` always succeeds.
+
+You can also use an expression that has type `value` in most contexts that
+expect something with another type, but this will generate a runtime check
+that might fail. In our previous examples with `v`, `i`, and `t` the assignments
+`i = v` and `i = t[1]` are also allowed, but are checked at runtime to see
+if the value being assigned is really an integer (or a floating-point value
+that can be safely converted to an integer).
+
+Contexts where Titan lets you pretend a `value` has another type are right-hand
+sides of assignments and declarations, arguments to function calls, the index
+in array accesses, in the expressions that initialize the parameters of a numeric
+`for` loop, and in boolean `and`/`or` where the other side has type `boolean`.
+
+The automatic casts to and from `value` extend to coumpound types where parts of
+them are `value`: you can use a `{ value }` in a context that expects a `{ float }`,
+and vice-versa, and the same holds for function types such as `value -> integer`,
+`integer -> value`, `integer -> integer`, and `value -> value`. Notice this does
+**not** extend to record types, as they are nominal! The two following types
+are not compatible:
+
+    record PointF
+        x: float
+        y: float
+    end
+    
+    record PointV
+        x: value
+        y: value
+    end
+
+The only operations that you can do on things with type `value` are to cast them
+to some other type and to pass them along.
 
 ## Modules
 
@@ -170,6 +215,22 @@ only functions with a single return type are implemented)
 Parameters are a comma-separated list of `<name>: <type>`. Two parameters cannot
 have the same name. The body is a sequence of statements.
 
+## Expressions
+
+### Explicit casts (`exp as type`)
+
+You can use an explicit cast to convert between any two allowable types. For the
+current version of Titan, this means from `value` to any other type, from any
+other type to `value`, from `integer` to `float`, from `float` to `integer`, 
+from `integer` and `float` to `string`, and from any type to `boolean`.
+Most of these cannot fail (but you might lose precision when converting from
+`integer` to `float`). The exceptions are conversions from `value` to other
+types except `boolean`, and from `float` to `integer`.
+
+Casts from `float` to `integer` fail if it is not an integral value, and if
+this value is outside the allowable range for integers. Casts from `value`
+fail if the value does not have the target type, or cannot be converted to it.
+
 ## The Complete Syntax of Titan
 
 Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, {A} means 0 or more As, and \[A\] means an optional A.
@@ -186,7 +247,7 @@ Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, 
 
     parlist ::= Name ':' type {',' Name ':' type}
 
-    type ::= integer | float | boolean | string | '{' type '}'
+    type ::= value | integer | float | boolean | string | '{' type '}'
 
     recordfields ::= recordfield {recordfield}
 
@@ -211,7 +272,8 @@ Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, 
     explist ::= exp {',' exp}
 
     exp ::= nil | false | true | Numeral | LiteralString |
-        prefixexp | tableconstructor | exp binop exp | unop exp
+        prefixexp | tableconstructor | exp binop exp | unop exp |
+        exp as type
 
     prefixexp ::= var | functioncall | '(' exp ')'
 

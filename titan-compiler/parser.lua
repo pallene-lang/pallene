@@ -306,7 +306,7 @@ local grammar = re.compile([[
     e9              <- ({} {| e10 (op9  (e10 / %{OpExp}))* |})   -> fold_binop_left
     e10             <- ({} {| e11 (op10 (e11 / %{OpExp}))* |})   -> fold_binop_left
     e11             <- ({} {| unop* |}  e12)                     -> fold_unops
-    e12             <- ({} simpleexp (op12 (e11 / %{OpExp}))?)   -> binop_right
+    e12             <- ({} castexp (op12 (e11 / %{OpExp}))?)   -> binop_right
 
     suffixedexp     <- (prefixexp {| expsuffix+ |})              -> fold_suffixes
 
@@ -321,6 +321,10 @@ local grammar = re.compile([[
                      / (LPAREN (exp / %{ExpSimpleExp})
                                (RPAREN / %{RParSimpleExp}))      -- produces Exp
 
+
+    castexp         <- ({} simpleexp AS
+                            (type / %{CastMissingType}))         -> Exp_Cast
+                     / simpleexp                                 -- produces Exp
 
     simpleexp       <- ({} NIL)                                  -> nil_exp
                      / ({} FALSE -> tofalse)                     -> Exp_Bool
@@ -384,6 +388,7 @@ local grammar = re.compile([[
     UNTIL           <- %UNTIL SKIP*
     WHILE           <- %WHILE SKIP*
     IMPORT          <- %IMPORT SKIP*
+    AS              <- %AS SKIP*
 
     ADD             <- %ADD SKIP*
     SUB             <- %SUB SKIP*

@@ -54,10 +54,7 @@ types.Exp = {
     Unop    = {"op", "exp"},
     Concat  = {"exps"},
     Binop   = {"lhs", "op", "rhs"},
-    ToFloat = {"exp"},
-    ToInt   = {"exp"},
-    ToStr   = {"exp"},
-    ToBool  = {"exp"}
+    Cast    = {"exp", "target"}
 }
 
 types.Args = {
