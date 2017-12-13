@@ -17,8 +17,8 @@ local function generate(ast, modname)
     local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
 
     local cc_cmd = string.format([[
-        %s %s -shared %s.c -o %s.so
-        ]], CC, CFLAGS, modname, modname)
+        %s %s %s %s.c -o %s.so
+        ]], CC, CFLAGS, driver.shared(), modname, modname)
     return os.execute(cc_cmd)
 end
 
