@@ -105,7 +105,7 @@ function driver.compile_module(CC, CFLAGS, modname, mod)
     os.remove(soname)
     local ok, err = util.set_file_contents(filename, code)
     if not ok then return nil, err end
-      local cc_cmd = string.format([[
+    local cc_cmd = string.format([[
         %s %s %s %s -o %s
         ]], CC, CFLAGS, driver.shared(), filename, soname)
     --print(cc_cmd)
