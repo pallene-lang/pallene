@@ -92,7 +92,7 @@ describe("Titan type checker", function()
         ]]
         local ok, err = run_checker(code)
         assert.falsy(ok)
-        assert.match("duplicate function", err)
+        assert.match("duplicate declaration", err)
     end)
 
     it("catches duplicate variable declarations", function()
@@ -108,7 +108,7 @@ describe("Titan type checker", function()
         for _, c in ipairs(code) do
             local ok, err = run_checker(c)
             assert.falsy(ok)
-            assert.match("duplicate variable", err)
+            assert.match("duplicate declaration", err)
         end
     end)
 
