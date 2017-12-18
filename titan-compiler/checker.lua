@@ -741,7 +741,7 @@ end
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
 function checker.check(modname, ast, subject, filename, loader)
     loader = loader or function ()
-        return nil, "you must pass a loder to import modules"
+        return nil, "you must pass a loader to import modules"
     end
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
