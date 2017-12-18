@@ -643,8 +643,8 @@ describe("Titan parser", function()
 
         assert_program_ast([[
             record List
-                p: {Point}
-                next: List
+                p: {Point};
+                next: List;
             end
         ]], {
             { _tag = "TopLevel_Record",

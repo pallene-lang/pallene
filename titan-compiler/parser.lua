@@ -243,8 +243,10 @@ local grammar = re.compile([[
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
 
-    recordfield     <- ({} NAME (COLON / %{ColonRecordField})
-                               (type / %{TypeRecordField}))      -> Decl_Decl
+    recordfield     <- ({} NAME
+                           (COLON / %{ColonRecordField})
+                           (type / %{TypeRecordField})
+                           SEMICOLON?)                      -> Decl_Decl
 
     block           <- ({} {| statement* returnstat? |})         -> Stat_Block
 
