@@ -643,8 +643,8 @@ describe("Titan parser", function()
 
         assert_program_ast([[
             record List
-                p: {Point};
-                next: List;
+                p: {Point}
+                next: List
             end
         ]], {
             { _tag = "TopLevel_Record",
@@ -654,6 +654,26 @@ describe("Titan parser", function()
                   type = { subtype = { name = "Point" } } },
                 { name = "next", type = { name = "List" } } } },
         })
+    end)
+
+    it("can parse the record field optional separator", function()
+        local ast = {{ fields = { { name = "x" }, { name = "y" } } }}
+
+        assert_program_ast([[
+            record Point x: float y: float end
+        ]], ast)
+
+        assert_program_ast([[
+            record Point x: float; y: float end
+        ]], ast)
+
+        assert_program_ast([[
+            record Point x: float y: float; end
+        ]], ast)
+
+        assert_program_ast([[
+            record Point x: float; y: float; end
+        ]], ast)
     end)
 
     it("can parse record constructors", function()
