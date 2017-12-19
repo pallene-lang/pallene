@@ -635,6 +635,54 @@ local function checkbodies(ast, st, errors)
     end
 end
 
+-- Verify if an expression is constant
+local function isconst(node)
+    local tag = node._tag
+    if tag == "Exp_Nil" or
+       tag == "Exp_Bool" or
+       tag == "Exp_Integer" or
+       tag == "Exp_Float" or
+       tag == "Exp_String" then
+        return true
+
+    elseif tag == "Exp_InitList" then
+        local const = true
+        for _, field in ipairs(node.fields) do
+            const = const and isconst(field.exp)
+        end
+        return const
+
+    elseif tag == "Exp_Call" then
+        return false
+
+    elseif tag == "Exp_Var" then
+        if node.var._tag == "Var_Name" then
+            return true
+        else
+            return false
+        end
+
+    elseif tag == "Exp_Concat" then
+        local const = true
+        for _, exp in ipairs(node.exps) do
+            const = const and isconst(exp)
+        end
+        return const
+
+    elseif tag == "Exp_Unop" then
+        return isconst(node.exp)
+
+    elseif tag == "Exp_Binop" then
+        return isconst(node.lhs) and isconst(node.rhs)
+
+    elseif tag == "Exp_Cast" then
+        return isconst(node.exp)
+
+    else
+        error("impossible")
+    end
+end
+
 -- Return the name given the toplevel node
 local function toplevel_name(node)
     local tag = node._tag
@@ -677,6 +725,10 @@ local tlcheckers = {
             else
                 checkexp(node.value, st, errors)
                 node._type = node.value._type
+            end
+            if not isconst(node.value) then
+                local msg = "top level variable initialization must be constant"
+                typeerror(errors, msg, node.value._pos)
             end
         end,
 

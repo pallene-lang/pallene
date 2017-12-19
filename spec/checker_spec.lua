@@ -112,6 +112,55 @@ describe("Titan type checker", function()
         end
     end)
 
+
+    it("allows constant variable initialization", function()
+        local code = [[
+            x1 = nil
+            x2 = false
+            x3 = 11
+            x4 = 1.1
+            x5 = "11"
+            x6 = {}
+            x7 = {1, 2}
+            x8 = "a" .. x5
+            x9 = 1 + x3
+            x10 = not x2
+            x11: integer = 10.1
+        ]]
+        local ok = run_checker(code)
+        assert.truthy(ok)
+    end)
+
+    it("catches non constant variable initialization in top level", function()
+        local code = {[[
+            function f(): integer return 10 end
+            x = f()
+        ]], [[
+            function f(): integer return 10 end
+            x = -f()
+        ]], [[
+            function f(): integer return 10 end
+            x = 10 + f()
+        ]], [[
+            function f(): integer return 10 end
+            x = "a" .. f()
+        ]], [[
+            function f(): integer return 10 end
+            x: float = f()
+        ]], [[
+            function f(): integer return 10 end
+            x = {f()}
+        ]], [[
+            x = {10}
+            y = x[2]
+        ]]}
+        for _, c in ipairs(code) do
+            local ok, err = run_checker(c)
+            assert.falsy(ok)
+            assert.match("must be constant", err)
+        end
+    end)
+
     it("catches variable not declared", function()
         local code = [[
             function fn()
