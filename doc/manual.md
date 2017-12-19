@@ -56,9 +56,9 @@ return values for functions.
 
 ### Records
 
-Records types in Titan are nominal and should be declared in the top level,
-following the syntax `record Type (field: type)* end`. The following example
-declare a record `Point` with the fields `x` and `y` which are floats.
+Records types in Titan are nominal and should be declared in the top level.
+The following example declare a record `Point` with the fields `x` and `y`
+which are floats.
 
     record Point
         x: float
@@ -67,7 +67,7 @@ declare a record `Point` with the fields `x` and `y` which are floats.
 
 You can create records with initializer lists or using the `new` constructor.
 When using initializer lists, you must assign a value to each field of the
-record with the syntax `{ (field = value)* }`.
+record.
 The `Type.new()` constructor is automatically declared and receive a parameter
 for each field in the order they were declared.
 For instance, you could initialize an instance of the record `Point` with:
@@ -251,7 +251,7 @@ Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, 
 
     recordfields ::= recordfield {recordfield}
 
-    recordfield ::= Name ':' type
+    recordfield ::= Name ':' type [';']
 
     block ::= {stat} [retstat]
 
