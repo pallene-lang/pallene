@@ -194,7 +194,7 @@ local grammar = re.compile([[
 
     toplevelfunc    <- ({} localopt
                            FUNCTION (NAME / %{NameFunc})
-                           (LPAREN / %{LParPList}) parlist (RPAREN / %{RParPList})
+                           (LPAREN / %{LParPList}) paramlist (RPAREN / %{RParPList})
                            rettypeopt
                            block (END / %{EndFunc}))             -> TopLevel_Func
 
@@ -213,8 +213,11 @@ local grammar = re.compile([[
 
     rettypeopt      <- ({} (COLON (rettype / %{TypeFunc}))?)     -> rettypeopt
 
-    parlist         <- {| (decl (COMMA
-                            (decl / %{DeclParList}))*)? |}       -- produces {Decl}
+    paramlist       <- {| (param (COMMA
+                            (param / %{DeclParList}))*)? |}      -- produces {Decl}
+
+    param           <- ({} NAME (COLON / %{ParamSemicolon})
+                                (type / %{TypeDecl}))           -> Decl_Decl
 
     decl            <- ({} NAME (COLON
                             (type / %{TypeDecl}))? -> opt)       -> Decl_Decl

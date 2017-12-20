@@ -772,6 +772,11 @@ describe("Titan parser", function()
         ]], "EndFunc")
 
         assert_program_syntax_error([[
+            function foo(x, y) : int
+            end
+        ]], "ParamSemicolon")
+
+        assert_program_syntax_error([[
             x 3
         ]], "AssignVar")
 
