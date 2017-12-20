@@ -93,74 +93,6 @@ local function trytostr(node)
     end
 end
 
--- First typecheck pass over the module, typecheks module variables
---   ast: AST for the whole module
---   st: symbol table
---   errors: list of compile-time errors
---   annotates the top-level nodes with their types in a "_type" field
---   annotates whether a top-level declaration is duplicated with a "_ignore" field
-local function firstpass(ast, st, errors)
-    for _, tlnode in ipairs(ast) do
-        local name
-        if tlnode._tag == "TopLevel_Var" then
-            name = tlnode.decl.name
-            if tlnode.decl.type then
-                tlnode._type = typefromnode(tlnode.decl.type, errors)
-                checkexp(tlnode.value, st, errors, tlnode._type)
-            else
-                checkexp(tlnode.value, st, errors)
-                tlnode._type = tlnode.value._type
-            end
-            tlnode._lin = util.get_line_number(errors.subject, tlnode._pos)
-            if st:find_dup(name) then
-                typeerror(errors, "duplicate variable declaration for " .. name, tlnode._pos)
-                tlnode._ignore = true
-            else
-                tlnode.value = trycoerce(tlnode.value, tlnode._type, errors)
-                checkmatch("declaration of module variable " .. name,
-                    tlnode._type, tlnode.value._type, errors, tlnode._pos)
-                st:add_symbol(name, tlnode)
-            end
-        end
-    end
-end
-
-
--- Second typecheck pass over the module, collects type information
--- for top-level functions
---   ast: AST for the whole module
---   st: symbol table
---   errors: list of compile-time errors
---   annotates the top-level nodes with their types in a "_type" field
---   annotates whether a top-level declaration is duplicated with a "_ignore" field
-local function secondpass(ast, st, errors)
-    for _, tlnode in ipairs(ast) do
-        local name
-        if tlnode._tag == "TopLevel_Func" then
-            if #tlnode.rettypes ~= 1 then
-                error("functions with 0 or 2+ return values are not yet implemented")
-            end
-
-            name = tlnode.name
-            local ptypes = {}
-            for _, pdecl in ipairs(tlnode.params) do
-                table.insert(ptypes, typefromnode(pdecl.type, errors))
-            end
-            local rettypes = {}
-            for _, rt in ipairs(tlnode.rettypes) do
-                table.insert(rettypes, typefromnode(rt, errors))
-            end
-            tlnode._type = types.Function(ptypes, rettypes)
-            if st:find_dup(name) then
-                typeerror(errors, "duplicate function or variable declaration for " .. name, tlnode._pos)
-                tlnode._ignore = true
-            else
-                st:add_symbol(name, tlnode)
-            end
-        end
-    end
-end
-
 -- Typechecks a repeat/until statement
 --   node: Stat_Repeat AST node
 --   st: symbol table
@@ -689,43 +621,149 @@ local function checkfunc(node, st, errors)
     end
 end
 
--- Third typechecking pass over the module, checks function bodies
+-- Checks function bodies
 --   ast: AST for the whole module
 --   st: symbol table
 --   errors: list of compile-time errors
-local function thirdpass(ast, st, errors)
-    for _, tlnode in ipairs(ast) do
-        if not tlnode._ignore then
-            local tag = tlnode._tag
-            if tag == "TopLevel_Func" then
-                st:with_block(checkfunc, tlnode, st, errors)
+local function checkbodies(ast, st, errors)
+    for _, node in ipairs(ast) do
+        if not node._ignore then
+            if node._tag == "TopLevel_Func" then
+                st:with_block(checkfunc, node, st, errors)
             end
         end
     end
 end
 
--- Gets type information for all imported modules and puts
--- it in the symbol table
-local function importpass(ast, st, errors, loader)
-    for _, tlnode in ipairs(ast) do
-        if tlnode._tag == "TopLevel_Import" then
-            local name = tlnode.modname
-            if st:find_dup(tlnode.localname) then
-                typeerror(errors, "duplicate declaration for " .. tlnode.localname, tlnode._pos)
-                tlnode._ignore = true
-            else
-                local modtype, errs = checker.checkimport(name, loader)
-                if modtype then
-                    tlnode._type = modtype
-                    for _, err in ipairs(errs) do
-                        table.insert(errors, err)
-                    end
-                    st:add_symbol(tlnode.localname, tlnode)
-                else
-                    tlnode._type = types.Nil
-                    typeerror(errors, "problem loading module '%s': %s", tlnode._pos, name, errs)
+-- Verify if an expression is constant
+local function isconst(node)
+    local tag = node._tag
+    if tag == "Exp_Nil" or
+       tag == "Exp_Bool" or
+       tag == "Exp_Integer" or
+       tag == "Exp_Float" or
+       tag == "Exp_String" then
+        return true
+
+    elseif tag == "Exp_InitList" then
+        local const = true
+        for _, field in ipairs(node.fields) do
+            const = const and isconst(field.exp)
+        end
+        return const
+
+    elseif tag == "Exp_Call" or
+           tag == "Exp_Var" then
+        return false
+
+    elseif tag == "Exp_Concat" then
+        local const = true
+        for _, exp in ipairs(node.exps) do
+            const = const and isconst(exp)
+        end
+        return const
+
+    elseif tag == "Exp_Unop" then
+        return isconst(node.exp)
+
+    elseif tag == "Exp_Binop" then
+        return isconst(node.lhs) and isconst(node.rhs)
+
+    elseif tag == "Exp_Cast" then
+        return isconst(node.exp)
+
+    else
+        error("impossible")
+    end
+end
+
+-- Return the name given the toplevel node
+local function toplevel_name(node)
+    local tag = node._tag
+    if tag == "TopLevel_Import" then
+        return node.localname
+    elseif tag == "TopLevel_Var" then
+        return node.decl.name
+    elseif tag == "TopLevel_Func" then
+        return node.name
+    else
+        error("tag not found " .. tag)
+    end
+end
+
+-- Typecheck the toplevel node
+local tlcheckers = {
+    ["TopLevel_Import"] =
+        function(node, st, errors, loader)
+            local modtype, errs = checker.checkimport(node.modname, loader)
+            if modtype then
+                node._type = modtype
+                for _, err in ipairs(errs) do
+                    table.insert(errors, err)
                 end
+            else
+                node._type = types.Nil
+                typeerror(errors, "problem loading module '%s': %s",
+                          node._pos, node.modname, errs)
             end
+        end,
+
+    ["TopLevel_Var"] =
+        function(node, st, errors)
+            if node.decl.type then
+                node._type = typefromnode(node.decl.type, errors)
+                checkexp(node.value, st, errors, node._type)
+                node.value = trycoerce(node.value, node._type, errors)
+                checkmatch("declaration of module variable " .. node.decl.name,
+                           node._type, node.value._type, errors, node._pos)
+            else
+                checkexp(node.value, st, errors)
+                node._type = node.value._type
+            end
+            if not isconst(node.value) then
+                local msg = "top level variable initialization must be constant"
+                typeerror(errors, msg, node.value._pos)
+            end
+        end,
+
+    ["TopLevel_Func"] =
+        function(node, st, errors)
+            if #node.rettypes ~= 1 then
+                error("functions with 0 or 2+ return values are not yet implemented")
+            end
+            local ptypes = {}
+            for _, pdecl in ipairs(node.params) do
+                table.insert(ptypes, typefromnode(pdecl.type, errors))
+            end
+            local rettypes = {}
+            for _, rt in ipairs(node.rettypes) do
+                table.insert(rettypes, typefromnode(rt, errors))
+            end
+            node._type = types.Function(ptypes, rettypes)
+        end,
+}
+
+-- Colect type information of toplevel nodes
+--   ast: AST for the whole module
+--   st: symbol table
+--   errors: list of compile-time errors
+--   annotates the top-level nodes with their types in a "_type" field
+--   annotates whether a top-level declaration is duplicated with a "_ignore"
+--   field
+local function checktoplevel(ast, st, errors, loader)
+    for _, node in ipairs(ast) do
+        local name = toplevel_name(node)
+        local dup = st:find_dup(name)
+        if dup then
+            typeerror(errors,
+                "duplicate declaration for %s, previous one at line %d",
+                node._pos, name, dup._lin)
+            node._ignore = true
+        else
+            local checker = assert(tlcheckers[node._tag])
+            checker(node, st, errors, loader)
+            node._lin = util.get_line_number(errors.subject, node._pos)
+            st:add_symbol(name, node)
         end
     end
 end
@@ -740,18 +778,21 @@ end
 --   ast: AST for the whole module
 --   subject: the string that generated the AST
 --   filename: the file name that contains the subject
---   returns true if typechecking succeeds, or false and a list of type errors found
+--   loader: the module loader, a function from module name to its AST, code,
+--   and filename or nil and an error
+--
+--   returns true if typechecking succeeds, or false and a list of type errors
+--   found
 --   annotates the AST with the types of its terms in "_type" fields
 --   annotates duplicate top-level declarations with a "_ignore" boolean field
---   loader: the module loader, a function from module name to its AST, code, and filename or nil and an error
 function checker.check(modname, ast, subject, filename, loader)
-    loader = loader or function () return nil, "you must pass a loder to import modules" end
+    loader = loader or function ()
+        return nil, "you must pass a loader to import modules"
+    end
     local st = symtab.new()
     local errors = {subject = subject, filename = filename}
-    importpass(ast, st, errors, loader)
-    firstpass(ast, st, errors)
-    secondpass(ast, st, errors)
-    thirdpass(ast, st, errors)
+    checktoplevel(ast, st, errors, loader)
+    checkbodies(ast, st, errors)
     return types.maketype(modname, ast), errors
 end
 
