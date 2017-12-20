@@ -652,15 +652,9 @@ local function isconst(node)
         end
         return const
 
-    elseif tag == "Exp_Call" then
+    elseif tag == "Exp_Call" or
+           tag == "Exp_Var" then
         return false
-
-    elseif tag == "Exp_Var" then
-        if node.var._tag == "Var_Name" then
-            return true
-        else
-            return false
-        end
 
     elseif tag == "Exp_Concat" then
         local const = true
