@@ -76,12 +76,12 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
     local tag
     if types.equals(typ, types.Integer) then
         return render([[
-            if (ttisinteger($EXP)) {
+            if (TITAN_LIKELY(ttisinteger($EXP))) {
                 $VAR = ivalue($EXP);
             } else if (ttisfloat($EXP)) {
                 float _v = fltvalue($EXP);
                 float _flt = l_floor(_v);
-                if (_v != _flt) {
+                if (TITAN_UNLIKELY(_v != _flt)) {
                     luaL_error(L, "type error at line %d, number '%f' has no integer representation", $LINE, _v);
                 } else {
                     lua_numbertointeger(_flt, &$VAR);
@@ -96,10 +96,10 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
         })
     elseif types.equals(typ, types.Float) then
         return render([[
-            if (ttisinteger($EXP)) {
-                $VAR = (lua_Number)ivalue($EXP);
-            } else if (ttisfloat($EXP)) {
+            if (TITAN_LIKELY(ttisfloat($EXP))) {
                 $VAR = fltvalue($EXP);
+            } else if (ttisinteger($EXP)) {
+                $VAR = (lua_Number)ivalue($EXP);
             } else {
                 luaL_error(L, "type error at line %d, expected float but found %s", $LINE, lua_typename(L, ttnov($EXP)));
             }
@@ -133,7 +133,7 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
         error("invalid type " .. types.tostring(typ))
     end
     return render([[
-        if($PREDICATE($EXP)) {
+        if (TITAN_LIKELY($PREDICATE($EXP))) {
             $GETSLOT;
         } else {
             luaL_error(L, "type error at line %d, expected %s but found %s", $LINE, $TAG, lua_typename(L, ttnov($EXP)));
@@ -152,10 +152,10 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
     if types.equals(typ, types.Integer) then tag = "integer"
     elseif types.equals(typ, types.Float) then
         return render([[
-            if (ttisinteger($SRC)) {
-                setfltvalue($DST, ((lua_Number)ivalue($SRC)));
-            } else if (ttisfloat($SRC)) {
+            if (TITAN_LIKELY(ttisfloat($SRC))) {
                 setobj2t(L, $DST, $SRC);
+            } else if (ttisinteger($SRC)) {
+                setfltvalue($DST, ((lua_Number)ivalue($SRC)));
             } else {
                 luaL_error(L, "type error at line %d, expected float but found %s", $LINE, lua_typename(L, ttnov($SRC)));
             }
@@ -179,7 +179,7 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
         error("invalid type " .. types.tostring(typ))
     end
     return render([[
-        if ($PREDICATE($SRC)) {
+        if (TITAN_LIKELY($PREDICATE($SRC))) {
             setobj2t(L, $DST, $SRC);
         } else {
             luaL_error(L, "type error at line %d, expected %s but found %s", $LINE, $TAG, lua_typename(L, ttnov($SRC)));
@@ -1378,6 +1378,14 @@ local preamble = [[
 #include "lobject.h"
 
 #include <math.h>
+
+#ifdef __GNUC__
+#define TITAN_LIKELY(x)   __builtin_expect((x), 1)
+#define TITAN_UNLIKELY(x) __builtin_expect((x), 0)
+#else
+#define TITAN_LIKELY(x)   (x)
+#define TITAN_UNLIKELY(x) (x)
+#endif
 
 $LIBOPEN
 
