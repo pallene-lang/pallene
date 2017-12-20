@@ -81,4 +81,15 @@ function util.render(code, substs)
     end))
 end
 
+
+--
+-- Functional
+--
+
+function util.curry(f, a)
+    return function(...)
+        return f(a, ...)
+    end
+end
+
 return util

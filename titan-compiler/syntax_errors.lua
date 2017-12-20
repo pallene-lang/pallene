@@ -52,6 +52,9 @@ local errors = {
     { label = "EndFunc",
         msg = "Expected 'end' to close the function body." },
 
+    { label = "ParamSemicolon",
+        msg = "Expected ':' after parameter name." },
+
     { label = "AssignVar",
         msg = "Expected '=' after variable declaration." },
 

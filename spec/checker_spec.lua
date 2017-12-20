@@ -2,6 +2,7 @@ local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
 local driver = require 'titan-compiler.driver'
+local util = require 'titan-compiler.util'
 
 local function run_checker(code)
     driver.imported = {}
@@ -32,6 +33,17 @@ local function restrict(t1, t2)
     else
         return t2
     end
+end
+
+local function assert_type_check(code)
+    ok = run_checker(code)
+    assert.truthy(ok)
+end
+
+local function assert_type_error(expected, code)
+    local ok, err = run_checker(code)
+    assert.falsy(ok)
+    assert.match(expected, err)
 end
 
 -- To avoid having these tests break all the time when we make insignificant
@@ -92,7 +104,7 @@ describe("Titan type checker", function()
         ]]
         local ok, err = run_checker(code)
         assert.falsy(ok)
-        assert.match("duplicate function", err)
+        assert.match("duplicate declaration", err)
     end)
 
     it("catches duplicate variable declarations", function()
@@ -108,8 +120,35 @@ describe("Titan type checker", function()
         for _, c in ipairs(code) do
             local ok, err = run_checker(c)
             assert.falsy(ok)
-            assert.match("duplicate variable", err)
+            assert.match("duplicate declaration", err)
         end
+    end)
+
+
+    it("allows constant variable initialization", function()
+        assert_type_check([[ x1 = nil ]])
+        assert_type_check([[ x2 = false ]])
+        assert_type_check([[ x3 = 11 ]])
+        assert_type_check([[ x4 = 1.1 ]])
+        assert_type_check([[ x5 = "11" ]])
+        assert_type_check([[ x6 = {} ]])
+        assert_type_check([[ x7 = {1, 2} ]])
+        assert_type_check([[ x8 = "a" .. 10 ]])
+        assert_type_check([[ x9 = 1 + 2 ]])
+        assert_type_check([[ x10 = not false ]])
+        assert_type_check([[ x11: integer = 10.1 ]])
+    end)
+
+    it("catches non constant variable initialization in top level", function()
+        local assert_const = util.curry(assert_type_error, "must be constant")
+        assert_const([[ function f(): integer return 10 end x = f() ]])
+        assert_const([[ x = 10 y = x ]])
+        assert_const([[ x = 10 y = -x ]])
+        assert_const([[ x = 10 y = 10 + x ]])
+        assert_const([[ x = 10 y = "a" .. x ]])
+        assert_const([[ x = 10 y: float = x ]])
+        assert_const([[ x = 10 y = {x} ]])
+        assert_const([[ x = ({1})[2] ]])
     end)
 
     it("catches variable not declared", function()
