@@ -95,15 +95,6 @@ function driver.shared()
     return shared
 end
 
-function driver.cflags()
-    local uname = io.popen("uname"):read("*a")
-    if string.match(uname, "Darwin") then
-        return "-Wno-unused-function"
-    else
-        return ""
-    end
-end
-
 function driver.compile_module(CC, CFLAGS, modname, mod)
     if mod.compiled then return true end
     local code = coder.generate(modname, mod.ast)
@@ -114,8 +105,9 @@ function driver.compile_module(CC, CFLAGS, modname, mod)
     os.remove(soname)
     local ok, err = util.set_file_contents(filename, code)
     if not ok then return nil, err end
-    local cc_cmd = table.concat({CC, CFLAGS, driver.cflags(), driver.shared(),
-                                 filename, "-o", soname}, " ")
+    local cc_cmd = string.format([[
+        %s %s %s %s -o %s
+        ]], CC, CFLAGS, driver.shared(), filename, soname)
     --print(cc_cmd)
     local ok, err = os.execute(cc_cmd)
     if not ok then return nil, err end
