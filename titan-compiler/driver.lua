@@ -16,6 +16,15 @@ driver.TITAN_SOURCE_PATH = "."
 
 local CIRCULAR_MARK = {}
 
+local function shell(cmd)
+    local p = io.popen(cmd)
+    out = p:read("*a")
+    p:close()
+    return out
+end
+
+driver.UNAME = shell("uname")
+
 local function mod2so(modf)
     return modf:gsub("[.]titan$", "") .. ".so"
 end
@@ -88,8 +97,7 @@ end
 
 function driver.shared()
     local shared = "-shared"
-    local uname = io.popen("uname"):read("*a")
-    if string.match(uname, "Darwin") then
+    if string.match(driver.UNAME, "Darwin") then
         shared = shared .. " -undefined dynamic_lookup"
     end
     return shared
@@ -115,6 +123,4 @@ function driver.compile_module(CC, CFLAGS, modname, mod)
     return true
 end
 
-
 return driver
-
