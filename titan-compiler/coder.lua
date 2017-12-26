@@ -1391,6 +1391,11 @@ $LIBOPEN
 
 #define MAXNUMBER2STR 50
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wunused-function"
+#pragma clang diagnostic ignored "-Wparentheses-equality"
+#endif
+
 static char _cvtbuff[MAXNUMBER2STR];
 
 inline static TString* _integer2str (lua_State *L, lua_Integer i) {
