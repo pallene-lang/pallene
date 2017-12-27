@@ -25,10 +25,6 @@ end
 
 driver.UNAME = shell("uname")
 
-local function mod2so(modf)
-    return modf:gsub("[.]titan$", "") .. ".so"
-end
-
 local function findmodule(paths, modname, extension)
     local modf = modname:gsub("[.]", "/") .. extension
     for path in paths:gmatch("[^;]+") do
@@ -105,22 +101,24 @@ end
 
 function driver.compile_module(CC, CFLAGS, modname, mod)
     if mod.compiled then return true end
-    local code = coder.generate(modname, mod.ast)
+    local ok, err = driver.compile(CC, CFLAGS, modname, mod.ast)
+    if not ok then return nil, err end
+    mod.compiled = true
+    return true
+end
+
+function driver.compile(CC, CFLAGS, modname, ast)
+    local code = coder.generate(modname, ast)
     code = pretty.reindent_c(code)
-    local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
-    local soname = mod.filename:gsub("[.]titan$", "") .. ".so"
+    local filename = modname .. ".c"
+    local soname = modname .. ".so"
     os.remove(filename)
     os.remove(soname)
     local ok, err = util.set_file_contents(filename, code)
     if not ok then return nil, err end
-    local cc_cmd = string.format([[
-        %s %s %s %s -o %s
-        ]], CC, CFLAGS, driver.shared(), filename, soname)
-    --print(cc_cmd)
-    local ok, err = os.execute(cc_cmd)
-    if not ok then return nil, err end
-    mod.compiled = true
-    return true
+    local args = {CC, CFLAGS, driver.shared(), filename, "-o", soname}
+    local cmd = table.concat(args, " ")
+    return os.execute(cmd)
 end
 
 return driver
