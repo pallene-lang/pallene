@@ -22,13 +22,8 @@ local function exit(msg)
     os.exit(1)
 end
 
-if args.tree then
-    driver.TITAN_SOURCE_PATH = args.tree
-end
-
-if not args.lua then
-    args.lua = "lua/src/"
-end
+driver.TITAN_SOURCE_PATH = args.tree or driver.TITAN_SOURCE_PATH
+driver.LUA_SOURCE_PATH = args.lua or driver.LUA_SOURCE_PATH
 
 local errors = {}
 
@@ -47,12 +42,8 @@ end
 
 if #errors > 0 then exit(table.concat(errors, "\n")) end
 
-local CC = os.getenv("CC") or "gcc"
-local CFLAGS = os.getenv("CFLAGS") or "--std=c99 -O2 -Wall"
-CFLAGS = string.format("%s -I%s -fPIC", CFLAGS, args.lua)
-
 for name, mod in pairs(driver.imported) do
-    local ok, err = driver.compile_module(CC, CFLAGS, name, mod)
+    local ok, err = driver.compile_module(name, mod)
     if not ok then table.insert(errors, err) end
 end
 

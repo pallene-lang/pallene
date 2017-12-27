@@ -23,14 +23,12 @@ local function generate(ast, modname)
 end
 
 local function generate_modules(modules, main)
-    local CC = "gcc"
-    local CFLAGS = "--std=c99 -O2 -Wall -Ilua/src/ -fPIC"
     local imported = {}
     local loader = driver.tableloader(modules, imported)
     local _, errs = checker.checkimport(main, loader)
     if not (#errs == 0) then return nil, table.concat(errs, "\n") end
     for name, mod in pairs(imported) do
-        local ok, err = driver.compile_module(CC, CFLAGS, name, mod)
+        local ok, err = driver.compile_module(name, mod)
         if not ok then return nil, err end
     end
     return true

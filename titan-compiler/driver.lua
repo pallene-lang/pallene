@@ -13,6 +13,9 @@ driver.imported = {}
 
 driver.TITAN_BIN_PATH = os.getenv("TITAN_PATH_0_5") or os.getenv("TITAN_PATH") or ".;/usr/local/lib/titan/0.5"
 driver.TITAN_SOURCE_PATH = "."
+driver.LUA_SOURCE_PATH = "lua/src/"
+driver.CFLAGS = "--std=c99 -O2 -Wall -fPIC"
+driver.CC = "cc"
 
 local CIRCULAR_MARK = {}
 
@@ -99,15 +102,15 @@ function driver.shared()
     return shared
 end
 
-function driver.compile_module(CC, CFLAGS, modname, mod)
+function driver.compile_module(modname, mod)
     if mod.compiled then return true end
-    local ok, err = driver.compile(CC, CFLAGS, modname, mod.ast)
+    local ok, err = driver.compile(modname, mod.ast)
     if not ok then return nil, err end
     mod.compiled = true
     return true
 end
 
-function driver.compile(CC, CFLAGS, modname, ast)
+function driver.compile(modname, ast)
     local code = coder.generate(modname, ast)
     code = pretty.reindent_c(code)
     local filename = modname .. ".c"
@@ -116,7 +119,8 @@ function driver.compile(CC, CFLAGS, modname, ast)
     os.remove(soname)
     local ok, err = util.set_file_contents(filename, code)
     if not ok then return nil, err end
-    local args = {CC, CFLAGS, driver.shared(), filename, "-o", soname}
+    local args = {driver.CC, driver.CFLAGS, driver.shared(), filename,
+                  "-I", driver.LUA_SOURCE_PATH, "-o", soname}
     local cmd = table.concat(args, " ")
     return os.execute(cmd)
 end
