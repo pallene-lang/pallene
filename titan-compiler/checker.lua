@@ -605,9 +605,11 @@ local function checkfunc(node, st, errors)
     local l, _ = util.get_line_number(errors.subject, node._pos)
     node._lin = l
     st:add_symbol("$function", node) -- for return type
+    local ptypes = node._type.params
     local pnames = {}
-    for _, param in ipairs(node.params) do
-        checkstat(param, st, errors)
+    for i, param in ipairs(node.params) do
+        st:add_symbol(param.name, param)
+        param._type = ptypes[i]
         if pnames[param.name] then
             typeerror(errors, "duplicate parameter '%s' in declaration of function '%s'", node._pos, param.name, node.name)
         else
