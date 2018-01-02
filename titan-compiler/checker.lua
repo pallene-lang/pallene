@@ -33,34 +33,43 @@ local function checkmatch(term, expected, found, errors, pos)
 end
 
 -- Converts an AST type declaration into a typechecker type
---   typenode: AST node
+--   node: AST node
 --   errors: list of compile-time errors
 --   returns a type (from types.lua)
 typefromnode = util.make_visitor({
-    ["Type_Array"] = function(node, errors)
-        return types.Array(typefromnode(node.subtype, errors))
+    ["Type_Array"] = function(node, st, errors)
+        return types.Array(typefromnode(node.subtype, st, errors))
     end,
 
-    ["Type_Name"] = function(node, errors)
-        local t = types.Base(node.name)
-        if not t then
-            typeerror(errors, "type name " .. node.name .. " is invalid", node._pos)
-            t = types.Integer
+    ["Type_Name"] = function(node, st, errors)
+        local name = node.name
+        local type = types.Base(name)
+        if not type then
+            local sym = st:find_symbol(name)
+            if sym then
+                if sym._type._tag == "Type" then
+                    type = sym._type.type
+                else
+                    typeerror(errors, "%s isn't a type", node._pos, name)
+                end
+            else
+                typeerror(errors, "type '%s' not found", node._pos, name)
+            end
         end
-        return t
+        return type or types.Integer
     end,
 
-    ["Type_Function"] = function(node, errors)
+    ["Type_Function"] = function(node, st, errors)
         if #node.argtypes ~= 1 then
             error("functions with 0 or 2+ return values are not yet implemented")
         end
         local ptypes = {}
         for _, ptype in ipairs(node.argtypes) do
-            table.insert(ptypes, typefromnode(ptype, errors))
+            table.insert(ptypes, typefromnode(ptype, st, errors))
         end
         local rettypes = {}
         for _, rettype in ipairs(node.rettypes) do
-            table.insert(rettypes, typefromnode(rettype, errors))
+            table.insert(rettypes, typefromnode(rettype, st, errors))
         end
         return types.Function(ptypes, rettypes)
     end,
@@ -175,7 +184,7 @@ end
 checkstat = util.make_visitor({
     ["Decl_Decl"] = function(node, st, errors)
         st:add_symbol(node.name, node)
-        node._type = node._type or typefromnode(node.type, errors)
+        node._type = node._type or typefromnode(node.type, st, errors)
     end,
 
     ["Stat_Decl"] = function(node, st, errors)
@@ -284,30 +293,55 @@ checkvar = util.make_visitor({
         end
     end,
 
-    ["Var_Dot"] = function(node, st, errors, context)
-        assert(node.exp.var, "left side of dot expression is not var")
-        checkvar(node.exp.var, st, errors)
-        node.exp._type = node.exp.var._type
-        local texp = node.exp._type
-        if types.has_tag(texp, "Module") then
-            local mod = texp
+    ["Var_Dot"] = function(node, st, errors)
+        local var = assert(node.exp.var, "left side of dot is not var")
+        checkvar(var, st, errors)
+        node.exp._type = var._type
+        local vartype = var._type
+        if vartype._tag == "Module" then
+            local mod = vartype
             if not mod.members[node.name] then
-                local msg = "module variable '" .. node.name .. "' not found inside module '" .. mod.name .. "'"
-                typeerror(errors, msg, node._pos)
-                node._type = types.Integer
+                typeerror(errors, "variable '%s' not found inside module '%s'",
+                          node._pos, node.name, mod.name)
             else
                 local decl = mod.members[node.name]
                 node._decl = decl
                 node._type = decl
             end
-        elseif types.has_tag(texp, "Record") then
-            -- XXX
-            -- if node.var._name =
+        elseif vartype._tag == "Type" then
+            local type = vartype.type
+            if type._tag == "Record" then
+                if node.name == "new" then
+                    local params = {}
+                    for _, field in ipairs(type.fields) do
+                        table.insert(params, field.type)
+                    end
+                    node._decl = type
+                    node._type = types.Function(params, {type})
+                else
+                    typeerror(errors, "trying to access invalid record " ..
+                              "member '%s'", node._pos, node.name)
+                end
+            else
+                typeerror(errors, "invalid access to type '%s'", node._pos,
+                          types.tostring(type))
+            end
+        elseif vartype._tag == "Record" then
+            for _, field in ipairs(vartype.fields) do
+                if field.name == node.name then
+                    node._type = field.type
+                    break
+                end
+            end
+            if not node._type then
+                typeerror(errors, "field '%s' not found in record '%s'",
+                          node._pos, node.name, vartype.name)
+            end
         else
-            typeerror(errors, "trying to access member '" .. node.name ..
-            "' of value that is not a record or module but " .. types.tostring(texp), node._pos)
-            node._type = types.Integer
+            typeerror(errors, "trying to access a member of value of type '%s'",
+                      node._pos, types.tostring(vartype))
         end
+        node._type = node._type or types.InvalidType()
     end,
 
     ["Var_Bracket"] = function(node, st, errors, context)
@@ -646,7 +680,7 @@ checkexp = util.make_visitor({
     ["Exp_Cast"] = function(node, st, errors, context)
         local l, _ = util.get_line_number(errors.subject, node._pos)
         node._lin = l
-        node.target = typefromnode(node.target, errors)
+        node.target = typefromnode(node.target, st, errors)
         checkexp(node.exp, st, errors, node.target)
         if not types.coerceable(node.exp._type, node.target) or
           not types.compatible(node.exp._type, node.target) then
@@ -700,6 +734,10 @@ local function checkbodies(ast, st, errors)
     end
 end
 
+local function isconstructor(node)
+    return node.var and node.var._decl and node.var._decl._tag == "Record"
+end
+
 -- Verify if an expression is constant
 local function isconst(node)
     local tag = node._tag
@@ -717,8 +755,18 @@ local function isconst(node)
         end
         return const
 
-    elseif tag == "Exp_Call" or
-           tag == "Exp_Var" then
+    elseif tag == "Exp_Call" then
+        if isconstructor(node.exp) then
+            local const = true
+            for _, arg in ipairs(node.args) do
+                const = const and isconst(arg)
+            end
+            return const
+        else
+            return false
+        end
+
+    elseif tag == "Exp_Var" then
         return false
 
     elseif tag == "Exp_Concat" then
@@ -749,7 +797,8 @@ local function toplevel_name(node)
         return node.localname
     elseif tag == "TopLevel_Var" then
         return node.decl.name
-    elseif tag == "TopLevel_Func" then
+    elseif tag == "TopLevel_Func" or
+           tag == "TopLevel_Record" then
         return node.name
     else
         error("tag not found " .. tag)
@@ -774,7 +823,7 @@ local toplevel_visitor = util.make_visitor({
 
     ["TopLevel_Var"] = function(node, st, errors)
         if node.decl.type then
-            node._type = typefromnode(node.decl.type, errors)
+            node._type = typefromnode(node.decl.type, st, errors)
             checkexp(node.value, st, errors, node._type)
             node.value = trycoerce(node.value, node._type, errors)
             checkmatch("declaration of module variable " .. node.decl.name,
@@ -795,13 +844,22 @@ local toplevel_visitor = util.make_visitor({
         end
         local ptypes = {}
         for _, pdecl in ipairs(node.params) do
-            table.insert(ptypes, typefromnode(pdecl.type, errors))
+            table.insert(ptypes, typefromnode(pdecl.type, st, errors))
         end
         local rettypes = {}
         for _, rt in ipairs(node.rettypes) do
-            table.insert(rettypes, typefromnode(rt, errors))
+            table.insert(rettypes, typefromnode(rt, st, errors))
         end
         node._type = types.Function(ptypes, rettypes)
+    end,
+
+    ["TopLevel_Record"] = function(node, st, errors)
+        local fields = {}
+        for _, field in ipairs(node.fields) do
+            local type = typefromnode(field.type, st, errors)
+            table.insert(fields, {type = type, name = field.name})
+        end
+        node._type = types.Type(types.Record(node.name, fields))
     end,
 })
 

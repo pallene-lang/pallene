@@ -20,6 +20,18 @@ function types.Module(modname, members)
         members = members }
 end
 
+function types.Record(name, fields)
+    return { _tag = "Record", name = name, fields = fields }
+end
+
+function types.Type(type)
+    return { _tag = "Type", type = type }
+end
+
+function types.InvalidType()
+    return { _tag = "InvalidType" }
+end
+
 local base_types = { "Integer", "Boolean", "String", "Nil", "Float", "Value" }
 
 for _, t in ipairs(base_types) do
@@ -125,6 +137,8 @@ function types.tostring(t)
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == "Function" then
         error("not implemented")
+    elseif tag == "Record" then
+        return t.name
     else
         return string.lower(tag)
     end

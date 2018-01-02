@@ -36,8 +36,8 @@ local function restrict(t1, t2)
 end
 
 local function assert_type_check(code)
-    ok = run_checker(code)
-    assert.truthy(ok)
+    local ok, err = run_checker(code)
+    assert.truthy(ok, err)
 end
 
 local function assert_type_error(expected, code)
@@ -62,7 +62,7 @@ describe("Titan type checker", function()
         ]]
         local ok, err = run_checker(code)
         assert.falsy(ok)
-        assert.match("type name foo is invalid", err)
+        assert.match("type 'foo' not found", err)
     end)
 
     it("coerces to integer", function()
@@ -1316,6 +1316,111 @@ describe("Titan type checker", function()
         assert.falsy(ok)
         assert.match('duplicate parameter', err)
     end)
+end)
 
+describe("Titan typecheck of records", function()
+    it("typechecks record declarations", function()
+        assert_type_check([[
+            record Point
+                x: float
+                y: float
+            end
+        ]])
+    end)
+
+    it("detects type errors inside record declarations", function()
+        assert_type_error("type 'notfound' not found", [[
+            record Point
+                x: notfound
+            end
+        ]])
+    end)
+
+    it("doesn't typecheck recursive record declarations", function()
+        -- TODO: it should accept recursive types when we have optional types
+        assert_type_error("type 'List' not found", [[
+            record List
+                l: List
+            end
+        ]])
+    end)
+
+    it("typechecks record as argument/return", function()
+        assert_type_check([[
+            record Point x: float; y:float end
+
+            function f(p: Point): Point
+                return p
+            end
+        ]])
+    end)
+
+    it("typechecks record constructors", function()
+        assert_type_check([[
+            record Point x: float; y:float end
+
+            p = Point.new(1, 2)
+        ]])
+    end)
+
+    it("doesn't typecheck invalid dot operation in record", function()
+        assert_type_error("invalid record member 'nope'", [[
+            record Point x: float; y:float end
+
+            p = Point.nope(1, 2)
+        ]])
+    end)
+
+    it("doesn't typecheck constructor call of non records", function()
+        pending("typechecker thinks 'integer' is an undeclared variable; " ..
+                "basic types should be added to the symbol table.")
+
+        assert_type_error("invalid access to type 'integer'", [[
+            p = integer.new(10)
+        ]])
+    end)
+
+    local function wrap_record(code)
+        return [[
+            record Point x: float; y:float end
+
+            function f(p: Point): float
+                ]].. code ..[[
+            end
+        ]]
+    end
+
+    it("doesn't typecheck constructor calls with wrong arguments", function()
+        assert_type_error("expected float but found string",
+                          wrap_record[[ p = Point.new("a", "b") ]])
+        assert_type_error("Point.new called with 1 arguments but expects 2",
+                          wrap_record[[ p = Point.new(1) ]])
+        assert_type_error("Point.new called with 3 arguments but expects 2",
+                          wrap_record[[ p = Point.new(1, 2, 3) ]])
+    end)
+
+    it("typechecks record read/write", function()
+        assert_type_check(wrap_record[[
+            local x: float = 10
+            p.x = x
+            return p.y
+        ]])
+    end)
+
+    it("doesn't typecheck read/write to non existent fields", function()
+        local function assert_non_existent(code)
+            assert_type_error("field 'nope' not found in record 'Point'",
+                              wrap_record(code))
+        end
+        assert_non_existent([[ p.nope = 10 ]])
+        assert_non_existent([[ return p.nope ]])
+    end)
+
+    it("doesn't typecheck read/write with invalid types", function()
+        assert_type_error("expected float but found Point",
+                          wrap_record[[ p.x = p ]])
+        assert_type_error("expected Point but found float",
+                          wrap_record[[ local p: Point = p.x ]])
+    end)
 end)
 
