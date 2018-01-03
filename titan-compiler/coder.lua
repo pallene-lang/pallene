@@ -66,6 +66,7 @@ local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
     elseif types.equals(typ, types.String) then tmpl = "$DST tsvalue($SRC)"
     elseif types.has_tag(typ, "Array") then tmpl = "$DST hvalue($SRC)"
     elseif types.equals(typ, types.Value) then tmpl = "$DST *($SRC)"
+    elseif typ._tag == "Record" then tmpl = "" -- TODO records
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -129,6 +130,9 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
             EXP = exp,
             VAR = cvar
         })
+    elseif typ._tag == "Record" then
+        -- TODO records
+        tag = "table"
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -216,6 +220,7 @@ local function ctype(typ --[[:table]])
     elseif types.equals(typ, types.String) then return "TString*"
     elseif types.has_tag(typ, "Array") then return "Table*"
     elseif types.equals(typ, types.Value) then return "TValue"
+    elseif types.has_tag(typ, "Record") then return "TValue"
     else error("invalid type " .. types.tostring(typ))
     end
 end
