@@ -13,12 +13,20 @@ driver.imported = {}
 
 driver.TITAN_BIN_PATH = os.getenv("TITAN_PATH_0_5") or os.getenv("TITAN_PATH") or ".;/usr/local/lib/titan/0.5"
 driver.TITAN_SOURCE_PATH = "."
+driver.LUA_SOURCE_PATH = "lua/src/"
+driver.CFLAGS = "--std=c99 -O2 -Wall -fPIC"
+driver.CC = "cc"
 
 local CIRCULAR_MARK = {}
 
-local function mod2so(modf)
-    return modf:gsub("[.]titan$", "") .. ".so"
+local function shell(cmd)
+    local p = io.popen(cmd)
+    out = p:read("*a")
+    p:close()
+    return out
 end
+
+driver.UNAME = shell("uname")
 
 local function findmodule(paths, modname, extension)
     local modf = modname:gsub("[.]", "/") .. extension
@@ -88,33 +96,33 @@ end
 
 function driver.shared()
     local shared = "-shared"
-    local uname = io.popen("uname"):read("*a")
-    if string.match(uname, "Darwin") then
+    if string.match(driver.UNAME, "Darwin") then
         shared = shared .. " -undefined dynamic_lookup"
     end
     return shared
 end
 
-function driver.compile_module(CC, CFLAGS, modname, mod)
+function driver.compile_module(modname, mod)
     if mod.compiled then return true end
-    local code = coder.generate(modname, mod.ast)
-    code = pretty.reindent_c(code)
-    local filename = mod.filename:gsub("[.]titan$", "") .. ".c"
-    local soname = mod.filename:gsub("[.]titan$", "") .. ".so"
-    os.remove(filename)
-    os.remove(soname)
-    local ok, err = util.set_file_contents(filename, code)
-    if not ok then return nil, err end
-    local cc_cmd = string.format([[
-        %s %s %s %s -o %s
-        ]], CC, CFLAGS, driver.shared(), filename, soname)
-    --print(cc_cmd)
-    local ok, err = os.execute(cc_cmd)
+    local ok, err = driver.compile(modname, mod.ast)
     if not ok then return nil, err end
     mod.compiled = true
     return true
 end
 
+function driver.compile(modname, ast)
+    local code = coder.generate(modname, ast)
+    code = pretty.reindent_c(code)
+    local filename = modname .. ".c"
+    local soname = modname .. ".so"
+    os.remove(filename)
+    os.remove(soname)
+    local ok, err = util.set_file_contents(filename, code)
+    if not ok then return nil, err end
+    local args = {driver.CC, driver.CFLAGS, driver.shared(), filename,
+                  "-I", driver.LUA_SOURCE_PATH, "-o", soname}
+    local cmd = table.concat(args, " ")
+    return os.execute(cmd)
+end
 
 return driver
-
