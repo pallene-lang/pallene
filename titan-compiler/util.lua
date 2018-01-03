@@ -81,6 +81,14 @@ function util.render(code, substs)
     end))
 end
 
+function util.make_visitor(functions)
+    return function(node, ...)
+        assert(type(node) == "table")
+        assert(node._tag)
+        local f = assert(functions[node._tag])
+        return f(node, ...)
+    end
+end
 
 --
 -- Functional
