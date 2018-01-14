@@ -1,6 +1,6 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl {
+return typedecl({"_pos"}, {
     Type = {
         Name        = {"name"},
         Array       = {"subtype"},
@@ -63,4 +63,4 @@ return typedecl {
     Field = {
         Field       = {"name", "exp"},
     },
-}
+})
