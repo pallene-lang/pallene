@@ -1,36 +1,15 @@
+local typedecl = require 'titan-compiler.typedecl'
 
-local types = {}
-
-function types.Function(ptypes, rettypes)
-    return { _tag = "Function", params = ptypes, rettypes = rettypes }
-end
-
-function types.Array(etype)
-    return { _tag = "Array", elem = etype }
-end
-
-function types.InitList(elems)
-    return { _tag = "InitList", elems = elems }
-end
-
-function types.Module(modname, members)
-    return { _tag = "Module", name = modname,
-        prefix = modname:gsub("[%-.]", "_") .. "_",
-        file = modname:gsub("[.]", "/") .. ".so",
-        members = members }
-end
-
-function types.Record(name, fields)
-    return { _tag = "Record", name = name, fields = fields }
-end
-
-function types.Type(type)
-    return { _tag = "Type", type = type }
-end
-
-function types.InvalidType()
-    return { _tag = "InvalidType" }
-end
+local types = typedecl(_, false, {
+    Types = {
+        Invalid     = {},
+        Function    = {"params", "rettypes"},
+        Array       = {"elem"},
+        InitList    = {"elems"},
+        Record      = {"name", "fields"},
+        Type        = {"type"},
+    }
+})
 
 local base_types = { "Integer", "Boolean", "String", "Nil", "Float", "Value" }
 
@@ -41,6 +20,15 @@ end
 
 function types.Base(name)
     return base_types[name]
+end
+
+-- XXX this should be inside typedecl call
+-- constructors shouldn't do more than initalize members
+function types.Module(modname, members)
+    return { _tag = "Module", name = modname,
+        prefix = modname:gsub("[%-.]", "_") .. "_",
+        file = modname:gsub("[.]", "/") .. ".so",
+        members = members }
 end
 
 function types.has_tag(t, name)

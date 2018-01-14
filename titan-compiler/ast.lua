@@ -1,6 +1,6 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl({"_pos"}, {
+return typedecl({"_pos"}, true, {
     Type = {
         Name        = {"name"},
         Array       = {"subtype"},

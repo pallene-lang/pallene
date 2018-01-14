@@ -349,7 +349,7 @@ checkvar = util.make_visitor({
             typeerror(errors, "trying to access a member of value of type '%s'",
                       node._pos, types.tostring(vartype))
         end
-        node._type = node._type or types.InvalidType()
+        node._type = node._type or types.Invalid()
     end,
 
     ["Var_Bracket"] = function(node, st, errors, context)

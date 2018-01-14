@@ -7,12 +7,13 @@ local function fill(node, args, fields, start)
     end
 end
 
-return function(oblfields, types)
+return function(oblfields, useprefix, types)
     oblfields = oblfields or {}
     local constructors = {}
     for typename, conss in pairs(types) do
         for consname, fields in pairs(conss) do
-            local tag = typename .. "_" .. consname
+            local prefix = useprefix and (typename .. "_") or ""
+            local tag = prefix .. consname
             constructors[tag] = function(...)
                 local args = table.pack(...)
                 if args.n ~= #oblfields + #fields then
