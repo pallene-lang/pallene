@@ -1,88 +1,66 @@
-local ast = {}
+local typedecl = require 'titan-compiler.typedecl'
 
--- Declarations of union types
-local types = {}
+return typedecl {
+    Type = {
+        Name        = {"name"},
+        Array       = {"subtype"},
+        Function    = {"argtypes", "rettypes"},
+    },
 
-types.Type = {
-    Name    = {"name"},
-    Array   = {"subtype"},
-    Function= {"argtypes", "rettypes"},
+    TopLevel = {
+        Func        = {"islocal", "name", "params", "rettypes", "block"},
+        Var         = {"islocal", "decl", "value"},
+        Record      = {"name", "fields"},
+        Import      = {"localname", "modname"}
+    },
+
+    Decl = {
+        Decl        = {"name", "type"},
+    },
+
+    Stat = {
+        Block       = {"stats"},
+        While       = {"condition", "block"},
+        Repeat      = {"block", "condition"},
+        If          = {"thens", "elsestat"},
+        For         = {"decl", "start", "finish", "inc", "block"},
+        Assign      = {"var", "exp"},
+        Decl        = {"decl", "exp"},
+        Call        = {"callexp"},
+        Return      = {"exp"},
+    },
+
+    Then = {
+        Then        = {"condition", "block"},
+    },
+
+    Var = {
+        Name        = {"name"},
+        Bracket     = {"exp1", "exp2"},
+        Dot         = {"exp", "name"}
+    },
+
+    Exp = {
+        Nil         = {},
+        Bool        = {"value"},
+        Integer     = {"value"},
+        Float       = {"value"},
+        String      = {"value"},
+        InitList    = {"fields"},
+        Call        = {"exp", "args"},
+        Var         = {"var"},
+        Unop        = {"op", "exp"},
+        Concat      = {"exps"},
+        Binop       = {"lhs", "op", "rhs"},
+        Cast        = {"exp", "target"}
+    },
+
+    Args = {
+        Func        = {"args"},
+        Method      = {"method", "args"},
+    },
+
+    Field = {
+        Field       = {"name", "exp"},
+    },
 }
-
-types.TopLevel = {
-    Func    = {"islocal", "name", "params", "rettypes", "block"},
-    Var     = {"islocal", "decl", "value"},
-    Record  = {"name", "fields"},
-    Import  = {"localname", "modname"}
-}
-
-types.Decl = {
-    Decl    = {"name", "type"},
-}
-
-types.Stat = {
-    Block   = {"stats"},
-    While   = {"condition", "block"},
-    Repeat  = {"block", "condition"},
-    If      = {"thens", "elsestat"},
-    For     = {"decl", "start", "finish", "inc", "block"},
-    Assign  = {"var", "exp"},
-    Decl    = {"decl", "exp"},
-    Call    = {"callexp"},
-    Return  = {"exp"},
-}
-
-types.Then = {
-    Then    = {"condition", "block"},
-}
-
-types.Var = {
-    Name    = {"name"},
-    Bracket = {"exp1", "exp2"},
-    Dot     = {"exp", "name"}
-}
-
-types.Exp = {
-    Nil     = {},
-    Bool    = {"value"},
-    Integer = {"value"},
-    Float   = {"value"},
-    String  = {"value"},
-    InitList= {"fields"},
-    Call    = {"exp", "args"},
-    Var     = {"var"},
-    Unop    = {"op", "exp"},
-    Concat  = {"exps"},
-    Binop   = {"lhs", "op", "rhs"},
-    Cast    = {"exp", "target"}
-}
-
-types.Args = {
-    Func    = {"args"},
-    Method  = {"method", "args"},
-}
-
-types.Field = {
-    Field   = {"name", "exp"},
-}
-
--- Create a function for each type constructor
-for typename, conss in pairs(types) do
-    for consname, fields in pairs(conss) do
-        local tag = typename .. "_" .. consname
-        ast[tag] = function(pos, ...)
-            local args = table.pack(...)
-            if args.n ~= #fields then
-                error("missing arguments for " .. tag)
-            end
-            local node = { _tag = tag, _pos = pos }
-            for i, field in ipairs(fields) do
-                assert(field ~= "_tag")
-                node[field] = args[i]
-            end
-            return node
-        end
-    end
-end
-
-return ast
