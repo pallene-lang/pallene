@@ -31,10 +31,6 @@ function types.Module(modname, members)
         members = members }
 end
 
-function types.has_tag(t, name)
-    return t._tag == name
-end
-
 function types.is_gc(t)
     return t._tag == "String" or t._tag == "Array" or t._tag == "Value"
 end

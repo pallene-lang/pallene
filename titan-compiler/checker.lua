@@ -230,9 +230,9 @@ checkstat = util.make_visitor({
         checkvar(node.var, st, errors)
         checkexp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
-        if types.has_tag(texp, "Module") then
+        if texp._tag == "Module" then
             typeerror(errors, "trying to assign to a module", node._pos)
-        elseif types.has_tag(texp, "Function") then
+        elseif texp._tag == "Function" then
             typeerror(errors, "trying to assign to a function", node._pos)
         else
             -- mark this declared variable as assigned to
@@ -356,7 +356,7 @@ checkvar = util.make_visitor({
         local l, _ = util.get_line_number(errors.subject, node._pos)
         node._lin = l
         checkexp(node.exp1, st, errors, context and types.Array(context))
-        if not types.has_tag(node.exp1._type, "Array") then
+        if node.exp1._type._tag ~= "Array" then
             typeerror(errors, "array expression in indexing is not an array but "
                 .. types.tostring(node.exp1._type), node.exp1._pos)
             node._type = types.Integer
@@ -428,10 +428,10 @@ checkexp = util.make_visitor({
     ["Exp_Var"] = function(node, st, errors, context)
         checkvar(node.var, st, errors, context)
         local texp = node.var._type
-        if types.has_tag(texp, "Module") then
+        if texp._tag == "Module" then
             typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
             node._type = types.Integer
-        elseif types.has_tag(texp, "Function") then
+        elseif texp._tag == "Function" then
             typeerror(errors, "trying to access a function as a first-class value", node._pos)
             node._type = types.Integer
         else
@@ -445,7 +445,7 @@ checkexp = util.make_visitor({
         local texp = node.exp._type
         local pos = node._pos
         if op == "#" then
-            if not types.has_tag(texp, "Array") and not types.equals(texp, types.String) then
+            if texp._tag ~= "Array" and not types.equals(texp, types.String) then
                 typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", pos)
             end
             node._type = types.Integer
@@ -647,7 +647,7 @@ checkexp = util.make_visitor({
         checkvar(var, st, errors)
         node.exp._type = var._type
         local fname = var._tag == "Var_Name" and var.name or (var.exp.var.name .. "." .. var.name)
-        if types.has_tag(var._type, "Function") then
+        if var._type._tag == "Function" then
             local ftype = var._type
             local nparams = #ftype.params
             local args = node.args.args

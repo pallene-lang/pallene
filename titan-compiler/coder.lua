@@ -64,7 +64,7 @@ local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
     elseif types.equals(typ, types.Boolean) then tmpl = "$DST bvalue($SRC)"
     elseif types.equals(typ, types.Nil) then tmpl = "$DST 0"
     elseif types.equals(typ, types.String) then tmpl = "$DST tsvalue($SRC)"
-    elseif types.has_tag(typ, "Array") then tmpl = "$DST hvalue($SRC)"
+    elseif typ._tag == "Array" then tmpl = "$DST hvalue($SRC)"
     elseif types.equals(typ, types.Value) then tmpl = "$DST *($SRC)"
     elseif typ._tag == "Record" then tmpl = "" -- TODO records
     else
@@ -122,7 +122,7 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
         })
     elseif types.equals(typ, types.Nil) then tag = "nil"
     elseif types.equals(typ, types.String) then tag = "string"
-    elseif types.has_tag(typ, "Array") then tag = "table"
+    elseif typ._tag == "Array" then tag = "table"
     elseif types.equals(typ, types.Value) then
         return render([[
             setobj2t(L, &$VAR, $EXP);
@@ -171,7 +171,7 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
     elseif types.equals(typ, types.Boolean) then tag = "boolean"
     elseif types.equals(typ, types.Nil) then tag = "nil"
     elseif types.equals(typ, types.String) then tag = "string"
-    elseif types.has_tag(typ, "Array") then tag = "table"
+    elseif typ._tag == "Array" then tag = "table"
     elseif types.equals(typ, types.Value) then
         return render([[
             setobj2t(L, $DST, $SRC);
@@ -204,7 +204,7 @@ local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
     elseif types.equals(typ, types.Boolean) then tmpl = "setbvalue($DST, $SRC);"
     elseif types.equals(typ, types.Nil) then tmpl = "setnilvalue($DST); ((void)$SRC);"
     elseif types.equals(typ, types.String) then tmpl = "setsvalue(L, $DST, $SRC);"
-    elseif types.has_tag(typ, "Array") then tmpl = "sethvalue(L, $DST, $SRC);"
+    elseif typ._tag == "Array" then tmpl = "sethvalue(L, $DST, $SRC);"
     elseif types.equals(typ, types.Value) then tmpl = "setobj2t(L, $DST, &$SRC);"
     else
         error("invalid type " .. types.tostring(typ))
@@ -218,9 +218,9 @@ local function ctype(typ --[[:table]])
     elseif types.equals(typ, types.Boolean) then return "int"
     elseif types.equals(typ, types.Nil) then return "int"
     elseif types.equals(typ, types.String) then return "TString*"
-    elseif types.has_tag(typ, "Array") then return "Table*"
+    elseif typ._tag == "Array" then return "Table*"
     elseif types.equals(typ, types.Value) then return "TValue"
-    elseif types.has_tag(typ, "Record") then return "TValue"
+    elseif typ._tag == "Record" then return "TValue"
     else error("invalid type " .. types.tostring(typ))
     end
 end
@@ -889,7 +889,7 @@ local function codeunaryop(ctx, node, iscondition)
         return estats, "!(" .. ecode .. ")"
     elseif op == "#" then
         local estats, ecode = codeexp(ctx, node.exp)
-        if types.has_tag(node.exp._type, "Array") then
+        if node.exp._type._tag == "Array" then
             return estats, "luaH_getn(" .. ecode .. ")"
         else
             return estats, "tsslen(" .. ecode .. ")"
@@ -1605,10 +1605,10 @@ function coder.generate(modname, ast)
                 ]], { HANDLE = mprefix .. "handle", INIT = mprefix .. "init", FILE = node._type.file}));
                 table.insert(deps, node.modname)
                 for name, member in pairs(node._type.members) do
-                    if not member._slot and not types.has_tag(member, "Function") then
+                    if not member._slot and member._tag ~= "Function" then
                         member._slot = mprefix .. name .. "_titanvar"
                     end
-                    if types.has_tag(member, "Function") then
+                    if member._tag == "Function" then
                         local fname = mprefix .. name .. "_titan"
                         table.insert(includes, externalsig(fname, member))
                         table.insert(initmods, render([[
