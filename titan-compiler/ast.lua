@@ -70,27 +70,12 @@ types.Field = {
 for typename, conss in pairs(types) do
     for consname, fields in pairs(conss) do
         local tag = typename .. "_" .. consname
-
-        local function iter(node, i)
-            i = i + 1
-            if i <= #fields then
-                return i, node[fields[i]]
-            end
-        end
-
-        local mt = { __index = {
-            children = function(node)
-                return iter, node, 0
-            end
-        }}
-
         ast[tag] = function(pos, ...)
             local args = table.pack(...)
             if args.n ~= #fields then
                 error("missing arguments for " .. tag)
             end
             local node = { _tag = tag, _pos = pos }
-            setmetatable(node, mt)
             for i, field in ipairs(fields) do
                 assert(field ~= "_tag")
                 node[field] = args[i]
