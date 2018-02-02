@@ -269,19 +269,6 @@ describe("Titan type checker", function()
     it("type-checks 'for'", function()
         local code = [[
             function fn(x: integer): integer
-                for i = 1, 10 do
-                    x = x + i
-                end
-                return x
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.truthy(ok)
-    end)
-
-    it("type-checks 'for'", function()
-        local code = [[
-            function fn(x: integer): integer
                 local i: integer = 0
                 for i = 1, 10 do
                     x = x + i
@@ -527,20 +514,6 @@ describe("Titan type checker", function()
             assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
             assert.same(types.Integer, ast[1].block.stats[6].exp._type)
         end)
-
-        it("fails if one side of expression is value", function ()
-            local code = [[
-                function fn(): integer
-                    local i: value = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                end
-            ]]
-            local ok, err, ast = run_checker(code)
-            assert.falsy(ok)
-            assert.match("is a value instead of a number", err)
-        end)
     end
 
     for _, op in ipairs({"/", "^"}) do
@@ -573,7 +546,9 @@ describe("Titan type checker", function()
             assert.same(types.Float, ast[1].block.stats[6].exp.rhs._type)
             assert.same(types.Float, ast[1].block.stats[6].exp._type)
         end)
+    end
 
+    for _, op in ipairs({"+", "-", "*", "%", "//", "/", "^"}) do
         it("fails if one side of expression is value", function ()
             local code = [[
                 function fn(): integer
@@ -620,17 +595,6 @@ describe("Titan type checker", function()
         local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with { integer } value", err)
-    end)
-
-    it("cannot concatenate with boolean", function()
-        local code = [[
-            function fn()
-                local s = "foo" .. true
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("cannot concatenate with boolean value", err)
     end)
 
     it("cannot concatenate with type value", function()
@@ -759,25 +723,6 @@ describe("Titan type checker", function()
         end
     end
 
-    for _, op in ipairs({"==", "~="}) do
-        for _, t1 in ipairs({"{integer}", "boolean", "integer", "string"}) do
-            for _, t2 in ipairs({"{integer}", "boolean", "integer", "string"}) do
-                if t1 ~= t2 then
-                    it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                        local code = [[
-                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
-                                return a ]] .. op .. [[ b
-                            end
-                        ]]
-                        local ok, err = run_checker(code)
-                        assert.falsy(ok)
-                        assert.match("trying to compare values of different types", err)
-                    end)
-                end
-            end
-        end
-    end
-
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare " .. t .. " and float using " .. op, function()
@@ -888,144 +833,6 @@ describe("Titan type checker", function()
             end
         end
     end
-    it("returns the type of the module with exported members", function()
-        local code = [[
-            a: integer = 1
-            local b: float = 2
-            function geta(): integer
-                return a
-            end
-            local function foo() end
-        ]]
-        local ok, err, _, mod = run_checker(code)
-        assert.truthy(ok, err)
-        assert_ast(mod, {
-            _tag = "Module",
-            name = "test",
-            members = {
-                a = { _tag = "Integer" },
-                geta = { _tag = "Function" }
-            }
-        })
-        assert.falsy(mod.members.b)
-        assert.falsy(mod.members.foo)
-    end)
-
-    it("fails to load modules that do not exist", function ()
-        local code = [[
-            local foo = import "foo"
-            local bar = import "bar.baz"
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("module 'foo' not found", err)
-        assert.match("module 'bar.baz' not found", err)
-    end)
-
-    it("correctly imports modules that do exist", function ()
-        local modules = {
-            foo = [[
-                a: integer = 1
-                function foo() end
-            ]],
-            bar = [[
-                local foo = import "foo"
-            ]]
-        }
-        local ok, err, mods = run_checker_modules(modules, "bar")
-        assert.truthy(ok)
-        assert.truthy(mods.foo)
-        assert_ast(mods.foo.type, {
-            _tag = "Module",
-            name = "foo",
-            members = {
-                a = { _tag = "Integer" },
-                foo = { _tag = "Function" }
-            }
-        })
-    end)
-
-    it("fails on circular module references", function ()
-        local modules = {
-            foo = [[
-                local bar = import "bar"
-                a: integer = nil
-                function foo() end
-            ]],
-            bar = [[
-                local foo = import "foo"
-            ]]
-        }
-        local ok, err = run_checker_modules(modules, "bar")
-        assert.falsy(ok)
-        assert.match("circular", err)
-    end)
-
-    it("import fails on modules with syntax errors", function ()
-        local modules = {
-            foo = [[
-                a: integer =
-                function foo() end
-            ]],
-            bar = [[
-                local foo = import "foo"
-            ]]
-        }
-        local ok, err = run_checker_modules(modules, "bar")
-        assert.falsy(ok)
-        assert.match("problem loading module", err)
-    end)
-
-    it("correctly uses module variable", function ()
-        local modules = {
-            foo = [[
-                a: integer = 1
-            ]],
-            bar = [[
-                local foo = import "foo"
-                function bar(): integer
-                    foo.a = 5
-                    return foo.a
-                end
-            ]]
-        }
-        local ok, err, mods = run_checker_modules(modules, "bar")
-        assert.truthy(ok)
-    end)
-
-    it("uses module variable with wrong type", function ()
-        local modules = {
-            foo = [[
-                a: integer = 1
-            ]],
-            bar = [[
-                local foo = import "foo"
-                function bar(): string
-                    foo.a = "foo"
-                    return foo.a
-                end
-            ]]
-        }
-        local ok, err, mods = run_checker_modules(modules, "bar")
-        assert.falsy(ok)
-        assert.match("expected string but found integer", err)
-        assert.match("expected integer but found string", err)
-    end)
-
-    it("catches module variable initialization with wrong type", function()
-        local code = {[[
-            local x: integer = nil
-        ]],
-        [[
-            x: integer = nil
-        ]],
-        }
-        for _, c in ipairs(code) do
-            local ok, err = run_checker(c)
-            assert.falsy(ok)
-            assert.match("expected integer but found nil", err)
-        end
-    end)
 
     it("returns the type of the module with exported members", function()
         local modules = { test = [[
