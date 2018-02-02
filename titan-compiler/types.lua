@@ -64,6 +64,7 @@ function types.coerceable(source, target)
             not types.equals(target, types.Value))
 end
 
+-- The type consistency relation, a-la gradual typing
 function types.compatible(t1, t2)
     if types.equals(t1, t2) then
         return true
@@ -147,7 +148,7 @@ end
 -- Builds a type for the module from the types of its public members
 --   ast: AST for the module
 --   returns "Module" type
-function types.maketype(modname, ast)
+function types.makemoduletype(modname, ast)
     local members = {}
     for _, tlnode in ipairs(ast) do
         if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then

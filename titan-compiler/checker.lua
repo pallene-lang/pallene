@@ -5,6 +5,14 @@ local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
 local util = require "titan-compiler.util"
 
+
+-- The typechecker works in two passes, the first one just
+-- collects type information for top-level functions and variables
+-- (and detects duplicate definitions in the top level), while the
+-- second pass does the actual typechecking. All typechecked nodes
+-- that have a type get a "_type" field with the type. The types
+-- themselves are in "types.lua".
+
 local typefromnode
 local checkstat
 local checkexp
@@ -912,7 +920,7 @@ function checker.check(modname, ast, subject, filename, loader)
     local errors = {subject = subject, filename = filename}
     checktoplevel(ast, st, errors, loader)
     checkbodies(ast, st, errors)
-    return types.maketype(modname, ast), errors
+    return types.makemoduletype(modname, ast), errors
 end
 
 return checker

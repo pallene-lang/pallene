@@ -11,9 +11,7 @@ function symtab:open_block()
 end
 
 function symtab:close_block()
-    local last = self.blocks[#self.blocks]
     table.remove(self.blocks)
-    return last
 end
 
 function symtab:with_block(body, ...)

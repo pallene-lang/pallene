@@ -33,7 +33,8 @@ end
 function defs.rettypeopt(pos, x)
     if not x then
         -- When possible, we should change this default to the empty list
-        return { defs.Type_Name(pos, "nil") }
+        -- or infer the return type.
+        return { ast.Type_Name(pos, "nil") }
     else
         return x
     end
@@ -73,11 +74,6 @@ end
 function defs.ifstat(pos, exp, block, thens, elseopt)
     table.insert(thens, 1, ast.Then_Then(pos, exp, block))
     return ast.Stat_If(pos, thens, elseopt)
-end
-
-function defs.defstat(pos, decl, exp)
-    local declstat = ast.Stat_Decl(pos, decl, exp)
-    return declstat
 end
 
 function defs.fold_binop_left(pos, matches)
@@ -269,7 +265,7 @@ local grammar = re.compile([[
                            (DO / %{DoFor}) block
                            (END / %{EndFor}))                    -> Stat_For
                      / ({} LOCAL (decl / %{DeclLocal}) (ASSIGN / %{AssignLocal})
-                                 (exp / %{ExpLocal}))            -> defstat
+                                 (exp / %{ExpLocal}))            -> Stat_Decl
                      / ({} var (ASSIGN / %{AssignAssign})
                                (exp / %{ExpAssign}))             -> Stat_Assign
                      / &(exp ASSIGN) %{ExpAssign}
