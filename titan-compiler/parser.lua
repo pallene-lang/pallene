@@ -75,11 +75,6 @@ function defs.ifstat(pos, exp, block, thens, elseopt)
     return ast.Stat_If(pos, thens, elseopt)
 end
 
-function defs.defstat(pos, decl, exp)
-    local declstat = ast.Stat_Decl(pos, decl, exp)
-    return declstat
-end
-
 function defs.fold_binop_left(pos, matches)
     local lhs = matches[1]
     for i = 2, #matches, 2 do
@@ -269,7 +264,7 @@ local grammar = re.compile([[
                            (DO / %{DoFor}) block
                            (END / %{EndFor}))                    -> Stat_For
                      / ({} LOCAL (decl / %{DeclLocal}) (ASSIGN / %{AssignLocal})
-                                 (exp / %{ExpLocal}))            -> defstat
+                                 (exp / %{ExpLocal}))            -> Stat_Decl
                      / ({} var (ASSIGN / %{AssignAssign})
                                (exp / %{ExpAssign}))             -> Stat_Assign
                      / &(exp ASSIGN) %{ExpAssign}
