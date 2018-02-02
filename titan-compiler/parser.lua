@@ -33,7 +33,8 @@ end
 function defs.rettypeopt(pos, x)
     if not x then
         -- When possible, we should change this default to the empty list
-        return { defs.Type_Name(pos, "nil") }
+        -- or infer the return type.
+        return { ast.Type_Name(pos, "nil") }
     else
         return x
     end

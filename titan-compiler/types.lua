@@ -64,6 +64,7 @@ function types.coerceable(source, target)
             not types.equals(target, types.Value))
 end
 
+-- The type consistency relation, a-la gradual typing
 function types.compatible(t1, t2)
     if types.equals(t1, t2) then
         return true
