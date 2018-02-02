@@ -1786,7 +1786,7 @@ function coder.generate(modname, ast)
 
     table.insert(code, render(modtypes, {
         TYPESNAME = tlcontext.prefix .. "types",
-        TYPES = string.format("%q", types.serialize(types.maketype(modname, ast)))
+        TYPES = string.format("%q", types.serialize(types.makemoduletype(modname, ast)))
     }))
 
     table.insert(code, render(init, {

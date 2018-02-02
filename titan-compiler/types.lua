@@ -147,7 +147,7 @@ end
 -- Builds a type for the module from the types of its public members
 --   ast: AST for the module
 --   returns "Module" type
-function types.maketype(modname, ast)
+function types.makemoduletype(modname, ast)
     local members = {}
     for _, tlnode in ipairs(ast) do
         if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then

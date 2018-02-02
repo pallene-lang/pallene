@@ -912,7 +912,7 @@ function checker.check(modname, ast, subject, filename, loader)
     local errors = {subject = subject, filename = filename}
     checktoplevel(ast, st, errors, loader)
     checkbodies(ast, st, errors)
-    return types.maketype(modname, ast), errors
+    return types.makemoduletype(modname, ast), errors
 end
 
 return checker
