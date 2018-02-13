@@ -959,6 +959,95 @@ describe("Titan type checker", function()
         end
     end
 
+    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
+        it("can explicitly cast from value to " .. t, function()
+            local code = [[
+                function fn(a: value): ]] .. t .. [[
+                    return a as ]] .. t .. [[
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
+        it("can explicitly cast from " .. t .. "to value", function()
+            local code = [[
+                function fn(a: ]] .. t .. [[): value 
+                    return a as value
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
+        it("cannot explicitly cast from " .. t .. " to {integer}", function()
+            local code = [[
+                function fn(a: ]] .. t .. [[): {integer} 
+                    return a as {integer}
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.falsy(ok)
+            assert.match("cannot cast", err)
+        end)
+    end
+
+    for _, t in ipairs({"{integer}", "boolean", "integer", "nil", "string"}) do
+        it("cannot explicitly cast from " .. t .. " to float", function()
+            local code = [[
+                function fn(a: ]] .. t .. [[): float 
+                    return a as float
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.falsy(ok)
+            assert.match("cannot cast", err)
+        end)
+    end
+
+    for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
+        it("cannot explicitly cast from " .. t .. " to integer", function()
+            local code = [[
+                function fn(a: ]] .. t .. [[): integer 
+                    return a as integer
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.falsy(ok)
+            assert.match("cannot cast", err)
+        end)
+    end
+
+    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "string"}) do
+        it("cannot explicitly cast from " .. t .. " to nil", function()
+            local code = [[
+                function fn(a: ]] .. t .. [[): nil
+                    return a as nil
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.falsy(ok)
+            assert.match("cannot cast", err)
+        end)
+    end
+
+    for _, t in ipairs({"{integer}", "boolean", "nil"}) do
+        it("cannot explicitly cast from " .. t .. " to string", function()
+            local code = [[
+                function fn(a: ]] .. t .. [[): string
+                    return a as string
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.falsy(ok)
+            assert.match("cannot cast", err)
+        end)
+    end
+
     it("returns the type of the module with exported members", function()
         local modules = { test = [[
             a: integer = 1
