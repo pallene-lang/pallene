@@ -28,7 +28,7 @@ this will also install all dependencies automatically.
 
 # Requirements for running the compiler
 
-1. [LPegLabel](https://github.com/sqmedeiros/lpeglabel) >= 1.0.0
+1. [LPegLabel](https://github.com/sqmedeiros/lpeglabel) >= 1.0.0, < 1.5.0
 2. [inspect](https://github.com/kikito/inspect.lua) >= 3.1.0
 3. [argparse](https://github.com/mpeterv/argparse) >= 0.5.0
 4. [luafilesystem](https://github.com/keplerproject/luafilesystem) >= 1.7.0
