@@ -516,6 +516,70 @@ describe("Titan type checker", function()
         end)
     end
 
+    for _, op in ipairs({"and", "or"}) do
+        it("coerces "..op.." to float if any side is a float", function()
+            local code = [[
+                function fn(): integer
+                    local i: integer = 1
+                    local f: float = 1.5
+                    local i_f = i ]] .. op .. [[ f
+                    local f_i = f ]] .. op .. [[ i
+                    local f_f = f ]] .. op .. [[ f
+                    local i_i = i ]] .. op .. [[ i
+                end
+            ]]
+            local ok, err, ast = run_checker(code)
+
+            assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Float, ast[1].block.stats[3].exp._type)
+
+            assert.same(types.Float, ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Float, ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Float, ast[1].block.stats[4].exp._type)
+
+            assert.same(types.Float, ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Float, ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Float, ast[1].block.stats[5].exp._type)
+
+            assert.same(types.Integer, ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Integer, ast[1].block.stats[6].exp._type)
+        end)
+    end
+
+    for _, op in ipairs({"|", "&", "<<", ">>"}) do
+        it("coerces "..op.." to integer if other side is a float", function()
+            local code = [[
+                function fn(): integer
+                    local i: integer = 1
+                    local f: float = 1.5
+                    local i_f = i ]] .. op .. [[ f
+                    local f_i = f ]] .. op .. [[ i
+                    local f_f = f ]] .. op .. [[ f
+                    local i_i = i ]] .. op .. [[ i
+                end
+            ]]
+            local ok, err, ast = run_checker(code)
+
+            assert.same(types.Integer, ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Integer, ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Integer, ast[1].block.stats[3].exp._type)
+
+            assert.same(types.Integer, ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Integer, ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Integer, ast[1].block.stats[4].exp._type)
+
+            assert.same(types.Integer, ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Integer, ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Integer, ast[1].block.stats[5].exp._type)
+
+            assert.same(types.Integer, ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Integer, ast[1].block.stats[6].exp._type)
+        end)
+    end
+
     for _, op in ipairs({"/", "^"}) do
         it("always coerces "..op.." to float", function()
             local code = [[
@@ -831,6 +895,67 @@ describe("Titan type checker", function()
                     end
                 end)
             end
+        end
+    end
+
+    for _, op in ipairs({"and", "or"}) do
+        for _, t1 in ipairs({"{integer}", "integer", "string"}) do
+            for _, t2 in ipairs({"integer", "integer", "string"}) do
+                if t1 ~= t2 then
+                    it("cannot evaluate " .. t1 .. " and " .. t2 .. " using " .. op, function()
+                        local code = [[
+                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
+                                return a ]] .. op .. [[ b
+                            end
+                        ]]
+                        local ok, err = run_checker(code)
+                        assert.falsy(ok)
+                        assert.match("left hand side of logical expression is a", err)
+                    end)
+                end
+            end
+        end
+    end
+
+    for _, op in ipairs({"|", "&", "<<", ">>"}) do
+        it("can use bitwise operators with integers using " .. op, function()
+            local code = [[
+                function fn(i1: integer, i2: integer): integer
+                    return i1 ]] .. op .. [[ i2
+                end
+            ]]
+            local ok, err = run_checker(code)
+            assert.truthy(ok)
+        end)
+    end
+
+    for _, op in ipairs({"|", "&", "<<", ">>"}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot use bitwise operator " .. op .. " when left hand side is not integer", function()
+                local code = [[
+                    function fn(a: ]] .. t .. [[, b: integer): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ok, err = run_checker(code)
+                assert.falsy(ok)
+                assert.match("left hand side of arithmetic expression is a", err)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"|", "&", "<<", ">>"}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot use bitwise operator " .. op .. " when right hand side is not integer", function()
+                local code = [[
+                    function fn(a: integer, b: ]] .. t .. [[): boolean
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local ok, err = run_checker(code)
+                assert.falsy(ok)
+                assert.match("right hand side of arithmetic expression is a", err)
+            end)
         end
     end
 
