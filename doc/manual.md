@@ -44,14 +44,14 @@ return a `c`.
 A titan variable of function type may refer to either statically-typed Titan
 functions or to dynamically typed Lua functions. When calling a
 dynamically-typed Lua function from Titan, Titan will check whether the Lua
-function returned the correct types and number of arguments and it will raise an
-error if it does not receive what it expected.
+function returned the correct types and number of arguments and it will raise a
+run-time error if it does not receive what it expected.
 
 #### Limitations
 
 In the current version of Titan, Titan functions can only return a single return
-value and an error is produced if a Lua functions called from Titan returns more
-than one return value. A future of version of Titan will implement multiple
+value and a run-time error is produced if a Lua function called from Titan returns
+more than one return value. A future of version of Titan will implement multiple
 return values for functions.
 
 ### Records
@@ -88,7 +88,7 @@ is the type of arrays that can hold any value.
 
 You can use an expression that evaluates to any type in a context that expects
 something with type `value`, and this is always safe (it will never throw a
-runtime error). For example, if variable `i` has type `integer` and variable
+run-time error). For example, if variable `i` has type `integer` and variable
 `v` has type `value` then the assignment `v = i` always succeeds. Likewise,
 if `t` has type `{ value }` the assignment `t[1] = i` always succeeds.
 
@@ -206,8 +206,8 @@ A `local` function is only visible inside the module it is defined. Functions th
 are not local are exported, and visible in modules that import this one, as well
 as callable from Lua if you `require` the module.
 
-As with variables, `<name>` can be any valid identifier, but it is an error to
-declare two functions with the same name, or a function with the same name as
+As with variables, `<name>` can be any valid identifier, but it is an compile-time
+error to declare two functions with the same name, or a function with the same name as
 a module variable. The return types `<rettypes>` are optional, and if not given it
 is assumed that the function does not return anything or just returns `nil`. (Currently
 only functions with a single return type are implemented)
