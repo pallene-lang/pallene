@@ -785,7 +785,7 @@ local function codevalue(ctx, node, target)
         if target then
             return "", cstr
         else
-            local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
+            local ctmp, tmpname, tmpslot = newtmp(ctx, types.String(), true)
             return render([[
                 $CTMP
                 $TMPNAME = $CSTR;
@@ -1103,9 +1103,9 @@ function codeexp(ctx, node, iscondition, target)
         return cstat, "((" .. cexp .. ") ? 1 : 0)"
     elseif tag == "AstExpCast" and node.target._tag == "TypeInteger" then
         local cstat, cexp = codeexp(ctx, node.exp)
-        local ctmp1, tmpname1 = newtmp(ctx, types.Float)
-        local ctmp2, tmpname2 = newtmp(ctx, types.Float)
-        local ctmp3, tmpname3 = newtmp(ctx, types.Integer)
+        local ctmp1, tmpname1 = newtmp(ctx, types.Float())
+        local ctmp2, tmpname2 = newtmp(ctx, types.Float())
+        local ctmp3, tmpname3 = newtmp(ctx, types.Integer())
         local cfloor = render([[
             $CSTAT
             $CTMP1
@@ -1143,7 +1143,7 @@ function codeexp(ctx, node, iscondition, target)
         if target then
             return cstats, cvt
         else
-            local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
+            local ctmp, tmpname, tmpslot = newtmp(ctx, types.String(), true)
             local code = render([[
                 $CTMP
                 $TMPNAME = $CVT;
@@ -1158,7 +1158,7 @@ function codeexp(ctx, node, iscondition, target)
         end
     elseif tag == "AstExpConcat" then
         local strs, copies = {}, {}
-        local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
+        local ctmp, tmpname, tmpslot = newtmp(ctx, types.String(), true)
         for i, exp in ipairs(node.exps) do
             local cstat, cexp = codeexp(ctx, exp)
             local strvar = string.format('_str%d', i)

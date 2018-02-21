@@ -3,6 +3,12 @@ local typedecl = require 'titan-compiler.typedecl'
 local types = typedecl(_, "Type", {
     Types = {
         Invalid     = {},
+        Nil         = {},
+        Boolean     = {},
+        Integer     = {},
+        Float       = {},
+        String      = {},
+        Value       = {},
         Function    = {"params", "rettypes"},
         Array       = {"elem"},
         InitList    = {"elems"},
@@ -11,16 +17,21 @@ local types = typedecl(_, "Type", {
     }
 })
 
-local base_types = { "TypeInteger", "TypeBoolean", "TypeString", "TypeNil", "TypeFloat", "TypeValue" }
-
-for _, t in ipairs(base_types) do
-    local cons = t:sub(5)
-    types[cons] = { _tag = t }
-    base_types[string.lower(cons)] = types[cons]
+function types.is_basic(t)
+    local tag = t._tag
+    return tag == "TypeNil" or
+           tag == "TypeBoolean" or
+           tag == "TypeInteger" or
+           tag == "TypeFloat" or
+           tag == "TypeString" or
+           tag == "TypeValue"
 end
 
-function types.Base(name)
-    return base_types[name]
+function types.is_gc(t)
+    local tag = t._tag
+    return tag == "TypeString" or
+           tag == "TypeValue" or
+           tag == "TypeArray"
 end
 
 -- XXX this should be inside typedecl call
@@ -32,21 +43,17 @@ function types.Module(modname, members)
         members = members }
 end
 
-function types.is_gc(t)
-    return t._tag == "TypeString" or t._tag == "TypeArray" or t._tag == "TypeValue"
-end
-
 function types.coerceable(source, target)
-    return (types.equals(source, types.Integer) and
-            types.equals(target, types.Float)) or
-           (types.equals(source, types.Float) and
-            types.equals(target, types.Integer)) or
-           (types.equals(target, types.Boolean) and
-            not types.equals(source, types.Boolean)) or
-           (types.equals(target, types.Value) and
-            not types.equals(source, types.Value)) or
-           (types.equals(source, types.Value) and
-            not types.equals(target, types.Value))
+    return (types.equals(source, types.Integer()) and
+            types.equals(target, types.Float())) or
+           (types.equals(source, types.Float()) and
+            types.equals(target, types.Integer())) or
+           (types.equals(target, types.Boolean()) and
+            not types.equals(source, types.Boolean())) or
+           (types.equals(target, types.Value()) and
+            not types.equals(source, types.Value())) or
+           (types.equals(source, types.Value()) and
+            not types.equals(target, types.Value()))
 end
 
 -- The type consistency relation, a-la gradual typing

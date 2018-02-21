@@ -466,21 +466,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, ast = run_checker(code)
 
-            assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Boolean, ast[1].block.stats[3].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Boolean(), ast[1].block.stats[3].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Boolean, ast[1].block.stats[4].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Boolean(), ast[1].block.stats[4].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Boolean, ast[1].block.stats[5].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Boolean(), ast[1].block.stats[5].exp._type)
 
-            assert.same(types.Integer, ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Boolean, ast[1].block.stats[6].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Boolean(), ast[1].block.stats[6].exp._type)
         end)
     end
 
@@ -498,21 +498,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, ast = run_checker(code)
 
-            assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp._type)
 
-            assert.same(types.Integer, ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp._type)
         end)
     end
 
@@ -530,21 +530,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, ast = run_checker(code)
 
-            assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp._type)
 
-            assert.same(types.Integer, ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp._type)
         end)
     end
 
@@ -562,21 +562,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, ast = run_checker(code)
 
-            assert.same(types.Integer, ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Integer, ast[1].block.stats[3].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[3].exp._type)
 
-            assert.same(types.Integer, ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Integer, ast[1].block.stats[4].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[4].exp._type)
 
-            assert.same(types.Integer, ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Integer, ast[1].block.stats[5].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[5].exp._type)
 
-            assert.same(types.Integer, ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer, ast[1].block.stats[6].exp._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Integer(), ast[1].block.stats[6].exp._type)
         end)
     end
 
@@ -594,21 +594,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, ast = run_checker(code)
 
-            assert.same(types.Float, ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[3].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[3].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[4].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[4].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[5].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[5].exp._type)
 
-            assert.same(types.Float, ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Float, ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Float, ast[1].block.stats[6].exp._type)
+            assert.same(types.Float(), ast[1].block.stats[6].exp.lhs._type)
+            assert.same(types.Float(), ast[1].block.stats[6].exp.rhs._type)
+            assert.same(types.Float(), ast[1].block.stats[6].exp._type)
         end)
     end
 
@@ -1393,11 +1393,25 @@ describe("Titan typecheck of records", function()
     end)
 
     it("doesn't typecheck constructor call of non records", function()
-        pending("typechecker thinks 'integer' is an undeclared variable; " ..
-                "basic types should be added to the symbol table.")
-
         assert_type_error("invalid access to type 'integer'", [[
             p = integer.new(10)
+        ]])
+    end)
+
+    it("doesn't allow declarations with basic type names", function()
+        pending("fix")
+        assert_type_error("invalid declaration name 'integer'", [[
+            function integer()
+            end
+        ]])
+    end)
+
+    it("doesn't allow local declarations with basic type names", function()
+        pending("fix")
+        assert_type_error("invalid declaration name 'integer'", [[
+            function f()
+                local integer: integer = 10
+            end
         ]])
     end)
 
