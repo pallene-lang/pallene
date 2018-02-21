@@ -46,9 +46,9 @@ end
 -- Note to self: A constant-folding optimization pass would obsolete this
 local function node2literal(node)
     local tag = node._tag
-    if tag == "Exp_Integer" or tag == "Exp_Float" then
+    if tag == "AstExpInteger" or tag == "AstExpFloat" then
         return tonumber(node.value)
-    elseif tag == "Exp_Unop" and node.op == "-" then
+    elseif tag == "AstExpUnop" and node.op == "-" then
         local lexp = node2literal(node.exp)
         return lexp and -lexp
     else
@@ -59,21 +59,21 @@ end
 local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
     dst = dst and dst .. " =" or ""
     local tmpl
-    if typ._tag == "Integer" then tmpl = "$DST ivalue($SRC)"
-    elseif typ._tag == "Float" then tmpl = "$DST fltvalue($SRC)"
-    elseif typ._tag == "Boolean" then tmpl = "$DST bvalue($SRC)"
-    elseif typ._tag == "Nil" then tmpl = "$DST 0"
-    elseif typ._tag == "String" then tmpl = "$DST tsvalue($SRC)"
-    elseif typ._tag == "Array" then tmpl = "$DST hvalue($SRC)"
-    elseif typ._tag == "Value" then tmpl = "$DST *($SRC)"
-    elseif typ._tag == "Record" then tmpl = "" -- TODO records
+    if typ._tag == "TypeInteger" then tmpl = "$DST ivalue($SRC)"
+    elseif typ._tag == "TypeFloat" then tmpl = "$DST fltvalue($SRC)"
+    elseif typ._tag == "TypeBoolean" then tmpl = "$DST bvalue($SRC)"
+    elseif typ._tag == "TypeNil" then tmpl = "$DST 0"
+    elseif typ._tag == "TypeString" then tmpl = "$DST tsvalue($SRC)"
+    elseif typ._tag == "TypeArray" then tmpl = "$DST hvalue($SRC)"
+    elseif typ._tag == "TypeValue" then tmpl = "$DST *($SRC)"
+    elseif typ._tag == "TypeRecord" then tmpl = "" -- TODO records
     else error("invalid type " .. types.tostring(typ)) end
     return render(tmpl, { DST = dst, SRC = src })
 end
 
 local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string]], line --[[:number]])
     local tag
-    if typ._tag == "Integer" then
+    if typ._tag == "TypeInteger" then
         return render([[
             if (TITAN_LIKELY(ttisinteger($EXP))) {
                 $VAR = ivalue($EXP);
@@ -93,7 +93,7 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
             VAR = cvar,
             LINE = c_integer_literal(line)
         })
-    elseif typ._tag == "Float" then
+    elseif typ._tag == "TypeFloat" then
         return render([[
             if (TITAN_LIKELY(ttisfloat($EXP))) {
                 $VAR = fltvalue($EXP);
@@ -107,7 +107,7 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
             VAR = cvar,
             LINE = c_integer_literal(line),
         })
-    elseif typ._tag == "Boolean" then
+    elseif typ._tag == "TypeBoolean" then
         return render([[
             if (l_isfalse($EXP)) {
                 $VAR = 0;
@@ -118,17 +118,17 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
             EXP = exp,
             VAR = cvar
         })
-    elseif typ._tag == "Nil" then tag = "nil"
-    elseif typ._tag == "String" then tag = "string"
-    elseif typ._tag == "Array" then tag = "table"
-    elseif typ._tag == "Value" then
+    elseif typ._tag == "TypeNil" then tag = "nil"
+    elseif typ._tag == "TypeString" then tag = "string"
+    elseif typ._tag == "TypeArray" then tag = "table"
+    elseif typ._tag == "TypeValue" then
         return render([[
             setobj2t(L, &$VAR, $EXP);
         ]], {
             EXP = exp,
             VAR = cvar
         })
-    elseif typ._tag == "Record" then
+    elseif typ._tag == "TypeRecord" then
         -- TODO records
         tag = "table"
     else
@@ -151,8 +151,8 @@ end
 
 local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]], line --[[:number]])
     local tag
-    if typ._tag == "Integer" then tag = "integer"
-    elseif typ._tag == "Float" then
+    if typ._tag == "TypeInteger" then tag = "integer"
+    elseif typ._tag == "TypeFloat" then
         return render([[
             if (TITAN_LIKELY(ttisfloat($SRC))) {
                 setobj2t(L, $DST, $SRC);
@@ -166,11 +166,11 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
             DST = dst,
             LINE = c_integer_literal(line),
         })
-    elseif typ._tag == "Boolean" then tag = "boolean"
-    elseif typ._tag == "Nil" then tag = "nil"
-    elseif typ._tag == "String" then tag = "string"
-    elseif typ._tag == "Array" then tag = "table"
-    elseif typ._tag == "Value" then
+    elseif typ._tag == "TypeBoolean" then tag = "boolean"
+    elseif typ._tag == "TypeNil" then tag = "nil"
+    elseif typ._tag == "TypeString" then tag = "string"
+    elseif typ._tag == "TypeArray" then tag = "table"
+    elseif typ._tag == "TypeValue" then
         return render([[
             setobj2t(L, $DST, $SRC);
         ]], {
@@ -197,13 +197,13 @@ end
 
 local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
     local tmpl
-    if typ._tag == "Integer" then tmpl = "setivalue($DST, $SRC);"
-    elseif typ._tag == "Float" then tmpl = "setfltvalue($DST, $SRC);"
-    elseif typ._tag == "Boolean" then tmpl = "setbvalue($DST, $SRC);"
-    elseif typ._tag == "Nil" then tmpl = "setnilvalue($DST); ((void)$SRC);"
-    elseif typ._tag == "String" then tmpl = "setsvalue(L, $DST, $SRC);"
-    elseif typ._tag == "Array" then tmpl = "sethvalue(L, $DST, $SRC);"
-    elseif typ._tag == "Value" then tmpl = "setobj2t(L, $DST, &$SRC);"
+    if typ._tag == "TypeInteger" then tmpl = "setivalue($DST, $SRC);"
+    elseif typ._tag == "TypeFloat" then tmpl = "setfltvalue($DST, $SRC);"
+    elseif typ._tag == "TypeBoolean" then tmpl = "setbvalue($DST, $SRC);"
+    elseif typ._tag == "TypeNil" then tmpl = "setnilvalue($DST); ((void)$SRC);"
+    elseif typ._tag == "TypeString" then tmpl = "setsvalue(L, $DST, $SRC);"
+    elseif typ._tag == "TypeArray" then tmpl = "sethvalue(L, $DST, $SRC);"
+    elseif typ._tag == "TypeValue" then tmpl = "setobj2t(L, $DST, &$SRC);"
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -211,20 +211,20 @@ local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
 end
 
 local function ctype(typ --[[:table]])
-    if typ._tag == "Integer" then return "lua_Integer"
-    elseif typ._tag == "Float" then return "lua_Number"
-    elseif typ._tag == "Boolean" then return "int"
-    elseif typ._tag == "Nil" then return "int"
-    elseif typ._tag == "String" then return "TString*"
-    elseif typ._tag == "Array" then return "Table*"
-    elseif typ._tag == "Value" then return "TValue"
-    elseif typ._tag == "Record" then return "TValue"
+    if typ._tag == "TypeInteger" then return "lua_Integer"
+    elseif typ._tag == "TypeFloat" then return "lua_Number"
+    elseif typ._tag == "TypeBoolean" then return "int"
+    elseif typ._tag == "TypeNil" then return "int"
+    elseif typ._tag == "TypeString" then return "TString*"
+    elseif typ._tag == "TypeArray" then return "Table*"
+    elseif typ._tag == "TypeValue" then return "TValue"
+    elseif typ._tag == "TypeRecord" then return "TValue"
     else error("invalid type " .. types.tostring(typ))
     end
 end
 
 local function initval(typ --[[:table]])
-    if typ._tag == "Value" then return "{ {0}, 0 }"
+    if typ._tag == "TypeValue" then return "{ {0}, 0 }"
     else return "0" end
 end
 
@@ -413,7 +413,7 @@ local function codefor(ctx, node)
     local cfstats, cfexp = codeexp(ctx, node.finish)
     local cinc = ""
     local cvtyp
-    if node.decl._type._tag == "Integer" then
+    if node.decl._type._tag == "TypeInteger" then
         cvtyp = "lua_Integer"
     else
         cvtyp = "lua_Number"
@@ -443,7 +443,7 @@ local function codefor(ctx, node)
         if ilit then
             if ilit > 0 then
                 local tmpl
-                if node.decl._type._tag == "Integer" then
+                if node.decl._type._tag == "TypeInteger" then
                     subs.ILIT = c_integer_literal(ilit)
                     tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + $ILIT)"
                 else
@@ -453,7 +453,7 @@ local function codefor(ctx, node)
                 cstep = render(tmpl, subs)
                 ccmp = render("$CVAR <= _forlimit", subs)
             else
-                if node.decl._type._tag == "Integer" then
+                if node.decl._type._tag == "TypeInteger" then
                     subs.NEGILIT = c_integer_literal(-ilit)
                     cstep = render("$CVAR = l_castU2S(l_castS2U($CVAR) - $NEGILIT)", subs)
                 else
@@ -473,7 +473,7 @@ local function codefor(ctx, node)
                 CVTYP = cvtyp,
             })
             local tmpl
-            if node.decl._type._tag == "Integer" then
+            if node.decl._type._tag == "TypeInteger" then
                 tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + l_castS2U(_forstep))"
             else
                 tmpl = "$CVAR += _forstep"
@@ -482,7 +482,7 @@ local function codefor(ctx, node)
             ccmp = render("0 < _forstep ? ($CVAR <= _forlimit) : (_forlimit <= $CVAR)", subs)
         end
     else
-        if node.decl._type._tag == "Integer" then
+        if node.decl._type._tag == "TypeInteger" then
             cstep = render("$CVAR = l_castU2S(l_castS2U($CVAR) + 1)", subs)
         else
             cstep = render("$CVAR += 1.0", subs)
@@ -519,8 +519,8 @@ local function codeassignment(ctx, node)
     -- has to generate different code if lvar is just a variable
     -- or an array indexing.
     local vtag = node.var._tag
-    if vtag == "Var_Name" or (vtag == "Var_Dot" and node.var._decl) then
-        if vtag == "Var_Dot" or (node.var._decl._tag == "TopLevel_Var" and not node.var._decl.islocal) then
+    if vtag == "AstVarName" or (vtag == "AstVarDot" and node.var._decl) then
+        if vtag == "AstVarDot" or (node.var._decl._tag == "AstTopLevelVar" and not node.var._decl.islocal) then
             local cstats, cexp = codeexp(ctx, node.exp)
             return render([[
                 $CSTATS
@@ -553,7 +553,7 @@ local function codeassignment(ctx, node)
                 CSET = cset,
             })
         end
-    elseif vtag == "Var_Bracket" then
+    elseif vtag == "AstVarBracket" then
         local arr = node.var.exp1
         local idx = node.var.exp2
         local etype = node.exp._type
@@ -617,9 +617,9 @@ local function codecall(ctx, node)
     local castats, caexps = {}, { "L" }
     local fname
     local fnode = node.exp.var
-    if fnode._tag == "Var_Name" then
+    if fnode._tag == "AstVarName" then
         fname = ctx.prefix .. fnode.name .. '_titan'
-    elseif node.exp.var._tag == "Var_Dot" then
+    elseif node.exp.var._tag == "AstVarDot" then
         fname = fnode.exp._type.prefix .. fnode.name .. "_titan"
     end
     for _, arg in ipairs(node.args.args) do
@@ -689,7 +689,7 @@ end
 
 function codestat(ctx, node)
     local tag = node._tag
-    if tag == "Stat_Decl" then
+    if tag == "AstStatDecl" then
         local cstats, cexp = codeexp(ctx, node.exp)
         if node.decl._used then
             local typ = node.decl._type
@@ -732,22 +732,22 @@ function codestat(ctx, node)
                 CEXP = cexp
             })
         end
-    elseif tag == "Stat_Block" then
+    elseif tag == "AstStatBlock" then
         return codeblock(ctx, node)
-    elseif tag == "Stat_While" then
+    elseif tag == "AstStatWhile" then
         return codewhile(ctx, node)
-    elseif tag == "Stat_Repeat" then
+    elseif tag == "AstStatRepeat" then
         return coderepeat(ctx, node)
-    elseif tag == "Stat_If" then
+    elseif tag == "AstStatIf" then
         return codeif(ctx, node)
-    elseif tag == "Stat_For" then
+    elseif tag == "AstStatFor" then
         return codefor(ctx, node)
-    elseif tag == "Stat_Assign" then
+    elseif tag == "AstStatAssign" then
         return codeassignment(ctx, node)
-    elseif tag == "Stat_Call" then
+    elseif tag == "AstStatCall" then
       local cstats, cexp = codecall(ctx, node.callexp)
       return cstats .. "\n    " .. cexp .. ";"
-    elseif tag == "Stat_Return" then
+    elseif tag == "AstStatReturn" then
         return codereturn(ctx, node)
     else
         error("invalid node tag " .. tag)
@@ -761,7 +761,7 @@ end
 -- the preliminary code is always the empty string
 
 local function codevar(ctx, node)
-    if node._tag == "Var_Dot" or (node._decl._tag == "TopLevel_Var" and not node._decl.islocal) then
+    if node._tag == "AstVarDot" or (node._decl._tag == "AstTopLevelVar" and not node._decl.islocal) then
         return "", getslot(node._type, nil, node._decl._slot)
     else
         return "", node._decl._cvar
@@ -770,15 +770,15 @@ end
 
 local function codevalue(ctx, node, target)
     local tag = node._tag
-    if tag == "Exp_Nil" then
+    if tag == "AstExpNil" then
         return "", "0"
-    elseif tag == "Exp_Bool" then
+    elseif tag == "AstExpBool" then
         return "", node.value and "1" or "0"
-    elseif tag == "Exp_Integer" then
+    elseif tag == "AstExpInteger" then
         return "", c_integer_literal(node.value)
-    elseif tag == "Exp_Float" then
+    elseif tag == "AstExpFloat" then
         return "", c_float_literal(node.value)
-    elseif tag == "Exp_String" then
+    elseif tag == "AstExpString" then
         local cstr = render("luaS_new(L, $VALUE)", {
             VALUE = c_string_literal(node.value)
         })
@@ -887,7 +887,7 @@ local function codeunaryop(ctx, node, iscondition)
         return estats, "!(" .. ecode .. ")"
     elseif op == "#" then
         local estats, ecode = codeexp(ctx, node.exp)
-        if node.exp._type._tag == "Array" then
+        if node.exp._type._tag == "TypeArray" then
             return estats, "luaH_getn(" .. ecode .. ")"
         else
             return estats, "tsslen(" .. ecode .. ")"
@@ -1038,33 +1038,33 @@ end
 --    in this case it will be the '_decl' of the lvalue
 function codeexp(ctx, node, iscondition, target)
     local tag = node._tag
-    if tag == "Var_Name" or (tag == "Var_Dot" and node._decl) then
+    if tag == "AstVarName" or (tag == "AstVarDot" and node._decl) then
         return codevar(ctx, node)
-    elseif tag == "Var_Bracket" then
+    elseif tag == "AstVarBracket" then
         return codeindex(ctx, node, iscondition)
-    elseif tag == "Exp_Nil" or
-                tag == "Exp_Bool" or
-                tag == "Exp_Integer" or
-                tag == "Exp_Float" or
-                tag == "Exp_String" then
+    elseif tag == "AstExpNil" or
+                tag == "AstExpBool" or
+                tag == "AstExpInteger" or
+                tag == "AstExpFloat" or
+                tag == "AstExpString" then
             return codevalue(ctx, node, target)
-    elseif tag == "Exp_InitList" then
+    elseif tag == "AstExpInitList" then
             return codetable(ctx, node, target)
-    elseif tag == "Exp_Var" then
+    elseif tag == "AstExpVar" then
         return codeexp(ctx, node.var, iscondition)
-    elseif tag == "Exp_Unop" then
+    elseif tag == "AstExpUnop" then
             return codeunaryop(ctx, node, iscondition)
-    elseif tag == "Exp_Binop" then
+    elseif tag == "AstExpBinop" then
             return codebinaryop(ctx, node, iscondition)
-    elseif tag == "Exp_Call" then
+    elseif tag == "AstExpCall" then
         return codecall(ctx, node, target)
-    elseif tag == "Exp_Cast" and node.exp._tag == "Exp_Var" and node.exp.var._tag == "Var_Bracket" then
+    elseif tag == "AstExpCast" and node.exp._tag == "AstExpVar" and node.exp.var._tag == "AstVarBracket" then
         local t = node.exp.var._type
         node.exp.var._type = node.target
         local cstats, cexp = codeexp(ctx, node.exp.var, iscondition)
         node.exp.var._type = t
         return cstats, cexp
-    elseif tag == "Exp_Cast" and node.exp._type._tag == "Value" then
+    elseif tag == "AstExpCast" and node.exp._type._tag == "TypeValue" then
         local cstats, cexp = codeexp(ctx, node.exp, iscondition)
         local ctmps, tmpnames = newtmp(ctx, node.exp._type)
         local ctmpt, tmpnamet = newtmp(ctx, node.target)
@@ -1083,7 +1083,7 @@ function codeexp(ctx, node, iscondition, target)
             EXP = cexp,
             CHECKANDGET = cget
         }), tmpnamet
-    elseif tag == "Exp_Cast" and node.target._tag == "Value" then
+    elseif tag == "AstExpCast" and node.target._tag == "TypeValue" then
         local cstats, cexp = codeexp(ctx, node.exp, iscondition)
         local ctmp, tmpname = newtmp(ctx, node.target)
         return render([[
@@ -1095,13 +1095,13 @@ function codeexp(ctx, node, iscondition, target)
             TMPTARGET = ctmp,
             SETSLOT = setslot(node.exp._type, "&" .. tmpname, cexp)
         }), tmpname
-    elseif tag == "Exp_Cast" and node.target._tag == "Float" then
+    elseif tag == "AstExpCast" and node.target._tag == "TypeFloat" then
         local cstat, cexp = codeexp(ctx, node.exp)
         return cstat, "((lua_Number)" .. cexp .. ")"
-    elseif tag == "Exp_Cast" and node.target._tag == "Boolean" then
+    elseif tag == "AstExpCast" and node.target._tag == "TypeBoolean" then
         local cstat, cexp = codeexp(ctx, node.exp, true)
         return cstat, "((" .. cexp .. ") ? 1 : 0)"
-    elseif tag == "Exp_Cast" and node.target._tag == "Integer" then
+    elseif tag == "AstExpCast" and node.target._tag == "TypeInteger" then
         local cstat, cexp = codeexp(ctx, node.exp)
         local ctmp1, tmpname1 = newtmp(ctx, types.Float)
         local ctmp2, tmpname2 = newtmp(ctx, types.Float)
@@ -1130,12 +1130,12 @@ function codeexp(ctx, node, iscondition, target)
             LINE = c_integer_literal(node._lin)
         })
         return cfloor, tmpname3
-    elseif tag == "Exp_Cast" and node.target._tag == "String" then
+    elseif tag == "AstExpCast" and node.target._tag == "TypeString" then
         local cvt
         local cstats, cexp = codeexp(ctx, node.exp)
-        if node.exp._type._tag == "Integer" then
+        if node.exp._type._tag == "TypeInteger" then
             cvt = render("_integer2str(L, $EXP)", { EXP = cexp })
-        elseif node.exp._type._tag == "Float" then
+        elseif node.exp._type._tag == "TypeFloat" then
             cvt = render("_float2str(L, $EXP)", { EXP = cexp })
         else
             error("invalid node type for coercion to string " .. types.tostring(node.exp._type))
@@ -1156,7 +1156,7 @@ function codeexp(ctx, node, iscondition, target)
             })
             return code, tmpname
         end
-    elseif tag == "Exp_Concat" then
+    elseif tag == "AstExpConcat" then
         local strs, copies = {}, {}
         local ctmp, tmpname, tmpslot = newtmp(ctx, types.String, true)
         for i, exp in ipairs(node.exps) do
@@ -1263,7 +1263,7 @@ local function codefuncdec(tlcontext, node)
         TValue *_retslot = _base;]])
     end
     table.insert(stats, body)
-    if rettype._tag == "Nil" then
+    if rettype._tag == "TypeNil" then
         if nslots > 0 then
             table.insert(stats, [[
             L->top = _base;
@@ -1594,7 +1594,7 @@ function coder.generate(modname, ast)
     for _, node in pairs(ast) do
         if not node._ignore then
             local tag = node._tag
-            if tag == "TopLevel_Import" then
+            if tag == "AstTopLevelImport" then
                 local mprefix = node._type.prefix
                 table.insert(initmods, render([[
                     void *$HANDLE = loadlib(L, "$FILE");
@@ -1603,10 +1603,10 @@ function coder.generate(modname, ast)
                 ]], { HANDLE = mprefix .. "handle", INIT = mprefix .. "init", FILE = node._type.file}));
                 table.insert(deps, node.modname)
                 for name, member in pairs(node._type.members) do
-                    if not member._slot and member._tag ~= "Function" then
+                    if not member._slot and member._tag ~= "TypeFunction" then
                         member._slot = mprefix .. name .. "_titanvar"
                     end
-                    if member._tag == "Function" then
+                    if member._tag == "TypeFunction" then
                         local fname = mprefix .. name .. "_titan"
                         table.insert(includes, externalsig(fname, member))
                         table.insert(initmods, render([[
@@ -1633,7 +1633,7 @@ function coder.generate(modname, ast)
     for _, node in pairs(ast) do
         if not node._ignore then
             local tag = node._tag
-            if tag == "TopLevel_Var" then
+            if tag == "AstTopLevelVar" then
                 codevardec(tlcontext, initctx, node)
                 table.insert(code, node._cdecl)
                 table.insert(initvars, node._init)
@@ -1650,7 +1650,7 @@ function coder.generate(modname, ast)
     for _, node in pairs(ast) do
         if not node._ignore then
             local tag = node._tag
-            if tag == "TopLevel_Func" then
+            if tag == "AstTopLevelFunc" then
                 codefuncdec(tlcontext, node)
                 table.insert(code, node._body)
                 if not node.islocal then

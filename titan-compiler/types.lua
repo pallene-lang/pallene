@@ -1,6 +1,6 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-local types = typedecl(_, false, {
+local types = typedecl(_, "Type", {
     Types = {
         Invalid     = {},
         Function    = {"params", "rettypes"},
@@ -11,11 +11,12 @@ local types = typedecl(_, false, {
     }
 })
 
-local base_types = { "Integer", "Boolean", "String", "Nil", "Float", "Value" }
+local base_types = { "TypeInteger", "TypeBoolean", "TypeString", "TypeNil", "TypeFloat", "TypeValue" }
 
 for _, t in ipairs(base_types) do
-    types[t] = { _tag = t }
-    base_types[string.lower(t)] = types[t]
+    local cons = t:sub(5)
+    types[cons] = { _tag = t }
+    base_types[string.lower(cons)] = types[cons]
 end
 
 function types.Base(name)
@@ -32,7 +33,7 @@ function types.Module(modname, members)
 end
 
 function types.is_gc(t)
-    return t._tag == "String" or t._tag == "Array" or t._tag == "Value"
+    return t._tag == "TypeString" or t._tag == "TypeArray" or t._tag == "TypeValue"
 end
 
 function types.coerceable(source, target)
@@ -52,11 +53,11 @@ end
 function types.compatible(t1, t2)
     if types.equals(t1, t2) then
         return true
-    elseif t1._tag == "Value" or t2._tag == "Value" then
+    elseif t1._tag == "TypeValue" or t2._tag == "TypeValue" then
         return true
-    elseif t1._tag == "Array" and t2._tag == "Array" then
+    elseif t1._tag == "TypeArray" and t2._tag == "TypeArray" then
         return types.compatible(t1.elem, t2.elem)
-    elseif t1._tag == "Function" and t2._tag == "Function" then
+    elseif t1._tag == "TypeFunction" and t2._tag == "TypeFunction" then
         if #t1.params ~= #t2.params then
             return false
         end
@@ -85,9 +86,9 @@ end
 
 function types.equals(t1, t2)
     local tag1, tag2 = t1._tag, t2._tag
-    if tag1 == "Array" and tag2 == "Array" then
+    if tag1 == "TypeArray" and tag2 == "TypeArray" then
         return types.equals(t1.elem, t2.elem)
-    elseif tag1 == "Function" and tag2 == "Function" then
+    elseif tag1 == "TypeFunction" and tag2 == "TypeFunction" then
         if #t1.params ~= #t2.params then
             return false
         end
@@ -118,14 +119,26 @@ end
 
 function types.tostring(t)
     local tag = t._tag
-    if tag == "Array" then
+    if     tag == "TypeInteger"     then return "integer"
+    elseif tag == "TypeBoolean"     then return "boolean"
+    elseif tag == "TypeString"      then return "string"
+    elseif tag == "TypeNil"         then return "nil"
+    elseif tag == "TypeFloat"       then return "float"
+    elseif tag == "TypeValue"       then return "value"
+    elseif tag == "TypeInvalid"     then return "invalid type"
+    elseif tag == "TypeFunction" then
+        return "function" -- TODO implement
+    elseif tag == "TypeArray" then
         return "{ " .. types.tostring(t.elem) .. " }"
-    elseif tag == "Function" then
-        error("not implemented")
-    elseif tag == "Record" then
+    elseif tag == "TypeInitList" then
+        return "initlist" -- TODO implement
+    elseif tag == "TypeRecord" then
         return t.name
+    elseif tag == "TypeType" then
+        return "type" -- TODO remove
     else
-        return string.lower(tag)
+        print(tag)
+        error("impossible")
     end
 end
 
@@ -135,11 +148,11 @@ end
 function types.makemoduletype(modname, ast)
     local members = {}
     for _, tlnode in ipairs(ast) do
-        if tlnode._tag ~= "TopLevel_Import" and not tlnode.islocal and not tlnode._ignore then
+        if tlnode._tag ~= "AstTopLevelImport" and not tlnode.islocal and not tlnode._ignore then
             local tag = tlnode._tag
-            if tag == "TopLevel_Func" then
+            if tag == "AstTopLevelFunc" then
                 members[tlnode.name] = tlnode._type
-            elseif tag == "TopLevel_Var" then
+            elseif tag == "AstTopLevelVar" then
                 members[tlnode.decl.name] = tlnode._type
             end
         end
@@ -149,7 +162,7 @@ end
 
 function types.serialize(t)
     local tag = t._tag
-    if tag == "Array" then
+    if tag == "TypeArray" then
         return "Array(" ..types.serialize(t.elem) .. ")"
     elseif tag == "Module" then
         local members = {}
@@ -160,7 +173,7 @@ function types.serialize(t)
             "'" .. t.name .. "'" .. "," ..
             "{" .. table.concat(members, ",") .. "}" ..
             ")"
-    elseif tag == "Function" then
+    elseif tag == "TypeFunction" then
         local ptypes = {}
         for _, pt in ipairs(t.params) do
             table.insert(ptypes, types.serialize(pt))

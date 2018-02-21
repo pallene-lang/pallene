@@ -1,66 +1,66 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl({"_pos"}, true, {
+return typedecl({"_pos"}, "Ast", {
     Type = {
-        Name        = {"name"},
-        Array       = {"subtype"},
-        Function    = {"argtypes", "rettypes"},
+        TypeName        = {"name"},
+        TypeArray       = {"subtype"},
+        TypeFunction    = {"argtypes", "rettypes"},
     },
 
     TopLevel = {
-        Func        = {"islocal", "name", "params", "rettypes", "block"},
-        Var         = {"islocal", "decl", "value"},
-        Record      = {"name", "fields"},
-        Import      = {"localname", "modname"}
+        TopLevelFunc    = {"islocal", "name", "params", "rettypes", "block"},
+        TopLevelVar     = {"islocal", "decl", "value"},
+        TopLevelRecord  = {"name", "fields"},
+        TopLevelImport  = {"localname", "modname"}
     },
 
     Decl = {
-        Decl        = {"name", "type"},
+        Decl            = {"name", "type"},
     },
 
     Stat = {
-        Block       = {"stats"},
-        While       = {"condition", "block"},
-        Repeat      = {"block", "condition"},
-        If          = {"thens", "elsestat"},
-        For         = {"decl", "start", "finish", "inc", "block"},
-        Assign      = {"var", "exp"},
-        Decl        = {"decl", "exp"},
-        Call        = {"callexp"},
-        Return      = {"exp"},
+        StatBlock       = {"stats"},
+        StatWhile       = {"condition", "block"},
+        StatRepeat      = {"block", "condition"},
+        StatIf          = {"thens", "elsestat"},
+        StatFor         = {"decl", "start", "finish", "inc", "block"},
+        StatAssign      = {"var", "exp"},
+        StatDecl        = {"decl", "exp"},
+        StatCall        = {"callexp"},
+        StatReturn      = {"exp"},
     },
 
     Then = {
-        Then        = {"condition", "block"},
+        Then            = {"condition", "block"},
     },
 
     Var = {
-        Name        = {"name"},
-        Bracket     = {"exp1", "exp2"},
-        Dot         = {"exp", "name"}
+        VarName         = {"name"},
+        VarBracket      = {"exp1", "exp2"},
+        VarDot          = {"exp", "name"}
     },
 
     Exp = {
-        Nil         = {},
-        Bool        = {"value"},
-        Integer     = {"value"},
-        Float       = {"value"},
-        String      = {"value"},
-        InitList    = {"fields"},
-        Call        = {"exp", "args"},
-        Var         = {"var"},
-        Unop        = {"op", "exp"},
-        Concat      = {"exps"},
-        Binop       = {"lhs", "op", "rhs"},
-        Cast        = {"exp", "target"}
+        ExpNil          = {},
+        ExpBool         = {"value"},
+        ExpInteger      = {"value"},
+        ExpFloat        = {"value"},
+        ExpString       = {"value"},
+        ExpInitList     = {"fields"},
+        ExpCall         = {"exp", "args"},
+        ExpVar          = {"var"},
+        ExpUnop         = {"op", "exp"},
+        ExpConcat       = {"exps"},
+        ExpBinop        = {"lhs", "op", "rhs"},
+        ExpCast         = {"exp", "target"}
     },
 
     Args = {
-        Func        = {"args"},
-        Method      = {"method", "args"},
+        ArgsFunc        = {"args"},
+        ArgsMethod      = {"method", "args"},
     },
 
     Field = {
-        Field       = {"name", "exp"},
+        Field           = {"name", "exp"},
     },
 })

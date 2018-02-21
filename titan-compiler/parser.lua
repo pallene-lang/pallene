@@ -34,7 +34,7 @@ function defs.rettypeopt(pos, x)
     if not x then
         -- When possible, we should change this default to the empty list
         -- or infer the return type.
-        return { ast.Type_Name(pos, "nil") }
+        return { ast.TypeName(pos, "nil") }
     else
         return x
     end
@@ -52,28 +52,28 @@ function defs.boolopt(x)
 end
 
 function defs.nil_exp(pos--[[ s ]])
-    -- We can't call Exp_Nil directly in the parser because we
+    -- We can't call AstExpNil directly in the parser because we
     -- need to drop the string capture that comes by default.
-    return ast.Exp_Nil(pos)
+    return ast.ExpNil(pos)
 end
 
 function defs.number_exp(pos, n)
     if math.type(n) == "integer" then
-        return ast.Exp_Integer(pos, n)
+        return ast.ExpInteger(pos, n)
     elseif math.type(n) == "float" then
-        return ast.Exp_Float(pos, n)
+        return ast.ExpFloat(pos, n)
     else
         error("impossible")
     end
 end
 
 function defs.name_exp(pos, name)
-    return ast.Exp_Var(pos, ast.Var_Name(pos, name))
+    return ast.ExpVar(pos, ast.VarName(pos, name))
 end
 
 function defs.ifstat(pos, exp, block, thens, elseopt)
-    table.insert(thens, 1, ast.Then_Then(pos, exp, block))
-    return ast.Stat_If(pos, thens, elseopt)
+    table.insert(thens, 1, ast.Then(pos, exp, block))
+    return ast.StatIf(pos, thens, elseopt)
 end
 
 function defs.fold_binop_left(pos, matches)
@@ -81,7 +81,7 @@ function defs.fold_binop_left(pos, matches)
     for i = 2, #matches, 2 do
         local op  = matches[i]
         local rhs = matches[i+1]
-        lhs = ast.Exp_Binop(pos, lhs, op, rhs)
+        lhs = ast.ExpBinop(pos, lhs, op, rhs)
     end
     return lhs
 end
@@ -89,18 +89,18 @@ end
 -- Should this go on a separate constant propagation pass?
 function defs.binop_concat(pos, lhs, op, rhs)
     if op then
-        if rhs._tag == "Exp_Concat" then
+        if rhs._tag == "AstExpConcat" then
             table.insert(rhs.exps, 1, lhs)
             return rhs
-        elseif (lhs._tag == "Exp_String" or
-            lhs._tag == "Exp_Integer" or
-            lhs._tag == "Exp_Float") and
-            (rhs._tag == "Exp_String" or
-            rhs._tag == "Exp_Integer" or
-            rhs._tag == "Exp_Float") then
-            return ast.Exp_String(pos, lhs.value .. rhs.value)
+        elseif (lhs._tag == "AstExpString" or
+            lhs._tag == "AstExpInteger" or
+            lhs._tag == "AstExpFloat") and
+            (rhs._tag == "AstExpString" or
+            rhs._tag == "AstExpInteger" or
+            rhs._tag == "AstExpFloat") then
+            return ast.ExpString(pos, lhs.value .. rhs.value)
         else
-            return ast.Exp_Concat(pos, { lhs, rhs })
+            return ast.ExpConcat(pos, { lhs, rhs })
         end
     else
         return lhs
@@ -109,7 +109,7 @@ end
 
 function defs.binop_right(pos, lhs, op, rhs)
     if op then
-        return ast.Exp_Binop(pos, lhs, op, rhs)
+        return ast.ExpBinop(pos, lhs, op, rhs)
     else
         return lhs
     end
@@ -118,7 +118,7 @@ end
 function defs.fold_unops(pos, unops, exp)
     for i = #unops, 1, -1 do
         local op = unops[i]
-        exp = ast.Exp_Unop(pos, op, exp)
+        exp = ast.ExpUnop(pos, op, exp)
     end
     return exp
 end
@@ -128,25 +128,25 @@ end
 
 function defs.suffix_funccall(pos, args)
     return function(exp)
-        return ast.Exp_Call(pos, exp, ast.Args_Func(pos, args))
+        return ast.ExpCall(pos, exp, ast.ArgsFunc(pos, args))
     end
 end
 
 function defs.suffix_methodcall(pos, name, args)
     return function(exp)
-        return ast.Exp_Call(pos, exp, ast.Args_Method(pos, name, args))
+        return ast.ExpCall(pos, exp, ast.ArgsMethod(pos, name, args))
     end
 end
 
 function defs.suffix_bracket(pos, index)
     return function(exp)
-        return ast.Exp_Var(pos, ast.Var_Bracket(pos, exp, index))
+        return ast.ExpVar(pos, ast.VarBracket(pos, exp, index))
     end
 end
 
 function defs.suffix_dot(pos, name)
     return function(exp)
-        return ast.Exp_Var(pos, ast.Var_Dot(pos, exp, name))
+        return ast.ExpVar(pos, ast.VarDot(pos, exp, name))
     end
 end
 
@@ -163,7 +163,7 @@ function defs.exp2var(exp)
 end
 
 function defs.exp_is_var(_, pos, exp)
-    if exp._tag == "Exp_Var" then
+    if exp._tag == "AstExpVar" then
         return pos, exp
     else
         return false
@@ -171,7 +171,7 @@ function defs.exp_is_var(_, pos, exp)
 end
 
 function defs.exp_is_call(_, pos, exp)
-    if exp._tag == "Exp_Call" then
+    if exp._tag == "AstExpCall" then
         return pos, exp
     else
         return false
@@ -192,20 +192,20 @@ local grammar = re.compile([[
                            FUNCTION (NAME / %{NameFunc})
                            (LPAREN / %{LParPList}) paramlist (RPAREN / %{RParPList})
                            rettypeopt
-                           block (END / %{EndFunc}))             -> TopLevel_Func
+                           block (END / %{EndFunc}))             -> TopLevelFunc
 
     toplevelvar     <- ({} localopt decl (ASSIGN / %{AssignVar})
-                           !IMPORT (exp / %{ExpVarDec}))         -> TopLevel_Var
+                           !IMPORT (exp / %{ExpVarDec}))         -> TopLevelVar
 
     toplevelrecord  <- ({} RECORD (NAME / %{NameRecord}) (recordfields / %{FieldRecord})
-                           (END / %{EndRecord}))                 -> TopLevel_Record
+                           (END / %{EndRecord}))                 -> TopLevelRecord
 
     localopt        <- (LOCAL)?                                  -> boolopt
 
     import          <- ({} LOCAL (NAME / %{NameImport}) (ASSIGN / %{AssignImport})
                           (IMPORT / %{ImportImport})
                           (LPAREN (STRING / %{StringLParImport}) (RPAREN / %{RParImport}) /
-                          (STRING / %{StringImport})))           -> TopLevel_Import
+                          (STRING / %{StringImport})))           -> TopLevelImport
 
     rettypeopt      <- ({} (COLON (rettype / %{TypeFunc}))?)     -> rettypeopt
 
@@ -213,31 +213,31 @@ local grammar = re.compile([[
                             (param / %{DeclParList}))*)? |}      -- produces {Decl}
 
     param           <- ({} NAME (COLON / %{ParamSemicolon})
-                                (type / %{TypeDecl}))           -> Decl_Decl
+                                (type / %{TypeDecl}))           -> Decl
 
     decl            <- ({} NAME (COLON
-                            (type / %{TypeDecl}))? -> opt)       -> Decl_Decl
+                            (type / %{TypeDecl}))? -> opt)       -> Decl
 
-    simpletype      <- ({} NIL -> 'nil')                         -> Type_Name
-                     / ({} NAME)                                 -> Type_Name
+    simpletype      <- ({} NIL -> 'nil')                         -> TypeName
+                     / ({} NAME)                                 -> TypeName
                      / ({} LCURLY (type / %{TypeType})
-                                  (RCURLY / %{RCurlyType}))      -> Type_Array
+                                  (RCURLY / %{RCurlyType}))      -> TypeArray
 
     typelist        <- ( LPAREN
                          {| (type (COMMA (type / %{TypelistType}))*)? |}
                          (RPAREN / %{RParenTypelist}) )          -- produces {Type}
 
     rettype         <- {| ({} typelist RARROW
-                            (rettype / %{TypeReturnTypes})) -> Type_Function |}
+                            (rettype / %{TypeReturnTypes})) -> TypeFunction |}
                      / {| ({} {| simpletype |} RARROW
-                            (rettype / %{TypeReturnTypes})) -> Type_Function |}
+                            (rettype / %{TypeReturnTypes})) -> TypeFunction |}
                      / typelist
                      / {| simpletype |}
 
     type            <- ({} typelist RARROW
-                           (rettype / %{TypeReturnTypes}))       -> Type_Function
+                           (rettype / %{TypeReturnTypes}))       -> TypeFunction
                      / ({} {| simpletype |} RARROW
-                           (rettype / %{TypeReturnTypes}))       -> Type_Function
+                           (rettype / %{TypeReturnTypes}))       -> TypeFunction
                      / simpletype
 
     recordfields    <- {| recordfield+ |}                        -- produces {Decl}
@@ -245,16 +245,16 @@ local grammar = re.compile([[
     recordfield     <- ({} NAME
                            (COLON / %{ColonRecordField})
                            (type / %{TypeRecordField})
-                           SEMICOLON?)                      -> Decl_Decl
+                           SEMICOLON?)                      -> Decl
 
-    block           <- ({} {| statement* returnstat? |})         -> Stat_Block
+    block           <- ({} {| statement* returnstat? |})         -> StatBlock
 
     statement       <- (SEMICOLON)                               -- ignore
-                     / (DO block (END / %{EndBlock}))            -- produces Stat_Block
+                     / (DO block (END / %{EndBlock}))            -- produces StatBlock
                      / ({} WHILE (exp / %{ExpWhile}) (DO / %{DoWhile})
-                                 block (END / %{EndWhile}))      -> Stat_While
+                                 block (END / %{EndWhile}))      -> StatWhile
                      / ({} REPEAT block (UNTIL / %{UntilRepeat})
-                                      (exp / %{ExpRepeat}))      -> Stat_Repeat
+                                      (exp / %{ExpRepeat}))      -> StatRepeat
                      / ({} IF (exp / %{ExpIf}) (THEN / %{ThenIf}) block
                            elseifstats elseopt
                            (END / %{EndIf}))                     -> ifstat
@@ -263,23 +263,23 @@ local grammar = re.compile([[
                            (COMMA / %{CommaFor}) (exp / %{Exp2For})
                            (COMMA (exp / %{Exp3For}))? -> opt
                            (DO / %{DoFor}) block
-                           (END / %{EndFor}))                    -> Stat_For
+                           (END / %{EndFor}))                    -> StatFor
                      / ({} LOCAL (decl / %{DeclLocal}) (ASSIGN / %{AssignLocal})
-                                 (exp / %{ExpLocal}))            -> Stat_Decl
+                                 (exp / %{ExpLocal}))            -> StatDecl
                      / ({} var (ASSIGN / %{AssignAssign})
-                               (exp / %{ExpAssign}))             -> Stat_Assign
+                               (exp / %{ExpAssign}))             -> StatAssign
                      / &(exp ASSIGN) %{ExpAssign}
-                     / ({} (suffixedexp => exp_is_call))         -> Stat_Call
+                     / ({} (suffixedexp => exp_is_call))         -> StatCall
                      / &exp %{ExpStat}
 
     elseifstats     <- {| elseifstat* |}                         -- produces {Then}
 
     elseifstat      <- ({} ELSEIF (exp / %{ExpElseIf})
-                           (THEN / %{ThenElseIf}) block)         -> Then_Then
+                           (THEN / %{ThenElseIf}) block)         -> Then
 
     elseopt         <- (ELSE block)?                             -> opt
 
-    returnstat      <- ({} RETURN (exp? -> opt) SEMICOLON?)      -> Stat_Return
+    returnstat      <- ({} RETURN (exp? -> opt) SEMICOLON?)      -> StatReturn
 
     op1             <- ( OR -> 'or' )
     op2             <- ( AND -> 'and' )
@@ -324,14 +324,14 @@ local grammar = re.compile([[
 
 
     castexp         <- ({} simpleexp AS
-                            (type / %{CastMissingType}))         -> Exp_Cast
+                            (type / %{CastMissingType}))         -> ExpCast
                      / simpleexp                                 -- produces Exp
 
     simpleexp       <- ({} NIL)                                  -> nil_exp
-                     / ({} FALSE -> tofalse)                     -> Exp_Bool
-                     / ({} TRUE -> totrue)                       -> Exp_Bool
+                     / ({} FALSE -> tofalse)                     -> ExpBool
+                     / ({} TRUE -> totrue)                       -> ExpBool
                      / ({} NUMBER)                               -> number_exp
-                     / ({} STRING)                               -> Exp_String
+                     / ({} STRING)                               -> ExpString
                      / initlist                                  -- produces Exp
                      / suffixedexp                               -- produces Exp
                      / prefixexp                                 -- produces Exp
@@ -342,12 +342,12 @@ local grammar = re.compile([[
     funcargs        <- (LPAREN explist
                                (RPAREN / %{RParFuncArgs}))       -- produces {Exp}
                      / {| initlist |}                            -- produces {Exp}
-                     / {| ({} STRING) -> Exp_String |}           -- produces {Exp}
+                     / {| ({} STRING) -> ExpString |}            -- produces {Exp}
 
     explist         <- {| (exp (COMMA (exp / %{ExpExpList}))*)? |} -- produces {Exp}
 
     initlist        <- ({} LCURLY {| fieldlist? |}
-                                  (RCURLY / %{RCurlyInitList})) -> Exp_InitList
+                                  (RCURLY / %{RCurlyInitList})) -> ExpInitList
 
     fieldlist       <- (field
                         (fieldsep
@@ -355,7 +355,7 @@ local grammar = re.compile([[
                           !RCURLY %{ExpFieldList}))*
                         fieldsep?)                          -- produces Field...
 
-    field           <- ({} (NAME ASSIGN)? -> opt exp)       -> Field_Field
+    field           <- ({} (NAME ASSIGN)? -> opt exp)       -> Field
 
     fieldsep        <- SEMICOLON / COMMA
 

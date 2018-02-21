@@ -7,19 +7,17 @@ local function fill(node, args, fields, start)
     end
 end
 
-return function(oblfields, useprefix, types)
+return function(oblfields, prefix, types)
     oblfields = oblfields or {}
     local constructors = {}
     for typename, conss in pairs(types) do
         for consname, fields in pairs(conss) do
-            local prefix = useprefix and (typename .. "_") or ""
-            local tag = prefix .. consname
-            constructors[tag] = function(...)
+            constructors[consname] = function(...)
                 local args = table.pack(...)
                 if args.n ~= #oblfields + #fields then
-                    error("missing arguments for " .. tag)
+                    error("missing arguments for " .. consname)
                 end
-                local node = { _tag = tag }
+                local node = { _tag = prefix .. consname }
                 fill(node, args, oblfields, 0)
                 fill(node, args, fields, #oblfields)
                 return node

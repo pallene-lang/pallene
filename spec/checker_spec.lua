@@ -75,8 +75,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, ast = run_checker(code)
         assert.truthy(ok)
-        assert.same("Exp_Cast", ast[1].block.stats[2].exp._tag)
-        assert.same("Integer", ast[1].block.stats[2].exp.target._tag)
+        assert.same("AstExpCast", ast[1].block.stats[2].exp._tag)
+        assert.same("TypeInteger", ast[1].block.stats[2].exp.target._tag)
     end)
 
     it("coerces to float", function()
@@ -89,8 +89,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, ast = run_checker(code)
         assert.truthy(ok)
-        assert.same("Exp_Cast", ast[1].block.stats[2].exp._tag)
-        assert.same("Float", ast[1].block.stats[2].exp.target._tag)
+        assert.same("AstExpCast", ast[1].block.stats[2].exp._tag)
+        assert.same("TypeFloat", ast[1].block.stats[2].exp.target._tag)
     end)
 
     it("catches duplicate function declarations", function()
@@ -974,7 +974,7 @@ describe("Titan type checker", function()
     for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
         it("can explicitly cast from " .. t .. "to value", function()
             local code = [[
-                function fn(a: ]] .. t .. [[): value 
+                function fn(a: ]] .. t .. [[): value
                     return a as value
                 end
             ]]
@@ -986,7 +986,7 @@ describe("Titan type checker", function()
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
             local code = [[
-                function fn(a: ]] .. t .. [[): {integer} 
+                function fn(a: ]] .. t .. [[): {integer}
                     return a as {integer}
                 end
             ]]
@@ -999,7 +999,7 @@ describe("Titan type checker", function()
     for _, t in ipairs({"{integer}", "boolean", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to float", function()
             local code = [[
-                function fn(a: ]] .. t .. [[): float 
+                function fn(a: ]] .. t .. [[): float
                     return a as float
                 end
             ]]
@@ -1012,7 +1012,7 @@ describe("Titan type checker", function()
     for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to integer", function()
             local code = [[
-                function fn(a: ]] .. t .. [[): integer 
+                function fn(a: ]] .. t .. [[): integer
                     return a as integer
                 end
             ]]
@@ -1063,8 +1063,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "test",
             members = {
-                a = { _tag = "Integer" },
-                geta = { _tag = "Function" }
+                a = { _tag = "TypeInteger" },
+                geta = { _tag = "TypeFunction" }
             }
         })
         assert.falsy(mods.test.type.members.b)
@@ -1099,8 +1099,8 @@ describe("Titan type checker", function()
             _tag = "Module",
             name = "foo",
             members = {
-                a = { _tag = "Integer" },
-                foo = { _tag = "Function" }
+                a = { _tag = "TypeInteger" },
+                foo = { _tag = "TypeFunction" }
             }
         })
     end)
