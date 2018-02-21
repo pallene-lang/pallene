@@ -907,8 +907,8 @@ local function codebinaryop(ctx, node, iscondition)
     if op == "and" then
         local lstats, lcode = codeexp(ctx, node.lhs, iscondition)
         local rstats, rcode = codeexp(ctx, node.rhs, iscondition)
-        if lstats == "" and rstats == "" then
-            return "(" .. lcode .. " && " .. rcode .. ")"
+        if lstats == "" and rstats == "" and iscondition then
+            return "", "(" .. lcode .. " && " .. rcode .. ")"
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
             local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
@@ -935,8 +935,8 @@ local function codebinaryop(ctx, node, iscondition)
     elseif op == "or" then
         local lstats, lcode = codeexp(ctx, node.lhs, true)
         local rstats, rcode = codeexp(ctx, node.rhs, iscondition)
-        if lstats == "" and rstats == "" then
-            return "(" .. lcode .. " || " .. rcode .. ")"
+        if lstats == "" and rstats == "" and iscondition then
+            return "", "(" .. lcode .. " || " .. rcode .. ")"
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
             local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
@@ -1055,9 +1055,9 @@ function codeexp(ctx, node, iscondition, target)
     elseif tag == "Exp_Var" then
         return codeexp(ctx, node.var, iscondition)
     elseif tag == "Exp_Unop" then
-            return codeunaryop(ctx, node, iscondition)
+        return codeunaryop(ctx, node, iscondition)
     elseif tag == "Exp_Binop" then
-            return codebinaryop(ctx, node, iscondition)
+        return codebinaryop(ctx, node, iscondition)
     elseif tag == "Exp_Call" then
         return codecall(ctx, node, target)
     elseif tag == "Exp_Cast" and node.exp._tag == "Exp_Var" and node.exp.var._tag == "Var_Bracket" then
