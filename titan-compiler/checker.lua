@@ -20,7 +20,8 @@ local checkvar
 
 local function typeerror(errors, msg, pos, ...)
     local l, c = util.get_line_number(errors.subject, pos)
-    msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c, string.format(msg, ...))
+    msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c,
+                        string.format(msg, ...))
     table.insert(errors, msg)
 end
 
@@ -101,8 +102,8 @@ end
 
 local function trytostr(node)
     local source = node._type
-    if types.equals(source, types.Integer) or
-      types.equals(source, types.Float) then
+    if source._tag == "Integer" or
+       source._tag == "Float" then
         local n = ast.Exp_Cast(node._pos, node, types.String)
         n._type = types.String
         return n
@@ -138,8 +139,8 @@ local function checkfor(node, st, errors)
     if node.decl.type then
       checkstat(node.decl, st, errors)
       ftype = node.decl._type
-      if not types.equals(ftype, types.Integer) and
-        not types.equals(ftype, types.Float) then
+      if ftype._tag ~= "Integer" and
+         ftype._tag ~= "Float" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
@@ -151,8 +152,8 @@ local function checkfor(node, st, errors)
       ftype = node.start._type
       node.decl._type = ftype
       checkstat(node.decl, st, errors)
-      if not types.equals(ftype, types.Integer) and
-        not types.equals(ftype, types.Float) then
+      if ftype._tag ~= "Integer" and
+         ftype._tag ~= "Float" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
         node.decl._type = types.Integer
         ftype = types.Integer
@@ -240,7 +241,7 @@ checkstat = util.make_visitor({
                 node.var._decl._assigned = true
             end
             node.exp = trycoerce(node.exp, node.var._type, errors)
-            if node.var._tag ~= "Var_Bracket" or not types.equals(node.exp._type, types.Nil) then
+            if node.var._tag ~= "Var_Bracket" or node.exp._type._tag ~= "Nil" then
                 checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
             end
         end
@@ -445,20 +446,20 @@ checkexp = util.make_visitor({
         local texp = node.exp._type
         local pos = node._pos
         if op == "#" then
-            if texp._tag ~= "Array" and not types.equals(texp, types.String) then
+            if texp._tag ~= "Array" and texp._tag ~= "String" then
                 typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", pos)
             end
             node._type = types.Integer
         elseif op == "-" then
-            if not types.equals(texp, types.Integer) and not types.equals(texp, types.Float) then
+            if texp._tag ~= "Integer" and texp._tag ~= "Float" then
                 typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", pos)
             end
             node._type = texp
         elseif op == "~" then
             -- always tries to coerce floats to integer
-            node.exp = types.equals(node.exp._type, types.Float) and trycoerce(node.exp, types.Integer, errors) or node.exp
+            node.exp = node.exp._type._tag == "Float" and trycoerce(node.exp, types.Integer, errors) or node.exp
             texp = node.exp._type
-            if not types.equals(texp, types.Integer) then
+            if texp._tag ~= "Integer" then
                 typeerror(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer", pos)
             end
             node._type = types.Integer
@@ -478,9 +479,9 @@ checkexp = util.make_visitor({
             exp = trytostr(exp)
             node.exps[i] = exp
             local texp = exp._type
-            if types.equals(texp, types.Value) then
+            if texp._tag == "Value" then
                 typeerror(errors, "cannot concatenate with value of type 'value'", exp._pos)
-            elseif not types.equals(texp, types.String) then
+            elseif texp._tag ~= "String" then
                 typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", exp._pos)
             end
         end
@@ -496,14 +497,14 @@ checkexp = util.make_visitor({
         local pos = node._pos
         if op == "==" or op == "~=" then
             -- tries to coerce to value if either side is value
-            if types.equals(tlhs, types.Value) or types.equals(trhs, types.Value) then
+            if tlhs._tag == "Value" or trhs._tag == "Value" then
                 node.lhs = trycoerce(node.lhs, types.Value, errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Value, errors)
                 trhs = node.rhs._type
             end
             -- tries to coerce to float if either side is float
-            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+            if tlhs._tag == "Float" or trhs._tag == "Float" then
                 node.lhs = trycoerce(node.lhs, types.Float, errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Float, errors)
@@ -516,33 +517,33 @@ checkexp = util.make_visitor({
             node._type = types.Boolean
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
             -- tries to coerce to value if either side is value
-            if types.equals(tlhs, types.Value) or types.equals(trhs, types.Value) then
+            if tlhs._tag == "Value" or trhs._tag == "Value" then
                 node.lhs = trycoerce(node.lhs, types.Value, errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Value, errors)
                 trhs = node.rhs._type
             end
             -- tries to coerce to float if either side is float
-            if types.equals(tlhs, types.Float) or types.equals(trhs, types.Float) then
+            if tlhs._tag == "Float" or trhs._tag == "Float" then
                 node.lhs = trycoerce(node.lhs, types.Float, errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Float, errors)
                 trhs = node.rhs._type
             end
             if not types.equals(tlhs, trhs) then
-                if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) and types.equals(trhs, types.Integer) or types.equals(trhs, types.Float) then
+                if tlhs._tag ~= "Integer" and tlhs._tag ~= "Float" and trhs._tag == "Integer" or trhs._tag == "Float" then
                     typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
-                elseif not types.equals(trhs, types.Integer) and not types.equals(trhs, types.Float) and types.equals(tlhs, types.Integer) or types.equals(tlhs, types.Float) then
+                elseif trhs._tag ~= "Integer" and trhs._tag ~= "Float" and tlhs._tag == "Integer" or tlhs._tag == "Float" then
                     typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
-                elseif not types.equals(tlhs, types.String) and types.equals(trhs, types.String) then
+                elseif tlhs._tag ~= "String" and trhs._tag == "String" then
                     typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a string", pos)
-                elseif not types.equals(trhs, types.String) and types.equals(tlhs, types.String) then
+                elseif trhs._tag ~= "String" and tlhs._tag == "String" then
                     typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a string", pos)
                 else
                     typeerror(errors, "trying to use relational expression with " .. types.tostring(tlhs) .. " and " .. types.tostring(trhs), pos)
                 end
             else
-                if not types.equals(tlhs, types.Integer) and not types.equals(tlhs, types.Float) and not types.equals(tlhs, types.String) then
+                if tlhs._tag ~= "Integer" and tlhs._tag ~= "Float" and tlhs._tag ~= "String" then
                     typeerror(errors, "trying to use relational expression with two " .. types.tostring(tlhs) .. " values", pos)
                 end
             end
