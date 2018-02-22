@@ -51,9 +51,9 @@ function defs.boolopt(x)
     return x ~= ""
 end
 
-function defs.nil_exp(pos--[[ s ]])
-    -- We can't call AstExpNil directly in the parser because we
-    -- need to drop the string capture that comes by default.
+function defs.nil_exp(pos--[[, s ]])
+    -- We can't call ast.ExpNil directly in the parser because we
+    -- need to drop the string capture that comes in the second argument.
     return ast.ExpNil(pos)
 end
 
