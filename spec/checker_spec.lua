@@ -1392,29 +1392,6 @@ describe("Titan typecheck of records", function()
         ]])
     end)
 
-    it("doesn't typecheck constructor call of non records", function()
-        assert_type_error("invalid access to type 'integer'", [[
-            p = integer.new(10)
-        ]])
-    end)
-
-    it("doesn't allow declarations with basic type names", function()
-        pending("fix")
-        assert_type_error("invalid declaration name 'integer'", [[
-            function integer()
-            end
-        ]])
-    end)
-
-    it("doesn't allow local declarations with basic type names", function()
-        pending("fix")
-        assert_type_error("invalid declaration name 'integer'", [[
-            function f()
-                local integer: integer = 10
-            end
-        ]])
-    end)
-
     local function wrap_record(code)
         return [[
             record Point x: float; y:float end

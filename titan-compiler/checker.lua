@@ -46,24 +46,50 @@ end
 --   errors: list of compile-time errors
 --   returns a type (from types.lua)
 typefromnode = util.make_visitor({
-    ["AstTypeArray"] = function(node, st, errors)
-        return types.Array(typefromnode(node.subtype, st, errors))
+    ["AstTypeNil"] = function(node, st, errors)
+        return types.Nil()
+    end,
+
+    ["AstTypeBoolean"] = function(node, st, errors)
+        return types.Boolean()
+    end,
+
+    ["AstTypeInteger"] = function(node, st, errors)
+        return types.Integer()
+    end,
+
+    ["AstTypeFloat"] = function(node, st, errors)
+        return types.Float()
+    end,
+
+    ["AstTypeString"] = function(node, st, errors)
+        return types.String()
+    end,
+
+    ["AstTypeValue"] = function(node, st, errors)
+        return types.Value()
     end,
 
     ["AstTypeName"] = function(node, st, errors)
         local name = node.name
         local sym = st:find_symbol(name)
-        if sym then
+	    if sym then
             if sym._type._tag == "TypeType" then
                 return sym._type.type
             else
                 typeerror(errors, "%s isn't a type", node._pos, name)
+                return types.Invalid()
             end
         else
             typeerror(errors, "type '%s' not found", node._pos, name)
+            return types.Invalid()
         end
-        return types.Invalid()
     end,
+
+    ["AstTypeArray"] = function(node, st, errors)
+        return types.Array(typefromnode(node.subtype, st, errors))
+    end,
+
 
     ["AstTypeFunction"] = function(node, st, errors)
         if #node.argtypes ~= 1 then
@@ -899,20 +925,6 @@ function checker.checkimport(modname, loader)
     return type_or_error, errors
 end
 
-local function add_basic_types(st)
-    local ts = {
-        {"nil", types.Nil()},
-        {"boolean", types.Boolean()},
-        {"integer", types.Integer()},
-        {"float", types.Float()},
-        {"string", types.String()},
-        {"value", types.Value()},
-    }
-    for _, t in ipairs(ts) do
-        st:add_symbol(t[1], {_type = types.Type(t[2])})
-    end
-end
-
 -- Entry point for the typechecker
 --   ast: AST for the whole module
 --   subject: the string that generated the AST
@@ -929,7 +941,6 @@ function checker.check(modname, ast, subject, filename, loader)
         return nil, "you must pass a loader to import modules"
     end
     local st = symtab.new()
-    add_basic_types(st)
     local errors = {subject = subject, filename = filename}
     checktoplevel(ast, st, errors, loader)
     checkbodies(ast, st, errors)
