@@ -937,6 +937,59 @@ describe("Titan code generator", function()
         assert.truthy(ok, err)
     end)
 
+    it("casts from integer to boolean", function()
+        local code = [[
+            function f (a:integer, b:integer): boolean
+                return a and b
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check("test", ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", ast)
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", [[
+            assert(true==titan_test.f(2, 3))
+        ]])
+        assert.truthy(ok, err)
+    end)
+
+    it("and between two integers", function()
+        local code = [[
+            function f (a:integer, b:integer): integer
+                return a and b
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check("test", ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", ast)
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", [[
+            assert(3==titan_test.f(2, 3))
+        ]])
+        assert.truthy(ok, err)
+    end)
+
+    it("or between two integers", function()
+        local code = [[
+            function f (a:integer, b:integer): integer
+                return a or b
+            end
+        ]]
+        local ast, err = parser.parse(code)
+        assert.truthy(ast, err)
+        local ok, err = checker.check("test", ast, code, "test.titan")
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", ast)
+        assert.truthy(ok, err)
+        local ok, err = call("titan_test", [[
+            assert(2==titan_test.f(2, 3))
+        ]])
+        assert.truthy(ok, err)
+    end)
 end)
 
 
