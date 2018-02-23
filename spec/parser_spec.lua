@@ -200,13 +200,13 @@ describe("Titan parser", function()
             local function bar()
             end
         ]], {
-            { _tag = "AstTopLevelFunc", name = "foo", rettypes = { { name = "nil" } } },
-            { _tag = "AstTopLevelFunc", name = "bar", rettypes = { { name = "nil" } } },
+            { _tag = "AstTopLevelFunc", name = "foo", rettypes = { { _tag = "AstTypeNil" } } },
+            { _tag = "AstTopLevelFunc", name = "bar", rettypes = { { _tag = "AstTypeNil" } } },
         })
     end)
 
     it("can parse primitive types", function()
-        assert_type_ast("nil", { _tag = "AstTypeName", name = "nil" } )
+        assert_type_ast("nil", { _tag = "AstTypeNil" } )
         assert_type_ast("int", { _tag = "AstTypeName", name = "int" } )
     end)
 
@@ -637,8 +637,8 @@ describe("Titan parser", function()
             { _tag = "AstTopLevelRecord",
               name = "Point",
               fields = {
-                { name = "x", type = { name = "float" } },
-                { name = "y", type = { name = "float" } } } },
+                { name = "x", type = { _tag = "AstTypeFloat" } },
+                { name = "y", type = { _tag = "AstTypeFloat" } } } },
         })
 
         assert_program_ast([[
@@ -728,18 +728,35 @@ describe("Titan parser", function()
 
     it("can parse cast expressions", function()
         assert_expression_ast([[ foo as integer ]],
-            { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeName", name = "integer" } })
+            { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeInteger" } })
         assert_expression_ast([[ a.b[1].c as integer ]],
-            { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeName", name = "integer" } })
+            { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeInteger" } })
         assert_expression_ast([[ foo as { integer } ]],
             { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeArray" } })
         assert_expression_ast([[ 2 + foo as integer ]],
-            { rhs = { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeName", name = "integer" } }})
+            { rhs = { _tag = "AstExpCast", exp = { _tag = "AstExpVar" }, target = { _tag = "AstTypeInteger" } }})
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()
         assert_statements_syntax_error([[ local (x) = 42 ]], "DeclLocal")
         assert_statements_syntax_error([[ (x) = 42 ]], "ExpAssign")
+    end)
+
+    it("does not allow identifiers that are type names", function()
+        assert_program_syntax_error([[
+            function integer()
+            end
+        ]], "NameFunc")
+
+        assert_program_syntax_error([[
+            function f()
+                local integer: integer = 10
+            end
+        ]], "DeclLocal")
+    end)
+
+    it("doesn't allow using a primitive type as a record", function()
+        assert_expression_syntax_error("integer.new(10)", "ExpAssign")
     end)
 
     it("uses specific error labels for some errors", function()

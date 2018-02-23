@@ -140,7 +140,7 @@ do
     ) / function(parts) return table.concat(parts) end
 end
 
-lexer.STRING = shortstring + longstring
+lexer.STRINGLIT = shortstring + longstring
 
 --
 -- Spaces and Comments
@@ -166,7 +166,9 @@ local keywords = {
     "and", "break", "do", "else", "elseif", "end", "for", "false",
     "function", "goto", "if", "in", "local", "nil", "not", "or",
     "repeat", "return", "then", "true", "until", "while", "import",
-    "record", "as"
+    "record", "as",
+
+    "boolean", "integer", "float", "string", "value"
 }
 
 for _, keyword in ipairs(keywords) do

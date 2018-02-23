@@ -905,8 +905,8 @@ local function codebinaryop(ctx, node, iscondition)
     if op == "and" then
         local lstats, lcode = codeexp(ctx, node.lhs, iscondition)
         local rstats, rcode = codeexp(ctx, node.rhs, iscondition)
-        if lstats == "" and rstats == "" then
-            return "(" .. lcode .. " && " .. rcode .. ")"
+        if lstats == "" and rstats == "" and iscondition then
+            return "", "(" .. lcode .. " && " .. rcode .. ")"
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
             local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""
@@ -933,8 +933,8 @@ local function codebinaryop(ctx, node, iscondition)
     elseif op == "or" then
         local lstats, lcode = codeexp(ctx, node.lhs, true)
         local rstats, rcode = codeexp(ctx, node.rhs, iscondition)
-        if lstats == "" and rstats == "" then
-            return "(" .. lcode .. " || " .. rcode .. ")"
+        if lstats == "" and rstats == "" and iscondition then
+            return "", "(" .. lcode .. " || " .. rcode .. ")"
         else
             local ctmp, tmpname, tmpslot = newtmp(ctx, node._type, types.is_gc(node._type))
             local tmpset = types.is_gc(node._type) and setslot(node._type, tmpslot, tmpname) or ""

@@ -2,6 +2,12 @@ local typedecl = require 'titan-compiler.typedecl'
 
 return typedecl({"_pos"}, "Ast", {
     Type = {
+        TypeNil         = {},
+        TypeBoolean     = {},
+        TypeInteger     = {},
+        TypeFloat       = {},
+        TypeString      = {},
+        TypeValue       = {},
         TypeName        = {"name"},
         TypeArray       = {"subtype"},
         TypeFunction    = {"argtypes", "rettypes"},

@@ -34,7 +34,7 @@ function defs.rettypeopt(pos, x)
     if not x then
         -- When possible, we should change this default to the empty list
         -- or infer the return type.
-        return { ast.TypeName(pos, "nil") }
+        return { ast.TypeNil(pos) }
     else
         return x
     end
@@ -51,9 +51,9 @@ function defs.boolopt(x)
     return x ~= ""
 end
 
-function defs.nil_exp(pos--[[ s ]])
-    -- We can't call AstExpNil directly in the parser because we
-    -- need to drop the string capture that comes by default.
+function defs.nil_exp(pos--[[, s ]])
+    -- We can't call ast.ExpNil directly in the parser because we
+    -- need to drop the string capture that comes in the second argument.
     return ast.ExpNil(pos)
 end
 
@@ -204,8 +204,8 @@ local grammar = re.compile([[
 
     import          <- ({} LOCAL (NAME / %{NameImport}) (ASSIGN / %{AssignImport})
                           (IMPORT / %{ImportImport})
-                          (LPAREN (STRING / %{StringLParImport}) (RPAREN / %{RParImport}) /
-                          (STRING / %{StringImport})))           -> TopLevelImport
+                          (LPAREN (STRINGLIT / %{StringLParImport}) (RPAREN / %{RParImport}) /
+                          (STRINGLIT / %{StringImport})))        -> TopLevelImport
 
     rettypeopt      <- ({} (COLON (rettype / %{TypeFunc}))?)     -> rettypeopt
 
@@ -218,7 +218,12 @@ local grammar = re.compile([[
     decl            <- ({} NAME (COLON
                             (type / %{TypeDecl}))? -> opt)       -> Decl
 
-    simpletype      <- ({} NIL -> 'nil')                         -> TypeName
+    simpletype      <- ({} NIL)                                  -> TypeNil
+                     / ({} BOOLEAN)                              -> TypeBoolean
+                     / ({} INTEGER)                              -> TypeInteger
+                     / ({} FLOAT)                                -> TypeFloat
+                     / ({} STRING)                               -> TypeString
+                     / ({} VALUE)                                -> TypeValue
                      / ({} NAME)                                 -> TypeName
                      / ({} LCURLY (type / %{TypeType})
                                   (RCURLY / %{RCurlyType}))      -> TypeArray
@@ -331,7 +336,7 @@ local grammar = re.compile([[
                      / ({} FALSE -> tofalse)                     -> ExpBool
                      / ({} TRUE -> totrue)                       -> ExpBool
                      / ({} NUMBER)                               -> number_exp
-                     / ({} STRING)                               -> ExpString
+                     / ({} STRINGLIT)                            -> ExpString
                      / initlist                                  -- produces Exp
                      / suffixedexp                               -- produces Exp
                      / prefixexp                                 -- produces Exp
@@ -342,7 +347,7 @@ local grammar = re.compile([[
     funcargs        <- (LPAREN explist
                                (RPAREN / %{RParFuncArgs}))       -- produces {Exp}
                      / {| initlist |}                            -- produces {Exp}
-                     / {| ({} STRING) -> ExpString |}            -- produces {Exp}
+                     / {| ({} STRINGLIT) -> ExpString |}         -- produces {Exp}
 
     explist         <- {| (exp (COMMA (exp / %{ExpExpList}))*)? |} -- produces {Exp}
 
@@ -391,6 +396,12 @@ local grammar = re.compile([[
     IMPORT          <- %IMPORT SKIP*
     AS              <- %AS SKIP*
 
+    BOOLEAN         <- %BOOLEAN SKIP*
+    INTEGER         <- %INTEGER SKIP*
+    FLOAT           <- %FLOAT SKIP*
+    STRING          <- %STRING SKIP*
+    VALUE           <- %VALUE SKIP*
+
     ADD             <- %ADD SKIP*
     SUB             <- %SUB SKIP*
     MUL             <- %MUL SKIP*
@@ -427,7 +438,7 @@ local grammar = re.compile([[
     RARROW          <- %RARROW SKIP*
 
     NUMBER          <- %NUMBER SKIP*
-    STRING          <- %STRING SKIP*
+    STRINGLIT       <- %STRINGLIT SKIP*
     NAME            <- %NAME SKIP*
 
     -- Synonyms
