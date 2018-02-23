@@ -340,15 +340,15 @@ checkvar = util.make_visitor({
                 node._type = decl
             end
         elseif vartype._tag == "TypeType" then
-            local type = vartype.type
-            if type._tag == "TypeRecord" then
+            local typ = vartype.type
+            if typ._tag == "TypeRecord" then
                 if node.name == "new" then
                     local params = {}
-                    for _, field in ipairs(type.fields) do
+                    for _, field in ipairs(typ.fields) do
                         table.insert(params, field.type)
                     end
-                    node._decl = type
-                    node._type = types.Function(params, {type})
+                    node._decl = typ
+                    node._type = types.Function(params, {typ})
                 else
                     typeerror(errors, "trying to access invalid record " ..
                               "member '%s'", node._pos, node.name)
@@ -887,8 +887,8 @@ local toplevel_visitor = util.make_visitor({
     ["AstTopLevelRecord"] = function(node, st, errors)
         local fields = {}
         for _, field in ipairs(node.fields) do
-            local type = typefromnode(field.type, st, errors)
-            table.insert(fields, {type = type, name = field.name})
+            local typ = typefromnode(field.type, st, errors)
+            table.insert(fields, {type = typ, name = field.name})
         end
         node._type = types.Type(types.Record(node.name, fields))
     end,
