@@ -73,7 +73,7 @@ typefromnode = util.make_visitor({
     ["AstTypeName"] = function(node, st, errors)
         local name = node.name
         local sym = st:find_symbol(name)
-	    if sym then
+        if sym then
             if sym._type._tag == "TypeType" then
                 return sym._type.type
             else
@@ -89,7 +89,6 @@ typefromnode = util.make_visitor({
     ["AstTypeArray"] = function(node, st, errors)
         return types.Array(typefromnode(node.subtype, st, errors))
     end,
-
 
     ["AstTypeFunction"] = function(node, st, errors)
         if #node.argtypes ~= 1 then
