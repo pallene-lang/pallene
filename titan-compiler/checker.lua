@@ -253,7 +253,7 @@ checkstat = util.make_visitor({
         checkvar(node.var, st, errors)
         checkexp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
-        if texp._tag == "Module" then
+        if texp._tag == "TypeModule" then
             typeerror(errors, "trying to assign to a module", node._pos)
         elseif texp._tag == "TypeFunction" then
             typeerror(errors, "trying to assign to a function", node._pos)
@@ -329,7 +329,7 @@ checkvar = util.make_visitor({
         checkvar(var, st, errors)
         node.exp._type = var._type
         local vartype = var._type
-        if vartype._tag == "Module" then
+        if vartype._tag == "TypeModule" then
             local mod = vartype
             if not mod.members[node.name] then
                 typeerror(errors, "variable '%s' not found inside module '%s'",
@@ -451,7 +451,7 @@ checkexp = util.make_visitor({
     ["AstExpVar"] = function(node, st, errors, context)
         checkvar(node.var, st, errors, context)
         local texp = node.var._type
-        if texp._tag == "Module" then
+        if texp._tag == "TypeModule" then
             typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
             node._type = types.Integer()
         elseif texp._tag == "TypeFunction" then
