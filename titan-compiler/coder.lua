@@ -654,7 +654,7 @@ end
 local function codereturn(ctx, node)
     local cstats, cexp = codeexp(ctx, node.exp)
     local tmpl
-    if types.is_gc(node._type) then
+    if types.is_gc(node.exp._type) then
         return render([[
             $CSTATS
             $CTYPE ret = $CEXP;
@@ -665,8 +665,8 @@ local function codereturn(ctx, node)
         ]], {
             CSTATS = cstats,
             CEXP = cexp,
-            CTYPE = ctype(node._type),
-            SETSLOT = setslot(node._type, "_retslot", "ret")
+            CTYPE = ctype(node.exp._type),
+            SETSLOT = setslot(node.exp._type, "_retslot", "ret")
         })
     elseif ctx.nslots > 0 then
         tmpl = [[

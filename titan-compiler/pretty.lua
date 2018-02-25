@@ -1,7 +1,7 @@
 local pretty = {}
 
--- This pretty printer allows us to ignore indentation while generating our C
--- code but still get a readable result in the end.
+-- This pretty printer allows us generate readable C code without needing to
+-- worry about indenting it as we generate it.
 --
 -- To keep the implementation simple, we assume that the input C code conforms
 -- to our style guide for generated C code, which is described here. The
@@ -64,13 +64,15 @@ function pretty.reindent_c(input)
             if indent < 0 then indent = 0 end
         end
         if do_print then
-            table.insert(out, ("    "):rep(indent) .. line)
+            table.insert(out, string.rep("    ", indent))
+            table.insert(out, line)
+            table.insert(out, "\n")
         end
         if line:match("{$") then
             indent = indent + 1
         end
     end
-    return table.concat(out, "\n") .. "\n"
+    return table.concat(out)
 end
 
 return pretty

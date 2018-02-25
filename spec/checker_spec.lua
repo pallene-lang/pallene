@@ -1060,7 +1060,7 @@ describe("Titan type checker", function()
         local ok, err, mods = run_checker_modules(modules, "test")
         assert.truthy(ok)
         assert_ast(mods.test.type, {
-            _tag = "Module",
+            _tag = "TypeModule",
             name = "test",
             members = {
                 a = { _tag = "TypeInteger" },
@@ -1096,7 +1096,7 @@ describe("Titan type checker", function()
         assert.truthy(ok)
         assert.truthy(mods.foo)
         assert_ast(mods.foo.type, {
-            _tag = "Module",
+            _tag = "TypeModule",
             name = "foo",
             members = {
                 a = { _tag = "TypeInteger" },

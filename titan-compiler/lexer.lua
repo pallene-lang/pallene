@@ -95,6 +95,8 @@ do
                 return open == close
             end)
 
+    -- A sequence of up to 3 decimal digits
+    -- representing a non-negative integer less than 256
     local decimal_escape = P("1") * R("09") * R("09") +
         P("2") * R("04") * R("09") +
         P("2") * P("5") * R("05") +

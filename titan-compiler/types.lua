@@ -36,8 +36,11 @@ end
 
 -- XXX this should be inside typedecl call
 -- constructors shouldn't do more than initalize members
+-- XXX this should not be a type. This makes it possible to
+-- construct nonsense things like a function type that returns
+-- a module type
 function types.Module(modname, members)
-    return { _tag = "Module", name = modname,
+    return { _tag = "TypeModule", name = modname,
         prefix = modname:gsub("[%-.]", "_") .. "_",
         file = modname:gsub("[.]", "/") .. ".so",
         members = members }
@@ -151,7 +154,7 @@ end
 
 -- Builds a type for the module from the types of its public members
 --   ast: AST for the module
---   returns "Module" type
+--   returns "TypeModule" type
 function types.makemoduletype(modname, ast)
     local members = {}
     for _, tlnode in ipairs(ast) do
@@ -171,7 +174,7 @@ function types.serialize(t)
     local tag = t._tag
     if tag == "TypeArray" then
         return "Array(" ..types.serialize(t.elem) .. ")"
-    elseif tag == "Module" then
+    elseif tag == "TypeModule" then
         local members = {}
         for name, member in pairs(t.members) do
             table.insert(members, name .. " = " .. types.serialize(member))

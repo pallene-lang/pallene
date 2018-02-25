@@ -14,6 +14,7 @@ local util = require "titan-compiler.util"
 -- themselves are in "types.lua".
 
 local typefromnode
+local checkdecl
 local checkstat
 local checkexp
 local checkvar
@@ -135,6 +136,15 @@ local function trytostr(node)
 end
 
 --
+-- Decl
+--
+
+checkdecl = function(node, st, errors)
+    st:add_symbol(node.name, node)
+    node._type = node._type or typefromnode(node.type, st, errors)
+end
+
+--
 -- Stat
 --
 
@@ -159,7 +169,7 @@ end
 local function checkfor(node, st, errors)
     local ftype
     if node.decl.type then
-      checkstat(node.decl, st, errors)
+      checkdecl(node.decl, st, errors)
       ftype = node.decl._type
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
@@ -173,7 +183,7 @@ local function checkfor(node, st, errors)
       checkexp(node.start, st, errors)
       ftype = node.start._type
       node.decl._type = ftype
-      checkstat(node.decl, st, errors)
+      checkdecl(node.decl, st, errors)
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
@@ -213,19 +223,14 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for repeat/until)
 checkstat = util.make_visitor({
-    ["AstDecl"] = function(node, st, errors)
-        st:add_symbol(node.name, node)
-        node._type = node._type or typefromnode(node.type, st, errors)
-    end,
-
     ["AstStatDecl"] = function(node, st, errors)
         if node.decl.type then
-          checkstat(node.decl, st, errors)
+          checkdecl(node.decl, st, errors)
           checkexp(node.exp, st, errors, node.decl._type)
         else
           checkexp(node.exp, st, errors)
           node.decl._type = node.exp._type
-          checkstat(node.decl, st, errors)
+          checkdecl(node.decl, st, errors)
         end
         node.exp = trycoerce(node.exp, node.decl._type, errors)
         checkmatch("declaration of local variable " .. node.decl.name,
@@ -253,7 +258,7 @@ checkstat = util.make_visitor({
         checkvar(node.var, st, errors)
         checkexp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
-        if texp._tag == "Module" then
+        if texp._tag == "TypeModule" then
             typeerror(errors, "trying to assign to a module", node._pos)
         elseif texp._tag == "TypeFunction" then
             typeerror(errors, "trying to assign to a function", node._pos)
@@ -279,9 +284,7 @@ checkstat = util.make_visitor({
         local tret = ftype.rettypes[1]
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret, errors)
-        node._type = tret
         checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
-        node._type = tret
         return true
     end,
 
@@ -329,7 +332,7 @@ checkvar = util.make_visitor({
         checkvar(var, st, errors)
         node.exp._type = var._type
         local vartype = var._type
-        if vartype._tag == "Module" then
+        if vartype._tag == "TypeModule" then
             local mod = vartype
             if not mod.members[node.name] then
                 typeerror(errors, "variable '%s' not found inside module '%s'",
@@ -451,7 +454,7 @@ checkexp = util.make_visitor({
     ["AstExpVar"] = function(node, st, errors, context)
         checkvar(node.var, st, errors, context)
         local texp = node.var._type
-        if texp._tag == "Module" then
+        if texp._tag == "TypeModule" then
             typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
             node._type = types.Integer()
         elseif texp._tag == "TypeFunction" then
