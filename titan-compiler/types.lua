@@ -47,16 +47,16 @@ function types.Module(modname, members)
 end
 
 function types.coerceable(source, target)
-    return (types.equals(source, types.Integer()) and
-            types.equals(target, types.Float())) or
-           (types.equals(source, types.Float()) and
-            types.equals(target, types.Integer())) or
-           (types.equals(target, types.Boolean()) and
-            not types.equals(source, types.Boolean())) or
-           (types.equals(target, types.Value()) and
-            not types.equals(source, types.Value())) or
-           (types.equals(source, types.Value()) and
-            not types.equals(target, types.Value()))
+    return (source._tag == "TypeInteger" and
+            target._tag == "TypeFloat") or
+           (source._tag == "TypeFloat" and
+            target._tag == "TypeInteger") or
+           (target._tag == "TypeBoolean" and
+            source._tag ~= "TypeBoolean") or
+           (target._tag == "TypeValue" and
+            source._tag ~= "TypeValue") or
+           (source._tag == "TypeValue" and
+            target._tag ~= "TypeValue")
 end
 
 -- The type consistency relation, a-la gradual typing
