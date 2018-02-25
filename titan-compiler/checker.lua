@@ -284,9 +284,7 @@ checkstat = util.make_visitor({
         local tret = ftype.rettypes[1]
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret, errors)
-        node._type = tret
         checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
-        node._type = tret
         return true
     end,
 
