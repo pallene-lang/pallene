@@ -174,8 +174,8 @@ local function checkfor(node, st, errors)
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
-        node.decl._type = types.Integer()
-        ftype = types.Integer()
+        node.decl._type = types.Invalid()
+        ftype = types.Invalid()
       end
       checkexp(node.start, st, errors, ftype)
       node.start = trycoerce(node.start, ftype, errors)
@@ -187,8 +187,8 @@ local function checkfor(node, st, errors)
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
-        node.decl._type = types.Integer()
-        ftype = types.Integer()
+        node.decl._type = types.Invalid()
+        ftype = types.Invalid()
       end
     end
     checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._pos)
@@ -319,7 +319,7 @@ checkvar = util.make_visitor({
         if not decl then
             local msg = "variable '" .. node.name .. "' not declared"
             typeerror(errors, msg, node._pos)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         else
             decl._used = true
             node._decl = decl
@@ -385,7 +385,7 @@ checkvar = util.make_visitor({
         if node.exp1._type._tag ~= "TypeArray" then
             typeerror(errors, "array expression in indexing is not an array but "
                 .. types.tostring(node.exp1._type), node.exp1._pos)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         else
             node._type = node.exp1._type.elem
         end
@@ -456,10 +456,10 @@ checkexp = util.make_visitor({
         local texp = node.var._type
         if texp._tag == "TypeModule" then
             typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         elseif texp._tag == "TypeFunction" then
             typeerror(errors, "trying to access a function as a first-class value", node._pos)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         else
             node._type = texp
         end
@@ -574,69 +574,69 @@ checkexp = util.make_visitor({
             end
             node._type = types.Boolean()
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            if not (types.equals(tlhs, types.Integer()) or types.equals(tlhs, types.Float())) then
+            if not (tlhs._tag == "TypeInteger" or tlhs._tag == "TypeFloat") then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
-            if not (types.equals(trhs, types.Integer()) or types.equals(trhs, types.Float())) then
+            if not (trhs._tag == "TypeInteger" or trhs._tag == "TypeFloat") then
                 typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             -- tries to coerce to value if either side is value
-            if types.equals(tlhs, types.Value()) or types.equals(trhs, types.Value()) then
+            if tlhs._tag == "TypeValue" or trhs._tag == "TypeValue" then
                 node.lhs = trycoerce(node.lhs, types.Value(), errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Value(), errors)
                 trhs = node.rhs._type
             end
             -- tries to coerce to float if either side is float
-            if types.equals(tlhs, types.Float()) or types.equals(trhs, types.Float()) then
+            if tlhs._tag == "TypeFloat" or trhs._tag == "TypeFloat" then
                 node.lhs = trycoerce(node.lhs, types.Float(), errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Float(), errors)
                 trhs = node.rhs._type
             end
-            if types.equals(tlhs, types.Float()) and types.equals(trhs, types.Float()) then
+            if tlhs._tag == "TypeFloat" and trhs._tag == "TypeFloat" then
                 node._type = types.Float()
-            elseif types.equals(tlhs, types.Integer()) and types.equals(trhs, types.Integer()) then
+            elseif tlhs._tag == "TypeInteger" and trhs._tag == "TypeInteger" then
                 node._type = types.Integer()
             else
                 -- error
-                node._type = types.Integer()
+                node._type = types.Invalid()
             end
         elseif op == "/" or op == "^" then
-            if types.equals(tlhs, types.Integer()) then
+            if tlhs._tag == "TypeInteger" then
                 -- always tries to coerce to float
                 node.lhs = trycoerce(node.lhs, types.Float(), errors)
                 tlhs = node.lhs._type
             end
-            if types.equals(trhs, types.Integer()) then
+            if trhs._tag == "TypeInteger" then
                 -- always tries to coerce to float
                 node.rhs = trycoerce(node.rhs, types.Float(), errors)
                 trhs = node.rhs._type
             end
-            if not types.equals(tlhs, types.Float()) then
+            if tlhs._tag ~= "TypeFloat" then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
-            if not types.equals(trhs, types.Float()) then
+            if trhs._tag ~= "TypeFloat" then
                 typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Float()
         elseif op == "and" or op == "or" then
             -- tries to coerce to boolean if other side is boolean
-            if types.equals(tlhs, types.Boolean()) or types.equals(trhs, types.Boolean()) then
+            if tlhs._tag == "TypeBoolean" or trhs._tag == "TypeBoolean" then
                 node.lhs = trycoerce(node.lhs, types.Boolean(), errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Boolean(), errors)
                 trhs = node.rhs._type
             end
             -- tries to coerce to value if other side is value
-            if types.equals(tlhs, types.Value()) or types.equals(trhs, types.Value()) then
+            if tlhs._tag == "TypeValue" or trhs._tag == "TypeValue" then
                 node.lhs = trycoerce(node.lhs, types.Value(), errors)
                 tlhs = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.Value(), errors)
                 trhs = node.rhs._type
             end
             -- tries to coerce to float if other side is float
-            if types.equals(tlhs, types.Float()) or types.equals(trhs, types.Float()) then
+            if tlhs._tag == "TypeFloat" or trhs._tag == "TypeFloat" then
               node.lhs = trycoerce(node.lhs, types.Float(), errors)
               tlhs = node.lhs._type
               node.rhs = trycoerce(node.rhs, types.Float(), errors)
@@ -650,15 +650,15 @@ checkexp = util.make_visitor({
             node._type = tlhs
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce floats to integer
-            node.lhs = types.equals(node.lhs._type, types.Float()) and trycoerce(node.lhs, types.Integer(), errors) or node.lhs
+            node.lhs = node.lhs._type._tag == "TypeFloat" and trycoerce(node.lhs, types.Integer(), errors) or node.lhs
             tlhs = node.lhs._type
             -- always tries to coerce floats to integer
-            node.rhs = types.equals(node.rhs._type, types.Float()) and trycoerce(node.rhs, types.Integer(), errors) or node.rhs
+            node.rhs = node.rhs._type._tag == "TypeFloat" and trycoerce(node.rhs, types.Integer(), errors) or node.rhs
             trhs = node.rhs._type
-            if not types.equals(tlhs, types.Integer()) then
+            if tlhs._tag ~= "TypeInteger" then
                 typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
             end
-            if not types.equals(trhs, types.Integer()) then
+            if trhs._tag ~= "TypeInteger" then
                 typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
             end
             node._type = types.Integer()
@@ -707,7 +707,7 @@ checkexp = util.make_visitor({
             for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
-            node._type = types.Integer()
+            node._type = types.Invalid()
         end
     end,
 
@@ -750,7 +750,7 @@ local function checkfunc(node, st, errors)
     end
     assert(#node._type.rettypes == 1)
     local ret = st:with_block(checkstat, node.block, st, errors)
-    if not ret and not types.equals(node._type.rettypes[1], types.Nil()) then
+    if not ret and node._type.rettypes[1]._tag ~= "TypeNil" then
         typeerror(errors, "function can return nil but return type is not nil", node._pos)
     end
 end

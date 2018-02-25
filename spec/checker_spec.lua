@@ -174,6 +174,16 @@ describe("Titan type checker", function()
         assert.match("array expression in indexing is not an array", err)
     end)
 
+    it("accepts correct use of length operator", function()
+        local code = [[
+            function fn(x: {integer}): integer
+                return #x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.truthy(ok)
+    end)
+
     it("catches wrong use of length operator", function()
         local code = [[
             function fn(x: integer): integer
