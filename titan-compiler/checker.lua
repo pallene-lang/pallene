@@ -474,7 +474,7 @@ checkexp = util.make_visitor({
             if texp._tag ~= "TypeArray" and texp._tag ~= "TypeString" then
                 typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", pos)
             end
-            node._type = types.Invalid()
+            node._type = types.Integer()
         elseif op == "-" then
             if texp._tag ~= "TypeInteger" and texp._tag ~= "TypeFloat" then
                 typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", pos)
