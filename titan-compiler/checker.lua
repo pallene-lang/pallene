@@ -14,6 +14,7 @@ local util = require "titan-compiler.util"
 -- themselves are in "types.lua".
 
 local typefromnode
+local checkdecl
 local checkstat
 local checkexp
 local checkvar
@@ -135,6 +136,15 @@ local function trytostr(node)
 end
 
 --
+-- Decl
+--
+
+checkdecl = function(node, st, errors)
+    st:add_symbol(node.name, node)
+    node._type = node._type or typefromnode(node.type, st, errors)
+end
+
+--
 -- Stat
 --
 
@@ -159,7 +169,7 @@ end
 local function checkfor(node, st, errors)
     local ftype
     if node.decl.type then
-      checkstat(node.decl, st, errors)
+      checkdecl(node.decl, st, errors)
       ftype = node.decl._type
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
@@ -173,7 +183,7 @@ local function checkfor(node, st, errors)
       checkexp(node.start, st, errors)
       ftype = node.start._type
       node.decl._type = ftype
-      checkstat(node.decl, st, errors)
+      checkdecl(node.decl, st, errors)
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
@@ -213,19 +223,14 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for repeat/until)
 checkstat = util.make_visitor({
-    ["AstDecl"] = function(node, st, errors)
-        st:add_symbol(node.name, node)
-        node._type = node._type or typefromnode(node.type, st, errors)
-    end,
-
     ["AstStatDecl"] = function(node, st, errors)
         if node.decl.type then
-          checkstat(node.decl, st, errors)
+          checkdecl(node.decl, st, errors)
           checkexp(node.exp, st, errors, node.decl._type)
         else
           checkexp(node.exp, st, errors)
           node.decl._type = node.exp._type
-          checkstat(node.decl, st, errors)
+          checkdecl(node.decl, st, errors)
         end
         node.exp = trycoerce(node.exp, node.decl._type, errors)
         checkmatch("declaration of local variable " .. node.decl.name,
