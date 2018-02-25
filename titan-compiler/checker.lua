@@ -174,8 +174,8 @@ local function checkfor(node, st, errors)
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
-        node.decl._type = types.Integer()
-        ftype = types.Integer()
+        node.decl._type = types.Invalid()
+        ftype = types.Invalid()
       end
       checkexp(node.start, st, errors, ftype)
       node.start = trycoerce(node.start, ftype, errors)
@@ -187,8 +187,8 @@ local function checkfor(node, st, errors)
       if ftype._tag ~= "TypeInteger" and
          ftype._tag ~= "TypeFloat" then
         typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
-        node.decl._type = types.Integer()
-        ftype = types.Integer()
+        node.decl._type = types.Invalid()
+        ftype = types.Invalid()
       end
     end
     checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._pos)
@@ -319,7 +319,7 @@ checkvar = util.make_visitor({
         if not decl then
             local msg = "variable '" .. node.name .. "' not declared"
             typeerror(errors, msg, node._pos)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         else
             decl._used = true
             node._decl = decl
@@ -385,7 +385,7 @@ checkvar = util.make_visitor({
         if node.exp1._type._tag ~= "TypeArray" then
             typeerror(errors, "array expression in indexing is not an array but "
                 .. types.tostring(node.exp1._type), node.exp1._pos)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         else
             node._type = node.exp1._type.elem
         end
@@ -456,10 +456,10 @@ checkexp = util.make_visitor({
         local texp = node.var._type
         if texp._tag == "TypeModule" then
             typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         elseif texp._tag == "TypeFunction" then
             typeerror(errors, "trying to access a function as a first-class value", node._pos)
-            node._type = types.Integer()
+            node._type = types.Invalid()
         else
             node._type = texp
         end
@@ -474,7 +474,7 @@ checkexp = util.make_visitor({
             if texp._tag ~= "TypeArray" and texp._tag ~= "TypeString" then
                 typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", pos)
             end
-            node._type = types.Integer()
+            node._type = types.Invalid()
         elseif op == "-" then
             if texp._tag ~= "TypeInteger" and texp._tag ~= "TypeFloat" then
                 typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", pos)
@@ -600,7 +600,7 @@ checkexp = util.make_visitor({
                 node._type = types.Integer()
             else
                 -- error
-                node._type = types.Integer()
+                node._type = types.Invalid()
             end
         elseif op == "/" or op == "^" then
             if tlhs._tag == "TypeInteger" then
@@ -707,7 +707,7 @@ checkexp = util.make_visitor({
             for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
-            node._type = types.Integer()
+            node._type = types.Invalid()
         end
     end,
 
