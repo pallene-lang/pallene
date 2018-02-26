@@ -64,7 +64,7 @@ function driver.defaultloader(modname)
     if not mtime_src then return false, "module '" .. modname .. "' not found" end
     local input, err = util.get_file_contents(srcf)
     if not input then return false, err end
-    local ast, err = parser.parse(input)
+    local ast, err = parser.parse(srcf, input)
     if not ast then return false, parser.error_to_string(err, srcf) end
     driver.imported[modname] = CIRCULAR_MARK
     local modt, errors = checker.check(modname, ast, input, srcf, driver.defaultloader)
@@ -84,7 +84,7 @@ function driver.tableloader(modtable, imported)
         end
         local modf = "./" .. modname .. ".titan"
         local input = modtable[modname]
-        local ast, err = parser.parse(modtable[modname])
+        local ast, err = parser.parse(modf, modtable[modname])
         if not ast then return false, parser.error_to_string(err, modf) end
         imported[modname] = CIRCULAR_MARK
         local modt, errors = checker.check(modname, ast, input, modf, loader)

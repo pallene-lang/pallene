@@ -1,6 +1,6 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl({"_pos"}, "Ast", {
+return typedecl({"_loc"}, "Ast", {
     Type = {
         TypeNil         = {},
         TypeBoolean     = {},

@@ -6,7 +6,7 @@ local util = require 'titan-compiler.util'
 
 local function run_checker(code)
     driver.imported = {}
-    local ast = assert(parser.parse(code))
+    local ast = assert(parser.parse("(checker_spec)", code))
     local t, errs = checker.check("test", ast, code, "test.titan", driver.defaultloader)
     return #errs == 0, table.concat(errs, "\n"), ast, t
 end

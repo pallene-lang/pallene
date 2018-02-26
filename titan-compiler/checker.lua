@@ -1,5 +1,6 @@
 local checker = {}
 
+local location = require "titan-compiler.location"
 local symtab = require "titan-compiler.symtab"
 local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
@@ -19,11 +20,9 @@ local checkstat
 local checkexp
 local checkvar
 
-local function typeerror(errors, msg, pos, ...)
-    local l, c = util.get_line_number(errors.subject, pos)
-    msg = string.format("%s:%d:%d: type error: %s", errors.filename, l, c,
-                        string.format(msg, ...))
-    table.insert(errors, msg)
+local function typeerror(errors, fmt, loc, ...)
+    local errmsg = location.format_error(loc, "type error: "..fmt, ...)
+    table.insert(errors, errmsg)
 end
 
 checker.typeerror = typeerror
@@ -33,12 +32,12 @@ checker.typeerror = typeerror
 --   expected: type that is expected
 --   found: type that was actually present
 --   errors: list of compile-time errors
---   pos: position of the term that is being compared
-local function checkmatch(term, expected, found, errors, pos)
+--   loc: location of the term that is being compared
+local function checkmatch(term, expected, found, errors, loc)
     if types.coerceable(found, expected) or not types.compatible(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
         msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
-        typeerror(errors, msg, pos)
+        typeerror(errors, msg, loc)
     end
 end
 
@@ -78,11 +77,11 @@ typefromnode = util.make_visitor({
             if sym._type._tag == "Type.Type" then
                 return sym._type.type
             else
-                typeerror(errors, "%s isn't a type", node._pos, name)
+                typeerror(errors, "%s isn't a type", node._loc, name)
                 return types.Invalid()
             end
         else
-            typeerror(errors, "type '%s' not found", node._pos, name)
+            typeerror(errors, "type '%s' not found", node._loc, name)
             return types.Invalid()
         end
     end,
@@ -113,9 +112,7 @@ typefromnode = util.make_visitor({
 --    returns node wrapped in a coercion, or original node
 local function trycoerce(node, target, errors)
     if types.coerceable(node._type, target) then
-        local n = ast.ExpCast(node._pos, node, target)
-        local l, _ = util.get_line_number(errors.subject, n._pos)
-        n._lin = l
+        local n = ast.ExpCast(node._loc, node, target)
         n._type = target
         return n
     else
@@ -173,7 +170,7 @@ local function checkfor(node, st, errors)
       ftype = node.decl._type
       if ftype._tag ~= "Type.Integer" and
          ftype._tag ~= "Type.Float" then
-        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._loc)
         node.decl._type = types.Invalid()
         ftype = types.Invalid()
       end
@@ -186,19 +183,19 @@ local function checkfor(node, st, errors)
       checkdecl(node.decl, st, errors)
       if ftype._tag ~= "Type.Integer" and
          ftype._tag ~= "Type.Float" then
-        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._pos)
+        typeerror(errors, "type of for control variable " .. node.decl.name .. " must be integer or float", node.decl._loc)
         node.decl._type = types.Invalid()
         ftype = types.Invalid()
       end
     end
-    checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._pos)
+    checkmatch("'for' start expression", ftype, node.start._type, errors, node.start._loc)
     checkexp(node.finish, st, errors, ftype)
     node.finish = trycoerce(node.finish, ftype, errors)
-    checkmatch("'for' finish expression", ftype, node.finish._type, errors, node.finish._pos)
+    checkmatch("'for' finish expression", ftype, node.finish._type, errors, node.finish._loc)
     if node.inc then
         checkexp(node.inc, st, errors, ftype)
         node.inc = trycoerce(node.inc, ftype, errors)
-        checkmatch("'for' step expression", ftype, node.inc._type, errors, node.inc._pos)
+        checkmatch("'for' step expression", ftype, node.inc._type, errors, node.inc._loc)
     end
     checkstat(node.block, st, errors)
     return false
@@ -234,7 +231,7 @@ checkstat = util.make_visitor({
         end
         node.exp = trycoerce(node.exp, node.decl._type, errors)
         checkmatch("declaration of local variable " .. node.decl.name,
-            node.decl._type, node.exp._type, errors, node.decl._pos)
+            node.decl._type, node.exp._type, errors, node.decl._loc)
     end,
 
     ["Ast.StatBlock"] = function(node, st, errors)
@@ -259,9 +256,9 @@ checkstat = util.make_visitor({
         checkexp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
         if texp._tag == "Type.Module" then
-            typeerror(errors, "trying to assign to a module", node._pos)
+            typeerror(errors, "trying to assign to a module", node._loc)
         elseif texp._tag == "Type.Function" then
-            typeerror(errors, "trying to assign to a function", node._pos)
+            typeerror(errors, "trying to assign to a function", node._loc)
         else
             -- mark this declared variable as assigned to
             if node.var._tag == "Ast.VarName" and node.var._decl then
@@ -269,7 +266,7 @@ checkstat = util.make_visitor({
             end
             node.exp = trycoerce(node.exp, node.var._type, errors)
             if node.var._tag ~= "Ast.VarBracket" or node.exp._type._tag ~= "Type.Nil" then
-                checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._pos)
+                checkmatch("assignment", node.var._type, node.exp._type, errors, node.var._loc)
             end
         end
     end,
@@ -284,7 +281,7 @@ checkstat = util.make_visitor({
         local tret = ftype.rettypes[1]
         checkexp(node.exp, st, errors, tret)
         node.exp = trycoerce(node.exp, tret, errors)
-        checkmatch("return", tret, node.exp._type, errors, node.exp._pos)
+        checkmatch("return", tret, node.exp._type, errors, node.exp._loc)
         return true
     end,
 
@@ -318,7 +315,7 @@ checkvar = util.make_visitor({
         local decl = st:find_symbol(node.name)
         if not decl then
             local msg = "variable '" .. node.name .. "' not declared"
-            typeerror(errors, msg, node._pos)
+            typeerror(errors, msg, node._loc)
             node._type = types.Invalid()
         else
             decl._used = true
@@ -336,7 +333,7 @@ checkvar = util.make_visitor({
             local mod = vartype
             if not mod.members[node.name] then
                 typeerror(errors, "variable '%s' not found inside module '%s'",
-                          node._pos, node.name, mod.name)
+                          node._loc, node.name, mod.name)
             else
                 local decl = mod.members[node.name]
                 node._decl = decl
@@ -354,10 +351,10 @@ checkvar = util.make_visitor({
                     node._type = types.Function(params, {typ})
                 else
                     typeerror(errors, "trying to access invalid record " ..
-                              "member '%s'", node._pos, node.name)
+                              "member '%s'", node._loc, node.name)
                 end
             else
-                typeerror(errors, "invalid access to type '%s'", node._pos,
+                typeerror(errors, "invalid access to type '%s'", node._loc,
                           types.tostring(type))
             end
         elseif vartype._tag == "Type.Record" then
@@ -369,22 +366,20 @@ checkvar = util.make_visitor({
             end
             if not node._type then
                 typeerror(errors, "field '%s' not found in record '%s'",
-                          node._pos, node.name, vartype.name)
+                          node._loc, node.name, vartype.name)
             end
         else
             typeerror(errors, "trying to access a member of value of type '%s'",
-                      node._pos, types.tostring(vartype))
+                      node._loc, types.tostring(vartype))
         end
         node._type = node._type or types.Invalid()
     end,
 
     ["Ast.VarBracket"] = function(node, st, errors, context)
-        local l, _ = util.get_line_number(errors.subject, node._pos)
-        node._lin = l
         checkexp(node.exp1, st, errors, context and types.Array(context))
         if node.exp1._type._tag ~= "Type.Array" then
             typeerror(errors, "array expression in indexing is not an array but "
-                .. types.tostring(node.exp1._type), node.exp1._pos)
+                .. types.tostring(node.exp1._type), node.exp1._loc)
             node._type = types.Invalid()
         else
             node._type = node.exp1._type.elem
@@ -392,7 +387,7 @@ checkvar = util.make_visitor({
         checkexp(node.exp2, st, errors, types.Integer())
         -- always try to coerce index to integer
         node.exp2 = trycoerce(node.exp2, types.Integer(), errors)
-        checkmatch("array indexing", types.Integer(), node.exp2._type, errors, node.exp2._pos)
+        checkmatch("array indexing", types.Integer(), node.exp2._type, errors, node.exp2._loc)
     end,
 })
 
@@ -444,7 +439,7 @@ checkexp = util.make_visitor({
                 field.exp = trycoerce(field.exp, etype, errors)
                 local exp = field.exp
                 checkmatch("array initializer at position " .. i, etype,
-                           exp._type, errors, exp._pos)
+                           exp._type, errors, exp._loc)
             end
         else
             node._type = types.InitList(etypes)
@@ -455,10 +450,10 @@ checkexp = util.make_visitor({
         checkvar(node.var, st, errors, context)
         local texp = node.var._type
         if texp._tag == "Type.Module" then
-            typeerror(errors, "trying to access module '%s' as a first-class value", node._pos, node.var.name)
+            typeerror(errors, "trying to access module '%s' as a first-class value", node._loc, node.var.name)
             node._type = types.Invalid()
         elseif texp._tag == "Type.Function" then
-            typeerror(errors, "trying to access a function as a first-class value", node._pos)
+            typeerror(errors, "trying to access a function as a first-class value", node._loc)
             node._type = types.Invalid()
         else
             node._type = texp
@@ -469,15 +464,15 @@ checkexp = util.make_visitor({
         local op = node.op
         checkexp(node.exp, st, errors)
         local texp = node.exp._type
-        local pos = node._pos
+        local loc = node._loc
         if op == "#" then
             if texp._tag ~= "Type.Array" and texp._tag ~= "Type.String" then
-                typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", pos)
+                typeerror(errors, "trying to take the length of a " .. types.tostring(texp) .. " instead of an array or string", loc)
             end
             node._type = types.Integer()
         elseif op == "-" then
             if texp._tag ~= "Type.Integer" and texp._tag ~= "Type.Float" then
-                typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", pos)
+                typeerror(errors, "trying to negate a " .. types.tostring(texp) .. " instead of a number", loc)
             end
             node._type = texp
         elseif op == "~" then
@@ -485,7 +480,7 @@ checkexp = util.make_visitor({
             node.exp = node.exp._type._tag == "Type.Float" and trycoerce(node.exp, types.Integer(), errors) or node.exp
             texp = node.exp._type
             if texp._tag ~= "Type.Integer" then
-                typeerror(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer", pos)
+                typeerror(errors, "trying to bitwise negate a " .. types.tostring(texp) .. " instead of an integer", loc)
             end
             node._type = types.Integer()
         elseif op == "not" then
@@ -505,9 +500,9 @@ checkexp = util.make_visitor({
             node.exps[i] = exp
             local texp = exp._type
             if texp._tag == "Type.Value" then
-                typeerror(errors, "cannot concatenate with value of type 'value'", exp._pos)
+                typeerror(errors, "cannot concatenate with value of type 'value'", exp._loc)
             elseif texp._tag ~= "Type.String" then
-                typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", exp._pos)
+                typeerror(errors, "cannot concatenate with " .. types.tostring(texp) .. " value", exp._loc)
             end
         end
         node._type = types.String()
@@ -519,7 +514,7 @@ checkexp = util.make_visitor({
         local tlhs = node.lhs._type
         checkexp(node.rhs, st, errors)
         local trhs = node.rhs._type
-        local pos = node._pos
+        local loc = node._loc
         if op == "==" or op == "~=" then
             -- tries to coerce to value if either side is value
             if tlhs._tag == "Type.Value" or trhs._tag == "Type.Value" then
@@ -537,7 +532,7 @@ checkexp = util.make_visitor({
             end
             if not types.compatible(tlhs, trhs) then
                 typeerror(errors, "trying to compare values of different types: " ..
-                    types.tostring(tlhs) .. " and " .. types.tostring(trhs), pos)
+                    types.tostring(tlhs) .. " and " .. types.tostring(trhs), loc)
             end
             node._type = types.Boolean()
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
@@ -557,28 +552,28 @@ checkexp = util.make_visitor({
             end
             if not types.equals(tlhs, trhs) then
                 if tlhs._tag ~= "Type.Integer" and tlhs._tag ~= "Type.Float" and trhs._tag == "Type.Integer" or trhs._tag == "Type.Float" then
-                    typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
+                    typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a number", loc)
                 elseif trhs._tag ~= "Type.Integer" and trhs._tag ~= "Type.Float" and tlhs._tag == "Type.Integer" or tlhs._tag == "Type.Float" then
-                    typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                    typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a number", loc)
                 elseif tlhs._tag ~= "Type.String" and trhs._tag == "Type.String" then
-                    typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a string", pos)
+                    typeerror(errors, "left hand side of relational expression is a " .. types.tostring(tlhs) .. " instead of a string", loc)
                 elseif trhs._tag ~= "Type.String" and tlhs._tag == "Type.String" then
-                    typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a string", pos)
+                    typeerror(errors, "right hand side of relational expression is a " .. types.tostring(trhs) .. " instead of a string", loc)
                 else
-                    typeerror(errors, "trying to use relational expression with " .. types.tostring(tlhs) .. " and " .. types.tostring(trhs), pos)
+                    typeerror(errors, "trying to use relational expression with " .. types.tostring(tlhs) .. " and " .. types.tostring(trhs), loc)
                 end
             else
                 if tlhs._tag ~= "Type.Integer" and tlhs._tag ~= "Type.Float" and tlhs._tag ~= "Type.String" then
-                    typeerror(errors, "trying to use relational expression with two " .. types.tostring(tlhs) .. " values", pos)
+                    typeerror(errors, "trying to use relational expression with two " .. types.tostring(tlhs) .. " values", loc)
                 end
             end
             node._type = types.Boolean()
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
             if not (tlhs._tag == "Type.Integer" or tlhs._tag == "Type.Float") then
-                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", loc)
             end
             if not (trhs._tag == "Type.Integer" or trhs._tag == "Type.Float") then
-                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", loc)
             end
             -- tries to coerce to value if either side is value
             if tlhs._tag == "Type.Value" or trhs._tag == "Type.Value" then
@@ -614,10 +609,10 @@ checkexp = util.make_visitor({
                 trhs = node.rhs._type
             end
             if tlhs._tag ~= "Type.Float" then
-                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", loc)
             end
             if trhs._tag ~= "Type.Float" then
-                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", loc)
             end
             node._type = types.Float()
         elseif op == "and" or op == "or" then
@@ -645,7 +640,7 @@ checkexp = util.make_visitor({
             if not types.compatible(tlhs, trhs) then
               typeerror(errors, "left hand side of logical expression is a " ..
                types.tostring(tlhs) .. " but right hand side is a " ..
-               types.tostring(trhs), pos)
+               types.tostring(trhs), loc)
             end
             node._type = tlhs
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
@@ -656,10 +651,10 @@ checkexp = util.make_visitor({
             node.rhs = node.rhs._type._tag == "Type.Float" and trycoerce(node.rhs, types.Integer(), errors) or node.rhs
             trhs = node.rhs._type
             if tlhs._tag ~= "Type.Integer" then
-                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", pos)
+                typeerror(errors, "left hand side of arithmetic expression is a " .. types.tostring(tlhs) .. " instead of a number", loc)
             end
             if trhs._tag ~= "Type.Integer" then
-                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", pos)
+                typeerror(errors, "right hand side of arithmetic expression is a " .. types.tostring(trhs) .. " instead of a number", loc)
             end
             node._type = types.Integer()
         else
@@ -694,16 +689,16 @@ checkexp = util.make_visitor({
                 if not ptype then
                     ptype = atype
                 end
-                checkmatch("argument " .. i .. " of call to function '" .. fname .. "'", ptype, atype, errors, node.exp._pos)
+                checkmatch("argument " .. i .. " of call to function '" .. fname .. "'", ptype, atype, errors, node.exp._loc)
             end
             if nargs ~= nparams then
                 typeerror(errors, "function " .. fname .. " called with " .. nargs ..
-                    " arguments but expects " .. nparams, node._pos)
+                    " arguments but expects " .. nparams, node._loc)
             end
             assert(#ftype.rettypes == 1)
             node._type = ftype.rettypes[1]
         else
-            typeerror(errors, "'%s' is not a function but %s", node._pos, fname, types.tostring(var._type))
+            typeerror(errors, "'%s' is not a function but %s", node._loc, fname, types.tostring(var._type))
             for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
@@ -712,13 +707,11 @@ checkexp = util.make_visitor({
     end,
 
     ["Ast.ExpCast"] = function(node, st, errors, context)
-        local l, _ = util.get_line_number(errors.subject, node._pos)
-        node._lin = l
         node.target = typefromnode(node.target, st, errors)
         checkexp(node.exp, st, errors, node.target)
         if not types.coerceable(node.exp._type, node.target) or
           not types.compatible(node.exp._type, node.target) then
-            typeerror(errors, "cannot cast '%s' to '%s'", node._pos,
+            typeerror(errors, "cannot cast '%s' to '%s'", node._loc,
                 types.tostring(node.exp._type), types.tostring(node.target))
         end
         node._type = node.target
@@ -734,8 +727,6 @@ checkexp = util.make_visitor({
 --   st: symbol table
 --   errors: list of compile-time errors
 local function checkfunc(node, st, errors)
-    local l, _ = util.get_line_number(errors.subject, node._pos)
-    node._lin = l
     st:add_symbol("$function", node) -- for return type
     local ptypes = node._type.params
     local pnames = {}
@@ -743,7 +734,7 @@ local function checkfunc(node, st, errors)
         st:add_symbol(param.name, param)
         param._type = ptypes[i]
         if pnames[param.name] then
-            typeerror(errors, "duplicate parameter '%s' in declaration of function '%s'", node._pos, param.name, node.name)
+            typeerror(errors, "duplicate parameter '%s' in declaration of function '%s'", node._loc, param.name, node.name)
         else
             pnames[param.name] = true
         end
@@ -751,7 +742,7 @@ local function checkfunc(node, st, errors)
     assert(#node._type.rettypes == 1)
     local ret = st:with_block(checkstat, node.block, st, errors)
     if not ret and node._type.rettypes[1]._tag ~= "Type.Nil" then
-        typeerror(errors, "function can return nil but return type is not nil", node._pos)
+        typeerror(errors, "function can return nil but return type is not nil", node._loc)
     end
 end
 
@@ -851,7 +842,7 @@ local toplevel_visitor = util.make_visitor({
         else
             node._type = types.Nil()
             typeerror(errors, "problem loading module '%s': %s",
-                      node._pos, node.modname, errs)
+                      node._loc, node.modname, errs)
         end
     end,
 
@@ -861,14 +852,14 @@ local toplevel_visitor = util.make_visitor({
             checkexp(node.value, st, errors, node._type)
             node.value = trycoerce(node.value, node._type, errors)
             checkmatch("declaration of module variable " .. node.decl.name,
-                       node._type, node.value._type, errors, node._pos)
+                       node._type, node.value._type, errors, node._loc)
         else
             checkexp(node.value, st, errors)
             node._type = node.value._type
         end
         if not isconst(node.value) then
             local msg = "top level variable initialization must be constant"
-            typeerror(errors, msg, node.value._pos)
+            typeerror(errors, msg, node.value._loc)
         end
     end,
 
@@ -911,11 +902,10 @@ local function checktoplevel(ast, st, errors, loader)
         if dup then
             typeerror(errors,
                 "duplicate declaration for %s, previous one at line %d",
-                node._pos, name, dup._lin)
+                node._loc, name, dup._loc.line)
             node._ignore = true
         else
             toplevel_visitor(node, st, errors, loader)
-            node._lin = util.get_line_number(errors.subject, node._pos)
             st:add_symbol(name, node)
         end
     end

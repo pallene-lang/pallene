@@ -6,6 +6,10 @@ local util = require 'titan-compiler.util'
 local pretty = require 'titan-compiler.pretty'
 local driver = require 'titan-compiler.driver'
 
+local function parse(code)
+    return parser.parse("(parser_spec)", code)
+end
+
 local function generate_modules(modules, main)
     local imported = {}
     local loader = driver.tableloader(modules, imported)
@@ -36,7 +40,7 @@ describe("Titan code generator", function()
                 array[i] = nil
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -57,7 +61,7 @@ describe("Titan code generator", function()
                 end
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -76,7 +80,7 @@ describe("Titan code generator", function()
                 end
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -95,7 +99,7 @@ describe("Titan code generator", function()
                 until t[i] or i == 0
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -115,7 +119,7 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -135,7 +139,7 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -155,7 +159,7 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -175,7 +179,7 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -195,7 +199,7 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -215,7 +219,7 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -234,7 +238,7 @@ describe("Titan code generator", function()
                 return t[i]
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -255,7 +259,7 @@ describe("Titan code generator", function()
                 end
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -274,7 +278,7 @@ describe("Titan code generator", function()
                 return t[i]
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -290,7 +294,7 @@ describe("Titan code generator", function()
                 return t[i] or v
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -306,7 +310,7 @@ describe("Titan code generator", function()
                 return t[i] and v1 or v2
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -326,7 +330,7 @@ describe("Titan code generator", function()
                 return res
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -342,7 +346,7 @@ describe("Titan code generator", function()
                 return a + b + c
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -358,7 +362,7 @@ describe("Titan code generator", function()
                 return a ^ b
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -375,7 +379,7 @@ describe("Titan code generator", function()
     			return x
 			end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("titan_test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -397,7 +401,7 @@ describe("Titan code generator", function()
                 end
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -421,7 +425,7 @@ describe("Titan code generator", function()
                 return b
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -441,7 +445,7 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -461,7 +465,7 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -481,7 +485,7 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -501,7 +505,7 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -519,7 +523,7 @@ describe("Titan code generator", function()
                 return i
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -536,7 +540,7 @@ describe("Titan code generator", function()
                 local i: integer = f
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -551,7 +555,7 @@ describe("Titan code generator", function()
                 return a
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -568,7 +572,7 @@ describe("Titan code generator", function()
                 return a
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -585,7 +589,7 @@ describe("Titan code generator", function()
                 return a
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -602,7 +606,7 @@ describe("Titan code generator", function()
                 return #a
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -618,7 +622,7 @@ describe("Titan code generator", function()
                 return #a
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -636,7 +640,7 @@ describe("Titan code generator", function()
                 return x
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -653,7 +657,7 @@ describe("Titan code generator", function()
                 return a .. "foo"
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -669,7 +673,7 @@ describe("Titan code generator", function()
                 return a .. 2
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -685,7 +689,7 @@ describe("Titan code generator", function()
                 return a .. 2.5
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -701,7 +705,7 @@ describe("Titan code generator", function()
                 return a .. b .. c .. d .. e
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -717,7 +721,7 @@ describe("Titan code generator", function()
                 return a .. b .. c .. d .. e
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -786,7 +790,7 @@ describe("Titan code generator", function()
                     return x
                 end
             ]], { TYPE = typ, VAL = v })
-            local ast, err = parser.parse(code)
+            local ast, err = parse(code)
             assert.truthy(ast, err)
             local ok, err = checker.check("test", ast, code, "test.titan")
             assert.truthy(ok)
@@ -808,7 +812,7 @@ describe("Titan code generator", function()
                     return x
                 end
             ]], { TYPE = typ, VAL = v })
-            local ast, err = parser.parse(code)
+            local ast, err = parse(code)
             assert.truthy(ast, err)
             local ok, err = checker.check("test", ast, code, "test.titan")
             assert.truthy(ok)
@@ -830,7 +834,7 @@ describe("Titan code generator", function()
                     return x[1]
                 end
             ]], { TYPE = typ, VAL = v })
-            local ast, err = parser.parse(code)
+            local ast, err = parse(code)
             assert.truthy(ast, err)
             local ok, err = checker.check("test", ast, code, "test.titan")
             assert.truthy(ok)
@@ -852,7 +856,7 @@ describe("Titan code generator", function()
                 return z
             end
         ]], { TYPE = typ, VAL = v })
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok)
@@ -882,7 +886,7 @@ describe("Titan code generator", function()
                     return x
                 end
             ]], { TYPE = typ, VAL = v })
-            local ast, err = parser.parse(code)
+            local ast, err = parse(code)
             assert.truthy(ast, err)
             local ok, err = checker.check("test", ast, code, "test.titan")
             assert.truthy(ok)
@@ -903,7 +907,7 @@ describe("Titan code generator", function()
                     return x[1]
                 end
             ]], { TYPE = typ, VAL = v })
-            local ast, err = parser.parse(code)
+            local ast, err = parse(code)
             assert.truthy(ast, err)
             local ok, err = checker.check("test", ast, code, "test.titan")
             assert.truthy(ok)
@@ -922,7 +926,7 @@ describe("Titan code generator", function()
                 return array[i]
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -943,7 +947,7 @@ describe("Titan code generator", function()
                 return a and b
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -961,7 +965,7 @@ describe("Titan code generator", function()
                 return a and b
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
@@ -979,7 +983,7 @@ describe("Titan code generator", function()
                 return a or b
             end
         ]]
-        local ast, err = parser.parse(code)
+        local ast, err = parse(code)
         assert.truthy(ast, err)
         local ok, err = checker.check("test", ast, code, "test.titan")
         assert.truthy(ok, err)
