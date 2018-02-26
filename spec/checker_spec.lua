@@ -75,8 +75,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, ast = run_checker(code)
         assert.truthy(ok)
-        assert.same("AstExpCast", ast[1].block.stats[2].exp._tag)
-        assert.same("TypeInteger", ast[1].block.stats[2].exp.target._tag)
+        assert.same("Ast.ExpCast", ast[1].block.stats[2].exp._tag)
+        assert.same("Type.Integer", ast[1].block.stats[2].exp.target._tag)
     end)
 
     it("coerces to float", function()
@@ -89,8 +89,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, ast = run_checker(code)
         assert.truthy(ok)
-        assert.same("AstExpCast", ast[1].block.stats[2].exp._tag)
-        assert.same("TypeFloat", ast[1].block.stats[2].exp.target._tag)
+        assert.same("Ast.ExpCast", ast[1].block.stats[2].exp._tag)
+        assert.same("Type.Float", ast[1].block.stats[2].exp.target._tag)
     end)
 
     it("catches duplicate function declarations", function()
@@ -1070,11 +1070,11 @@ describe("Titan type checker", function()
         local ok, err, mods = run_checker_modules(modules, "test")
         assert.truthy(ok)
         assert_ast(mods.test.type, {
-            _tag = "TypeModule",
+            _tag = "Type.Module",
             name = "test",
             members = {
-                a = { _tag = "TypeInteger" },
-                geta = { _tag = "TypeFunction" }
+                a = { _tag = "Type.Integer" },
+                geta = { _tag = "Type.Function" }
             }
         })
         assert.falsy(mods.test.type.members.b)
@@ -1106,11 +1106,11 @@ describe("Titan type checker", function()
         assert.truthy(ok)
         assert.truthy(mods.foo)
         assert_ast(mods.foo.type, {
-            _tag = "TypeModule",
+            _tag = "Type.Module",
             name = "foo",
             members = {
-                a = { _tag = "TypeInteger" },
-                foo = { _tag = "TypeFunction" }
+                a = { _tag = "Type.Integer" },
+                foo = { _tag = "Type.Function" }
             }
         })
     end)

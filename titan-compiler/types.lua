@@ -19,19 +19,19 @@ local types = typedecl(_, "Type", {
 
 function types.is_basic(t)
     local tag = t._tag
-    return tag == "TypeNil" or
-           tag == "TypeBoolean" or
-           tag == "TypeInteger" or
-           tag == "TypeFloat" or
-           tag == "TypeString" or
-           tag == "TypeValue"
+    return tag == "Type.Nil" or
+           tag == "Type.Boolean" or
+           tag == "Type.Integer" or
+           tag == "Type.Float" or
+           tag == "Type.String" or
+           tag == "Type.Value"
 end
 
 function types.is_gc(t)
     local tag = t._tag
-    return tag == "TypeString" or
-           tag == "TypeValue" or
-           tag == "TypeArray"
+    return tag == "Type.String" or
+           tag == "Type.Value" or
+           tag == "Type.Array"
 end
 
 -- XXX this should be inside typedecl call
@@ -40,34 +40,34 @@ end
 -- construct nonsense things like a function type that returns
 -- a module type
 function types.Module(modname, members)
-    return { _tag = "TypeModule", name = modname,
+    return { _tag = "Type.Module", name = modname,
         prefix = modname:gsub("[%-.]", "_") .. "_",
         file = modname:gsub("[.]", "/") .. ".so",
         members = members }
 end
 
 function types.coerceable(source, target)
-    return (source._tag == "TypeInteger" and
-            target._tag == "TypeFloat") or
-           (source._tag == "TypeFloat" and
-            target._tag == "TypeInteger") or
-           (target._tag == "TypeBoolean" and
-            source._tag ~= "TypeBoolean") or
-           (target._tag == "TypeValue" and
-            source._tag ~= "TypeValue") or
-           (source._tag == "TypeValue" and
-            target._tag ~= "TypeValue")
+    return (source._tag == "Type.Integer" and
+            target._tag == "Type.Float") or
+           (source._tag == "Type.Float" and
+            target._tag == "Type.Integer") or
+           (target._tag == "Type.Boolean" and
+            source._tag ~= "Type.Boolean") or
+           (target._tag == "Type.Value" and
+            source._tag ~= "Type.Value") or
+           (source._tag == "Type.Value" and
+            target._tag ~= "Type.Value")
 end
 
 -- The type consistency relation, a-la gradual typing
 function types.compatible(t1, t2)
     if types.equals(t1, t2) then
         return true
-    elseif t1._tag == "TypeValue" or t2._tag == "TypeValue" then
+    elseif t1._tag == "Type.Value" or t2._tag == "Type.Value" then
         return true
-    elseif t1._tag == "TypeArray" and t2._tag == "TypeArray" then
+    elseif t1._tag == "Type.Array" and t2._tag == "Type.Array" then
         return types.compatible(t1.elem, t2.elem)
-    elseif t1._tag == "TypeFunction" and t2._tag == "TypeFunction" then
+    elseif t1._tag == "Type.Function" and t2._tag == "Type.Function" then
         if #t1.params ~= #t2.params then
             return false
         end
@@ -96,9 +96,9 @@ end
 
 function types.equals(t1, t2)
     local tag1, tag2 = t1._tag, t2._tag
-    if tag1 == "TypeArray" and tag2 == "TypeArray" then
+    if tag1 == "Type.Array" and tag2 == "Type.Array" then
         return types.equals(t1.elem, t2.elem)
-    elseif tag1 == "TypeFunction" and tag2 == "TypeFunction" then
+    elseif tag1 == "Type.Function" and tag2 == "Type.Function" then
         if #t1.params ~= #t2.params then
             return false
         end
@@ -129,22 +129,22 @@ end
 
 function types.tostring(t)
     local tag = t._tag
-    if     tag == "TypeInteger"     then return "integer"
-    elseif tag == "TypeBoolean"     then return "boolean"
-    elseif tag == "TypeString"      then return "string"
-    elseif tag == "TypeNil"         then return "nil"
-    elseif tag == "TypeFloat"       then return "float"
-    elseif tag == "TypeValue"       then return "value"
-    elseif tag == "TypeInvalid"     then return "invalid type"
-    elseif tag == "TypeFunction" then
+    if     tag == "Type.Integer"     then return "integer"
+    elseif tag == "Type.Boolean"     then return "boolean"
+    elseif tag == "Type.String"      then return "string"
+    elseif tag == "Type.Nil"         then return "nil"
+    elseif tag == "Type.Float"       then return "float"
+    elseif tag == "Type.Value"       then return "value"
+    elseif tag == "Type.Invalid"     then return "invalid type"
+    elseif tag == "Type.Function" then
         return "function" -- TODO implement
-    elseif tag == "TypeArray" then
+    elseif tag == "Type.Array" then
         return "{ " .. types.tostring(t.elem) .. " }"
-    elseif tag == "TypeInitList" then
+    elseif tag == "Type.InitList" then
         return "initlist" -- TODO implement
-    elseif tag == "TypeRecord" then
+    elseif tag == "Type.Record" then
         return t.name
-    elseif tag == "TypeType" then
+    elseif tag == "Type.Type" then
         return "type" -- TODO remove
     else
         print(tag)
@@ -154,15 +154,15 @@ end
 
 -- Builds a type for the module from the types of its public members
 --   ast: AST for the module
---   returns "TypeModule" type
+--   returns "Type.Module" type
 function types.makemoduletype(modname, ast)
     local members = {}
     for _, tlnode in ipairs(ast) do
-        if tlnode._tag ~= "AstTopLevelImport" and not tlnode.islocal and not tlnode._ignore then
+        if tlnode._tag ~= "Ast.TopLevelImport" and not tlnode.islocal and not tlnode._ignore then
             local tag = tlnode._tag
-            if tag == "AstTopLevelFunc" then
+            if tag == "Ast.TopLevelFunc" then
                 members[tlnode.name] = tlnode._type
-            elseif tag == "AstTopLevelVar" then
+            elseif tag == "Ast.TopLevelVar" then
                 members[tlnode.decl.name] = tlnode._type
             end
         end
@@ -172,9 +172,9 @@ end
 
 function types.serialize(t)
     local tag = t._tag
-    if tag == "TypeArray" then
+    if tag == "Type.Array" then
         return "Array(" ..types.serialize(t.elem) .. ")"
-    elseif tag == "TypeModule" then
+    elseif tag == "Type.Module" then
         local members = {}
         for name, member in pairs(t.members) do
             table.insert(members, name .. " = " .. types.serialize(member))
@@ -183,7 +183,7 @@ function types.serialize(t)
             "'" .. t.name .. "'" .. "," ..
             "{" .. table.concat(members, ",") .. "}" ..
             ")"
-    elseif tag == "TypeFunction" then
+    elseif tag == "Type.Function" then
         local ptypes = {}
         for _, pt in ipairs(t.params) do
             table.insert(ptypes, types.serialize(pt))

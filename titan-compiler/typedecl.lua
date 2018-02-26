@@ -12,12 +12,13 @@ return function(oblfields, prefix, types)
     local constructors = {}
     for typename, conss in pairs(types) do
         for consname, fields in pairs(conss) do
+            local tag = prefix .. "." .. consname
             constructors[consname] = function(...)
                 local args = table.pack(...)
                 if args.n ~= #oblfields + #fields then
                     error("missing arguments for " .. consname)
                 end
-                local node = { _tag = prefix .. consname }
+                local node = { _tag = tag }
                 fill(node, args, oblfields, 0)
                 fill(node, args, fields, #oblfields)
                 return node

@@ -89,15 +89,15 @@ end
 -- Should this go on a separate constant propagation pass?
 function defs.binop_concat(pos, lhs, op, rhs)
     if op then
-        if rhs._tag == "AstExpConcat" then
+        if rhs._tag == "Ast.ExpConcat" then
             table.insert(rhs.exps, 1, lhs)
             return rhs
-        elseif (lhs._tag == "AstExpString" or
-            lhs._tag == "AstExpInteger" or
-            lhs._tag == "AstExpFloat") and
-            (rhs._tag == "AstExpString" or
-            rhs._tag == "AstExpInteger" or
-            rhs._tag == "AstExpFloat") then
+        elseif (lhs._tag == "Ast.ExpString" or
+            lhs._tag == "Ast.ExpInteger" or
+            lhs._tag == "Ast.ExpFloat") and
+            (rhs._tag == "Ast.ExpString" or
+            rhs._tag == "Ast.ExpInteger" or
+            rhs._tag == "Ast.ExpFloat") then
             return ast.ExpString(pos, lhs.value .. rhs.value)
         else
             return ast.ExpConcat(pos, { lhs, rhs })
@@ -163,7 +163,7 @@ function defs.exp2var(exp)
 end
 
 function defs.exp_is_var(_, pos, exp)
-    if exp._tag == "AstExpVar" then
+    if exp._tag == "Ast.ExpVar" then
         return pos, exp
     else
         return false
@@ -171,7 +171,7 @@ function defs.exp_is_var(_, pos, exp)
 end
 
 function defs.exp_is_call(_, pos, exp)
-    if exp._tag == "AstExpCall" then
+    if exp._tag == "Ast.ExpCall" then
         return pos, exp
     else
         return false
