@@ -975,7 +975,7 @@ local function codeindex(ctx, node, iscondition)
     local typ = node._type
     local ctmp, tmpname, tmpslot = newtmp(ctx, typ, types.is_gc(typ))
     local cset = ""
-    local ccheck = checkandget(typ, tmpname, "_s", node._loc.line)
+    local ccheck = checkandget(typ, tmpname, "_s", node.loc.line)
     if types.is_gc(typ) then
         cset = setslot(typ, tmpslot, tmpname)
     end
@@ -1068,7 +1068,7 @@ function codeexp(ctx, node, iscondition, target)
         local cstats, cexp = codeexp(ctx, node.exp, iscondition)
         local ctmps, tmpnames = newtmp(ctx, node.exp._type)
         local ctmpt, tmpnamet = newtmp(ctx, node.target)
-        local cget = checkandget(node._type, tmpnamet, "&" .. tmpnames, node._loc.line)
+        local cget = checkandget(node._type, tmpnamet, "&" .. tmpnames, node.loc.line)
         return render([[
             $EXPSTATS
             $TMPSOURCE
@@ -1127,7 +1127,7 @@ function codeexp(ctx, node, iscondition, target)
             TMPNAME1 = tmpname1,
             TMPNAME2 = tmpname2,
             TMPNAME3 = tmpname3,
-            LINE = c_integer_literal(node._loc.line)
+            LINE = c_integer_literal(node.loc.line)
         })
         return cfloor, tmpname3
     elseif tag == "Ast.ExpCast" and node.target._tag == "Type.String" then
@@ -1298,7 +1298,7 @@ local function codefuncdec(tlcontext, node)
         table.insert(pnames, param._cvar)
         table.insert(stats, ctype(param._type) .. " " .. param._cvar .. " = " .. initval(param._type) .. ";")
         table.insert(stats, checkandget(param._type, param._cvar,
-            "(func+ " .. i .. ")", node._loc.line))
+            "(func+ " .. i .. ")", node.loc.line))
     end
     table.insert(stats, render([[
         $TYPE res = $NAME($PARAMS);
@@ -1687,7 +1687,7 @@ function coder.generate(modname, ast)
                 }
             ]], {
                 I = c_integer_literal(i),
-                SETSLOT = checkandset(var._type, var._slot, "L->top-1", var._loc.line)
+                SETSLOT = checkandset(var._type, var._slot, "L->top-1", var.loc.line)
             }))
         end
 

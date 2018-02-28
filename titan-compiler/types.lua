@@ -1,6 +1,6 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-local types = typedecl(_, "Type", {
+local types = typedecl("Type", {
     Types = {
         Invalid     = {},
         Nil         = {},

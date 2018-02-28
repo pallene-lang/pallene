@@ -1,72 +1,72 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl({"_loc"}, "Ast", {
+return typedecl("Ast", {
     Type = {
-        TypeNil         = {},
-        TypeBoolean     = {},
-        TypeInteger     = {},
-        TypeFloat       = {},
-        TypeString      = {},
-        TypeValue       = {},
-        TypeName        = {"name"},
-        TypeArray       = {"subtype"},
-        TypeFunction    = {"argtypes", "rettypes"},
+        TypeNil         = {"loc"},
+        TypeBoolean     = {"loc"},
+        TypeInteger     = {"loc"},
+        TypeFloat       = {"loc"},
+        TypeString      = {"loc"},
+        TypeValue       = {"loc"},
+        TypeName        = {"loc", "name"},
+        TypeArray       = {"loc", "subtype"},
+        TypeFunction    = {"loc", "argtypes", "rettypes"},
     },
 
     TopLevel = {
-        TopLevelFunc    = {"islocal", "name", "params", "rettypes", "block"},
-        TopLevelVar     = {"islocal", "decl", "value"},
-        TopLevelRecord  = {"name", "fields"},
-        TopLevelImport  = {"localname", "modname"}
+        TopLevelFunc    = {"loc", "islocal", "name", "params", "rettypes", "block"},
+        TopLevelVar     = {"loc", "islocal", "decl", "value"},
+        TopLevelRecord  = {"loc", "name", "fields"},
+        TopLevelImport  = {"loc", "localname", "modname"}
     },
 
     Decl = {
-        Decl            = {"name", "type"},
+        Decl            = {"loc", "name", "type"},
     },
 
     Stat = {
-        StatBlock       = {"stats"},
-        StatWhile       = {"condition", "block"},
-        StatRepeat      = {"block", "condition"},
-        StatIf          = {"thens", "elsestat"},
-        StatFor         = {"decl", "start", "finish", "inc", "block"},
-        StatAssign      = {"var", "exp"},
-        StatDecl        = {"decl", "exp"},
-        StatCall        = {"callexp"},
-        StatReturn      = {"exp"},
+        StatBlock       = {"loc", "stats"},
+        StatWhile       = {"loc", "condition", "block"},
+        StatRepeat      = {"loc", "block", "condition"},
+        StatIf          = {"loc", "thens", "elsestat"},
+        StatFor         = {"loc", "decl", "start", "finish", "inc", "block"},
+        StatAssign      = {"loc", "var", "exp"},
+        StatDecl        = {"loc", "decl", "exp"},
+        StatCall        = {"loc", "callexp"},
+        StatReturn      = {"loc", "exp"},
     },
 
     Then = {
-        Then            = {"condition", "block"},
+        Then            = {"loc", "condition", "block"},
     },
 
     Var = {
-        VarName         = {"name"},
-        VarBracket      = {"exp1", "exp2"},
-        VarDot          = {"exp", "name"}
+        VarName         = {"loc", "name"},
+        VarBracket      = {"loc", "exp1", "exp2"},
+        VarDot          = {"loc", "exp", "name"}
     },
 
     Exp = {
-        ExpNil          = {},
-        ExpBool         = {"value"},
-        ExpInteger      = {"value"},
-        ExpFloat        = {"value"},
-        ExpString       = {"value"},
-        ExpInitList     = {"fields"},
-        ExpCall         = {"exp", "args"},
-        ExpVar          = {"var"},
-        ExpUnop         = {"op", "exp"},
-        ExpConcat       = {"exps"},
-        ExpBinop        = {"lhs", "op", "rhs"},
-        ExpCast         = {"exp", "target"}
+        ExpNil          = {"loc"},
+        ExpBool         = {"loc", "value"},
+        ExpInteger      = {"loc", "value"},
+        ExpFloat        = {"loc", "value"},
+        ExpString       = {"loc", "value"},
+        ExpInitList     = {"loc", "fields"},
+        ExpCall         = {"loc", "exp", "args"},
+        ExpVar          = {"loc", "var"},
+        ExpUnop         = {"loc", "op", "exp"},
+        ExpConcat       = {"loc", "exps"},
+        ExpBinop        = {"loc", "lhs", "op", "rhs"},
+        ExpCast         = {"loc", "exp", "target"}
     },
 
     Args = {
-        ArgsFunc        = {"args"},
-        ArgsMethod      = {"method", "args"},
+        ArgsFunc        = {"loc", "args"},
+        ArgsMethod      = {"loc", "method", "args"},
     },
 
     Field = {
-        Field           = {"name", "exp"},
+        Field           = {"loc", "name", "exp"},
     },
 })
