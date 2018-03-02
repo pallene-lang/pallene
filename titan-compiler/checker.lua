@@ -493,8 +493,12 @@ checkexp = util.make_visitor({
             end
             node._type = types.Integer()
         elseif op == "not" then
-            -- always coerces other values to a boolean
-            node.exp = trycoerce(node.exp, types.Boolean(), errors)
+            if texp._tag ~= "Type.Boolean" then
+                -- Titan is being intentionaly restrictive here
+                checker.typeerror(errors, loc,
+                    "trying to negate a %s instead of a boolean",
+                    types.tostring(texp))
+            end
             node._type = types.Boolean()
         else
             error("invalid unary operation " .. op)
@@ -625,26 +629,17 @@ checkexp = util.make_visitor({
             end
             node._type = types.Float()
         elseif op == "and" or op == "or" then
-            -- tries to coerce to boolean if other side is boolean
-            if tlhs._tag == "Type.Boolean" or trhs._tag == "Type.Boolean" then
-                node.lhs = trycoerce(node.lhs, types.Boolean(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Boolean(), errors)
-                trhs = node.rhs._type
+            if tlhs._tag ~= "Type.Boolean" then
+                checker.typeerror(errors, loc,
+                    "left hand side of logical expression is a %s instead of a boolean",
+                    types.tostring(tlhs))
             end
-            -- tries to coerce to float if other side is float
-            if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
-              node.lhs = trycoerce(node.lhs, types.Float(), errors)
-              tlhs = node.lhs._type
-              node.rhs = trycoerce(node.rhs, types.Float(), errors)
-              trhs = node.rhs._type
+            if trhs._tag ~= "Type.Boolean" then
+                checker.typeerror(errors, loc,
+                    "right hand side of logical expression is a %s instead of a boolean",
+                    types.tostring(trhs))
             end
-            if not types.equals(tlhs, trhs) then
-              checker.typeerror(errors, loc,
-                  "left hand side of logical expression is a %s but right hand side is a %s",
-                   types.tostring(tlhs), types.tostring(trhs))
-            end
-            node._type = tlhs
+            node._type = types.Boolean()
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             -- always tries to coerce floats to integer
             node.lhs = node.lhs._type._tag == "Type.Float" and trycoerce(node.lhs, types.Integer(), errors) or node.lhs
