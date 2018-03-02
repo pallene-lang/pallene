@@ -136,7 +136,7 @@ describe("Titan type checker", function()
         assert_type_check([[ x8 = "a" .. 10 ]])
         assert_type_check([[ x9 = 1 + 2 ]])
         assert_type_check([[ x10 = not false ]])
-        assert_type_check([[ x11: integer = 10.1 ]])
+        assert_type_check([[ x11: float = 10.1 ]])
     end)
 
     it("catches non constant variable initialization in top level", function()
@@ -977,7 +977,7 @@ describe("Titan type checker", function()
     it("returns the type of the module with exported members", function()
         local modules = { test = [[
             a: integer = 1
-            local b: float = 2
+            local b: float = 2.0
             function geta(): integer
                 return a
             end
@@ -1306,7 +1306,7 @@ describe("Titan typecheck of records", function()
         assert_type_check([[
             record Point x: float; y:float end
 
-            p = Point.new(1, 2)
+            p = Point.new(1.0, 2.0)
         ]])
     end)
 

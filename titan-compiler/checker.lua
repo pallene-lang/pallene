@@ -256,7 +256,6 @@ checkstat = util.make_visitor({
             if node.var._tag == "Ast.VarName" and node.var._decl then
                 node.var._decl._assigned = true
             end
-            node.exp = trycoerce(node.exp, node.var._type, errors)
             if node.var._tag ~= "Ast.VarBracket" or node.exp._type._tag ~= "Type.Nil" then
                 checkmatch("assignment", node.var._type, node.exp._type, errors, node.var.loc)
             end
@@ -272,7 +271,6 @@ checkstat = util.make_visitor({
         assert(#ftype.rettypes == 1)
         local tret = ftype.rettypes[1]
         checkexp(node.exp, st, errors, tret)
-        node.exp = trycoerce(node.exp, tret, errors)
         checkmatch("return", tret, node.exp._type, errors, node.exp.loc)
         return true
     end,
@@ -381,8 +379,6 @@ checkvar = util.make_visitor({
             node._type = node.exp1._type.elem
         end
         checkexp(node.exp2, st, errors, types.Integer())
-        -- always try to coerce index to integer
-        node.exp2 = trycoerce(node.exp2, types.Integer(), errors)
         checkmatch("array indexing", types.Integer(), node.exp2._type, errors, node.exp2.loc)
     end,
 })
@@ -432,7 +428,6 @@ checkexp = util.make_visitor({
             local etype = econtext or etypes[1] or types.Integer()
             node._type = types.Array(etype)
             for i, field in ipairs(node.fields) do
-                field.exp = trycoerce(field.exp, etype, errors)
                 local exp = field.exp
                 checkmatch("array initializer at position " .. i, etype,
                            exp._type, errors, exp.loc)
@@ -680,7 +675,6 @@ checkexp = util.make_visitor({
                 else
                     checkexp(arg, st, errors, ptype)
                     ptype = ptype or arg._type
-                    args[i] = trycoerce(args[i], ptype, errors)
                     atype = args[i]._type
                 end
                 if not ptype then
@@ -855,7 +849,6 @@ local toplevel_visitor = util.make_visitor({
         if node.decl.type then
             node._type = typefromnode(node.decl.type, st, errors)
             checkexp(node.value, st, errors, node._type)
-            node.value = trycoerce(node.value, node._type, errors)
             checkmatch("declaration of module variable " .. node.decl.name,
                        node._type, node.value._type, errors, node.loc)
         else
