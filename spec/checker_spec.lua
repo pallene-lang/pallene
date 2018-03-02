@@ -622,22 +622,6 @@ describe("Titan type checker", function()
         end)
     end
 
-    for _, op in ipairs({"+", "-", "*", "%", "//", "/", "^"}) do
-        it("fails if one side of expression is value", function ()
-            local code = [[
-                function fn(): integer
-                    local i: value = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                end
-            ]]
-            local ok, err, ast = run_checker(code)
-            assert.falsy(ok)
-            assert.match("is a value instead of a number", err)
-        end)
-    end
-
     it("cannot concatenate with boolean", function()
         local code = [[
             function fn()
@@ -669,18 +653,6 @@ describe("Titan type checker", function()
         local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with { integer } value", err)
-    end)
-
-    it("cannot concatenate with type value", function()
-        local code = [[
-            function fn()
-                local v: value = "bar"
-                local s = "foo" .. v
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("cannot concatenate with value", err)
     end)
 
     it("can concatenate with integer and float", function()
@@ -967,30 +939,6 @@ describe("Titan type checker", function()
                 assert.match("right hand side of arithmetic expression is a", err)
             end)
         end
-    end
-
-    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
-        it("can explicitly cast from value to " .. t, function()
-            local code = [[
-                function fn(a: value): ]] .. t .. [[
-                    return a as ]] .. t .. [[
-                end
-            ]]
-            local ok, err = run_checker(code)
-            assert.truthy(ok)
-        end)
-    end
-
-    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
-        it("can explicitly cast from " .. t .. "to value", function()
-            local code = [[
-                function fn(a: ]] .. t .. [[): value
-                    return a as value
-                end
-            ]]
-            local ok, err = run_checker(code)
-            assert.truthy(ok)
-        end)
     end
 
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do

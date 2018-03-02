@@ -32,7 +32,7 @@ end
 --   errors: list of compile-time errors
 --   loc: location of the term that is being compared
 local function checkmatch(term, expected, found, errors, loc)
-    if types.coerceable(found, expected) or not types.compatible(expected, found) then
+    if types.coerceable(found, expected) or not types.equals(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
         msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
         checker.typeerror(errors, loc, msg)
@@ -62,10 +62,6 @@ typefromnode = util.make_visitor({
 
     ["Ast.TypeString"] = function(node, st, errors)
         return types.String()
-    end,
-
-    ["Ast.TypeValue"] = function(node, st, errors)
-        return types.Value()
     end,
 
     ["Ast.TypeName"] = function(node, st, errors)
@@ -512,10 +508,7 @@ checkexp = util.make_visitor({
             exp = trytostr(exp)
             node.exps[i] = exp
             local texp = exp._type
-            if texp._tag == "Type.Value" then
-                checker.typeerror(errors, exp.loc,
-                    "cannot concatenate with value of type 'value'")
-            elseif texp._tag ~= "Type.String" then
+            if texp._tag ~= "Type.String" then
                 checker.typeerror(errors, exp.loc,
                     "cannot concatenate with %s value", types.tostring(texp))
             end
@@ -531,13 +524,6 @@ checkexp = util.make_visitor({
         local trhs = node.rhs._type
         local loc = node.loc
         if op == "==" or op == "~=" then
-            -- tries to coerce to value if either side is value
-            if tlhs._tag == "Type.Value" or trhs._tag == "Type.Value" then
-                node.lhs = trycoerce(node.lhs, types.Value(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Value(), errors)
-                trhs = node.rhs._type
-            end
             -- tries to coerce to float if either side is float
             if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
                 node.lhs = trycoerce(node.lhs, types.Float(), errors)
@@ -545,7 +531,7 @@ checkexp = util.make_visitor({
                 node.rhs = trycoerce(node.rhs, types.Float(), errors)
                 trhs = node.rhs._type
             end
-            if not types.compatible(tlhs, trhs) then
+            if not types.equals(tlhs, trhs) then
                 checker.typeerror(errors, loc,
                     "trying to compare values of different types: %s and %s",
                     types.tostring(tlhs), types.tostring(trhs))
@@ -553,13 +539,6 @@ checkexp = util.make_visitor({
             end
             node._type = types.Boolean()
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            -- tries to coerce to value if either side is value
-            if tlhs._tag == "Type.Value" or trhs._tag == "Type.Value" then
-                node.lhs = trycoerce(node.lhs, types.Value(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Value(), errors)
-                trhs = node.rhs._type
-            end
             -- tries to coerce to float if either side is float
             if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
                 node.lhs = trycoerce(node.lhs, types.Float(), errors)
@@ -608,13 +587,6 @@ checkexp = util.make_visitor({
                     "right hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(trhs))
             end
-            -- tries to coerce to value if either side is value
-            if tlhs._tag == "Type.Value" or trhs._tag == "Type.Value" then
-                node.lhs = trycoerce(node.lhs, types.Value(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Value(), errors)
-                trhs = node.rhs._type
-            end
             -- tries to coerce to float if either side is float
             if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
                 node.lhs = trycoerce(node.lhs, types.Float(), errors)
@@ -660,13 +632,6 @@ checkexp = util.make_visitor({
                 node.rhs = trycoerce(node.rhs, types.Boolean(), errors)
                 trhs = node.rhs._type
             end
-            -- tries to coerce to value if other side is value
-            if tlhs._tag == "Type.Value" or trhs._tag == "Type.Value" then
-                node.lhs = trycoerce(node.lhs, types.Value(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Value(), errors)
-                trhs = node.rhs._type
-            end
             -- tries to coerce to float if other side is float
             if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
               node.lhs = trycoerce(node.lhs, types.Float(), errors)
@@ -674,7 +639,7 @@ checkexp = util.make_visitor({
               node.rhs = trycoerce(node.rhs, types.Float(), errors)
               trhs = node.rhs._type
             end
-            if not types.compatible(tlhs, trhs) then
+            if not types.equals(tlhs, trhs) then
               checker.typeerror(errors, loc,
                   "left hand side of logical expression is a %s but right hand side is a %s",
                    types.tostring(tlhs), types.tostring(trhs))
@@ -754,7 +719,7 @@ checkexp = util.make_visitor({
         node.target = typefromnode(node.target, st, errors)
         checkexp(node.exp, st, errors, node.target)
         if not types.coerceable(node.exp._type, node.target) or
-          not types.compatible(node.exp._type, node.target) then
+          not types.equals(node.exp._type, node.target) then
             checker.typeerror(errors, node.loc,
                 "cannot cast '%s' to '%s'",
                 types.tostring(node.exp._type), types.tostring(node.target))

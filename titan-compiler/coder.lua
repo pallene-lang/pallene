@@ -65,7 +65,6 @@ local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
     elseif typ._tag == "Type.Nil" then tmpl = "$DST 0"
     elseif typ._tag == "Type.String" then tmpl = "$DST tsvalue($SRC)"
     elseif typ._tag == "Type.Array" then tmpl = "$DST hvalue($SRC)"
-    elseif typ._tag == "Type.Value" then tmpl = "$DST *($SRC)"
     elseif typ._tag == "Type.Record" then tmpl = "" -- TODO records
     else error("invalid type " .. types.tostring(typ)) end
     return render(tmpl, { DST = dst, SRC = src })
@@ -121,13 +120,6 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
     elseif typ._tag == "Type.Nil" then tag = "nil"
     elseif typ._tag == "Type.String" then tag = "string"
     elseif typ._tag == "Type.Array" then tag = "table"
-    elseif typ._tag == "Type.Value" then
-        return render([[
-            setobj2t(L, &$VAR, $EXP);
-        ]], {
-            EXP = exp,
-            VAR = cvar
-        })
     elseif typ._tag == "Type.Record" then
         -- TODO records
         tag = "table"
@@ -170,13 +162,6 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
     elseif typ._tag == "Type.Nil" then tag = "nil"
     elseif typ._tag == "Type.String" then tag = "string"
     elseif typ._tag == "Type.Array" then tag = "table"
-    elseif typ._tag == "Type.Value" then
-        return render([[
-            setobj2t(L, $DST, $SRC);
-        ]], {
-            SRC = src,
-            DST = dst,
-        })
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -203,7 +188,6 @@ local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
     elseif typ._tag == "Type.Nil" then tmpl = "setnilvalue($DST); ((void)$SRC);"
     elseif typ._tag == "Type.String" then tmpl = "setsvalue(L, $DST, $SRC);"
     elseif typ._tag == "Type.Array" then tmpl = "sethvalue(L, $DST, $SRC);"
-    elseif typ._tag == "Type.Value" then tmpl = "setobj2t(L, $DST, &$SRC);"
     else
         error("invalid type " .. types.tostring(typ))
     end
@@ -217,15 +201,13 @@ local function ctype(typ --[[:table]])
     elseif typ._tag == "Type.Nil" then return "int"
     elseif typ._tag == "Type.String" then return "TString*"
     elseif typ._tag == "Type.Array" then return "Table*"
-    elseif typ._tag == "Type.Value" then return "TValue"
     elseif typ._tag == "Type.Record" then return "TValue"
     else error("invalid type " .. types.tostring(typ))
     end
 end
 
 local function initval(typ --[[:table]])
-    if typ._tag == "Type.Value" then return "{ {0}, 0 }"
-    else return "0" end
+    return "0"
 end
 
 local function funpointer(fname, ftype)
@@ -1064,37 +1046,6 @@ function codeexp(ctx, node, iscondition, target)
         local cstats, cexp = codeexp(ctx, node.exp.var, iscondition)
         node.exp.var._type = t
         return cstats, cexp
-    elseif tag == "Ast.ExpCast" and node.exp._type._tag == "Type.Value" then
-        local cstats, cexp = codeexp(ctx, node.exp, iscondition)
-        local ctmps, tmpnames = newtmp(ctx, node.exp._type)
-        local ctmpt, tmpnamet = newtmp(ctx, node.target)
-        local cget = checkandget(node._type, tmpnamet, "&" .. tmpnames, node.loc.line)
-        return render([[
-            $EXPSTATS
-            $TMPSOURCE
-            $SOURCE = $EXP;
-            $TMPTARGET
-            $CHECKANDGET
-        ]], {
-            EXPSTATS = cstats,
-            TMPSOURCE = ctmps,
-            SOURCE = tmpnames,
-            TMPTARGET = ctmpt,
-            EXP = cexp,
-            CHECKANDGET = cget
-        }), tmpnamet
-    elseif tag == "Ast.ExpCast" and node.target._tag == "Type.Value" then
-        local cstats, cexp = codeexp(ctx, node.exp, iscondition)
-        local ctmp, tmpname = newtmp(ctx, node.target)
-        return render([[
-            $EXPSTATS
-            $TMPTARGET
-            $SETSLOT
-        ]], {
-            EXPSTATS = cstats,
-            TMPTARGET = ctmp,
-            SETSLOT = setslot(node.exp._type, "&" .. tmpname, cexp)
-        }), tmpname
     elseif tag == "Ast.ExpCast" and node.target._tag == "Type.Float" then
         local cstat, cexp = codeexp(ctx, node.exp)
         return cstat, "((lua_Number)" .. cexp .. ")"
