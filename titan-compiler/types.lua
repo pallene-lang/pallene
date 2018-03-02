@@ -28,7 +28,9 @@ end
 function types.is_gc(t)
     local tag = t._tag
     return tag == "Type.String" or
-           tag == "Type.Array"
+           tag == "Type.Function" or
+           tag == "Type.Array" or
+           tag == "Type.Record"
 end
 
 -- XXX this should be inside typedecl call
