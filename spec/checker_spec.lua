@@ -69,7 +69,7 @@ describe("Titan type checker", function()
         local code = [[
             function fn(): integer
                 local f: float = 1.0
-                local i: integer = f
+                local i: integer = f as integer
                 return 1
             end
         ]]
@@ -83,7 +83,7 @@ describe("Titan type checker", function()
         local code = [[
             function fn(): integer
                 local i: integer = 12
-                local f: float = i
+                local f: float = i as float
                 return 1
             end
         ]]
@@ -922,7 +922,7 @@ describe("Titan type checker", function()
         end)
     end
 
-    for _, t in ipairs({"{integer}", "boolean", "integer", "nil", "string"}) do
+    for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to float", function()
             local code = [[
                 function fn(a: ]] .. t .. [[): float
@@ -1339,7 +1339,7 @@ describe("Titan typecheck of records", function()
 
     it("typechecks record read/write", function()
         assert_type_check(wrap_record[[
-            local x: float = 10
+            local x: float = 10.0
             p.x = x
             return p.y
         ]])

@@ -170,7 +170,6 @@ local function checkfor(node, st, errors)
         ftype = types.Invalid()
       end
       checkexp(node.start, st, errors, ftype)
-      node.start = trycoerce(node.start, ftype, errors)
     else
       checkexp(node.start, st, errors)
       ftype = node.start._type
@@ -186,11 +185,9 @@ local function checkfor(node, st, errors)
     end
     checkmatch("'for' start expression", ftype, node.start._type, errors, node.start.loc)
     checkexp(node.finish, st, errors, ftype)
-    node.finish = trycoerce(node.finish, ftype, errors)
     checkmatch("'for' finish expression", ftype, node.finish._type, errors, node.finish.loc)
     if node.inc then
         checkexp(node.inc, st, errors, ftype)
-        node.inc = trycoerce(node.inc, ftype, errors)
         checkmatch("'for' step expression", ftype, node.inc._type, errors, node.inc.loc)
     end
     checkstat(node.block, st, errors)
@@ -225,7 +222,6 @@ checkstat = util.make_visitor({
           node.decl._type = node.exp._type
           checkdecl(node.decl, st, errors)
         end
-        node.exp = trycoerce(node.exp, node.decl._type, errors)
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl.loc)
     end,
@@ -713,7 +709,7 @@ checkexp = util.make_visitor({
     ["Ast.ExpCast"] = function(node, st, errors, context)
         node.target = typefromnode(node.target, st, errors)
         checkexp(node.exp, st, errors, node.target)
-        if not types.coerceable(node.exp._type, node.target) or
+        if not types.coerceable(node.exp._type, node.target) and
           not types.equals(node.exp._type, node.target) then
             checker.typeerror(errors, node.loc,
                 "cannot cast '%s' to '%s'",
