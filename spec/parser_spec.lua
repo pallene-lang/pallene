@@ -142,13 +142,13 @@ describe("Titan parser", function()
 
     it("can parse toplevel var declarations", function()
         assert_program_ast([[ local x=17 ]], {
-            { _tag = ast.TopLevelVar,
+            { _tag = ast.Toplevel.Var,
                 islocal = true,
                 decl = { name = "x", type = false } }
         })
 
         assert_program_ast([[ y = 18 ]], {
-            { _tag = ast.TopLevelVar,
+            { _tag = ast.Toplevel.Var,
                 islocal = false,
                 decl = { name = "y", type = false } }
         })
@@ -159,38 +159,38 @@ describe("Titan parser", function()
             local function fA(): nil
             end
         ]], {
-            { _tag = ast.TopLevelFunc,
+            { _tag = ast.Toplevel.Func,
                 islocal = true,
                 name = "fA",
                 params = {},
-                block = { _tag = ast.StatBlock, stats = {} } },
+                block = { _tag = ast.Stat.Block, stats = {} } },
         })
 
         assert_program_ast([[
             local function fB(x:int): nil
             end
         ]], {
-            { _tag = ast.TopLevelFunc,
+            { _tag = ast.Toplevel.Func,
                 islocal = true,
                 name = "fB",
                 params = {
-                    { _tag = ast.Decl, name = "x" },
+                    { _tag = ast.Decl.Decl, name = "x" },
                 },
-                block = { _tag = ast.StatBlock, stats = {} } },
+                block = { _tag = ast.Stat.Block, stats = {} } },
         })
 
         assert_program_ast([[
             local function fC(x:int, y:int): nil
             end
         ]], {
-            { _tag = ast.TopLevelFunc,
+            { _tag = ast.Toplevel.Func,
                 islocal = true,
                 name = "fC",
                 params = {
-                    { _tag = ast.Decl, name = "x" },
-                    { _tag = ast.Decl, name = "y" },
+                    { _tag = ast.Decl.Decl, name = "x" },
+                    { _tag = ast.Decl.Decl, name = "y" },
                 },
-                block = { _tag = ast.StatBlock, stats = {} } },
+                block = { _tag = ast.Stat.Block, stats = {} } },
         })
     end)
 
@@ -201,83 +201,83 @@ describe("Titan parser", function()
             local function bar()
             end
         ]], {
-            { _tag = ast.TopLevelFunc, name = "foo", rettypes = { { _tag = ast.TypeNil } } },
-            { _tag = ast.TopLevelFunc, name = "bar", rettypes = { { _tag = ast.TypeNil } } },
+            { _tag = ast.Toplevel.Func, name = "foo", rettypes = { { _tag = ast.Type.Nil } } },
+            { _tag = ast.Toplevel.Func, name = "bar", rettypes = { { _tag = ast.Type.Nil } } },
         })
     end)
 
     it("can parse primitive types", function()
-        assert_type_ast("nil", { _tag = ast.TypeNil } )
-        assert_type_ast("int", { _tag = ast.TypeName, name = "int" } )
+        assert_type_ast("nil", { _tag = ast.Type.Nil } )
+        assert_type_ast("int", { _tag = ast.Type.Name, name = "int" } )
     end)
 
     it("can parse array types", function()
         assert_type_ast("{int}",
-            { _tag = ast.TypeArray, subtype =
-                {_tag = ast.TypeName, name = "int" } } )
+            { _tag = ast.Type.Array, subtype =
+                {_tag = ast.Type.Name, name = "int" } } )
 
         assert_type_ast("{{int}}",
-            { _tag = ast.TypeArray, subtype =
-                { _tag = ast.TypeArray, subtype =
-                    {_tag = ast.TypeName, name = "int" } } } )
+            { _tag = ast.Type.Array, subtype =
+                { _tag = ast.Type.Array, subtype =
+                    {_tag = ast.Type.Name, name = "int" } } } )
     end)
 
     describe("can parse function types", function()
         it("with parameter lists of length = 0", function()
             assert_type_ast("() -> ()",
-                { _tag = ast.TypeFunction,
+                { _tag = ast.Type.Function,
                     argtypes = { },
                     rettypes = { } } )
         end)
 
         it("with parameter lists of length = 1", function()
             assert_type_ast("(a) -> (b)",
-                { _tag = ast.TypeFunction,
-                    argtypes = { { _tag = ast.TypeName, name = "a" } },
-                    rettypes = { { _tag = ast.TypeName, name = "b" } } } )
+                { _tag = ast.Type.Function,
+                    argtypes = { { _tag = ast.Type.Name, name = "a" } },
+                    rettypes = { { _tag = ast.Type.Name, name = "b" } } } )
         end)
 
         it("with parameter lists of length >= 2 ", function()
             assert_type_ast("(a,b) -> (c,d,e)",
-                { _tag = ast.TypeFunction,
+                { _tag = ast.Type.Function,
                     argtypes = {
-                        { _tag = ast.TypeName, name = "a" },
-                        { _tag = ast.TypeName, name = "b" },
+                        { _tag = ast.Type.Name, name = "a" },
+                        { _tag = ast.Type.Name, name = "b" },
                     },
                     rettypes = {
-                        { _tag = ast.TypeName, name = "c" },
-                        { _tag = ast.TypeName, name = "d" },
-                        { _tag = ast.TypeName, name = "e" },
+                        { _tag = ast.Type.Name, name = "c" },
+                        { _tag = ast.Type.Name, name = "d" },
+                        { _tag = ast.Type.Name, name = "e" },
                     }
                  })
         end)
 
         it("without the optional parenthesis", function()
             assert_type_ast("a -> b",
-                { _tag = ast.TypeFunction,
-                    argtypes = { { _tag = ast.TypeName, name = "a" } },
-                    rettypes = { { _tag = ast.TypeName, name = "b" } } } )
+                { _tag = ast.Type.Function,
+                    argtypes = { { _tag = ast.Type.Name, name = "a" } },
+                    rettypes = { { _tag = ast.Type.Name, name = "b" } } } )
         end)
 
 
         it("and -> is right associative", function()
             local ast1 = {
-                _tag = ast.TypeFunction,
+                _tag = ast.Type.Function,
                 argtypes = {
-                    { _tag = ast.TypeName, name = "a" } },
+                    { _tag = ast.Type.Name, name = "a" } },
                 rettypes = {
-                    { _tag = ast.TypeFunction,
-                        argtypes = { { _tag = ast.TypeName, name = "b" } },
-                        rettypes = { { _tag = ast.TypeName, name = "c" } } } } }
+                    { _tag = ast.Type.Function,
+                        argtypes = { { _tag = ast.Type.Name, name = "b" } },
+                        rettypes = { { _tag = ast.Type.Name, name = "c" } } } } }
 
             local ast2 = {
-                _tag = ast.TypeFunction,
+                _tag = ast.Type.Function,
                 argtypes = {
-                    { _tag = ast.TypeFunction,
-                        argtypes = { { _tag = ast.TypeName, name = "a" } },
-                        rettypes = { { _tag = ast.TypeName, name = "b" } } } },
+                    { _tag = ast.Type.Function,
+                        argtypes = { { _tag = ast.Type.Name, name = "a" } },
+                        rettypes = { { _tag = ast.Type.Name, name = "b" } } } },
                 rettypes = {
-                    { _tag = ast.TypeName, name = "c" } } }
+                    { _tag = ast.Type.Name, name = "c" } } }
 
             assert_type_ast("a -> b -> c",   ast1)
             assert_type_ast("a -> (b -> c)", ast1)
@@ -286,46 +286,46 @@ describe("Titan parser", function()
 
         it("and '->' has higher precedence than ','", function()
             assert_type_ast("(a, b -> c, d) -> e",
-                { _tag = ast.TypeFunction,
+                { _tag = ast.Type.Function,
                     argtypes = {
-                        { _tag = ast.TypeName, name = "a" },
-                        { _tag = ast.TypeFunction,
-                          argtypes = { { _tag = ast.TypeName, name = "b" } },
-                          rettypes = { { _tag = ast.TypeName, name = "c" } } },
-                        { _tag = ast.TypeName, name = "d" } },
-                    rettypes = { { _tag = ast.TypeName, name = "e" } } } )
+                        { _tag = ast.Type.Name, name = "a" },
+                        { _tag = ast.Type.Function,
+                          argtypes = { { _tag = ast.Type.Name, name = "b" } },
+                          rettypes = { { _tag = ast.Type.Name, name = "c" } } },
+                        { _tag = ast.Type.Name, name = "d" } },
+                    rettypes = { { _tag = ast.Type.Name, name = "e" } } } )
         end)
     end)
 
     it("can parse values", function()
-        assert_expression_ast("nil",   { _tag = ast.ExpNil })
-        assert_expression_ast("false", { _tag = ast.ExpBool, value = false })
-        assert_expression_ast("true",  { _tag = ast.ExpBool, value = true })
-        assert_expression_ast("10",    { _tag = ast.ExpInteger, value = 10})
-        assert_expression_ast("10.0",  { _tag = ast.ExpFloat, value = 10.0})
-        assert_expression_ast("'asd'", { _tag = ast.ExpString, value = "asd" })
+        assert_expression_ast("nil",   { _tag = ast.Exp.Nil })
+        assert_expression_ast("false", { _tag = ast.Exp.Bool, value = false })
+        assert_expression_ast("true",  { _tag = ast.Exp.Bool, value = true })
+        assert_expression_ast("10",    { _tag = ast.Exp.Integer, value = 10})
+        assert_expression_ast("10.0",  { _tag = ast.Exp.Float, value = 10.0})
+        assert_expression_ast("'asd'", { _tag = ast.Exp.String, value = "asd" })
     end)
 
     it("can parse variables", function()
-        assert_expression_ast("y", { _tag = ast.ExpVar, var = { _tag = ast.VarName, name = "y" }})
+        assert_expression_ast("y", { _tag = ast.Exp.Var, var = { _tag = ast.Var.Name, name = "y" }})
     end)
 
     it("can parse parenthesized expressions", function()
-        assert_expression_ast("((1))", { _tag = ast.ExpInteger, value = 1 })
+        assert_expression_ast("((1))", { _tag = ast.Exp.Integer, value = 1 })
     end)
 
     it("can parse table constructors", function()
         assert_expression_ast("{}",
-            { _tag = ast.ExpInitList, fields = {} })
+            { _tag = ast.Exp.Initlist, fields = {} })
 
         assert_expression_ast("{10,20,30}",
-            { _tag = ast.ExpInitList, fields = {
+            { _tag = ast.Exp.Initlist, fields = {
                 { exp = { value = 10 } },
                 { exp = { value = 20 } },
                 { exp = { value = 30 } }, }})
 
         assert_expression_ast("{40;50;60;}", -- (semicolons)
-            { _tag = ast.ExpInitList, fields = {
+            { _tag = ast.Exp.Initlist, fields = {
                 { exp = { value = 40 } },
                 { exp = { value = 50 } },
                 { exp = { value = 60 } }, }})
@@ -333,53 +333,53 @@ describe("Titan parser", function()
 
     describe("can parse while statements", function()
         assert_statements_ast("while true do end", {
-            { _tag = ast.StatWhile,
-              condition = { _tag = ast.ExpBool },
-              block = { _tag = ast.StatBlock } }
+            { _tag = ast.Stat.While,
+              condition = { _tag = ast.Exp.Bool },
+              block = { _tag = ast.Stat.Block } }
         })
     end)
 
     describe("can parse repeat-until statements", function()
         assert_statements_ast("repeat until false", {
-            { _tag = ast.StatRepeat,
-              block = { _tag = ast.StatBlock },
-              condition = { _tag = ast.ExpBool }, }
+            { _tag = ast.Stat.Repeat,
+              block = { _tag = ast.Stat.Block },
+              condition = { _tag = ast.Exp.Bool }, }
         })
     end)
 
     describe("can parse if statements", function()
         assert_statements_ast("if 10 then end", {
-            { _tag = ast.StatIf,
+            { _tag = ast.Stat.If,
                 thens = {
-                    { _tag = ast.Then, condition = { value = 10 } },
+                    { _tag = ast.Then.Then, condition = { value = 10 } },
                 },
               elsestat = false }
         })
 
         assert_statements_ast("if 20 then else end", {
-            { _tag = ast.StatIf,
+            { _tag = ast.Stat.If,
                 thens = {
-                    { _tag = ast.Then, condition = { value = 20 } },
+                    { _tag = ast.Then.Then, condition = { value = 20 } },
                 },
-                elsestat = { _tag = ast.StatBlock } }
+                elsestat = { _tag = ast.Stat.Block } }
         })
 
         assert_statements_ast("if 30 then elseif 40 then end", {
-            { _tag = ast.StatIf,
+            { _tag = ast.Stat.If,
                 thens = {
-                    { _tag = ast.Then, condition = { value = 30 } },
-                    { _tag = ast.Then, condition = { value = 40 } },
+                    { _tag = ast.Then.Then, condition = { value = 30 } },
+                    { _tag = ast.Then.Then, condition = { value = 40 } },
                 },
                 elsestat = false }
         })
 
         assert_statements_ast("if 50 then elseif 60 then else end", {
-            { _tag = ast.StatIf,
+            { _tag = ast.Stat.If,
               thens = {
-                    { _tag = ast.Then, condition = { value = 50 } },
-                    { _tag = ast.Then, condition = { value = 60 } },
+                    { _tag = ast.Then.Then, condition = { value = 50 } },
+                    { _tag = ast.Then.Then, condition = { value = 60 } },
                 },
-                elsestat = { _tag = ast.StatBlock } }
+                elsestat = { _tag = ast.Stat.Block } }
         })
     end)
 
@@ -390,16 +390,16 @@ describe("Titan parser", function()
                 print("Hello", "World")
             end
         ]], {
-            { _tag = ast.StatBlock,
+            { _tag = ast.Stat.Block,
                 stats = {
-                    { _tag = ast.StatDecl,
+                    { _tag = ast.Stat.Decl,
                         decl = { name = "x" },
                         exp = { value = 10 } },
-                    { _tag = ast.StatAssign,
+                    { _tag = ast.Stat.Assign,
                         var = { name = "x" },
                         exp = { value = 11 } },
-                    { _tag = ast.StatCall,
-                        callexp = { _tag = ast.ExpCall } } } },
+                    { _tag = ast.Stat.Call,
+                        callexp = { _tag = ast.Exp.Call } } } },
         })
     end)
 
@@ -409,31 +409,31 @@ describe("Titan parser", function()
                 x = i
             end
         ]], {
-            { _tag = ast.StatFor,
+            { _tag = ast.Stat.For,
               block = {
                 stats = {
-                  { _tag = ast.StatAssign,
-                    exp = { var = { _tag = ast.VarName, name = "i" } },
-                    var = { _tag = ast.VarName, name = "x" } } } },
-              decl = { _tag = ast.Decl, name = "i", type = false },
-              finish = { _tag = ast.ExpInteger, value = 2 },
-              inc =    { _tag = ast.ExpInteger, value = 3 },
-              start =  { _tag = ast.ExpInteger, value = 1 } },
+                  { _tag = ast.Stat.Assign,
+                    exp = { var = { _tag = ast.Var.Name, name = "i" } },
+                    var = { _tag = ast.Var.Name, name = "x" } } } },
+              decl = { _tag = ast.Decl.Decl, name = "i", type = false },
+              finish = { _tag = ast.Exp.Integer, value = 2 },
+              inc =    { _tag = ast.Exp.Integer, value = 3 },
+              start =  { _tag = ast.Exp.Integer, value = 1 } },
         })
     end)
 
     it("can parse return statements", function()
         assert_statements_ast("return", {
-            { _tag = ast.StatReturn, exp = false }})
+            { _tag = ast.Stat.Return, exp = false }})
 
         assert_statements_ast("return;", {
-            { _tag = ast.StatReturn, exp = false }})
+            { _tag = ast.Stat.Return, exp = false }})
 
         assert_statements_ast("return x", {
-            { _tag = ast.StatReturn, exp = { _tag = ast.ExpVar } },
+            { _tag = ast.Stat.Return, exp = { _tag = ast.Exp.Var } },
         })
         assert_statements_ast("return x;", {
-            { _tag = ast.StatReturn, exp = { _tag = ast.ExpVar } },
+            { _tag = ast.Stat.Return, exp = { _tag = ast.Exp.Var } },
         })
     end)
 
@@ -497,7 +497,7 @@ describe("Titan parser", function()
         -- concatenation is right associative
         -- and has less precedence than prefix operators
         assert_expression_ast([[-x .. -y .. -z]],
-            { _tag = ast.ExpConcat, exps = {
+            { _tag = ast.Exp.Concat, exps = {
                 { op = "-", exp = { var = { name = "x" } } },
                 { op = "-", exp = { var = { name = "y" } } },
                 { op = "-", exp = { var = { name = "z" } } },
@@ -519,67 +519,67 @@ describe("Titan parser", function()
 
     it("constant folds concatenation expressions", function()
         assert_expression_ast([["a" .. "b" .. "c"]],
-            { _tag = ast.ExpString, value = "abc" })
+            { _tag = ast.Exp.String, value = "abc" })
 
         assert_expression_ast([[1 .. 2]],
-            { _tag = ast.ExpString, value = "12" })
+            { _tag = ast.Exp.String, value = "12" })
 
         assert_expression_ast([[2.5 .. 1.5]],
-            { _tag = ast.ExpString, value = "2.51.5" })
+            { _tag = ast.Exp.String, value = "2.51.5" })
 
         assert_expression_ast([["a" .. 2]],
-            { _tag = ast.ExpString, value = "a2" })
+            { _tag = ast.Exp.String, value = "a2" })
 
         assert_expression_ast([[2 .. "a"]],
-            { _tag = ast.ExpString, value = "2a" })
+            { _tag = ast.Exp.String, value = "2a" })
     end)
 
     it("can parse suffix operators", function()
         assert_expression_ast([[ - x()()[2] ^ 3]],
-            { _tag = ast.ExpUnop, op = "-",
-                exp = { _tag = ast.ExpBinop, op = "^",
+            { _tag = ast.Exp.Unop, op = "-",
+                exp = { _tag = ast.Exp.Binop, op = "^",
                     rhs = { value = 3 },
-                    lhs = { _tag = ast.ExpVar, var = {
-                        _tag = ast.VarBracket,
+                    lhs = { _tag = ast.Exp.Var, var = {
+                        _tag = ast.Var.Bracket,
                         exp2 = { value = 2 },
-                        exp1 = { _tag = ast.ExpCall,
-                            args = { _tag = ast.ArgsFunc },
-                            exp = { _tag = ast.ExpCall,
-                                args = { _tag = ast.ArgsFunc },
-                                exp = { _tag = ast.ExpVar,
-                                    var = { _tag = ast.VarName, name = "x" }}}}}}}})
+                        exp1 = { _tag = ast.Exp.Call,
+                            args = { _tag = ast.Args.Func },
+                            exp = { _tag = ast.Exp.Call,
+                                args = { _tag = ast.Args.Func },
+                                exp = { _tag = ast.Exp.Var,
+                                    var = { _tag = ast.Var.Name, name = "x" }}}}}}}})
     end)
 
     it("can parse function calls without the optional parenthesis", function()
         assert_expression_ast([[ f() ]],
-            { _tag = ast.ExpCall, args = {
-                _tag = ast.ArgsFunc, args = { } } })
+            { _tag = ast.Exp.Call, args = {
+                _tag = ast.Args.Func, args = { } } })
 
         assert_expression_ast([[ f "qwe" ]],
-            { _tag = ast.ExpCall, args = {
-                _tag = ast.ArgsFunc, args = {
-                    { _tag = ast.ExpString, value = "qwe" } } } })
+            { _tag = ast.Exp.Call, args = {
+                _tag = ast.Args.Func, args = {
+                    { _tag = ast.Exp.String, value = "qwe" } } } })
 
         assert_expression_ast([[ f {} ]],
-            { _tag = ast.ExpCall, args = {
-                _tag = ast.ArgsFunc, args = {
-                    { _tag = ast.ExpInitList } } } })
+            { _tag = ast.Exp.Call, args = {
+                _tag = ast.Args.Func, args = {
+                    { _tag = ast.Exp.Initlist } } } })
     end)
 
     it("can parse method calls without the optional parenthesis", function()
         assert_expression_ast([[ o:m () ]],
-            { _tag = ast.ExpCall, args = {
-                _tag = ast.ArgsMethod, args = { } } })
+            { _tag = ast.Exp.Call, args = {
+                _tag = ast.Args.Method, args = { } } })
 
         assert_expression_ast([[ o:m "asd" ]],
-            { _tag = ast.ExpCall, args = {
-                _tag = ast.ArgsMethod, args = {
-                    { _tag = ast.ExpString, value = "asd" } } } })
+            { _tag = ast.Exp.Call, args = {
+                _tag = ast.Args.Method, args = {
+                    { _tag = ast.Exp.String, value = "asd" } } } })
 
         assert_expression_ast([[ o:m {} ]],
-            { _tag = ast.ExpCall, args = {
-                _tag = ast.ArgsMethod, args = {
-                    { _tag = ast.ExpInitList } } } })
+            { _tag = ast.Exp.Call, args = {
+                _tag = ast.Args.Method, args = {
+                    { _tag = ast.Exp.Initlist } } } })
     end)
 
     it("only allows call expressions as statements", function()
@@ -596,7 +596,7 @@ describe("Titan parser", function()
 
     it("can parse import", function ()
         assert_program_ast([[ local foo = import "module.foo" ]], {
-            { _tag = ast.TopLevelImport, localname = "foo", modname = "module.foo" },
+            { _tag = ast.Toplevel.Import, localname = "foo", modname = "module.foo" },
         })
     end)
 
@@ -607,22 +607,22 @@ describe("Titan parser", function()
             foo.write(a, b, c)
         ]], {
             { var = {
-                _tag = ast.VarDot,
-                exp = { _tag = ast.ExpVar,
-                  var = { _tag = ast.VarName, name = "foo" }
+                _tag = ast.Var.Dot,
+                exp = { _tag = ast.Exp.Var,
+                  var = { _tag = ast.Var.Name, name = "foo" }
                 },
                 name = "bar" } },
             { callexp = { args = { args = { { var = {
-                _tag = ast.VarDot,
-                exp = { _tag = ast.ExpVar,
-                  var = { _tag = ast.VarName, name = "foo" }
+                _tag = ast.Var.Dot,
+                exp = { _tag = ast.Exp.Var,
+                  var = { _tag = ast.Var.Name, name = "foo" }
                 },
               name = "bar" } } } } } },
             { callexp = {
                 exp = { var = {
-                    _tag = ast.VarDot,
-                    exp = { _tag = ast.ExpVar,
-                      var = { _tag = ast.VarName, name = "foo" }
+                    _tag = ast.Var.Dot,
+                    exp = { _tag = ast.Exp.Var,
+                      var = { _tag = ast.Var.Name, name = "foo" }
                     },
                     name = "write" } } } }
         })
@@ -635,11 +635,11 @@ describe("Titan parser", function()
                 y: float
             end
         ]], {
-            { _tag = ast.TopLevelRecord,
+            { _tag = ast.Toplevel.Record,
               name = "Point",
               fields = {
-                { name = "x", type = { _tag = ast.TypeFloat } },
-                { name = "y", type = { _tag = ast.TypeFloat } } } },
+                { name = "x", type = { _tag = ast.Type.Float } },
+                { name = "y", type = { _tag = ast.Type.Float } } } },
         })
 
         assert_program_ast([[
@@ -648,7 +648,7 @@ describe("Titan parser", function()
                 next: List
             end
         ]], {
-            { _tag = ast.TopLevelRecord,
+            { _tag = ast.Toplevel.Record,
               name = "List",
               fields = {
                 { name = "p",
@@ -679,63 +679,63 @@ describe("Titan parser", function()
 
     it("can parse record constructors", function()
         assert_expression_ast([[ { x = 1.1, y = 2.2 } ]],
-            { _tag = ast.ExpInitList, fields = {
+            { _tag = ast.Exp.Initlist, fields = {
                 { name = "x", exp = { value = 1.1 } },
                 { name = "y", exp = { value = 2.2 } } }})
 
         assert_expression_ast([[ { p = {}, next = nil } ]],
-            { _tag = ast.ExpInitList, fields = {
-                { name = "p",    exp = { _tag = ast.ExpInitList } },
-                { name = "next", exp = { _tag = ast.ExpNil } } }})
+            { _tag = ast.Exp.Initlist, fields = {
+                { name = "p",    exp = { _tag = ast.Exp.Initlist } },
+                { name = "next", exp = { _tag = ast.Exp.Nil } } }})
 
         assert_expression_ast([[ Point.new(1.1, 2.2) ]],
-            { _tag = ast.ExpCall,
+            { _tag = ast.Exp.Call,
                 args = { args = {
                   { value = 1.1 },
                   { value = 2.2 } } },
                 exp = { var = {
-                    _tag = ast.VarDot,
+                    _tag = ast.Var.Dot,
                     exp = { var = { name = "Point" } },
                     name = "new" } } })
 
         assert_expression_ast([[ List.new({}, nil) ]],
-            { _tag = ast.ExpCall,
+            { _tag = ast.Exp.Call,
                 args = { args = {
-                  { _tag = ast.ExpInitList },
-                  { _tag = ast.ExpNil } } },
+                  { _tag = ast.Exp.Initlist },
+                  { _tag = ast.Exp.Nil } } },
                 exp = { var = {
-                    _tag = ast.VarDot,
+                    _tag = ast.Var.Dot,
                     exp = { var = { name = "List" } },
                     name = "new" } } })
     end)
 
     it("can parse record field access", function()
         assert_expression_ast([[ p.x ]],
-            { _tag = ast.ExpVar, var = { _tag = ast.VarDot,
+            { _tag = ast.Exp.Var, var = { _tag = ast.Var.Dot,
                 name = "x",
-                exp = { _tag = ast.ExpVar, var = { _tag = ast.VarName,
+                exp = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Name,
                     name = "p" } } } })
 
         assert_expression_ast([[ a.b[1].c ]],
-            { _tag = ast.ExpVar, var = { _tag = ast.VarDot,
+            { _tag = ast.Exp.Var, var = { _tag = ast.Var.Dot,
                 name = "c",
-                exp = { _tag = ast.ExpVar, var = { _tag = ast.VarBracket,
+                exp = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Bracket,
                     exp2 = { value = 1 },
-                    exp1 = { _tag = ast.ExpVar, var = { _tag = ast.VarDot,
+                    exp1 = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Dot,
                         name = "b",
-                        exp = { _tag = ast.ExpVar, var = { _tag = ast.VarName,
+                        exp = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Name,
                             name = "a" } } } } } } } })
     end)
 
     it("can parse cast expressions", function()
         assert_expression_ast([[ foo as integer ]],
-            { _tag = ast.ExpCast, exp = { _tag = ast.ExpVar }, target = { _tag = ast.TypeInteger } })
+            { _tag = ast.Exp.Cast, exp = { _tag = ast.Exp.Var }, target = { _tag = ast.Type.Integer } })
         assert_expression_ast([[ a.b[1].c as integer ]],
-            { _tag = ast.ExpCast, exp = { _tag = ast.ExpVar }, target = { _tag = ast.TypeInteger } })
+            { _tag = ast.Exp.Cast, exp = { _tag = ast.Exp.Var }, target = { _tag = ast.Type.Integer } })
         assert_expression_ast([[ foo as { integer } ]],
-            { _tag = ast.ExpCast, exp = { _tag = ast.ExpVar }, target = { _tag = ast.TypeArray } })
+            { _tag = ast.Exp.Cast, exp = { _tag = ast.Exp.Var }, target = { _tag = ast.Type.Array } })
         assert_expression_ast([[ 2 + foo as integer ]],
-            { rhs = { _tag = ast.ExpCast, exp = { _tag = ast.ExpVar }, target = { _tag = ast.TypeInteger } }})
+            { rhs = { _tag = ast.Exp.Cast, exp = { _tag = ast.Exp.Var }, target = { _tag = ast.Type.Integer } }})
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()

@@ -90,8 +90,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, prog = run_checker(code)
         assert.truthy(ok)
-        assert.same(ast.ExpCast, prog[1].block.stats[2].exp._tag)
-        assert.same(types.Integer, prog[1].block.stats[2].exp.target._tag)
+        assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
+        assert.same(types.T.Integer, prog[1].block.stats[2].exp.target._tag)
     end)
 
     it("coerces to float", function()
@@ -104,8 +104,8 @@ describe("Titan type checker", function()
         ]]
         local ok, err, prog = run_checker(code)
         assert.truthy(ok)
-        assert.same(ast.ExpCast, prog[1].block.stats[2].exp._tag)
-        assert.same(types.Float, prog[1].block.stats[2].exp.target._tag)
+        assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
+        assert.same(types.T.Float, prog[1].block.stats[2].exp.target._tag)
     end)
 
     it("catches duplicate function declarations", function()
@@ -528,21 +528,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, prog = run_checker(code)
 
-            assert.same(types.Float(), prog[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[3].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp._type)
 
-            assert.same(types.Float(), prog[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[4].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp._type)
 
-            assert.same(types.Float(), prog[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[5].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp._type)
 
-            assert.same(types.Integer(), prog[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer(), prog[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer(), prog[1].block.stats[6].exp._type)
+            assert.same(types.T.Integer(), prog[1].block.stats[6].exp.lhs._type)
+            assert.same(types.T.Integer(), prog[1].block.stats[6].exp.rhs._type)
+            assert.same(types.T.Integer(), prog[1].block.stats[6].exp._type)
         end)
     end
 
@@ -560,21 +560,21 @@ describe("Titan type checker", function()
             ]]
             local ok, err, prog = run_checker(code)
 
-            assert.same(types.Float(), prog[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[3].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp._type)
 
-            assert.same(types.Float(), prog[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[4].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp._type)
 
-            assert.same(types.Float(), prog[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[5].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp._type)
 
-            assert.same(types.Float(), prog[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Float(), prog[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Float(), prog[1].block.stats[6].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[6].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[6].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[6].exp._type)
         end)
     end
 
@@ -971,11 +971,11 @@ describe("Titan type checker", function()
         local ok, err, mods = run_checker_modules(modules, "test")
         assert.truthy(ok)
         assert_prog(mods.test.type, {
-            _tag = types.Module,
+            _tag = types.T.Module,
             name = "test",
             members = {
-                a = { _tag = types.Integer },
-                geta = { _tag = types.Function }
+                a = { _tag = types.T.Integer },
+                geta = { _tag = types.T.Function }
             }
         })
         assert.falsy(mods.test.type.members.b)
@@ -1007,11 +1007,11 @@ describe("Titan type checker", function()
         assert.truthy(ok)
         assert.truthy(mods.foo)
         assert_prog(mods.foo.type, {
-            _tag = types.Module,
+            _tag = types.T.Module,
             name = "foo",
             members = {
-                a = { _tag = types.Integer },
-                foo = { _tag = types.Function }
+                a = { _tag = types.T.Integer },
+                foo = { _tag = types.T.Function }
             }
         })
     end)

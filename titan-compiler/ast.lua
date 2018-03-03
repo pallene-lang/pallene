@@ -1,72 +1,78 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl.decl{
-    Type = {
-        TypeNil         = {"loc"},
-        TypeBoolean     = {"loc"},
-        TypeInteger     = {"loc"},
-        TypeFloat       = {"loc"},
-        TypeString      = {"loc"},
-        TypeValue       = {"loc"},
-        TypeName        = {"loc", "name"},
-        TypeArray       = {"loc", "subtype"},
-        TypeFunction    = {"loc", "argtypes", "rettypes"},
-    },
+local ast = {}
 
-    TopLevel = {
-        TopLevelFunc    = {"loc", "islocal", "name", "params", "rettypes", "block"},
-        TopLevelVar     = {"loc", "islocal", "decl", "value"},
-        TopLevelRecord  = {"loc", "name", "fields"},
-        TopLevelImport  = {"loc", "localname", "modname"}
-    },
+local function declare_type(typename, cons)
+    typedecl.declare(ast, "ast", typename, cons)
+end
 
-    Decl = {
-        Decl            = {"loc", "name", "type"},
-    },
+declare_type("Type", {
+    Nil      = {"loc"},
+    Boolean  = {"loc"},
+    Integer  = {"loc"},
+    Float    = {"loc"},
+    String   = {"loc"},
+    Value    = {"loc"},
+    Name     = {"loc", "name"},
+    Array    = {"loc", "subtype"},
+    Function = {"loc", "argtypes", "rettypes"},
+})
 
-    Stat = {
-        StatBlock       = {"loc", "stats"},
-        StatWhile       = {"loc", "condition", "block"},
-        StatRepeat      = {"loc", "block", "condition"},
-        StatIf          = {"loc", "thens", "elsestat"},
-        StatFor         = {"loc", "decl", "start", "finish", "inc", "block"},
-        StatAssign      = {"loc", "var", "exp"},
-        StatDecl        = {"loc", "decl", "exp"},
-        StatCall        = {"loc", "callexp"},
-        StatReturn      = {"loc", "exp"},
-    },
+declare_type("Toplevel", {
+    Func   = {"loc", "islocal", "name", "params", "rettypes", "block"},
+    Var    = {"loc", "islocal", "decl", "value"},
+    Record = {"loc", "name", "fields"},
+    Import = {"loc", "localname", "modname"},
+})
 
-    Then = {
-        Then            = {"loc", "condition", "block"},
-    },
+declare_type("Decl", {
+    Decl = {"loc", "name", "type"},
+})
 
-    Var = {
-        VarName         = {"loc", "name"},
-        VarBracket      = {"loc", "exp1", "exp2"},
-        VarDot          = {"loc", "exp", "name"}
-    },
+declare_type("Stat", {
+    Block  = {"loc", "stats"},
+    While  = {"loc", "condition", "block"},
+    Repeat = {"loc", "block", "condition"},
+    If     = {"loc", "thens", "elsestat"},
+    For    = {"loc", "decl", "start", "finish", "inc", "block"},
+    Assign = {"loc", "var", "exp"},
+    Decl   = {"loc", "decl", "exp"},
+    Call   = {"loc", "callexp"},
+    Return = {"loc", "exp"},
+})
 
-    Exp = {
-        ExpNil          = {"loc"},
-        ExpBool         = {"loc", "value"},
-        ExpInteger      = {"loc", "value"},
-        ExpFloat        = {"loc", "value"},
-        ExpString       = {"loc", "value"},
-        ExpInitList     = {"loc", "fields"},
-        ExpCall         = {"loc", "exp", "args"},
-        ExpVar          = {"loc", "var"},
-        ExpUnop         = {"loc", "op", "exp"},
-        ExpConcat       = {"loc", "exps"},
-        ExpBinop        = {"loc", "lhs", "op", "rhs"},
-        ExpCast         = {"loc", "exp", "target"}
-    },
+declare_type("Then", {
+    Then = {"loc", "condition", "block"},
+})
 
-    Args = {
-        ArgsFunc        = {"loc", "args"},
-        ArgsMethod      = {"loc", "method", "args"},
-    },
+declare_type("Var", {
+    Name    = {"loc", "name"},
+    Bracket = {"loc", "exp1", "exp2"},
+    Dot     = {"loc", "exp", "name"}
+})
 
-    Field = {
-        Field           = {"loc", "name", "exp"},
-    },
-}
+declare_type("Exp", {
+    Nil      = {"loc"},
+    Bool     = {"loc", "value"},
+    Integer  = {"loc", "value"},
+    Float    = {"loc", "value"},
+    String   = {"loc", "value"},
+    Initlist = {"loc", "fields"},
+    Call     = {"loc", "exp", "args"},
+    Var      = {"loc", "var"},
+    Unop     = {"loc", "op", "exp"},
+    Concat   = {"loc", "exps"},
+    Binop    = {"loc", "lhs", "op", "rhs"},
+    Cast     = {"loc", "exp", "target"}
+})
+
+declare_type("Args", {
+    Func   = {"loc", "args"},
+    Method = {"loc", "method", "args"},
+})
+
+declare_type("Field", {
+    Field = {"loc", "name", "exp"},
+})
+
+return ast

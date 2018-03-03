@@ -44,47 +44,47 @@ end
 --   errors: list of compile-time errors
 --   returns a type (from types.lua)
 typefromnode = util.make_visitor({
-    [ast.TypeNil] = function(node, st, errors)
-        return types.Nil()
+    [ast.Type.Nil] = function(node, st, errors)
+        return types.T.Nil()
     end,
 
-    [ast.TypeBoolean] = function(node, st, errors)
-        return types.Boolean()
+    [ast.Type.Boolean] = function(node, st, errors)
+        return types.T.Boolean()
     end,
 
-    [ast.TypeInteger] = function(node, st, errors)
-        return types.Integer()
+    [ast.Type.Integer] = function(node, st, errors)
+        return types.T.Integer()
     end,
 
-    [ast.TypeFloat] = function(node, st, errors)
-        return types.Float()
+    [ast.Type.Float] = function(node, st, errors)
+        return types.T.Float()
     end,
 
-    [ast.TypeString] = function(node, st, errors)
-        return types.String()
+    [ast.Type.String] = function(node, st, errors)
+        return types.T.String()
     end,
 
-    [ast.TypeName] = function(node, st, errors)
+    [ast.Type.Name] = function(node, st, errors)
         local name = node.name
         local sym = st:find_symbol(name)
         if sym then
-            if sym._type._tag == types.Type then
+            if sym._type._tag == types.T.Type then
                 return sym._type.type
             else
                 checker.typeerror(errors, node.loc, "%s isn't a type", name)
-                return types.Invalid()
+                return types.T.Invalid()
             end
         else
             checker.typeerror(errors, node.loc, "type '%s' not found", name)
-            return types.Invalid()
+            return types.T.Invalid()
         end
     end,
 
-    [ast.TypeArray] = function(node, st, errors)
-        return types.Array(typefromnode(node.subtype, st, errors))
+    [ast.Type.Array] = function(node, st, errors)
+        return types.T.Array(typefromnode(node.subtype, st, errors))
     end,
 
-    [ast.TypeFunction] = function(node, st, errors)
+    [ast.Type.Function] = function(node, st, errors)
         if #node.argtypes ~= 1 then
             error("functions with 0 or 2+ return values are not yet implemented")
         end
@@ -96,7 +96,7 @@ typefromnode = util.make_visitor({
         for _, rettype in ipairs(node.rettypes) do
             table.insert(rettypes, typefromnode(rettype, st, errors))
         end
-        return types.Function(ptypes, rettypes)
+        return types.T.Function(ptypes, rettypes)
     end,
 })
 
@@ -106,7 +106,7 @@ typefromnode = util.make_visitor({
 --    returns node wrapped in a coercion, or original node
 local function trycoerce(node, target, errors)
     if types.coerceable(node._type, target) then
-        local n = ast.ExpCast(node.loc, node, target)
+        local n = ast.Exp.Cast(node.loc, node, target)
         n._type = target
         return n
     else
@@ -116,10 +116,10 @@ end
 
 local function trytostr(node)
     local source = node._type
-    if source._tag == types.Integer or
-       source._tag == types.Float then
-        local n = ast.ExpCast(node.loc, node, types.String())
-        n._type = types.String()
+    if source._tag == types.T.Integer or
+       source._tag == types.T.Float then
+        local n = ast.Exp.Cast(node.loc, node, types.T.String())
+        n._type = types.T.String()
         return n
     else
         return node
@@ -148,7 +148,7 @@ local function checkrepeat(node, st, errors)
     for _, stat in ipairs(node.block.stats) do
         checkstat(stat, st, errors)
     end
-    checkexp(node.condition, st, errors, types.Boolean())
+    checkexp(node.condition, st, errors, types.T.Boolean())
     return false
 end
 
@@ -171,17 +171,17 @@ local function checkfor(node, st, errors)
     checkdecl(node.decl, st, errors)
 
     local loop_type_is_valid
-    if     node.decl._type._tag == types.Integer then
+    if     node.decl._type._tag == types.T.Integer then
         loop_type_is_valid = true
         if not node.inc then
-            node.inc = ast.ExpInteger(node.finish.loc, 1)
-            node.inc._type = types.Integer()
+            node.inc = ast.Exp.Integer(node.finish.loc, 1)
+            node.inc._type = types.T.Integer()
         end
-    elseif node.decl._type._tag == types.Float then
+    elseif node.decl._type._tag == types.T.Float then
         loop_type_is_valid = true
         if not node.inc then
-            node.inc = ast.ExpFloat(node.finish.loc, 1.0)
-            node.inc._type = types.Float()
+            node.inc = ast.Exp.Float(node.finish.loc, 1.0)
+            node.inc._type = types.T.Float()
         end
     else
         loop_type_is_valid = false
@@ -223,7 +223,7 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for repeat/until)
 checkstat = util.make_visitor({
-    [ast.StatDecl] = function(node, st, errors)
+    [ast.Stat.Decl] = function(node, st, errors)
         if node.decl.type then
           checkdecl(node.decl, st, errors)
           checkexp(node.exp, st, errors, node.decl._type)
@@ -236,47 +236,47 @@ checkstat = util.make_visitor({
             node.decl._type, node.exp._type, errors, node.decl.loc)
     end,
 
-    [ast.StatBlock] = function(node, st, errors)
+    [ast.Stat.Block] = function(node, st, errors)
         return st:with_block(checkblock, node, st, errors)
     end,
 
-    [ast.StatWhile] = function(node, st, errors)
-        checkexp(node.condition, st, errors, types.Boolean())
+    [ast.Stat.While] = function(node, st, errors)
+        checkexp(node.condition, st, errors, types.T.Boolean())
         st:with_block(checkstat, node.block, st, errors)
     end,
 
-    [ast.StatRepeat] = function(node, st, errors)
+    [ast.Stat.Repeat] = function(node, st, errors)
         st:with_block(checkrepeat, node, st, errors)
     end,
 
-    [ast.StatFor] = function(node, st, errors)
+    [ast.Stat.For] = function(node, st, errors)
         st:with_block(checkfor, node, st, errors)
     end,
 
-    [ast.StatAssign] = function(node, st, errors)
+    [ast.Stat.Assign] = function(node, st, errors)
         checkvar(node.var, st, errors)
         checkexp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
-        if texp._tag == types.Module then
+        if texp._tag == types.T.Module then
             checker.typeerror(errors, node.loc, "trying to assign to a module")
-        elseif texp._tag == types.Function then
+        elseif texp._tag == types.T.Function then
             checker.typeerror(errors, node.loc, "trying to assign to a function")
         else
             -- mark this declared variable as assigned to
-            if node.var._tag == ast.VarName and node.var._decl then
+            if node.var._tag == ast.Var.Name and node.var._decl then
                 node.var._decl._assigned = true
             end
-            if node.var._tag ~= ast.VarBracket or node.exp._type._tag ~= types.Nil then
+            if node.var._tag ~= ast.Var.Bracket or node.exp._type._tag ~= types.T.Nil then
                 checkmatch("assignment", node.var._type, node.exp._type, errors, node.var.loc)
             end
         end
     end,
 
-    [ast.StatCall] = function(node, st, errors)
+    [ast.Stat.Call] = function(node, st, errors)
         checkexp(node.callexp, st, errors)
     end,
 
-    [ast.StatReturn] = function(node, st, errors)
+    [ast.Stat.Return] = function(node, st, errors)
         local ftype = st:find_symbol("$function")._type
         assert(#ftype.rettypes == 1)
         local tret = ftype.rettypes[1]
@@ -285,10 +285,10 @@ checkstat = util.make_visitor({
         return true
     end,
 
-    [ast.StatIf] = function(node, st, errors)
+    [ast.Stat.If] = function(node, st, errors)
         local ret = true
         for _, thn in ipairs(node.thens) do
-            checkexp(thn.condition, st, errors, types.Boolean())
+            checkexp(thn.condition, st, errors, types.T.Boolean())
             ret = checkstat(thn.block, st, errors) and ret
         end
         if node.elsestat then
@@ -311,12 +311,12 @@ checkstat = util.make_visitor({
 --   context: expected type for this expression, if applicable
 --   annotates the node with its type in a "_type" field
 checkvar = util.make_visitor({
-    [ast.VarName] = function(node, st, errors, context)
+    [ast.Var.Name] = function(node, st, errors, context)
         local decl = st:find_symbol(node.name)
         if not decl then
             checker.typeerror(errors, node.loc,
                 "variable '%s' not declared", node.name)
-            node._type = types.Invalid()
+            node._type = types.T.Invalid()
         else
             decl._used = true
             node._decl = decl
@@ -324,12 +324,12 @@ checkvar = util.make_visitor({
         end
     end,
 
-    [ast.VarDot] = function(node, st, errors)
+    [ast.Var.Dot] = function(node, st, errors)
         local var = assert(node.exp.var, "left side of dot is not var")
         checkvar(var, st, errors)
         node.exp._type = var._type
         local vartype = var._type
-        if vartype._tag == types.Module then
+        if vartype._tag == types.T.Module then
             local mod = vartype
             if not mod.members[node.name] then
                 checker.typeerror(errors, node.loc,
@@ -340,16 +340,16 @@ checkvar = util.make_visitor({
                 node._decl = decl
                 node._type = decl
             end
-        elseif vartype._tag == types.Type then
+        elseif vartype._tag == types.T.Type then
             local typ = vartype.type
-            if typ._tag == types.Record then
+            if typ._tag == types.T.Record then
                 if node.name == "new" then
                     local params = {}
                     for _, field in ipairs(typ.fields) do
                         table.insert(params, field.type)
                     end
                     node._decl = typ
-                    node._type = types.Function(params, {typ})
+                    node._type = types.T.Function(params, {typ})
                 else
                     checker.typeerror(errors, node.loc,
                         "trying to access invalid record member '%s'", node.name)
@@ -358,7 +358,7 @@ checkvar = util.make_visitor({
                 checker.typeerror(errors, node.loc,
                     "invalid access to type '%s'", types.tostring(type))
             end
-        elseif vartype._tag == types.Record then
+        elseif vartype._tag == types.T.Record then
             for _, field in ipairs(vartype.fields) do
                 if field.name == node.name then
                     node._type = field.type
@@ -375,21 +375,21 @@ checkvar = util.make_visitor({
                 "trying to access a member of value of type '%s'",
                 types.tostring(vartype))
         end
-        node._type = node._type or types.Invalid()
+        node._type = node._type or types.T.Invalid()
     end,
 
-    [ast.VarBracket] = function(node, st, errors, context)
-        checkexp(node.exp1, st, errors, context and types.Array(context))
-        if node.exp1._type._tag ~= types.Array then
+    [ast.Var.Bracket] = function(node, st, errors, context)
+        checkexp(node.exp1, st, errors, context and types.T.Array(context))
+        if node.exp1._type._tag ~= types.T.Array then
             checker.typeerror(errors, node.exp1.loc,
                 "array expression in indexing is not an array but %s",
                 types.tostring(node.exp1._type))
-            node._type = types.Invalid()
+            node._type = types.T.Invalid()
         else
             node._type = node.exp1._type.elem
         end
-        checkexp(node.exp2, st, errors, types.Integer())
-        checkmatch("array indexing", types.Integer(), node.exp2._type, errors, node.exp2.loc)
+        checkexp(node.exp2, st, errors, types.T.Integer())
+        checkmatch("array indexing", types.T.Integer(), node.exp2._type, errors, node.exp2.loc)
     end,
 })
 
@@ -404,27 +404,27 @@ checkvar = util.make_visitor({
 --   context: expected type for this expression, if applicable
 --   annotates the node with its type in a "_type" field
 checkexp = util.make_visitor({
-    [ast.ExpNil] = function(node)
-        node._type = types.Nil()
+    [ast.Exp.Nil] = function(node)
+        node._type = types.T.Nil()
     end,
 
-    [ast.ExpBool] = function(node)
-        node._type = types.Boolean()
+    [ast.Exp.Bool] = function(node)
+        node._type = types.T.Boolean()
     end,
 
-    [ast.ExpInteger] = function(node)
-        node._type = types.Integer()
+    [ast.Exp.Integer] = function(node)
+        node._type = types.T.Integer()
     end,
 
-    [ast.ExpFloat] = function(node)
-        node._type = types.Float()
+    [ast.Exp.Float] = function(node)
+        node._type = types.T.Float()
     end,
 
-    [ast.ExpString] = function(node)
-        node._type = types.String()
+    [ast.Exp.String] = function(node)
+        node._type = types.T.String()
     end,
 
-    [ast.ExpInitList] = function(node, st, errors, context)
+    [ast.Exp.Initlist] = function(node, st, errors, context)
         local econtext = context and context.elem
         local etypes = {}
         local isarray = true
@@ -435,90 +435,90 @@ checkexp = util.make_visitor({
             isarray = isarray and not field.name
         end
         if isarray then
-            local etype = econtext or etypes[1] or types.Integer()
-            node._type = types.Array(etype)
+            local etype = econtext or etypes[1] or types.T.Integer()
+            node._type = types.T.Array(etype)
             for i, field in ipairs(node.fields) do
                 local exp = field.exp
                 checkmatch("array initializer at position " .. i, etype,
                            exp._type, errors, exp.loc)
             end
         else
-            node._type = types.InitList(etypes)
+            node._type = types.T.Initlist(etypes)
         end
     end,
 
-    [ast.ExpVar] = function(node, st, errors, context)
+    [ast.Exp.Var] = function(node, st, errors, context)
         checkvar(node.var, st, errors, context)
         local texp = node.var._type
-        if texp._tag == types.Module then
+        if texp._tag == types.T.Module then
             checker.typeerror(errors, node.loc,
                 "trying to access module '%s' as a first-class value",
                 node.var.name)
-            node._type = types.Invalid()
-        elseif texp._tag == types.Function then
+            node._type = types.T.Invalid()
+        elseif texp._tag == types.T.Function then
             checker.typeerror(errors, node.loc,
                 "trying to access a function as a first-class value")
-            node._type = types.Invalid()
+            node._type = types.T.Invalid()
         else
             node._type = texp
         end
     end,
 
-    [ast.ExpUnop] = function(node, st, errors, context)
+    [ast.Exp.Unop] = function(node, st, errors, context)
         local op = node.op
         checkexp(node.exp, st, errors)
         local texp = node.exp._type
         local loc = node.loc
         if op == "#" then
-            if texp._tag ~= types.Array and texp._tag ~= types.String then
+            if texp._tag ~= types.T.Array and texp._tag ~= types.T.String then
                 checker.typeerror(errors, loc,
                     "trying to take the length of a %s instead of an array or string",
                     types.tostring(texp))
             end
-            node._type = types.Integer()
+            node._type = types.T.Integer()
         elseif op == "-" then
-            if texp._tag ~= types.Integer and texp._tag ~= types.Float then
+            if texp._tag ~= types.T.Integer and texp._tag ~= types.T.Float then
                 checker.typeerror(errors, loc,
                     "trying to negate a %s instead of a number",
                     types.tostring(texp))
             end
             node._type = texp
         elseif op == "~" then
-            if texp._tag ~= types.Integer then
+            if texp._tag ~= types.T.Integer then
                 checker.typeerror(errors, loc,
                     "trying to bitwise negate a %s instead of an integer",
                     types.tostring(texp))
             end
-            node._type = types.Integer()
+            node._type = types.T.Integer()
         elseif op == "not" then
-            if texp._tag ~= types.Boolean then
+            if texp._tag ~= types.T.Boolean then
                 -- Titan is being intentionaly restrictive here
                 checker.typeerror(errors, loc,
                     "trying to negate a %s instead of a boolean",
                     types.tostring(texp))
             end
-            node._type = types.Boolean()
+            node._type = types.T.Boolean()
         else
             error("invalid unary operation " .. op)
         end
     end,
 
-    [ast.ExpConcat] = function(node, st, errors, context)
+    [ast.Exp.Concat] = function(node, st, errors, context)
         for i, exp in ipairs(node.exps) do
-            checkexp(exp, st, errors, types.String())
+            checkexp(exp, st, errors, types.T.String())
             -- always tries to coerce numbers to string
             exp = trytostr(exp)
             node.exps[i] = exp
             local texp = exp._type
-            if texp._tag ~= types.String then
+            if texp._tag ~= types.T.String then
                 checker.typeerror(errors, exp.loc,
                     "cannot concatenate with %s value", types.tostring(texp))
             end
         end
-        node._type = types.String()
+        node._type = types.T.String()
     end,
 
-    [ast.ExpBinop] = function(node, st, errors, context)
+    [ast.Exp.Binop] = function(node, st, errors, context)
         local op = node.op
         checkexp(node.lhs, st, errors)
         local tlhs = node.lhs._type
@@ -526,8 +526,8 @@ checkexp = util.make_visitor({
         local trhs = node.rhs._type
         local loc = node.loc
         if op == "==" or op == "~=" then
-            if (tlhs._tag == types.Integer and trhs._tag == types.Float) or
-               (tlhs._tag == types.Float   and trhs._tag == types.Integer) then
+            if (tlhs._tag == types.T.Integer and trhs._tag == types.T.Float) or
+               (tlhs._tag == types.T.Float   and trhs._tag == types.T.Integer) then
                 checker.typeerror(errors, loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
@@ -536,14 +536,14 @@ checkexp = util.make_visitor({
                     "cannot compare %s and %s with %s",
                     types.tostring(tlhs), types.tostring(trhs), op)
             end
-            node._type = types.Boolean()
+            node._type = types.T.Boolean()
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            if (tlhs._tag == types.Integer and trhs._tag == types.Integer) or
-               (tlhs._tag == types.Float   and trhs._tag == types.Float) or
-               (tlhs._tag == types.String  and trhs._tag == types.String) then
+            if (tlhs._tag == types.T.Integer and trhs._tag == types.T.Integer) or
+               (tlhs._tag == types.T.Float   and trhs._tag == types.T.Float) or
+               (tlhs._tag == types.T.String  and trhs._tag == types.T.String) then
                -- OK
-            elseif (tlhs._tag == types.Integer and trhs._tag == types.Float) or
-                   (tlhs._tag == types.Float   and trhs._tag == types.Integer) then
+            elseif (tlhs._tag == types.T.Integer and trhs._tag == types.T.Float) or
+                   (tlhs._tag == types.T.Float   and trhs._tag == types.T.Integer) then
                 checker.typeerror(errors, loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
@@ -552,91 +552,91 @@ checkexp = util.make_visitor({
                     "cannot compare %s and %s with %s",
                     types.tostring(tlhs), types.tostring(trhs), op)
             end
-            node._type = types.Boolean()
+            node._type = types.T.Boolean()
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            if not (tlhs._tag == types.Integer or tlhs._tag == types.Float) then
+            if not (tlhs._tag == types.T.Integer or tlhs._tag == types.T.Float) then
                 checker.typeerror(errors, loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(tlhs))
             end
-            if not (trhs._tag == types.Integer or trhs._tag == types.Float) then
+            if not (trhs._tag == types.T.Integer or trhs._tag == types.T.Float) then
                 checker.typeerror(errors, loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(trhs))
             end
             -- tries to coerce to float if either side is float
-            if tlhs._tag == types.Float or trhs._tag == types.Float then
-                node.lhs = trycoerce(node.lhs, types.Float(), errors)
+            if tlhs._tag == types.T.Float or trhs._tag == types.T.Float then
+                node.lhs = trycoerce(node.lhs, types.T.Float(), errors)
                 tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Float(), errors)
+                node.rhs = trycoerce(node.rhs, types.T.Float(), errors)
                 trhs = node.rhs._type
             end
-            if tlhs._tag == types.Float and trhs._tag == types.Float then
-                node._type = types.Float()
-            elseif tlhs._tag == types.Integer and trhs._tag == types.Integer then
-                node._type = types.Integer()
+            if tlhs._tag == types.T.Float and trhs._tag == types.T.Float then
+                node._type = types.T.Float()
+            elseif tlhs._tag == types.T.Integer and trhs._tag == types.T.Integer then
+                node._type = types.T.Integer()
             else
                 -- error
-                node._type = types.Invalid()
+                node._type = types.T.Invalid()
             end
         elseif op == "/" or op == "^" then
-            if tlhs._tag == types.Integer then
+            if tlhs._tag == types.T.Integer then
                 -- always tries to coerce to float
-                node.lhs = trycoerce(node.lhs, types.Float(), errors)
+                node.lhs = trycoerce(node.lhs, types.T.Float(), errors)
                 tlhs = node.lhs._type
             end
-            if trhs._tag == types.Integer then
+            if trhs._tag == types.T.Integer then
                 -- always tries to coerce to float
-                node.rhs = trycoerce(node.rhs, types.Float(), errors)
+                node.rhs = trycoerce(node.rhs, types.T.Float(), errors)
                 trhs = node.rhs._type
             end
-            if tlhs._tag ~= types.Float then
+            if tlhs._tag ~= types.T.Float then
                 checker.typeerror(errors, loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(tlhs))
             end
-            if trhs._tag ~= types.Float then
+            if trhs._tag ~= types.T.Float then
                 checker.typeerror(errors, loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(trhs))
             end
-            node._type = types.Float()
+            node._type = types.T.Float()
         elseif op == "and" or op == "or" then
-            if tlhs._tag ~= types.Boolean then
+            if tlhs._tag ~= types.T.Boolean then
                 checker.typeerror(errors, loc,
                     "left hand side of logical expression is a %s instead of a boolean",
                     types.tostring(tlhs))
             end
-            if trhs._tag ~= types.Boolean then
+            if trhs._tag ~= types.T.Boolean then
                 checker.typeerror(errors, loc,
                     "right hand side of logical expression is a %s instead of a boolean",
                     types.tostring(trhs))
             end
-            node._type = types.Boolean()
+            node._type = types.T.Boolean()
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
-            if tlhs._tag ~= types.Integer then
+            if tlhs._tag ~= types.T.Integer then
                 checker.typeerror(errors, loc,
                     "left hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(tlhs))
             end
-            if trhs._tag ~= types.Integer then
+            if trhs._tag ~= types.T.Integer then
                 checker.typeerror(errors, loc,
                     "right hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(trhs))
             end
-            node._type = types.Integer()
+            node._type = types.T.Integer()
         else
             error("invalid binary operation " .. op)
         end
     end,
 
-    [ast.ExpCall] = function(node, st, errors, context)
-        assert(node.exp._tag == ast.ExpVar, "function calls are first-order only!")
+    [ast.Exp.Call] = function(node, st, errors, context)
+        assert(node.exp._tag == ast.Exp.Var, "function calls are first-order only!")
         local var = node.exp.var
         checkvar(var, st, errors)
         node.exp._type = var._type
-        local fname = var._tag == ast.VarName and var.name or (var.exp.var.name .. "." .. var.name)
-        if var._type._tag == types.Function then
+        local fname = var._tag == ast.Var.Name and var.name or (var.exp.var.name .. "." .. var.name)
+        if var._type._tag == types.T.Function then
             local ftype = var._type
             local nparams = #ftype.params
             local args = node.args.args
@@ -672,11 +672,11 @@ checkexp = util.make_visitor({
             for _, arg in ipairs(node.args.args) do
                 checkexp(arg, st, errors)
             end
-            node._type = types.Invalid()
+            node._type = types.T.Invalid()
         end
     end,
 
-    [ast.ExpCast] = function(node, st, errors, context)
+    [ast.Exp.Cast] = function(node, st, errors, context)
         node.target = typefromnode(node.target, st, errors)
         checkexp(node.exp, st, errors, node.target)
         if not types.coerceable(node.exp._type, node.target) and
@@ -714,7 +714,7 @@ local function checkfunc(node, st, errors)
     end
     assert(#node._type.rettypes == 1)
     local ret = st:with_block(checkstat, node.block, st, errors)
-    if not ret and node._type.rettypes[1]._tag ~= types.Nil then
+    if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
         checker.typeerror(errors, node.loc,
             "function can return nil but return type is not nil")
     end
@@ -727,34 +727,34 @@ end
 local function checkbodies(prog, st, errors)
     for _, node in ipairs(prog) do
         if not node._ignore and
-           node._tag == ast.TopLevelFunc then
+           node._tag == ast.Toplevel.Func then
             st:with_block(checkfunc, node, st, errors)
         end
     end
 end
 
 local function isconstructor(node)
-    return node.var and node.var._decl and node.var._decl._tag == types.Record
+    return node.var and node.var._decl and node.var._decl._tag == types.T.Record
 end
 
 -- Verify if an expression is constant
 local function isconst(node)
     local tag = node._tag
-    if tag == ast.ExpNil or
-       tag == ast.ExpBool or
-       tag == ast.ExpInteger or
-       tag == ast.ExpFloat or
-       tag == ast.ExpString then
+    if tag == ast.Exp.Nil or
+       tag == ast.Exp.Bool or
+       tag == ast.Exp.Integer or
+       tag == ast.Exp.Float or
+       tag == ast.Exp.String then
         return true
 
-    elseif tag == ast.ExpInitList then
+    elseif tag == ast.Exp.Initlist then
         local const = true
         for _, field in ipairs(node.fields) do
             const = const and isconst(field.exp)
         end
         return const
 
-    elseif tag == ast.ExpCall then
+    elseif tag == ast.Exp.Call then
         if isconstructor(node.exp) then
             local const = true
             for _, arg in ipairs(node.args) do
@@ -765,23 +765,23 @@ local function isconst(node)
             return false
         end
 
-    elseif tag == ast.ExpVar then
+    elseif tag == ast.Exp.Var then
         return false
 
-    elseif tag == ast.ExpConcat then
+    elseif tag == ast.Exp.Concat then
         local const = true
         for _, exp in ipairs(node.exps) do
             const = const and isconst(exp)
         end
         return const
 
-    elseif tag == ast.ExpUnop then
+    elseif tag == ast.Exp.Unop then
         return isconst(node.exp)
 
-    elseif tag == ast.ExpBinop then
+    elseif tag == ast.Exp.Binop then
         return isconst(node.lhs) and isconst(node.rhs)
 
-    elseif tag == ast.ExpCast then
+    elseif tag == ast.Exp.Cast then
         return isconst(node.exp)
 
     else
@@ -792,12 +792,12 @@ end
 -- Return the name given the toplevel node
 local function toplevel_name(node)
     local tag = node._tag
-    if tag == ast.TopLevelImport then
+    if tag == ast.Toplevel.Import then
         return node.localname
-    elseif tag == ast.TopLevelVar then
+    elseif tag == ast.Toplevel.Var then
         return node.decl.name
-    elseif tag == ast.TopLevelFunc or
-           tag == ast.TopLevelRecord then
+    elseif tag == ast.Toplevel.Func or
+           tag == ast.Toplevel.Record then
         return node.name
     else
         error("impossible")
@@ -806,7 +806,7 @@ end
 
 -- Typecheck the toplevel node
 local toplevel_visitor = util.make_visitor({
-    [ast.TopLevelImport] = function(node, st, errors, loader)
+    [ast.Toplevel.Import] = function(node, st, errors, loader)
         local modtype, errs = checker.checkimport(node.modname, loader)
         if modtype then
             node._type = modtype
@@ -814,14 +814,14 @@ local toplevel_visitor = util.make_visitor({
                 table.insert(errors, err)
             end
         else
-            node._type = types.Nil()
+            node._type = types.T.Nil()
             checker.typeerror(errors, node.loc,
                 "problem loading module '%s': %s",
                 node.modname, errs)
         end
     end,
 
-    [ast.TopLevelVar] = function(node, st, errors)
+    [ast.Toplevel.Var] = function(node, st, errors)
         if node.decl.type then
             node._type = typefromnode(node.decl.type, st, errors)
             checkexp(node.value, st, errors, node._type)
@@ -837,7 +837,7 @@ local toplevel_visitor = util.make_visitor({
         end
     end,
 
-    [ast.TopLevelFunc] = function(node, st, errors)
+    [ast.Toplevel.Func] = function(node, st, errors)
         if #node.rettypes ~= 1 then
             error("functions with 0 or 2+ return values are not yet implemented")
         end
@@ -849,16 +849,16 @@ local toplevel_visitor = util.make_visitor({
         for _, rt in ipairs(node.rettypes) do
             table.insert(rettypes, typefromnode(rt, st, errors))
         end
-        node._type = types.Function(ptypes, rettypes)
+        node._type = types.T.Function(ptypes, rettypes)
     end,
 
-    [ast.TopLevelRecord] = function(node, st, errors)
+    [ast.Toplevel.Record] = function(node, st, errors)
         local fields = {}
         for _, field in ipairs(node.fields) do
             local typ = typefromnode(field.type, st, errors)
             table.insert(fields, {type = typ, name = field.name})
         end
-        node._type = types.Type(types.Record(node.name, fields))
+        node._type = types.T.Type(types.T.Record(node.name, fields))
     end,
 })
 
