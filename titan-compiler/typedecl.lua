@@ -1,23 +1,35 @@
 -- Create a constructor for each type
--- See also: ast.lua
+-- See also: ast.lua and types.lua
 
-return function(prefix, types)
+local typedecl = {}
+
+local names = setmetatable({}, {__mode = 'v'})
+
+function typedecl.decl(types)
     local constructors = {}
     for typename, conss in pairs(types) do
         for consname, fields in pairs(conss) do
-            local tag = prefix .. "." .. consname
-            constructors[consname] = function(...)
+            assert(not names[consname], "constructor already exists")
+            local function cons(...)
                 local args = table.pack(...)
                 if args.n ~= #fields then
                     error("missing arguments for " .. consname)
                 end
-                local node = { _tag = tag }
+                local node = { _tag = cons }
                 for i, field in ipairs(fields) do
                     node[field] = args[i]
                 end
                 return node
             end
+            constructors[consname] = cons
+            names[cons] = consname
         end
     end
     return constructors
 end
+
+function typedecl.tostring(cons)
+    return names[cons]
+end
+
+return typedecl

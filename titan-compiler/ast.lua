@@ -1,6 +1,6 @@
 local typedecl = require 'titan-compiler.typedecl'
 
-return typedecl("Ast", {
+return typedecl.decl{
     Type = {
         TypeNil         = {"loc"},
         TypeBoolean     = {"loc"},
@@ -69,4 +69,4 @@ return typedecl("Ast", {
     Field = {
         Field           = {"loc", "name", "exp"},
     },
-})
+}
