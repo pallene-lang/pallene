@@ -529,56 +529,31 @@ checkexp = util.make_visitor({
         local trhs = node.rhs._type
         local loc = node.loc
         if op == "==" or op == "~=" then
-            -- tries to coerce to float if either side is float
-            if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
-                node.lhs = trycoerce(node.lhs, types.Float(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Float(), errors)
-                trhs = node.rhs._type
-            end
-            if not types.equals(tlhs, trhs) then
+            if (tlhs._tag == "Type.Integer" and trhs._tag == "Type.Float") or
+               (tlhs._tag == "Type.Float"   and trhs._tag == "Type.Integer") then
                 checker.typeerror(errors, loc,
-                    "trying to compare values of different types: %s and %s",
-                    types.tostring(tlhs), types.tostring(trhs))
-
+                    "comparisons between float and integers are not yet implemented")
+                -- note: use Lua's implementation of comparison, don't just cast to float
+            elseif not types.equals(tlhs, trhs) then
+                checker.typeerror(errors, loc,
+                    "cannot compare %s and %s with %s",
+                    types.tostring(tlhs), types.tostring(trhs), op)
             end
             node._type = types.Boolean()
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            -- tries to coerce to float if either side is float
-            if tlhs._tag == "Type.Float" or trhs._tag == "Type.Float" then
-                node.lhs = trycoerce(node.lhs, types.Float(), errors)
-                tlhs = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.Float(), errors)
-                trhs = node.rhs._type
-            end
-            if not types.equals(tlhs, trhs) then
-                if tlhs._tag ~= "Type.Integer" and tlhs._tag ~= "Type.Float" and trhs._tag == "Type.Integer" or trhs._tag == "Type.Float" then
-                    checker.typeerror(errors, loc,
-                        "left hand side of relational expression is a %s instead of a number",
-                        types.tostring(tlhs))
-                elseif trhs._tag ~= "Type.Integer" and trhs._tag ~= "Type.Float" and tlhs._tag == "Type.Integer" or tlhs._tag == "Type.Float" then
-                    checker.typeerror(errors, loc,
-                        "right hand side of relational expression is a %s instead of a number",
-                        types.tostring(trhs))
-                elseif tlhs._tag ~= "Type.String" and trhs._tag == "Type.String" then
-                    checker.typeerror(errors, loc,
-                        "left hand side of relational expression is a %s instead of a string",
-                        types.tostring(tlhs))
-                elseif trhs._tag ~= "Type.String" and tlhs._tag == "Type.String" then
-                    checker.typeerror(errors, loc,
-                        "right hand side of relational expression is a %s instead of a string",
-                        types.tostring(trhs))
-                else
-                    checker.typeerror(errors, loc,
-                        "trying to use relational expression with %s and %s",
-                         types.tostring(tlhs), types.tostring(trhs))
-                end
+            if (tlhs._tag == "Type.Integer" and trhs._tag == "Type.Integer") or
+               (tlhs._tag == "Type.Float"   and trhs._tag == "Type.Float") or
+               (tlhs._tag == "Type.String"  and trhs._tag == "Type.String") then
+               -- OK
+            elseif (tlhs._tag == "Type.Integer" and trhs._tag == "Type.Float") or
+                   (tlhs._tag == "Type.Float"   and trhs._tag == "Type.Integer") then
+                checker.typeerror(errors, loc,
+                    "comparisons between float and integers are not yet implemented")
+                -- note: use Lua's implementation of comparison, don't just cast to float
             else
-                if tlhs._tag ~= "Type.Integer" and tlhs._tag ~= "Type.Float" and tlhs._tag ~= "Type.String" then
-                    checker.typeerror(errors, loc,
-                        "trying to use relational expression with two %s values",
-                        types.tostring(tlhs))
-                end
+                checker.typeerror(errors, loc,
+                    "cannot compare %s and %s with %s",
+                    types.tostring(tlhs), types.tostring(trhs), op)
             end
             node._type = types.Boolean()
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then

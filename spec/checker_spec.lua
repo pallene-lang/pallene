@@ -513,38 +513,6 @@ describe("Titan type checker", function()
         assert.match("is not a function", err)
     end)
 
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("coerces "..op.." to float if any side is a float", function()
-            local code = [[
-                function fn(): integer
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]]
-            local ok, err, ast = run_checker(code)
-
-            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Boolean(), ast[1].block.stats[3].exp._type)
-
-            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Boolean(), ast[1].block.stats[4].exp._type)
-
-            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Boolean(), ast[1].block.stats[5].exp._type)
-
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Boolean(), ast[1].block.stats[6].exp._type)
-        end)
-    end
-
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
         it("coerces "..op.." to float if any side is a float", function()
             local code = [[
@@ -740,7 +708,8 @@ describe("Titan type checker", function()
                 end
             ]]
             local ok, err = run_checker(code)
-            assert.truthy(ok)
+            assert.falsy(ok)
+            assert.match("comparisons between float and integers are not yet implemented", err)
         end)
     end
 
@@ -765,7 +734,7 @@ describe("Titan type checker", function()
             ]]
             local ok, err = run_checker(code)
             assert.falsy(ok)
-            assert.match("trying to compare values of different types", err)
+            assert.match("cannot compare .* and .* with .*", err)
         end)
     end
 
@@ -781,7 +750,7 @@ describe("Titan type checker", function()
                         ]]
                         local ok, err = run_checker(code)
                         assert.falsy(ok)
-                        assert.match("trying to compare values of different types", err)
+                        assert.match("cannot compare .* and .* with .*", err)
                     end)
                 end
             end
@@ -798,7 +767,7 @@ describe("Titan type checker", function()
                 ]]
                 local ok, err = run_checker(code)
                 assert.falsy(ok)
-                assert.match("left hand side of relational expression is", err)
+                assert.match("cannot compare .* and .* with .*", err)
             end)
         end
     end
@@ -813,7 +782,7 @@ describe("Titan type checker", function()
                 ]]
                 local ok, err = run_checker(code)
                 assert.falsy(ok)
-                assert.match("right hand side of relational expression is", err)
+                assert.match("cannot compare .* and .* with .*", err)
             end)
         end
     end
@@ -828,7 +797,7 @@ describe("Titan type checker", function()
                 ]]
                 local ok, err = run_checker(code)
                 assert.falsy(ok)
-                assert.match("left hand side of relational expression is", err)
+                assert.match("cannot compare .* and .* with .*", err)
             end)
         end
     end
@@ -843,7 +812,7 @@ describe("Titan type checker", function()
                 ]]
                 local ok, err = run_checker(code)
                 assert.falsy(ok)
-                assert.match("right hand side of relational expression is", err)
+                assert.match("cannot compare .* and .* with .*", err)
             end)
         end
     end
@@ -858,7 +827,7 @@ describe("Titan type checker", function()
                 ]]
                 local ok, err = run_checker(code)
                 assert.falsy(ok)
-                assert.match("left hand side of relational expression is", err)
+                assert.match("cannot compare .* and .* with .*", err)
             end)
         end
     end
@@ -873,7 +842,7 @@ describe("Titan type checker", function()
                 ]]
                 local ok, err = run_checker(code)
                 assert.falsy(ok)
-                assert.match("right hand side of relational expression is", err)
+                assert.match("cannot compare .* and .* with .*", err)
             end)
         end
     end
@@ -889,11 +858,7 @@ describe("Titan type checker", function()
                     ]]
                     local ok, err = run_checker(code)
                     assert.falsy(ok)
-                    if t1 ~= t2 then
-                        assert.match("trying to use relational expression with", err)
-                    else
-                        assert.match("trying to use relational expression with two", err)
-                    end
+                    assert.match("cannot compare .* and .* with .*", err)
                 end)
             end
         end
