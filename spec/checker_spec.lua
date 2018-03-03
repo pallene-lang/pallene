@@ -69,7 +69,7 @@ describe("Titan type checker", function()
         local code = [[
             function fn(): integer
                 local f: float = 1.0
-                local i: integer = f
+                local i: integer = f as integer
                 return 1
             end
         ]]
@@ -83,7 +83,7 @@ describe("Titan type checker", function()
         local code = [[
             function fn(): integer
                 local i: integer = 12
-                local f: float = i
+                local f: float = i as float
                 return 1
             end
         ]]
@@ -136,7 +136,7 @@ describe("Titan type checker", function()
         assert_type_check([[ x8 = "a" .. 10 ]])
         assert_type_check([[ x9 = 1 + 2 ]])
         assert_type_check([[ x10 = not false ]])
-        assert_type_check([[ x11: integer = 10.1 ]])
+        assert_type_check([[ x11: float = 10.1 ]])
     end)
 
     it("catches non constant variable initialization in top level", function()
@@ -526,38 +526,6 @@ describe("Titan type checker", function()
         end)
     end
 
-    for _, op in ipairs({"and", "or"}) do
-        it("coerces "..op.." to float if any side is a float", function()
-            local code = [[
-                function fn(): integer
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]]
-            local ok, err, ast = run_checker(code)
-
-            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp._type)
-
-            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp._type)
-
-            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp._type)
-
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp._type)
-        end)
-    end
-
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
         it("coerces "..op.." to integer if other side is a float", function()
             local code = [[
@@ -622,22 +590,6 @@ describe("Titan type checker", function()
         end)
     end
 
-    for _, op in ipairs({"+", "-", "*", "%", "//", "/", "^"}) do
-        it("fails if one side of expression is value", function ()
-            local code = [[
-                function fn(): integer
-                    local i: value = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                end
-            ]]
-            local ok, err, ast = run_checker(code)
-            assert.falsy(ok)
-            assert.match("is a value instead of a number", err)
-        end)
-    end
-
     it("cannot concatenate with boolean", function()
         local code = [[
             function fn()
@@ -669,18 +621,6 @@ describe("Titan type checker", function()
         local ok, err = run_checker(code)
         assert.falsy(ok)
         assert.match("cannot concatenate with { integer } value", err)
-    end)
-
-    it("cannot concatenate with type value", function()
-        local code = [[
-            function fn()
-                local v: value = "bar"
-                local s = "foo" .. v
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("cannot concatenate with value", err)
     end)
 
     it("can concatenate with integer and float", function()
@@ -969,30 +909,6 @@ describe("Titan type checker", function()
         end
     end
 
-    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
-        it("can explicitly cast from value to " .. t, function()
-            local code = [[
-                function fn(a: value): ]] .. t .. [[
-                    return a as ]] .. t .. [[
-                end
-            ]]
-            local ok, err = run_checker(code)
-            assert.truthy(ok)
-        end)
-    end
-
-    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "nil", "string"}) do
-        it("can explicitly cast from " .. t .. "to value", function()
-            local code = [[
-                function fn(a: ]] .. t .. [[): value
-                    return a as value
-                end
-            ]]
-            local ok, err = run_checker(code)
-            assert.truthy(ok)
-        end)
-    end
-
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
             local code = [[
@@ -1006,7 +922,7 @@ describe("Titan type checker", function()
         end)
     end
 
-    for _, t in ipairs({"{integer}", "boolean", "integer", "nil", "string"}) do
+    for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to float", function()
             local code = [[
                 function fn(a: ]] .. t .. [[): float
@@ -1061,7 +977,7 @@ describe("Titan type checker", function()
     it("returns the type of the module with exported members", function()
         local modules = { test = [[
             a: integer = 1
-            local b: float = 2
+            local b: float = 2.0
             function geta(): integer
                 return a
             end
@@ -1390,7 +1306,7 @@ describe("Titan typecheck of records", function()
         assert_type_check([[
             record Point x: float; y:float end
 
-            p = Point.new(1, 2)
+            p = Point.new(1.0, 2.0)
         ]])
     end)
 
@@ -1423,7 +1339,7 @@ describe("Titan typecheck of records", function()
 
     it("typechecks record read/write", function()
         assert_type_check(wrap_record[[
-            local x: float = 10
+            local x: float = 10.0
             p.x = x
             return p.y
         ]])

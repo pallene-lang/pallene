@@ -8,7 +8,6 @@ local types = typedecl("Type", {
         Integer     = {},
         Float       = {},
         String      = {},
-        Value       = {},
         Function    = {"params", "rettypes"},
         Array       = {"elem"},
         InitList    = {"elems"},
@@ -23,14 +22,12 @@ function types.is_basic(t)
            tag == "Type.Boolean" or
            tag == "Type.Integer" or
            tag == "Type.Float" or
-           tag == "Type.String" or
-           tag == "Type.Value"
+           tag == "Type.String"
 end
 
 function types.is_gc(t)
     local tag = t._tag
     return tag == "Type.String" or
-           tag == "Type.Value" or
            tag == "Type.Array"
 end
 
@@ -47,52 +44,12 @@ function types.Module(modname, members)
 end
 
 function types.coerceable(source, target)
-    return (source._tag == "Type.Integer" and
-            target._tag == "Type.Float") or
-           (source._tag == "Type.Float" and
-            target._tag == "Type.Integer") or
-           (target._tag == "Type.Boolean" and
-            source._tag ~= "Type.Boolean") or
-           (target._tag == "Type.Value" and
-            source._tag ~= "Type.Value") or
-           (source._tag == "Type.Value" and
-            target._tag ~= "Type.Value")
+    return
+        (source._tag == "Type.Integer" and target._tag == "Type.Float") or
+        (source._tag == "Type.Float"   and target._tag == "Type.Integer") or
+        (source._tag ~= "Type.Boolean" and target._tag == "Type.Boolean")
 end
 
--- The type consistency relation, a-la gradual typing
-function types.compatible(t1, t2)
-    if types.equals(t1, t2) then
-        return true
-    elseif t1._tag == "Type.Value" or t2._tag == "Type.Value" then
-        return true
-    elseif t1._tag == "Type.Array" and t2._tag == "Type.Array" then
-        return types.compatible(t1.elem, t2.elem)
-    elseif t1._tag == "Type.Function" and t2._tag == "Type.Function" then
-        if #t1.params ~= #t2.params then
-            return false
-        end
-
-        for i = 1, #t1.params do
-            if not types.compatible(t1.params[i], t2.params[i]) then
-                return false
-            end
-        end
-
-        if #t1.rettypes ~= #t2.rettypes then
-            return false
-        end
-
-        for i = 1, #t1.rettypes do
-            if not types.compatible(t1.rettypes[i], t2.rettypes[i]) then
-                return false
-            end
-        end
-
-        return true
-    else
-        return false
-    end
-end
 
 function types.equals(t1, t2)
     local tag1, tag2 = t1._tag, t2._tag
@@ -134,7 +91,6 @@ function types.tostring(t)
     elseif tag == "Type.String"      then return "string"
     elseif tag == "Type.Nil"         then return "nil"
     elseif tag == "Type.Float"       then return "float"
-    elseif tag == "Type.Value"       then return "value"
     elseif tag == "Type.Invalid"     then return "invalid type"
     elseif tag == "Type.Function" then
         return "function" -- TODO implement
