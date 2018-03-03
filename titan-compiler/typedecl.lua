@@ -3,7 +3,7 @@
 
 local typedecl = {}
 
-local names = setmetatable({}, {__mode = 'v'})
+local names = setmetatable({}, {__mode = 'k'})
 
 function typedecl.declare(module, modname, typename, constructors)
     module[typename] = {}
