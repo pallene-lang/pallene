@@ -1,3 +1,4 @@
+local ast = require 'titan-compiler.ast'
 local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
 local types = require 'titan-compiler.types'
@@ -6,9 +7,9 @@ local util = require 'titan-compiler.util'
 
 local function run_checker(code)
     driver.imported = {}
-    local ast = assert(parser.parse("(checker_spec)", code))
-    local t, errs = checker.check("test", ast, code, "test.titan", driver.defaultloader)
-    return #errs == 0, table.concat(errs, "\n"), ast, t
+    local prog = assert(parser.parse("(checker_spec)", code))
+    local t, errs = checker.check("test", prog, code, "test.titan", driver.defaultloader)
+    return #errs == 0, table.concat(errs, "\n"), prog, t
 end
 
 local function run_checker_modules(modules, main)
@@ -48,7 +49,7 @@ end
 
 -- To avoid having these tests break all the time when we make insignificant
 -- changes to the AST, we only verify a subset of the AST.
-local function assert_ast(program, expected)
+local function assert_prog(program, expected)
     local received = restrict(expected, program)
     assert.are.same(expected, received)
 end
@@ -87,10 +88,10 @@ describe("Titan type checker", function()
                 return 1
             end
         ]]
-        local ok, err, ast = run_checker(code)
+        local ok, err, prog = run_checker(code)
         assert.truthy(ok)
-        assert.same("Ast.ExpCast", ast[1].block.stats[2].exp._tag)
-        assert.same("Type.Integer", ast[1].block.stats[2].exp.target._tag)
+        assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
+        assert.same(types.T.Integer, prog[1].block.stats[2].exp.target._tag)
     end)
 
     it("coerces to float", function()
@@ -101,10 +102,10 @@ describe("Titan type checker", function()
                 return 1
             end
         ]]
-        local ok, err, ast = run_checker(code)
+        local ok, err, prog = run_checker(code)
         assert.truthy(ok)
-        assert.same("Ast.ExpCast", ast[1].block.stats[2].exp._tag)
-        assert.same("Type.Float", ast[1].block.stats[2].exp.target._tag)
+        assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
+        assert.same(types.T.Float, prog[1].block.stats[2].exp.target._tag)
     end)
 
     it("catches duplicate function declarations", function()
@@ -525,23 +526,23 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]]
-            local ok, err, ast = run_checker(code)
+            local ok, err, prog = run_checker(code)
 
-            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp._type)
 
-            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp._type)
 
-            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp._type)
 
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp._type)
+            assert.same(types.T.Integer(), prog[1].block.stats[6].exp.lhs._type)
+            assert.same(types.T.Integer(), prog[1].block.stats[6].exp.rhs._type)
+            assert.same(types.T.Integer(), prog[1].block.stats[6].exp._type)
         end)
     end
 
@@ -557,23 +558,23 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]]
-            local ok, err, ast = run_checker(code)
+            local ok, err, prog = run_checker(code)
 
-            assert.same(types.Float(), ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[3].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[3].exp._type)
 
-            assert.same(types.Float(), ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[4].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[4].exp._type)
 
-            assert.same(types.Float(), ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[5].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[5].exp._type)
 
-            assert.same(types.Float(), ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Float(), ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Float(), ast[1].block.stats[6].exp._type)
+            assert.same(types.T.Float(), prog[1].block.stats[6].exp.lhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[6].exp.rhs._type)
+            assert.same(types.T.Float(), prog[1].block.stats[6].exp._type)
         end)
     end
 
@@ -969,12 +970,12 @@ describe("Titan type checker", function()
         ]] }
         local ok, err, mods = run_checker_modules(modules, "test")
         assert.truthy(ok)
-        assert_ast(mods.test.type, {
-            _tag = "Type.Module",
+        assert_prog(mods.test.type, {
+            _tag = types.T.Module,
             name = "test",
             members = {
-                a = { _tag = "Type.Integer" },
-                geta = { _tag = "Type.Function" }
+                a = { _tag = types.T.Integer },
+                geta = { _tag = types.T.Function }
             }
         })
         assert.falsy(mods.test.type.members.b)
@@ -986,7 +987,7 @@ describe("Titan type checker", function()
             local foo = import "foo"
             local bar = import "bar.baz"
         ]]
-        local ok, err, ast = run_checker(code)
+        local ok, err, prog = run_checker(code)
         assert.falsy(ok)
         assert.match("module 'foo' not found", err)
         assert.match("module 'bar.baz' not found", err)
@@ -1005,12 +1006,12 @@ describe("Titan type checker", function()
         local ok, err, mods = run_checker_modules(modules, "bar")
         assert.truthy(ok)
         assert.truthy(mods.foo)
-        assert_ast(mods.foo.type, {
-            _tag = "Type.Module",
+        assert_prog(mods.foo.type, {
+            _tag = types.T.Module,
             name = "foo",
             members = {
-                a = { _tag = "Type.Integer" },
-                foo = { _tag = "Type.Function" }
+                a = { _tag = types.T.Integer },
+                foo = { _tag = types.T.Function }
             }
         })
     end)
