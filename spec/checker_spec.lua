@@ -354,7 +354,6 @@ describe("Titan type checker", function()
     it("type-checks 'for' with a step", function()
         local code = [[
             function fn(x: integer): integer
-                local i: integer = 0
                 for i = 1, 10, 2 do
                     x = x + i
                 end
@@ -365,25 +364,10 @@ describe("Titan type checker", function()
         assert.truthy(ok)
     end)
 
-    it("catches 'for' errors in the start expression", function()
+    it("catches 'for' errors in the control variable (with annotation)", function()
         local code = [[
             function fn(x: integer, s: string): integer
-                local i: integer = 0
-                for i = s, 10, 2 do
-                    x = x + i
-                end
-                return x
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.falsy(ok)
-        assert.match("'for' start expression", err)
-    end)
-
-    it("catches 'for' errors in the control variable", function()
-        local code = [[
-            function fn(x: integer, s: string): integer
-                for i: string = 1, s, 2 do
+                for i: string = 1, 10, 2 do
                     x = x + i
                 end
                 return x
@@ -394,10 +378,39 @@ describe("Titan type checker", function()
         assert.match("control variable", err)
     end)
 
+    it("catches 'for' errors in the control variable (without annotation)", function()
+        local code = [[
+            function fn(x: integer, s: string): integer
+                for i = s, 10, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("control variable", err)
+    end)
+
+
+    it("catches 'for' errors in the start expression", function()
+        local code = [[
+            function fn(x: integer, s: string): integer
+                for i:integer = s, 10, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.falsy(ok)
+        assert.match("'for' start expression", err)
+    end)
+
+
     it("catches 'for' errors in the finish expression", function()
         local code = [[
             function fn(x: integer, s: string): integer
-                local i: integer = 0
                 for i = 1, s, 2 do
                     x = x + i
                 end
@@ -412,7 +425,6 @@ describe("Titan type checker", function()
     it("catches 'for' errors in the step expression", function()
         local code = [[
             function fn(x: integer, s: string): integer
-                local i: integer = 0
                 for i = 1, 10, s do
                     x = x + i
                 end

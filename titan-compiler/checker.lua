@@ -171,24 +171,37 @@ local function checkfor(node, st, errors)
     end
     checkdecl(node.decl, st, errors)
 
-    if node.decl._type._tag ~= "Type.Integer" and
-       node.decl._type._tag ~= "Type.Float" then
+    local loop_type_is_valid
+    if     node.decl._type._tag == "Type.Integer" then
+        loop_type_is_valid = true
+        if not node.inc then
+            node.inc = ast.ExpInteger(node.finish.loc, 1)
+            node.inc._type = types.Integer()
+        end
+    elseif node.decl._type._tag == "Type.Integer" then
+        loop_type_is_valid = true
+        if not node.inc then
+            node.inc = ast.ExpFloat(node.finish.loc, 1.0)
+            node.inc._type = types.Float()
+        end
+    else
+        loop_type_is_valid = false
         checker.typeerror(errors, node.decl.loc,
             "type of for control variable %s must be integer or float",
             node.decl.name)
-        node.decl._type = types.Invalid()
     end
 
-    checkmatch("'for' start expression",
-        node.decl._type, node.start._type, errors, node.start.loc)
-    checkmatch("'for' finish expression",
-        node.decl._type, node.finish._type, errors, node.finish.loc)
-    if node.inc then
+    if loop_type_is_valid then
+        checkmatch("'for' start expression",
+            node.decl._type, node.start._type, errors, node.start.loc)
+        checkmatch("'for' finish expression",
+            node.decl._type, node.finish._type, errors, node.finish.loc)
         checkmatch("'for' step expression",
             node.decl._type, node.inc._type, errors, node.inc.loc)
     end
 
     checkstat(node.block, st, errors)
+
     return false
 end
 

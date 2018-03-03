@@ -420,56 +420,47 @@ local function codefor(ctx, node)
     local subs = {
         CVAR = node.decl._cvar,
     }
-    if node.inc then
-        local ilit = node2literal(node.inc)
-        if ilit then
-            if ilit > 0 then
-                local tmpl
-                if node.decl._type._tag == "Type.Integer" then
-                    subs.ILIT = c_integer_literal(ilit)
-                    tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + $ILIT)"
-                else
-                    subs.ILIT = c_float_literal(ilit)
-                    tmpl = "$CVAR += $ILIT"
-                end
-                cstep = render(tmpl, subs)
-                ccmp = render("$CVAR <= _forlimit", subs)
-            else
-                if node.decl._type._tag == "Type.Integer" then
-                    subs.NEGILIT = c_integer_literal(-ilit)
-                    cstep = render("$CVAR = l_castU2S(l_castS2U($CVAR) - $NEGILIT)", subs)
-                else
-                    subs.NEGILIT = c_float_literal(-ilit)
-                    cstep = render("$CVAR -= $NEGILIT", subs)
-                end
-                ccmp = render("_forlimit <= $CVAR", subs)
-            end
-        else
-            local cistats, ciexp = codeexp(ctx, node.inc)
-            cinc = render([[
-                $CISTATS
-                $CVTYP _forstep = $CIEXP;
-            ]], {
-                CISTATS = cistats,
-                CIEXP = ciexp,
-                CVTYP = cvtyp,
-            })
+    local ilit = node2literal(node.inc)
+    if ilit then
+        if ilit > 0 then
             local tmpl
             if node.decl._type._tag == "Type.Integer" then
-                tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + l_castS2U(_forstep))"
+                subs.ILIT = c_integer_literal(ilit)
+                tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + $ILIT)"
             else
-                tmpl = "$CVAR += _forstep"
+                subs.ILIT = c_float_literal(ilit)
+                tmpl = "$CVAR += $ILIT"
             end
             cstep = render(tmpl, subs)
-            ccmp = render("0 < _forstep ? ($CVAR <= _forlimit) : (_forlimit <= $CVAR)", subs)
+            ccmp = render("$CVAR <= _forlimit", subs)
+        else
+            if node.decl._type._tag == "Type.Integer" then
+                subs.NEGILIT = c_integer_literal(-ilit)
+                cstep = render("$CVAR = l_castU2S(l_castS2U($CVAR) - $NEGILIT)", subs)
+            else
+                subs.NEGILIT = c_float_literal(-ilit)
+                cstep = render("$CVAR -= $NEGILIT", subs)
+            end
+            ccmp = render("_forlimit <= $CVAR", subs)
         end
     else
+        local cistats, ciexp = codeexp(ctx, node.inc)
+        cinc = render([[
+            $CISTATS
+            $CVTYP _forstep = $CIEXP;
+        ]], {
+            CISTATS = cistats,
+            CIEXP = ciexp,
+            CVTYP = cvtyp,
+        })
+        local tmpl
         if node.decl._type._tag == "Type.Integer" then
-            cstep = render("$CVAR = l_castU2S(l_castS2U($CVAR) + 1)", subs)
+            tmpl = "$CVAR = l_castU2S(l_castS2U($CVAR) + l_castS2U(_forstep))"
         else
-            cstep = render("$CVAR += 1.0", subs)
+            tmpl = "$CVAR += _forstep"
         end
-        ccmp = render("$CVAR <= _forlimit", subs)
+        cstep = render(tmpl, subs)
+        ccmp = render("0 < _forstep ? ($CVAR <= _forlimit) : (_forlimit <= $CVAR)", subs)
     end
     local nallocs = ctx.allocations
     local cblock = codestat(ctx, node.block)
