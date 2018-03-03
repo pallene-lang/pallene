@@ -545,38 +545,6 @@ describe("Titan type checker", function()
         end)
     end
 
-    for _, op in ipairs({"|", "&", "<<", ">>"}) do
-        it("coerces "..op.." to integer if other side is a float", function()
-            local code = [[
-                function fn(): integer
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]]
-            local ok, err, ast = run_checker(code)
-
-            assert.same(types.Integer(), ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[3].exp._type)
-
-            assert.same(types.Integer(), ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[4].exp._type)
-
-            assert.same(types.Integer(), ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[5].exp._type)
-
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.Integer(), ast[1].block.stats[6].exp._type)
-        end)
-    end
-
     for _, op in ipairs({"/", "^"}) do
         it("always coerces "..op.." to float", function()
             local code = [[

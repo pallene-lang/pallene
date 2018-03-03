@@ -484,9 +484,6 @@ checkexp = util.make_visitor({
             end
             node._type = texp
         elseif op == "~" then
-            -- always tries to coerce floats to integer
-            node.exp = node.exp._type._tag == "Type.Float" and trycoerce(node.exp, types.Integer(), errors) or node.exp
-            texp = node.exp._type
             if texp._tag ~= "Type.Integer" then
                 checker.typeerror(errors, loc,
                     "trying to bitwise negate a %s instead of an integer",
@@ -617,20 +614,14 @@ checkexp = util.make_visitor({
             end
             node._type = types.Boolean()
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
-            -- always tries to coerce floats to integer
-            node.lhs = node.lhs._type._tag == "Type.Float" and trycoerce(node.lhs, types.Integer(), errors) or node.lhs
-            tlhs = node.lhs._type
-            -- always tries to coerce floats to integer
-            node.rhs = node.rhs._type._tag == "Type.Float" and trycoerce(node.rhs, types.Integer(), errors) or node.rhs
-            trhs = node.rhs._type
             if tlhs._tag ~= "Type.Integer" then
                 checker.typeerror(errors, loc,
-                    "left hand side of arithmetic expression is a %s instead of a number",
+                    "left hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(tlhs))
             end
             if trhs._tag ~= "Type.Integer" then
                 checker.typeerror(errors, loc,
-                    "right hand side of arithmetic expression is a %s instead of a number",
+                    "right hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(trhs))
             end
             node._type = types.Integer()
