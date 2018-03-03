@@ -158,14 +158,13 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for 'for' loop)
 local function checkfor(node, st, errors)
-
-    -- Check expressions before adding the iteration var to the symbol table
     checkexp(node.start, st, errors)
     checkexp(node.finish, st, errors)
     if node.inc then
         checkexp(node.inc, st, errors)
     end
 
+    -- Add loop variable to symbol table only after checking expressions
     if not node.decl.type then
         node.decl._type = node.start._type
     end
@@ -178,7 +177,7 @@ local function checkfor(node, st, errors)
             node.inc = ast.ExpInteger(node.finish.loc, 1)
             node.inc._type = types.Integer()
         end
-    elseif node.decl._type._tag == "Type.Integer" then
+    elseif node.decl._type._tag == "Type.Float" then
         loop_type_is_valid = true
         if not node.inc then
             node.inc = ast.ExpFloat(node.finish.loc, 1.0)

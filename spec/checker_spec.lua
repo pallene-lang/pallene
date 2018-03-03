@@ -290,11 +290,49 @@ describe("Titan type checker", function()
         assert.match("expected { integer } but found initlist", err)
     end)
 
-    it("type-checks 'for'", function()
+    it("type-checks numeric 'for' (integer, implicit step)", function()
         local code = [[
             function fn(x: integer): integer
-                local i: integer = 0
-                for i = 1, 10 do
+                for i:integer = 1, 10 do
+                    x = x + 1
+                end
+                return x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.truthy(ok)
+    end)
+
+    it("type-checks numeric 'for' (integer, explicit step)", function()
+        local code = [[
+            function fn(x: integer): integer
+                for i:integer = 1, 10, 2 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.truthy(ok)
+    end)
+
+    it("type-checks numeric 'for' (float, implicit step)", function()
+        local code = [[
+            function fn(x: float): float
+                for i:float = 1.0, 10.0 do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.truthy(ok)
+    end)
+
+    it("type-checks numeric 'for' (float, explicit step)", function()
+        local code = [[
+            function fn(x: float): float
+                for i:float = 1.0, 10.0, 2.0 do
                     x = x + i
                 end
                 return x
@@ -351,20 +389,7 @@ describe("Titan type checker", function()
         assert.match("expected string but found integer", err)
     end)
 
-    it("type-checks 'for' with a step", function()
-        local code = [[
-            function fn(x: integer): integer
-                for i = 1, 10, 2 do
-                    x = x + i
-                end
-                return x
-            end
-        ]]
-        local ok, err = run_checker(code)
-        assert.truthy(ok)
-    end)
-
-    it("catches 'for' errors in the control variable (with annotation)", function()
+    it("ensures numeric 'for' variable has number type (with annotation)", function()
         local code = [[
             function fn(x: integer, s: string): integer
                 for i: string = 1, 10, 2 do
@@ -378,7 +403,7 @@ describe("Titan type checker", function()
         assert.match("control variable", err)
     end)
 
-    it("catches 'for' errors in the control variable (without annotation)", function()
+    it("ensures numeric 'for' variable has number type (without annotation)", function()
         local code = [[
             function fn(x: integer, s: string): integer
                 for i = s, 10, 2 do
