@@ -6,24 +6,57 @@ local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
 local util = require "titan-compiler.util"
 
+local check_type
+local check_toplevel
+local check_decl
+local check_stat
+local check_then
+local check_var
+local check_exp
+local check_args
+local check_field
 
--- The typechecker works in two passes, the first one just
--- collects type information for top-level functions and variables
--- (and detects duplicate definitions in the top level), while the
--- second pass does the actual typechecking. All typechecked nodes
--- that have a type get a "_type" field with the type. The types
--- themselves are in "types.lua".
-local typefromnode
+-- XXX those will vanish when we remove global letrec
+local checktoplevel
+local checkbodies
 
-local checkdecl
-local checkstat
-local checkexp
-local checkvar
+-- Entry point for the typechecker
+--   prog: AST for the whole module
+--   subject: the string that generated the AST
+--   filename: the file name that contains the subject
+--   loader: the module loader, a function from module name to its AST, code,
+--   and filename or nil and an error
+--
+--   returns true if typechecking succeeds, or false and a list of type errors
+--   found
+--   annotates the AST with the types of its terms in "_type" fields
+--   annotates duplicate top-level declarations with a "_ignore" boolean field
+function checker.check(modname, prog, subject, filename, loader)
+    loader = loader or function ()
+        return nil, "you must pass a loader to import modules"
+    end
+    local st = symtab.new()
+    local errors = {subject = subject, filename = filename}
+    checktoplevel(prog, st, errors, loader)
+    checkbodies(prog, st, errors)
+    return types.makemoduletype(modname, prog), errors
+end
 
 function checker.typeerror(errors, loc, fmt, ...)
     local errmsg = location.format_error(loc, "type error: "..fmt, ...)
     table.insert(errors, errmsg)
 end
+
+-- TODO remove
+function checker.checkimport(modname, loader)
+    local ok, type_or_error, errors = loader(modname)
+    if not ok then return nil, type_or_error end
+    return type_or_error, errors
+end
+
+--
+-- local functions
+--
 
 -- Checks if two types are the same, and logs an error message otherwise
 --   term: string describing what is being compared
@@ -39,11 +72,33 @@ local function checkmatch(term, expected, found, errors, loc)
     end
 end
 
--- Converts an AST type declaration into a typechecker type
---   node: AST node
---   errors: list of compile-time errors
---   returns a type (from types.lua)
-typefromnode = util.make_visitor({
+local function trycoerce(node, target, errors)
+    if types.coerceable(node._type, target) then
+        local n = ast.Exp.Cast(node.loc, node, target)
+        n._type = target
+        return n
+    else
+        return node
+    end
+end
+
+local function trytostr(node)
+    local source = node._type
+    if source._tag == types.T.Integer or
+       source._tag == types.T.Float then
+        local n = ast.Exp.Cast(node.loc, node, types.T.String())
+        n._type = types.T.String()
+        return n
+    else
+        return node
+    end
+end
+
+--
+-- check
+--
+
+check_type = util.make_visitor({
     [ast.Type.Nil] = function(node, st, errors)
         return types.T.Nil()
     end,
@@ -81,7 +136,7 @@ typefromnode = util.make_visitor({
     end,
 
     [ast.Type.Array] = function(node, st, errors)
-        return types.T.Array(typefromnode(node.subtype, st, errors))
+        return types.T.Array(check_type(node.subtype, st, errors))
     end,
 
     [ast.Type.Function] = function(node, st, errors)
@@ -90,172 +145,113 @@ typefromnode = util.make_visitor({
         end
         local ptypes = {}
         for _, ptype in ipairs(node.argtypes) do
-            table.insert(ptypes, typefromnode(ptype, st, errors))
+            table.insert(ptypes, check_type(ptype, st, errors))
         end
         local rettypes = {}
         for _, rettype in ipairs(node.rettypes) do
-            table.insert(rettypes, typefromnode(rettype, st, errors))
+            table.insert(rettypes, check_type(rettype, st, errors))
         end
         return types.T.Function(ptypes, rettypes)
     end,
 })
 
--- tries to coerce node to target type
---    node: expression node
---    target: target type
---    returns node wrapped in a coercion, or original node
-local function trycoerce(node, target, errors)
-    if types.coerceable(node._type, target) then
-        local n = ast.Exp.Cast(node.loc, node, target)
-        n._type = target
-        return n
-    else
-        return node
-    end
-end
+-- TODO check_toplevel here
+-- check_toplevel = function...
 
-local function trytostr(node)
-    local source = node._type
-    if source._tag == types.T.Integer or
-       source._tag == types.T.Float then
-        local n = ast.Exp.Cast(node.loc, node, types.T.String())
-        n._type = types.T.String()
-        return n
-    else
-        return node
-    end
-end
-
---
--- Decl
---
-
-checkdecl = function(node, st, errors)
-    node._type = node._type or typefromnode(node.type, st, errors)
+check_decl = function(node, st, errors)
+    node._type = node._type or check_type(node.type, st, errors)
     st:add_symbol(node.name, node)
 end
 
---
--- Stat
---
-
--- Typechecks a repeat/until statement
---   node: StatRepeat AST node
---   st: symbol table
---   errors: list of compile-time errors
---   returns whether statement always returns from its function (always false for repeat/until)
-local function checkrepeat(node, st, errors)
-    for _, stat in ipairs(node.block.stats) do
-        checkstat(stat, st, errors)
-    end
-    checkexp(node.condition, st, errors, types.T.Boolean())
-    return false
-end
-
--- Typechecks a for loop statement
---   node: StatFor AST node
---   st: symbol table
---   errors: list of compile-time errors
---   returns whether statement always returns from its function (always false for 'for' loop)
-local function checkfor(node, st, errors)
-    checkexp(node.start, st, errors)
-    checkexp(node.finish, st, errors)
-    if node.inc then
-        checkexp(node.inc, st, errors)
-    end
-
-    -- Add loop variable to symbol table only after checking expressions
-    if not node.decl.type then
-        node.decl._type = node.start._type
-    end
-    checkdecl(node.decl, st, errors)
-
-    local loop_type_is_valid
-    if     node.decl._type._tag == types.T.Integer then
-        loop_type_is_valid = true
-        if not node.inc then
-            node.inc = ast.Exp.Integer(node.finish.loc, 1)
-            node.inc._type = types.T.Integer()
-        end
-    elseif node.decl._type._tag == types.T.Float then
-        loop_type_is_valid = true
-        if not node.inc then
-            node.inc = ast.Exp.Float(node.finish.loc, 1.0)
-            node.inc._type = types.T.Float()
-        end
-    else
-        loop_type_is_valid = false
-        checker.typeerror(errors, node.decl.loc,
-            "type of for control variable %s must be integer or float",
-            node.decl.name)
-    end
-
-    if loop_type_is_valid then
-        checkmatch("'for' start expression",
-            node.decl._type, node.start._type, errors, node.start.loc)
-        checkmatch("'for' finish expression",
-            node.decl._type, node.finish._type, errors, node.finish.loc)
-        checkmatch("'for' step expression",
-            node.decl._type, node.inc._type, errors, node.inc.loc)
-    end
-
-    checkstat(node.block, st, errors)
-
-    return false
-end
-
--- Typechecks a block statement
---   node: StatBlock AST node
---   st: symbol table
---   errors: list of compile-time errors
---   returns whether the block always returns from the containing function
-local function checkblock(node, st, errors)
-    local ret = false
-    for _, stat in ipairs(node.stats) do
-        ret = ret or checkstat(stat, st, errors)
-    end
-    return ret
-end
-
--- Typechecks a statement or declaration
---   node: A DeclDecl or Stat_* AST node
---   st: symbol table
---   errors: list of compile-time errors
---   returns whether statement always returns from its function (always false for repeat/until)
-checkstat = util.make_visitor({
+check_stat = util.make_visitor({
     [ast.Stat.Decl] = function(node, st, errors)
         if node.decl.type then
-          checkdecl(node.decl, st, errors)
-          checkexp(node.exp, st, errors, node.decl._type)
+          check_decl(node.decl, st, errors)
+          check_exp(node.exp, st, errors, node.decl._type)
         else
-          checkexp(node.exp, st, errors)
+          check_exp(node.exp, st, errors)
           node.decl._type = node.exp._type
-          checkdecl(node.decl, st, errors)
+          check_decl(node.decl, st, errors)
         end
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl.loc)
     end,
 
     [ast.Stat.Block] = function(node, st, errors)
-        return st:with_block(checkblock, node, st, errors)
+        local ret = false
+        st:with_block(function()
+            for _, stat in ipairs(node.stats) do
+                ret = ret or check_stat(stat, st, errors)
+            end
+        end)
+        return ret
     end,
 
     [ast.Stat.While] = function(node, st, errors)
-        checkexp(node.condition, st, errors, types.T.Boolean())
-        st:with_block(checkstat, node.block, st, errors)
+        check_exp(node.condition, st, errors, types.T.Boolean())
+        st:with_block(check_stat, node.block, st, errors)
     end,
 
     [ast.Stat.Repeat] = function(node, st, errors)
-        st:with_block(checkrepeat, node, st, errors)
+        st:with_block(function()
+            for _, stat in ipairs(node.block.stats) do
+                check_stat(stat, st, errors)
+            end
+            check_exp(node.condition, st, errors, types.T.Boolean())
+        end)
+        return false
     end,
 
     [ast.Stat.For] = function(node, st, errors)
-        st:with_block(checkfor, node, st, errors)
+        check_exp(node.start, st, errors)
+        check_exp(node.finish, st, errors)
+        if node.inc then
+            check_exp(node.inc, st, errors)
+        end
+        st:with_block(function()
+            -- Add loop variable to symbol table only after checking expressions
+            if not node.decl.type then
+                node.decl._type = node.start._type
+            end
+            check_decl(node.decl, st, errors)
+
+            local loop_type_is_valid
+            if     node.decl._type._tag == types.T.Integer then
+                loop_type_is_valid = true
+                if not node.inc then
+                    node.inc = ast.Exp.Integer(node.finish.loc, 1)
+                    node.inc._type = types.T.Integer()
+                end
+            elseif node.decl._type._tag == types.T.Float then
+                loop_type_is_valid = true
+                if not node.inc then
+                    node.inc = ast.Exp.Float(node.finish.loc, 1.0)
+                    node.inc._type = types.T.Float()
+                end
+            else
+                loop_type_is_valid = false
+                checker.typeerror(errors, node.decl.loc,
+                    "type of for control variable %s must be integer or float",
+                    node.decl.name)
+            end
+
+            if loop_type_is_valid then
+                checkmatch("'for' start expression",
+                    node.decl._type, node.start._type, errors, node.start.loc)
+                checkmatch("'for' finish expression",
+                    node.decl._type, node.finish._type, errors, node.finish.loc)
+                checkmatch("'for' step expression",
+                    node.decl._type, node.inc._type, errors, node.inc.loc)
+            end
+
+            check_stat(node.block, st, errors)
+        end)
+        return false
     end,
 
     [ast.Stat.Assign] = function(node, st, errors)
-        checkvar(node.var, st, errors)
-        checkexp(node.exp, st, errors, node.var._type)
+        check_var(node.var, st, errors)
+        check_exp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
         if texp._tag == types.T.Module then
             checker.typeerror(errors, node.loc, "trying to assign to a module")
@@ -273,14 +269,14 @@ checkstat = util.make_visitor({
     end,
 
     [ast.Stat.Call] = function(node, st, errors)
-        checkexp(node.callexp, st, errors)
+        check_exp(node.callexp, st, errors)
     end,
 
     [ast.Stat.Return] = function(node, st, errors)
         local ftype = st:find_symbol("$function")._type
         assert(#ftype.rettypes == 1)
         local tret = ftype.rettypes[1]
-        checkexp(node.exp, st, errors, tret)
+        check_exp(node.exp, st, errors, tret)
         checkmatch("return", tret, node.exp._type, errors, node.exp.loc)
         return true
     end,
@@ -288,11 +284,11 @@ checkstat = util.make_visitor({
     [ast.Stat.If] = function(node, st, errors)
         local ret = true
         for _, thn in ipairs(node.thens) do
-            checkexp(thn.condition, st, errors, types.T.Boolean())
-            ret = checkstat(thn.block, st, errors) and ret
+            check_exp(thn.condition, st, errors, types.T.Boolean())
+            ret = check_stat(thn.block, st, errors) and ret
         end
         if node.elsestat then
-            ret = checkstat(node.elsestat, st, errors) and ret
+            ret = check_stat(node.elsestat, st, errors) and ret
         else
             ret = false
         end
@@ -300,17 +296,7 @@ checkstat = util.make_visitor({
     end,
 })
 
---
--- Var
---
-
--- Typechecks an variable node
---   node: Var_* AST node
---   st: symbol table
---   errors: list of compile-time errors
---   context: expected type for this expression, if applicable
---   annotates the node with its type in a "_type" field
-checkvar = util.make_visitor({
+check_var = util.make_visitor({
     [ast.Var.Name] = function(node, st, errors, context)
         local decl = st:find_symbol(node.name)
         if not decl then
@@ -326,7 +312,7 @@ checkvar = util.make_visitor({
 
     [ast.Var.Dot] = function(node, st, errors)
         local var = assert(node.exp.var, "left side of dot is not var")
-        checkvar(var, st, errors)
+        check_var(var, st, errors)
         node.exp._type = var._type
         local vartype = var._type
         if vartype._tag == types.T.Module then
@@ -379,7 +365,7 @@ checkvar = util.make_visitor({
     end,
 
     [ast.Var.Bracket] = function(node, st, errors, context)
-        checkexp(node.exp1, st, errors, context and types.T.Array(context))
+        check_exp(node.exp1, st, errors, context and types.T.Array(context))
         if node.exp1._type._tag ~= types.T.Array then
             checker.typeerror(errors, node.exp1.loc,
                 "array expression in indexing is not an array but %s",
@@ -388,22 +374,12 @@ checkvar = util.make_visitor({
         else
             node._type = node.exp1._type.elem
         end
-        checkexp(node.exp2, st, errors, types.T.Integer())
+        check_exp(node.exp2, st, errors, types.T.Integer())
         checkmatch("array indexing", types.T.Integer(), node.exp2._type, errors, node.exp2.loc)
     end,
 })
 
---
--- Exp
---
-
--- Typechecks an expression
---   node: Exp_* AST node
---   st: symbol table
---   errors: list of compile-time errors
---   context: expected type for this expression, if applicable
---   annotates the node with its type in a "_type" field
-checkexp = util.make_visitor({
+check_exp = util.make_visitor({
     [ast.Exp.Nil] = function(node)
         node._type = types.T.Nil()
     end,
@@ -430,7 +406,7 @@ checkexp = util.make_visitor({
         local isarray = true
         for _, field in ipairs(node.fields) do
             local exp = field.exp
-            checkexp(exp, st, errors, econtext)
+            check_exp(exp, st, errors, econtext)
             table.insert(etypes, exp._type)
             isarray = isarray and not field.name
         end
@@ -448,7 +424,7 @@ checkexp = util.make_visitor({
     end,
 
     [ast.Exp.Var] = function(node, st, errors, context)
-        checkvar(node.var, st, errors, context)
+        check_var(node.var, st, errors, context)
         local texp = node.var._type
         if texp._tag == types.T.Module then
             checker.typeerror(errors, node.loc,
@@ -466,7 +442,7 @@ checkexp = util.make_visitor({
 
     [ast.Exp.Unop] = function(node, st, errors, context)
         local op = node.op
-        checkexp(node.exp, st, errors)
+        check_exp(node.exp, st, errors)
         local texp = node.exp._type
         local loc = node.loc
         if op == "#" then
@@ -505,7 +481,7 @@ checkexp = util.make_visitor({
 
     [ast.Exp.Concat] = function(node, st, errors, context)
         for i, exp in ipairs(node.exps) do
-            checkexp(exp, st, errors, types.T.String())
+            check_exp(exp, st, errors, types.T.String())
             -- always tries to coerce numbers to string
             exp = trytostr(exp)
             node.exps[i] = exp
@@ -520,9 +496,9 @@ checkexp = util.make_visitor({
 
     [ast.Exp.Binop] = function(node, st, errors, context)
         local op = node.op
-        checkexp(node.lhs, st, errors)
+        check_exp(node.lhs, st, errors)
         local tlhs = node.lhs._type
-        checkexp(node.rhs, st, errors)
+        check_exp(node.rhs, st, errors)
         local trhs = node.rhs._type
         local loc = node.loc
         if op == "==" or op == "~=" then
@@ -633,7 +609,7 @@ checkexp = util.make_visitor({
     [ast.Exp.Call] = function(node, st, errors, context)
         assert(node.exp._tag == ast.Exp.Var, "function calls are first-order only!")
         local var = node.exp.var
-        checkvar(var, st, errors)
+        check_var(var, st, errors)
         node.exp._type = var._type
         local fname = var._tag == ast.Var.Name and var.name or (var.exp.var.name .. "." .. var.name)
         if var._type._tag == types.T.Function then
@@ -649,7 +625,7 @@ checkexp = util.make_visitor({
                 if not arg then
                     atype = ptype
                 else
-                    checkexp(arg, st, errors, ptype)
+                    check_exp(arg, st, errors, ptype)
                     ptype = ptype or arg._type
                     atype = args[i]._type
                 end
@@ -670,15 +646,15 @@ checkexp = util.make_visitor({
                 "'%s' is not a function but %s",
                 fname, types.tostring(var._type))
             for _, arg in ipairs(node.args.args) do
-                checkexp(arg, st, errors)
+                check_exp(arg, st, errors)
             end
             node._type = types.T.Invalid()
         end
     end,
 
     [ast.Exp.Cast] = function(node, st, errors, context)
-        node.target = typefromnode(node.target, st, errors)
-        checkexp(node.exp, st, errors, node.target)
+        node.target = check_type(node.target, st, errors)
+        check_exp(node.exp, st, errors, node.target)
         if not types.coerceable(node.exp._type, node.target) and
           not types.equals(node.exp._type, node.target) then
             checker.typeerror(errors, node.loc,
@@ -690,7 +666,7 @@ checkexp = util.make_visitor({
 })
 
 --
--- TopLevel
+-- TODO The code below should be removed (letrec refac)
 --
 
 -- Typechecks a function body
@@ -713,7 +689,7 @@ local function checkfunc(node, st, errors)
         end
     end
     assert(#node._type.rettypes == 1)
-    local ret = st:with_block(checkstat, node.block, st, errors)
+    local ret = st:with_block(check_stat, node.block, st, errors)
     if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
         checker.typeerror(errors, node.loc,
             "function can return nil but return type is not nil")
@@ -724,7 +700,7 @@ end
 --   prog: AST for the whole module
 --   st: symbol table
 --   errors: list of compile-time errors
-local function checkbodies(prog, st, errors)
+checkbodies = function(prog, st, errors)
     for _, node in ipairs(prog) do
         if not node._ignore and
            node._tag == ast.Toplevel.Func then
@@ -805,7 +781,7 @@ local function toplevel_name(node)
 end
 
 -- Typecheck the toplevel node
-local toplevel_visitor = util.make_visitor({
+toplevel_visitor = util.make_visitor({
     [ast.Toplevel.Import] = function(node, st, errors, loader)
         local modtype, errs = checker.checkimport(node.modname, loader)
         if modtype then
@@ -823,12 +799,12 @@ local toplevel_visitor = util.make_visitor({
 
     [ast.Toplevel.Var] = function(node, st, errors)
         if node.decl.type then
-            node._type = typefromnode(node.decl.type, st, errors)
-            checkexp(node.value, st, errors, node._type)
+            node._type = check_type(node.decl.type, st, errors)
+            check_exp(node.value, st, errors, node._type)
             checkmatch("declaration of module variable " .. node.decl.name,
                        node._type, node.value._type, errors, node.loc)
         else
-            checkexp(node.value, st, errors)
+            check_exp(node.value, st, errors)
             node._type = node.value._type
         end
         if not isconst(node.value) then
@@ -843,11 +819,11 @@ local toplevel_visitor = util.make_visitor({
         end
         local ptypes = {}
         for _, pdecl in ipairs(node.params) do
-            table.insert(ptypes, typefromnode(pdecl.type, st, errors))
+            table.insert(ptypes, check_type(pdecl.type, st, errors))
         end
         local rettypes = {}
         for _, rt in ipairs(node.rettypes) do
-            table.insert(rettypes, typefromnode(rt, st, errors))
+            table.insert(rettypes, check_type(rt, st, errors))
         end
         node._type = types.T.Function(ptypes, rettypes)
     end,
@@ -855,7 +831,7 @@ local toplevel_visitor = util.make_visitor({
     [ast.Toplevel.Record] = function(node, st, errors)
         local fields = {}
         for _, field in ipairs(node.fields) do
-            local typ = typefromnode(field.type, st, errors)
+            local typ = check_type(field.type, st, errors)
             table.insert(fields, {type = typ, name = field.name})
         end
         node._type = types.T.Type(types.T.Record(node.name, fields))
@@ -869,7 +845,7 @@ local toplevel_visitor = util.make_visitor({
 --   annotates the top-level nodes with their types in a "_type" field
 --   annotates whether a top-level declaration is duplicated with a "_ignore"
 --   field
-local function checktoplevel(prog, st, errors, loader)
+checktoplevel = function(prog, st, errors, loader)
     for _, node in ipairs(prog) do
         local name = toplevel_name(node)
         local dup = st:find_dup(name)
@@ -883,34 +859,6 @@ local function checktoplevel(prog, st, errors, loader)
             st:add_symbol(name, node)
         end
     end
-end
-
-function checker.checkimport(modname, loader)
-    local ok, type_or_error, errors = loader(modname)
-    if not ok then return nil, type_or_error end
-    return type_or_error, errors
-end
-
--- Entry point for the typechecker
---   prog: AST for the whole module
---   subject: the string that generated the AST
---   filename: the file name that contains the subject
---   loader: the module loader, a function from module name to its AST, code,
---   and filename or nil and an error
---
---   returns true if typechecking succeeds, or false and a list of type errors
---   found
---   annotates the AST with the types of its terms in "_type" fields
---   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(modname, prog, subject, filename, loader)
-    loader = loader or function ()
-        return nil, "you must pass a loader to import modules"
-    end
-    local st = symtab.new()
-    local errors = {subject = subject, filename = filename}
-    checktoplevel(prog, st, errors, loader)
-    checkbodies(prog, st, errors)
-    return types.makemoduletype(modname, prog), errors
 end
 
 return checker
