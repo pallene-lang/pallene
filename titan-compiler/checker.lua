@@ -131,8 +131,8 @@ end
 --
 
 checkdecl = function(node, st, errors)
-    st:add_symbol(node.name, node)
     node._type = node._type or typefromnode(node.type, st, errors)
+    st:add_symbol(node.name, node)
 end
 
 --
@@ -158,38 +158,36 @@ end
 --   errors: list of compile-time errors
 --   returns whether statement always returns from its function (always false for 'for' loop)
 local function checkfor(node, st, errors)
-    local ftype
-    if node.decl.type then
-      checkdecl(node.decl, st, errors)
-      ftype = node.decl._type
-      if ftype._tag ~= "Type.Integer" and
-         ftype._tag ~= "Type.Float" then
-        checker.typeerror(errors, node.decl.loc,
-            "type of for control variable %s must be integer or float", node.decl.name)
-        node.decl._type = types.Invalid()
-        ftype = types.Invalid()
-      end
-      checkexp(node.start, st, errors, ftype)
-    else
-      checkexp(node.start, st, errors)
-      ftype = node.start._type
-      node.decl._type = ftype
-      checkdecl(node.decl, st, errors)
-      if ftype._tag ~= "Type.Integer" and
-         ftype._tag ~= "Type.Float" then
-        checker.typeerror(errors, node.decl.loc,
-            "type of for control variable %s must be integer or float", node.decl.name)
-        node.decl._type = types.Invalid()
-        ftype = types.Invalid()
-      end
-    end
-    checkmatch("'for' start expression", ftype, node.start._type, errors, node.start.loc)
-    checkexp(node.finish, st, errors, ftype)
-    checkmatch("'for' finish expression", ftype, node.finish._type, errors, node.finish.loc)
+
+    -- Check expressions before adding the iteration var to the symbol table
+    checkexp(node.start, st, errors)
+    checkexp(node.finish, st, errors)
     if node.inc then
-        checkexp(node.inc, st, errors, ftype)
-        checkmatch("'for' step expression", ftype, node.inc._type, errors, node.inc.loc)
+        checkexp(node.inc, st, errors)
     end
+
+    if not node.decl.type then
+        node.decl._type = node.start._type
+    end
+    checkdecl(node.decl, st, errors)
+
+    if node.decl._type._tag ~= "Type.Integer" and
+       node.decl._type._tag ~= "Type.Float" then
+        checker.typeerror(errors, node.decl.loc,
+            "type of for control variable %s must be integer or float",
+            node.decl.name)
+        node.decl._type = types.Invalid()
+    end
+
+    checkmatch("'for' start expression",
+        node.decl._type, node.start._type, errors, node.start.loc)
+    checkmatch("'for' finish expression",
+        node.decl._type, node.finish._type, errors, node.finish.loc)
+    if node.inc then
+        checkmatch("'for' step expression",
+            node.decl._type, node.inc._type, errors, node.inc.loc)
+    end
+
     checkstat(node.block, st, errors)
     return false
 end

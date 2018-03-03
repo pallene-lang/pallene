@@ -55,6 +55,20 @@ end
 
 describe("Titan type checker", function()
 
+    it("for loop iteration variables don't shadow var limit and step", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: string = "asdfg"
+                for i = 1, #i do
+                    x = x + i
+                end
+                return x
+            end
+        ]]
+        local ok, err = run_checker(code)
+        assert.truthy(ok)
+    end)
+
     it("detects invalid types", function()
         local code = [[
             function fn(): foo
