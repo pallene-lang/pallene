@@ -689,7 +689,7 @@ local function checkfunc(node, st, errors)
         end
     end
     assert(#node._type.rettypes == 1)
-    local ret = st:with_block(check_stat, node.block, st, errors)
+    local ret = check_stat(node.block, st, errors)
     if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
         checker.typeerror(errors, node.loc,
             "function can return nil but return type is not nil")
