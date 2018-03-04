@@ -173,6 +173,7 @@ check_stat = function(node, st, errors)
         end
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl.loc)
+        return false
 
     elseif tag == ast.Stat.Block then
         local ret = false
@@ -186,6 +187,7 @@ check_stat = function(node, st, errors)
     elseif tag == ast.Stat.While then
         check_exp(node.condition, st, errors, types.T.Boolean())
         st:with_block(check_stat, node.block, st, errors)
+        return false
 
     elseif tag == ast.Stat.Repeat then
         st:with_block(function()
@@ -259,9 +261,11 @@ check_stat = function(node, st, errors)
                 checkmatch("assignment", node.var._type, node.exp._type, errors, node.var.loc)
             end
         end
+        return false
 
     elseif tag == ast.Stat.Call then
         check_exp(node.callexp, st, errors)
+        return false
 
     elseif tag == ast.Stat.Return then
         local ftype = st:find_symbol("$function")._type
