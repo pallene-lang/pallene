@@ -468,7 +468,7 @@ check_exp = function(node, st, errors)
             end
             node._type = types.T.Boolean()
         else
-            error("invalid unary operation " .. op)
+            error("impossible")
         end
 
     elseif tag == ast.Exp.Concat then
@@ -593,7 +593,7 @@ check_exp = function(node, st, errors)
             end
             node._type = types.T.Integer()
         else
-            error("invalid binary operation " .. op)
+            error("impossible")
         end
 
     elseif tag == ast.Exp.Call then
