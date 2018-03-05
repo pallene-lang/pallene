@@ -1034,17 +1034,17 @@ function codeexp(ctx, node, iscondition, target)
         return codecall(ctx, node, target)
     elseif tag == ast.Exp.Cast and node.exp._tag == ast.Exp.Var and node.exp.var._tag == ast.Var.Bracket then
         local t = node.exp.var._type
-        node.exp.var._type = node.target
+        node.exp.var._type = node._type
         local cstats, cexp = codeexp(ctx, node.exp.var, iscondition)
         node.exp.var._type = t
         return cstats, cexp
-    elseif tag == ast.Exp.Cast and node.target._tag == types.T.Float then
+    elseif tag == ast.Exp.Cast and node._type._tag == types.T.Float then
         local cstat, cexp = codeexp(ctx, node.exp)
         return cstat, "((lua_Number)" .. cexp .. ")"
-    elseif tag == ast.Exp.Cast and node.target._tag == types.T.Boolean then
+    elseif tag == ast.Exp.Cast and node._type._tag == types.T.Boolean then
         local cstat, cexp = codeexp(ctx, node.exp, true)
         return cstat, "((" .. cexp .. ") ? 1 : 0)"
-    elseif tag == ast.Exp.Cast and node.target._tag == types.T.Integer then
+    elseif tag == ast.Exp.Cast and node._type._tag == types.T.Integer then
         local cstat, cexp = codeexp(ctx, node.exp)
         local ctmp1, tmpname1 = newtmp(ctx, types.T.Float())
         local ctmp2, tmpname2 = newtmp(ctx, types.T.Float())
@@ -1073,7 +1073,7 @@ function codeexp(ctx, node, iscondition, target)
             LINE = c_integer_literal(node.loc.line)
         })
         return cfloor, tmpname3
-    elseif tag == ast.Exp.Cast and node.target._tag == types.T.String then
+    elseif tag == ast.Exp.Cast and node._type._tag == types.T.String then
         local cvt
         local cstats, cexp = codeexp(ctx, node.exp)
         if node.exp._type._tag == types.T.Integer then

@@ -74,7 +74,7 @@ end
 
 local function trycoerce(node, target, errors)
     if types.coerceable(node._type, target) then
-        local n = ast.Exp.Cast(node.loc, node, target)
+        local n = ast.Exp.Cast(node.loc, node, nil)
         n._type = target
         return n
     else
@@ -653,15 +653,15 @@ check_exp = util.make_visitor({
     end,
 
     [ast.Exp.Cast] = function(node, st, errors, context)
-        node.target = check_type(node.target, st, errors)
-        check_exp(node.exp, st, errors, node.target)
-        if not types.coerceable(node.exp._type, node.target) and
-          not types.equals(node.exp._type, node.target) then
+        local target = check_type(node.target, st, errors)
+        check_exp(node.exp, st, errors, target)
+        if not types.coerceable(node.exp._type, target) and
+          not types.equals(node.exp._type, target) then
             checker.typeerror(errors, node.loc,
                 "cannot cast '%s' to '%s'",
-                types.tostring(node.exp._type), types.tostring(node.target))
+                types.tostring(node.exp._type), types.tostring(target))
         end
-        node._type = node.target
+        node._type = target
     end,
 })
 
