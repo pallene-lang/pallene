@@ -1,3 +1,4 @@
+-- A Location datatype representing a point in a source code file
 local location = {}
 
 -- @param xs An ordered sequence of comparable items
@@ -27,7 +28,12 @@ end
 
 local newline_cache = setmetatable({}, { __mode = "k" })
 
-function location.get_line_number(subject, pos)
+-- Converts an Lpeg file position into more familiar line and column numbers.
+--
+-- @param subject The contents of an entire source code file
+-- @param pos A position in this file, as an absolute integer index
+-- @return The line and column number at the specified position.
+local function get_line_number(subject, pos)
     local newlines
     if newline_cache[subject] then
         newlines = newline_cache[subject]
@@ -52,7 +58,7 @@ function location.new(filename, line, col)
 end
 
 function location.from_pos(filename, source, pos)
-    local line, col = location.get_line_number(source, pos)
+    local line, col = get_line_number(source, pos)
     return location.new(filename, line, col)
 end
 
