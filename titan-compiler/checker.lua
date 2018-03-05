@@ -98,28 +98,24 @@ end
 -- check
 --
 
-check_type = util.make_visitor({
-    [ast.Type.Nil] = function(node, st, errors)
+check_type = function(node, st, errors)
+    local tag = node._tag
+    if     tag == ast.Type.Nil then
         return types.T.Nil()
-    end,
 
-    [ast.Type.Boolean] = function(node, st, errors)
+    elseif tag == ast.Type.Boolean then
         return types.T.Boolean()
-    end,
 
-    [ast.Type.Integer] = function(node, st, errors)
+    elseif tag == ast.Type.Integer then
         return types.T.Integer()
-    end,
 
-    [ast.Type.Float] = function(node, st, errors)
+    elseif tag == ast.Type.Float then
         return types.T.Float()
-    end,
 
-    [ast.Type.String] = function(node, st, errors)
+    elseif tag == ast.Type.String then
         return types.T.String()
-    end,
 
-    [ast.Type.Name] = function(node, st, errors)
+    elseif tag == ast.Type.Name then
         local name = node.name
         local sym = st:find_symbol(name)
         if sym then
@@ -133,13 +129,11 @@ check_type = util.make_visitor({
             checker.typeerror(errors, node.loc, "type '%s' not found", name)
             return types.T.Invalid()
         end
-    end,
 
-    [ast.Type.Array] = function(node, st, errors)
+    elseif tag == ast.Type.Array then
         return types.T.Array(check_type(node.subtype, st, errors))
-    end,
 
-    [ast.Type.Function] = function(node, st, errors)
+    elseif tag == ast.Type.Function then
         if #node.argtypes ~= 1 then
             error("functions with 0 or 2+ return values are not yet implemented")
         end
@@ -152,8 +146,11 @@ check_type = util.make_visitor({
             table.insert(rettypes, check_type(rettype, st, errors))
         end
         return types.T.Function(ptypes, rettypes)
-    end,
-})
+
+    else
+        error("impossible")
+    end
+end
 
 -- TODO check_toplevel here
 -- check_toplevel = function...
@@ -163,8 +160,9 @@ check_decl = function(node, st, errors)
     st:add_symbol(node.name, node)
 end
 
-check_stat = util.make_visitor({
-    [ast.Stat.Decl] = function(node, st, errors)
+check_stat = function(node, st, errors)
+    local tag = node._tag
+    if     tag == ast.Stat.Decl then
         if node.decl.type then
           check_decl(node.decl, st, errors)
           check_exp(node.exp, st, errors, node.decl._type)
@@ -175,9 +173,9 @@ check_stat = util.make_visitor({
         end
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl.loc)
-    end,
+        return false
 
-    [ast.Stat.Block] = function(node, st, errors)
+    elseif tag == ast.Stat.Block then
         local ret = false
         st:with_block(function()
             for _, stat in ipairs(node.stats) do
@@ -185,14 +183,13 @@ check_stat = util.make_visitor({
             end
         end)
         return ret
-    end,
 
-    [ast.Stat.While] = function(node, st, errors)
+    elseif tag == ast.Stat.While then
         check_exp(node.condition, st, errors, types.T.Boolean())
         st:with_block(check_stat, node.block, st, errors)
-    end,
+        return false
 
-    [ast.Stat.Repeat] = function(node, st, errors)
+    elseif tag == ast.Stat.Repeat then
         st:with_block(function()
             for _, stat in ipairs(node.block.stats) do
                 check_stat(stat, st, errors)
@@ -200,9 +197,8 @@ check_stat = util.make_visitor({
             check_exp(node.condition, st, errors, types.T.Boolean())
         end)
         return false
-    end,
 
-    [ast.Stat.For] = function(node, st, errors)
+    elseif tag == ast.Stat.For then
         check_exp(node.start, st, errors)
         check_exp(node.finish, st, errors)
         if node.inc then
@@ -247,9 +243,8 @@ check_stat = util.make_visitor({
             check_stat(node.block, st, errors)
         end)
         return false
-    end,
 
-    [ast.Stat.Assign] = function(node, st, errors)
+    elseif tag == ast.Stat.Assign then
         check_var(node.var, st, errors)
         check_exp(node.exp, st, errors, node.var._type)
         local texp = node.var._type
@@ -266,22 +261,21 @@ check_stat = util.make_visitor({
                 checkmatch("assignment", node.var._type, node.exp._type, errors, node.var.loc)
             end
         end
-    end,
+        return false
 
-    [ast.Stat.Call] = function(node, st, errors)
+    elseif tag == ast.Stat.Call then
         check_exp(node.callexp, st, errors)
-    end,
+        return false
 
-    [ast.Stat.Return] = function(node, st, errors)
+    elseif tag == ast.Stat.Return then
         local ftype = st:find_symbol("$function")._type
         assert(#ftype.rettypes == 1)
         local tret = ftype.rettypes[1]
         check_exp(node.exp, st, errors, tret)
         checkmatch("return", tret, node.exp._type, errors, node.exp.loc)
         return true
-    end,
 
-    [ast.Stat.If] = function(node, st, errors)
+    elseif tag == ast.Stat.If then
         local ret = true
         for _, thn in ipairs(node.thens) do
             check_exp(thn.condition, st, errors, types.T.Boolean())
@@ -293,11 +287,15 @@ check_stat = util.make_visitor({
             ret = false
         end
         return ret
-    end,
-})
 
-check_var = util.make_visitor({
-    [ast.Var.Name] = function(node, st, errors, context)
+    else
+        error("impossible")
+    end
+end
+
+check_var = function(node, st, errors)
+    local tag = node._tag
+    if     tag == ast.Var.Name then
         local decl = st:find_symbol(node.name)
         if not decl then
             checker.typeerror(errors, node.loc,
@@ -308,9 +306,8 @@ check_var = util.make_visitor({
             node._decl = decl
             node._type = decl._type
         end
-    end,
 
-    [ast.Var.Dot] = function(node, st, errors)
+    elseif tag == ast.Var.Dot then
         local var = assert(node.exp.var, "left side of dot is not var")
         check_var(var, st, errors)
         node.exp._type = var._type
@@ -362,9 +359,8 @@ check_var = util.make_visitor({
                 types.tostring(vartype))
         end
         node._type = node._type or types.T.Invalid()
-    end,
 
-    [ast.Var.Bracket] = function(node, st, errors, context)
+    elseif tag == ast.Var.Bracket then
         check_exp(node.exp1, st, errors, context and types.T.Array(context))
         if node.exp1._type._tag ~= types.T.Array then
             checker.typeerror(errors, node.exp1.loc,
@@ -376,31 +372,30 @@ check_var = util.make_visitor({
         end
         check_exp(node.exp2, st, errors, types.T.Integer())
         checkmatch("array indexing", types.T.Integer(), node.exp2._type, errors, node.exp2.loc)
-    end,
-})
 
-check_exp = util.make_visitor({
-    [ast.Exp.Nil] = function(node)
+    else
+        error("impossible")
+    end
+end
+
+check_exp = function(node, st, errors)
+    local tag = node._tag
+    if     tag == ast.Exp.Nil then
         node._type = types.T.Nil()
-    end,
 
-    [ast.Exp.Bool] = function(node)
+    elseif tag == ast.Exp.Bool then
         node._type = types.T.Boolean()
-    end,
 
-    [ast.Exp.Integer] = function(node)
+    elseif tag == ast.Exp.Integer then
         node._type = types.T.Integer()
-    end,
 
-    [ast.Exp.Float] = function(node)
+    elseif tag == ast.Exp.Float then
         node._type = types.T.Float()
-    end,
 
-    [ast.Exp.String] = function(node)
+    elseif tag == ast.Exp.String then
         node._type = types.T.String()
-    end,
 
-    [ast.Exp.Initlist] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Initlist then
         local econtext = context and context.elem
         local etypes = {}
         local isarray = true
@@ -421,9 +416,8 @@ check_exp = util.make_visitor({
         else
             node._type = types.T.Initlist(etypes)
         end
-    end,
 
-    [ast.Exp.Var] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Var then
         check_var(node.var, st, errors, context)
         local texp = node.var._type
         if texp._tag == types.T.Module then
@@ -438,9 +432,8 @@ check_exp = util.make_visitor({
         else
             node._type = texp
         end
-    end,
 
-    [ast.Exp.Unop] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Unop then
         local op = node.op
         check_exp(node.exp, st, errors)
         local texp = node.exp._type
@@ -475,11 +468,10 @@ check_exp = util.make_visitor({
             end
             node._type = types.T.Boolean()
         else
-            error("invalid unary operation " .. op)
+            error("impossible")
         end
-    end,
 
-    [ast.Exp.Concat] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Concat then
         for i, exp in ipairs(node.exps) do
             check_exp(exp, st, errors, types.T.String())
             -- always tries to coerce numbers to string
@@ -492,9 +484,8 @@ check_exp = util.make_visitor({
             end
         end
         node._type = types.T.String()
-    end,
 
-    [ast.Exp.Binop] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Binop then
         local op = node.op
         check_exp(node.lhs, st, errors)
         local tlhs = node.lhs._type
@@ -602,11 +593,10 @@ check_exp = util.make_visitor({
             end
             node._type = types.T.Integer()
         else
-            error("invalid binary operation " .. op)
+            error("impossible")
         end
-    end,
 
-    [ast.Exp.Call] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Call then
         assert(node.exp._tag == ast.Exp.Var, "function calls are first-order only!")
         local var = node.exp.var
         check_var(var, st, errors)
@@ -650,9 +640,8 @@ check_exp = util.make_visitor({
             end
             node._type = types.T.Invalid()
         end
-    end,
 
-    [ast.Exp.Cast] = function(node, st, errors, context)
+    elseif tag == ast.Exp.Cast then
         local target = check_type(node.target, st, errors)
         check_exp(node.exp, st, errors, target)
         if not types.coerceable(node.exp._type, target) and
@@ -662,8 +651,11 @@ check_exp = util.make_visitor({
                 types.tostring(node.exp._type), types.tostring(target))
         end
         node._type = target
-    end,
-})
+
+    else
+        error("impossible")
+    end
+end
 
 --
 -- TODO The code below should be removed (letrec refac)
@@ -781,8 +773,9 @@ local function toplevel_name(node)
 end
 
 -- Typecheck the toplevel node
-toplevel_visitor = util.make_visitor({
-    [ast.Toplevel.Import] = function(node, st, errors, loader)
+toplevel_visitor = function(node, st, errors, loader)
+    local tag = node._tag
+    if     tag == ast.Toplevel.Import then
         local modtype, errs = checker.checkimport(node.modname, loader)
         if modtype then
             node._type = modtype
@@ -795,9 +788,8 @@ toplevel_visitor = util.make_visitor({
                 "problem loading module '%s': %s",
                 node.modname, errs)
         end
-    end,
 
-    [ast.Toplevel.Var] = function(node, st, errors)
+    elseif tag == ast.Toplevel.Var then
         if node.decl.type then
             node._type = check_type(node.decl.type, st, errors)
             check_exp(node.value, st, errors, node._type)
@@ -811,9 +803,8 @@ toplevel_visitor = util.make_visitor({
             checker.typeerror(errors, node.value.loc,
                 "top level variable initialization must be constant")
         end
-    end,
 
-    [ast.Toplevel.Func] = function(node, st, errors)
+    elseif tag == ast.Toplevel.Func then
         if #node.rettypes ~= 1 then
             error("functions with 0 or 2+ return values are not yet implemented")
         end
@@ -826,17 +817,19 @@ toplevel_visitor = util.make_visitor({
             table.insert(rettypes, check_type(rt, st, errors))
         end
         node._type = types.T.Function(ptypes, rettypes)
-    end,
 
-    [ast.Toplevel.Record] = function(node, st, errors)
+    elseif tag == ast.Toplevel.Record then
         local fields = {}
         for _, field in ipairs(node.fields) do
             local typ = check_type(field.type, st, errors)
             table.insert(fields, {type = typ, name = field.name})
         end
         node._type = types.T.Type(types.T.Record(node.name, fields))
-    end,
-})
+
+    else
+        error("impossible")
+    end
+end
 
 -- Colect type information of toplevel nodes
 --   prog: AST for the whole module

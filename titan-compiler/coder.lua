@@ -67,7 +67,8 @@ local function getslot(typ --[[:table]], dst --[[:string?]], src --[[:string]])
     elseif typ._tag == types.T.String then tmpl = "$DST tsvalue($SRC)"
     elseif typ._tag == types.T.Array then tmpl = "$DST hvalue($SRC)"
     elseif typ._tag == types.T.Record then tmpl = "" -- TODO records
-    else error("invalid type " .. types.tostring(typ)) end
+    else error("impossible")
+    end
     return render(tmpl, { DST = dst, SRC = src })
 end
 
@@ -124,8 +125,7 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
     elseif typ._tag == types.T.Record then
         -- TODO records
         tag = "table"
-    else
-        error("invalid type " .. types.tostring(typ))
+    else error("impossible")
     end
     return render([[
         if (TITAN_LIKELY($PREDICATE($EXP))) {
@@ -163,8 +163,7 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
     elseif typ._tag == types.T.Nil then tag = "nil"
     elseif typ._tag == types.T.String then tag = "string"
     elseif typ._tag == types.T.Array then tag = "table"
-    else
-        error("invalid type " .. types.tostring(typ))
+    else error("impossible")
     end
     return render([[
         if (TITAN_LIKELY($PREDICATE($SRC))) {
@@ -189,8 +188,7 @@ local function setslot(typ --[[:table]], dst --[[:string]], src --[[:string]])
     elseif typ._tag == types.T.Nil then tmpl = "setnilvalue($DST); ((void)$SRC);"
     elseif typ._tag == types.T.String then tmpl = "setsvalue(L, $DST, $SRC);"
     elseif typ._tag == types.T.Array then tmpl = "sethvalue(L, $DST, $SRC);"
-    else
-        error("invalid type " .. types.tostring(typ))
+    else error("impossible")
     end
     return render(tmpl, { DST = dst, SRC = src })
 end
@@ -203,7 +201,7 @@ local function ctype(typ --[[:table]])
     elseif typ._tag == types.T.String then return "TString*"
     elseif typ._tag == types.T.Array then return "Table*"
     elseif typ._tag == types.T.Record then return "TValue"
-    else error("invalid type " .. types.tostring(typ))
+    else error("impossible")
     end
 end
 
