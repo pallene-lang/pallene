@@ -457,9 +457,13 @@ local grammar = re.compile([[
 ]], defs)
 
 function parser.parse(filename, input)
-    THE_FILENAME = filename
+    -- Abort if someone calls this non-reentrant parser recursively
+    assert(type(filename) == "string")
+    assert(THIS_FILENAME == nil)
+
+    THIS_FILENAME = filename
     local ast, err, errpos = grammar:match(input)
-    THE_FILENAME = nil
+    THIS_FILENAME = nil
 
     if ast then
         return ast
