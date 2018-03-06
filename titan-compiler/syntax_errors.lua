@@ -1,258 +1,170 @@
 local syntax_errors = {}
 
 local errors = {
-    -- The `0` label is the default "parsing failed" error number
-    [0] = {
-      label = "SyntaxError",
-        msg = "Syntax Error" },
+    -- The `fail` label is the default "parsing failed" error number
+    fail = "Syntax Error",
 
     --
     -- Lexer errors
     -- (tested in spec/lexer_spec.lua)
     --
 
-    { label = "MalformedNumber",
-        msg = "Malformed number." },
+    MalformedNumber = "Malformed number.",
 
-    { label = "UnclosedLongString",
-        msg = "Unclosed long string or long comment." },
+    UnclosedLongString = "Unclosed long string or long comment.",
 
-    { label = "UnclosedShortString",
-        msg = "Unclosed short string." },
+    UnclosedShortString = "Unclosed short string.",
 
-    { label = "InvalidEscape",
-        msg = "Invalid escape character in string." },
+    InvalidEscape = "Invalid escape character in string." ,
 
-    { label = "MalformedEscape_decimal",
-        msg = "Decimal escape too large" },
+    MalformedEscape_decimal = "Decimal escape too large",
 
-    { label = "MalformedEscape_u",
-        msg = "\\u escape sequence is malformed." },
+    MalformedEscape_u = "\\u escape sequence is malformed.",
 
-    { label = "MalformedEscape_x",
-        msg = "\\x escape sequences must have exactly two hexadecimal digits." },
+    MalformedEscape_x = "\\x escape sequences must have exactly two hexadecimal digits.",
 
     --
     -- Parser errors
     -- (tested in spec/parser_spec.lua)
     --
 
-    { label = "NameFunc",
-        msg = "Expected a function name after 'function'." },
+    NameFunc = "Expected a function name after 'function'.",
 
-    { label = "LParPList",
-        msg = "Expected '(' for the parameter list." },
+   LParPList = "Expected '(' for the parameter list.",
 
-    { label = "RParPList",
-        msg = "Expected ')' to close the parameter list." },
+   RParPList = "Expected ')' to close the parameter list.",
 
-    { label = "TypeFunc",
-        msg = "Expected a type in function declaration." },
+   TypeFunc = "Expected a type in function declaration.",
 
-    { label = "EndFunc",
-        msg = "Expected 'end' to close the function body." },
+   EndFunc = "Expected 'end' to close the function body.",
 
-    { label = "ParamSemicolon",
-        msg = "Expected ':' after parameter name." },
+   ParamSemicolon = "Expected ':' after parameter name.",
 
-    { label = "AssignVar",
-        msg = "Expected '=' after variable declaration." },
+   AssignVar = "Expected '=' after variable declaration.",
 
-    { label = "ExpVarDec",
-        msg = "Expected an expression to initialize variable." },
+   ExpVarDec = "Expected an expression to initialize variable.",
 
-    { label = "NameRecord",
-        msg = "Expected a record name after 'record'." },
+   NameRecord = "Expected a record name after 'record'.",
 
-    { label = "EndRecord",
-        msg = "Expected 'end' to close the record." },
+   EndRecord = "Expected 'end' to close the record.",
 
-    { label = "FieldRecord",
-        msg = "Expected a field in record declaration." },
+   FieldRecord = "Expected a field in record declaration.",
 
-    { label = "NameImport",
-        msg = "Expected a name after 'local'." },
+   NameImport = "Expected a name after 'local'.",
 
     --this label is not thrown in rule 'import' because rule 'toplevelvar'
     --matches an invalid input like "local bola import"
-    { label = "AssignImport",
-        msg = "Expected '='." },
+    AssignImport = "Expected '='.",
 
     --this label is not thrown in rule 'import' because rule 'toplevelvar'
     --matches an input like "local bola = X", given that X is a valid expression,
     --or throws a label when X is not a valid expression
-    { label = "ImportImport",
-        msg = "Expected 'import' keyword." },
+    ImportImport = "Expected 'import' keyword.",
 
-    { label = "StringLParImport",
-        msg = "Expected the name of a module after '('." },
+    StringLParImport = "Expected the name of a module after '('.",
 
-    { label = "RParImport",
-        msg = "Expected ')' to close import declaration." },
+    RParImport = "Expected ')' to close import declaration.",
 
-    { label = "StringImport",
-        msg = "Expected the name of a module after 'import'." },
+    StringImport = "Expected the name of a module after 'import'.",
 
-    { label = "DeclParList",
-        msg = "Expected a variable name after ','." },
+    DeclParList = "Expected a variable name after ','.",
 
-    { label = "TypeDecl",
-        msg = "Expected a type name after ':'." },
+    TypeDecl = "Expected a type name after ':'.",
 
-    { label = "TypeType",
-        msg = "Expected a type name after '{'." },
+    TypeType = "Expected a type name after '{'.",
 
-    { label = "RCurlyType",
-        msg = "Expected '}' to close type specification." },
+    RCurlyType = "Expected '}' to close type specification.",
 
-    { label = "TypelistType",
-        msg = "Expected type after ','" },
+    TypelistType = "Expected type after ','",
 
-    { label = "RParenTypelist",
-        msg = "Expected ')' to close type list" },
+    RParenTypelist = "Expected ')' to close type list",
 
-    { label = "TypeReturnTypes",
-        msg = "Expected return types after `->` to finish the function type" },
+    TypeReturnTypes = "Expected return types after `->` to finish the function type",
 
-    { label = "ColonRecordField",
-        msg = "Expected ':' after the name of a record field." },
+    ColonRecordField = "Expected ':' after the name of a record field.",
 
-    { label = "TypeRecordField",
-        msg = "Expected a type name after ':'." },
+    TypeRecordField = "Expected a type name after ':'.",
 
-    { label = "EndBlock",
-        msg = "Expected 'end' to close block." },
+    EndBlock = "Expected 'end' to close block.",
 
-    { label = "ExpWhile",
-        msg = "Expected an expression after 'while'." },
+    ExpWhile = "Expected an expression after 'while'.",
 
-    { label = "DoWhile",
-        msg = "Expected 'do' in while statement." },
+    DoWhile = "Expected 'do' in while statement.",
 
-    { label = "EndWhile",
-        msg = "Expected 'end' to close the while statement." },
+    EndWhile = "Expected 'end' to close the while statement.",
 
-    { label = "UntilRepeat",
-        msg = "Expected 'until' in repeat statement." },
+    UntilRepeat = "Expected 'until' in repeat statement.",
 
-    { label = "ExpRepeat",
-        msg = "Expected an expression after 'until'." },
+    ExpRepeat = "Expected an expression after 'until'.",
 
-    { label = "ExpIf",
-        msg = "Expected an expression after 'if'." },
+    ExpIf = "Expected an expression after 'if'.",
 
-    { label = "ThenIf",
-        msg = "Expected 'then' in if statement." },
+    ThenIf = "Expected 'then' in if statement.",
 
-    { label = "EndIf",
-        msg = "Expected 'end' to close the if statement." },
+    EndIf = "Expected 'end' to close the if statement.",
 
-    { label = "DeclFor",
-        msg = "Expected variable declaration in for statement." },
+    DeclFor = "Expected variable declaration in for statement.",
 
-    { label = "AssignFor",
-        msg = "Expected '=' after variable declaration in for statement." },
+    AssignFor = "Expected '=' after variable declaration in for statement.",
 
-    { label = "Exp1For",
-        msg = "Expected an expression after '='." },
+    Exp1For = "Expected an expression after '='.",
 
-    { label = "CommaFor",
-        msg = "Expected ',' in for statement." },
+    CommaFor = "Expected ',' in for statement.",
 
-    { label = "Exp2For",
-        msg = "Expected an expression after ','." },
+    Exp2For = "Expected an expression after ','.",
 
-    { label = "Exp3For",
-        msg = "Expected an expression after ','." },
+    Exp3For = "Expected an expression after ','.",
 
-    { label = "DoFor",
-        msg = "Expected 'do' in for statement." },
+    DoFor = "Expected 'do' in for statement.",
 
-    { label = "EndFor",
-        msg = "Expected 'end' to close the for statement." },
+    EndFor = "Expected 'end' to close the for statement.",
 
-    { label = "DeclLocal",
-        msg = "Expected variable declaration after 'local'." },
+    DeclLocal = "Expected variable declaration after 'local'.",
 
-    { label = "AssignLocal",
-        msg = "Expected '=' after variable declaration." },
+    AssignLocal = "Expected '=' after variable declaration.",
 
-    { label = "ExpLocal",
-        msg = "Expected an expression after '='." },
+    ExpLocal = "Expected an expression after '='.",
 
-    { label = "AssignAssign",
-        msg = "Expected '=' after variable." },
+    AssignAssign = "Expected '=' after variable.",
 
-    { label = "ExpAssign",
-        msg = "Expected an expression after '='." },
+    ExpAssign = "Expected an expression after '='.",
 
-    { label = "ExpElseIf",
-        msg = "Expected an expression after 'elseif'." },
+    ExpElseIf = "Expected an expression after 'elseif'.",
 
-    { label = "ThenElseIf",
-        msg = "Expected 'then' in elseif statement." },
+    ThenElseIf = "Expected 'then' in elseif statement.",
 
-    { label = "OpExp",
-        msg = "Expected an expression after operator." },
+    OpExp = "Expected an expression after operator.",
 
-    { label = "NameColonExpSuf",
-        msg = "Expected a method name after ':'." },
+    NameColonExpSuf = "Expected a method name after ':'.",
 
-    { label = "FuncArgsExpSuf",
-        msg = "Expected a list of arguments." },
+    FuncArgsExpSuf = "Expected a list of arguments.",
 
-    { label = "ExpExpSuf",
-        msg = "Expected an expression after '['." },
+    ExpExpSuf = "Expected an expression after '['.",
 
-    { label = "RBracketExpSuf",
-        msg = "Expected ']' to match '['." },
+    RBracketExpSuf = "Expected ']' to match '['.",
 
-    { label = "NameDotExpSuf",
-        msg = "Expected a function name after '.'." },
+    NameDotExpSuf = "Expected a function name after '.'.",
 
-    { label = "ExpSimpleExp",
-        msg = "Expected an expression after '('." },
+    ExpSimpleExp = "Expected an expression after '('.",
 
-    { label = "RParSimpleExp",
-        msg = "Expected ')'to match '('." },
+    RParSimpleExp = "Expected ')'to match '('.",
 
-    { label = "RParFuncArgs",
-        msg = "Expected ')' to match '('." },
+    RParFuncArgs = "Expected ')' to match '('.",
 
-    { label = "ExpExpList",
-        msg = "Expected an expression after ','." },
+    ExpExpList = "Expected an expression after ','.",
 
-    { label = "RCurlyInitList",
-        msg = "Expected '{' to match '}'." },
+    RCurlyInitList = "Expected '{' to match '}'.",
 
-    { label = "ExpFieldList",
-        msg = "Expected an expression after ',' or ';'." },
+    ExpFieldList = "Expected an expression after ',' or ';'.",
 
-    { label = "ExpStat",
-        msg = "Expected a statement but found an expression that is not a function call"},
+    ExpStat = "Expected a statement but found an expression that is not a function call",
 
-    { label = "ExpAssign",
-        msg = "Expected a valid lvalue in the left side of assignment but found a regular expression" },
+    ExpAssign = "Expected a valid lvalue in the left side of assignment but found a regular expression",
 
-    { label = "CastMissingType",
-        msg = "Expected a type for the cast expression" }
+    CastMissingType = "Expected a type for the cast expression"
 
 }
 
-syntax_errors.label_to_msg = {}
-syntax_errors.label_to_int = {}
-syntax_errors.int_to_label = {}
-syntax_errors.int_to_msg   = {}
-
-do
-    for i, t in pairs(errors) do
-        local label = assert(t.label)
-        local msg   = assert(t.msg)
-        syntax_errors.label_to_msg[label] = msg
-        syntax_errors.label_to_int[label] = i
-        syntax_errors.int_to_label[i] = label
-        syntax_errors.int_to_msg[i] = msg
-    end
-end
+syntax_errors.errors = errors 
 
 return syntax_errors

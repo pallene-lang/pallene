@@ -458,21 +458,19 @@ local grammar = re.compile([[
 
 function parser.parse(filename, input)
     THE_FILENAME = filename
-    local ast, errnum, errpos = grammar:match(input)
+    local ast, err, errpos = grammar:match(input)
     THE_FILENAME = nil
 
     if ast then
         return ast
     else
         local loc = location.from_pos(filename, input, errpos)
-        local label = syntax_errors.int_to_label[errnum]
-        return false, { label = errnum, loc = loc }
+        return false, { label = err, loc = loc }
     end
 end
 
 function parser.error_to_string(err)
-    local errmsg = syntax_errors.label_to_msg[err.label]
-    print("errmsg = ", errmsg)
+    local errmsg = syntax_errors.errors[err.label]
     return location.format_error(err.loc, "syntax error: %s", errmsg)
 end
 

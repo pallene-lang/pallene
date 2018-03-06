@@ -38,9 +38,8 @@ local function run_lexer(source)
                     found_j = j
                 end
             elseif b and b ~= 'fail' then
-                local errnum, suffix = b, string.sub(source, c)
-                local errcode = syntax_errors.int_to_label[errnum]
-                return { err = errcode }
+                local err, suffix = b, string.sub(source, c)
+                return { err = err }
             end
         end
 

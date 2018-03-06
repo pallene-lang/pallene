@@ -22,7 +22,10 @@ local C, Cb, Cg, Ct, Cmt, Cc = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt, lpeg
 local T = lpeg.T
 
 local syntax_errors = require "titan-compiler.syntax_errors"
-local labels = syntax_errors.label_to_int
+local labels = {}
+for k, _ in pairs (syntax_errors.errors) do
+  labels[k] = k
+end
 
 local lexer = {}
 
