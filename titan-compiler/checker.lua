@@ -20,38 +20,23 @@ local check_field
 local checktoplevel
 local checkbodies
 
--- Entry point for the typechecker
---   prog: AST for the whole module
---   subject: the string that generated the AST
---   filename: the file name that contains the subject
---   loader: the module loader, a function from module name to its AST, code,
---   and filename or nil and an error
+-- Type-check a Titan module
 --
---   returns true if typechecking succeeds, or false and a list of type errors
---   found
---   annotates the AST with the types of its terms in "_type" fields
---   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(modname, prog, subject, filename, loader)
-    loader = loader or function ()
-        return nil, "you must pass a loader to import modules"
-    end
+-- Sets a _type field on some nodes. TODO: what nodes?
+--
+-- @ param prog AST for the whole module
+-- @ return true, or false followed by as list of compilation errors
+function checker.check(prog)
     local st = symtab.new()
-    local errors = {subject = subject, filename = filename}
-    checktoplevel(prog, st, errors, loader)
+    local errors = {}
+    checktoplevel(prog, st, errors)
     checkbodies(prog, st, errors)
-    return types.makemoduletype(modname, prog), errors
+    return (#errors == 0), errors
 end
 
 function checker.typeerror(errors, loc, fmt, ...)
     local errmsg = location.format_error(loc, "type error: "..fmt, ...)
     table.insert(errors, errmsg)
-end
-
--- TODO remove
-function checker.checkimport(modname, loader)
-    local ok, type_or_error, errors = loader(modname)
-    if not ok then return nil, type_or_error end
-    return type_or_error, errors
 end
 
 --
