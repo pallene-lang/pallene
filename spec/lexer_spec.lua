@@ -38,8 +38,7 @@ local function run_lexer(source)
                     found_j = j
                 end
             elseif b and b ~= 'fail' then
-                local err, suffix = b, string.sub(source, c)
-                return { err = err }
+                return { err = b }
             end
         end
 
