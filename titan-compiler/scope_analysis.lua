@@ -152,7 +152,7 @@ bind_names_toplevel = function(tlnode, st, errors)
             bind_names_exp(tlnode.value, st, errors)
 
     elseif tag == ast.Toplevel.Record then
-        for _, field_decl in ipairs(tlnode.fields) do
+        for _, field_decl in ipairs(tlnode.field_decls) do
             bind_names_decl(field_decl, st, errors)
         end
 

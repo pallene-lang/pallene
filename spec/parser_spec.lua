@@ -637,7 +637,7 @@ describe("Titan parser", function()
         ]], {
             { _tag = ast.Toplevel.Record,
               name = "Point",
-              fields = {
+              field_decls = {
                 { name = "x", type = { _tag = ast.Type.Float } },
                 { name = "y", type = { _tag = ast.Type.Float } } } },
         })
@@ -650,7 +650,7 @@ describe("Titan parser", function()
         ]], {
             { _tag = ast.Toplevel.Record,
               name = "List",
-              fields = {
+              field_decls = {
                 { name = "p",
                   type = { subtype = { name = "Point" } } },
                 { name = "next", type = { name = "List" } } } },
@@ -658,7 +658,7 @@ describe("Titan parser", function()
     end)
 
     it("can parse the record field optional separator", function()
-        local ast = {{ fields = { { name = "x" }, { name = "y" } } }}
+        local ast = {{ field_decls = { { name = "x" }, { name = "y" } } }}
 
         assert_program_ast([[
             record Point x: float y: float end

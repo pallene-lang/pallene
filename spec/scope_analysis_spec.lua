@@ -229,10 +229,10 @@ describe("Scope analysis: ", function()
         -- record IntBox
         assert.are.equal(
             prog[4],
-            prog[3].fields[1].type._decl)
+            prog[3].field_decls[1].type._decl)
         assert.are.equal(
             prog[4],
-            prog[3].fields[2].type._decl)
+            prog[3].field_decls[2].type._decl)
 
         -- local p
         assert.are.equal(

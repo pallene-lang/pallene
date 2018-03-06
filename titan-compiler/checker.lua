@@ -819,12 +819,12 @@ toplevel_visitor = function(node, st, errors, loader)
         node._type = types.T.Function(ptypes, rettypes)
 
     elseif tag == ast.Toplevel.Record then
-        local fields = {}
-        for _, field in ipairs(node.fields) do
-            local typ = check_type(field.type, st, errors)
-            table.insert(fields, {type = typ, name = field.name})
+        local field_decls = {}
+        for _, field_decl in ipairs(node.field_decls) do
+            local typ = check_type(field_decl.type, st, errors)
+            table.insert(field_decls, {type = typ, name = field_decl.name})
         end
-        node._type = types.T.Type(types.T.Record(node.name, fields))
+        node._type = types.T.Type(types.T.Record(node.name, field_decls))
 
     else
         error("impossible")
