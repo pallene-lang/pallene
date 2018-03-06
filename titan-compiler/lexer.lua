@@ -21,9 +21,6 @@ local P, R, S = lpeg.P, lpeg.R, lpeg.S
 local C, Cb, Cg, Ct, Cmt, Cc = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt, lpeg.Cc
 local T = lpeg.T
 
-local syntax_errors = require "titan-compiler.syntax_errors"
-local labels = syntax_errors.label_to_int
-
 local lexer = {}
 
 --
@@ -46,7 +43,7 @@ local good_number = Cmt(possible_number, function(_, i, s)
         return false
     end
 end)
-lexer.NUMBER = #number_start * (good_number + T(labels.MalformedNumber))
+lexer.NUMBER = #number_start * (good_number + T("MalformedNumber"))
 
 --
 -- Strings
@@ -76,7 +73,7 @@ do
     longstring = (
         open * (
             C(contents) * close +
-            T(labels.UnclosedLongString)
+            T("UnclosedLongString")
         )
     ) / function(contents) return contents end -- hide the group captures
 end
@@ -103,10 +100,10 @@ do
         P("0") * R("09") * R("09") +
         R("09") * R("09") * -R("09")  +
         R("09") * -R("09") +
-        R("09") * T(labels.MalformedEscape_decimal)
+        R("09") * T("MalformedEscape_decimal")
 
     local escape_sequence = P("\\") * (
-        (-P(1) * T(labels.UnclosedShortString)) +
+        (-P(1) * T("UnclosedShortString")) +
         (P("a")  / "\a") +
         (P("b")  / "\b") +
         (P("f")  / "\f") +
@@ -119,15 +116,15 @@ do
         (P("\"") / "\"") +
         (linebreak / "\n") +
         C(decimal_escape) / tonumber / string.char +
-        (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) + T(labels.MalformedEscape_u)))
+        (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) + T("MalformedEscape_u")))
              / tonumber / utf8.char +
-        (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) + T(labels.MalformedEscape_x))) / tonumber / string.char +
+        (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) + T("MalformedEscape_x"))) / tonumber / string.char +
         (P("z") * lpeg.space^0) +
-        T(labels.InvalidEscape)
+        T("InvalidEscape")
     )
 
     local part = (
-        (S("\n\r") * T(labels.UnclosedShortString)) +
+        (S("\n\r") * T("UnclosedShortString")) +
         escape_sequence +
         (C(P(1)))
     )
@@ -137,7 +134,7 @@ do
     shortstring = (
         open * (
             Ct(contents) * close +
-            T(labels.UnclosedShortString)
+            T("UnclosedShortString")
         )
     ) / function(parts) return table.concat(parts) end
 end

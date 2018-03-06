@@ -37,10 +37,8 @@ local function run_lexer(source)
                     found_captures = captures
                     found_j = j
                 end
-            elseif b and b > 0 then
-                local errnum, suffix = b, c
-                local errcode = syntax_errors.int_to_label[errnum]
-                return { err = errcode }
+            elseif b and b ~= 'fail' then
+                return { err = b }
             end
         end
 
