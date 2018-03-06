@@ -25,14 +25,10 @@ local bind_names_field
 -- @param prog AST for the whole module
 -- @return true, or false followed by a list of compilation errors
 function scope_analysis.bind_names(prog)
-    local errors = {}
     local st = symtab.new()
+    local errors = {}
     bind_names_program(prog, st, errors)
-    if #errors == 0 then
-        return prog, errors
-    else
-        return false, errors
-    end
+    return (#errors == 0), errors
 end
 
 
