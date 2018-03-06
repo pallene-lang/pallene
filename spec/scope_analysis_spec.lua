@@ -251,4 +251,13 @@ describe("Scope analysis: ", function()
         assert.falsy(prog)
         assert.match("duplicate toplevel declaration", errs)
     end)
+
+    it("forbids multiple function arguments with the same name", function()
+        local prog, errs = run_scope_analysis([[
+            function fn(x: integer, x:string)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("function 'fn' has multiple parameters named 'x'", errs)
+    end)
 end)

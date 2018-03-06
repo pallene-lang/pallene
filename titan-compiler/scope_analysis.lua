@@ -141,8 +141,12 @@ bind_names_toplevel = function(tlnode, st, errors)
 
         st:with_block(function()
             for _, decl in ipairs(tlnode.params) do
+                if st:find_dup(decl.name) then
+                    scope_error(errors, decl.loc,
+                        "function '%s' has multiple parameters named '%s'",
+                        tlnode.name, decl.name)
+                end
                 st:add_symbol(decl.name, decl)
-                -- A compile-time error for duplicates here would be nice...
             end
             bind_names_stat(tlnode.block, st, errors)
         end)
