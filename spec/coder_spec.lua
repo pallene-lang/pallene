@@ -730,46 +730,6 @@ describe("Titan code generator", function()
         local ok, err = call("titan_test", "assert(titan_test.concat('aaaaaaaaaa','bbbbbbbbbb','cccccccccc','dddddddddd','eeeeeeeeee') == 'aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeee')")
         assert.truthy(ok, err)
     end)
-
-    it("correctly uses module function", function ()
-        local modules = {
-            foo = [[
-                function a(): integer
-                    return 42
-                end
-            ]],
-            bar = [[
-                local foo = import "foo"
-                function bar(): integer
-                    return foo.a()
-                end
-            ]]
-        }
-        local ok, err = generate_modules(modules, "bar")
-        assert.truthy(ok, err)
-        local ok, err = call("bar", "assert(bar.bar() == 42)")
-        assert.truthy(ok, err)
-    end)
-
-    it("correctly uses module variable", function ()
-        local modules = {
-            foo = [[
-                a: integer = 1
-            ]],
-            bar = [[
-                local foo = import "foo"
-                function bar(): integer
-                    foo.a = 5
-                    return foo.a
-                end
-            ]]
-        }
-        local ok, err = generate_modules(modules, "bar")
-        assert.truthy(ok, err)
-        local ok, err = call("bar", "assert(bar.bar() == 5); assert((require 'foo').a == 5)")
-        assert.truthy(ok, err)
-    end)
-
 end)
 
 
