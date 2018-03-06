@@ -37,8 +37,8 @@ local function run_lexer(source)
                     found_captures = captures
                     found_j = j
                 end
-            elseif b and b > 0 then
-                local errnum, suffix = b, c
+            elseif b and b ~= 'fail' then
+                local errnum, suffix = b, string.sub(source, c)
                 local errcode = syntax_errors.int_to_label[errnum]
                 return { err = errcode }
             end

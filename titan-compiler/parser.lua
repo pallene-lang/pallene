@@ -192,8 +192,6 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
-re.setlabels(syntax_errors.label_to_int)
-
 local grammar = re.compile([[
 
     program         <-  SKIP*
@@ -470,16 +468,15 @@ local grammar = re.compile([[
 
 function parser.parse(filename, input)
     THE_FILENAME = filename
-    local ast, errnum, suffix = grammar:match(input)
+    local ast, errnum, errpos = grammar:match(input)
     THE_FILENAME = nil
 
     if ast then
         return ast
     else
-        local pos = #input - #suffix + 1
-        local loc = location.from_pos(filename, input, pos)
+        local loc = location.from_pos(filename, input, errpos)
         local label = syntax_errors.int_to_label[errnum]
-        return false, { label = label, loc = loc }
+        return false, { label = errnum, loc = loc }
     end
 end
 
