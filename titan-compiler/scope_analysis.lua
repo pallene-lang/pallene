@@ -16,7 +16,7 @@ local bind_names_exp
 local bind_names_args
 local bind_names_field
 
--- Perform lexycal analysis (name binding) on a Titan module.
+-- Implement the lexical scoping for a Titan module.
 --
 -- Sets a _decl field on Var.Name and Type.Name nodes.
 -- This will need to be revised when we introduce modules, because then the "."
@@ -222,7 +222,7 @@ bind_names_stat = function(stat, st, errors)
         st:add_symbol(stat.decl.name, stat.decl)
 
     elseif tag == ast.Stat.Call then
-        bind_names_exp(stat.exp, st, errors)
+        bind_names_exp(stat.callexp, st, errors)
 
     elseif tag == ast.Stat.Return then
         bind_names_exp(stat.exp, st, errors)
