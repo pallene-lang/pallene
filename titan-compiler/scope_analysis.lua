@@ -76,22 +76,17 @@ bind_names_program = function(prog, st, errors)
             local name = toplevel_name(tlnode)
             local dup = st:find_dup(name)
             if dup then
-                tlnode._ignore = true
                 scope_error(errors, tlnode.loc,
                     "duplicate toplevel declaration for %s, previous one at line %d",
                     name, dup.loc.line)
-            else
-                tlnode._ignore = false
-                st:add_symbol(name, tlnode)
             end
+            st:add_symbol(name, tlnode)
         end
 
         -- Now we can resolve names in toplevel type annotations and in function
         -- bodies.
         for _, tlnode in ipairs(prog) do
-            if not tlnode._ignore then
-                bind_names_toplevel(tlnode, st, errors)
-            end
+            bind_names_toplevel(tlnode, st, errors)
         end
     end)
 end
