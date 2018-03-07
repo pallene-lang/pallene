@@ -72,61 +72,6 @@ local function trytostr(node)
     end
 end
 
-local function isconstructor(node)
-    return node.var and node.var._decl and node.var._decl._tag == types.T.Record
-end
-
-local function isconst(node)
-    local tag = node._tag
-    if tag == ast.Exp.Nil or
-       tag == ast.Exp.Bool or
-       tag == ast.Exp.Integer or
-       tag == ast.Exp.Float or
-       tag == ast.Exp.String then
-        return true
-
-    elseif tag == ast.Exp.Initlist then
-        local const = true
-        for _, field in ipairs(node.fields) do
-            const = const and isconst(field.exp)
-        end
-        return const
-
-    elseif tag == ast.Exp.Call then
-        if isconstructor(node.exp) then
-            local const = true
-            for _, arg in ipairs(node.args) do
-                const = const and isconst(arg)
-            end
-            return const
-        else
-            return false
-        end
-
-    elseif tag == ast.Exp.Var then
-        return false
-
-    elseif tag == ast.Exp.Concat then
-        local const = true
-        for _, exp in ipairs(node.exps) do
-            const = const and isconst(exp)
-        end
-        return const
-
-    elseif tag == ast.Exp.Unop then
-        return isconst(node.exp)
-
-    elseif tag == ast.Exp.Binop then
-        return isconst(node.lhs) and isconst(node.rhs)
-
-    elseif tag == ast.Exp.Cast then
-        return isconst(node.exp)
-
-    else
-        error("impossible")
-    end
-end
-
 --
 -- check
 --
@@ -211,10 +156,6 @@ check_toplevel = function(node, errors, loader)
         else
             check_exp(node.value, errors)
             node._type = node.value._type
-        end
-        if not isconst(node.value) then
-            type_error(errors, node.value.loc,
-                "top level variable initialization must be constant")
         end
 
     elseif tag == ast.Toplevel.Func then
