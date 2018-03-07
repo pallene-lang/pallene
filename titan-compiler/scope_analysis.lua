@@ -126,7 +126,6 @@ bind_names_type = function(type_node, st, errors)
     else
         error("impossible")
     end
-
 end
 
 bind_names_toplevel = function(tlnode, st, errors)
@@ -154,7 +153,7 @@ bind_names_toplevel = function(tlnode, st, errors)
 
     elseif tag == ast.Toplevel.Var then
         bind_names_decl(tlnode.decl, st, errors)
-            bind_names_exp(tlnode.value, st, errors)
+        bind_names_exp(tlnode.value, st, errors)
 
     elseif tag == ast.Toplevel.Record then
         for _, field_decl in ipairs(tlnode.field_decls) do
