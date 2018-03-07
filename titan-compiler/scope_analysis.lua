@@ -88,12 +88,20 @@ bind_names_program = function(prog, st, errors)
 end
 
 bind_names_type = function(type_node, st, errors)
-    local tag = type_node._tag
-    if tag == ast.Type.Nil or
-            tag == ast.Type.Boolean or
-            tag == ast.Type.Integer or
-            tag == ast.Type.Float or
-            tag == ast.Type.String then
+    local  tag = type_node._tag
+    if     tag == ast.Type.Nil then
+        -- Nothing to do
+
+    elseif tag == ast.Type.Boolean then
+        -- Nothing to do
+
+    elseif tag == ast.Type.Integer then
+        -- Nothing to do
+
+    elseif tag == ast.Type.Float then
+        -- Nothing to do
+
+    elseif tag == ast.Type.String then
         -- Nothing to do
 
     elseif tag == ast.Type.Name then
