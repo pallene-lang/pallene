@@ -448,7 +448,7 @@ check_exp = function(node, st, errors)
             if texp._tag ~= types.T.Boolean then
                 -- Titan is being intentionaly restrictive here
                 type_error(errors, loc,
-                    "trying to negate a %s instead of a boolean",
+                    "trying to boolean negate a %s instead of a boolean",
                     types.tostring(texp))
             end
             node._type = types.T.Boolean()
