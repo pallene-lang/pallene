@@ -1,10 +1,8 @@
 local checker = {}
 
 local location = require "titan-compiler.location"
-local symtab = require "titan-compiler.symtab"
 local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
-local util = require "titan-compiler.util"
 
 local check_type
 local check_toplevel
@@ -19,6 +17,7 @@ local check_field
 -- XXX those will vanish when we remove global letrec
 local checktoplevel
 local checkbodies
+local toplevel_visitor
 
 -- Type-check a Titan module
 --
@@ -37,7 +36,7 @@ end
 -- local functions
 --
 
-function type_error(errors, loc, fmt, ...)
+local function type_error(errors, loc, fmt, ...)
     local errmsg = location.format_error(loc, "type error: "..fmt, ...)
     table.insert(errors, errmsg)
 end
@@ -718,21 +717,6 @@ local function isconst(node)
     end
 end
 
--- Return the name given the toplevel node
-local function toplevel_name(node)
-    local tag = node._tag
-    if tag == ast.Toplevel.Import then
-        return node.localname
-    elseif tag == ast.Toplevel.Var then
-        return node.decl.name
-    elseif tag == ast.Toplevel.Func or
-           tag == ast.Toplevel.Record then
-        return node.name
-    else
-        error("impossible")
-    end
-end
-
 -- Typecheck the toplevel node
 toplevel_visitor = function(node, errors, loader)
     local tag = node._tag
@@ -800,7 +784,6 @@ end
 --   field
 checktoplevel = function(prog, errors, loader)
     for _, node in ipairs(prog) do
-        local name = toplevel_name(node)
         toplevel_visitor(node, errors, loader)
     end
 end
