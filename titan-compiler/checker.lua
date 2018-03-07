@@ -24,7 +24,7 @@ local toplevel_visitor
 -- Sets a _type field on some nodes. TODO: what nodes?
 --
 -- @ param prog AST for the whole module
--- @ return true, or false followed by as list of compilation errors
+-- @ return true or false, followed by as list of compilation errors
 function checker.check(prog)
     local errors = {}
     checktoplevel(prog, errors)

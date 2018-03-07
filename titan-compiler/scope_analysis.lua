@@ -23,7 +23,7 @@ local bind_names_field
 -- will mean more than one thing (C++'s "." and "::")
 --
 -- @param prog AST for the whole module
--- @return true, or false followed by a list of compilation errors
+-- @return true or false, followed by a list of compilation errors
 function scope_analysis.bind_names(prog)
     local st = symtab.new()
     local errors = {}
