@@ -75,8 +75,9 @@ bind_names_program = function(prog, st, errors)
                 scope_error(errors, tlnode.loc,
                     "duplicate toplevel declaration for %s, previous one at line %d",
                     name, dup.loc.line)
+            else
+                st:add_symbol(name, tlnode)
             end
-            st:add_symbol(name, tlnode)
         end
 
         -- Now we can resolve names in toplevel type annotations and in function
@@ -144,8 +145,9 @@ bind_names_toplevel = function(tlnode, st, errors)
                     scope_error(errors, decl.loc,
                         "function '%s' has multiple parameters named '%s'",
                         tlnode.name, decl.name)
+                else
+                    st:add_symbol(decl.name, decl)
                 end
-                st:add_symbol(decl.name, decl)
             end
             bind_names_stat(tlnode.block, st, errors)
         end)
