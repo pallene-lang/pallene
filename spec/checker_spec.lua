@@ -105,16 +105,15 @@ describe("Titan type checker", function()
         assert_type_check([[ x11: float = 10.1 ]])
     end)
 
-    it("catches non constant variable initialization in top level", function()
-        local assert_const = util.curry(assert_type_error, "must be constant")
-        assert_const([[ function f(): integer return 10 end x = f() ]])
-        assert_const([[ x = 10 y = x ]])
-        assert_const([[ x = 10 y = -x ]])
-        assert_const([[ x = 10 y = 10 + x ]])
-        assert_const([[ x = 10 y = "a" .. x ]])
-        assert_const([[ x = 10 y: float = x ]])
-        assert_const([[ x = 10 y = {x} ]])
-        assert_const([[ x = ({1})[2] ]])
+    it("allows non constant variable initialization", function()
+        assert_type_check([[ function f(): integer return 10 end x = f() ]])
+        assert_type_check([[ x = 10 y = x ]])
+        assert_type_check([[ x = 10 y = -x ]])
+        assert_type_check([[ x = 10 y = 10 + x ]])
+        assert_type_check([[ x = 10 y = "a" .. x ]])
+        assert_type_check([[ x = 10 y: integer = x ]])
+        assert_type_check([[ x = 10 y = {x} ]])
+        assert_type_check([[ x = ({1})[2] ]])
     end)
 
     it("catches array expression in indexing is not an array", function()
@@ -187,10 +186,10 @@ describe("Titan type checker", function()
     it("function can call another function", function()
         local code = [[
             function fn1()
-              fn2()
             end
 
             function fn2()
+              fn1()
             end
         ]]
         local prog, errs = run_checker(code)
@@ -437,7 +436,7 @@ describe("Titan type checker", function()
         for _, c in ipairs(code) do
             local prog, errs = run_checker(c)
             assert.falsy(prog)
-            assert.match("function can return nil", errs)
+            assert.match("control reaches end of function with non%-nil return type", errs)
         end
     end)
 

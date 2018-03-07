@@ -4,6 +4,7 @@ local location = require "titan-compiler.location"
 local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
 
+local check_program
 local check_type
 local check_toplevel
 local check_decl
@@ -14,11 +15,6 @@ local check_exp
 local check_args
 local check_field
 
--- XXX those will vanish when we remove global letrec
-local checktoplevel
-local checkbodies
-local toplevel_visitor
-
 -- Type-check a Titan module
 --
 -- Sets a _type field on some nodes. TODO: what nodes?
@@ -27,8 +23,7 @@ local toplevel_visitor
 -- @ return true or false, followed by as list of compilation errors
 function checker.check(prog)
     local errors = {}
-    checktoplevel(prog, errors)
-    checkbodies(prog, errors)
+    check_program(prog, errors)
     return (#errors == 0), errors
 end
 
@@ -81,6 +76,12 @@ end
 -- check
 --
 
+check_program = function(prog, errors)
+    for _, tlnode in ipairs(prog) do
+        check_toplevel(tlnode, errors)
+    end
+end
+
 check_type = function(node, errors)
     local tag = node._tag
     if     tag == ast.Type.Nil then
@@ -130,8 +131,68 @@ check_type = function(node, errors)
     end
 end
 
--- TODO check_toplevel here
--- check_toplevel = function...
+check_toplevel = function(node, errors, loader)
+    local tag = node._tag
+    if     tag == ast.Toplevel.Import then
+        local modtype, errs = checker.checkimport(node.modname, loader)
+        if modtype then
+            node._type = modtype
+            for _, err in ipairs(errs) do
+                table.insert(errors, err)
+            end
+        else
+            node._type = types.T.Nil()
+            type_error(errors, node.loc,
+                "problem loading module '%s': %s",
+                node.modname, errs)
+        end
+
+    elseif tag == ast.Toplevel.Var then
+        if node.decl.type then
+            node._type = check_type(node.decl.type, errors)
+            check_exp(node.value, errors, node._type)
+            checkmatch("declaration of module variable " .. node.decl.name,
+                       node._type, node.value._type, errors, node.loc)
+        else
+            check_exp(node.value, errors)
+            node._type = node.value._type
+        end
+
+    elseif tag == ast.Toplevel.Func then
+        if #node.rettypes ~= 1 then
+            error("functions with 0 or 2+ return values are not yet implemented")
+        end
+
+        local ptypes = {}
+        for _, param in ipairs(node.params) do
+            param._type = check_type(param.type, errors)
+            table.insert(ptypes, param._type)
+        end
+
+        local rettypes = {}
+        for _, rt in ipairs(node.rettypes) do
+            table.insert(rettypes, check_type(rt, errors))
+        end
+        node._type = types.T.Function(ptypes, rettypes)
+
+        local ret = check_stat(node.block, errors)
+        if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
+            type_error(errors, node.loc,
+                "control reaches end of function with non-nil return type")
+        end
+
+    elseif tag == ast.Toplevel.Record then
+        local field_decls = {}
+        for _, field_decl in ipairs(node.field_decls) do
+            local typ = check_type(field_decl.type, errors)
+            table.insert(field_decls, {type = typ, name = field_decl.name})
+        end
+        node._type = types.T.Type(types.T.Record(node.name, field_decls))
+
+    else
+        error("impossible")
+    end
+end
 
 check_decl = function(node, errors)
     node._type = node._type or check_type(node.type, errors)
@@ -618,173 +679,6 @@ check_exp = function(node, errors)
 
     else
         error("impossible")
-    end
-end
-
---
--- TODO The code below should be removed (letrec refac)
---
-
--- Typechecks a function body
---   node: TopLevelFunc AST node
---   errors: list of compile-time errors
-local function checkfunc(node, errors)
-    local ptypes = node._type.params
-    local pnames = {}
-    for i, param in ipairs(node.params) do
-        param._type = ptypes[i]
-        if pnames[param.name] then
-            type_error(errors, node.loc,
-                "duplicate parameter '%s' in declaration of function '%s'",
-                param.name, node.name)
-        else
-            pnames[param.name] = true
-        end
-    end
-    assert(#node._type.rettypes == 1)
-    local ret = check_stat(node.block, errors)
-    if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
-        type_error(errors, node.loc,
-            "function can return nil but return type is not nil")
-    end
-end
-
--- Checks function bodies
---   prog: AST for the whole module
---   errors: list of compile-time errors
-checkbodies = function(prog, errors)
-    for _, node in ipairs(prog) do
-        if not node._ignore and
-           node._tag == ast.Toplevel.Func then
-            checkfunc(node, errors)
-        end
-    end
-end
-
-local function isconstructor(node)
-    return node.var and node.var._decl and node.var._decl._tag == types.T.Record
-end
-
--- Verify if an expression is constant
-local function isconst(node)
-    local tag = node._tag
-    if tag == ast.Exp.Nil or
-       tag == ast.Exp.Bool or
-       tag == ast.Exp.Integer or
-       tag == ast.Exp.Float or
-       tag == ast.Exp.String then
-        return true
-
-    elseif tag == ast.Exp.Initlist then
-        local const = true
-        for _, field in ipairs(node.fields) do
-            const = const and isconst(field.exp)
-        end
-        return const
-
-    elseif tag == ast.Exp.Call then
-        if isconstructor(node.exp) then
-            local const = true
-            for _, arg in ipairs(node.args) do
-                const = const and isconst(arg)
-            end
-            return const
-        else
-            return false
-        end
-
-    elseif tag == ast.Exp.Var then
-        return false
-
-    elseif tag == ast.Exp.Concat then
-        local const = true
-        for _, exp in ipairs(node.exps) do
-            const = const and isconst(exp)
-        end
-        return const
-
-    elseif tag == ast.Exp.Unop then
-        return isconst(node.exp)
-
-    elseif tag == ast.Exp.Binop then
-        return isconst(node.lhs) and isconst(node.rhs)
-
-    elseif tag == ast.Exp.Cast then
-        return isconst(node.exp)
-
-    else
-        error("impossible")
-    end
-end
-
--- Typecheck the toplevel node
-toplevel_visitor = function(node, errors, loader)
-    local tag = node._tag
-    if     tag == ast.Toplevel.Import then
-        local modtype, errs = checker.checkimport(node.modname, loader)
-        if modtype then
-            node._type = modtype
-            for _, err in ipairs(errs) do
-                table.insert(errors, err)
-            end
-        else
-            node._type = types.T.Nil()
-            type_error(errors, node.loc,
-                "problem loading module '%s': %s",
-                node.modname, errs)
-        end
-
-    elseif tag == ast.Toplevel.Var then
-        if node.decl.type then
-            node._type = check_type(node.decl.type, errors)
-            check_exp(node.value, errors, node._type)
-            checkmatch("declaration of module variable " .. node.decl.name,
-                       node._type, node.value._type, errors, node.loc)
-        else
-            check_exp(node.value, errors)
-            node._type = node.value._type
-        end
-        if not isconst(node.value) then
-            type_error(errors, node.value.loc,
-                "top level variable initialization must be constant")
-        end
-
-    elseif tag == ast.Toplevel.Func then
-        if #node.rettypes ~= 1 then
-            error("functions with 0 or 2+ return values are not yet implemented")
-        end
-        local ptypes = {}
-        for _, pdecl in ipairs(node.params) do
-            table.insert(ptypes, check_type(pdecl.type, errors))
-        end
-        local rettypes = {}
-        for _, rt in ipairs(node.rettypes) do
-            table.insert(rettypes, check_type(rt, errors))
-        end
-        node._type = types.T.Function(ptypes, rettypes)
-
-    elseif tag == ast.Toplevel.Record then
-        local field_decls = {}
-        for _, field_decl in ipairs(node.field_decls) do
-            local typ = check_type(field_decl.type, errors)
-            table.insert(field_decls, {type = typ, name = field_decl.name})
-        end
-        node._type = types.T.Type(types.T.Record(node.name, field_decls))
-
-    else
-        error("impossible")
-    end
-end
-
--- Colect type information of toplevel nodes
---   prog: AST for the whole module
---   errors: list of compile-time errors
---   annotates the top-level nodes with their types in a "_type" field
---   annotates whether a top-level declaration is duplicated with a "_ignore"
---   field
-checktoplevel = function(prog, errors, loader)
-    for _, node in ipairs(prog) do
-        toplevel_visitor(node, errors, loader)
     end
 end
 

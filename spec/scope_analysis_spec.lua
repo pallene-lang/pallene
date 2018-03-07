@@ -187,59 +187,34 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[2].block.stats[1].exp.var._decl)
     end)
 
-    it("allows mutually-recursive toplevel definitions", function()
+    it("allows recursive functions", function()
         local prog, errs = run_scope_analysis([[
-            function f(): integer
-                return g() + p.x.n
+            local function fat(n: integer): integer
+                if n == 0 then
+                    return 1
+                else
+                    return n * fat(n - 1)
+                end
             end
-
-            function g(): integer
-                return f() + p.x.n
-            end
-
-            record BoxyPoint
-                x: IntBox
-                y: IntBox
-            end
-
-            record IntBox
-                n: integer
-            end
-
-            local p: BoxyPoint = { x = { n = 1 }, y = { n = 2 } }
         ]])
         assert.truthy(prog)
+        assert.are.equal(
+            prog[1], -- fat
+            prog[1].block.stats[1].elsestat.stats[1].exp.rhs.exp.var._decl)
+    end)
 
-        -- function f
-        assert.are.equal(
-            prog[1],
-            prog[2].block.stats[1].exp.lhs.exp.var._decl)
+    it("forbids mutually recursive definitions", function()
+        local prog, errs = run_scope_analysis([[
+            local function foo(): integer
+                return bar()
+            end
 
-        -- function g
-        assert.are.equal(
-            prog[2],
-            prog[1].block.stats[1].exp.lhs.exp.var._decl)
-
-        -- record BoxyPoint
-        assert.are.equal(
-            prog[3],
-            prog[5].decl.type._decl)
-
-        -- record IntBox
-        assert.are.equal(
-            prog[4],
-            prog[3].field_decls[1].type._decl)
-        assert.are.equal(
-            prog[4],
-            prog[3].field_decls[2].type._decl)
-
-        -- local p
-        assert.are.equal(
-            prog[5],
-            prog[1].block.stats[1].exp.rhs.var.exp.var.exp.var._decl)
-        assert.are.equal(
-            prog[5],
-            prog[2].block.stats[1].exp.rhs.var.exp.var.exp.var._decl)
+            local function bar(): integer
+                return foo()
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("variable 'bar' not declared", errs)
     end)
 
     it("forbids multiple toplevel declarations with the same name", function()
