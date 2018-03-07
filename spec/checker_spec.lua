@@ -945,15 +945,6 @@ describe("Titan typecheck of records", function()
         ]])
     end)
 
-    it("doesn't typecheck recursive record declarations", function()
-        -- TODO: it should accept recursive types when we have optional types
-        assert_type_error("type 'List' not found", [[
-            record List
-                l: List
-            end
-        ]])
-    end)
-
     it("typechecks record as argument/return", function()
         assert_type_check([[
             record Point x: float; y:float end
