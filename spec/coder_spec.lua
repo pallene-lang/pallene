@@ -1,5 +1,6 @@
 local checker = require 'titan-compiler.checker'
 local parser = require 'titan-compiler.parser'
+local scope_analysis = require 'titan-compiler.scope_analysis'
 local types = require 'titan-compiler.types'
 local coder = require 'titan-compiler.coder'
 local util = require 'titan-compiler.util'
@@ -36,15 +37,17 @@ describe("Titan code generator", function()
 
     it("deletes array element", function()
         local code = [[
-            function delete(array: {integer}, i: integer)
+            function delete(array: {integer}, i: integer): nil
                 array[i] = nil
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "arr={1,2,3};titan_test.delete(arr,3);assert(#arr==2)")
         assert.truthy(ok, err)
@@ -61,51 +64,15 @@ describe("Titan code generator", function()
                 end
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests nil element in 'while'", function()
-        local code = [[
-            function testfill(t: {integer}, i: integer, v: integer)
-                while not t[i] and i > 0 do
-                    t[i] = v
-                    i = i - 1
-                end
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};titan_test.testfill(arr,5,2);assert(#arr==5)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests nil element in 'repeat'", function()
-        local code = [[
-            function testfill(t: {integer}, i: integer, v: integer)
-                repeat
-                    t[i] = v
-                    i = i - 1
-                until t[i] or i == 0
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};titan_test.testfill(arr,5,2);assert(#arr==5)")
         assert.truthy(ok, err)
     end)
 
@@ -119,11 +86,13 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep(1,10,2);assert(x==25)")
         assert.truthy(ok, err)
@@ -139,11 +108,13 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==25)")
         assert.truthy(ok, err)
@@ -159,11 +130,13 @@ describe("Titan code generator", function()
                 return v
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==30)")
         assert.truthy(ok, err)
@@ -172,18 +145,20 @@ describe("Titan code generator", function()
     it("tests float step value in 'for'", function()
         local code = [[
             function forstep(f: float, t: float, s: float): float
-                local v: float = 0
+                local v: float = 0.0
                 for i = f, t, s do
                     v = v + i
                 end
                 return v
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep(1.5,10.5,0.5);assert(x==114.0)")
         assert.truthy(ok, err)
@@ -192,18 +167,20 @@ describe("Titan code generator", function()
     it("tests float positive literals in 'for'", function()
         local code = [[
             function forstep(): float
-                local v: float = 0
+                local v: float = 0.0
                 for i = 1.5, 10.5, 0.5 do
                     v = v + i
                 end
                 return v
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==114.0)")
         assert.truthy(ok, err)
@@ -212,111 +189,22 @@ describe("Titan code generator", function()
     it("tests float negative literals in 'for'", function()
         local code = [[
             function forstep(): float
-                local v: float = 0
+                local v: float = 0.0
                 for i = 9.5, 1.5, -0.5 do
                     v = v + i
                 end
                 return v
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "x = titan_test.forstep();assert(x==93.5)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests nil element in 'not'", function()
-        local code = [[
-            function testset(t: {integer}, i: integer, v: integer): integer
-                if not t[i] then
-                  t[i] = v
-                end
-                return t[i]
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests nil element in 'and'", function()
-        local code = [[
-            function testset(t: {integer}, i: integer, v: integer): integer
-                if t[i] and v then
-                  return t[i]
-                else
-                  t[i] = v
-                  return t[i]
-                end
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests nil element in 'or'", function()
-        local code = [[
-            function testset(t: {integer}, i: integer, v: integer): integer
-                if not t[i] or not t[i] then
-                  t[i] = v
-                end
-                return t[i]
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};assert(titan_test.testset(arr,1,2)==2);assert(titan_test.testset(arr,1,3)==2)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests 'or' pattern", function()
-        local code = [[
-            function getor(t: {integer}, i: integer, v: integer): integer
-                return t[i] or v
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};assert(titan_test.getor(arr,1,2)==2);arr[1]=2;assert(titan_test.getor(arr,1,3)==2)")
-        assert.truthy(ok, err)
-    end)
-
-    it("tests 'and' pattern", function()
-        local code = [[
-            function ternary(t: {integer}, i: integer, v1: integer, v2: integer): integer
-                return t[i] and v1 or v2
-            end
-        ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
-        assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
-        assert.truthy(ok, err)
-        local ok, err = call("titan_test", "arr={};assert(titan_test.ternary(arr,1,3,2)==2);arr[1]=2;assert(titan_test.ternary(arr,1,2,3)==2)")
         assert.truthy(ok, err)
     end)
 
@@ -330,11 +218,13 @@ describe("Titan code generator", function()
                 return res
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "arr={1,2,3};assert(6==titan_test.sum(arr))")
         assert.truthy(ok, err)
@@ -346,11 +236,13 @@ describe("Titan code generator", function()
                 return a + b + c
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(6==titan_test.sum(1,2,3))")
         assert.truthy(ok, err)
@@ -362,11 +254,13 @@ describe("Titan code generator", function()
                 return a ^ b
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.power(2,3) == 8)")
         assert.truthy(ok, err)
@@ -379,11 +273,13 @@ describe("Titan code generator", function()
     			return x
 			end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("titan_test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.abs(-1) == 1);assert(titan_test.abs(0) == 0);assert(titan_test.abs(1) == 1)")
         assert.truthy(ok, err)
@@ -401,11 +297,13 @@ describe("Titan code generator", function()
                 end
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.getval(1) == 10);assert(titan_test.getval(2) == 20);assert(titan_test.getval(3) == 30)")
         assert.truthy(ok, err)
@@ -425,11 +323,13 @@ describe("Titan code generator", function()
                 return b
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.getval(2) == 20);assert(titan_test.getval(3) == 10);assert(titan_test.getval(1) == 30)")
         assert.truthy(ok, err)
@@ -445,11 +345,13 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.seta(2);assert(titan_test.geta() == 2)")
         assert.truthy(ok, err)
@@ -457,7 +359,7 @@ describe("Titan code generator", function()
 
     it("generates code for float module-local variables", function()
         local code = [[
-            local a: float = 1
+            local a: float = 1.0
             function geta(): float
                 return a
             end
@@ -465,11 +367,13 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.seta(2);assert(titan_test.geta() == 2)")
         assert.truthy(ok, err)
@@ -485,11 +389,13 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.geta() == true);titan_test.seta(false);assert(titan_test.geta() == false)")
         assert.truthy(ok, err)
@@ -505,11 +411,13 @@ describe("Titan code generator", function()
                 a = x
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.len() == 0);titan_test.seta({1});assert(titan_test.len() == 1)")
         assert.truthy(ok, err)
@@ -519,15 +427,17 @@ describe("Titan code generator", function()
         local code = [[
             function fn(): integer
                 local f: float = 1.0
-                local i: integer = f
+                local i: integer = f as integer
                 return i
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "local x = titan_test.fn(); assert(math.type(x) == 'integer')")
         assert.truthy(ok, err)
@@ -537,14 +447,16 @@ describe("Titan code generator", function()
         local code = [[
             function fn()
                 local f: float = 1.0
-                local i: integer = f
+                local i: integer = f as integer
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
     end)
 
@@ -555,11 +467,13 @@ describe("Titan code generator", function()
                 return a
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.a = 2;assert(titan_test.geta() == 2)")
         assert.truthy(ok, err)
@@ -567,16 +481,18 @@ describe("Titan code generator", function()
 
     it("generates code for exported float variables", function()
         local code = [[
-            a: float = 1
+            a: float = 1.0
             function geta(): float
                 return a
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.geta() == 1);titan_test.a = 2;assert(titan_test.geta() == 2)")
         assert.truthy(ok, err)
@@ -589,11 +505,13 @@ describe("Titan code generator", function()
                 return a
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.geta() == true);titan_test.a = false;assert(titan_test.geta() == false)")
         assert.truthy(ok, err)
@@ -606,11 +524,13 @@ describe("Titan code generator", function()
                 return #a
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.len() == 0);titan_test.a={1};assert(titan_test.len() == 1)")
         assert.truthy(ok, err)
@@ -622,11 +542,13 @@ describe("Titan code generator", function()
                 return #a
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.len('foobar') == 6)")
         assert.truthy(ok, err)
@@ -640,11 +562,13 @@ describe("Titan code generator", function()
                 return x
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         --local ok, err = call("titan_test", "assert(titan_test.lit() == 'foo\\tbar\\nbaz')")
         local ok, err = call("titan_test", "local x = titan_test.fn(); assert(x == 'foo')")
@@ -657,11 +581,13 @@ describe("Titan code generator", function()
                 return a .. "foo"
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.concat('a') == 'afoo')")
         assert.truthy(ok, err)
@@ -673,11 +599,13 @@ describe("Titan code generator", function()
                 return a .. 2
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.concat('a') == 'a2')")
         assert.truthy(ok, err)
@@ -689,11 +617,13 @@ describe("Titan code generator", function()
                 return a .. 2.5
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.concat('a') == 'a2.5')")
         assert.truthy(ok, err)
@@ -705,11 +635,13 @@ describe("Titan code generator", function()
                 return a .. b .. c .. d .. e
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.concat('a','b','c','d','e') == 'abcde')")
         assert.truthy(ok, err)
@@ -721,55 +653,17 @@ describe("Titan code generator", function()
                 return a .. b .. c .. d .. e
             end
         ]]
-        local ast, err = parse(code)
-        assert.truthy(ast, err)
-        local ok, err = checker.check("test", ast, code, "test.titan")
+        local prog, err = parse(code)
+        assert.truthy(prog, err)
+        local ok, err = scope_analysis.bind_names(prog)
         assert.truthy(ok, err)
-        local ok, err = driver.compile("titan_test", ast)
+        local ok, err = checker.check(prog)
+        assert.truthy(ok, err)
+        local ok, err = driver.compile("titan_test", prog)
         assert.truthy(ok, err)
         local ok, err = call("titan_test", "assert(titan_test.concat('aaaaaaaaaa','bbbbbbbbbb','cccccccccc','dddddddddd','eeeeeeeeee') == 'aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeeeeee')")
         assert.truthy(ok, err)
     end)
-
-    it("correctly uses module function", function ()
-        local modules = {
-            foo = [[
-                function a(): integer
-                    return 42
-                end
-            ]],
-            bar = [[
-                local foo = import "foo"
-                function bar(): integer
-                    return foo.a()
-                end
-            ]]
-        }
-        local ok, err = generate_modules(modules, "bar")
-        assert.truthy(ok, err)
-        local ok, err = call("bar", "assert(bar.bar() == 42)")
-        assert.truthy(ok, err)
-    end)
-
-    it("correctly uses module variable", function ()
-        local modules = {
-            foo = [[
-                a: integer = 1
-            ]],
-            bar = [[
-                local foo = import "foo"
-                function bar(): integer
-                    foo.a = 5
-                    return foo.a
-                end
-            ]]
-        }
-        local ok, err = generate_modules(modules, "bar")
-        assert.truthy(ok, err)
-        local ok, err = call("bar", "assert(bar.bar() == 5); assert((require 'foo').a == 5)")
-        assert.truthy(ok, err)
-    end)
-
 end)
 
 

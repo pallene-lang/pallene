@@ -21,7 +21,7 @@ declare_type("Type", {
 declare_type("Toplevel", {
     Func   = {"loc", "islocal", "name", "params", "rettypes", "block"},
     Var    = {"loc", "islocal", "decl", "value"},
-    Record = {"loc", "name", "fields"},
+    Record = {"loc", "name", "field_decls"},
     Import = {"loc", "localname", "modname"},
 })
 

@@ -1,10 +1,8 @@
 local checker = {}
 
 local location = require "titan-compiler.location"
-local symtab = require "titan-compiler.symtab"
 local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
-local util = require "titan-compiler.util"
 
 local check_type
 local check_toplevel
@@ -19,44 +17,29 @@ local check_field
 -- XXX those will vanish when we remove global letrec
 local checktoplevel
 local checkbodies
+local toplevel_visitor
 
--- Entry point for the typechecker
---   prog: AST for the whole module
---   subject: the string that generated the AST
---   filename: the file name that contains the subject
---   loader: the module loader, a function from module name to its AST, code,
---   and filename or nil and an error
+-- Type-check a Titan module
 --
---   returns true if typechecking succeeds, or false and a list of type errors
---   found
---   annotates the AST with the types of its terms in "_type" fields
---   annotates duplicate top-level declarations with a "_ignore" boolean field
-function checker.check(modname, prog, subject, filename, loader)
-    loader = loader or function ()
-        return nil, "you must pass a loader to import modules"
-    end
-    local st = symtab.new()
-    local errors = {subject = subject, filename = filename}
-    checktoplevel(prog, st, errors, loader)
-    checkbodies(prog, st, errors)
-    return types.makemoduletype(modname, prog), errors
-end
-
-function checker.typeerror(errors, loc, fmt, ...)
-    local errmsg = location.format_error(loc, "type error: "..fmt, ...)
-    table.insert(errors, errmsg)
-end
-
--- TODO remove
-function checker.checkimport(modname, loader)
-    local ok, type_or_error, errors = loader(modname)
-    if not ok then return nil, type_or_error end
-    return type_or_error, errors
+-- Sets a _type field on some nodes. TODO: what nodes?
+--
+-- @ param prog AST for the whole module
+-- @ return true or false, followed by as list of compilation errors
+function checker.check(prog)
+    local errors = {}
+    checktoplevel(prog, errors)
+    checkbodies(prog, errors)
+    return (#errors == 0), errors
 end
 
 --
 -- local functions
 --
+
+local function type_error(errors, loc, fmt, ...)
+    local errmsg = location.format_error(loc, "type error: "..fmt, ...)
+    table.insert(errors, errmsg)
+end
 
 -- Checks if two types are the same, and logs an error message otherwise
 --   term: string describing what is being compared
@@ -68,7 +51,7 @@ local function checkmatch(term, expected, found, errors, loc)
     if types.coerceable(found, expected) or not types.equals(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
         msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
-        checker.typeerror(errors, loc, msg)
+        type_error(errors, loc, msg)
     end
 end
 
@@ -98,7 +81,7 @@ end
 -- check
 --
 
-check_type = function(node, st, errors)
+check_type = function(node, errors)
     local tag = node._tag
     if     tag == ast.Type.Nil then
         return types.T.Nil()
@@ -117,21 +100,16 @@ check_type = function(node, st, errors)
 
     elseif tag == ast.Type.Name then
         local name = node.name
-        local sym = st:find_symbol(name)
-        if sym then
-            if sym._type._tag == types.T.Type then
-                return sym._type.type
-            else
-                checker.typeerror(errors, node.loc, "%s isn't a type", name)
-                return types.T.Invalid()
-            end
+        if node._decl._tag == ast.Toplevel.Record then
+            -- TODO: fix record types
+            return node._decl._type.type
         else
-            checker.typeerror(errors, node.loc, "type '%s' not found", name)
+            type_error(errors, node.loc, "%s isn't a type", name)
             return types.T.Invalid()
         end
 
     elseif tag == ast.Type.Array then
-        return types.T.Array(check_type(node.subtype, st, errors))
+        return types.T.Array(check_type(node.subtype, errors))
 
     elseif tag == ast.Type.Function then
         if #node.argtypes ~= 1 then
@@ -139,11 +117,11 @@ check_type = function(node, st, errors)
         end
         local ptypes = {}
         for _, ptype in ipairs(node.argtypes) do
-            table.insert(ptypes, check_type(ptype, st, errors))
+            table.insert(ptypes, check_type(ptype, errors))
         end
         local rettypes = {}
         for _, rettype in ipairs(node.rettypes) do
-            table.insert(rettypes, check_type(rettype, st, errors))
+            table.insert(rettypes, check_type(rettype, errors))
         end
         return types.T.Function(ptypes, rettypes)
 
@@ -155,21 +133,20 @@ end
 -- TODO check_toplevel here
 -- check_toplevel = function...
 
-check_decl = function(node, st, errors)
-    node._type = node._type or check_type(node.type, st, errors)
-    st:add_symbol(node.name, node)
+check_decl = function(node, errors)
+    node._type = node._type or check_type(node.type, errors)
 end
 
-check_stat = function(node, st, errors)
+check_stat = function(node, errors)
     local tag = node._tag
     if     tag == ast.Stat.Decl then
         if node.decl.type then
-          check_decl(node.decl, st, errors)
-          check_exp(node.exp, st, errors, node.decl._type)
+          check_decl(node.decl, errors)
+          check_exp(node.exp, errors, node.decl._type)
         else
-          check_exp(node.exp, st, errors)
+          check_exp(node.exp, errors)
           node.decl._type = node.exp._type
-          check_decl(node.decl, st, errors)
+          check_decl(node.decl, errors)
         end
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl.loc)
@@ -177,81 +154,75 @@ check_stat = function(node, st, errors)
 
     elseif tag == ast.Stat.Block then
         local ret = false
-        st:with_block(function()
-            for _, stat in ipairs(node.stats) do
-                ret = ret or check_stat(stat, st, errors)
-            end
-        end)
+        for _, stat in ipairs(node.stats) do
+            ret = ret or check_stat(stat, errors)
+        end
         return ret
 
     elseif tag == ast.Stat.While then
-        check_exp(node.condition, st, errors, types.T.Boolean())
-        st:with_block(check_stat, node.block, st, errors)
+        check_exp(node.condition, errors, types.T.Boolean())
+        check_stat(node.block, errors)
         return false
 
     elseif tag == ast.Stat.Repeat then
-        st:with_block(function()
-            for _, stat in ipairs(node.block.stats) do
-                check_stat(stat, st, errors)
-            end
-            check_exp(node.condition, st, errors, types.T.Boolean())
-        end)
+        for _, stat in ipairs(node.block.stats) do
+            check_stat(stat, errors)
+        end
+        check_exp(node.condition, errors, types.T.Boolean())
         return false
 
     elseif tag == ast.Stat.For then
-        check_exp(node.start, st, errors)
-        check_exp(node.finish, st, errors)
+        check_exp(node.start, errors)
+        check_exp(node.finish, errors)
         if node.inc then
-            check_exp(node.inc, st, errors)
+            check_exp(node.inc, errors)
         end
-        st:with_block(function()
-            -- Add loop variable to symbol table only after checking expressions
-            if not node.decl.type then
-                node.decl._type = node.start._type
-            end
-            check_decl(node.decl, st, errors)
+        -- Add loop variable to symbol table only after checking expressions
+        if not node.decl.type then
+            node.decl._type = node.start._type
+        end
+        check_decl(node.decl, errors)
 
-            local loop_type_is_valid
-            if     node.decl._type._tag == types.T.Integer then
-                loop_type_is_valid = true
-                if not node.inc then
-                    node.inc = ast.Exp.Integer(node.finish.loc, 1)
-                    node.inc._type = types.T.Integer()
-                end
-            elseif node.decl._type._tag == types.T.Float then
-                loop_type_is_valid = true
-                if not node.inc then
-                    node.inc = ast.Exp.Float(node.finish.loc, 1.0)
-                    node.inc._type = types.T.Float()
-                end
-            else
-                loop_type_is_valid = false
-                checker.typeerror(errors, node.decl.loc,
-                    "type of for control variable %s must be integer or float",
-                    node.decl.name)
+        local loop_type_is_valid
+        if     node.decl._type._tag == types.T.Integer then
+            loop_type_is_valid = true
+            if not node.inc then
+                node.inc = ast.Exp.Integer(node.finish.loc, 1)
+                node.inc._type = types.T.Integer()
             end
-
-            if loop_type_is_valid then
-                checkmatch("'for' start expression",
-                    node.decl._type, node.start._type, errors, node.start.loc)
-                checkmatch("'for' finish expression",
-                    node.decl._type, node.finish._type, errors, node.finish.loc)
-                checkmatch("'for' step expression",
-                    node.decl._type, node.inc._type, errors, node.inc.loc)
+        elseif node.decl._type._tag == types.T.Float then
+            loop_type_is_valid = true
+            if not node.inc then
+                node.inc = ast.Exp.Float(node.finish.loc, 1.0)
+                node.inc._type = types.T.Float()
             end
+        else
+            loop_type_is_valid = false
+            type_error(errors, node.decl.loc,
+                "type of for control variable %s must be integer or float",
+                node.decl.name)
+        end
 
-            check_stat(node.block, st, errors)
-        end)
+        if loop_type_is_valid then
+            checkmatch("'for' start expression",
+                node.decl._type, node.start._type, errors, node.start.loc)
+            checkmatch("'for' finish expression",
+                node.decl._type, node.finish._type, errors, node.finish.loc)
+            checkmatch("'for' step expression",
+                node.decl._type, node.inc._type, errors, node.inc.loc)
+        end
+
+        check_stat(node.block, errors)
         return false
 
     elseif tag == ast.Stat.Assign then
-        check_var(node.var, st, errors)
-        check_exp(node.exp, st, errors, node.var._type)
+        check_var(node.var, errors)
+        check_exp(node.exp, errors, node.var._type)
         local texp = node.var._type
         if texp._tag == types.T.Module then
-            checker.typeerror(errors, node.loc, "trying to assign to a module")
+            type_error(errors, node.loc, "trying to assign to a module")
         elseif texp._tag == types.T.Function then
-            checker.typeerror(errors, node.loc, "trying to assign to a function")
+            type_error(errors, node.loc, "trying to assign to a function")
         else
             -- mark this declared variable as assigned to
             if node.var._tag == ast.Var.Name and node.var._decl then
@@ -264,25 +235,26 @@ check_stat = function(node, st, errors)
         return false
 
     elseif tag == ast.Stat.Call then
-        check_exp(node.callexp, st, errors)
+        check_exp(node.callexp, errors)
         return false
 
     elseif tag == ast.Stat.Return then
-        local ftype = st:find_symbol("$function")._type
-        assert(#ftype.rettypes == 1)
-        local tret = ftype.rettypes[1]
-        check_exp(node.exp, st, errors, tret)
-        checkmatch("return", tret, node.exp._type, errors, node.exp.loc)
+        --local ftype = st:find_symbol("$function")._type
+        --assert(#ftype.rettypes == 1)
+        --local tret = ftype.rettypes[1]
+        --check_exp(node.exp, st, errors, tret)
+        --checkmatch("return", tret, node.exp._type, errors, node.exp.loc)
+        check_exp(node.exp, errors)
         return true
 
     elseif tag == ast.Stat.If then
         local ret = true
         for _, thn in ipairs(node.thens) do
-            check_exp(thn.condition, st, errors, types.T.Boolean())
-            ret = check_stat(thn.block, st, errors) and ret
+            check_exp(thn.condition, errors, types.T.Boolean())
+            ret = check_stat(thn.block, errors) and ret
         end
         if node.elsestat then
-            ret = check_stat(node.elsestat, st, errors) and ret
+            ret = check_stat(node.elsestat, errors) and ret
         else
             ret = false
         end
@@ -293,29 +265,21 @@ check_stat = function(node, st, errors)
     end
 end
 
-check_var = function(node, st, errors)
+check_var = function(node, errors)
     local tag = node._tag
     if     tag == ast.Var.Name then
-        local decl = st:find_symbol(node.name)
-        if not decl then
-            checker.typeerror(errors, node.loc,
-                "variable '%s' not declared", node.name)
-            node._type = types.T.Invalid()
-        else
-            decl._used = true
-            node._decl = decl
-            node._type = decl._type
-        end
+        node._decl._used = true
+        node._type = node._decl._type
 
     elseif tag == ast.Var.Dot then
         local var = assert(node.exp.var, "left side of dot is not var")
-        check_var(var, st, errors)
+        check_var(var, errors)
         node.exp._type = var._type
         local vartype = var._type
         if vartype._tag == types.T.Module then
             local mod = vartype
             if not mod.members[node.name] then
-                checker.typeerror(errors, node.loc,
+                type_error(errors, node.loc,
                     "variable '%s' not found inside module '%s'",
                     node.name, mod.name)
             else
@@ -334,11 +298,11 @@ check_var = function(node, st, errors)
                     node._decl = typ
                     node._type = types.T.Function(params, {typ})
                 else
-                    checker.typeerror(errors, node.loc,
+                    type_error(errors, node.loc,
                         "trying to access invalid record member '%s'", node.name)
                 end
             else
-                checker.typeerror(errors, node.loc,
+                type_error(errors, node.loc,
                     "invalid access to type '%s'", types.tostring(type))
             end
         elseif vartype._tag == types.T.Record then
@@ -349,28 +313,28 @@ check_var = function(node, st, errors)
                 end
             end
             if not node._type then
-                checker.typeerror(errors, node.loc,
+                type_error(errors, node.loc,
                     "field '%s' not found in record '%s'",
                     node.name, vartype.name)
             end
         else
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "trying to access a member of value of type '%s'",
                 types.tostring(vartype))
         end
         node._type = node._type or types.T.Invalid()
 
     elseif tag == ast.Var.Bracket then
-        check_exp(node.exp1, st, errors, context and types.T.Array(context))
+        check_exp(node.exp1, errors, context and types.T.Array(context))
         if node.exp1._type._tag ~= types.T.Array then
-            checker.typeerror(errors, node.exp1.loc,
+            type_error(errors, node.exp1.loc,
                 "array expression in indexing is not an array but %s",
                 types.tostring(node.exp1._type))
             node._type = types.T.Invalid()
         else
             node._type = node.exp1._type.elem
         end
-        check_exp(node.exp2, st, errors, types.T.Integer())
+        check_exp(node.exp2, errors, types.T.Integer())
         checkmatch("array indexing", types.T.Integer(), node.exp2._type, errors, node.exp2.loc)
 
     else
@@ -378,7 +342,7 @@ check_var = function(node, st, errors)
     end
 end
 
-check_exp = function(node, st, errors)
+check_exp = function(node, errors)
     local tag = node._tag
     if     tag == ast.Exp.Nil then
         node._type = types.T.Nil()
@@ -401,7 +365,7 @@ check_exp = function(node, st, errors)
         local isarray = true
         for _, field in ipairs(node.fields) do
             local exp = field.exp
-            check_exp(exp, st, errors, econtext)
+            check_exp(exp, errors, econtext)
             table.insert(etypes, exp._type)
             isarray = isarray and not field.name
         end
@@ -418,15 +382,15 @@ check_exp = function(node, st, errors)
         end
 
     elseif tag == ast.Exp.Var then
-        check_var(node.var, st, errors, context)
+        check_var(node.var, errors, context)
         local texp = node.var._type
         if texp._tag == types.T.Module then
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "trying to access module '%s' as a first-class value",
                 node.var.name)
             node._type = types.T.Invalid()
         elseif texp._tag == types.T.Function then
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "trying to access a function as a first-class value")
             node._type = types.T.Invalid()
         else
@@ -435,26 +399,26 @@ check_exp = function(node, st, errors)
 
     elseif tag == ast.Exp.Unop then
         local op = node.op
-        check_exp(node.exp, st, errors)
+        check_exp(node.exp, errors)
         local texp = node.exp._type
         local loc = node.loc
         if op == "#" then
             if texp._tag ~= types.T.Array and texp._tag ~= types.T.String then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "trying to take the length of a %s instead of an array or string",
                     types.tostring(texp))
             end
             node._type = types.T.Integer()
         elseif op == "-" then
             if texp._tag ~= types.T.Integer and texp._tag ~= types.T.Float then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "trying to negate a %s instead of a number",
                     types.tostring(texp))
             end
             node._type = texp
         elseif op == "~" then
             if texp._tag ~= types.T.Integer then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "trying to bitwise negate a %s instead of an integer",
                     types.tostring(texp))
             end
@@ -462,8 +426,8 @@ check_exp = function(node, st, errors)
         elseif op == "not" then
             if texp._tag ~= types.T.Boolean then
                 -- Titan is being intentionaly restrictive here
-                checker.typeerror(errors, loc,
-                    "trying to negate a %s instead of a boolean",
+                type_error(errors, loc,
+                    "trying to boolean negate a %s instead of a boolean",
                     types.tostring(texp))
             end
             node._type = types.T.Boolean()
@@ -473,13 +437,13 @@ check_exp = function(node, st, errors)
 
     elseif tag == ast.Exp.Concat then
         for i, exp in ipairs(node.exps) do
-            check_exp(exp, st, errors, types.T.String())
+            check_exp(exp, errors, types.T.String())
             -- always tries to coerce numbers to string
             exp = trytostr(exp)
             node.exps[i] = exp
             local texp = exp._type
             if texp._tag ~= types.T.String then
-                checker.typeerror(errors, exp.loc,
+                type_error(errors, exp.loc,
                     "cannot concatenate with %s value", types.tostring(texp))
             end
         end
@@ -487,19 +451,19 @@ check_exp = function(node, st, errors)
 
     elseif tag == ast.Exp.Binop then
         local op = node.op
-        check_exp(node.lhs, st, errors)
+        check_exp(node.lhs, errors)
         local tlhs = node.lhs._type
-        check_exp(node.rhs, st, errors)
+        check_exp(node.rhs, errors)
         local trhs = node.rhs._type
         local loc = node.loc
         if op == "==" or op == "~=" then
             if (tlhs._tag == types.T.Integer and trhs._tag == types.T.Float) or
                (tlhs._tag == types.T.Float   and trhs._tag == types.T.Integer) then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
             elseif not types.equals(tlhs, trhs) then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "cannot compare %s and %s with %s",
                     types.tostring(tlhs), types.tostring(trhs), op)
             end
@@ -511,23 +475,23 @@ check_exp = function(node, st, errors)
                -- OK
             elseif (tlhs._tag == types.T.Integer and trhs._tag == types.T.Float) or
                    (tlhs._tag == types.T.Float   and trhs._tag == types.T.Integer) then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
             else
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "cannot compare %s and %s with %s",
                     types.tostring(tlhs), types.tostring(trhs), op)
             end
             node._type = types.T.Boolean()
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
             if not (tlhs._tag == types.T.Integer or tlhs._tag == types.T.Float) then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(tlhs))
             end
             if not (trhs._tag == types.T.Integer or trhs._tag == types.T.Float) then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(trhs))
             end
@@ -558,36 +522,36 @@ check_exp = function(node, st, errors)
                 trhs = node.rhs._type
             end
             if tlhs._tag ~= types.T.Float then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(tlhs))
             end
             if trhs._tag ~= types.T.Float then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(trhs))
             end
             node._type = types.T.Float()
         elseif op == "and" or op == "or" then
             if tlhs._tag ~= types.T.Boolean then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "left hand side of logical expression is a %s instead of a boolean",
                     types.tostring(tlhs))
             end
             if trhs._tag ~= types.T.Boolean then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "right hand side of logical expression is a %s instead of a boolean",
                     types.tostring(trhs))
             end
             node._type = types.T.Boolean()
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
             if tlhs._tag ~= types.T.Integer then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "left hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(tlhs))
             end
             if trhs._tag ~= types.T.Integer then
-                checker.typeerror(errors, loc,
+                type_error(errors, loc,
                     "right hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(trhs))
             end
@@ -599,7 +563,7 @@ check_exp = function(node, st, errors)
     elseif tag == ast.Exp.Call then
         assert(node.exp._tag == ast.Exp.Var, "function calls are first-order only!")
         local var = node.exp.var
-        check_var(var, st, errors)
+        check_var(var, errors)
         node.exp._type = var._type
         local fname = var._tag == ast.Var.Name and var.name or (var.exp.var.name .. "." .. var.name)
         if var._type._tag == types.T.Function then
@@ -615,7 +579,7 @@ check_exp = function(node, st, errors)
                 if not arg then
                     atype = ptype
                 else
-                    check_exp(arg, st, errors, ptype)
+                    check_exp(arg, errors, ptype)
                     ptype = ptype or arg._type
                     atype = args[i]._type
                 end
@@ -625,28 +589,28 @@ check_exp = function(node, st, errors)
                 checkmatch("argument " .. i .. " of call to function '" .. fname .. "'", ptype, atype, errors, node.exp.loc)
             end
             if nargs ~= nparams then
-                checker.typeerror(errors, node.loc,
+                type_error(errors, node.loc,
                     "function %s called with %d arguments but expects %d",
                     fname, nargs, nparams)
             end
             assert(#ftype.rettypes == 1)
             node._type = ftype.rettypes[1]
         else
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "'%s' is not a function but %s",
                 fname, types.tostring(var._type))
             for _, arg in ipairs(node.args.args) do
-                check_exp(arg, st, errors)
+                check_exp(arg, errors)
             end
             node._type = types.T.Invalid()
         end
 
     elseif tag == ast.Exp.Cast then
-        local target = check_type(node.target, st, errors)
-        check_exp(node.exp, st, errors, target)
+        local target = check_type(node.target, errors)
+        check_exp(node.exp, errors, target)
         if not types.coerceable(node.exp._type, target) and
           not types.equals(node.exp._type, target) then
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "cannot cast '%s' to '%s'",
                 types.tostring(node.exp._type), types.tostring(target))
         end
@@ -663,17 +627,14 @@ end
 
 -- Typechecks a function body
 --   node: TopLevelFunc AST node
---   st: symbol table
 --   errors: list of compile-time errors
-local function checkfunc(node, st, errors)
-    st:add_symbol("$function", node) -- for return type
+local function checkfunc(node, errors)
     local ptypes = node._type.params
     local pnames = {}
     for i, param in ipairs(node.params) do
-        st:add_symbol(param.name, param)
         param._type = ptypes[i]
         if pnames[param.name] then
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "duplicate parameter '%s' in declaration of function '%s'",
                 param.name, node.name)
         else
@@ -681,22 +642,21 @@ local function checkfunc(node, st, errors)
         end
     end
     assert(#node._type.rettypes == 1)
-    local ret = check_stat(node.block, st, errors)
+    local ret = check_stat(node.block, errors)
     if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
-        checker.typeerror(errors, node.loc,
+        type_error(errors, node.loc,
             "function can return nil but return type is not nil")
     end
 end
 
 -- Checks function bodies
 --   prog: AST for the whole module
---   st: symbol table
 --   errors: list of compile-time errors
-checkbodies = function(prog, st, errors)
+checkbodies = function(prog, errors)
     for _, node in ipairs(prog) do
         if not node._ignore and
            node._tag == ast.Toplevel.Func then
-            st:with_block(checkfunc, node, st, errors)
+            checkfunc(node, errors)
         end
     end
 end
@@ -757,23 +717,8 @@ local function isconst(node)
     end
 end
 
--- Return the name given the toplevel node
-local function toplevel_name(node)
-    local tag = node._tag
-    if tag == ast.Toplevel.Import then
-        return node.localname
-    elseif tag == ast.Toplevel.Var then
-        return node.decl.name
-    elseif tag == ast.Toplevel.Func or
-           tag == ast.Toplevel.Record then
-        return node.name
-    else
-        error("impossible")
-    end
-end
-
 -- Typecheck the toplevel node
-toplevel_visitor = function(node, st, errors, loader)
+toplevel_visitor = function(node, errors, loader)
     local tag = node._tag
     if     tag == ast.Toplevel.Import then
         local modtype, errs = checker.checkimport(node.modname, loader)
@@ -784,23 +729,23 @@ toplevel_visitor = function(node, st, errors, loader)
             end
         else
             node._type = types.T.Nil()
-            checker.typeerror(errors, node.loc,
+            type_error(errors, node.loc,
                 "problem loading module '%s': %s",
                 node.modname, errs)
         end
 
     elseif tag == ast.Toplevel.Var then
         if node.decl.type then
-            node._type = check_type(node.decl.type, st, errors)
-            check_exp(node.value, st, errors, node._type)
+            node._type = check_type(node.decl.type, errors)
+            check_exp(node.value, errors, node._type)
             checkmatch("declaration of module variable " .. node.decl.name,
                        node._type, node.value._type, errors, node.loc)
         else
-            check_exp(node.value, st, errors)
+            check_exp(node.value, errors)
             node._type = node.value._type
         end
         if not isconst(node.value) then
-            checker.typeerror(errors, node.value.loc,
+            type_error(errors, node.value.loc,
                 "top level variable initialization must be constant")
         end
 
@@ -810,21 +755,21 @@ toplevel_visitor = function(node, st, errors, loader)
         end
         local ptypes = {}
         for _, pdecl in ipairs(node.params) do
-            table.insert(ptypes, check_type(pdecl.type, st, errors))
+            table.insert(ptypes, check_type(pdecl.type, errors))
         end
         local rettypes = {}
         for _, rt in ipairs(node.rettypes) do
-            table.insert(rettypes, check_type(rt, st, errors))
+            table.insert(rettypes, check_type(rt, errors))
         end
         node._type = types.T.Function(ptypes, rettypes)
 
     elseif tag == ast.Toplevel.Record then
-        local fields = {}
-        for _, field in ipairs(node.fields) do
-            local typ = check_type(field.type, st, errors)
-            table.insert(fields, {type = typ, name = field.name})
+        local field_decls = {}
+        for _, field_decl in ipairs(node.field_decls) do
+            local typ = check_type(field_decl.type, errors)
+            table.insert(field_decls, {type = typ, name = field_decl.name})
         end
-        node._type = types.T.Type(types.T.Record(node.name, fields))
+        node._type = types.T.Type(types.T.Record(node.name, field_decls))
 
     else
         error("impossible")
@@ -833,24 +778,13 @@ end
 
 -- Colect type information of toplevel nodes
 --   prog: AST for the whole module
---   st: symbol table
 --   errors: list of compile-time errors
 --   annotates the top-level nodes with their types in a "_type" field
 --   annotates whether a top-level declaration is duplicated with a "_ignore"
 --   field
-checktoplevel = function(prog, st, errors, loader)
+checktoplevel = function(prog, errors, loader)
     for _, node in ipairs(prog) do
-        local name = toplevel_name(node)
-        local dup = st:find_dup(name)
-        if dup then
-            checker.typeerror(errors, node.loc,
-                "duplicate declaration for %s, previous one at line %d",
-                name, dup.loc.line)
-            node._ignore = true
-        else
-            toplevel_visitor(node, st, errors, loader)
-            st:add_symbol(name, node)
-        end
+        toplevel_visitor(node, errors, loader)
     end
 end
 

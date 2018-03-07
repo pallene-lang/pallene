@@ -32,6 +32,7 @@ build = {
       ["titan-compiler.parser"] = "titan-compiler/parser.lua",
       ["titan-compiler.pretty"] = "titan-compiler/pretty.lua",
       ["titan-compiler.symtab"] = "titan-compiler/symtab.lua",
+      ["titan-compiler.scope_analysis"] = "titan-compiler/scope_analysis.lua",
       ["titan-compiler.syntax_errors"] = "titan-compiler/syntax_errors.lua",
       ["titan-compiler.typedecl"] = "titan-compiler/typedecl.lua",
       ["titan-compiler.types"] = "titan-compiler/types.lua",
