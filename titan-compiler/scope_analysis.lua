@@ -64,10 +64,6 @@ end
 
 bind_names_program = function(prog, st, errors)
     st:with_block(function()
-        -- First we put all toplevel names in scope, to allow mutual references.
-        -- We don't allow allow shadowing because it ambiguous with letrec and
-        -- even without letrec it would still interact confusingly with module
-        -- exports.
         for _, tlnode in ipairs(prog) do
             local name = toplevel_name(tlnode)
             local dup = st:find_dup(name)
@@ -77,19 +73,14 @@ bind_names_program = function(prog, st, errors)
                     name, dup.loc.line)
             else
                 st:add_symbol(name, tlnode)
+                bind_names_toplevel(tlnode, st, errors)
             end
-        end
-
-        -- Now we can resolve names in toplevel type annotations and in function
-        -- bodies.
-        for _, tlnode in ipairs(prog) do
-            bind_names_toplevel(tlnode, st, errors)
         end
     end)
 end
 
 bind_names_type = function(type_node, st, errors)
-    local  tag = type_node._tag
+    local tag = type_node._tag
     if     tag == ast.Type.Nil then
         -- Nothing to do
 

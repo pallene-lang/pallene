@@ -187,10 +187,10 @@ describe("Titan type checker", function()
     it("function can call another function", function()
         local code = [[
             function fn1()
-              fn2()
             end
 
             function fn2()
+              fn1()
             end
         ]]
         local prog, errs = run_checker(code)
@@ -437,7 +437,7 @@ describe("Titan type checker", function()
         for _, c in ipairs(code) do
             local prog, errs = run_checker(c)
             assert.falsy(prog)
-            assert.match("function can return nil", errs)
+            assert.match("control reaches end of function with non%-nil return type", errs)
         end
     end)
 
