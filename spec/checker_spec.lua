@@ -955,6 +955,7 @@ describe("Titan typecheck of records", function()
     end)
 
     it("typechecks record constructors", function()
+        pending("implement .new")
         assert_type_check([[
             record Point x: float; y:float end
 
@@ -963,6 +964,7 @@ describe("Titan typecheck of records", function()
     end)
 
     it("doesn't typecheck invalid dot operation in record", function()
+        pending("implement .new")
         assert_type_error("invalid record member 'nope'", [[
             record Point x: float; y:float end
 
@@ -981,6 +983,7 @@ describe("Titan typecheck of records", function()
     end
 
     it("doesn't typecheck constructor calls with wrong arguments", function()
+        pending("implement .new")
         assert_type_error("expected float but found string",
                           wrap_record[[ p = Point.new("a", "b") ]])
         assert_type_error("Point.new called with 1 arguments but expects 2",

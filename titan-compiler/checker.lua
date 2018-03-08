@@ -109,14 +109,8 @@ check_type = function(node, errors)
         return types.T.String()
 
     elseif tag == ast.Type.Name then
-        local name = node.name
-        if node._decl._tag == ast.Toplevel.Record then
-            -- TODO: fix record types
-            return node._decl._type.type
-        else
-            type_error(errors, node.loc, "%s isn't a type", name)
-            return types.T.Invalid()
-        end
+        -- TODO: fix record types
+        return node._decl._type.type
 
     elseif tag == ast.Type.Array then
         return types.T.Array(check_type(node.subtype, errors))
