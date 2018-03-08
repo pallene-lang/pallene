@@ -17,7 +17,16 @@ local check_field
 
 -- Type-check a Titan module
 --
--- Sets a _type field on some nodes. TODO: what nodes?
+-- Sets a _type field on some AST nodes:
+--  - Value declarations:
+--      - ast.Toplevel.Func
+--      - ast.Toplevel.Var
+--      - ast.Decl.Decl
+--  - ast.Exp
+--  - ast.Var
+--
+-- Sets a _field_types field on ast.Toplevel.Record nodes, mapping field names
+-- to their types.
 --
 -- @ param prog AST for the whole module
 -- @ return true or false, followed by as list of compilation errors
