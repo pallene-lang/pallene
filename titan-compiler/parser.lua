@@ -276,7 +276,7 @@ local grammar = re.compile([[
                                  exp^ExpLocal)                   -> StatDecl
                      / (P  var ASSIGN^AssignAssign
                                exp^ExpAssign)                    -> StatAssign
-                     / &(exp ASSIGN) %{ExpAssign}
+                     / &(exp ASSIGN) %{AssignNotToVar}
                      / (P  (suffixedexp => exp_is_call))         -> StatCall
                      / &exp %{ExpStat}
 
