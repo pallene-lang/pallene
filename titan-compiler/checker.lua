@@ -457,37 +457,35 @@ check_exp = function(node, errors, typehint)
         end
 
     elseif tag == ast.Exp.Unop then
-        local op = node.op
         check_exp(node.exp, errors, nil)
-        local texp = node.exp._type
-        local loc = node.loc
+        local op = node.op
         if op == "#" then
-            if texp._tag ~= types.T.Array and texp._tag ~= types.T.String then
-                type_error(errors, loc,
+            if node.exp._type._tag ~= types.T.Array and node.exp._type._tag ~= types.T.String then
+                type_error(errors, node.loc,
                     "trying to take the length of a %s instead of an array or string",
-                    types.tostring(texp))
+                    types.tostring(node.exp._type))
             end
             node._type = types.T.Integer()
         elseif op == "-" then
-            if texp._tag ~= types.T.Integer and texp._tag ~= types.T.Float then
-                type_error(errors, loc,
+            if node.exp._type._tag ~= types.T.Integer and node.exp._type._tag ~= types.T.Float then
+                type_error(errors, node.loc,
                     "trying to negate a %s instead of a number",
-                    types.tostring(texp))
+                    types.tostring(node.exp._type))
             end
-            node._type = texp
+            node._type = node.exp._type
         elseif op == "~" then
-            if texp._tag ~= types.T.Integer then
-                type_error(errors, loc,
+            if node.exp._type._tag ~= types.T.Integer then
+                type_error(errors, node.loc,
                     "trying to bitwise negate a %s instead of an integer",
-                    types.tostring(texp))
+                    types.tostring(node.exp._type))
             end
             node._type = types.T.Integer()
         elseif op == "not" then
-            if texp._tag ~= types.T.Boolean then
+            if node.exp._type._tag ~= types.T.Boolean then
                 -- Titan is being intentionaly restrictive here
-                type_error(errors, loc,
+                type_error(errors, node.loc,
                     "trying to boolean negate a %s instead of a boolean",
-                    types.tostring(texp))
+                    types.tostring(node.exp._type))
             end
             node._type = types.T.Boolean()
         else
@@ -509,110 +507,105 @@ check_exp = function(node, errors, typehint)
         node._type = types.T.String()
 
     elseif tag == ast.Exp.Binop then
-        local op = node.op
         check_exp(node.lhs, errors, nil)
-        local tlhs = node.lhs._type
         check_exp(node.rhs, errors, nil)
-        local trhs = node.rhs._type
-        local loc = node.loc
+        local op = node.op
         if op == "==" or op == "~=" then
-            if (tlhs._tag == types.T.Integer and trhs._tag == types.T.Float) or
-               (tlhs._tag == types.T.Float   and trhs._tag == types.T.Integer) then
-                type_error(errors, loc,
+            if (node.lhs._type._tag == types.T.Integer and node.rhs._type._tag == types.T.Float) or
+               (node.lhs._type._tag == types.T.Float   and node.rhs._type._tag == types.T.Integer) then
+                type_error(errors, node.loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
-            elseif not types.equals(tlhs, trhs) then
-                type_error(errors, loc,
+            elseif not types.equals(node.lhs._type, node.rhs._type) then
+                type_error(errors, node.loc,
                     "cannot compare %s and %s with %s",
-                    types.tostring(tlhs), types.tostring(trhs), op)
+                    types.tostring(node.lhs._type), types.tostring(node.rhs._type), op)
             end
             node._type = types.T.Boolean()
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            if (tlhs._tag == types.T.Integer and trhs._tag == types.T.Integer) or
-               (tlhs._tag == types.T.Float   and trhs._tag == types.T.Float) or
-               (tlhs._tag == types.T.String  and trhs._tag == types.T.String) then
+            if (node.lhs._type._tag == types.T.Integer and node.rhs._type._tag == types.T.Integer) or
+               (node.lhs._type._tag == types.T.Float   and node.rhs._type._tag == types.T.Float) or
+               (node.lhs._type._tag == types.T.String  and node.rhs._type._tag == types.T.String) then
                -- OK
-            elseif (tlhs._tag == types.T.Integer and trhs._tag == types.T.Float) or
-                   (tlhs._tag == types.T.Float   and trhs._tag == types.T.Integer) then
-                type_error(errors, loc,
+            elseif (node.lhs._type._tag == types.T.Integer and node.rhs._type._tag == types.T.Float) or
+                   (node.lhs._type._tag == types.T.Float   and node.rhs._type._tag == types.T.Integer) then
+                type_error(errors, node.loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
             else
-                type_error(errors, loc,
+                type_error(errors, node.loc,
                     "cannot compare %s and %s with %s",
-                    types.tostring(tlhs), types.tostring(trhs), op)
+                    types.tostring(node.lhs._type), types.tostring(node.rhs._type), op)
             end
             node._type = types.T.Boolean()
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            if not (tlhs._tag == types.T.Integer or tlhs._tag == types.T.Float) then
-                type_error(errors, loc,
+            if not (node.lhs._type._tag == types.T.Integer or node.lhs._type._tag == types.T.Float) then
+                type_error(errors, node.loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(tlhs))
+                    types.tostring(node.lhs._type))
             end
-            if not (trhs._tag == types.T.Integer or trhs._tag == types.T.Float) then
-                type_error(errors, loc,
+            if not (node.rhs._type._tag == types.T.Integer or node.rhs._type._tag == types.T.Float) then
+                type_error(errors, node.loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(trhs))
+                    types.tostring(node.rhs._type))
             end
             -- tries to coerce to float if either side is float
-            if tlhs._tag == types.T.Float or trhs._tag == types.T.Float then
+            if node.lhs._type._tag == types.T.Float or node.rhs._type._tag == types.T.Float then
                 node.lhs = trycoerce(node.lhs, types.T.Float(), errors)
-                tlhs = node.lhs._type
+                node.lhs._type = node.lhs._type
                 node.rhs = trycoerce(node.rhs, types.T.Float(), errors)
-                trhs = node.rhs._type
+                node.rhs._type = node.rhs._type
             end
-            if tlhs._tag == types.T.Float and trhs._tag == types.T.Float then
+            if node.lhs._type._tag == types.T.Float and node.rhs._type._tag == types.T.Float then
                 node._type = types.T.Float()
-            elseif tlhs._tag == types.T.Integer and trhs._tag == types.T.Integer then
+            elseif node.lhs._type._tag == types.T.Integer and node.rhs._type._tag == types.T.Integer then
                 node._type = types.T.Integer()
             else
                 -- error
                 node._type = types.T.Invalid()
             end
         elseif op == "/" or op == "^" then
-            if tlhs._tag == types.T.Integer then
+            if node.lhs._type._tag == types.T.Integer then
                 -- always tries to coerce to float
                 node.lhs = trycoerce(node.lhs, types.T.Float(), errors)
-                tlhs = node.lhs._type
             end
-            if trhs._tag == types.T.Integer then
+            if node.rhs._type._tag == types.T.Integer then
                 -- always tries to coerce to float
                 node.rhs = trycoerce(node.rhs, types.T.Float(), errors)
-                trhs = node.rhs._type
             end
-            if tlhs._tag ~= types.T.Float then
-                type_error(errors, loc,
+            if node.lhs._type._tag ~= types.T.Float then
+                type_error(errors, node.loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(tlhs))
+                    types.tostring(node.lhs._type))
             end
-            if trhs._tag ~= types.T.Float then
-                type_error(errors, loc,
+            if node.rhs._type._tag ~= types.T.Float then
+                type_error(errors, node.loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(trhs))
+                    types.tostring(node.rhs._type))
             end
             node._type = types.T.Float()
         elseif op == "and" or op == "or" then
-            if tlhs._tag ~= types.T.Boolean then
-                type_error(errors, loc,
+            if node.lhs._type._tag ~= types.T.Boolean then
+                type_error(errors, node.loc,
                     "left hand side of logical expression is a %s instead of a boolean",
-                    types.tostring(tlhs))
+                    types.tostring(node.lhs._type))
             end
-            if trhs._tag ~= types.T.Boolean then
-                type_error(errors, loc,
+            if node.rhs._type._tag ~= types.T.Boolean then
+                type_error(errors, node.loc,
                     "right hand side of logical expression is a %s instead of a boolean",
-                    types.tostring(trhs))
+                    types.tostring(node.rhs._type))
             end
             node._type = types.T.Boolean()
         elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
-            if tlhs._tag ~= types.T.Integer then
-                type_error(errors, loc,
+            if node.lhs._type._tag ~= types.T.Integer then
+                type_error(errors, node.loc,
                     "left hand side of arithmetic expression is a %s instead of an integer",
-                    types.tostring(tlhs))
+                    types.tostring(node.lhs._type))
             end
-            if trhs._tag ~= types.T.Integer then
-                type_error(errors, loc,
+            if node.rhs._type._tag ~= types.T.Integer then
+                type_error(errors, node.loc,
                     "right hand side of arithmetic expression is a %s instead of an integer",
-                    types.tostring(trhs))
+                    types.tostring(node.rhs._type))
             end
             node._type = types.T.Integer()
         else
