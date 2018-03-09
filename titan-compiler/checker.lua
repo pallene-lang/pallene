@@ -59,13 +59,19 @@ local function checkmatch(term, expected, found, errors, loc)
     end
 end
 
-local function trycoerce(node, target, errors)
-    if types.coerceable(node._type, target) then
-        local n = ast.Exp.Cast(node.loc, node, nil)
-        n._type = target
+local function is_numeric_type(typ)
+    return typ._tag == types.T.Integer or typ._tag == types.T.Float
+end
+
+local function coerce_numeric_exp_to_float(exp)
+    if exp._type._tag == types.T.Integer then
+        local n = ast.Exp.Cast(exp.loc, exp, nil)
+        n._type = types.T.Float()
         return n
+    elseif exp._type._tag == types.T.Float then
+        return exp
     else
-        return node
+        error("not a numeric type")
     end
 end
 
@@ -538,52 +544,50 @@ check_exp = function(node, errors, typehint)
                     types.tostring(node.lhs._type), types.tostring(node.rhs._type), op)
             end
             node._type = types.T.Boolean()
+
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            if not (node.lhs._type._tag == types.T.Integer or node.lhs._type._tag == types.T.Float) then
-                type_error(errors, node.loc,
-                    "left hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(node.lhs._type))
-            end
-            if not (node.rhs._type._tag == types.T.Integer or node.rhs._type._tag == types.T.Float) then
-                type_error(errors, node.loc,
-                    "right hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(node.rhs._type))
-            end
-            -- tries to coerce to float if either side is float
-            if node.lhs._type._tag == types.T.Float or node.rhs._type._tag == types.T.Float then
-                node.lhs = trycoerce(node.lhs, types.T.Float(), errors)
-                node.lhs._type = node.lhs._type
-                node.rhs = trycoerce(node.rhs, types.T.Float(), errors)
-                node.rhs._type = node.rhs._type
-            end
-            if node.lhs._type._tag == types.T.Float and node.rhs._type._tag == types.T.Float then
-                node._type = types.T.Float()
-            elseif node.lhs._type._tag == types.T.Integer and node.rhs._type._tag == types.T.Integer then
-                node._type = types.T.Integer()
+            if is_numeric_type(node.lhs._type) and is_numeric_type(node.rhs._type) then
+                if node.lhs._type._tag == types.T.Integer and
+                   node.rhs._type._tag == types.T.Integer then
+                    node._type = types.T.Integer()
+                else
+                    node.lhs = coerce_numeric_exp_to_float(node.lhs)
+                    node.rhs = coerce_numeric_exp_to_float(node.rhs)
+                    node._type = types.T.Float()
+                end
             else
-                -- error
+                if not is_numeric_type(node.lhs._type) then
+                    type_error(errors, node.loc,
+                        "left hand side of arithmetic expression is a %s instead of a number",
+                        types.tostring(node.lhs._type))
+                end
+                if not is_numeric_type(node.lhs._type) then
+                    type_error(errors, node.loc,
+                        "right hand side of arithmetic expression is a %s instead of a number",
+                        types.tostring(node.rhs._type))
+                end
                 node._type = types.T.Invalid()
             end
+
         elseif op == "/" or op == "^" then
-            if node.lhs._type._tag == types.T.Integer then
-                -- always tries to coerce to float
-                node.lhs = trycoerce(node.lhs, types.T.Float(), errors)
+            if is_numeric_type(node.lhs._type) and is_numeric_type(node.rhs._type) then
+                node.lhs = coerce_numeric_exp_to_float(node.lhs)
+                node.rhs = coerce_numeric_exp_to_float(node.rhs)
+                node._type = types.T.Float()
+            else
+                if not is_numeric_type(node.lhs._type._tag) then
+                    type_error(errors, node.loc,
+                        "left hand side of arithmetic expression is a %s instead of a number",
+                        types.tostring(node.lhs._type))
+                end
+                if not is_numeric_type(node.rhs._type._tag) then
+                    type_error(errors, node.loc,
+                        "right hand side of arithmetic expression is a %s instead of a number",
+                        types.tostring(node.rhs._type))
+                end
+                node._type = types.T.Float()
             end
-            if node.rhs._type._tag == types.T.Integer then
-                -- always tries to coerce to float
-                node.rhs = trycoerce(node.rhs, types.T.Float(), errors)
-            end
-            if node.lhs._type._tag ~= types.T.Float then
-                type_error(errors, node.loc,
-                    "left hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(node.lhs._type))
-            end
-            if node.rhs._type._tag ~= types.T.Float then
-                type_error(errors, node.loc,
-                    "right hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(node.rhs._type))
-            end
-            node._type = types.T.Float()
+
         elseif op == "and" or op == "or" then
             if node.lhs._type._tag ~= types.T.Boolean then
                 type_error(errors, node.loc,
