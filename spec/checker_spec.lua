@@ -411,6 +411,48 @@ describe("Titan type checker", function()
         assert.truthy(prog)
     end)
 
+    it("requires while statement conditions to be boolean", function()
+        local code = [[
+            function fn(x:integer): integer
+                while x do
+                    return 10
+                end
+                return 20
+            end
+        ]]
+        local prog, errs = run_checker(code)
+        assert.falsy(prog)
+        assert.matches("types in while statement condition do not match, expected boolean but found integer", errs)
+    end)
+
+    it("type-checks 'repeat'", function()
+        local code = [[
+            function fn(x: integer): integer
+                local i: integer = 15
+                repeat
+                    x = x + i
+                until x >= 100
+                return x
+            end
+        ]]
+        local prog, errs = run_checker(code)
+        assert.truthy(prog)
+    end)
+
+     it("requires repeat statement conditions to be boolean", function()
+        local code = [[
+            function fn(x:integer): integer
+                repeat
+                    return 10
+                until x
+                return 20
+            end
+        ]]
+        local prog, errs = run_checker(code)
+        assert.falsy(prog)
+        assert.matches("types in repeat statement condition do not match, expected boolean but found integer", errs)
+    end)
+
     it("type-checks 'if'", function()
         local code = [[
             function fn(x: integer): integer
@@ -429,7 +471,22 @@ describe("Titan type checker", function()
         assert.truthy(prog)
     end)
 
-    it("checks code inside the 'while' black", function()
+    it("requires if statement conditions to be boolean", function()
+        local code = [[
+            function fn(x:integer): integer
+                if x then
+                    return 10
+                else
+                    return 20
+                end
+            end
+        ]]
+        local prog, errs = run_checker(code)
+        assert.falsy(prog)
+        assert.matches("types in if statement condition do not match, expected boolean but found integer", errs)
+    end)
+
+    it("checks code inside the 'while' block", function()
         local code = [[
             function fn(x: integer): integer
                 local i: integer = 15

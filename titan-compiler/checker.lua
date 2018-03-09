@@ -215,6 +215,8 @@ check_stat = function(node, errors, rettypes)
 
     elseif tag == ast.Stat.While then
         check_exp(node.condition, errors, nil)
+        checkmatch("while statement condition",
+            types.T.Boolean(), node.condition._type, errors, node.condition.loc)
         check_stat(node.block, errors, rettypes)
         return false
 
@@ -223,6 +225,8 @@ check_stat = function(node, errors, rettypes)
             check_stat(stat, errors, rettypes)
         end
         check_exp(node.condition, errors, nil)
+        checkmatch("repeat statement condition",
+            types.T.Boolean(), node.condition._type, errors, node.condition.loc)
         return false
 
     elseif tag == ast.Stat.For then
@@ -300,6 +304,8 @@ check_stat = function(node, errors, rettypes)
         local ret = true
         for _, thn in ipairs(node.thens) do
             check_exp(thn.condition, errors, nil)
+            checkmatch("if statement condition",
+                types.T.Boolean(), thn.condition._type, errors, thn.loc)
             ret = check_stat(thn.block, errors, rettypes) and ret
         end
         if node.elsestat then
