@@ -97,12 +97,12 @@ describe("Titan type checker", function()
         assert_type_check([[ x3 = 11 ]])
         assert_type_check([[ x4 = 1.1 ]])
         assert_type_check([[ x5 = "11" ]])
-        assert_type_check([[ x6 = {} ]])
-        assert_type_check([[ x7 = {1, 2} ]])
+        assert_type_check([[ x6: {integer} = {} ]])
+        assert_type_check([[ x7: {integer} = {1, 2} ]])
         assert_type_check([[ x8 = "a" .. 10 ]])
         assert_type_check([[ x9 = 1 + 2 ]])
         assert_type_check([[ x10 = not false ]])
-        assert_type_check([[ x11: float = 10.1 ]])
+        assert_type_check([[ x11 = 10.1 ]])
     end)
 
     it("allows non constant variable initialization", function()
@@ -112,8 +112,7 @@ describe("Titan type checker", function()
         assert_type_check([[ x = 10 y = 10 + x ]])
         assert_type_check([[ x = 10 y = "a" .. x ]])
         assert_type_check([[ x = 10 y: integer = x ]])
-        assert_type_check([[ x = 10 y = {x} ]])
-        assert_type_check([[ x = ({1})[2] ]])
+        assert_type_check([[ x = 10 y: {integer} = {x} ]])
     end)
 
     it("catches array expression in indexing is not an array", function()
@@ -207,6 +206,134 @@ describe("Titan type checker", function()
         assert.match("expected string but found integer", errs)
     end)
 
+-- TODO
+
+    it("can create empty array (with type annotation)", function()
+        local prog, errors = run_checker([[
+            local xs: {integer} = {}
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("can create non-empty array (with type annotation)", function()
+        local prog, errors = run_checker([[
+            local xs: {integer} = {10, 20, 30}
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("forbids empty array (without type annotation)", function()
+        local prog, errors = run_checker([[
+            local xs = {}
+        ]])
+        assert.falsy(prog)
+        assert.matches("missing type hint for array or record initializer", errors)
+    end)
+
+    it("forbids non-empty array (without type annotation)", function()
+        local prog, errors = run_checker([[
+            local xs = {10, 20, 30}
+        ]])
+        assert.falsy(prog)
+        assert.matches("missing type hint for array or record initializer", errors)
+    end)
+
+    it("forbids array initializers with a table part", function()
+        local prog, errors = run_checker([[
+            local xs: {integer} = {10, 20, 30, x=17}
+        ]])
+        assert.falsy(prog)
+        assert.matches("named field x in array initializer", errors)
+    end)
+
+    it("forbids wrong type in array initializer", function()
+        local prog, errors = run_checker([[
+            local xs: {integer} = {10, "hello"}
+        ]])
+        assert.falsy(prog)
+        assert.matches("expected integer but found string", errors)
+    end)
+
+    it("can create record (with type annotation)", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { x = 10.0, y = 20.0 }
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("forbids record creation (without type annotation)", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p = { x = 10.0, y = 20.0 }
+        ]])
+        assert.falsy(prog)
+        assert.matches("missing type hint for array or record initializer", errors)
+    end)
+
+    it("forbids wrong type in record initializer", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { x = 10.0, y = "hello" }
+        ]])
+        assert.falsy(prog)
+        assert.matches("expected float but found string", errors)
+    end)
+
+    it("forbids wrong field name in record initializer", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
+        ]])
+        assert.falsy(prog)
+        assert.matches("invalid field z in record initializer for Point", errors)
+    end)
+
+    it("forbids array part in record initializer", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { x = 10.0, y = 20.0, 30.0 }
+        ]])
+        assert.falsy(prog)
+        assert.matches("record initializer has array part", errors)
+    end)
+
+    it("forbids missing fields in record initializer", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { }
+        ]])
+        assert.falsy(prog)
+        assert.matches("required field x is missing", errors)
+        assert.matches("required field y is missing", errors)
+    end)
+
+    it("forbids type hints that are not array or records", function()
+         local prog, errors = run_checker([[
+            local p: string = { 10, 20, 30 }
+        ]])
+        assert.falsy(prog)
+        assert.matches("type hint for array or record initializer is not an array or record type", errors)
+    end)
+
     it("allows setting element of array as nil", function ()
         local code = [[
             function fn()
@@ -216,17 +343,6 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.truthy(prog)
-    end)
-
-    it("catches named init list assigned to an array", function()
-        local code = [[
-            function fn(x: integer)
-                local arr: {integer} = { x = 10 }
-            end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.falsy(prog)
-        assert.match("table initializers with named fields are not implemented", errs)
     end)
 
     it("type-checks numeric 'for' (integer, implicit step)", function()
@@ -543,7 +659,8 @@ describe("Titan type checker", function()
     it("cannot concatenate with array", function()
         local code = [[
             function fn()
-                local s = "foo" .. {}
+                local xs: {integer} = {}
+                local s = "foo" .. xs
             end
         ]]
         local prog, errs = run_checker(code)
@@ -954,24 +1071,6 @@ describe("Titan typecheck of records", function()
         ]])
     end)
 
-    it("typechecks record constructors", function()
-        pending("implement .new")
-        assert_type_check([[
-            record Point x: float; y:float end
-
-            p = Point.new(1.0, 2.0)
-        ]])
-    end)
-
-    it("doesn't typecheck invalid dot operation in record", function()
-        pending("implement .new")
-        assert_type_error("invalid record member 'nope'", [[
-            record Point x: float; y:float end
-
-            p = Point.nope(1, 2)
-        ]])
-    end)
-
     local function wrap_record(code)
         return [[
             record Point x: float; y:float end
@@ -981,16 +1080,6 @@ describe("Titan typecheck of records", function()
             end
         ]]
     end
-
-    it("doesn't typecheck constructor calls with wrong arguments", function()
-        pending("implement .new")
-        assert_type_error("expected float but found string",
-                          wrap_record[[ p = Point.new("a", "b") ]])
-        assert_type_error("Point.new called with 1 arguments but expects 2",
-                          wrap_record[[ p = Point.new(1) ]])
-        assert_type_error("Point.new called with 3 arguments but expects 2",
-                          wrap_record[[ p = Point.new(1, 2, 3) ]])
-    end)
 
     it("typechecks record read/write", function()
         assert_type_check(wrap_record[[

@@ -145,7 +145,7 @@ check_toplevel = function(node, errors, loader)
             checkmatch("declaration of module variable " .. node.decl.name,
                        node._type, node.value._type, errors, node.loc)
         else
-            check_exp(node.value, errors)
+            check_exp(node.value, errors, nil)
             node._type = node.value._type
         end
 
@@ -166,7 +166,7 @@ check_toplevel = function(node, errors, loader)
         end
         node._type = types.T.Function(ptypes, rettypes)
 
-        local ret = check_stat(node.block, errors)
+        local ret = check_stat(node.block, errors, rettypes)
         if not ret and node._type.rettypes[1]._tag ~= types.T.Nil then
             type_error(errors, node.loc,
                 "control reaches end of function with non-nil return type")
@@ -190,14 +190,15 @@ check_decl = function(node, errors)
     node._type = node._type or check_type(node.type, errors)
 end
 
-check_stat = function(node, errors)
+-- @param rettypes Declared function return types (for return statements)
+check_stat = function(node, errors, rettypes)
     local tag = node._tag
     if     tag == ast.Stat.Decl then
         if node.decl.type then
           check_decl(node.decl, errors)
           check_exp(node.exp, errors, node.decl._type)
         else
-          check_exp(node.exp, errors)
+          check_exp(node.exp, errors, nil)
           node.decl._type = node.exp._type
           check_decl(node.decl, errors)
         end
@@ -208,33 +209,34 @@ check_stat = function(node, errors)
     elseif tag == ast.Stat.Block then
         local ret = false
         for _, stat in ipairs(node.stats) do
-            ret = ret or check_stat(stat, errors)
+            ret = ret or check_stat(stat, errors, rettypes)
         end
         return ret
 
     elseif tag == ast.Stat.While then
-        check_exp(node.condition, errors, types.T.Boolean())
-        check_stat(node.block, errors)
+        check_exp(node.condition, errors, nil)
+        check_stat(node.block, errors, rettypes)
         return false
 
     elseif tag == ast.Stat.Repeat then
         for _, stat in ipairs(node.block.stats) do
-            check_stat(stat, errors)
+            check_stat(stat, errors, rettypes)
         end
-        check_exp(node.condition, errors, types.T.Boolean())
+        check_exp(node.condition, errors, nil)
         return false
 
     elseif tag == ast.Stat.For then
-        check_exp(node.start, errors)
-        check_exp(node.finish, errors)
-        if node.inc then
-            check_exp(node.inc, errors)
+        if node.decl.type then
+            check_decl(node.decl, errors)
         end
-        -- Add loop variable to symbol table only after checking expressions
+        check_exp(node.start, errors, node.decl._type)
+        check_exp(node.finish, errors, node.decl._type)
+        if node.inc then
+            check_exp(node.inc, errors, node.decl._type)
+        end
         if not node.decl.type then
             node.decl._type = node.start._type
         end
-        check_decl(node.decl, errors)
 
         local loop_type_is_valid
         if     node.decl._type._tag == types.T.Integer then
@@ -265,7 +267,7 @@ check_stat = function(node, errors)
                 node.decl._type, node.inc._type, errors, node.inc.loc)
         end
 
-        check_stat(node.block, errors)
+        check_stat(node.block, errors, rettypes)
         return false
 
     elseif tag == ast.Stat.Assign then
@@ -284,26 +286,24 @@ check_stat = function(node, errors)
         return false
 
     elseif tag == ast.Stat.Call then
-        check_exp(node.callexp, errors)
+        check_exp(node.callexp, errors, nil)
         return false
 
     elseif tag == ast.Stat.Return then
-        --local ftype = st:find_symbol("$function")._type
-        --assert(#ftype.rettypes == 1)
-        --local tret = ftype.rettypes[1]
-        --check_exp(node.exp, st, errors, tret)
-        --checkmatch("return", tret, node.exp._type, errors, node.exp.loc)
-        check_exp(node.exp, errors)
+        assert(#rettypes == 1)
+        local rettype = rettypes[1]
+        check_exp(node.exp, errors, rettype)
+        checkmatch("return", rettype, node.exp._type, errors, node.exp.loc)
         return true
 
     elseif tag == ast.Stat.If then
         local ret = true
         for _, thn in ipairs(node.thens) do
-            check_exp(thn.condition, errors, types.T.Boolean())
-            ret = check_stat(thn.block, errors) and ret
+            check_exp(thn.condition, errors, nil)
+            ret = check_stat(thn.block, errors, rettypes) and ret
         end
         if node.elsestat then
-            ret = check_stat(node.elsestat, errors) and ret
+            ret = check_stat(node.elsestat, errors, rettypes) and ret
         else
             ret = false
         end
@@ -320,7 +320,7 @@ check_var = function(node, errors)
         node._type = node._decl._type
 
     elseif tag == ast.Var.Dot then
-        check_exp(node.exp, errors)
+        check_exp(node.exp, errors, nil)
         local exptype = node.exp._type
         if exptype._tag == types.T.Record then
             local field_type = exptype.type_decl._field_types[node.name]
@@ -340,7 +340,7 @@ check_var = function(node, errors)
         end
 
     elseif tag == ast.Var.Bracket then
-        check_exp(node.exp1, errors, context and types.T.Array(context))
+        check_exp(node.exp1, errors, nil)
         if node.exp1._type._tag ~= types.T.Array then
             type_error(errors, node.exp1.loc,
                 "array expression in indexing is not an array but %s",
@@ -349,7 +349,7 @@ check_var = function(node, errors)
         else
             node._type = node.exp1._type.elem
         end
-        check_exp(node.exp2, errors, types.T.Integer())
+        check_exp(node.exp2, errors, nil)
         checkmatch("array indexing", types.T.Integer(), node.exp2._type, errors, node.exp2.loc)
 
     else
@@ -357,7 +357,8 @@ check_var = function(node, errors)
     end
 end
 
-check_exp = function(node, errors)
+-- @param typehint Expected type; Used to infer polymorphic/record constructors.
+check_exp = function(node, errors, typehint)
     local tag = node._tag
     if     tag == ast.Exp.Nil then
         node._type = types.T.Nil()
@@ -375,28 +376,63 @@ check_exp = function(node, errors)
         node._type = types.T.String()
 
     elseif tag == ast.Exp.Initlist then
-        local econtext = context and context.elem
-        local etypes = {}
-        local isarray = true
-        for _, field in ipairs(node.fields) do
-            local exp = field.exp
-            check_exp(exp, errors, econtext)
-            table.insert(etypes, exp._type)
-            isarray = isarray and not field.name
-        end
-        if isarray then
-            local etype = econtext or etypes[1] or types.T.Integer()
-            node._type = types.T.Array(etype)
-            for i, field in ipairs(node.fields) do
-                local exp = field.exp
-                checkmatch("array initializer at position " .. i, etype,
-                           exp._type, errors, exp.loc)
+        -- Determining the type for a table initializer *requires* a type hint.
+        -- In theory, we could try to infer the type without a type hint for
+        -- non-empty arrays whose contents are inferrable, but I am not sure
+        -- we should treat that case differently from the others...
+        if typehint then
+            if typehint._tag == types.T.Array then
+                for _, field in ipairs(node.fields) do
+                    if field.name then
+                        type_error(errors, field.loc,
+                            "named field %s in array initializer",
+                            field.name)
+                    else
+                        local field_type = typehint.elem
+                        check_exp(field.exp, errors, field_type)
+                        checkmatch("array initializer",
+                            field_type, field.exp._type, errors, field.loc)
+                    end
+                end
+
+            elseif typehint._tag == types.T.Record then
+                local initialized_fields = {}
+                for _, field in ipairs(node.fields) do
+                    if field.name then
+                        local field_type = typehint.type_decl._field_types[field.name]
+                        if field_type then
+                            initialized_fields[field.name] = true
+                            check_exp(field.exp, errors, field_type)
+                            checkmatch("record initializer",
+                                field_type, field.exp._type, errors, field.loc)
+                        else
+                            type_error(errors, field.loc,
+                                "invalid field %s in record initializer for %s",
+                                field.name, typehint.type_decl.name)
+                        end
+                    else
+                        type_error(errors, field.loc,
+                            "record initializer has array part")
+                    end
+                end
+
+                for field_name, _ in pairs(typehint.type_decl._field_types) do
+                    if not initialized_fields[field_name] then
+                        type_error(errors, node.loc,
+                            "required field %s is missing from initializer",
+                            field_name)
+                    end
+                end
+            else
+                type_error(errors, node.loc,
+                    "type hint for array or record initializer is not an array or record type")
             end
         else
             type_error(errors, node.loc,
-                "table initializers with named fields are not implemented")
-            node._type = types.T.Invalid()
+                "missing type hint for array or record initializer")
         end
+
+        node._type = typehint or types.T.Invalid()
 
     elseif tag == ast.Exp.Var then
         check_var(node.var, errors, context)
@@ -416,7 +452,7 @@ check_exp = function(node, errors)
 
     elseif tag == ast.Exp.Unop then
         local op = node.op
-        check_exp(node.exp, errors)
+        check_exp(node.exp, errors, nil)
         local texp = node.exp._type
         local loc = node.loc
         if op == "#" then
@@ -454,7 +490,7 @@ check_exp = function(node, errors)
 
     elseif tag == ast.Exp.Concat then
         for i, exp in ipairs(node.exps) do
-            check_exp(exp, errors, types.T.String())
+            check_exp(exp, errors, nil)
             -- always tries to coerce numbers to string
             exp = trytostr(exp)
             node.exps[i] = exp
@@ -468,9 +504,9 @@ check_exp = function(node, errors)
 
     elseif tag == ast.Exp.Binop then
         local op = node.op
-        check_exp(node.lhs, errors)
+        check_exp(node.lhs, errors, nil)
         local tlhs = node.lhs._type
-        check_exp(node.rhs, errors)
+        check_exp(node.rhs, errors, nil)
         local trhs = node.rhs._type
         local loc = node.loc
         if op == "==" or op == "~=" then
@@ -616,9 +652,6 @@ check_exp = function(node, errors)
             type_error(errors, node.loc,
                 "'%s' is not a function but %s",
                 fname, types.tostring(var._type))
-            for _, arg in ipairs(node.args.args) do
-                check_exp(arg, errors)
-            end
             node._type = types.T.Invalid()
         end
 
