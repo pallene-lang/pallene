@@ -335,36 +335,7 @@ check_var = function(node, errors)
         check_var(var, errors)
         node.exp._type = var._type
         local vartype = var._type
-        if vartype._tag == types.T.Module then
-            local mod = vartype
-            if not mod.members[node.name] then
-                type_error(errors, node.loc,
-                    "variable '%s' not found inside module '%s'",
-                    node.name, mod.name)
-            else
-                local decl = mod.members[node.name]
-                node._decl = decl
-                node._type = decl
-            end
-        elseif vartype._tag == types.T.Type then
-            local typ = vartype.type
-            if typ._tag == types.T.Record then
-                if node.name == "new" then
-                    local params = {}
-                    for _, field in ipairs(typ.fields) do
-                        table.insert(params, field.type)
-                    end
-                    node._decl = typ
-                    node._type = types.T.Function(params, {typ})
-                else
-                    type_error(errors, node.loc,
-                        "trying to access invalid record member '%s'", node.name)
-                end
-            else
-                type_error(errors, node.loc,
-                    "invalid access to type '%s'", types.tostring(type))
-            end
-        elseif vartype._tag == types.T.Record then
+        if vartype._tag == types.T.Record then
             for _, field in ipairs(vartype.fields) do
                 if field.name == node.name then
                     node._type = field.type

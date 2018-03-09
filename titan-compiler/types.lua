@@ -38,18 +38,6 @@ function types.is_gc(t)
            tag == types.T.Record
 end
 
--- XXX this should be inside typedecl call
--- constructors shouldn't do more than initalize members
--- XXX this should not be a type. This makes it possible to
--- construct nonsense things like a function type that returns
--- a module type
-function types.T.Module(modname, members)
-    return { _tag = types.T.Module, name = modname,
-        prefix = modname:gsub("[%-.]", "_") .. "_",
-        file = modname:gsub("[.]", "/") .. ".so",
-        members = members }
-end
-
 function types.coerceable(source, target)
     return
         (source._tag == types.T.Integer and target._tag == types.T.Float) or
@@ -111,24 +99,6 @@ function types.tostring(t)
     else
         error("impossible")
     end
-end
-
--- Builds a type for the module from the types of its public members
---   prog: AST for the module
---   returns types.T.Module type
-function types.makemoduletype(modname, prog)
-    local members = {}
-    for _, tlnode in ipairs(prog) do
-        if tlnode._tag ~= ast.Toplevel.Import and not tlnode.islocal and not tlnode._ignore then
-            local tag = tlnode._tag
-            if tag == ast.Toplevel.Func then
-                members[tlnode.name] = tlnode._type
-            elseif tag == ast.Toplevel.Var then
-                members[tlnode.decl.name] = tlnode._type
-            end
-        end
-    end
-    return types.T.Module(modname, members)
 end
 
 function types.serialize(t)
