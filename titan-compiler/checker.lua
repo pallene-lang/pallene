@@ -331,12 +331,10 @@ check_var = function(node, errors)
         node._type = node._decl._type
 
     elseif tag == ast.Var.Dot then
-        local var = assert(node.exp.var, "left side of dot is not var")
-        check_var(var, errors)
-        node.exp._type = var._type
-        local vartype = var._type
-        if vartype._tag == types.T.Record then
-            for _, field in ipairs(vartype.fields) do
+        check_exp(node.exp, errors)
+        local exptype = node.exp._type
+        if exptype._tag == types.T.Record then
+            for _, field in ipairs(exptype.fields) do
                 if field.name == node.name then
                     node._type = field.type
                     break
@@ -345,12 +343,12 @@ check_var = function(node, errors)
             if not node._type then
                 type_error(errors, node.loc,
                     "field '%s' not found in record '%s'",
-                    node.name, vartype.name)
+                    node.name, exptype.name)
             end
         else
             type_error(errors, node.loc,
                 "trying to access a member of value of type '%s'",
-                types.tostring(vartype))
+                types.tostring(exptype))
         end
         node._type = node._type or types.T.Invalid()
 
