@@ -664,8 +664,7 @@ check_exp = function(node, errors, typehint)
     elseif tag == ast.Exp.Cast then
         local target = check_type(node.target, errors)
         check_exp(node.exp, errors, target)
-        if not types.coerceable(node.exp._type, target) and
-          not types.equals(node.exp._type, target) then
+        if not types.coerceable(node.exp._type, target) then
             type_error(errors, node.loc,
                 "cannot cast '%s' to '%s'",
                 types.tostring(node.exp._type), types.tostring(target))
