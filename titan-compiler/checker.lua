@@ -293,7 +293,7 @@ check_stat = function(node, errors, rettypes)
         assert(#rettypes == 1)
         local rettype = rettypes[1]
         check_exp(node.exp, errors, rettype)
-        checkmatch("return", rettype, node.exp._type, errors, node.exp.loc)
+        checkmatch("return statement", rettype, node.exp._type, errors, node.exp.loc)
         return true
 
     elseif tag == ast.Stat.If then

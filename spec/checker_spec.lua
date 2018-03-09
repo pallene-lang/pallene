@@ -516,6 +516,16 @@ describe("Titan type checker", function()
         assert.match("'for' step expression", errs)
     end)
 
+    it("detects when a functionr returns the wrong type", function()
+        local code, errors = run_checker([[
+            function fn(): integer
+                return "hello"
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("types in return statement do not match, expected integer but found string", errors)
+    end)
+
     it("detects nil returns on non-nil functions", function()
         local code = {[[
             function fn(): integer
