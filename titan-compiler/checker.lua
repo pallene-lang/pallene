@@ -288,10 +288,6 @@ check_stat = function(node, errors)
         elseif texp._tag == types.T.Function then
             type_error(errors, node.loc, "trying to assign to a function")
         else
-            -- mark this declared variable as assigned to
-            if node.var._tag == ast.Var.Name and node.var._decl then
-                node.var._decl._assigned = true
-            end
             if node.var._tag ~= ast.Var.Bracket or node.exp._type._tag ~= types.T.Nil then
                 checkmatch("assignment", node.var._type, node.exp._type, errors, node.var.loc)
             end
@@ -332,7 +328,6 @@ end
 check_var = function(node, errors)
     local tag = node._tag
     if     tag == ast.Var.Name then
-        node._decl._used = true
         node._type = node._decl._type
 
     elseif tag == ast.Var.Dot then
