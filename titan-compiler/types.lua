@@ -98,35 +98,4 @@ function types.tostring(t)
     end
 end
 
-function types.serialize(t)
-    local tag = t._tag
-    if tag == types.T.Array then
-        return "Array(" ..types.serialize(t.elem) .. ")"
-    elseif tag == types.T.Module then
-        local members = {}
-        for name, member in pairs(t.members) do
-            table.insert(members, name .. " = " .. types.serialize(member))
-        end
-        return "Module(" ..
-            "'" .. t.name .. "'" .. "," ..
-            "{" .. table.concat(members, ",") .. "}" ..
-            ")"
-    elseif tag == types.T.Function then
-        local ptypes = {}
-        for _, pt in ipairs(t.params) do
-            table.insert(ptypes, types.serialize(pt))
-        end
-        local rettypes = {}
-        for _, rt in ipairs(t.rettypes) do
-            table.insert(rettypes, types.serialize(rt))
-        end
-        return "Function(" ..
-            "{" .. table.concat(ptypes, ",") .. "}" .. "," ..
-            "{" .. table.concat(rettypes, ",") .. "}" ..
-            ")"
-    else
-        return types.tostring(t)
-    end
-end
-
 return types
