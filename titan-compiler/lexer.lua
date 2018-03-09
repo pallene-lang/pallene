@@ -64,8 +64,8 @@ do
 
     local matching_close =
         close * Cmt( Cb("open") * Cb("close"),
-            function(_source, _i, open, close)
-                return open == close
+            function(_source, _i, openstr, closestr)
+                return openstr == closestr
             end)
 
     local contents = (-matching_close * P(1)) ^0
@@ -75,7 +75,7 @@ do
             C(contents) * close +
             T("UnclosedLongString")
         )
-    ) / function(contents) return contents end -- hide the group captures
+    ) / function(contents_str) return contents_str end -- hide the group captures
 end
 
 local shortstring
@@ -88,8 +88,8 @@ do
 
     local matching_close =
         close * Cmt( Cb("open")* Cb("close"),
-            function(_source, _i, open, close)
-                return open == close
+            function(_source, _i, openstr, closestr)
+                return openstr == closestr
             end)
 
     -- A sequence of up to 3 decimal digits
@@ -116,9 +116,10 @@ do
         (P("\"") / "\"") +
         (linebreak / "\n") +
         C(decimal_escape) / tonumber / string.char +
-        (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) + T("MalformedEscape_u")))
-             / tonumber / utf8.char +
-        (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) + T("MalformedEscape_x"))) / tonumber / string.char +
+        (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) +
+            T("MalformedEscape_u"))) / tonumber / utf8.char +
+        (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) +
+            T("MalformedEscape_x"))) / tonumber / string.char +
         (P("z") * lpeg.space^0) +
         T("InvalidEscape")
     )

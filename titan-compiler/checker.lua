@@ -645,7 +645,9 @@ check_exp = function(node, errors, typehint)
                 if not ptype then
                     ptype = atype
                 end
-                checkmatch("argument " .. i .. " of call to function '" .. fname .. "'", ptype, atype, errors, node.exp.loc)
+                checkmatch(
+                    "argument " .. i .. " of call to function '" .. fname .. "'",
+                    ptype, atype, errors, node.exp.loc)
             end
             if nargs ~= nparams then
                 type_error(errors, node.loc,
