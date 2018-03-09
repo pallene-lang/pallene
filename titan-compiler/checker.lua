@@ -9,11 +9,11 @@ local check_type
 local check_toplevel
 local check_decl
 local check_stat
-local check_then
+--local check_then
 local check_var
 local check_exp
-local check_args
-local check_field
+--local check_args
+--local check_field
 
 -- Type-check a Titan module
 --
@@ -59,7 +59,7 @@ local function checkmatch(term, expected, found, errors, loc)
     end
 end
 
-local function trycoerce(node, target, errors)
+local function trycoerce(node, target, _errors)
     if types.coerceable(node._type, target) then
         local n = ast.Exp.Cast(node.loc, node, nil)
         n._type = target
@@ -133,7 +133,7 @@ check_type = function(node, errors)
     end
 end
 
-check_toplevel = function(node, errors, loader)
+check_toplevel = function(node, errors)
     local tag = node._tag
     if     tag == ast.Toplevel.Import then
         type_error(errors, node.loc, "modules are not implemented yet")
@@ -441,7 +441,7 @@ check_exp = function(node, errors, typehint)
         node._type = typehint or types.T.Invalid()
 
     elseif tag == ast.Exp.Var then
-        check_var(node.var, errors, context)
+        check_var(node.var, errors)
         local texp = node.var._type
         if texp._tag == types.T.Module then
             type_error(errors, node.loc,

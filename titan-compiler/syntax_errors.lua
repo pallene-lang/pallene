@@ -165,6 +165,6 @@ local errors = {
 
 }
 
-syntax_errors.errors = errors 
+syntax_errors.errors = errors
 
 return syntax_errors

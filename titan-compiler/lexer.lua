@@ -64,7 +64,7 @@ do
 
     local matching_close =
         close * Cmt( Cb("open") * Cb("close"),
-            function(source, i, open, close)
+            function(_source, _i, open, close)
                 return open == close
             end)
 
@@ -88,7 +88,7 @@ do
 
     local matching_close =
         close * Cmt( Cb("open")* Cb("close"),
-            function(source, i, open, close)
+            function(_source, _i, open, close)
                 return open == close
             end)
 
