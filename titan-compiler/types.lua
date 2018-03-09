@@ -17,8 +17,7 @@ declare_type("T", {
     Function = {"params", "rettypes"},
     Array    = {"elem"},
     Initlist = {"elems"},
-    Record   = {"name", "fields"},
-    Type     = {"type"},
+    Record   = {"type_decl"},
 })
 
 function types.is_basic(t)
@@ -93,9 +92,7 @@ function types.tostring(t)
     elseif tag == types.T.Initlist then
         return "initlist" -- TODO implement
     elseif tag == types.T.Record then
-        return t.name
-    elseif tag == types.T.Type then
-        return "type" -- TODO remove
+        return t.type_decl.name
     else
         error("impossible")
     end

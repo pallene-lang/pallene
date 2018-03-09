@@ -109,8 +109,7 @@ check_type = function(node, errors)
         return types.T.String()
 
     elseif tag == ast.Type.Name then
-        -- TODO: fix record types
-        return node._decl._type.type
+        return node._decl._type
 
     elseif tag == ast.Type.Array then
         return types.T.Array(check_type(node.subtype, errors))
@@ -137,18 +136,7 @@ end
 check_toplevel = function(node, errors, loader)
     local tag = node._tag
     if     tag == ast.Toplevel.Import then
-        local modtype, errs = checker.checkimport(node.modname, loader)
-        if modtype then
-            node._type = modtype
-            for _, err in ipairs(errs) do
-                table.insert(errors, err)
-            end
-        else
-            node._type = types.T.Nil()
-            type_error(errors, node.loc,
-                "problem loading module '%s': %s",
-                node.modname, errs)
-        end
+        type_error(errors, node.loc, "modules are not implemented yet")
 
     elseif tag == ast.Toplevel.Var then
         if node.decl.type then
@@ -185,12 +173,13 @@ check_toplevel = function(node, errors, loader)
         end
 
     elseif tag == ast.Toplevel.Record then
-        local field_decls = {}
+        node._field_types = {}
         for _, field_decl in ipairs(node.field_decls) do
             local typ = check_type(field_decl.type, errors)
-            table.insert(field_decls, {type = typ, name = field_decl.name})
+            node._field_types[field_decl.name] = typ
         end
-        node._type = types.T.Type(types.T.Record(node.name, field_decls))
+
+        node._type = types.T.Record(node)
 
     else
         error("impossible")
@@ -334,23 +323,21 @@ check_var = function(node, errors)
         check_exp(node.exp, errors)
         local exptype = node.exp._type
         if exptype._tag == types.T.Record then
-            for _, field in ipairs(exptype.fields) do
-                if field.name == node.name then
-                    node._type = field.type
-                    break
-                end
-            end
-            if not node._type then
+            local field_type = exptype.type_decl._field_types[node.name]
+            if field_type then
+                node._type = field_type
+            else
                 type_error(errors, node.loc,
                     "field '%s' not found in record '%s'",
-                    node.name, exptype.name)
+                    node.name, exptype.type_decl.name)
+                node._type = types.T.Invalid()
             end
         else
             type_error(errors, node.loc,
                 "trying to access a member of value of type '%s'",
                 types.tostring(exptype))
+            node._type = types.T.Invalid()
         end
-        node._type = node._type or types.T.Invalid()
 
     elseif tag == ast.Var.Bracket then
         check_exp(node.exp1, errors, context and types.T.Array(context))
