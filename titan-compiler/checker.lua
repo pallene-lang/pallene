@@ -393,7 +393,9 @@ check_exp = function(node, errors)
                            exp._type, errors, exp.loc)
             end
         else
-            node._type = types.T.Initlist(etypes)
+            type_error(errors, node.loc,
+                "table initializers with named fields are not implemented")
+            node._type = types.T.Invalid()
         end
 
     elseif tag == ast.Exp.Var then

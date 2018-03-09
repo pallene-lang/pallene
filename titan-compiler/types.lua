@@ -16,7 +16,6 @@ declare_type("T", {
     String   = {},
     Function = {"params", "rettypes"},
     Array    = {"elem"},
-    Initlist = {"elems"},
     Record   = {"type_decl"},
 })
 
@@ -89,8 +88,6 @@ function types.tostring(t)
         return "function" -- TODO implement
     elseif tag == types.T.Array then
         return "{ " .. types.tostring(t.elem) .. " }"
-    elseif tag == types.T.Initlist then
-        return "initlist" -- TODO implement
     elseif tag == types.T.Record then
         return t.type_decl.name
     else

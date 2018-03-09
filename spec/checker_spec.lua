@@ -226,7 +226,7 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("expected { integer } but found initlist", errs)
+        assert.match("table initializers with named fields are not implemented", errs)
     end)
 
     it("type-checks numeric 'for' (integer, implicit step)", function()
