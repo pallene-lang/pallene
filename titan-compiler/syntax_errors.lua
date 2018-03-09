@@ -30,27 +30,27 @@ local errors = {
 
     NameFunc = "Expected a function name after 'function'.",
 
-   LParPList = "Expected '(' for the parameter list.",
+    LParPList = "Expected '(' for the parameter list.",
 
-   RParPList = "Expected ')' to close the parameter list.",
+    RParPList = "Expected ')' to close the parameter list.",
 
-   TypeFunc = "Expected a type in function declaration.",
+    TypeFunc = "Expected a type in function declaration.",
 
-   EndFunc = "Expected 'end' to close the function body.",
+    EndFunc = "Expected 'end' to close the function body.",
 
-   ParamSemicolon = "Expected ':' after parameter name.",
+    ParamSemicolon = "Expected ':' after parameter name.",
 
-   AssignVar = "Expected '=' after variable declaration.",
+    AssignVar = "Expected '=' after variable declaration.",
 
-   ExpVarDec = "Expected an expression to initialize variable.",
+    ExpVarDec = "Expected an expression to initialize variable.",
 
-   NameRecord = "Expected a record name after 'record'.",
+    NameRecord = "Expected a record name after 'record'.",
 
-   EndRecord = "Expected 'end' to close the record.",
+    EndRecord = "Expected 'end' to close the record.",
 
-   FieldRecord = "Expected a field in record declaration.",
+    FieldRecord = "Expected a field in record declaration.",
 
-   NameImport = "Expected a name after 'local'.",
+    NameImport = "Expected a name after 'local'.",
 
     --this label is not thrown in rule 'import' because rule 'toplevelvar'
     --matches an invalid input like "local bola import"
@@ -161,8 +161,7 @@ local errors = {
 
     AssignNotToVar = "Expected a valid lvalue in the left side of assignment but found a regular expression",
 
-    CastMissingType = "Expected a type for the cast expression"
-
+    CastMissingType = "Expected a type for the cast expression",
 }
 
 syntax_errors.errors = errors
