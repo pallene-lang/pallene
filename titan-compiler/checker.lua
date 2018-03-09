@@ -52,7 +52,7 @@ end
 --   errors: list of compile-time errors
 --   loc: location of the term that is being compared
 local function checkmatch(term, expected, found, errors, loc)
-    if types.coerceable(found, expected) or not types.equals(expected, found) then
+    if not types.equals(expected, found) then
         local msg = "types in %s do not match, expected %s but found %s"
         msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
         type_error(errors, loc, msg)
