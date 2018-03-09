@@ -169,6 +169,17 @@ describe("Titan type checker", function()
         assert.match("trying to bitwise negate a", errs)
     end)
 
+    it("catches wrong use of boolean not", function()
+        local code = [[
+            function fn(): boolean
+                return not nil
+            end
+        ]]
+        local prog, errs = run_checker(code)
+        assert.falsy(prog)
+        assert.match("trying to boolean negate a nil", errs)
+    end)
+
     it("catches mismatching types in locals", function()
         local code = [[
             function fn()
@@ -959,20 +970,27 @@ describe("Titan type checker", function()
 
     for _, op in ipairs({"and", "or"}) do
         for _, t1 in ipairs({"{integer}", "integer", "string"}) do
-            for _, t2 in ipairs({"integer", "integer", "string"}) do
-                if t1 ~= t2 then
-                    it("cannot evaluate " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                        local code = [[
-                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
-                                return a ]] .. op .. [[ b
-                            end
-                        ]]
-                        local prog, errs = run_checker(code)
-                        assert.falsy(prog)
-                        assert.match("left hand side of logical expression is a", errs)
-                    end)
-                end
-            end
+            it("cannot have " .. t1 .. " as left operand of " .. op, function()
+                local code = [[
+                    function fn(x: ]] .. t1 .. [[): boolean
+                        return x ]] .. op .. [[ true
+                    end
+                ]]
+                local prog, errs = run_checker(code)
+                assert.falsy(prog)
+                assert.match("left hand side of logical expression is a", errs)
+            end)
+            it("cannot have " .. t1 .. " as right operand of " .. op, function()
+                local code = [[
+                    function fn(x: ]] .. t1 .. [[): boolean
+                        return true ]] .. op .. [[ x
+                    end
+                ]]
+                local prog, errs = run_checker(code)
+                assert.falsy(prog)
+                assert.match("right hand side of logical expression is a", errs)
+            end)
+
         end
     end
 
