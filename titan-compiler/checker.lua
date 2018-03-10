@@ -75,18 +75,6 @@ local function coerce_numeric_exp_to_float(exp)
     end
 end
 
-local function trytostr(node)
-    local source = node._type
-    if source._tag == types.T.Integer or
-       source._tag == types.T.Float then
-        local n = ast.Exp.Cast(node.loc, node, types.T.String())
-        n._type = types.T.String()
-        return n
-    else
-        return node
-    end
-end
-
 --
 -- check
 --
@@ -506,9 +494,6 @@ check_exp = function(node, errors, typehint)
     elseif tag == ast.Exp.Concat then
         for i, exp in ipairs(node.exps) do
             check_exp(exp, errors, nil)
-            -- always tries to coerce numbers to string
-            exp = trytostr(exp)
-            node.exps[i] = exp
             local texp = exp._type
             if texp._tag ~= types.T.String then
                 type_error(errors, exp.loc,
