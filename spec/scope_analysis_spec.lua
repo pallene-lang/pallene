@@ -71,7 +71,22 @@ describe("Scope analysis: ", function()
             end
         ]])
         assert.falsy(prog)
-        assert.match("variable 'x' not declared", errs)
+        assert.match("variable 'x' is not declared", errs)
+    end)
+
+    it("forbids type variables from being used before they are defined", function()
+        local prog, errs = run_scope_analysis([[
+            function fn(p: Point): integer
+                return p.x
+            end
+
+            record Point
+                x: integer
+                y: integer
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("type 'Point' is not declared", errs)
     end)
 
     it("do-end limits variable scope", function()
@@ -84,7 +99,7 @@ describe("Scope analysis: ", function()
             end
         ]])
         assert.falsy(prog)
-        assert.match("variable 'x' not declared", errs)
+        assert.match("variable 'x' is not declared", errs)
     end)
 
     it("local variable scope doesn't shadow its type annotation", function()
@@ -214,7 +229,7 @@ describe("Scope analysis: ", function()
             end
         ]])
         assert.falsy(prog)
-        assert.match("variable 'bar' not declared", errs)
+        assert.match("variable 'bar' is not declared", errs)
     end)
 
     it("forbids multiple toplevel declarations with the same name", function()
@@ -234,4 +249,26 @@ describe("Scope analysis: ", function()
         assert.falsy(prog)
         assert.match("function 'fn' has multiple parameters named 'x'", errs)
     end)
+
+    it("detects when a non-type is used in a type variable", function()
+        local prog, errs = run_scope_analysis([[
+            local foo: integer = 10
+            local bar: foo = 11
+        ]])
+        assert.falsy(prog)
+        assert.match("'foo' isn't a type", errs)
+    end)
+
+    it("detects when a non-value is used in a value variable", function()
+        local prog, errs = run_scope_analysis([[
+            record Point
+                x: integer
+                y: integer
+            end
+            local bar: integer = Point
+        ]])
+        assert.falsy(prog)
+        assert.match("'Point' isn't a value", errs)
+    end)
+
 end)

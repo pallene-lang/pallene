@@ -98,9 +98,17 @@ bind_names_type = function(type_node, st, errors)
 
     elseif tag == ast.Type.Name then
         local name = type_node.name
-        type_node._decl = st:find_symbol(name) or false
-        if not type_node._decl then
-            scope_error(errors, type_node.loc, "type '%s' not found", name)
+        local decl = st:find_symbol(name)
+        if decl then
+            if decl._tag == ast.Toplevel.Record then
+                type_node._decl = decl
+            else
+                scope_error(errors, type_node.loc, "'%s' isn't a type", name)
+                type_node._decl = false
+            end
+        else
+            scope_error(errors, type_node.loc, "type '%s' is not declared", name)
+            type_node._decl = false
         end
 
     elseif tag == ast.Type.Array then
@@ -245,10 +253,21 @@ end
 bind_names_var = function(var, st, errors)
     local tag = var._tag
     if     tag == ast.Var.Name then
-        var._decl = st:find_symbol(var.name) or false
-        if not var._decl then
-            scope_error(errors, var.loc,
-                "variable '%s' not declared", var.name)
+        local name = var.name
+        local decl = st:find_symbol(name)
+        if decl then
+            if decl._tag == ast.Toplevel.Var or
+                decl._tag == ast.Toplevel.Func or
+                decl._tag == ast.Decl.Decl
+            then
+                var._decl = decl
+            else
+                scope_error(errors, var.loc, "'%s' isn't a value", name)
+                var._decl = false
+            end
+        else
+            scope_error(errors, var.loc, "variable '%s' is not declared", name)
+            var_decl = false
         end
 
     elseif tag == ast.Var.Bracket then

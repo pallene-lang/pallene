@@ -16,9 +16,7 @@ declare_type("T", {
     String   = {},
     Function = {"params", "rettypes"},
     Array    = {"elem"},
-    Initlist = {"elems"},
-    Record   = {"name", "fields"},
-    Type     = {"type"},
+    Record   = {"type_decl"},
 })
 
 function types.is_basic(t)
@@ -36,18 +34,6 @@ function types.is_gc(t)
            tag == types.T.Function or
            tag == types.T.Array or
            tag == types.T.Record
-end
-
--- XXX this should be inside typedecl call
--- constructors shouldn't do more than initalize members
--- XXX this should not be a type. This makes it possible to
--- construct nonsense things like a function type that returns
--- a module type
-function types.T.Module(modname, members)
-    return { _tag = types.T.Module, name = modname,
-        prefix = modname:gsub("[%-.]", "_") .. "_",
-        file = modname:gsub("[.]", "/") .. ".so",
-        members = members }
 end
 
 function types.coerceable(source, target)
@@ -102,63 +88,10 @@ function types.tostring(t)
         return "function" -- TODO implement
     elseif tag == types.T.Array then
         return "{ " .. types.tostring(t.elem) .. " }"
-    elseif tag == types.T.Initlist then
-        return "initlist" -- TODO implement
     elseif tag == types.T.Record then
-        return t.name
-    elseif tag == types.T.Type then
-        return "type" -- TODO remove
+        return t.type_decl.name
     else
         error("impossible")
-    end
-end
-
--- Builds a type for the module from the types of its public members
---   prog: AST for the module
---   returns types.T.Module type
-function types.makemoduletype(modname, prog)
-    local members = {}
-    for _, tlnode in ipairs(prog) do
-        if tlnode._tag ~= ast.Toplevel.Import and not tlnode.islocal and not tlnode._ignore then
-            local tag = tlnode._tag
-            if tag == ast.Toplevel.Func then
-                members[tlnode.name] = tlnode._type
-            elseif tag == ast.Toplevel.Var then
-                members[tlnode.decl.name] = tlnode._type
-            end
-        end
-    end
-    return types.T.Module(modname, members)
-end
-
-function types.serialize(t)
-    local tag = t._tag
-    if tag == types.T.Array then
-        return "Array(" ..types.serialize(t.elem) .. ")"
-    elseif tag == types.T.Module then
-        local members = {}
-        for name, member in pairs(t.members) do
-            table.insert(members, name .. " = " .. types.serialize(member))
-        end
-        return "Module(" ..
-            "'" .. t.name .. "'" .. "," ..
-            "{" .. table.concat(members, ",") .. "}" ..
-            ")"
-    elseif tag == types.T.Function then
-        local ptypes = {}
-        for _, pt in ipairs(t.params) do
-            table.insert(ptypes, types.serialize(pt))
-        end
-        local rettypes = {}
-        for _, rt in ipairs(t.rettypes) do
-            table.insert(rettypes, types.serialize(rt))
-        end
-        return "Function(" ..
-            "{" .. table.concat(ptypes, ",") .. "}" .. "," ..
-            "{" .. table.concat(rettypes, ",") .. "}" ..
-            ")"
-    else
-        return types.tostring(t)
     end
 end
 
