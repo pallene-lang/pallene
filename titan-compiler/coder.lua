@@ -1,5 +1,6 @@
 local checker = require "titan-compiler.checker"
 local util = require "titan-compiler.util"
+local pretty = require "titan-compiler.pretty"
 
 local coder = {}
 
@@ -24,9 +25,10 @@ int luaopen_$MODNAME(lua_State *L) {
 ]]
 
 generate_program = function(prog, modname)
-    return util.render(whole_file_template, {
+    local code = util.render(whole_file_template, {
         MODNAME = modname,
     })
+    return pretty.reindent_c(code)
 end
 
 return coder
