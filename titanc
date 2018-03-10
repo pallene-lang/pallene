@@ -23,8 +23,11 @@ p:flag("--print-ast", "Print the AST.")
 
 local args = p:parse()
 
-if not string.find(args.source_file, "%.titan$") then
-    abort(titanc_err_prefix .. "source file should have a .titan extension")
+if not string.match(filename, "%.titan$") then
+    abort(titanc_err_prefix .. "filename should have a .titan extension")
+end
+if not string.match(filename, "^[a-zA-Z0-9_/]+%.titan$") then
+    abort(titanc_err_prefix .. "filename must not include special characters")
 end
 local input, err = util.get_file_contents(args.source_file)
 if not input then
