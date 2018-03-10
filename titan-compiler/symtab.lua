@@ -21,31 +21,25 @@ function symtab:with_block(body, ...)
 end
 
 function symtab:add_symbol(name, decl)
-    assert(#self.blocks > 0, "no blocks")
+    assert(#self.blocks > 0)
     local block = self.blocks
     block[#block][name] = decl
 end
 
 function symtab:find_symbol(name)
-    local decl
     for i = #self.blocks, 1, -1 do
-        decl = self.blocks[i][name]
+        local decl = self.blocks[i][name]
         if decl then
-            break
+            return decl
         end
     end
-    return decl
+    return nil
 end
 
-function symtab:dump()
-  for i, block in ipairs(self.blocks) do
-    print("BLOCK " .. i .. ":")
-    for name, decl in pairs(block) do
-      print(name, decl)
-    end
-  end
-end
-
+-- Determine if the given name is already being defined in the current scope.
+-- This is necessary in cases where shadowing other definitions in the same
+-- scope is not allowed, but shadowing outer definitions is ok. For example,
+-- function argument names.
 function symtab:find_dup(name)
     return self.blocks[#self.blocks][name]
 end
