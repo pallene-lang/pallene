@@ -1,50 +1,46 @@
 #!/usr/bin/env lua
 
-local argparse = require 'argparse'
+local argparse = require "argparse"
 
-local checker = require 'titan-compiler.checker'
-local coder = require 'titan-compiler.coder'
-local parser = require 'titan-compiler.parser'
-local util = require 'titan-compiler.util'
-local pretty = require 'titan-compiler.pretty'
-local driver = require 'titan-compiler.driver'
+local c_compiler = require "titan-compiler.c_compiler"
+local parser = require "titan-compiler.parser"
+local util = require "titan-compiler.util"
 
-local p = argparse('titan', 'Titan compiler')
-p:argument('module', 'Names of the modules to compile.'):args("+")
-p:flag('--print-ast', 'Print the AST.')
-p:option('-l --lua', 'Path to Lua source tree (to find Lua headers, defaults to "lua/src").')
-p:option('-t --tree', 'Root of the source tree, used for looking for source modules (defaults to ".").')
-local args = p:parse()
 
--- Work like assert, but don't print the stack trace
-local function exit(msg)
+-- For compilation errors that don't happen inside a source file.
+-- Inspired by gcc, eg. "gcc: fatal error: no input files".
+local titanc_err_prefix = arg[0] .. ": "
+
+local function abort(msg)
     io.stderr:write(msg, "\n")
     os.exit(1)
 end
 
-driver.TITAN_SOURCE_PATH = args.tree or driver.TITAN_SOURCE_PATH
-driver.LUA_SOURCE_PATH = args.lua or driver.LUA_SOURCE_PATH
 
-local errors = {}
+local p = argparse("titan", "Titan compiler")
+p:argument("source_file", "Titan source file to compile."):args(1)
+p:flag("--print-ast", "Print the AST.")
 
-for _, modname in ipairs(args.module) do
-    local ok, errs = checker.checkimport(modname, driver.defaultloader)
-    if not ok then 
-        table.insert(errors, errs)
-    else
-        if #errs > 0 then table.insert(errors, table.concat(errs, "\n")) end
-        local ast = driver.imported[modname].ast
-        if args.print_ast and ast then
-            print(parser.pretty_print_ast(ast))
-        end
+local args = p:parse()
+
+if not string.find(args.source_file, "%.titan$") then
+    abort(titanc_err_prefix .. "source file should have a .titan extension")
+end
+local input, err = util.get_file_contents(args.source_file)
+if not input then
+    abort(titanc_err_prefix .. err)
+end
+
+if args.print_ast then
+    local ast, errors = parser.parse(args.source_file, input)
+    if not ast then
+        abort(table.concat(errors, "\n"))
     end
+    print(parser.pretty_print_ast(ast))
+    os.exit(0)
 end
 
-if #errors > 0 then exit(table.concat(errors, "\n")) end
-
-for name, mod in pairs(driver.imported) do
-    local ok, err = driver.compile_module(name, mod)
-    if not ok then table.insert(errors, err) end
+local ok, errors = c_compiler.compile(args.source_file, input)
+if not ok then
+    abort(table.concat(errors, "\n"))
 end
-
-if #errors > 0 then exit(table.concat(errors, "\n")) end
