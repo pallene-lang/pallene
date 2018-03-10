@@ -206,8 +206,6 @@ describe("Titan type checker", function()
         assert.match("expected string but found integer", errs)
     end)
 
--- TODO
-
     it("can create empty array (with type annotation)", function()
         local prog, errors = run_checker([[
             local xs: {integer} = {}

@@ -178,7 +178,6 @@ check_toplevel = function(node, errors, loader)
             local typ = check_type(field_decl.type, errors)
             node._field_types[field_decl.name] = typ
         end
-
         node._type = types.T.Record(node)
 
     else
@@ -195,12 +194,12 @@ check_stat = function(node, errors, rettypes)
     local tag = node._tag
     if     tag == ast.Stat.Decl then
         if node.decl.type then
-          check_decl(node.decl, errors)
-          check_exp(node.exp, errors, node.decl._type)
+            check_decl(node.decl, errors)
+            check_exp(node.exp, errors, node.decl._type)
         else
-          check_exp(node.exp, errors, nil)
-          node.decl._type = node.exp._type
-          check_decl(node.decl, errors)
+            check_exp(node.exp, errors, nil)
+            node.decl._type = node.exp._type
+            check_decl(node.decl, errors)
         end
         checkmatch("declaration of local variable " .. node.decl.name,
             node.decl._type, node.exp._type, errors, node.decl.loc)
