@@ -1,6 +1,6 @@
 local typedecl = {}
 
-local names = setmetatable({}, {__mode = 'k'})
+local names = setmetatable({}, {__mode = "k"})
 
 -- Create a properly-namespaced algebraic datatype. Objects belonging to this
 -- type can be pattern matched by inspecting their _tag field. See ast.lua and
@@ -25,7 +25,7 @@ function typedecl.declare(module, modname, typename, constructors)
             return node
         end
         module[typename][consname] = cons
-        names[cons] = modname .. '.' .. typename .. '.' .. consname
+        names[cons] = modname .. "." .. typename .. "." .. consname
     end
 end
 

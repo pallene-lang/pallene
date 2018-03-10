@@ -1,4 +1,4 @@
-local typedecl = require 'titan-compiler.typedecl'
+local typedecl = require "titan-compiler.typedecl"
 
 local types = {}
 
@@ -35,11 +35,14 @@ function types.is_gc(t)
            tag == types.T.Record
 end
 
+-- Can [source] be coerced to [target] via a cast?
+-- Note: this function only is cares about whether a cast is possible. It is
+-- not concerned with automatic coercion insertion.
 function types.coerceable(source, target)
     return
+        types.equals(source, target) or
         (source._tag == types.T.Integer and target._tag == types.T.Float) or
-        (source._tag == types.T.Float   and target._tag == types.T.Integer) or
-        (source._tag ~= types.T.Boolean and target._tag == types.T.Boolean)
+        (source._tag == types.T.Float   and target._tag == types.T.Integer)
 end
 
 function types.equals(t1, t2)

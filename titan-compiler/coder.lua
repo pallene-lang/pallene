@@ -27,7 +27,7 @@ local some_c_escape_sequences = {
 }
 
 local function c_string_literal(s)
-    return '"' .. (s:gsub('.', some_c_escape_sequences)) .. '"'
+    return '"' .. (s:gsub(".", some_c_escape_sequences)) .. '"'
 end
 
 local function c_integer_literal(n)
@@ -136,7 +136,7 @@ local function checkandget(typ --[[:table]], cvar --[[:string]], exp --[[:string
     ]], {
         EXP = exp,
         TAG = c_string_literal(tag),
-        PREDICATE = 'ttis'..tag,
+        PREDICATE = "ttis"..tag,
         GETSLOT = getslot(typ, cvar, exp),
         LINE = c_integer_literal(line),
     })
@@ -173,7 +173,7 @@ local function checkandset(typ --[[:table]], dst --[[:string]], src --[[:string]
         }
     ]], {
         TAG = c_string_literal(tag),
-        PREDICATE = 'ttis'..tag,
+        PREDICATE = "ttis"..tag,
         SRC = src,
         DST = dst,
         LINE = c_integer_literal(line),
@@ -590,7 +590,7 @@ local function codecall(ctx, node)
     local fname
     local fnode = node.exp.var
     if fnode._tag == ast.Var.Name then
-        fname = ctx.prefix .. fnode.name .. '_titan'
+        fname = ctx.prefix .. fnode.name .. "_titan"
     elseif node.exp.var._tag == ast.Var.Dot then
         fname = fnode.exp._type.prefix .. fnode.name .. "_titan"
     end
@@ -1102,8 +1102,8 @@ function codeexp(ctx, node, iscondition, target)
         local ctmp, tmpname, tmpslot = newtmp(ctx, types.T.String(), true)
         for i, exp in ipairs(node.exps) do
             local cstat, cexp = codeexp(ctx, exp)
-            local strvar = string.format('_str%d', i)
-            local lenvar = string.format('_len%d', i)
+            local strvar = string.format("_str%d", i)
+            local lenvar = string.format("_len%d", i)
             table.insert(strs, render([[
                 $CSTAT
                 TString *$STRVAR = $CEXP;
@@ -1220,7 +1220,7 @@ local function codefuncdec(tlcontext, node)
     }]], {
         ISLOCAL = node.islocal and "static" or "",
         RETTYPE = ctype(rettype),
-        NAME = tlcontext.prefix .. node.name .. '_titan',
+        NAME = tlcontext.prefix .. node.name .. "_titan",
         PARAMS = table.concat(cparams, ", "),
         BODY = table.concat(stats, "\n")
     })
@@ -1229,7 +1229,7 @@ local function codefuncdec(tlcontext, node)
     ]], {
         ISLOCAL = node.islocal and "static" or "",
         RETTYPE = ctype(rettype),
-        NAME = tlcontext.prefix .. node.name .. '_titan',
+        NAME = tlcontext.prefix .. node.name .. "_titan",
         PARAMS = table.concat(cparams, ", ")
     })
     -- generate Lua entry point
@@ -1248,7 +1248,7 @@ local function codefuncdec(tlcontext, node)
         return 1;
     ]], {
         TYPE = ctype(rettype),
-        NAME = tlcontext.prefix .. node.name .. '_titan',
+        NAME = tlcontext.prefix .. node.name .. "_titan",
         PARAMS = table.concat(pnames, ", "),
         SETSLOT = setslot(rettype, "L->top", "res"),
     }))
@@ -1260,7 +1260,7 @@ local function codefuncdec(tlcontext, node)
         }
         $BODY
     }]], {
-        LUANAME = node.name .. '_lua',
+        LUANAME = node.name .. "_lua",
         EXPECTED = c_integer_literal(#node.params),
         NAME = c_string_literal(node.name),
         BODY = table.concat(stats, "\n"),
@@ -1600,7 +1600,7 @@ function coder.generate(modname, prog)
                         lua_pushcfunction(L, $LUANAME);
                         lua_setfield(L, -2, $NAMESTR);
                     ]], {
-                        LUANAME = node.name .. '_lua',
+                        LUANAME = node.name .. "_lua",
                         NAMESTR = c_string_literal(node.name),
                     }))
                 end
@@ -1729,14 +1729,14 @@ function coder.generate(modname, prog)
     }))
 
     table.insert(code, render(init, {
-        INITNAME = tlcontext.prefix .. 'init',
+        INITNAME = tlcontext.prefix .. "init",
         INITMODULES = table.concat(initmods, "\n"),
         INITVARS = table.concat(initvars, "\n")
     }))
 
     table.insert(code, render(postamble, {
-        LUAOPEN_NAME = 'luaopen_' .. modname:gsub("[.]", "_"),
-        INITNAME = tlcontext.prefix .. 'init',
+        LUAOPEN_NAME = "luaopen_" .. modname:gsub("[.]", "_"),
+        INITNAME = tlcontext.prefix .. "init",
         FUNCS = table.concat(funcs, "\n"),
         MODNAMESTR = c_string_literal("titan module "..modname),
     }))

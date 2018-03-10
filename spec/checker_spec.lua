@@ -110,7 +110,7 @@ describe("Titan type checker", function()
         assert_type_check([[ x = 10 y = x ]])
         assert_type_check([[ x = 10 y = -x ]])
         assert_type_check([[ x = 10 y = 10 + x ]])
-        assert_type_check([[ x = 10 y = "a" .. x ]])
+        assert_type_check([[ x = "b" y = "a" .. x ]])
         assert_type_check([[ x = 10 y: integer = x ]])
         assert_type_check([[ x = 10 y: {integer} = {x} ]])
     end)
@@ -169,6 +169,17 @@ describe("Titan type checker", function()
         assert.match("trying to bitwise negate a", errs)
     end)
 
+    it("catches wrong use of boolean not", function()
+        local code = [[
+            function fn(): boolean
+                return not nil
+            end
+        ]]
+        local prog, errs = run_checker(code)
+        assert.falsy(prog)
+        assert.match("trying to boolean negate a nil", errs)
+    end)
+
     it("catches mismatching types in locals", function()
         local code = [[
             function fn()
@@ -205,8 +216,6 @@ describe("Titan type checker", function()
         assert.falsy(prog)
         assert.match("expected string but found integer", errs)
     end)
-
--- TODO
 
     it("can create empty array (with type annotation)", function()
         local prog, errors = run_checker([[
@@ -311,6 +320,18 @@ describe("Titan type checker", function()
         ]])
         assert.falsy(prog)
         assert.matches("record initializer has array part", errors)
+    end)
+
+    it("forbids initializing a record field twice", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
+        ]])
+        assert.falsy(prog)
+        assert.matches("duplicate field x in record initializer", errors)
     end)
 
     it("forbids missing fields in record initializer", function()
@@ -959,20 +980,27 @@ describe("Titan type checker", function()
 
     for _, op in ipairs({"and", "or"}) do
         for _, t1 in ipairs({"{integer}", "integer", "string"}) do
-            for _, t2 in ipairs({"integer", "integer", "string"}) do
-                if t1 ~= t2 then
-                    it("cannot evaluate " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                        local code = [[
-                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
-                                return a ]] .. op .. [[ b
-                            end
-                        ]]
-                        local prog, errs = run_checker(code)
-                        assert.falsy(prog)
-                        assert.match("left hand side of logical expression is a", errs)
-                    end)
-                end
-            end
+            it("cannot have " .. t1 .. " as left operand of " .. op, function()
+                local code = [[
+                    function fn(x: ]] .. t1 .. [[): boolean
+                        return x ]] .. op .. [[ true
+                    end
+                ]]
+                local prog, errs = run_checker(code)
+                assert.falsy(prog)
+                assert.match("left hand side of logical expression is a", errs)
+            end)
+            it("cannot have " .. t1 .. " as right operand of " .. op, function()
+                local code = [[
+                    function fn(x: ]] .. t1 .. [[): boolean
+                        return true ]] .. op .. [[ x
+                    end
+                ]]
+                local prog, errs = run_checker(code)
+                assert.falsy(prog)
+                assert.match("right hand side of logical expression is a", errs)
+            end)
+
         end
     end
 
