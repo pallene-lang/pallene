@@ -404,9 +404,15 @@ check_exp = function(node, errors, typehint)
                 local initialized_fields = {}
                 for _, field in ipairs(node.fields) do
                     if field.name then
+                        if initialized_fields[field.name] then
+                            type_error(errors, field.loc,
+                                "duplicate field %s in record initializer",
+                                field.name)
+                        end
+                        initialized_fields[field.name] = true
+
                         local field_type = typehint.type_decl._field_types[field.name]
                         if field_type then
-                            initialized_fields[field.name] = true
                             check_exp(field.exp, errors, field_type)
                             checkmatch("record initializer",
                                 field_type, field.exp._type, errors, field.loc)

@@ -311,6 +311,18 @@ describe("Titan type checker", function()
         assert.matches("record initializer has array part", errors)
     end)
 
+    it("forbids initializing a record field twice", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
+        ]])
+        assert.falsy(prog)
+        assert.matches("duplicate field x in record initializer", errors)
+    end)
+
     it("forbids missing fields in record initializer", function()
         local prog, errors = run_checker([[
             record Point
