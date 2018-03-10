@@ -455,6 +455,11 @@ local grammar = re.compile([[
 
 ]], defs)
 
+local function parser_error(loc, label)
+    local errmsg = syntax_errors.errors[label]
+    return location.format_error(loc, "syntax error: %s", errmsg)
+end
+
 function parser.parse(filename, input)
     -- Abort if someone calls this non-reentrant parser recursively
     assert(type(filename) == "string")
@@ -464,21 +469,16 @@ function parser.parse(filename, input)
     local prog, err, errpos = grammar:match(input)
     THIS_FILENAME = nil
 
-    if prog then
-        return prog
-    else
+    local errors = {}
+    if not prog then
         local loc = location.from_pos(filename, input, errpos)
-        return false, { label = err, loc = loc }
+        table.insert(errors, parser_error(loc, err))
     end
+    return prog, errors
 end
 
-function parser.error_to_string(err)
-    local errmsg = syntax_errors.errors[err.label]
-    return location.format_error(err.loc, "syntax error: %s", errmsg)
-end
-
-function parser.pretty_print_ast(prog)
-    return inspect(prog, {
+function parser.pretty_print_ast(ast)
+    return inspect(ast, {
         process = function(item, path)
             if path[#path] ~= inspect.METATABLE then
                 return item

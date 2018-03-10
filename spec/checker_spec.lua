@@ -1,15 +1,11 @@
 local ast = require 'titan-compiler.ast'
 local checker = require 'titan-compiler.checker'
-local parser = require 'titan-compiler.parser'
-local scope_analysis = require 'titan-compiler.scope_analysis'
 local types = require 'titan-compiler.types'
 local util = require 'titan-compiler.util'
 
 local function run_checker(code)
-    local prog = assert(parser.parse("(checker_spec)", code))
-    assert(scope_analysis.bind_names(prog))
-    local ok, errs = checker.check(prog)
-    return (ok and prog), table.concat(errs, "\n")
+    local prog, errs = checker.check("(checker_spec)", code)
+    return prog, table.concat(errs, "\n")
 end
 
 -- Return a version of t2 that only contains fields present in t1 (recursively)

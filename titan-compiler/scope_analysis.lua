@@ -2,6 +2,7 @@ local scope_analysis = {}
 
 local ast = require "titan-compiler.ast"
 local location = require "titan-compiler.location"
+local parser = require "titan-compiler.parser"
 local symtab = require "titan-compiler.symtab"
 
 local bind_names_program
@@ -23,11 +24,12 @@ local bind_names_field
 --
 -- @param prog AST for the whole module
 -- @return true or false, followed by a list of compilation errors
-function scope_analysis.bind_names(prog)
+function scope_analysis.bind_names(filename, input)
+    local ast, errors = parser.parse(filename, input)
+    if not ast then return false, errors end
     local st = symtab.new()
-    local errors = {}
-    bind_names_program(prog, st, errors)
-    return (#errors == 0), errors
+    bind_names_program(ast, st, errors)
+    return (#errors == 0 and ast), errors
 end
 
 
