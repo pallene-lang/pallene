@@ -231,6 +231,13 @@ describe("Titan type checker", function()
         assert.truthy(prog)
     end)
 
+    it("can create array of array (with type annotation)", function()
+        local prog, errors = run_checker([[
+            local xs: {{integer}} = {{10,20}, {30,40}}
+        ]])
+        assert.truthy(prog)
+    end)
+
     it("forbids empty array (without type annotation)", function()
         local prog, errors = run_checker([[
             local xs = {}
@@ -270,6 +277,35 @@ describe("Titan type checker", function()
                 y: float
             end
             local p: Point = { x = 10.0, y = 20.0 }
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("can create array of record (with type annotation)", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            local ps: {Point} = {
+                { x = 10.0, y = 20.0 },
+                { x = 30.0, y = 40.0 },
+            }
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("can create record of record (with type annotation)", function()
+        local prog, errors = run_checker([[
+            record Point
+                x: float
+                y: float
+            end
+            record Circle
+                center: Point
+                radius: float
+            end
+            local c: Circle = { center = { x = 10.0, y = 20.0 }, radius = 5.0 }
         ]])
         assert.truthy(prog)
     end)
