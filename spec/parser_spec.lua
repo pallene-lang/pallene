@@ -740,7 +740,7 @@ describe("Titan parser", function()
 
     it("does not allow parentheses in the LHS of an assignment", function()
         assert_statements_syntax_error([[ local (x) = 42 ]], "DeclLocal")
-        assert_statements_syntax_error([[ (x) = 42 ]], "ExpAssign")
+        assert_statements_syntax_error([[ (x) = 42 ]], "AssignNotToVar")
     end)
 
     it("does not allow identifiers that are type names", function()

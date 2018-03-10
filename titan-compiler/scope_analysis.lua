@@ -3,7 +3,6 @@ local scope_analysis = {}
 local ast = require "titan-compiler.ast"
 local location = require "titan-compiler.location"
 local symtab = require "titan-compiler.symtab"
-local types = require "titan-compiler.types"
 
 local bind_names_program
 local bind_names_type
@@ -160,7 +159,7 @@ bind_names_toplevel = function(tlnode, st, errors)
         end
 
     elseif tag == ast.Toplevel.Import then
-        scope_error(errors, loc, "import statements are not yet implemented")
+        scope_error(errors, tlnode.loc, "import statements are not yet implemented")
 
     else
         error("impossible")
@@ -267,7 +266,7 @@ bind_names_var = function(var, st, errors)
             end
         else
             scope_error(errors, var.loc, "variable '%s' is not declared", name)
-            var_decl = false
+            var._decl = false
         end
 
     elseif tag == ast.Var.Bracket then

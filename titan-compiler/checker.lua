@@ -9,11 +9,11 @@ local check_type
 local check_toplevel
 local check_decl
 local check_stat
-local check_then
+--local check_then
 local check_var
 local check_exp
-local check_args
-local check_field
+--local check_args
+--local check_field
 
 -- Type-check a Titan module
 --
@@ -58,6 +58,7 @@ local function checkmatch(term, expected, found, errors, loc)
         type_error(errors, loc, msg)
     end
 end
+
 
 local function is_numeric_type(typ)
     return typ._tag == types.T.Integer or typ._tag == types.T.Float
@@ -127,7 +128,7 @@ check_type = function(node, errors)
     end
 end
 
-check_toplevel = function(node, errors, loader)
+check_toplevel = function(node, errors)
     local tag = node._tag
     if     tag == ast.Toplevel.Import then
         type_error(errors, node.loc, "modules are not implemented yet")
@@ -440,7 +441,7 @@ check_exp = function(node, errors, typehint)
         node._type = typehint or types.T.Invalid()
 
     elseif tag == ast.Exp.Var then
-        check_var(node.var, errors, context)
+        check_var(node.var, errors)
         local texp = node.var._type
         if texp._tag == types.T.Module then
             type_error(errors, node.loc,
@@ -632,7 +633,9 @@ check_exp = function(node, errors, typehint)
                 if not ptype then
                     ptype = atype
                 end
-                checkmatch("argument " .. i .. " of call to function '" .. fname .. "'", ptype, atype, errors, node.exp.loc)
+                checkmatch(
+                    "argument " .. i .. " of call to function '" .. fname .. "'",
+                    ptype, atype, errors, node.exp.loc)
             end
             if nargs ~= nparams then
                 type_error(errors, node.loc,

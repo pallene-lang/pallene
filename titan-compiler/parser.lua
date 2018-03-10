@@ -7,7 +7,6 @@ local ast = require "titan-compiler.ast"
 local lexer = require "titan-compiler.lexer"
 local location = require "titan-compiler.location"
 local syntax_errors = require "titan-compiler.syntax_errors"
-local util = require "titan-compiler.util"
 
 -- File name of the file that is currently being parsed.
 -- Since this is a global the parser is not reentrant but we couldn't think of
@@ -277,7 +276,7 @@ local grammar = re.compile([[
                                  exp^ExpLocal)                   -> StatDecl
                      / (P  var ASSIGN^AssignAssign
                                exp^ExpAssign)                    -> StatAssign
-                     / &(exp ASSIGN) %{ExpAssign}
+                     / &(exp ASSIGN) %{AssignNotToVar}
                      / (P  (suffixedexp => exp_is_call))         -> StatCall
                      / &exp %{ExpStat}
 
@@ -462,11 +461,11 @@ function parser.parse(filename, input)
     assert(THIS_FILENAME == nil)
 
     THIS_FILENAME = filename
-    local ast, err, errpos = grammar:match(input)
+    local prog, err, errpos = grammar:match(input)
     THIS_FILENAME = nil
 
-    if ast then
-        return ast
+    if prog then
+        return prog
     else
         local loc = location.from_pos(filename, input, errpos)
         return false, { label = err, loc = loc }
@@ -478,8 +477,8 @@ function parser.error_to_string(err)
     return location.format_error(err.loc, "syntax error: %s", errmsg)
 end
 
-function parser.pretty_print_ast(ast)
-    return inspect(ast, {
+function parser.pretty_print_ast(prog)
+    return inspect(prog, {
         process = function(item, path)
             if path[#path] ~= inspect.METATABLE then
                 return item
