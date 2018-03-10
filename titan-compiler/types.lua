@@ -1,5 +1,5 @@
-local ast = require 'titan-compiler.ast'
-local typedecl = require 'titan-compiler.typedecl'
+local ast = require "titan-compiler.ast"
+local typedecl = require "titan-compiler.typedecl"
 
 local types = {}
 
