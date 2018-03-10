@@ -455,6 +455,11 @@ local grammar = re.compile([[
 
 ]], defs)
 
+local function parser_error(loc, label)
+    local errmsg = syntax_errors.errors[label]
+    return location.format_error(loc, "syntax error: %s", errmsg)
+end
+
 function parser.parse(filename, input)
     -- Abort if someone calls this non-reentrant parser recursively
     assert(type(filename) == "string")
@@ -468,13 +473,8 @@ function parser.parse(filename, input)
         return prog
     else
         local loc = location.from_pos(filename, input, errpos)
-        return false, { label = err, loc = loc }
+        return false, parser_error(loc, err)
     end
-end
-
-function parser.error_to_string(err)
-    local errmsg = syntax_errors.errors[err.label]
-    return location.format_error(err.loc, "syntax error: %s", errmsg)
 end
 
 function parser.pretty_print_ast(prog)

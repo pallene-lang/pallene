@@ -37,25 +37,25 @@ end
 local function assert_parses_successfuly(program_str)
     local ast, err = parser.parse("(parser_spec)", program_str)
     if not ast then
-        error(string.format("Unexpected Titan syntax error: %s", err.label))
+        error(string.format("Unexpected Titan syntax error: %s", err))
     end
     return ast
 end
-
 
 local function assert_program_ast(program_str, expected_ast)
     local ast = assert_parses_successfuly(program_str)
     assert_is_subset(expected_ast, ast)
 end
 
-local function assert_program_syntax_error(program_str, expected_error_label)
+local function assert_program_syntax_error(program_str, expected_error)
     local ast, err = parser.parse("(parser_spec)", program_str)
     if ast then
-        error(string.format("Expected Titan syntax error %s but parsed successfuly", expected_error_label))
+        error(string.format(
+            "Expected Titan syntax error %s but parsed successfuly",
+            expected_error))
     end
-    assert.are.same(expected_error_label, err.label)
+    assert.matches(expected_error, err, 1, true)
 end
-
 
 --
 -- Assertions for types
@@ -74,9 +74,9 @@ local function assert_type_ast(code, expected_ast)
     assert_is_subset(expected_ast, ast)
 end
 
-local function assert_type_syntax_error(code, expected_error_label)
+local function assert_type_syntax_error(code, expected_error)
     local program_str = type_test_program(code)
-    assert_program_syntax_error(program_str, expected_error_label)
+    assert_program_syntax_error(program_str, expected_error)
 end
 
 --
@@ -98,9 +98,9 @@ local function assert_expression_ast(code, expected_ast)
     assert_is_subset(expected_ast, ast)
 end
 
-local function assert_expression_syntax_error(code, expected_error_label)
+local function assert_expression_syntax_error(code, expected_error)
     local program_str = expression_test_program(code)
-    assert_program_syntax_error(program_str, expected_error_label)
+    assert_program_syntax_error(program_str, expected_error)
 end
 
 --
@@ -122,9 +122,9 @@ local function assert_statements_ast(code, expected_ast)
     assert_is_subset(expected_ast, ast)
 end
 
-local function assert_statements_syntax_error(code, expected_error_label)
+local function assert_statements_syntax_error(code, expected_error)
     local program_str = statements_test_program(code)
-    assert_program_syntax_error(program_str, expected_error_label)
+    assert_program_syntax_error(program_str, expected_error)
 end
 
 --
@@ -441,13 +441,13 @@ describe("Titan parser", function()
         assert_statements_syntax_error([[
             return 10
             return 11
-        ]], "EndFunc")
+        ]], "Expected 'end' to close the function body.")
     end)
 
     it("does not allow extra semicolons after a return", function()
         assert_statements_syntax_error([[
             return;;
-        ]], "EndFunc")
+        ]], "Expected 'end' to close the function body.")
     end)
 
     it("can parse binary and unary operators", function()
@@ -587,11 +587,11 @@ describe("Titan parser", function()
 
         assert_statements_syntax_error([[
             (f)
-        ]], "ExpStat")
+        ]], "Expected a statement but found an expression that is not a function call")
 
         assert_statements_syntax_error([[
             1 + 1
-        ]], "ExpStat")
+        ]], "Expected a statement but found an expression that is not a function call")
     end)
 
     it("can parse import", function ()
@@ -739,25 +739,28 @@ describe("Titan parser", function()
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()
-        assert_statements_syntax_error([[ local (x) = 42 ]], "DeclLocal")
-        assert_statements_syntax_error([[ (x) = 42 ]], "AssignNotToVar")
+        assert_statements_syntax_error([[ local (x) = 42 ]],
+            "Expected variable declaration after 'local'.")
+        assert_statements_syntax_error([[ (x) = 42 ]],
+            "Expected a valid lvalue in the left side of assignment but found a regular expression")
     end)
 
     it("does not allow identifiers that are type names", function()
         assert_program_syntax_error([[
             function integer()
             end
-        ]], "NameFunc")
+        ]], "Expected a function name after 'function'.")
 
         assert_program_syntax_error([[
             function f()
                 local integer: integer = 10
             end
-        ]], "DeclLocal")
+        ]], "Expected variable declaration after 'local'.")
     end)
 
     it("doesn't allow using a primitive type as a record", function()
-        assert_expression_syntax_error("integer.new(10)", "ExpAssign")
+        assert_expression_syntax_error("integer.new(10)",
+            "Expected an expression after '='.")
     end)
 
     it("uses specific error labels for some errors", function()
@@ -765,262 +768,280 @@ describe("Titan parser", function()
         assert_program_syntax_error([[
             function () : int
             end
-        ]], "NameFunc")
+        ]], "Expected a function name after 'function'.")
 
         assert_program_syntax_error([[
             function foo : int
             end
-        ]], "LParPList")
+        ]], "Expected '(' for the parameter list.")
 
         assert_program_syntax_error([[
             function foo ( : int
             end
-        ]], "RParPList")
+        ]], "Expected ')' to close the parameter list.")
 
         assert_program_syntax_error([[
             function foo () :
                 local x = 3
             end
-        ]], "TypeFunc")
+        ]], "Expected a type in function declaration.")
 
         assert_program_syntax_error([[
             function foo () : int
               local x = 3
               return x
-        ]], "EndFunc")
+        ]], "Expected 'end' to close the function body.")
 
         assert_program_syntax_error([[
             function foo(x, y) : int
             end
-        ]], "ParamSemicolon")
+        ]], "Expected ':' after parameter name.")
 
         assert_program_syntax_error([[
             x 3
-        ]], "AssignVar")
+        ]], "Expected '=' after variable declaration.")
 
         assert_program_syntax_error([[
             x =
-        ]], "ExpVarDec")
+        ]], "Expected an expression to initialize variable.")
 
         assert_program_syntax_error([[
             record
-        ]], "NameRecord")
+        ]], "Expected a record name after 'record'.")
 
         assert_program_syntax_error([[
             record A
                 x : int
-        ]], "EndRecord")
+        ]], "Expected 'end' to close the record.")
 
         assert_program_syntax_error([[
             record A
             end
-        ]], "FieldRecord")
+        ]], "Expected a field in record declaration.")
 
         assert_program_syntax_error([[
             local = import "bola"
-        ]], "NameImport")
+        ]], "Expected a name after 'local'.")
 
         assert_program_syntax_error([[
             local bola = import ()
-        ]], "StringLParImport")
+        ]], "Expected the name of a module after '('.")
 
         assert_program_syntax_error([[
             local bola = import ('bola'
-        ]], "RParImport")
+        ]], "Expected ')' to close import declaration.")
 
         assert_program_syntax_error([[
             local bola = import
-        ]], "StringImport")
+        ]], "Expected the name of a module after 'import'.")
 
         assert_program_syntax_error([[
             function foo (a:int, ) : int
             end
-        ]], "DeclParList")
+        ]], "Expected a variable name after ','.")
 
         assert_program_syntax_error([[
             function foo (a: ) : int
             end
-        ]], "TypeDecl")
+        ]], "Expected a type name after ':'.")
 
 
-        assert_type_syntax_error([[ {} ]], "TypeType")
+        assert_type_syntax_error([[ {} ]],
+            "Expected a type name after '{'.")
 
-        assert_type_syntax_error([[ {int ]], "RCurlyType")
+        assert_type_syntax_error([[ {int ]],
+            "Expected '}' to close type specification.")
 
-        assert_type_syntax_error([[ (a,,,) -> b ]], "TypelistType")
+        assert_type_syntax_error([[ (a,,,) -> b ]],
+            "Expected type after ','")
 
-        assert_type_syntax_error([[ (a, b -> b  ]], "RParenTypelist")
+        assert_type_syntax_error([[ (a, b -> b  ]],
+            "Expected ')' to close type list")
 
-        assert_type_syntax_error([[ (a, b) -> = nil ]], "TypeReturnTypes")
+        assert_type_syntax_error([[ (a, b) -> = nil ]],
+            "Expected return types after `->` to finish the function type")
 
 
         assert_program_syntax_error([[
             record A
                 x  int
             end
-        ]], "ColonRecordField")
+        ]], "Expected ':' after the name of a record field.")
 
         assert_program_syntax_error([[
             record A
                 x : function
             end
-        ]], "TypeRecordField")
+        ]], "Expected a type name after ':'.")
 
         assert_program_syntax_error([[
             function f ( x : int) : string
                 do
                 return "42"
-        ]], "EndBlock")
+        ]], "Expected 'end' to close block.")
 
         assert_statements_syntax_error([[
             while do
                 x = x - 1
             end
-        ]], "ExpWhile")
+        ]], "Expected an expression after 'while'.")
 
         assert_statements_syntax_error([[
             while x > 3
                 x = x - 1
             end
-        ]], "DoWhile")
+        ]], "Expected 'do' in while statement.")
 
         assert_statements_syntax_error([[
             while x > 3 do
                 x = x - 1
                 return 42
             return 41
-        ]], "EndWhile")
+        ]], "Expected 'end' to close the while statement.")
 
         assert_statements_syntax_error([[
             repeat
                 x = x - 1
             end
-        ]], "UntilRepeat")
+        ]], "Expected 'until' in repeat statement.")
 
         assert_statements_syntax_error([[
             repeat
                 x = x - 1
             until
-        ]], "ExpRepeat")
+        ]], "Expected an expression after 'until'.")
 
         assert_statements_syntax_error([[
             if then
                 x = x - 1
             end
-        ]], "ExpIf")
+        ]], "Expected an expression after 'if'.")
 
         assert_statements_syntax_error([[
             if x > 10
                 x = x - 1
             end
-        ]], "ThenIf")
+        ]], "Expected 'then' in if statement.")
 
         assert_statements_syntax_error([[
             if x > 10 then
                 x = x - 1
                 return 42
             return 41
-        ]], "EndIf")
+        ]], "Expected 'end' to close the if statement.")
 
         assert_statements_syntax_error([[
             for = 1, 10 do
             end
-        ]], "DeclFor")
+        ]], "Expected variable declaration in for statement.")
 
         assert_statements_syntax_error([[
             for x  1, 10 do
             end
-        ]], "AssignFor")
+        ]], "Expected '=' after variable declaration in for statement.")
 
         assert_statements_syntax_error([[
             for x = , 10 do
             end
-        ]], "Exp1For")
+        ]], "Expected an expression after '='.")
 
         assert_statements_syntax_error([[
             for x = 1 10 do
             end
-        ]], "CommaFor")
+        ]], "Expected ',' in for statement.")
 
         assert_statements_syntax_error([[
             for x = 1, do
             end
-        ]], "Exp2For")
+        ]], "Expected an expression after ','.")
 
         assert_statements_syntax_error([[
             for x = 1, 10, do
             end
-        ]], "Exp3For")
+        ]], "Expected an expression after ','.")
 
         assert_statements_syntax_error([[
             for x = 1, 10, 1
             end
-        ]], "DoFor")
+        ]], "Expected 'do' in for statement.")
 
         assert_statements_syntax_error([[
             for x = 1, 10, 1 do
                 return 42
             return 41
-        ]], "EndFor")
+        ]], "Expected 'end' to close the for statement.")
 
         assert_statements_syntax_error([[
             local = 3
-        ]], "DeclLocal")
+        ]], "Expected variable declaration after 'local'.")
 
         assert_statements_syntax_error([[
             local x  3
-        ]], "AssignLocal")
+        ]], "Expected '=' after variable declaration.")
 
         assert_statements_syntax_error([[
             local x =
-        ]], "ExpLocal")
+        ]], "Expected an expression after '='.")
 
         assert_statements_syntax_error([[
             x
-        ]], "AssignAssign")
+        ]], "Expected '=' after variable.")
 
         assert_statements_syntax_error([[
             x =
-        ]], "ExpAssign")
+        ]], "Expected an expression after '='.")
 
         assert_statements_syntax_error([[
             if x > 1 then
                 x = x - 1
             elseif then
             end
-        ]], "ExpElseIf")
+        ]], "Expected an expression after 'elseif'.")
 
         assert_statements_syntax_error([[
             if x > 1 then
                 x = x - 1
             elseif x > 0
             end
-        ]], "ThenElseIf")
+        ]], "Expected 'then' in elseif statement.")
 
-        assert_expression_syntax_error([[ 1 + ]], "OpExp")
+        assert_expression_syntax_error([[ 1 + ]],
+            "Expected an expression after operator.")
 
-        assert_expression_syntax_error([[ obj:() ]], "NameColonExpSuf")
+        assert_expression_syntax_error([[ obj:() ]],
+            "Expected a method name after ':'.")
 
-        assert_expression_syntax_error([[ obj:f + 1 ]], "FuncArgsExpSuf")
+        assert_expression_syntax_error([[ obj:f + 1 ]],
+            "Expected a list of arguments.")
 
-        assert_expression_syntax_error([[ y[] ]], "ExpExpSuf")
+        assert_expression_syntax_error([[ y[] ]],
+            "Expected an expression after '['.")
 
-        assert_expression_syntax_error([[ y[1 ]], "RBracketExpSuf")
+        assert_expression_syntax_error([[ y[1 ]],
+            "Expected ']' to match '['.")
 
-        assert_expression_syntax_error([[ y.() ]], "NameDotExpSuf")
+        assert_expression_syntax_error([[ y.() ]],
+            "Expected a function name after '.'.")
 
-        assert_expression_syntax_error([[ () ]], "ExpSimpleExp")
+        assert_expression_syntax_error([[ () ]],
+            "Expected an expression after '('.")
 
-        assert_expression_syntax_error([[ (42 ]], "RParSimpleExp")
+        assert_expression_syntax_error([[ (42 ]],
+            "Expected ')'to match '('.")
 
-        assert_expression_syntax_error([[ f(42 ]], "RParFuncArgs")
+        assert_expression_syntax_error([[ f(42 ]],
+            "Expected ')' to match '('.")
 
-        assert_expression_syntax_error([[ f(42,) ]], "ExpExpList")
+        assert_expression_syntax_error([[ f(42,) ]],
+            "Expected an expression after ','.")
 
-        assert_expression_syntax_error([[ y{42 ]], "RCurlyInitList")
+        assert_expression_syntax_error([[ y{42 ]],
+            "Expected '{' to match '}'.")
 
-        assert_expression_syntax_error([[ y{42,,} ]], "ExpFieldList")
+        assert_expression_syntax_error([[ y{42,,} ]],
+            "Expected an expression after ',' or ';'.")
 
-        assert_expression_syntax_error([[ foo as ]], "CastMissingType")
+        assert_expression_syntax_error([[ foo as ]],
+            "Expected a type for the cast expression")
     end)
 end)
