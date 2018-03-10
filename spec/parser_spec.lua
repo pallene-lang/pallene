@@ -35,9 +35,9 @@ end
 --
 
 local function assert_parses_successfuly(program_str)
-    local ast, err = parser.parse("(parser_spec)", program_str)
+    local ast, errors = parser.parse("(parser_spec)", program_str)
     if not ast then
-        error(string.format("Unexpected Titan syntax error: %s", err))
+        error(string.format("Unexpected Titan syntax error: %s", errors[1]))
     end
     return ast
 end
@@ -48,13 +48,13 @@ local function assert_program_ast(program_str, expected_ast)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
-    local ast, err = parser.parse("(parser_spec)", program_str)
+    local ast, errors = parser.parse("(parser_spec)", program_str)
     if ast then
         error(string.format(
             "Expected Titan syntax error %s but parsed successfuly",
             expected_error))
     end
-    assert.matches(expected_error, err, 1, true)
+    assert.matches(expected_error, errors[1], 1, true)
 end
 
 --

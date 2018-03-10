@@ -1,8 +1,9 @@
 local checker = {}
 
-local location = require "titan-compiler.location"
-local types = require "titan-compiler.types"
 local ast = require "titan-compiler.ast"
+local location = require "titan-compiler.location"
+local scope_analysis = require "titan-compiler.scope_analysis"
+local types = require "titan-compiler.types"
 
 local check_program
 local check_type
@@ -30,10 +31,11 @@ local check_exp
 --
 -- @ param prog AST for the whole module
 -- @ return true or false, followed by as list of compilation errors
-function checker.check(prog)
-    local errors = {}
-    check_program(prog, errors)
-    return (#errors == 0), errors
+function checker.check(filename, input)
+    local ast, errors = scope_analysis.bind_names(filename, input)
+    if not ast then return false, errors end
+    check_program(ast, errors)
+    return (#errors == 0 and ast), errors
 end
 
 --

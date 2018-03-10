@@ -1,10 +1,8 @@
-local parser = require 'titan-compiler.parser'
 local scope_analysis = require 'titan-compiler.scope_analysis'
 
 local function run_scope_analysis(code)
-    local prog = assert(parser.parse("(scope_analysis_spec)", code))
-    local ok, errs = scope_analysis.bind_names(prog)
-    return (ok and prog), table.concat(errs, "\n")
+    local prog, errs = scope_analysis.bind_names("(scope_analysis_spec)", code)
+    return prog, table.concat(errs, "\n")
 end
 
 describe("Scope analysis: ", function()
