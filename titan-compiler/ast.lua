@@ -75,4 +75,25 @@ declare_type("Field", {
     Field = {"loc", "name", "exp"},
 })
 
+--
+-- note: the following functions are why we need `if type(conss) == "table"`
+-- in parser.lua
+--
+
+-- Return the variable name declared by a given toplevel node
+function ast.toplevel_name(tlnode)
+    local tag = tlnode._tag
+    if     tag == ast.Toplevel.Func then
+        return tlnode.name
+    elseif tag == ast.Toplevel.Var then
+        return tlnode.decl.name
+    elseif tag == ast.Toplevel.Record then
+        return tlnode.name
+    elseif tag == ast.Toplevel.Import then
+        return tlnode.localname
+    else
+        error("impossible")
+    end
+end
+
 return ast

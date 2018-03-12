@@ -23,4 +23,18 @@ describe("Titan coder", function()
     it("compiles an empty program", function()
         run_coder("", "")
     end)
+
+    it("compiles a program with constant globals", function()
+        run_coder([[
+            x1: integer = 42
+            x2: float = 10.5
+            x3: boolean = true
+            local x4: integer = 13
+        ]], [[
+            assert.equals(42,   test.x1)
+            assert.equals(10.5, test.x2)
+            assert.equals(true, test.x3)
+            assert.equals(nil,  test.x4)
+        ]])
+    end)
 end)

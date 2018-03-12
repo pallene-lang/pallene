@@ -42,23 +42,6 @@ local function scope_error(errors, loc, fmt, ...)
     table.insert(errors, errmsg)
 end
 
--- Return the variable name declared by a given toplevel node
-local function toplevel_name(tlnode)
-    local tag = tlnode._tag
-    if     tag == ast.Toplevel.Func then
-        return tlnode.name
-    elseif tag == ast.Toplevel.Var then
-        return tlnode.decl.name
-    elseif tag == ast.Toplevel.Record then
-        return tlnode.name
-    elseif tag == ast.Toplevel.Import then
-        return tlnode.localname
-    else
-        error("impossible")
-    end
-end
-
-
 --
 -- bind_names
 --
@@ -66,7 +49,7 @@ end
 bind_names_program = function(prog, st, errors)
     st:with_block(function()
         for _, tlnode in ipairs(prog) do
-            local name = toplevel_name(tlnode)
+            local name = ast.toplevel_name(tlnode)
             local dup = st:find_dup(name)
             if dup then
                 scope_error(errors, tlnode.loc,

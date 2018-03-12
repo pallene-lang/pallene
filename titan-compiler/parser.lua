@@ -24,10 +24,12 @@ for tokname, tokpat in pairs(lexer) do
 end
 
 for typename, conss in pairs(ast) do
-    for tag, cons in pairs(conss) do
-        local name = typename .. tag
-        assert(not defs[name])
-        defs[name] = cons
+    if type(conss) == "table" then
+        for tag, cons in pairs(conss) do
+            local name = typename .. tag
+            assert(not defs[name])
+            defs[name] = cons
+        end
     end
 end
 
