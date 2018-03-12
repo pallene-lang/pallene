@@ -63,7 +63,7 @@ end
 
 local function type_test_program(s)
     return util.render([[
-        local x: $TYPE = nil
+        local x: ${TYPE} = nil
     ]], { TYPE = s } )
 end
 
@@ -86,7 +86,7 @@ end
 local function expression_test_program(s)
     return util.render([[
         function foo(): nil
-            x = $EXPR
+            x = ${EXPR}
         end
     ]], { EXPR = s })
 end
@@ -110,7 +110,7 @@ end
 local function statements_test_program(s)
     return util.render([[
         function foo(): nil
-            $STATS
+            ${STATS}
         end
     ]], { STATS = s })
 end

@@ -18,7 +18,7 @@ local whole_file_template = [[
 #include "lauxlib.h"
 #include "lualib.h"
 
-int luaopen_$MODNAME(lua_State *L) {
+int luaopen_${MODNAME}(lua_State *L) {
     lua_newtable(L);
     return 1;
 }
