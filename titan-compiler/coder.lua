@@ -212,7 +212,7 @@ generate_program = function(prog, modname)
                         RET = ret_ctype,
                         NAME = titan_entry_point_name,
                         ARGS = table.concat(args, ", "),
-                        BODY = [[/*TODO*/ return 42;]]
+                        BODY = generate_stat(tl_node.block)
                     })
                 )
 
@@ -353,6 +353,53 @@ generate_program = function(prog, modname)
         CREATE_MODULE_TABLE = create_module_table,
     })
     return pretty.reindent_c(code)
+end
+
+
+generate_stat = function(stat)
+    local tag = stat._tag
+    if     tag == ast.Stat.Block then
+        local cstatss = {}
+        for _, inner_stat in ipairs(stat.stats) do
+            local cstats = generate_stat(inner_stat)
+            table.insert(cstatss, cstats)
+        end
+        return table.concat(cstatss, "\n")
+
+    elseif tag == ast.Stat.While then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.Repeat then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.If then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.For then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.Assign then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.Decl then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.Call then
+        error("not implemented yet")
+
+    elseif tag == ast.Stat.Return then
+        local cstats, cvalue = generate_exp(stat.exp)
+        return util.render([[
+            ${CSTATS}
+            return ${CVALUE};
+        ]], {
+            CSTATS = cstats,
+            CVALUE = cvalue
+        })
+
+    else
+        error("impossible")
+    end
 end
 
 -- Returns (statements, value)
