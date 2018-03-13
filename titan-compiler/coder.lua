@@ -33,11 +33,29 @@ local whole_file_template = [[
 
 ${DEFINE_FUNCTIONS}
 
+int init_${MODNAME}(lua_State *L)
+{
+    ${INITIALIZE_TOPLEVEL}
+    return 0;
+}
+
 int luaopen_${MODNAME}(lua_State *L)
 {
-    Table *titan_globals;
     lua_checkstack(L, 3); // TODO
-    ${INITIALIZE_TOPLEVEL}
+
+    Table *titan_globals = luaH_new(L);
+    luaH_resizearray(L, titan_globals, ${N_TOPLEVEL});
+
+    {
+        CClosure *func = luaF_newCclosure(L, 1);
+        func->f = init_${MODNAME};
+        sethvalue(L, &func->upvalue[0], titan_globals);
+        setclCvalue(L, L->top, func);
+        api_incr_top(L);
+
+        lua_call(L, 0, 0);
+    }
+
     ${CREATE_MODULE_TABLE}
     return 1;
 }
@@ -257,20 +275,17 @@ generate_program = function(prog, modname)
     end
 
     -- Construct the values in the toplevel
+    -- This needs to happen inside a C closure with all the same upvalues that a
+    -- titan function has, because the initializer expressions might rely on
+    -- that.
     local initialize_toplevel
     do
         local parts = {}
 
-        table.insert(parts,
-            util.render([[
-                {
-                    /* Initialize titan_globals */
-                    titan_globals = luaH_new(L);
-                    luaH_resizearray(L, titan_globals, ${N_TOPLEVEL});
-            ]], {
-                N_TOPLEVEL = n_toplevel
-            })
-        )
+        if n_toplevel > 0 then
+            table.insert(parts,
+                [[Table *titan_globals = hvalue(&clCvalue(L->ci->func)->upvalue[0]);]])
+        end
 
         for _, tl_node in ipairs(prog) do
             if tl_node._global_index then
@@ -300,12 +315,13 @@ generate_program = function(prog, modname)
                     local cstats, cvalue = generate_exp(exp)
                     table.insert(parts, cstats)
                     table.insert(parts, set_slot(exp._type, arr_slot, cvalue))
+
                 else
                     error("impossible")
                 end
             end
         end
-        table.insert(parts, "}")
+
         initialize_toplevel = table.concat(parts, "\n")
     end
 
@@ -344,6 +360,7 @@ generate_program = function(prog, modname)
 
     local code = util.render(whole_file_template, {
         MODNAME = modname,
+        N_TOPLEVEL = c_integer(n_toplevel),
         DEFINE_FUNCTIONS = define_functions,
         INITIALIZE_TOPLEVEL = initialize_toplevel,
         CREATE_MODULE_TABLE = create_module_table,
