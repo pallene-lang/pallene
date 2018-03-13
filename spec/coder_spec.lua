@@ -41,4 +41,32 @@ describe("Titan coder", function()
         ]])
     end)
 
+    -- TODO: make these not with constants, because these tests will be useless
+    -- when we have constant propagation.
+    it("Basic unary operations", function()
+        run_coder([[
+            function f(): integer
+              return -17
+            end
+        ]], [[
+            assert.is_equal(-17, test.f())
+        ]])
+
+        run_coder([[
+            function f(): integer
+              return ~17
+            end
+        ]], [[
+            assert.is_equal(~17, test.f())
+        ]])
+
+        run_coder([[
+            function f(): boolean
+              return not true
+            end
+        ]], [[
+            assert.is_equal(not true, test.f())
+        ]])
+    end)
+
 end)

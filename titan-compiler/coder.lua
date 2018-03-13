@@ -435,7 +435,24 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     elseif tag == ast.Exp.Unop then
-        error("not implemented yet")
+        local cstats, cvalue = generate_exp(exp.exp)
+
+        local op = exp.op
+        if op == "#" then
+            error("not implemented yet")
+
+        elseif op == "-" then
+            return cstats, "(".."-"..cvalue..")"
+
+        elseif op == "~" then
+            return cstats, "(".."~"..cvalue..")"
+
+        elseif op == "not" then
+            return cstats, "(".."!"..cvalue..")"
+
+        else
+            error("impossible")
+        end
 
     elseif tag == ast.Exp.Concat then
         error("not implemented yet")
