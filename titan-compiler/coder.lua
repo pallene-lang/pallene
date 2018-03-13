@@ -41,8 +41,6 @@ int init_${MODNAME}(lua_State *L)
 
 int luaopen_${MODNAME}(lua_State *L)
 {
-    lua_checkstack(L, 3); // TODO
-
     Table *titan_globals = luaH_new(L);
     luaH_resizearray(L, titan_globals, ${N_TOPLEVEL});
 
