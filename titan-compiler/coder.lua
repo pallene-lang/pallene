@@ -92,9 +92,8 @@ end
 
 -- This name-mangling scheme is designed to avoid clashes between the function
 -- names created in separate models.
-local function mangle_function_name(modname, funcname, suffix)
-    return string.format("ttt_%d%s%d%s%s",
-        #modname, modname, #funcname, funcname, suffix)
+local function mangle_function_name(modname, funcname, kind)
+    return string.format("function_%s_%s", funcname, kind)
 end
 
 local function local_name(varname)
@@ -187,7 +186,7 @@ generate_program = function(prog, modname)
             if tl_node._tag == ast.Toplevel.Func then
                 -- Titan entry point
                 local titan_entry_point_name =
-                    mangle_function_name(modname, tl_node.name, "_titan")
+                    mangle_function_name(modname, tl_node.name, "titan")
 
                 assert(#tl_node._type.rettypes == 1)
                 local ret_ctype = ctype(tl_node._type.rettypes[1])
@@ -203,7 +202,7 @@ generate_program = function(prog, modname)
 
                 table.insert(function_definitions,
                     util.render([[
-                        ${RET} ${NAME}(${ARGS})
+                        static ${RET} ${NAME}(${ARGS})
                         {
                             ${BODY}
                         }
@@ -217,7 +216,7 @@ generate_program = function(prog, modname)
 
                 -- Lua entry point
                 local lua_entry_point_name =
-                    mangle_function_name(modname, tl_node.name, "_lua")
+                    mangle_function_name(modname, tl_node.name, "lua")
 
                 assert(#tl_node._type.rettypes == 1)
                 local ret_typ = tl_node._type.rettypes[1]
@@ -233,7 +232,7 @@ generate_program = function(prog, modname)
 
                 table.insert(function_definitions,
                     util.render([[
-                        int ${LUA_ENTRY_POINT}(lua_State *L)
+                        static int ${LUA_ENTRY_POINT}(lua_State *L)
                         {
                             ${RET_DECL} = ${TITAN_ENTRY_POINT}(${ARGS});
                             ${SET_RET}
