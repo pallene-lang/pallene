@@ -25,10 +25,11 @@ function util.set_file_contents(filename, contents)
 end
 
 -- Barebones string-based template function for generating C/Lua code.
--- Replaces $VAR placeholders in the `code` template by the corresponding
+-- Replaces ${VAR} placeholders in the `code` template by the corresponding
 -- strings in the `substs` table.
 function util.render(code, substs)
-    return (string.gsub(code, "$([%w_]+)", function(k)
+    return (string.gsub(code, "%$%b{}", function(matched)
+        local k = matched:sub(3, -2) -- remove "${" and "}"
         local v = substs[k]
         if not v then
             error("Internal compiler error: missing template variable " .. k)
