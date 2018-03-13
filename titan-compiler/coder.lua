@@ -10,9 +10,9 @@ local generate_program
 local generate_exp
 
 function coder.generate(filename, input, modname)
-    local ast, errors = checker.check(filename, input)
-    if not ast then return false, errors end
-    local code = generate_program(ast, modname)
+    local prog, errors = checker.check(filename, input)
+    if not prog then return false, errors end
+    local code = generate_program(prog, modname)
     return code, errors
 end
 
@@ -118,7 +118,6 @@ generate_program = function(prog, modname)
     -- Find where each global variable gets stored in the global table
     local n_toplevel = 0
     do
-        local next_i = 1
         for _, tl_node in ipairs(prog) do
             if toplevel_is_value_declaration(tl_node) then
                 tl_node._global_index = n_toplevel
@@ -244,10 +243,8 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     else
-        print(require("inspect")(exp))
         error("impossible")
     end
-
 end
 
 return coder

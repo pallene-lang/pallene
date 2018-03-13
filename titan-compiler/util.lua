@@ -29,7 +29,7 @@ end
 -- strings in the `substs` table.
 function util.render(code, substs)
     return (string.gsub(code, "%$%b{}", function(matched)
-        local k = matched:sub(3,-2) -- remove "${" and "}"
+        local k = matched:sub(3, -2) -- remove "${" and "}"
         local v = substs[k]
         if not v then
             error("Internal compiler error: missing template variable " .. k)
