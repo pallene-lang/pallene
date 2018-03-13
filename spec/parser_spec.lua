@@ -143,16 +143,14 @@ describe("Titan parser", function()
     it("can parse toplevel var declarations", function()
         assert_program_ast([[ local x=17 ]], {
             { _tag = ast.Toplevel.Var,
-                islocal = true,
                 decl = { name = "x", type = false } }
         })
-
-        assert_program_ast([[ y = 18 ]], {
-            { _tag = ast.Toplevel.Var,
-                islocal = false,
-                decl = { name = "y", type = false } }
-        })
     end)
+
+    it("does not allow global variables", function()
+        assert_program_syntax_error([[ x=17 ]], "Syntax Error")
+    end)
+
 
     it("can parse toplevel function declarations", function()
         assert_program_ast([[
@@ -798,11 +796,11 @@ describe("Titan parser", function()
         ]], "Expected ':' after parameter name.")
 
         assert_program_syntax_error([[
-            x 3
+            local x 3
         ]], "Expected '=' after variable declaration.")
 
         assert_program_syntax_error([[
-            x =
+            local x =
         ]], "Expected an expression to initialize variable.")
 
         assert_program_syntax_error([[

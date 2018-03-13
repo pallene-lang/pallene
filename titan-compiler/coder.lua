@@ -311,19 +311,12 @@ generate_program = function(prog, modname)
 
     local create_module_table
     do
+
+        local n_exported_functions = 0
         local parts = {}
-
-        table.insert(parts, "{")
-        table.insert(parts, "/*Initialize module table*/")
-
-        table.insert(parts,
-            util.render([[ lua_createtable(L, 0, ${N}); ]], {
-                N = n_toplevel
-            })
-        )
-
         for _, tl_node in ipairs(prog) do
-            if tl_node._global_index and not tl_node.islocal then
+            if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
+                n_exported_functions = n_exported_functions + 1
                 table.insert(parts,
                     util.render([[
                         lua_pushstring(L, ${NAME});
@@ -337,8 +330,16 @@ generate_program = function(prog, modname)
             end
         end
 
-        table.insert(parts, "}")
-        create_module_table = table.concat(parts, "\n")
+        create_module_table = util.render([[
+            {
+                /* Initialize module table */
+                lua_createtable(L, 0, ${N});
+                ${PARTS}
+            }
+        ]], {
+            N = c_integer(n_exported_functions),
+            PARTS = table.concat(parts, "\n")
+        })
     end
 
     local code = util.render(whole_file_template, {
