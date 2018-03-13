@@ -194,7 +194,6 @@ generate_program = function(prog, modname)
 
                 local args = {}
                 table.insert(args, [[lua_State * L]])
-                table.insert(args, [[Table * titan_globals]])
                 for _, param in ipairs(tl_node.params) do
                     local name = param.name
                     local typ  = param._type
@@ -225,9 +224,8 @@ generate_program = function(prog, modname)
 
                 local args = {}
                 table.insert(args, [[L]])
-                table.insert(args, [[hvalue(&clCvalue(stack_func)->upvalue[1])]])
                 for i, param in ipairs(tl_node.params) do
-                    local slot = util.render([[stack_func + ${I}]], {
+                    local slot = util.render([[L->ci->func + ${I}]], {
                         I = c_integer(i)
                     })
                     table.insert(args, get_slot(param._type, slot))
@@ -237,7 +235,6 @@ generate_program = function(prog, modname)
                     util.render([[
                         int ${LUA_ENTRY_POINT}(lua_State *L)
                         {
-                            StkId stack_func = L->ci->func;
                             ${RET_DECL} = ${TITAN_ENTRY_POINT}(${ARGS});
                             ${SET_RET}
                             api_incr_top(L);
@@ -287,10 +284,9 @@ generate_program = function(prog, modname)
                     table.insert(parts,
                         util.render([[
                             {
-                                CClosure *func = luaF_newCclosure(L, 2);
+                                CClosure *func = luaF_newCclosure(L, 1);
                                 func->f = ${LUA_ENTRY_POINT};
-                                setpvalue(&func->upvalue[0], ${TITAN_ENTRY_POINT});
-                                sethvalue(L, &func->upvalue[1], titan_globals);
+                                sethvalue(L, &func->upvalue[0], titan_globals);
                                 setclCvalue(L, ${ARR_SLOT}, func);
                             }
                         ]],{
