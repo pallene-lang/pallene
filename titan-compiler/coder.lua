@@ -432,7 +432,53 @@ generate_stat = function(stat)
         return cstats
 
     elseif tag == ast.Stat.For then
-        error("not implemented yet")
+        local typ = stat.decl._type
+        local start_cstats, start_cvalue = generate_exp(stat.start)
+        local finish_cstats, finish_cvalue = generate_exp(stat.finish)
+        local inc_cstats, inc_cvalue = generate_exp(stat.inc)
+        local block_cstats = generate_stat(stat.block)
+
+        -- TODO: remove ternary operator when step is a constant
+        local loop_cond = [[(_inc >= 0 ? _start <= _finish : _start >= _finish)]]
+
+        local loop_step
+        if typ._tag == types.T.Integer then
+            loop_step = [[_start = intop(+, _start, _inc);]]
+        elseif typ._tag == types.T.Float then
+            loop_step = [[_start = _start + _inc;]]
+        else
+            error("impossible")
+        end
+
+        return util.render([[
+            {
+                ${START_STAT}
+                ${START_DECL} = ${START_VALUE};
+                ${FINISH_STAT}
+                ${FINISH_DECL} = ${FINISH_VALUE};
+                ${INC_STAT}
+                ${INC_DECL} = ${INC_VALUE};
+                while (${LOOP_COND}) {
+                    ${LOOP_DECL} = _start;
+                    ${BLOCK}
+                    ${LOOP_STEP}
+                }
+            }
+        ]], {
+            START_STAT  = start_cstats,
+            START_VALUE = start_cvalue,
+            START_DECL  = c_declaration(ctype(typ), "_start"),
+            FINISH_STAT  = finish_cstats,
+            FINISH_VALUE = finish_cvalue,
+            FINISH_DECL  = c_declaration(ctype(typ), "_finish"),
+            INC_STAT  = inc_cstats,
+            INC_VALUE = inc_cvalue,
+            INC_DECL  = c_declaration(ctype(typ), "_inc"),
+            LOOP_COND = loop_cond,
+            LOOP_STEP = loop_step,
+            LOOP_DECL = c_declaration(ctype(typ), local_name(stat.decl.name)),
+            BLOCK = block_cstats,
+        })
 
     elseif tag == ast.Stat.Assign then
         local var_cstats, var_c_lvalue = generate_var(stat.var)
