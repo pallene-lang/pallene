@@ -393,7 +393,19 @@ generate_stat = function(stat)
         error("not implemented yet")
 
     elseif tag == ast.Stat.Assign then
-        error("not implemented yet")
+        local var_cstats, var_clvalue = generate_var(stat.var)
+        local exp_cstats, exp_cvalue = generate_exp(stat.exp)
+        return util.render([[
+            ${VAR_STATS}
+            ${EXP_STATS}
+            ${LVALUE} = ${RVALUE};
+        ]], {
+            VAR_STATS = var_cstats,
+            EXP_STATS = exp_cstats,
+            LVALUE = var_clvalue,
+            RVALUE = exp_cvalue
+        })
+
 
     elseif tag == ast.Stat.Decl then
         error("not implemented yet")
