@@ -543,6 +543,9 @@ generate_exp = function(exp) -- TODO
         local lhs_cstats, lhs_cvalue = generate_exp(exp.lhs)
         local rhs_cstats, rhs_cvalue = generate_exp(exp.rhs)
 
+        -- Lua's arithmetic and bitwise operations for integers happen with
+        -- unsigned integers, to ensure 2's compliment behavior and avoid
+        -- undefined behavior.
         local function intop(op)
             local cstats = lhs_cstats..rhs_cstats
             local cvalue = util.render("intop(${OP}, ${LHS}, ${RHS})", {
@@ -550,7 +553,9 @@ generate_exp = function(exp) -- TODO
             return cstats, cvalue
         end
 
-        local function fltop(op)
+        -- Relational operators, and basic float operations don't convert their
+        -- parameters
+        local function binop(op)
             local cstats = lhs_cstats..rhs_cstats
             local cvalue = util.render("((${LHS})${OP}(${RHS}))", {
                 OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
@@ -565,7 +570,7 @@ generate_exp = function(exp) -- TODO
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
                 return intop("+")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("+")
+                return binop("+")
             else
                 error("impossible")
             end
@@ -574,7 +579,7 @@ generate_exp = function(exp) -- TODO
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
                 return intop("-")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("-")
+                return binop("-")
             else
                 error("impossible")
             end
@@ -583,14 +588,14 @@ generate_exp = function(exp) -- TODO
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
                 return intop("*")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("*")
+                return binop("*")
             else
                 error("impossible")
             end
 
         elseif op == "/" then
             if     ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("/")
+                return binop("/")
             else
                 error("impossible")
             end
@@ -657,54 +662,54 @@ generate_exp = function(exp) -- TODO
 
         elseif op == "==" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("==")
+                return binop("==")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("==")
+                return binop("==")
             else
                 error("not implemented yet")
             end
 
         elseif op == "~=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("!=")
+                return binop("!=")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("!=")
+                return binop("!=")
             else
                 error("not implemented yet")
             end
 
         elseif op == "<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("<")
+                return binop("<")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("<")
+                return binop("<")
             else
                 error("not implemented yet")
             end
 
         elseif op == ">" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop(">")
+                return binop(">")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop(">")
+                return binop(">")
             else
                 error("not implemented yet")
             end
 
         elseif op == "<=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("<=")
+                return binop("<=")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop("<=")
+                return binop("<=")
             else
                 error("not implemented yet")
             end
 
         elseif op == ">=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop(">=")
+                return binop(">=")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return fltop(">=")
+                return binop(">=")
             else
                 error("not implemented yet")
             end
