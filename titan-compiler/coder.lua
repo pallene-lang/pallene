@@ -408,7 +408,15 @@ generate_stat = function(stat)
 
 
     elseif tag == ast.Stat.Decl then
-        error("not implemented yet")
+        local exp_cstats, exp_cvalue = generate_exp(stat.exp)
+        return util.render([[
+            ${STATS}
+            ${DECLARATION} = ${VALUE};
+        ]], {
+            STATS = exp_cstats,
+            VALUE = exp_cvalue,
+            DECLARATION = c_declaration(ctype(stat.decl._type), local_name(stat.decl.name))
+        })
 
     elseif tag == ast.Stat.Call then
         error("not implemented yet")
