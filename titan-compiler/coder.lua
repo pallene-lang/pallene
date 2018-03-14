@@ -222,9 +222,7 @@ generate_program = function(prog, modname)
                 table.insert(function_definitions,
                     util.render([[
                         static ${RET} ${NAME}(${ARGS})
-                        {
-                            ${BODY}
-                        }
+                        ${BODY}
                     ]], {
                         RET = ret_ctype,
                         NAME = titan_entry_point_name,
@@ -374,10 +372,12 @@ generate_stat = function(stat)
     local tag = stat._tag
     if     tag == ast.Stat.Block then
         local cstatss = {}
+        table.insert(cstatss, "{")
         for _, inner_stat in ipairs(stat.stats) do
             local cstats = generate_stat(inner_stat)
             table.insert(cstatss, cstats)
         end
+        table.insert(cstatss, "}")
         return table.concat(cstatss, "\n")
 
     elseif tag == ast.Stat.While then
