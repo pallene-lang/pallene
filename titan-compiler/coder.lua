@@ -7,6 +7,7 @@ local types = require "titan-compiler.types"
 local coder = {}
 
 local generate_program
+local generate_stat
 local generate_exp
 
 function coder.generate(filename, input, modname)
@@ -30,6 +31,7 @@ local whole_file_template = [[
 #include "lobject.h"
 #include "lstate.h"
 #include "ltable.h"
+#include "lvm.h"
 
 ${DEFINE_FUNCTIONS}
 
@@ -108,7 +110,7 @@ end
 
 -- This name-mangling scheme is designed to avoid clashes between the function
 -- names created in separate models.
-local function mangle_function_name(modname, funcname, kind)
+local function mangle_function_name(_modname, funcname, kind)
     return string.format("function_%s_%s", funcname, kind)
 end
 
@@ -458,7 +460,192 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     elseif tag == ast.Exp.Binop then
-        error("not implemented yet")
+        local lhs_cstats, lhs_cvalue = generate_exp(exp.lhs)
+        local rhs_cstats, rhs_cvalue = generate_exp(exp.rhs)
+
+        local function intop(op)
+            local cstats = lhs_cstats..rhs_cstats
+            local cvalue = util.render("intop(${OP}, ${LHS}, ${RHS})", {
+                OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
+            return cstats, cvalue
+        end
+
+        local function fltop(op)
+            local cstats = lhs_cstats..rhs_cstats
+            local cvalue = util.render("((${LHS})${OP}(${RHS}))", {
+                OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
+            return cstats, cvalue
+        end
+
+        local ltyp = exp.lhs._type._tag
+        local rtyp = exp.rhs._type._tag
+
+        local op = exp.op
+        if     op == "+" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("+")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("+")
+            else
+                error("impossible")
+            end
+
+        elseif op == "-" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("-")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("-")
+            else
+                error("impossible")
+            end
+
+        elseif op == "*" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("*")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("*")
+            else
+                error("impossible")
+            end
+
+        elseif op == "/" then
+            if     ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("/")
+            else
+                error("impossible")
+            end
+
+        elseif op == "&" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("&")
+            else
+                error("impossible")
+            end
+
+        elseif op == "|" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("|")
+            else
+                error("impossible")
+            end
+
+        elseif op == "~" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("^")
+            else
+                error("impossible")
+            end
+
+        elseif op == "<<" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop(">>")
+            else
+                error("impossible")
+            end
+
+        elseif op == ">>" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop(">>")
+            else
+                error("impossible")
+            end
+
+        elseif op == "%" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                error("not implemented yet") -- see luaV_mod
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                error("not implemented yet") -- see luai_nummod
+            else
+                error("impossible")
+            end
+
+        elseif op == "//" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                error("not implemented yet") -- see luaV_idiv
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                error("not implemented yet") -- see luai_nummidiv
+            else
+                error("impossible")
+            end
+
+        elseif op == "^" then
+            if     ltyp == types.T.Float and rtyp == types.T.Float then
+                error("not implemented yet") -- see luai_numpow
+            else
+                error("impossible")
+            end
+
+        elseif op == "==" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("==")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("==")
+            else
+                error("not implemented yet")
+            end
+
+        elseif op == "~=" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("!=")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("!=")
+            else
+                error("not implemented yet")
+            end
+
+        elseif op == "<" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("<")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("<")
+            else
+                error("not implemented yet")
+            end
+
+        elseif op == ">" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop(">")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop(">")
+            else
+                error("not implemented yet")
+            end
+
+        elseif op == "<=" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop("<=")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop("<=")
+            else
+                error("not implemented yet")
+            end
+
+        elseif op == ">=" then
+            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+                return intop(">=")
+            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+                return fltop(">=")
+            else
+                error("not implemented yet")
+            end
+
+        elseif op == "and" then
+            if     ltyp == types.T.Boolean and rtyp == types.T.Boolean then
+                error("not implemented yet")
+            else
+                error("impossible")
+            end
+
+        elseif op == "or" then
+            if     ltyp == types.T.Boolean and rtyp == types.T.Boolean then
+                error("not implemented yet")
+            else
+                error("impossible")
+            end
+
+        else
+            error("not implemented yet")
+        end
 
     elseif tag == ast.Exp.Cast then
         error("not implemented yet")
