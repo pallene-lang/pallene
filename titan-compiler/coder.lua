@@ -8,6 +8,7 @@ local coder = {}
 
 local generate_program
 local generate_stat
+local generate_var
 local generate_exp
 
 function coder.generate(filename, input, modname)
@@ -415,7 +416,39 @@ generate_stat = function(stat)
     end
 end
 
--- Returns (statements, value)
+-- @returns (statements, clvalue)
+generate_var = function(var)
+    local tag = var._tag
+    if     tag == ast.Var.Name then
+        local decl = var._decl
+        if    decl._tag == ast.Decl.Decl then
+            -- Local variable
+            return "", local_name(decl.name)
+
+        elseif decl._tag == ast.Toplevel.Var then
+            -- Toplevel variable
+            error("not implemented yet")
+
+        elseif decl._tag == ast.Toplevel.Func then
+            -- Toplevel function
+            error("not implemented yet")
+
+        else
+            error("impossible")
+        end
+
+    elseif tag == ast.Var.Bracket then
+        error("not implemented yet")
+
+    elseif tag == ast.Var.Dot then
+        error("not implemented yet")
+
+    else
+        error("impossible")
+    end
+end
+
+-- @returns (statements, cvalue)
 generate_exp = function(exp) -- TODO
     local tag = exp._tag
     if     tag == ast.Exp.Nil then
@@ -435,6 +468,12 @@ generate_exp = function(exp) -- TODO
 
     elseif tag == ast.Exp.Initlist then
         error("not implemented yet")
+
+    elseif tag == ast.Exp.Call then
+        error("not implemented yet")
+
+    elseif tag == ast.Exp.Var then
+        return generate_var(exp.var)
 
     elseif tag == ast.Exp.Unop then
         local cstats, cvalue = generate_exp(exp.exp)
