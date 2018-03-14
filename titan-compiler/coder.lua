@@ -381,7 +381,28 @@ generate_stat = function(stat)
         return table.concat(cstatss, "\n")
 
     elseif tag == ast.Stat.While then
-        error("not implemented yet")
+        local cond_cstats, cond_cvalue = generate_exp(stat.condition)
+        local block_cstats = generate_stat(stat.block)
+        if cond_cstats == "" then
+            return util.render([[
+                while(${COND}) ${BLOCK}
+            ]], {
+                COND = cond_cvalue,
+                BLOCK = block_cstats
+            })
+        else
+            return util.render([[
+                for(;;) {
+                    ${COND_STATS}
+                    if (!(${COND})) break;
+                    ${BLOCK}
+                }
+            ]], {
+                COND_STATS = cond_cstats,
+                COND = cond_cvalue,
+                CLOCK = block_cstats
+            })
+        end
 
     elseif tag == ast.Stat.Repeat then
         error("not implemented yet")
