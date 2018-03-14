@@ -396,7 +396,40 @@ generate_stat = function(stat)
         error("not implemented yet")
 
     elseif tag == ast.Stat.If then
-        error("not implemented yet")
+        local cstats
+        if stat.elsestat then
+            cstats = generate_stat(stat.elsestat)
+        else
+            cstats = nil
+        end
+
+        for i = #stat.thens, 1, -1 do
+            local then_ = stat.thens[i]
+            local cond_cstats, cond_cvalue = generate_exp(then_.condition)
+            local block_cstats = generate_stat(then_.block)
+            local else_ = (cstats and "else "..cstats or "")
+            if cond_cstats == "" then
+                cstats = util.render(
+                    [[if (${COND}) ${BLOCK} ${ELSE}]], {
+                    COND = cond_cvalue,
+                    BLOCK = block_cstats,
+                    ELSE = else_
+                })
+            else
+                cstats = util.render(
+                    [[{
+                        ${STATS}
+                        if (${COND}) ${BLOCK} ${ELSE}
+                    }]], {
+                    STATS = cond_cstats,
+                    COND = cond_cvalue,
+                    BLOCK = block_cstats,
+                    ELSE = else_
+                })
+            end
+        end
+
+        return cstats
 
     elseif tag == ast.Stat.For then
         error("not implemented yet")

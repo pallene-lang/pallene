@@ -78,8 +78,6 @@ describe("Titan coder", function()
         ]])
     end)
 
-    -- TODO: make these not with constants, because these tests will be useless
-    -- when we have constant propagation.
     it("Basic binary operations", function()
         run_coder([[
             function f(x:integer, y:integer): integer
@@ -97,6 +95,4 @@ describe("Titan coder", function()
             assert.is_equal(2.0 * 4.0, test.f(2.0, 4.0))
         ]])
     end)
-
-
 end)
