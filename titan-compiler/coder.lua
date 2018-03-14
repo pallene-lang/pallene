@@ -848,7 +848,23 @@ generate_exp = function(exp) -- TODO
         end
 
     elseif tag == ast.Exp.Cast then
-        error("not implemented yet")
+        local cstats, cvalue = generate_exp(exp.exp)
+
+        local src_typ = exp.exp._type
+        local dst_typ = exp._type
+
+        if     src_typ._tag == dst_typ._tag then
+            return cstats, cvalue
+
+        elseif src_typ._tag == types.T.Integer and dst_typ._tag == types.T.Float then
+            return cstats, "((lua_Number)"..cvalue..")"
+
+        elseif src_typ._tag == types.T.Float and dst_typ._tag == types.T.Integer then
+            error("not implemented yet")
+
+        else
+            error("impossible")
+        end
 
     else
         error("impossible")
