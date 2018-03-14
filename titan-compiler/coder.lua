@@ -34,6 +34,8 @@ local whole_file_template = [[
 #include "ltable.h"
 #include "lvm.h"
 
+#include "math.h"
+
 ${DEFINE_FUNCTIONS}
 
 int init_${MODNAME}(lua_State *L)
@@ -706,25 +708,45 @@ generate_exp = function(exp) -- TODO
 
         elseif op == "%" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                error("not implemented yet") -- see luaV_mod
+                local cstats = lhs_cstats..rhs_cstats
+                local cvalue = util.render("luaV_mod(L, ${LHS}, ${RHS})", {
+                    LHS=lhs_cvalue, RHS=rhs_cvalue })
+                return cstats, cvalue
+
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                error("not implemented yet") -- see luai_nummod
+                -- see luai_nummod
+                error("not implemented yet")
+
             else
                 error("impossible")
             end
 
         elseif op == "//" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                error("not implemented yet") -- see luaV_idiv
+                local cstats = lhs_cstats..rhs_cstats
+                local cvalue = util.render("luaV_div(L, ${LHS}, ${RHS})", {
+                    LHS=lhs_cvalue, RHS=rhs_cvalue })
+                return cstats, cvalue
+
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                error("not implemented yet") -- see luai_nummidiv
+                -- see luai_numidiv
+                local cstats = lhs_cstats..rhs_cstats
+                local cvalue = util.render("floor(${LHS} / ${RHS})", {
+                    LHS=lhs_cvalue, RHS=rhs_cvalue })
+                return cstats, cvalue
+
             else
                 error("impossible")
             end
 
         elseif op == "^" then
             if     ltyp == types.T.Float and rtyp == types.T.Float then
-                error("not implemented yet") -- see luai_numpow
+                -- see luai_numpow
+                local cstats = lhs_cstats..rhs_cstats
+                local cvalue = util.render("pow(${LHS}, ${RHS})", {
+                    LHS=lhs_cvalue, RHS=rhs_cvalue })
+                return cstats, cvalue
+
             else
                 error("impossible")
             end
