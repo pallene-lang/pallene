@@ -752,8 +752,14 @@ generate_exp = function(exp) -- TODO
                 return binop("<")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 return binop("<")
-            else
+            elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
+            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+                error("not implemented yet")
+            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+                error("not implemented yet")
+            else
+                error("impossible")
             end
 
         elseif op == ">" then
@@ -761,8 +767,14 @@ generate_exp = function(exp) -- TODO
                 return binop(">")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 return binop(">")
-            else
+            elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
+            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+                error("not implemented yet")
+            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+                error("not implemented yet")
+            else
+                error("impossible")
             end
 
         elseif op == "<=" then
@@ -770,8 +782,14 @@ generate_exp = function(exp) -- TODO
                 return binop("<=")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 return binop("<=")
-            else
+            elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
+            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+                error("not implemented yet")
+            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+                error("not implemented yet")
+            else
+                error("impossible")
             end
 
         elseif op == ">=" then
@@ -779,8 +797,14 @@ generate_exp = function(exp) -- TODO
                 return binop(">=")
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 return binop(">=")
-            else
+            elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
+            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+                error("not implemented yet")
+            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+                error("not implemented yet")
+            else
+                error("impossible")
             end
 
         elseif op == "and" then
