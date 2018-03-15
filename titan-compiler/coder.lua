@@ -164,7 +164,7 @@ end
 local function set_slot(typ, dst_slot_address, value)
     local tmpl
     local tag = typ._tag
-    if     tag == types.T.Nil      then tmpl = "setnilvalue(${DST});"
+    if     tag == types.T.Nil      then tmpl = "(void) ${SRC}; setnilvalue(${DST});"
     elseif tag == types.T.Boolean  then tmpl = "setbvalue(${DST}, ${SRC});"
     elseif tag == types.T.Integer  then tmpl = "setivalue(${DST}, ${SRC});"
     elseif tag == types.T.Float    then tmpl = "setfltvalue(${DST}, ${SRC});"
