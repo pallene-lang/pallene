@@ -205,7 +205,7 @@ local grammar = re.compile([[
                            LPAREN^LParPList paramlist RPAREN^RParPList
                            rettypeopt block END^EndFunc)         -> ToplevelFunc
 
-    toplevelvar     <- (P  localopt decl ASSIGN^AssignVar
+    toplevelvar     <- (P  LOCAL decl ASSIGN^AssignVar
                            !IMPORT exp^ExpVarDec)                -> ToplevelVar
 
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields^FieldRecord
