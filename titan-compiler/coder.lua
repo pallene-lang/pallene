@@ -135,7 +135,6 @@ local function ctype(typ)
     end
 end
 
-
 local function get_slot(typ, src_slot_address)
     local tmpl
     local tag = typ._tag
@@ -308,13 +307,11 @@ generate_program = function(prog, modname)
                             ARR_SLOT = arr_slot,
                         })
                     )
-
                 elseif tag == ast.Toplevel.Var then
                     local exp = tl_node.value
                     local cstats, cvalue = generate_exp(exp)
                     table.insert(parts, cstats)
                     table.insert(parts, set_slot(exp._type, arr_slot, cvalue))
-
                 else
                     error("impossible")
                 end
@@ -383,26 +380,17 @@ generate_stat = function(stat)
     elseif tag == ast.Stat.While then
         local cond_cstats, cond_cvalue = generate_exp(stat.condition)
         local block_cstats = generate_stat(stat.block)
-        if cond_cstats == "" then
-            return util.render([[
-                while(${COND}) ${BLOCK}
-            ]], {
-                COND = cond_cvalue,
-                BLOCK = block_cstats
-            })
-        else
-            return util.render([[
-                for(;;) {
-                    ${COND_STATS}
-                    if (!(${COND})) break;
-                    ${BLOCK}
-                }
-            ]], {
-                COND_STATS = cond_cstats,
-                COND = cond_cvalue,
-                CLOCK = block_cstats
-            })
-        end
+        return util.render([[
+            for(;;) {
+                ${COND_STATS}
+                if (!(${COND})) break;
+                ${BLOCK}
+            }
+        ]], {
+            COND_STATS = cond_cstats,
+            COND = cond_cvalue,
+            CLOCK = block_cstats
+        })
 
     elseif tag == ast.Stat.Repeat then
         error("not implemented yet")
@@ -414,7 +402,7 @@ generate_stat = function(stat)
         error("not implemented yet")
 
     elseif tag == ast.Stat.Assign then
-        local var_cstats, var_clvalue = generate_var(stat.var)
+        local var_cstats, var_c_lvalue = generate_var(stat.var)
         local exp_cstats, exp_cvalue = generate_exp(stat.exp)
         return util.render([[
             ${VAR_STATS}
@@ -423,20 +411,22 @@ generate_stat = function(stat)
         ]], {
             VAR_STATS = var_cstats,
             EXP_STATS = exp_cstats,
-            LVALUE = var_clvalue,
+            LVALUE = var_c_lvalue,
             RVALUE = exp_cvalue
         })
 
-
     elseif tag == ast.Stat.Decl then
         local exp_cstats, exp_cvalue = generate_exp(stat.exp)
+        local ctyp = ctype(stat.decl._type)
+        local varname = local_name(stat.decl.name)
+        local declaration = c_declaration(ctyp, varname)
         return util.render([[
             ${STATS}
             ${DECLARATION} = ${VALUE};
         ]], {
             STATS = exp_cstats,
             VALUE = exp_cvalue,
-            DECLARATION = c_declaration(ctype(stat.decl._type), local_name(stat.decl.name))
+            DECLARATION = declaration,
         })
 
     elseif tag == ast.Stat.Call then
@@ -457,7 +447,7 @@ generate_stat = function(stat)
     end
 end
 
--- @returns (statements, clvalue)
+-- @returns (statements, c_lvalue)
 generate_var = function(var)
     local tag = var._tag
     if     tag == ast.Var.Name then

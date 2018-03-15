@@ -55,7 +55,7 @@ describe("Titan coder", function()
     it("Basic unary operations", function()
         run_coder([[
             function f(x: integer): integer
-              return -x
+                return -x
             end
         ]], [[
             assert.is_equal(-17, test.f(17))
@@ -63,7 +63,7 @@ describe("Titan coder", function()
 
         run_coder([[
             function f(x: integer): integer
-              return ~x
+                return ~x
             end
         ]], [[
             assert.is_equal(~17, test.f(17))
@@ -71,7 +71,7 @@ describe("Titan coder", function()
 
         run_coder([[
             function f(x:boolean): boolean
-              return not x
+                return not x
             end
         ]], [[
             assert.is_equal(not true, test.f(true))
