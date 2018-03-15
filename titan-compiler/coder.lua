@@ -125,6 +125,16 @@ local function local_name(varname)
     return string.format("local_%s", varname)
 end
 
+-- Name for a new temporary variable
+local tmp_name
+do
+    local i = 0
+    tmp_name = function()
+        i = i + 1
+        return string.format("tmp_%d", i)
+    end
+end
+
 -- @param type Type of the titan value
 -- @returns type of the corresponding C variable
 --
@@ -209,6 +219,16 @@ generate_program = function(prog, modname)
         end
     end
 
+    -- Name all the function entry points
+    for _, tl_node in ipairs(prog) do
+        if tl_node._tag == ast.Toplevel.Func then
+            tl_node._titan_entry_point =
+                mangle_function_name(modname, tl_node.name, "titan")
+            tl_node._lua_entry_point =
+                mangle_function_name(modename, tl_node.name, "lua")
+        end
+    end
+
     -- Create toplevel function declarations
     local define_functions
     do
@@ -216,9 +236,6 @@ generate_program = function(prog, modname)
         for _, tl_node in ipairs(prog) do
             if tl_node._tag == ast.Toplevel.Func then
                 -- Titan entry point
-                local titan_entry_point_name =
-                    mangle_function_name(modname, tl_node.name, "titan")
-
                 assert(#tl_node._type.rettypes == 1)
                 local ret_ctype = ctype(tl_node._type.rettypes[1])
 
@@ -237,7 +254,7 @@ generate_program = function(prog, modname)
                         ${BODY}
                     ]], {
                         RET = ret_ctype,
-                        NAME = titan_entry_point_name,
+                        NAME = tl_node._titan_entry_point,
                         ARGS = table.concat(args, ", "),
                         BODY = generate_stat(tl_node.block)
                     })
@@ -269,17 +286,13 @@ generate_program = function(prog, modname)
                             return 1;
                         }
                     ]], {
-                        LUA_ENTRY_POINT = lua_entry_point_name,
-                        TITAN_ENTRY_POINT = titan_entry_point_name,
+                        LUA_ENTRY_POINT = tl_node._lua_entry_point,
+                        TITAN_ENTRY_POINT = tl_node._titan_entry_point,
                         RET_DECL = c_declaration(ctype(ret_typ), "ret"),
                         ARGS = table.concat(args, ", "),
                         SET_RET = set_slot(ret_typ, "L->top", "ret"),
                     })
                 )
-
-                --
-                tl_node._titan_entry_point = titan_entry_point_name
-                tl_node._lua_entry_point = lua_entry_point_name
             end
         end
         define_functions = table.concat(function_definitions, "\n")
@@ -612,7 +625,51 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     elseif tag == ast.Exp.Call then
-        error("not implemented yet")
+        if     exp.args._tag == ast.Args.Func then
+            local fexp = exp.exp
+            local fargs = exp.args
+            if fexp._tag == ast.Exp.Var and
+                fexp.var._tag == ast.Var.Name and
+                fexp.var._decl._tag == ast.Toplevel.Func
+            then
+                -- Directly calling a toplevel function
+
+                local arg_cstatss, arg_cvalues = {}, {}
+                for _, arg_exp in ipairs(fargs.args) do
+                    local cstats, cvalue = generate_exp(arg_exp)
+                    table.insert(arg_cstatss, cstats)
+                    table.insert(arg_cvalues, cvalue)
+                end
+
+                local tl_node = fexp.var._decl
+                assert(#tl_node._type.rettypes == 1)
+                local rettype = tl_node._type.rettypes[1]
+
+                local tmp_var = tmp_name()
+                local tmp_decl = c_declaration(ctype(rettype), tmp_var)
+
+                local cstats = util.render([[
+                    ${ARG_STATS}
+                    ${TMP_DECL} = ${FUN_NAME}(L, ${ARGS});
+                ]], {
+                    FUN_NAME  = tl_node._titan_entry_point,
+                    ARG_STATS = table.concat(arg_cstatss, "\n"),
+                    ARGS      = table.concat(arg_cvalues, ", "),
+                    TMP_DECL = tmp_decl,
+                })
+                return cstats, tmp_var
+
+            else
+                -- First-class functions
+                error("not implemented yet")
+            end
+
+        elseif exp.args._tag == ast.Args.Method then
+            error("not implemented")
+
+        else
+            error("impossible")
+        end
 
     elseif tag == ast.Exp.Var then
         local cstats, lvalue = generate_var(exp.var)
