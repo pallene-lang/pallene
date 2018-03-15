@@ -420,7 +420,19 @@ generate_stat = function(stat)
         })
 
     elseif tag == ast.Stat.Repeat then
-        error("not implemented yet")
+        local block_cstats = generate_stat(stat.block)
+        local cond_cstats, cond_cvalue = generate_exp(stat.condition)
+        return util.render([[
+            for(;;){
+                ${BLOCK}
+                ${COND_STATS}
+                if (${COND}) break;
+            }
+        ]], {
+            COND_STATS = cond_cstats,
+            COND = cond_cvalue,
+            BLOCK = block_cstats,
+        })
 
     elseif tag == ast.Stat.If then
         local cstats
