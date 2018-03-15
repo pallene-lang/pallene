@@ -2,6 +2,7 @@ local ast = require "titan-compiler.ast"
 local checker = require "titan-compiler.checker"
 local util = require "titan-compiler.util"
 local pretty = require "titan-compiler.pretty"
+local typedecl = require "titan-compiler.typedecl"
 local types = require "titan-compiler.types"
 
 local coder = {}
@@ -494,17 +495,25 @@ generate_stat = function(stat)
         })
 
     elseif tag == ast.Stat.Assign then
-        local var_cstats, var_c_lvalue = generate_var(stat.var)
+        local var_cstats, var_lvalue = generate_var(stat.var)
         local exp_cstats, exp_cvalue = generate_exp(stat.exp)
+        local assign_stat
+        if     var_lvalue._tag == coder.Lvalue.CVar then
+            assign_stat = var_lvalue.varname.." = "..exp_cvalue..";"
+        elseif var_lvalue._tag == coder.Lvalue.Slot then
+            assign_stat = set_slot(
+                stat.exp._type, var_lvalue.slot_address, exp_cvalue)
+        else
+            error("impossible")
+        end
         return util.render([[
             ${VAR_STATS}
             ${EXP_STATS}
-            ${LVALUE} = ${RVALUE};
+            ${ASSIGN_STAT}
         ]], {
             VAR_STATS = var_cstats,
             EXP_STATS = exp_cstats,
-            LVALUE = var_c_lvalue,
-            RVALUE = exp_cvalue
+            ASSIGN_STAT = assign_stat,
         })
 
     elseif tag == ast.Stat.Decl then
@@ -539,26 +548,32 @@ generate_stat = function(stat)
     end
 end
 
+typedecl.declare(coder, "coder", "Lvalue", {
+    CVar = {"varname"},
+    Slot = {"slot_address"}
+})
+
 -- @param var: (ast.Var)
--- @returns (string, string) C Statements, and a C lvalue
+-- @returns (string, coder.Lvalue) C Statements, and a lvalue
 --
 -- The lvalue should not not contain side-effects. Anything that could care
 -- about evaluation order should be returned as part of the first argument.
---
--- TODO: Rethink what this function should return once we add arrays and
--- records (the "lvalue" might be a slot, which requires setting a tag when
--- writing to it)
 generate_var = function(var)
     local tag = var._tag
     if     tag == ast.Var.Name then
         local decl = var._decl
         if    decl._tag == ast.Decl.Decl then
             -- Local variable
-            return "", local_name(decl.name)
+            return "", coder.Lvalue.CVar( local_name(decl.name) )
 
         elseif decl._tag == ast.Toplevel.Var then
-            -- Toplevel variable
-            error("not implemented yet")
+            local i = decl._global_index
+            local closure = "clCvalue(L->ci->func)"
+            local globals = "hvalue(&"..closure.."->upvalue[0])"
+            local slot_address = util.render(
+                "&${GLOBALS}->array[${I}]",
+                { GLOBALS = globals, I = c_integer(i) })
+            return "", coder.Lvalue.Slot(slot_address)
 
         elseif decl._tag == ast.Toplevel.Func then
             -- Toplevel function
@@ -608,7 +623,16 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     elseif tag == ast.Exp.Var then
-        return generate_var(exp.var)
+        local cstats, lvalue = generate_var(exp.var)
+        local cvalue
+        if     lvalue._tag == coder.Lvalue.CVar then
+            cvalue = lvalue.varname
+        elseif lvalue._tag == coder.Lvalue.Slot then
+            cvalue = get_slot(exp.var._type, lvalue.slot_address)
+        else
+            error("impossible")
+        end
+        return cstats, cvalue
 
     elseif tag == ast.Exp.Unop then
         local cstats, cvalue = generate_exp(exp.exp)
