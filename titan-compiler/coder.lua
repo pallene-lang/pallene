@@ -416,7 +416,7 @@ generate_stat = function(stat)
         ]], {
             COND_STATS = cond_cstats,
             COND = cond_cvalue,
-            CLOCK = block_cstats
+            BLOCK = block_cstats
         })
 
     elseif tag == ast.Stat.Repeat then
