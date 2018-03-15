@@ -422,25 +422,17 @@ generate_stat = function(stat)
             local cond_cstats, cond_cvalue = generate_exp(then_.condition)
             local block_cstats = generate_stat(then_.block)
             local else_ = (cstats and "else "..cstats or "")
-            if cond_cstats == "" then
-                cstats = util.render(
-                    [[if (${COND}) ${BLOCK} ${ELSE}]], {
-                    COND = cond_cvalue,
-                    BLOCK = block_cstats,
-                    ELSE = else_
-                })
-            else
-                cstats = util.render(
-                    [[{
-                        ${STATS}
-                        if (${COND}) ${BLOCK} ${ELSE}
-                    }]], {
-                    STATS = cond_cstats,
-                    COND = cond_cvalue,
-                    BLOCK = block_cstats,
-                    ELSE = else_
-                })
-            end
+
+            cstats = util.render(
+                [[{
+                    ${STATS}
+                    if (${COND}) ${BLOCK} ${ELSE}
+                }]], {
+                STATS = cond_cstats,
+                COND = cond_cvalue,
+                BLOCK = block_cstats,
+                ELSE = else_
+            })
         end
 
         return cstats
