@@ -102,8 +102,11 @@ local function c_float(n)
     return string.format("%f", n)
 end
 
+-- @param ctype: (string) C datatype, as produced by ctype()
+-- @param varname: (string) C variable name
+-- @returns A syntactically valid variable declaration
 local function c_declaration(ctyp, varname)
-    -- This simple concatenation won't work with function pointers
+    -- This would be harder if we also allowed array or function pointers...
     return ctyp .. " " .. varname
 end
 
@@ -123,6 +126,10 @@ end
 
 -- @param type Type of the titan value
 -- @returns type of the corresponding C variable
+--
+-- We currently represent C types as strings. This suffices for primitive types
+-- and pointers to primitive types but we might need to switch to a full ADT if
+-- we decide to also support array and function pointer types.
 local function ctype(typ)
     local tag = typ._tag
     if     tag == types.T.Nil      then return "int"
@@ -185,6 +192,9 @@ local function toplevel_is_value_declaration(tl_node)
     end
 end
 
+-- @param prog: (ast) Annotated AST for the whole module
+-- @param modname: (string) Lua module name (for luaopen)
+-- @return (string) C code for the whole module
 generate_program = function(prog, modname)
 
     -- Find where each global variable gets stored in the global table
@@ -275,8 +285,8 @@ generate_program = function(prog, modname)
     end
 
     -- Construct the values in the toplevel
-    -- This needs to happen inside a C closure with all the same upvalues that a
-    -- titan function has, because the initializer expressions might rely on
+    -- This needs to happen inside a C closure with all the same upvalues that
+    -- a titan function has, because the initializer expressions might rely on
     -- that.
     local initialize_toplevel
     do
@@ -366,7 +376,8 @@ generate_program = function(prog, modname)
     return pretty.reindent_c(code)
 end
 
-
+-- @param stat: (ast.Stat)
+-- @return (string) C statements
 generate_stat = function(stat)
     local tag = stat._tag
     if     tag == ast.Stat.Block then
@@ -528,7 +539,15 @@ generate_stat = function(stat)
     end
 end
 
--- @returns (statements, c_lvalue)
+-- @param var: (ast.Var)
+-- @returns (string, string) C Statements, and a C lvalue
+--
+-- The lvalue should not not contain side-effects. Anything that could care
+-- about evaluation order should be returned as part of the first argument.
+--
+-- TODO: Rethink what this function should return once we add arrays and
+-- records (the "lvalue" might be a slot, which requires setting a tag when
+-- writing to it)
 generate_var = function(var)
     local tag = var._tag
     if     tag == ast.Var.Name then
@@ -560,7 +579,11 @@ generate_var = function(var)
     end
 end
 
--- @returns (statements, cvalue)
+-- @param exp: (ast.Exp)
+-- @returns (string, string) C statements, C rvalue
+--
+-- The rvalue should not not contain side-effects. Anything that could care
+-- about evaluation order should be returned as part of the first argument.
 generate_exp = function(exp) -- TODO
     local tag = exp._tag
     if     tag == ast.Exp.Nil then
