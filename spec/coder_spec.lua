@@ -440,6 +440,33 @@ describe("Titan coder", function()
                 assert.is_equal(1 >= 1, test.ge(1, 1))
                 assert.is_equal(1 >= 0, test.ge(1, 0))
             ]])
+
+            -- and
+
+            run_coder([[
+                function bool_and(x:boolean, y:boolean): boolean
+                    return x and y
+                end
+            ]], [[
+                assert.is_equal(true  and true,  test.bool_and(true,  true))
+                assert.is_equal(true  and false, test.bool_and(true,  false))
+                assert.is_equal(false and true,  test.bool_and(false, true))
+                assert.is_equal(false and false, test.bool_and(false, false))
+            ]])
+
+            -- or
+
+            run_coder([[
+                function bool_or(x:boolean, y:boolean): boolean
+                    return x or y
+                end
+            ]], [[
+                assert.is_equal(true  or true,  test.bool_or(true,  true))
+                assert.is_equal(true  or false, test.bool_or(true,  false))
+                assert.is_equal(false or true,  test.bool_or(false, true))
+                assert.is_equal(false or false, test.bool_or(false, false))
+            ]])
+
         end)
     end)
 

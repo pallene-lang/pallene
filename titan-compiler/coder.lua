@@ -947,14 +947,56 @@ generate_exp = function(exp) -- TODO
 
         elseif op == "and" then
             if     ltyp == types.T.Boolean and rtyp == types.T.Boolean then
-                error("not implemented yet")
+                local l_cstats, l_cvalue = generate_exp(exp.lhs)
+                local r_cstats, r_cvalue = generate_exp(exp.rhs)
+
+                local tmp = tmp_name()
+                local tmp_decl = c_declaration(ctype(types.T.Boolean()), tmp)
+                local cstats = util.render([[
+                    ${L_STATS}
+                    ${TMP_DECL} = ${L_VALUE};
+                    if (${TMP}) {
+                      ${R_STATS}
+                      ${TMP} = ${R_VALUE};
+                    }
+                ]], {
+                    TMP = tmp,
+                    TMP_DECL = tmp_decl,
+                    L_STATS = l_cstats,
+                    L_VALUE = l_cvalue,
+                    R_STATS = r_cstats,
+                    R_VALUE = r_cvalue,
+                })
+                return cstats, tmp
+
             else
                 error("impossible")
             end
 
         elseif op == "or" then
             if     ltyp == types.T.Boolean and rtyp == types.T.Boolean then
-                error("not implemented yet")
+                local l_cstats, l_cvalue = generate_exp(exp.lhs)
+                local r_cstats, r_cvalue = generate_exp(exp.rhs)
+
+                local tmp = tmp_name()
+                local tmp_decl = c_declaration(ctype(types.T.Boolean()), tmp)
+                local cstats = util.render([[
+                    ${L_STATS}
+                    ${TMP_DECL} = ${L_VALUE};
+                    if (!${TMP}) {
+                      ${R_STATS}
+                      ${TMP} = ${R_VALUE};
+                    }
+                ]], {
+                    TMP = tmp,
+                    TMP_DECL = tmp_decl,
+                    L_STATS = l_cstats,
+                    L_VALUE = l_cvalue,
+                    R_STATS = r_cstats,
+                    R_VALUE = r_cvalue,
+                })
+                return cstats, tmp
+
             else
                 error("impossible")
             end
