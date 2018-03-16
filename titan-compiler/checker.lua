@@ -593,7 +593,7 @@ check_exp = function(node, errors, typehint)
                     types.tostring(node.rhs._type))
             end
             node._type = types.T.Boolean()
-        elseif op == "|" or op == "&" or op == "<<" or op == ">>" then
+        elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
             if node.lhs._type._tag ~= types.T.Integer then
                 type_error(errors, node.loc,
                     "left hand side of arithmetic expression is a %s instead of an integer",
