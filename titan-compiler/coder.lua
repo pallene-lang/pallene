@@ -802,7 +802,7 @@ generate_exp = function(exp) -- TODO
 
         elseif op == "<<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop(">>")
+                return intop("<<")
             else
                 error("impossible")
             end
