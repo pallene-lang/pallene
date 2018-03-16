@@ -1002,7 +1002,7 @@ generate_exp = function(exp) -- TODO
             end
 
         else
-            error("not implemented yet")
+            error("impossible")
         end
 
     elseif tag == ast.Exp.Cast then
