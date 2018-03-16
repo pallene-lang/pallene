@@ -548,7 +548,14 @@ generate_stat = function(stat)
         })
 
     elseif tag == ast.Stat.Call then
-        error("not implemented yet")
+        local cstats, cvalue = generate_exp(stat.callexp)
+        return util.render([[
+            ${STATS}
+            (void) ${VALUE};
+        ]], {
+            STATS = cstats,
+            VALUE = cvalue
+        })
 
     elseif tag == ast.Stat.Return then
         local cstats, cvalue = generate_exp(stat.exp)
