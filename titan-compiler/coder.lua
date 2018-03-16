@@ -653,7 +653,8 @@ generate_exp = function(exp) -- TODO
             then
                 -- Directly calling a toplevel function
 
-                local arg_cstatss, arg_cvalues = {}, {}
+                local arg_cstatss = {}
+                local arg_cvalues = {"L"}
                 for _, arg_exp in ipairs(fargs.args) do
                     local cstats, cvalue = generate_exp(arg_exp)
                     table.insert(arg_cstatss, cstats)
@@ -669,7 +670,7 @@ generate_exp = function(exp) -- TODO
 
                 local cstats = util.render([[
                     ${ARG_STATS}
-                    ${TMP_DECL} = ${FUN_NAME}(L, ${ARGS});
+                    ${TMP_DECL} = ${FUN_NAME}(${ARGS});
                 ]], {
                     FUN_NAME  = tl_node._titan_entry_point,
                     ARG_STATS = table.concat(arg_cstatss, "\n"),
