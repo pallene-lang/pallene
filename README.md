@@ -65,6 +65,16 @@ of this repository:
 
 You may need to adapt the invocation of `make` above to your platform.
 
+# Running the benchmarks suite
+
+Running all benchmarks in `benchmarks` directory:
+
+	$ ./run_benchmarks.lua
+
+Running a single benchmark:
+
+	$ ./run_benchmarks.lua benchmarks/<benchmark_name>
+
 # Compiler options
 
         --print-ast                     Print the AST.
