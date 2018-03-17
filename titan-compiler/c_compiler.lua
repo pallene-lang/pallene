@@ -39,10 +39,11 @@ function c_compiler.compile_c_file(c_filename, so_filename)
 end
 
 function c_compiler.compile_titan(filename, input)
-    local basename = assert(string.match(filename, "^(.*)%.titan$"))
-    local c_filename = basename .. ".c"
-    local so_filename = basename .. ".so"
-    local modname = string.gsub(basename, "/", "_")
+    local name, ext = util.split_ext(filename)
+    assert(ext == "titan")
+    local c_filename = name .. ".c"
+    local so_filename = name .. ".so"
+    local modname = string.gsub(name, "/", "_")
 
     local code, errors = coder.generate(filename, input, modname)
     if not code then return false, errors end
