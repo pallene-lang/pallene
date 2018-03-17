@@ -1,52 +1,67 @@
 #!/usr/bin/env lua
 
+local lfs = require "lfs"
+
 local c_compiler = require "titan-compiler.c_compiler"
 local util = require "titan-compiler.util"
 
-local tests = {
-    "add",
-}
-
 -- run the command a single time and return the time elapsed
-local function measure(cmd)
+local function time(cmd)
     local result = util.shell(
         [[ { TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1 ]])
     local time_elapsed = tonumber(result)
     if not time_elapsed then
-        error("Error:\n" .. result)
+        io.stederr:write(result, "\n")
+        return -1
     end
     return time_elapsed
 end
 
-local function benchmark(test, prog)
-    local cmd = string.format([[ lua/src/lua benchmarks/%s/main.lua benchmarks.%s.%s ]],
-            test, test, prog)
+local function measure(test_dir, name)
+    local test_name = string.gsub(test_dir, "/", ".") .. "." .. name
+    local cmd = string.format(
+            [[ lua/src/lua %s/main.lua %s ]], test_dir, test_name)
     print("running", cmd)
     local results = {}
     for i = 1, 3 do
-        table.insert(results, measure(cmd))
+        table.insert(results, time(cmd))
     end
     return results
 end
 
-local function benchmark_lua(test)
-    return benchmark(test, "lua")
-end
+local compile = {
+    ["lua"] =
+        function()
+            return true, {}
+        end,
 
-local function benchmark_titan(test)
-    local f = string.format("benchmarks/%s/titan.titan", test)
-    local ok, err = c_compiler.compile_titan(f, util.get_file_contents(f))
-    if not ok then error(table.concat(err, "\n")) end
-    return benchmark(test, "titan")
-end
+    ["titan"] =
+        function(file_name)
+            return c_compiler.compile_titan(file_name,
+                    util.get_file_contents(file_name))
+        end,
 
-local function benchmark_c(test)
-    local basename = string.format("benchmarks/%s/c", test)
-    local ok, err = c_compiler.compile_c_file(basename .. ".c",
-            basename .. ".so")
-    if not ok then error(table.concat(err, "\n")) end
-    return benchmark(test, "c")
-end
+    ["c"] =
+        function(file_name)
+            return c_compiler.compile_c_file(file_name)
+        end,
+}
+
+local cleanup = {
+    ["lua"] =
+        function() end,
+
+    ["titan"] =
+        function(test_dir, name)
+            os.remove(test_dir .. "/" .. name .. ".c")
+            os.remove(test_dir .. "/" .. name .. ".so")
+        end,
+
+    ["c"] =
+        function(test_dir, name)
+            os.remove(test_dir .. "/" .. name .. ".so")
+        end,
+}
 
 local function min(arr)
     local m = math.maxinteger
@@ -56,28 +71,47 @@ local function min(arr)
     return m
 end
 
-local benchmarks = {
-    benchmark_lua,
-    benchmark_titan,
-    benchmark_c,
-}
-
-local M = {}
-for _, test in ipairs(tests) do
-    local line = {}
-    for _, b in ipairs(benchmarks) do
-        local results = b(test)
-        table.insert(line, min(results))
+local function benchmark(test_dir)
+    local file_names = {}
+    for file_name in lfs.dir(test_dir) do
+        if not string.find(file_name, "^%.") and
+           file_name ~= "main.lua" then
+            table.insert(file_names, file_name)
+        end
     end
-    table.insert(M, line)
+
+    local results = {}
+    for _, file_name in ipairs(file_names) do
+        local name, ext = util.split_ext(file_name)
+        local path = test_dir .. "/" .. file_name
+        local compile_ext = compile[ext]
+        if not compile_ext then
+            goto continue
+        end
+        local ok, errors = compile_ext(path)
+        if ok then
+            results[file_name] = min(measure(test_dir, name))
+        end
+        cleanup[ext](test_dir, name)
+        if #errors > 0 then
+            error(table.concat(errors, "\n"))
+        end
+        ::continue::
+    end
+    return results
 end
 
--- TODO better formatting
-print("---")
-for i = 1, #M do
-    io.write(tests[i], "\t")
-    for j = 1, #M[i] do
-        io.write(M[i][j], "\t")
+local function run_all_benchmarks()
+    for test in lfs.dir("benchmarks") do
+        if not string.find(test, "^%.") then
+            local test_dir = "benchmarks/" .. test
+            local results = benchmark(test_dir)
+            for k, v in pairs(results) do
+                print(k, v)
+            end
+            print("----------")
+        end
     end
-    io.write("\n")
 end
+
+run_all_benchmarks()
