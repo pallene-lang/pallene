@@ -3,16 +3,17 @@ local util = require "titan-compiler.util"
 
 local c_compiler = {}
 
-c_compiler.LUA_SOURCE_PATH = "lua/src/"
-c_compiler.CFLAGS = "--std=c99 -O2 -Wall -fPIC"
-c_compiler.CC = "cc"
-
 local function shell(cmd)
     local p = io.popen(cmd)
     out = p:read("*a")
     p:close()
     return out
 end
+
+c_compiler.DIRNAME = shell("dirname " .. arg[0]):gsub("\n*$", "")
+c_compiler.LUA_SOURCE_PATH = c_compiler.DIRNAME .. "/lua/src/"
+c_compiler.CFLAGS = "--std=c99 -O2 -Wall -fPIC"
+c_compiler.CC = "cc"
 
 local UNAME = shell("uname -s")
 
