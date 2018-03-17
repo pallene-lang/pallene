@@ -38,4 +38,16 @@ function util.render(code, substs)
     end))
 end
 
+function util.shell(cmd)
+    local p = io.popen(cmd)
+    out = p:read("*a")
+    p:close()
+    return out
+end
+
+function util.split_ext(file_name)
+	local name, ext = string.match(file_name, "(.*)%.(.*)")
+    return name, ext
+end
+
 return util
