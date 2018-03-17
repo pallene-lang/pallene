@@ -11,7 +11,7 @@ local function time(cmd)
         [[ { TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1 ]])
     local time_elapsed = tonumber(result)
     if not time_elapsed then
-        io.stederr:write(result, "\n")
+        io.stderr:write(result, "\n")
         return -1
     end
     return time_elapsed
@@ -116,4 +116,10 @@ local function run_all_benchmarks()
     end
 end
 
-run_all_benchmarks()
+local test_dir = arg[1]
+if test_dir then
+    test_dir = string.gsub(test_dir, "/*$", "")
+    benchmark(test_dir)
+else
+    run_all_benchmarks()
+end
