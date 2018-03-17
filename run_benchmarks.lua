@@ -1,28 +1,15 @@
 #!/usr/bin/env lua
 
+local c_compiler = require "titan-compiler.c_compiler"
+local util = require "titan-compiler.util"
+
 local tests = {
     "add",
 }
 
-local function shell(cmd)
-    local p = io.popen(cmd)
-    out = p:read("*a")
-    p:close()
-    return out
-end
-
-local UNAME = shell("uname -s")
-
-local SHARED
-if string.find(UNAME, "Darwin") then
-    SHARED = "-shared -undefined dynamic_lookup"
-else
-    SHARED = "-shared"
-end
-
 -- run the command a single time and return the time elapsed
 local function measure(cmd)
-    local result = shell(
+    local result = util.shell(
         [[ { TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1 ]])
     local time_elapsed = tonumber(result)
     if not time_elapsed then
@@ -47,17 +34,17 @@ local function benchmark_lua(test)
 end
 
 local function benchmark_titan(test)
-    local compile = string.format(
-        [[ ./titanc benchmarks/%s/titan.titan ]], test)
-    shell(compile)
+    local f = string.format("benchmarks/%s/titan.titan", test)
+    local ok, err = c_compiler.compile_titan(f, util.get_file_contents(f))
+    if not ok then error(table.concat(err, "\n")) end
     return benchmark(test, "titan")
 end
 
 local function benchmark_c(test)
-    local compile = string.format(
-        [[ cc --std=c99 -O2 -Wall -fPIC %s -I lua/src -o benchmarks/%s/c.so benchmarks/%s/c.c ]],
-        SHARED, test, test)
-    shell(compile)
+    local basename = string.format("benchmarks/%s/c", test)
+    local ok, err = c_compiler.compile_c_file(basename .. ".c",
+            basename .. ".so")
+    if not ok then error(table.concat(err, "\n")) end
     return benchmark(test, "c")
 end
 
