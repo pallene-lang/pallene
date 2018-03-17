@@ -90,7 +90,8 @@ local function benchmark(test_dir)
         end
         local ok, errors = compile_ext(path)
         if ok then
-            results[file_name] = min(measure(test_dir, name))
+            local result = min(measure(test_dir, name))
+            table.insert(results, {name = name, result = result})
         end
         cleanup[ext](test_dir, name)
         if #errors > 0 then
@@ -106,8 +107,9 @@ local function run_all_benchmarks()
         if not string.find(test, "^%.") then
             local test_dir = "benchmarks/" .. test
             local results = benchmark(test_dir)
-            for k, v in pairs(results) do
-                print(k, v)
+            table.sort(results, function(r1, r2) return r1.name < r2.name end)
+            for _, r in ipairs(results) do
+                print(r.name, r.result)
             end
             print("----------")
         end
