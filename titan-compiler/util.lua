@@ -45,7 +45,7 @@ end
 
 function util.shell(cmd)
     local p = io.popen(cmd)
-    out = p:read("*a")
+    local out = p:read("*a")
     p:close()
     return out
 end

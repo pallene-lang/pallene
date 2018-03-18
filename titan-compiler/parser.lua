@@ -479,8 +479,8 @@ function parser.parse(filename, input)
     return prog, errors
 end
 
-function parser.pretty_print_ast(ast)
-    return inspect(ast, {
+function parser.pretty_print_ast(prog)
+    return inspect(prog, {
         process = function(item, path)
             if path[#path] ~= inspect.METATABLE then
                 return item
