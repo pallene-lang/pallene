@@ -43,7 +43,7 @@ if args.print_ast then
     os.exit(0)
 end
 
-local ok, errors = c_compiler.compile(args.source_file, input)
+local ok, errors = c_compiler.compile_titan(args.source_file, input)
 if not ok then
     abort(table.concat(errors, "\n"))
 end
