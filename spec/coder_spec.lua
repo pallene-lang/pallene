@@ -626,4 +626,21 @@ describe("Titan coder", function()
             ]])
         end)
     end)
+
+    it("Can represent floating point literals perfectly accurately", function()
+        run_coder([[
+            function pi(): float
+                return 3.141592653589793
+            end
+            function e(): float
+                return 2.718281828459045
+            end
+        ]], [[
+            local pi = 3.141592653589793
+            local e  = 2.718281828459045
+            assert.is_equal(pi, test.pi())
+            assert.is_equal(e, test.e())
+            assert.is_equal(pi*e*e, test.pi() * test.e() * test.e())
+        ]])
+    end)
 end)

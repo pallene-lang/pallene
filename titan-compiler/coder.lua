@@ -114,7 +114,11 @@ local function c_boolean(b)
 end
 
 local function c_float(n)
-    return string.format("%f", n)
+    -- Use hexadecimal float literals (%a) to avoid losing any precision.
+    -- This feature is part of the C99 and C++17 standards. An alternative
+    -- C89-compatiple solution might be to refactor the Titan compiler to
+    -- represent float literals as strings instead of as numbers.
+    return string.format("%a /*%f*/", n, n)
 end
 
 -- @param ctype: (string) C datatype, as produced by ctype()
