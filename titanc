@@ -19,7 +19,6 @@ end
 
 local p = argparse("titan", "Titan compiler")
 p:argument("source_file", "Titan source file to compile."):args(1)
-p:flag("--print-ast", "Print the AST.")
 
 local args = p:parse()
 
@@ -32,15 +31,6 @@ end
 local input, err = util.get_file_contents(args.source_file)
 if not input then
     abort(titanc_err_prefix .. err)
-end
-
-if args.print_ast then
-    local ast, errors = parser.parse(args.source_file, input)
-    if not ast then
-        abort(table.concat(errors, "\n"))
-    end
-    print(parser.pretty_print_ast(ast))
-    os.exit(0)
 end
 
 local ok, errors = c_compiler.compile_titan(args.source_file, input)
