@@ -113,7 +113,6 @@ local function benchmark(test_dir)
         print(r.name, r.result)
     end
     print("----------")
-
 end
 
 local function run_all_benchmarks()
