@@ -52,6 +52,18 @@ describe("Titan coder", function()
         ]])
     end)
 
+    it("Verify the argument's tag", function()
+        run_coder([[
+            function f(x: float): float
+                return x
+            end
+        ]], [[
+            local ok, err = pcall(test.f, "abc")
+            assert.match(err, "wrong type for argument x at line 1, " ..
+                    "expected float but found string")
+        ]])
+    end)
+
     describe("Expressions:", function()
 
         it("Constants", function()
