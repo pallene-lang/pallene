@@ -314,19 +314,20 @@ generate_program = function(prog, modname)
                     local decl = util.render([[
                         ${SLOT_DECL} = L->ci->func + ${I};
                         if (!${CHECK_TAG}) {
-                            luaL_error(L, "wrong type for argument ${ARG_NAME} "
-                                    "at line ${LINE}, expected ${EXP_TYPE} "
-                                    "but found %s",
-                                    lua_typename(L, ttnov(${SLOT_NAME})));
+                            luaL_error(L,
+                                "wrong type for argument %s at line %d, "
+                                "expected %s but found %s",
+                                ${ARG_NAME}, ${LINE}, ${EXP_TYPE},
+                                lua_typename(L, ttnov(${SLOT_NAME})));
                         }
                         ${ARG_DECL} = ${SLOT_VALUE};
                     ]], {
                         SLOT_DECL = c_declaration("StkId", slot_name),
                         I = c_integer(i),
                         CHECK_TAG = check_tag(param._type, slot_name),
-                        ARG_NAME = param.name,
-                        LINE = param.loc.line,
-                        EXP_TYPE = types.tostring(param._type),
+                        ARG_NAME = c_string(param.name),
+                        LINE = c_integer(param.loc.line),
+                        EXP_TYPE = c_string(types.tostring(param._type)),
                         SLOT_NAME = slot_name,
                         ARG_DECL = c_declaration(ctype(param._type), arg_name),
                         SLOT_VALUE = get_slot(param._type, slot_name),
