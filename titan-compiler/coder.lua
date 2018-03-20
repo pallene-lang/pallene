@@ -211,6 +211,22 @@ local function set_slot(typ, dst_slot_address, value)
     return util.render(tmpl, { DST = dst_slot_address, SRC = value })
 end
 
+local function check_tag(typ, slot)
+    local tmpl
+    local tag = typ._tag
+    if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
+    elseif tag == types.T.Boolean  then tmpl = "ttisboolean(${SLOT})"
+    elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
+    elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
+    elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
+    elseif tag == types.T.Function then error("not implemented")
+    elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
+    elseif tag == types.T.Record   then error("not implemented")
+    else error("impossible")
+    end
+    return util.render(tmpl, {SLOT = slot})
+end
+
 local function toplevel_is_value_declaration(tl_node)
     local tag = tl_node._tag
     if     tag == ast.Toplevel.Func then
@@ -287,19 +303,43 @@ generate_program = function(prog, modname)
                 assert(#tl_node._type.rettypes == 1)
                 local ret_typ = tl_node._type.rettypes[1]
 
+                local args_decl = {}
                 local args = {}
                 table.insert(args, [[L]])
                 for i, param in ipairs(tl_node.params) do
-                    local slot = util.render([[L->ci->func + ${I}]], {
-                        I = c_integer(i)
+                    local slot_name = tmp_name()
+                    local arg_name = tmp_name()
+                    -- TODO: fix: the error message is not able specify if the
+                    -- given type is float or integer (it prints "number")
+                    local decl = util.render([[
+                        ${SLOT_DECL} = L->ci->func + ${I};
+                        if (!${CHECK_TAG}) {
+                            luaL_error(L, "wrong type for argument ${ARG_NAME} "
+                                    "at line ${LINE}, expected ${EXP_TYPE} "
+                                    "but found %s",
+                                    lua_typename(L, ttnov(${SLOT_NAME})));
+                        }
+                        ${ARG_DECL} = ${SLOT_VALUE};
+                    ]], {
+                        SLOT_DECL = c_declaration("StkId", slot_name),
+                        I = c_integer(i),
+                        CHECK_TAG = check_tag(param._type, slot_name),
+                        ARG_NAME = param.name,
+                        LINE = param.loc.line,
+                        EXP_TYPE = types.tostring(param._type),
+                        SLOT_NAME = slot_name,
+                        ARG_DECL = c_declaration(ctype(param._type), arg_name),
+                        SLOT_VALUE = get_slot(param._type, slot_name),
                     })
-                    table.insert(args, get_slot(param._type, slot))
+                    table.insert(args_decl, decl)
+                    table.insert(args, arg_name)
                 end
 
                 table.insert(function_definitions,
                     util.render([[
                         static int ${LUA_ENTRY_POINT}(lua_State *L)
                         {
+                            ${ARGS_DECL}
                             ${RET_DECL} = ${TITAN_ENTRY_POINT}(${ARGS});
                             ${SET_RET}
                             api_incr_top(L);
@@ -309,6 +349,7 @@ generate_program = function(prog, modname)
                         LUA_ENTRY_POINT = tl_node._lua_entry_point,
                         TITAN_ENTRY_POINT = tl_node._titan_entry_point,
                         RET_DECL = c_declaration(ctype(ret_typ), "ret"),
+                        ARGS_DECL = table.concat(args_decl, "\n"),
                         ARGS = table.concat(args, ", "),
                         SET_RET = set_slot(ret_typ, "L->top", "ret"),
                     })
