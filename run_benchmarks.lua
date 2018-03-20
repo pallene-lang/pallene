@@ -99,19 +99,20 @@ local function benchmark(test_dir)
         end
         ::continue::
     end
-    return results
+
+    table.sort(results, function(r1, r2) return r1.name < r2.name end)
+    for _, r in ipairs(results) do
+        print(r.name, r.result)
+    end
+    print("----------")
+
 end
 
 local function run_all_benchmarks()
     for test in lfs.dir("benchmarks") do
         if not string.find(test, "^%.") then
             local test_dir = "benchmarks/" .. test
-            local results = benchmark(test_dir)
-            table.sort(results, function(r1, r2) return r1.name < r2.name end)
-            for _, r in ipairs(results) do
-                print(r.name, r.result)
-            end
-            print("----------")
+            benchmark(test_dir)
         end
     end
 end
