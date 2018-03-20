@@ -19,8 +19,16 @@ end
 
 local function measure(test_dir, name)
     local test_name = string.gsub(test_dir, "/", ".") .. "." .. name
+
+    local lua
+    if string.match(name, "^luajit") then
+        lua = "luajit"
+    else
+        lua = "lua/src/lua"
+    end
+
     local cmd = string.format(
-            [[ lua/src/lua %s/main.lua %s ]], test_dir, test_name)
+            [[ %s %s/main.lua %s ]], lua, test_dir, test_name)
     print("running", cmd)
     local results = {}
     for i = 1, 3 do
