@@ -19,8 +19,16 @@ end
 
 local function measure(test_dir, name)
     local test_name = string.gsub(test_dir, "/", ".") .. "." .. name
+
+    local lua
+    if string.match(name, "^luajit") then
+        lua = "luajit"
+    else
+        lua = "lua/src/lua"
+    end
+
     local cmd = string.format(
-            [[ lua/src/lua %s/main.lua %s ]], test_dir, test_name)
+            [[ %s %s/main.lua %s ]], lua, test_dir, test_name)
     print("running", cmd)
     local results = {}
     for i = 1, 3 do
@@ -99,19 +107,19 @@ local function benchmark(test_dir)
         end
         ::continue::
     end
-    return results
+
+    table.sort(results, function(r1, r2) return r1.name < r2.name end)
+    for _, r in ipairs(results) do
+        print(r.name, r.result)
+    end
+    print("----------")
 end
 
 local function run_all_benchmarks()
     for test in lfs.dir("benchmarks") do
         if not string.find(test, "^%.") then
             local test_dir = "benchmarks/" .. test
-            local results = benchmark(test_dir)
-            table.sort(results, function(r1, r2) return r1.name < r2.name end)
-            for _, r in ipairs(results) do
-                print(r.name, r.result)
-            end
-            print("----------")
+            benchmark(test_dir)
         end
     end
 end
