@@ -1,7 +1,7 @@
 local util = require "titan-compiler.util"
 
 describe("Titanc", function()
-     after_each(function()
+    after_each(function()
         os.execute("rm -f test.titan")
         os.execute("rm -f test.c")
         os.execute("rm -f test.so")
