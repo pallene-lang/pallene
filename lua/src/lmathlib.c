@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.119 2016/12/22 13:08:50 roberto Exp $
+** $Id: lmathlib.c,v 1.125 2018/03/12 12:39:03 roberto Exp $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -10,8 +10,10 @@
 #include "lprefix.h"
 
 
-#include <stdlib.h>
+#include <float.h>
+#include <limits.h>
 #include <math.h>
+#include <stdlib.h>
 
 #include "lua.h"
 
@@ -21,19 +23,6 @@
 
 #undef PI
 #define PI	(l_mathop(3.141592653589793238462643383279502884))
-
-
-#if !defined(l_rand)		/* { */
-#if defined(LUA_USE_POSIX)
-#define l_rand()	random()
-#define l_srand(x)	srandom(x)
-#define L_RANDMAX	2147483647	/* (2^31 - 1), following POSIX */
-#else
-#define l_rand()	rand()
-#define l_srand(x)	srand(x)
-#define L_RANDMAX	RAND_MAX
-#endif
-#endif				/* } */
 
 
 static int math_abs (lua_State *L) {
@@ -239,47 +228,6 @@ static int math_max (lua_State *L) {
   return 1;
 }
 
-/*
-** This function uses 'double' (instead of 'lua_Number') to ensure that
-** all bits from 'l_rand' can be represented, and that 'RANDMAX + 1.0'
-** will keep full precision (ensuring that 'r' is always less than 1.0.)
-*/
-static int math_random (lua_State *L) {
-  lua_Integer low, up;
-  double r = (double)l_rand() * (1.0 / ((double)L_RANDMAX + 1.0));
-  switch (lua_gettop(L)) {  /* check number of arguments */
-    case 0: {  /* no arguments */
-      lua_pushnumber(L, (lua_Number)r);  /* Number between 0 and 1 */
-      return 1;
-    }
-    case 1: {  /* only upper limit */
-      low = 1;
-      up = luaL_checkinteger(L, 1);
-      break;
-    }
-    case 2: {  /* lower and upper limits */
-      low = luaL_checkinteger(L, 1);
-      up = luaL_checkinteger(L, 2);
-      break;
-    }
-    default: return luaL_error(L, "wrong number of arguments");
-  }
-  /* random integer in the interval [low, up] */
-  luaL_argcheck(L, low <= up, 1, "interval is empty");
-  luaL_argcheck(L, low >= 0 || up <= LUA_MAXINTEGER + low, 1,
-                   "interval too large");
-  r *= (double)(up - low) + 1.0;
-  lua_pushinteger(L, (lua_Integer)r + low);
-  return 1;
-}
-
-
-static int math_randomseed (lua_State *L) {
-  l_srand((unsigned int)(lua_Integer)luaL_checknumber(L, 1));
-  (void)l_rand(); /* discard first value to avoid undesirable correlations */
-  return 0;
-}
-
 
 static int math_type (lua_State *L) {
   if (lua_type(L, 1) == LUA_TNUMBER) {
@@ -294,6 +242,290 @@ static int math_type (lua_State *L) {
   }
   return 1;
 }
+
+
+
+/*
+** {==================================================================
+** Pseudo-Random Number Generator based on 'xorshift128+'.
+** ===================================================================
+*/
+
+/* number of binary digits in the mantissa of a float */
+#define FIGS	l_mathlim(MANT_DIG)
+
+#if FIGS > 64
+/* there are only 64 random bits; use them all */
+#undef FIGS
+#define FIGS	64
+#endif
+
+
+#if !defined(LUA_USE_C89) && defined(LLONG_MAX) && !defined(LUA_DEBUG)  /* { */
+
+/*
+** Assume long long.
+*/
+
+/* a 64-bit value */
+typedef unsigned long long I;
+
+static I xorshift128plus (I *state) {
+  I x = state[0];
+  I y = state[1];
+  state[0] = y;
+  x ^= x << 23;
+  state[1] = (x ^ (x >> 18)) ^ (y ^ (y >> 5));
+  return state[1] + y;
+}
+
+/* must take care to not shift stuff by more than 63 slots */
+
+#define maskFIG		(~(~1LLU << (FIGS - 1)))  /* use FIGS bits */
+#define shiftFIG	(l_mathop(0.5) / (1LLU << (FIGS - 1)))  /* 2^(-FIG) */
+
+/*
+** Convert bits from a random integer into a float in the
+** interval [0,1).
+*/
+static lua_Number I2d (I x) {
+  return (lua_Number)(x & maskFIG) * shiftFIG;
+}
+
+/* convert an 'I' to a lua_Unsigned */
+#define I2UInt(x)	((lua_Unsigned)(x))
+
+/* convert a lua_Integer to an 'I' */
+#define Int2I(x)	((I)(x))
+
+#else  /* no long long   }{ */
+
+/*
+** Use two 32-bit integers to represent a 64-bit quantity.
+*/
+
+#if LUAI_BITSINT >= 32
+typedef unsigned int lu_int32;
+#else
+typedef unsigned long lu_int32;
+#endif
+
+/* a 64-bit value */
+typedef struct I {
+  lu_int32 h;  /* higher half */
+  lu_int32 l;  /* lower half */
+} I;
+
+
+/*
+** basic operations on 'I' values
+*/
+
+static I pack (lu_int32 h, lu_int32 l) {
+  I result;
+  result.h = h;
+  result.l = l;
+  return result;
+}
+
+/* i ^ (i << n) */
+static I Ixorshl (I i, int n) {
+  return pack(i.h ^ ((i.h << n) | (i.l >> (32 - n))), i.l ^ (i.l << n));
+}
+
+/* i ^ (i >> n) */
+static I Ixorshr (I i, int n) {
+  return pack(i.h ^ (i.h >> n), i.l ^ ((i.l >> n) | (i.h << (32 - n))));
+}
+
+static I Ixor (I i1, I i2) {
+  return pack(i1.h ^ i2.h, i1.l ^ i2.l);
+}
+
+static I Iadd (I i1, I i2) {
+  I result = pack(i1.h + i2.h, i1.l + i2.l);
+  if (result.l < i1.l)  /* carry? */
+    result.h++;
+  return result;
+}
+
+
+/*
+** implementation of 'xorshift128+' algorithm on 'I' values
+*/
+static I xorshift128plus (I *state) {
+  I x = state[0];
+  I y = state[1];
+  state[0] = y;
+  x = Ixorshl(x, 23);  /* x ^= x << 23; */
+  /* state[1] = (x ^ (x >> 18)) ^ (y ^ (y >> 5)); */
+  state[1] = Ixor(Ixorshr(x, 18), Ixorshr(y, 5));
+  return Iadd(state[1], y);  /* return state[1] + y; */
+}
+
+
+/*
+** Converts an 'I' into a float.
+*/
+
+/* an unsigned 1 with proper type */
+#define UONE		((lu_int32)1)
+
+#if FIGS <= 32
+
+#define maskHF		0  /* do not need bits from higher half */
+#define maskLOW		(~(~UONE << (FIGS - 1)))  /* use FIG bits */
+#define shiftFIG	(l_mathop(0.5) / (UONE << (FIGS - 1)))  /* 2^(-FIG) */
+
+#else	/* 32 < FIGS <= 64 */
+
+/* must take care to not shift stuff by more than 31 slots */
+
+/* use FIG - 32 bits from higher half */
+#define maskHF		(~(~UONE << (FIGS - 33)))
+
+/* use all bits from lower half */
+#define maskLOW		(~(lu_int32)0)
+
+/* 2^(-FIG) == (1 / 2^33) / 2^(FIG-33) */
+#define shiftFIG  ((lua_Number)(1.0 / 8589934592.0) / (UONE << (FIGS - 33)))
+
+#endif
+
+#define twoto32		l_mathop(4294967296.0)  /* 2^32 */
+
+static lua_Number I2d (I x) {
+  lua_Number h = (lua_Number)(x.h & maskHF);
+  lua_Number l = (lua_Number)(x.l & maskLOW);
+  return (h * twoto32 + l) * shiftFIG;
+}
+
+static lua_Unsigned I2UInt (I x) {
+  return ((lua_Unsigned)x.h << 31 << 1) | x.l;
+}
+
+static I Int2I (lua_Integer n) {
+  lua_Unsigned un = n;
+  return pack((lu_int32)un, (lu_int32)(un >> 31 >> 1));
+}
+
+#endif  /* } */
+
+
+/*
+** A state uses two 'I' values.
+*/
+typedef struct {
+  I s[2];
+} RanState;
+
+
+/*
+** Project the random integer 'ran' into the interval [0, n].
+** Because 'ran' has 2^B possible values, the projection can only
+** be uniform when the size of the interval [0, n] is a power of 2
+** (exact division). With the fairest possible projection (e.g.,
+** '(ran % (n + 1))'), the maximum bias is 1 in 2^B/n.
+** For a "small" 'n', this bias is acceptable. (Here, we accept
+** a maximum bias of 0.0001%.) For a larger 'n', we first
+** compute 'lim', the smallest (2^b - 1) not smaller than 'n',
+** to get a uniform projection into [0,lim]. If the result is
+** inside [0, n], we are done. Otherwise, we try we another
+** 'ran' until we have a result inside the interval.
+*/
+
+#define MAXBIAS		1000000
+
+static lua_Unsigned project (lua_Unsigned ran, lua_Unsigned n,
+                             RanState *state) {
+  if (n < LUA_MAXUNSIGNED / MAXBIAS)
+    return ran % (n + 1);
+  else {
+    /* compute the smallest (2^b - 1) not smaller than 'n' */
+    lua_Unsigned lim = n;
+    lim |= (lim >> 1);
+    lim |= (lim >> 2);
+    lim |= (lim >> 4);
+    lim |= (lim >> 8);
+    lim |= (lim >> 16);
+#if (LUA_MAXINTEGER >> 30 >> 2) > 0
+    lim |= (lim >> 32);  /* integer type has more than 32 bits */
+#endif
+    lua_assert((lim & (lim + 1)) == 0  /* 'lim + 1' is a power of 2 */
+      && lim >= n  /* not smaller than 'n' */
+      && (lim >> 1) < n);  /* it is the smallest one */
+    while ((ran & lim) > n)
+      ran = I2UInt(xorshift128plus(state->s));
+    return ran & lim;
+  }
+}
+
+
+static int math_random (lua_State *L) {
+  lua_Integer low, up;
+  lua_Unsigned p;
+  RanState *state = (RanState *)lua_touserdata(L, lua_upvalueindex(1));
+  I rv = xorshift128plus(state->s);  /* next pseudo-random value */
+  switch (lua_gettop(L)) {  /* check number of arguments */
+    case 0: {  /* no arguments */
+      lua_pushnumber(L, I2d(rv));  /* float between 0 and 1 */
+      return 1;
+    }
+    case 1: {  /* only upper limit */
+      low = 1;
+      up = luaL_checkinteger(L, 1);
+      if (up == 0) {  /* single 0 as argument? */
+        lua_pushinteger(L, I2UInt(rv));  /* full random integer */
+        return 1;
+      }
+      break;
+    }
+    case 2: {  /* lower and upper limits */
+      low = luaL_checkinteger(L, 1);
+      up = luaL_checkinteger(L, 2);
+      break;
+    }
+    default: return luaL_error(L, "wrong number of arguments");
+  }
+  /* random integer in the interval [low, up] */
+  luaL_argcheck(L, low <= up, 1, "interval is empty");
+  /* project random integer into the interval [0, up - low] */
+  p = project(I2UInt(rv), (lua_Unsigned)up - (lua_Unsigned)low, state);
+  lua_pushinteger(L, p + (lua_Unsigned)low);
+  return 1;
+}
+
+
+static void setseed (I *state, lua_Integer n) {
+  int i;
+  state[0] = Int2I(n);
+  state[1] = Int2I(~n);
+  for (i = 0; i < 16; i++)
+    xorshift128plus(state);  /* discard initial values */
+}
+
+
+static int math_randomseed (lua_State *L) {
+  RanState *state = (RanState *)lua_touserdata(L, lua_upvalueindex(1));
+  lua_Integer n = luaL_checkinteger(L, 1);
+  setseed(state->s, n);
+  return 0;
+}
+
+
+static const luaL_Reg randfuncs[] = {
+  {"random", math_random},
+  {"randomseed", math_randomseed},
+  {NULL, NULL}
+};
+
+static void setrandfunc (lua_State *L) {
+  RanState *state = (RanState *)lua_newuserdatauv(L, sizeof(RanState), 0);
+  setseed(state->s, 0);
+  luaL_setfuncs(L, randfuncs, 1);
+}
+
+/* }================================================================== */
 
 
 /*
@@ -367,8 +599,6 @@ static const luaL_Reg mathlib[] = {
   {"min",   math_min},
   {"modf",   math_modf},
   {"rad",   math_rad},
-  {"random",     math_random},
-  {"randomseed", math_randomseed},
   {"sin",   math_sin},
   {"sqrt",  math_sqrt},
   {"tan",   math_tan},
@@ -384,6 +614,8 @@ static const luaL_Reg mathlib[] = {
   {"log10", math_log10},
 #endif
   /* placeholders */
+  {"random", NULL},
+  {"randomseed", NULL},
   {"pi", NULL},
   {"huge", NULL},
   {"maxinteger", NULL},
@@ -405,6 +637,7 @@ LUAMOD_API int luaopen_math (lua_State *L) {
   lua_setfield(L, -2, "maxinteger");
   lua_pushinteger(L, LUA_MININTEGER);
   lua_setfield(L, -2, "mininteger");
+  setrandfunc(L);
   return 1;
 }
 

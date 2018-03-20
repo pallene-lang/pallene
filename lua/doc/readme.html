@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <HTML>
 <HEAD>
-<TITLE>Lua 5.3 readme</TITLE>
+<TITLE>Lua 5.4 readme</TITLE>
 <LINK REL="stylesheet" TYPE="text/css" HREF="lua.css">
 <META HTTP-EQUIV="content-type" CONTENT="text/html; charset=iso-8859-1">
 <STYLE TYPE="text/css">
@@ -30,7 +30,7 @@ tt, kbd, code {
 
 <H1>
 <A HREF="http://www.lua.org/"><IMG SRC="logo.gif" ALT="Lua"></A>
-Welcome to Lua 5.3
+Welcome to Lua 5.4
 </H1>
 
 <DIV CLASS="menubar">
@@ -69,7 +69,7 @@ and
 updated
 <A HREF="http://www.lua.org/docs.html">documentation</A>,
 especially the
-<A HREF="http://www.lua.org/manual/5.3/">reference manual</A>,
+<A HREF="http://www.lua.org/manual/5.4/">reference manual</A>,
 which may differ slightly from the
 <A HREF="contents.html">local copy</A>
 distributed in this package.
@@ -107,7 +107,7 @@ Here are the details.
 <OL>
 <LI>
 Open a terminal window and move to
-the top-level directory, which is named <TT>lua-5.3.x</TT>.
+the top-level directory, which is named <TT>lua-5.4.x</TT>.
 The <TT>Makefile</TT> there controls both the build process and the installation process.
 <P>
 <LI>
@@ -254,9 +254,9 @@ compiler:
   As mentioned above, you may edit <TT>src/luaconf.h</TT> to customize
   some features before building Lua.
 
-<H2><A NAME="changes">Changes since Lua 5.2</A></H2>
+<H2><A NAME="changes">Changes since Lua 5.3</A></H2>
 <P>
-Here are the main changes introduced in Lua 5.3.
+Here are the main changes introduced in Lua 5.4.
 The
 <A HREF="contents.html">reference manual</A>
 lists the
@@ -264,50 +264,11 @@ lists the
 
 <H3>Main changes</H3>
 <UL>
-<LI> integers (64-bit by default)
-<LI> official support for 32-bit numbers
-<LI> bitwise operators
-<LI> basic utf-8 support
-<LI> functions for packing and unpacking values
+<LI> new generational mode for garbage collection
+<LI> userdata can have multiple user values
+<LI> debug information about function arguments and returns
+<LI> new implementation for <CODE>math.random</CODE>
 
-</UL>
-
-Here are the other changes introduced in Lua 5.3:
-<H3>Language</H3>
-<UL>
-<LI> userdata can have any Lua value as uservalue
-<LI> floor division
-<LI> more flexible rules for some metamethods
-</UL>
-
-<H3>Libraries</H3>
-<UL>
-<LI> <CODE>ipairs</CODE> and the table library respect metamethods
-<LI> strip option in <CODE>string.dump</CODE>
-<LI> table library respects metamethods
-<LI> new function <CODE>table.move</CODE>
-<LI> new function <CODE>string.pack</CODE>
-<LI> new function <CODE>string.unpack</CODE>
-<LI> new function <CODE>string.packsize</CODE>
-</UL>
-
-<H3>C API</H3>
-<UL>
-<LI> simpler API for continuation functions in C
-<LI> <CODE>lua_gettable</CODE> and similar functions return type of resulted value
-<LI> strip option in <CODE>lua_dump</CODE>
-<LI> new function: <CODE>lua_geti</CODE>
-<LI> new function: <CODE>lua_seti</CODE>
-<LI> new function: <CODE>lua_isyieldable</CODE>
-<LI> new function: <CODE>lua_numbertointeger</CODE>
-<LI> new function: <CODE>lua_rotate</CODE>
-<LI> new function: <CODE>lua_stringtonumber</CODE>
-</UL>
-
-<H3>Lua standalone interpreter</H3>
-<UL>
-<LI> can be used as calculator; no need to prefix with '='
-<LI> <CODE>arg</CODE> table available to all code
 </UL>
 
 <H2><A NAME="license">License</A></H2>
@@ -328,7 +289,7 @@ For details, see
 <A HREF="http://www.lua.org/license.html">this</A>.
 
 <BLOCKQUOTE STYLE="padding-bottom: 0em">
-Copyright &copy; 1994&ndash;2017 Lua.org, PUC-Rio.
+Copyright &copy; 1994&ndash;2018 Lua.org, PUC-Rio.
 
 <P>
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -355,10 +316,10 @@ THE SOFTWARE.
 
 <P CLASS="footer">
 Last update:
-Thu Dec 22 18:22:57 BRST 2016
+Mon Mar 12 14:52:57 -03 2018
 </P>
 <!--
-Last change: revised for Lua 5.3.4
+Last change: revised for Lua 5.4.0 (work1)
 -->
 
 </BODY>

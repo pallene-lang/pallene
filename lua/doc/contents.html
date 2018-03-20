@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <HTML>
 <HEAD>
-<TITLE>Lua 5.3 Reference Manual - contents</TITLE>
+<TITLE>Lua 5.4 Reference Manual - contents</TITLE>
 <LINK REL="stylesheet" TYPE="text/css" HREF="lua.css">
 <LINK REL="stylesheet" TYPE="text/css" HREF="index.css">
 <META HTTP-EQUIV="content-type" CONTENT="text/html; charset=iso-8859-1">
@@ -11,7 +11,7 @@
 
 <H1>
 <A HREF="http://www.lua.org/"><IMG SRC="logo.gif" ALT="Lua"></A>
-Lua 5.3 Reference Manual
+Lua 5.4 Reference Manual
 </H1>
 
 <P>
@@ -32,7 +32,7 @@ For a complete introduction to Lua programming, see the book
 
 <P>
 <SMALL>
-Copyright &copy; 2015&ndash;2017 Lua.org, PUC-Rio.
+Copyright &copy; 2015&ndash;2018 Lua.org, PUC-Rio.
 Freely available under the terms of the
 <A HREF="http://www.lua.org/license.html">Lua license</A>.
 </SMALL>
@@ -49,8 +49,10 @@ Freely available under the terms of the
 <LI><A HREF="manual.html#2.4">2.4 &ndash; Metatables and Metamethods</A>
 <LI><A HREF="manual.html#2.5">2.5 &ndash; Garbage Collection</A>
 <UL>
-<LI><A HREF="manual.html#2.5.1">2.5.1 &ndash; Garbage-Collection Metamethods</A>
-<LI><A HREF="manual.html#2.5.2">2.5.2 &ndash; Weak Tables</A>
+<LI><A HREF="manual.html#2.5.1">2.5.1 &ndash; The incremental GC</A>
+<LI><A HREF="manual.html#2.5.2">2.5.2 &ndash; The generational GC</A>
+<LI><A HREF="manual.html#2.5.3">2.5.3 &ndash; Garbage-Collection Metamethods</A>
+<LI><A HREF="manual.html#2.5.4">2.5.4 &ndash; Weak Tables</A>
 </UL>
 <LI><A HREF="manual.html#2.6">2.6 &ndash; Coroutines</A>
 </UL>
@@ -321,11 +323,11 @@ Freely available under the terms of the
 <H3><A NAME="env">environment<BR>variables</A></H3>
 <P>
 <A HREF="manual.html#pdf-LUA_CPATH">LUA_CPATH</A><BR>
-<A HREF="manual.html#pdf-LUA_CPATH_5_3">LUA_CPATH_5_3</A><BR>
+<A HREF="manual.html#pdf-LUA_CPATH_5_4">LUA_CPATH_5_4</A><BR>
 <A HREF="manual.html#pdf-LUA_INIT">LUA_INIT</A><BR>
-<A HREF="manual.html#pdf-LUA_INIT_5_3">LUA_INIT_5_3</A><BR>
+<A HREF="manual.html#pdf-LUA_INIT_5_4">LUA_INIT_5_4</A><BR>
 <A HREF="manual.html#pdf-LUA_PATH">LUA_PATH</A><BR>
-<A HREF="manual.html#pdf-LUA_PATH_5_3">LUA_PATH_5_3</A><BR>
+<A HREF="manual.html#pdf-LUA_PATH_5_4">LUA_PATH_5_4</A><BR>
 
 </TD>
 <TD>
@@ -368,13 +370,13 @@ Freely available under the terms of the
 <A HREF="manual.html#lua_gethookmask">lua_gethookmask</A><BR>
 <A HREF="manual.html#lua_geti">lua_geti</A><BR>
 <A HREF="manual.html#lua_getinfo">lua_getinfo</A><BR>
+<A HREF="manual.html#lua_getiuservalue">lua_getiuservalue</A><BR>
 <A HREF="manual.html#lua_getlocal">lua_getlocal</A><BR>
 <A HREF="manual.html#lua_getmetatable">lua_getmetatable</A><BR>
 <A HREF="manual.html#lua_getstack">lua_getstack</A><BR>
 <A HREF="manual.html#lua_gettable">lua_gettable</A><BR>
 <A HREF="manual.html#lua_gettop">lua_gettop</A><BR>
 <A HREF="manual.html#lua_getupvalue">lua_getupvalue</A><BR>
-<A HREF="manual.html#lua_getuservalue">lua_getuservalue</A><BR>
 <A HREF="manual.html#lua_insert">lua_insert</A><BR>
 <A HREF="manual.html#lua_isboolean">lua_isboolean</A><BR>
 <A HREF="manual.html#lua_iscfunction">lua_iscfunction</A><BR>
@@ -395,7 +397,7 @@ Freely available under the terms of the
 <A HREF="manual.html#lua_newstate">lua_newstate</A><BR>
 <A HREF="manual.html#lua_newtable">lua_newtable</A><BR>
 <A HREF="manual.html#lua_newthread">lua_newthread</A><BR>
-<A HREF="manual.html#lua_newuserdata">lua_newuserdata</A><BR>
+<A HREF="manual.html#lua_newuserdatauv">lua_newuserdatauv</A><BR>
 <A HREF="manual.html#lua_next">lua_next</A><BR>
 <A HREF="manual.html#lua_numbertointeger">lua_numbertointeger</A><BR>
 <A HREF="manual.html#lua_pcall">lua_pcall</A><BR>
@@ -434,12 +436,12 @@ Freely available under the terms of the
 <A HREF="manual.html#lua_setglobal">lua_setglobal</A><BR>
 <A HREF="manual.html#lua_sethook">lua_sethook</A><BR>
 <A HREF="manual.html#lua_seti">lua_seti</A><BR>
+<A HREF="manual.html#lua_setiuservalue">lua_setiuservalue</A><BR>
 <A HREF="manual.html#lua_setlocal">lua_setlocal</A><BR>
 <A HREF="manual.html#lua_setmetatable">lua_setmetatable</A><BR>
 <A HREF="manual.html#lua_settable">lua_settable</A><BR>
 <A HREF="manual.html#lua_settop">lua_settop</A><BR>
 <A HREF="manual.html#lua_setupvalue">lua_setupvalue</A><BR>
-<A HREF="manual.html#lua_setuservalue">lua_setuservalue</A><BR>
 <A HREF="manual.html#lua_status">lua_status</A><BR>
 <A HREF="manual.html#lua_stringtonumber">lua_stringtonumber</A><BR>
 <A HREF="manual.html#lua_toboolean">lua_toboolean</A><BR>
@@ -609,10 +611,10 @@ Freely available under the terms of the
 
 <P CLASS="footer">
 Last update:
-Thu Dec 22 18:29:39 BRST 2016
+Mon Mar 12 21:52:24 -03 2018
 </P>
 <!--
-Last change: revised for Lua 5.3.4
+Last change: revised for Lua 5.4.0 (work1)
 -->
 
 </BODY>

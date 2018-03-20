@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.h,v 2.22 2016/02/26 19:20:15 roberto Exp $
+** $Id: ltm.h,v 2.34 2018/02/27 17:48:28 roberto Exp $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -9,6 +9,7 @@
 
 
 #include "lobject.h"
+#include "lstate.h"
 
 
 /*
@@ -18,6 +19,8 @@
 typedef enum {
   TM_INDEX,
   TM_NEWINDEX,
+  TM_UNDEF,
+  TM_ISDEF,
   TM_GC,
   TM_MODE,
   TM_LEN,
@@ -44,6 +47,12 @@ typedef enum {
 } TMS;
 
 
+/*
+** Test whether there is no tagmethod.
+** (Because tagmethods use raw accesses, the result may be an "empty" nil.)
+*/
+#define notm(tm)	ttisnilorempty(tm)
+
 
 #define gfasttm(g,et,e) ((et) == NULL ? NULL : \
   ((et)->flags & (1u<<(e))) ? NULL : luaT_gettm(et, e, (g)->tmname[e]))
@@ -63,14 +72,26 @@ LUAI_FUNC const TValue *luaT_gettmbyobj (lua_State *L, const TValue *o,
 LUAI_FUNC void luaT_init (lua_State *L);
 
 LUAI_FUNC void luaT_callTM (lua_State *L, const TValue *f, const TValue *p1,
-                            const TValue *p2, TValue *p3, int hasres);
-LUAI_FUNC int luaT_callbinTM (lua_State *L, const TValue *p1, const TValue *p2,
-                              StkId res, TMS event);
+                            const TValue *p2, const TValue *p3);
+LUAI_FUNC void luaT_callTMres (lua_State *L, const TValue *f,
+                            const TValue *p1, const TValue *p2, StkId p3);
 LUAI_FUNC void luaT_trybinTM (lua_State *L, const TValue *p1, const TValue *p2,
                               StkId res, TMS event);
+LUAI_FUNC void luaT_trybinassocTM (lua_State *L, const TValue *p1,
+       const TValue *p2, StkId res, int inv, TMS event);
+LUAI_FUNC void luaT_trybiniTM (lua_State *L, const TValue *p1, int i2,
+                               int inv, StkId res, TMS event);
 LUAI_FUNC int luaT_callorderTM (lua_State *L, const TValue *p1,
                                 const TValue *p2, TMS event);
+LUAI_FUNC int luaT_callorderiTM (lua_State *L, const TValue *p1, int v2,
+                                 int inv, TMS event);
 
+LUAI_FUNC void luaT_adjustvarargs (lua_State *L, int nfixparams,
+                                   struct CallInfo *ci, Proto *p);
+LUAI_FUNC void luaT_getvarargs (lua_State *L, struct CallInfo *ci,
+                                              StkId where, int wanted);
+
+LUAI_FUNC int luaT_keydef (lua_State *L, TValue *obj, TValue *key, int remove);
 
 
 #endif
