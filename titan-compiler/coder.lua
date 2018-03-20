@@ -73,7 +73,7 @@ int luaopen_${MODNAME}(lua_State *L)
         CClosure *func = luaF_newCclosure(L, 1);
         func->f = init_${MODNAME};
         sethvalue(L, &func->upvalue[0], titan_globals);
-        setclCvalue(L, L->top, func);
+        setclCvalue(L, &L->top->val, func);
         api_incr_top(L);
 
         lua_call(L, 0, 0);
@@ -312,17 +312,17 @@ generate_program = function(prog, modname)
                     -- TODO: fix: the error message is not able specify if the
                     -- given type is float or integer (it prints "number")
                     local decl = util.render([[
-                        ${SLOT_DECL} = L->ci->func + ${I};
+                        ${SLOT_DECL} = &(L->ci->func + ${I})->val;
                         if (!${CHECK_TAG}) {
                             luaL_error(L,
                                 "wrong type for argument %s at line %d, "
                                 "expected %s but found %s",
                                 ${ARG_NAME}, ${LINE}, ${EXP_TYPE},
-                                lua_typename(L, ttnov(${SLOT_NAME})));
+                                lua_typename(L, ttype(${SLOT_NAME})));
                         }
                         ${ARG_DECL} = ${SLOT_VALUE};
                     ]], {
-                        SLOT_DECL = c_declaration("StkId", slot_name),
+                        SLOT_DECL = c_declaration("TValue*", slot_name),
                         I = c_integer(i),
                         CHECK_TAG = check_tag(param._type, slot_name),
                         ARG_NAME = c_string(param.name),
@@ -352,7 +352,7 @@ generate_program = function(prog, modname)
                         RET_DECL = c_declaration(ctype(ret_typ), "ret"),
                         ARGS_DECL = table.concat(args_decl, "\n"),
                         ARGS = table.concat(args, ", "),
-                        SET_RET = set_slot(ret_typ, "L->top", "ret"),
+                        SET_RET = set_slot(ret_typ, "&L->top->val", "ret"),
                     })
                 )
             end
@@ -370,7 +370,7 @@ generate_program = function(prog, modname)
 
         if n_toplevel > 0 then
             table.insert(parts,
-                [[Table *titan_globals = hvalue(&clCvalue(L->ci->func)->upvalue[0]);]])
+                [[Table *titan_globals = hvalue(&clCvalue(&L->ci->func->val)->upvalue[0]);]])
         end
 
         for _, tl_node in ipairs(prog) do
@@ -420,7 +420,7 @@ generate_program = function(prog, modname)
                 table.insert(parts,
                     util.render([[
                         lua_pushstring(L, ${NAME});
-                        setobj(L, L->top, &titan_globals->array[${I}]); api_incr_top(L);
+                        setobj(L, &L->top->val, &titan_globals->array[${I}]); api_incr_top(L);
                         lua_settable(L, -3);
                     ]], {
                         NAME = c_string(ast.toplevel_name(tl_node)),
@@ -654,7 +654,7 @@ generate_var = function(var)
 
         elseif decl._tag == ast.Toplevel.Var then
             local i = decl._global_index
-            local closure = "clCvalue(L->ci->func)"
+            local closure = "clCvalue(&L->ci->func->val)"
             local globals = "hvalue(&"..closure.."->upvalue[0])"
             local slot_address = util.render(
                 "&${GLOBALS}->array[${I}]",
