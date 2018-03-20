@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.h,v 1.131 2016/12/06 14:54:31 roberto Exp $
+** $Id: lauxlib.h,v 1.134 2018/02/27 18:47:32 roberto Exp $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -13,6 +13,10 @@
 #include <stdio.h>
 
 #include "lua.h"
+
+
+/* global table */
+#define	LUA_GNAME	"_G"
 
 
 
@@ -150,7 +154,10 @@ typedef struct luaL_Buffer {
   size_t size;  /* buffer size */
   size_t n;  /* number of characters in buffer */
   lua_State *L;
-  char initb[LUAL_BUFFERSIZE];  /* initial buffer */
+  union {
+    LUAI_MAXALIGN;  /* ensure maximum alignment for buffer */
+    char b[LUAL_BUFFERSIZE];  /* initial buffer */
+  } init;
 } luaL_Buffer;
 
 
@@ -196,21 +203,6 @@ typedef struct luaL_Stream {
 } luaL_Stream;
 
 /* }====================================================== */
-
-
-
-/* compatibility with old module system */
-#if defined(LUA_COMPAT_MODULE)
-
-LUALIB_API void (luaL_pushmodule) (lua_State *L, const char *modname,
-                                   int sizehint);
-LUALIB_API void (luaL_openlib) (lua_State *L, const char *libname,
-                                const luaL_Reg *l, int nup);
-
-#define luaL_register(L,n,l)	(luaL_openlib(L,(n),(l),0))
-
-#endif
-
 
 /*
 ** {==================================================================

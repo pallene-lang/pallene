@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.130 2017/01/12 17:14:26 roberto Exp $
+** $Id: loadlib.c,v 1.132 2018/02/27 18:47:32 roberto Exp $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -437,9 +437,9 @@ static const char *searchpath (lua_State *L, const char *name,
                                              const char *sep,
                                              const char *dirsep) {
   luaL_Buffer msg;  /* to build error message */
-  luaL_buffinit(L, &msg);
   if (*sep != '\0')  /* non-empty separator? */
     name = luaL_gsub(L, name, sep, dirsep);  /* replace it by 'dirsep' */
+  luaL_buffinit(L, &msg);
   while ((path = pushnexttemplate(L, path)) != NULL) {
     const char *filename = luaL_gsub(L, lua_tostring(L, -1),
                                      LUA_PATH_MARK, name);
@@ -569,10 +569,10 @@ static int searcher_preload (lua_State *L) {
 static void findloader (lua_State *L, const char *name) {
   int i;
   luaL_Buffer msg;  /* to build error message */
-  luaL_buffinit(L, &msg);
   /* push 'package.searchers' to index 3 in the stack */
   if (lua_getfield(L, lua_upvalueindex(1), "searchers") != LUA_TTABLE)
     luaL_error(L, "'package.searchers' must be a table");
+  luaL_buffinit(L, &msg);
   /*  iterate over available searchers to find a loader */
   for (i = 1; ; i++) {
     if (lua_rawgeti(L, 3, i) == LUA_TNIL) {  /* no more searchers? */
@@ -621,96 +621,10 @@ static int ll_require (lua_State *L) {
 
 
 
-/*
-** {======================================================
-** 'module' function
-** =======================================================
-*/
-#if defined(LUA_COMPAT_MODULE)
-
-/*
-** changes the environment variable of calling function
-*/
-static void set_env (lua_State *L) {
-  lua_Debug ar;
-  if (lua_getstack(L, 1, &ar) == 0 ||
-      lua_getinfo(L, "f", &ar) == 0 ||  /* get calling function */
-      lua_iscfunction(L, -1))
-    luaL_error(L, "'module' not called from a Lua function");
-  lua_pushvalue(L, -2);  /* copy new environment table to top */
-  lua_setupvalue(L, -2, 1);
-  lua_pop(L, 1);  /* remove function */
-}
-
-
-static void dooptions (lua_State *L, int n) {
-  int i;
-  for (i = 2; i <= n; i++) {
-    if (lua_isfunction(L, i)) {  /* avoid 'calling' extra info. */
-      lua_pushvalue(L, i);  /* get option (a function) */
-      lua_pushvalue(L, -2);  /* module */
-      lua_call(L, 1, 0);
-    }
-  }
-}
-
-
-static void modinit (lua_State *L, const char *modname) {
-  const char *dot;
-  lua_pushvalue(L, -1);
-  lua_setfield(L, -2, "_M");  /* module._M = module */
-  lua_pushstring(L, modname);
-  lua_setfield(L, -2, "_NAME");
-  dot = strrchr(modname, '.');  /* look for last dot in module name */
-  if (dot == NULL) dot = modname;
-  else dot++;
-  /* set _PACKAGE as package name (full module name minus last part) */
-  lua_pushlstring(L, modname, dot - modname);
-  lua_setfield(L, -2, "_PACKAGE");
-}
-
-
-static int ll_module (lua_State *L) {
-  const char *modname = luaL_checkstring(L, 1);
-  int lastarg = lua_gettop(L);  /* last parameter */
-  luaL_pushmodule(L, modname, 1);  /* get/create module table */
-  /* check whether table already has a _NAME field */
-  if (lua_getfield(L, -1, "_NAME") != LUA_TNIL)
-    lua_pop(L, 1);  /* table is an initialized module */
-  else {  /* no; initialize it */
-    lua_pop(L, 1);
-    modinit(L, modname);
-  }
-  lua_pushvalue(L, -1);
-  set_env(L);
-  dooptions(L, lastarg);
-  return 1;
-}
-
-
-static int ll_seeall (lua_State *L) {
-  luaL_checktype(L, 1, LUA_TTABLE);
-  if (!lua_getmetatable(L, 1)) {
-    lua_createtable(L, 0, 1); /* create new metatable */
-    lua_pushvalue(L, -1);
-    lua_setmetatable(L, 1);
-  }
-  lua_pushglobaltable(L);
-  lua_setfield(L, -2, "__index");  /* mt.__index = _G */
-  return 0;
-}
-
-#endif
-/* }====================================================== */
-
-
 
 static const luaL_Reg pk_funcs[] = {
   {"loadlib", ll_loadlib},
   {"searchpath", ll_searchpath},
-#if defined(LUA_COMPAT_MODULE)
-  {"seeall", ll_seeall},
-#endif
   /* placeholders */
   {"preload", NULL},
   {"cpath", NULL},
@@ -722,9 +636,6 @@ static const luaL_Reg pk_funcs[] = {
 
 
 static const luaL_Reg ll_funcs[] = {
-#if defined(LUA_COMPAT_MODULE)
-  {"module", ll_module},
-#endif
   {"require", ll_require},
   {NULL, NULL}
 };
@@ -742,10 +653,6 @@ static void createsearcherstable (lua_State *L) {
     lua_pushcclosure(L, searchers[i], 1);
     lua_rawseti(L, -2, i+1);
   }
-#if defined(LUA_COMPAT_LOADERS)
-  lua_pushvalue(L, -1);  /* make a copy of 'searchers' table */
-  lua_setfield(L, -3, "loaders");  /* put it in field 'loaders' */
-#endif
   lua_setfield(L, -2, "searchers");  /* put it in field 'searchers' */
 }
 

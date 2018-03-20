@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.259 2016/12/22 13:08:50 roberto Exp $
+** $Id: luaconf.h,v 1.267 2018/03/09 14:56:02 roberto Exp $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -61,14 +61,12 @@
 #if defined(LUA_USE_LINUX)
 #define LUA_USE_POSIX
 #define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
-#define LUA_USE_READLINE	/* needs some extra libraries */
 #endif
 
 
 #if defined(LUA_USE_MACOSX)
 #define LUA_USE_POSIX
 #define LUA_USE_DLOPEN		/* MacOS does not need -ldl */
-#define LUA_USE_READLINE	/* needs an extra library: -lreadline */
 #endif
 
 
@@ -200,18 +198,15 @@
 
 #else			/* }{ */
 
-/* Titan: add search path for Titan libs to package.cpath */
-
 #define LUA_ROOT	"/usr/local/"
 #define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR "/"
 #define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR "/"
-#define LUA_TDIR	LUA_ROOT "lib/titan/0.5/"
 #define LUA_PATH_DEFAULT  \
 		LUA_LDIR"?.lua;"  LUA_LDIR"?/init.lua;" \
 		LUA_CDIR"?.lua;"  LUA_CDIR"?/init.lua;" \
 		"./?.lua;" "./?/init.lua"
 #define LUA_CPATH_DEFAULT \
-		LUA_TDIR"?.so;" LUA_CDIR"?.so;" LUA_CDIR"loadall.so;" "./?.so"
+		LUA_CDIR"?.so;" LUA_CDIR"loadall.so;" "./?.so"
 #endif			/* } */
 
 
@@ -293,28 +288,19 @@
 */
 
 /*
-@@ LUA_COMPAT_5_2 controls other macros for compatibility with Lua 5.2.
-@@ LUA_COMPAT_5_1 controls other macros for compatibility with Lua 5.1.
+@@ LUA_COMPAT_5_3 controls other macros for compatibility with Lua 5.2.
 ** You can define it to get all options, or change specific options
 ** to fit your specific needs.
 */
-#if defined(LUA_COMPAT_5_2)	/* { */
+#if defined(LUA_COMPAT_5_3)	/* { */
 
 /*
 @@ LUA_COMPAT_MATHLIB controls the presence of several deprecated
 ** functions in the mathematical library.
+** (These functions were already officially removed in 5.3, but
+** nevertheless they are available by default there.)
 */
 #define LUA_COMPAT_MATHLIB
-
-/*
-@@ LUA_COMPAT_BITLIB controls the presence of library 'bit32'.
-*/
-#define LUA_COMPAT_BITLIB
-
-/*
-@@ LUA_COMPAT_IPAIRS controls the effectiveness of the __ipairs metamethod.
-*/
-#define LUA_COMPAT_IPAIRS
 
 /*
 @@ LUA_COMPAT_APIINTCASTS controls the presence of macros for
@@ -326,50 +312,6 @@
 #endif				/* } */
 
 
-#if defined(LUA_COMPAT_5_1)	/* { */
-
-/* Incompatibilities from 5.2 -> 5.3 */
-#define LUA_COMPAT_MATHLIB
-#define LUA_COMPAT_APIINTCASTS
-
-/*
-@@ LUA_COMPAT_UNPACK controls the presence of global 'unpack'.
-** You can replace it with 'table.unpack'.
-*/
-#define LUA_COMPAT_UNPACK
-
-/*
-@@ LUA_COMPAT_LOADERS controls the presence of table 'package.loaders'.
-** You can replace it with 'package.searchers'.
-*/
-#define LUA_COMPAT_LOADERS
-
-/*
-@@ macro 'lua_cpcall' emulates deprecated function lua_cpcall.
-** You can call your C function directly (with light C functions).
-*/
-#define lua_cpcall(L,f,u)  \
-	(lua_pushcfunction(L, (f)), \
-	 lua_pushlightuserdata(L,(u)), \
-	 lua_pcall(L,1,0,0))
-
-
-/*
-@@ LUA_COMPAT_LOG10 defines the function 'log10' in the math library.
-** You can rewrite 'log10(x)' as 'log(x, 10)'.
-*/
-#define LUA_COMPAT_LOG10
-
-/*
-@@ LUA_COMPAT_LOADSTRING defines the function 'loadstring' in the base
-** library. You can rewrite 'loadstring(s)' as 'load(s)'.
-*/
-#define LUA_COMPAT_LOADSTRING
-
-/*
-@@ LUA_COMPAT_MAXN defines the function 'maxn' in the table library.
-*/
-#define LUA_COMPAT_MAXN
 
 /*
 @@ The following macros supply trivial compatibility for some
@@ -382,23 +324,6 @@
 
 #define lua_equal(L,idx1,idx2)		lua_compare(L,(idx1),(idx2),LUA_OPEQ)
 #define lua_lessthan(L,idx1,idx2)	lua_compare(L,(idx1),(idx2),LUA_OPLT)
-
-/*
-@@ LUA_COMPAT_MODULE controls compatibility with previous
-** module functions 'module' (Lua) and 'luaL_register' (C).
-*/
-#define LUA_COMPAT_MODULE
-
-#endif				/* } */
-
-
-/*
-@@ LUA_COMPAT_FLOATSTRING makes Lua format integral floats without a
-@@ a float mark ('.0').
-** This macro is not on by default even in compatibility mode,
-** because this is not really an incompatibility.
-*/
-/* #define LUA_COMPAT_FLOATSTRING */
 
 /* }================================================================== */
 
@@ -435,12 +360,13 @@
 	l_sprintf((s), sz, LUA_NUMBER_FMT, (LUAI_UACNUMBER)(n))
 
 /*
-@@ lua_numbertointeger converts a float number to an integer, or
-** returns 0 if float is not within the range of a lua_Integer.
-** (The range comparisons are tricky because of rounding. The tests
-** here assume a two-complement representation, where MININTEGER always
-** has an exact representation as a float; MAXINTEGER may not have one,
-** and therefore its conversion to float may have an ill-defined value.)
+@@ lua_numbertointeger converts a float number with an integral value
+** to an integer, or returns 0 if float is not within the range of
+** a lua_Integer.  (The range comparisons are tricky because of
+** rounding. The tests here assume a two-complement representation,
+** where MININTEGER always has an exact representation as a float;
+** MAXINTEGER may not have one, and therefore its conversion to float
+** may have an ill-defined value.)
 */
 #define lua_numbertointeger(n,p) \
   ((n) >= (LUA_NUMBER)(LUA_MININTEGER) && \
@@ -515,6 +441,7 @@
 @@ LUA_INTEGER_FMT is the format for writing integers.
 @@ LUA_MAXINTEGER is the maximum value for a LUA_INTEGER.
 @@ LUA_MININTEGER is the minimum value for a LUA_INTEGER.
+@@ LUA_MAXUNSIGNED is the maximum value for a LUA_UNSIGNED.
 @@ lua_integer2str converts an integer to a string.
 */
 
@@ -533,6 +460,8 @@
 ** can turn a comparison between unsigneds into a signed comparison)
 */
 #define LUA_UNSIGNED		unsigned LUAI_UACINT
+
+#define LUA_MAXUNSIGNED		(~(lua_Unsigned)0)
 
 
 /* now the variable definitions */
@@ -608,7 +537,7 @@
 
 
 /*
-@@ lua_strx2number converts an hexadecimal numeric string to a number.
+@@ lua_strx2number converts a hexadecimal numeric string to a number.
 ** In C99, 'strtod' does that conversion. Otherwise, you can
 ** leave 'lua_strx2number' undefined and Lua will provide its own
 ** implementation.
@@ -619,7 +548,14 @@
 
 
 /*
-@@ lua_number2strx converts a float to an hexadecimal numeric string.
+@@ lua_pointer2str converts a pointer to a readable string in a
+** non-specified way.
+*/
+#define lua_pointer2str(buff,sz,p)	l_sprintf(buff,sz,"%p",p)
+
+
+/*
+@@ lua_number2strx converts a float to a hexadecimal numeric string.
 ** In C99, 'sprintf' (with format specifiers '%a'/'%A') does that.
 ** Otherwise, you can leave 'lua_number2strx' undefined and Lua will
 ** provide its own implementation.
@@ -715,6 +651,7 @@
 ** CHANGE it if you need a different limit. This limit is arbitrary;
 ** its only purpose is to stop Lua from consuming unlimited stack
 ** space (and to reserve some numbers for pseudo-indices).
+** (It must fit into max(size_t)/32.)
 */
 #if LUAI_BITSINT >= 32
 #define LUAI_MAXSTACK		1000000
@@ -751,6 +688,12 @@
 #else
 #define LUAL_BUFFERSIZE   ((int)(0x80 * sizeof(void*) * sizeof(lua_Integer)))
 #endif
+
+/*
+@@ LUAI_MAXALIGN defines fields that, when used in a union, ensure
+** "maximum" alignment for the other items in that union.
+*/
+#define LUAI_MAXALIGN  lua_Number n; double u; void *s; lua_Integer i; long l
 
 /* }================================================================== */
 

@@ -1,5 +1,5 @@
 /*
-** $Id: llimits.h,v 1.141 2015/11/19 19:16:22 roberto Exp $
+** $Id: llimits.h,v 1.149 2018/01/28 15:13:26 roberto Exp $
 ** Limits, basic types, and some other 'installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -33,6 +33,7 @@ typedef long l_mem;
 
 /* chars used as small naturals (so that 'char' is reserved for characters) */
 typedef unsigned char lu_byte;
+typedef signed char ls_byte;
 
 
 /* maximum value for size_t */
@@ -52,26 +53,18 @@ typedef unsigned char lu_byte;
 
 
 /*
+** floor of the log2 of the maximum signed value for integral type 't'.
+** (That is, maximum 'n' such that '2^n' fits in the given signed type.)
+*/
+#define log2maxs(t)	(sizeof(t) * 8 - 2)
+
+
+/*
 ** conversion of pointer to unsigned integer:
 ** this is for hashing only; there is no problem if the integer
 ** cannot hold the whole pointer value
 */
 #define point2uint(p)	((unsigned int)((size_t)(p) & UINT_MAX))
-
-
-
-/* type to ensure maximum alignment */
-#if defined(LUAI_USER_ALIGNMENT_T)
-typedef LUAI_USER_ALIGNMENT_T L_Umaxalign;
-#else
-typedef union {
-  lua_Number n;
-  double u;
-  void *s;
-  lua_Integer i;
-  long l;
-} L_Umaxalign;
-#endif
 
 
 
@@ -111,10 +104,15 @@ typedef LUAI_UACINT l_uacInt;
 #define cast(t, exp)	((t)(exp))
 
 #define cast_void(i)	cast(void, (i))
-#define cast_byte(i)	cast(lu_byte, (i))
+#define cast_voidp(i)	cast(void *, (i))
 #define cast_num(i)	cast(lua_Number, (i))
 #define cast_int(i)	cast(int, (i))
+#define cast_uint(i)	cast(unsigned int, (i))
+#define cast_byte(i)	cast(lu_byte, (i))
 #define cast_uchar(i)	cast(unsigned char, (i))
+#define cast_char(i)	cast(char, (i))
+#define cast_charp(i)	cast(char *, (i))
+#define cast_sizet(i)	cast(size_t, (i))
 
 
 /* cast a signed lua_Integer to lua_Unsigned */
@@ -147,10 +145,11 @@ typedef LUAI_UACINT l_uacInt;
 
 /*
 ** maximum depth for nested C calls and syntactical nested non-terminals
-** in a program. (Value must fit in an unsigned short int.)
+** in a program. (Value must fit in an unsigned short int. It must also
+** be compatible with the size of the C stack.)
 */
 #if !defined(LUAI_MAXCCALLS)
-#define LUAI_MAXCCALLS		200
+#define LUAI_MAXCCALLS		2200
 #endif
 
 
@@ -225,8 +224,7 @@ typedef unsigned long Instruction;
 
 
 /*
-** these macros allow user-specific actions on threads when you defined
-** LUAI_EXTRASPACE and need to do something extra when a thread is
+** these macros allow user-specific actions when a thread is
 ** created/deleted/resumed/yielded.
 */
 #if !defined(luai_userstateopen)
@@ -310,7 +308,7 @@ typedef unsigned long Instruction;
 #else
 /* realloc stack keeping its size */
 #define condmovestack(L,pre,pos)  \
-	{ int sz_ = (L)->stacksize; pre; luaD_reallocstack((L), sz_); pos; }
+  { int sz_ = (L)->stacksize; pre; luaD_reallocstack((L), sz_, 0); pos; }
 #endif
 
 #if !defined(HARDMEMTESTS)

@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.151 2015/11/23 11:29:43 roberto Exp $
+** $Id: ldblib.c,v 1.154 2018/03/05 14:15:04 roberto Exp $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -64,19 +64,24 @@ static int db_setmetatable (lua_State *L) {
 
 
 static int db_getuservalue (lua_State *L) {
+  int n = (int)luaL_optinteger(L, 2, 1);
   if (lua_type(L, 1) != LUA_TUSERDATA)
     lua_pushnil(L);
-  else
-    lua_getuservalue(L, 1);
+  else if (lua_getiuservalue(L, 1, n) != LUA_TNONE) {
+    lua_pushboolean(L, 1);
+    return 2;
+  }
   return 1;
 }
 
 
 static int db_setuservalue (lua_State *L) {
+  int n = (int)luaL_optinteger(L, 3, 1);
   luaL_checktype(L, 1, LUA_TUSERDATA);
   luaL_checkany(L, 2);
   lua_settop(L, 2);
-  lua_setuservalue(L, 1);
+  if (!lua_setiuservalue(L, 1, n))
+    lua_pushnil(L);
   return 1;
 }
 
@@ -146,7 +151,7 @@ static int db_getinfo (lua_State *L) {
   lua_Debug ar;
   int arg;
   lua_State *L1 = getthread(L, &arg);
-  const char *options = luaL_optstring(L, arg+2, "flnStu");
+  const char *options = luaL_optstring(L, arg+2, "flnSrtu");
   checkstack(L, L1, 3);
   if (lua_isfunction(L, arg + 1)) {  /* info about a function? */
     options = lua_pushfstring(L, ">%s", options);  /* add '>' to 'options' */
@@ -179,6 +184,10 @@ static int db_getinfo (lua_State *L) {
   if (strchr(options, 'n')) {
     settabss(L, "name", ar.name);
     settabss(L, "namewhat", ar.namewhat);
+  }
+  if (strchr(options, 'r')) {
+    settabsi(L, "fTransfer", ar.fTransfer);
+    settabsi(L, "nTransfer", ar.nTransfer);
   }
   if (strchr(options, 't'))
     settabsb(L, "istailcall", ar.istailcall);
