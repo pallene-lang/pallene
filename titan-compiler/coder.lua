@@ -51,6 +51,11 @@ local whole_file_template = [[
 
 #include "math.h"
 
+/* This pragma is used to ignore noisy warnings caused by clang's -Wall */
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wparentheses-equality"
+#endif
+
 ${DEFINE_FUNCTIONS}
 
 int init_${MODNAME}(lua_State *L)
