@@ -243,7 +243,7 @@ generate_program = function(prog, modname)
             tl_node._titan_entry_point =
                 mangle_function_name(modname, tl_node.name, "titan")
             tl_node._lua_entry_point =
-                mangle_function_name(modename, tl_node.name, "lua")
+                mangle_function_name(modname, tl_node.name, "lua")
         end
     end
 
@@ -257,31 +257,28 @@ generate_program = function(prog, modname)
                 assert(#tl_node._type.rettypes == 1)
                 local ret_ctype = ctype(tl_node._type.rettypes[1])
 
-                local args = {}
-                table.insert(args, [[lua_State * L]])
+                local titan_params = {}
+                table.insert(titan_params, [[lua_State * L]])
                 for _, param in ipairs(tl_node.params) do
                     local name = param.name
                     local typ  = param._type
-                    table.insert(args,
+                    table.insert(titan_params,
                         c_declaration(ctype(typ), local_name(name)))
                 end
 
                 table.insert(function_definitions,
                     util.render([[
-                        static ${RET} ${NAME}(${ARGS})
+                        static ${RET} ${NAME}(${PARAMS})
                         ${BODY}
                     ]], {
                         RET = ret_ctype,
                         NAME = tl_node._titan_entry_point,
-                        ARGS = table.concat(args, ", "),
+                        PARAMS = table.concat(titan_params, ", "),
                         BODY = generate_stat(tl_node.block)
                     })
                 )
 
                 -- Lua entry point
-                local lua_entry_point_name =
-                    mangle_function_name(modname, tl_node.name, "lua")
-
                 assert(#tl_node._type.rettypes == 1)
                 local ret_typ = tl_node._type.rettypes[1]
 

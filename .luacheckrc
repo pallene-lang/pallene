@@ -14,5 +14,8 @@
 
 ignore = {
     "212/_.*", -- Unused argument, (unless name starts with "_")
-    "542", -- An empty if branch.
+    "411/err", -- Redefining local (unless called "err")
+    "421/err", -- Shadowing local (unless called "err")
+    "542", -- Empty if branch.
+    "6..", -- Whitespace warnings
 }

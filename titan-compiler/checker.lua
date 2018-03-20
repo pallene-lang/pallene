@@ -32,10 +32,10 @@ local check_exp
 -- @ param prog AST for the whole module
 -- @ return true or false, followed by as list of compilation errors
 function checker.check(filename, input)
-    local ast, errors = scope_analysis.bind_names(filename, input)
-    if not ast then return false, errors end
-    check_program(ast, errors)
-    return (#errors == 0 and ast), errors
+    local prog, errors = scope_analysis.bind_names(filename, input)
+    if not prog then return false, errors end
+    check_program(prog, errors)
+    return (#errors == 0 and prog), errors
 end
 
 --
@@ -495,11 +495,11 @@ check_exp = function(exp, errors, typehint)
         end
 
     elseif tag == ast.Exp.Concat then
-        for i, exp in ipairs(exp.exps) do
-            check_exp(exp, errors, nil)
-            local texp = exp._type
+        for _, inner_exp in ipairs(exp.exps) do
+            check_exp(inner_exp, errors, nil)
+            local texp = inner_exp._type
             if texp._tag ~= types.T.String then
-                type_error(errors, exp.loc,
+                type_error(errors, inner_exp.loc,
                     "cannot concatenate with %s value", types.tostring(texp))
             end
         end
