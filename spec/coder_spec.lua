@@ -1,20 +1,8 @@
 local c_compiler = require "titan-compiler.c_compiler"
 local util = require "titan-compiler.util"
 
--- TODO
--- These tests currently don't work on Travis because test_script.lua
--- cannot require luassert (due to how heredocs sets up the env vars).
---
--- So for now these tests only run if you run an set a magic environment
--- variable on your machine.
-if not os.getenv("TITAN_RUN_CODER_TESTS") then
-    io.stderr:write("Ignoring coder tests\n")
-    return
-end
-
 local luabase = [[
 local test = require "test"
-local assert = require "luassert"
 ]]
 
 local function run_coder(titan_code, test_script)
@@ -47,8 +35,8 @@ describe("Titan coder", function()
                 return 11
             end
         ]], [[
-            assert.is_function(test.f)
-            assert.is_nil(test.g)
+            assert(type(test.f) == "function")
+            assert(type(test.g) == "nil")
         ]])
     end)
 
@@ -59,8 +47,10 @@ describe("Titan coder", function()
             end
         ]], [[
             local ok, err = pcall(test.f, "abc")
-            assert.match(err, "wrong type for argument x at line 1, " ..
-                    "expected float but found string")
+            assert(string.find(err,
+                "wrong type for argument x at line 1, " ..
+                "expected float but found string",
+                nil, true))
         ]])
     end)
 
@@ -72,7 +62,7 @@ describe("Titan coder", function()
                     return nil
                 end
             ]], [[
-                assert.is_equal(nil, test.f())
+                assert(nil == test.f())
             ]])
 
             run_coder([[
@@ -83,8 +73,8 @@ describe("Titan coder", function()
                     return false
                 end
             ]], [[
-                assert.is_equal(true, test.f())
-                assert.is_equal(false, test.g())
+                assert(true == test.f())
+                assert(false == test.g())
             ]])
 
             run_coder([[
@@ -92,7 +82,7 @@ describe("Titan coder", function()
                     return 17
                 end
             ]], [[
-                assert.is_equal(17, test.f())
+                assert(17 == test.f())
             ]])
 
             run_coder([[
@@ -100,7 +90,7 @@ describe("Titan coder", function()
                     return 3.14
                 end
             ]], [[
-                assert.is_equal(3.14, test.f())
+                assert(3.14 == test.f())
             ]])
         end)
 
@@ -114,7 +104,7 @@ describe("Titan coder", function()
                     return f()
                 end
             ]], [[
-                assert.is_equal(17, test.g())
+                assert(17 == test.g())
             ]])
         end)
 
@@ -128,7 +118,7 @@ describe("Titan coder", function()
                     return f(x)
                 end
             ]], [[
-                assert.is_equal(17, test.g(17))
+                assert(17 == test.g(17))
             ]])
         end)
 
@@ -142,7 +132,7 @@ describe("Titan coder", function()
                     return f(x, y)
                 end
             ]], [[
-                assert.is_equal(17, test.g(16, 1))
+                assert(17 == test.g(16, 1))
             ]])
         end)
 
@@ -156,7 +146,7 @@ describe("Titan coder", function()
                     end
                 end
             ]], [[
-                assert.is_equal(3*5, test.gcd(2*3*5, 3*5*7))
+                assert(3*5 == test.gcd(2*3*5, 3*5*7))
             ]])
         end)
 
@@ -174,7 +164,7 @@ describe("Titan coder", function()
                         return 100*a + 10*b + c
                     end
                 ]], [[
-                    assert.is_equal(101, test.f())
+                    assert(101 == test.f())
                 ]])
             end)
 
@@ -186,9 +176,9 @@ describe("Titan coder", function()
                         return n
                     end
                 ]], [[
-                    assert.is_equal(1, test.next())
-                    assert.is_equal(2, test.next())
-                    assert.is_equal(3, test.next())
+                    assert(1 == test.next())
+                    assert(2 == test.next())
+                    assert(3 == test.next())
                 ]])
             end)
         end)
@@ -199,7 +189,7 @@ describe("Titan coder", function()
                     return -x
                 end
             ]], [[
-                assert.is_equal(-17, test.f(17))
+                assert(-17 == test.f(17))
             ]])
 
             run_coder([[
@@ -207,7 +197,7 @@ describe("Titan coder", function()
                     return ~x
                 end
             ]], [[
-                assert.is_equal(~17, test.f(17))
+                assert(~17 == test.f(17))
             ]])
 
             run_coder([[
@@ -215,7 +205,7 @@ describe("Titan coder", function()
                     return not x
                 end
             ]], [[
-                assert.is_equal(not true, test.f(true))
+                assert(not true == test.f(true))
             ]])
         end)
 
@@ -228,7 +218,7 @@ describe("Titan coder", function()
                     return x + y
                 end
             ]], [[
-                assert.is_equal(1 + 2, test.add(1, 2))
+                assert(1 + 2 == test.add(1, 2))
             ]])
 
             run_coder([[
@@ -236,7 +226,7 @@ describe("Titan coder", function()
                     return x * y
                 end
             ]], [[
-                assert.is_equal(2.0 * 4.0, test.add(2.0, 4.0))
+                assert(2.0 * 4.0 == test.add(2.0, 4.0))
             ]])
 
             -- -
@@ -246,7 +236,7 @@ describe("Titan coder", function()
                     return x - y
                 end
             ]], [[
-                assert.is_equal(1 - 2, test.sub(1, 2))
+                assert(1 - 2 == test.sub(1, 2))
             ]])
 
             run_coder([[
@@ -254,7 +244,7 @@ describe("Titan coder", function()
                     return x - y
                 end
             ]], [[
-                assert.is_equal(2.0 - 4.0, test.sub(2.0, 4.0))
+                assert(2.0 - 4.0 == test.sub(2.0, 4.0))
             ]])
 
             -- *
@@ -264,7 +254,7 @@ describe("Titan coder", function()
                     return x * y
                 end
             ]], [[
-                assert.is_equal(2 * 3, test.mul(2, 3))
+                assert(2 * 3 == test.mul(2, 3))
             ]])
 
             run_coder([[
@@ -272,7 +262,7 @@ describe("Titan coder", function()
                     return x * y
                 end
             ]], [[
-                assert.is_equal(2.0 * 4.0, test.mul(2.0, 4.0))
+                assert(2.0 * 4.0 == test.mul(2.0, 4.0))
             ]])
 
             -- /
@@ -282,7 +272,7 @@ describe("Titan coder", function()
                     return x / y
                 end
             ]], [[
-                assert.is_equal(1 / 2, test.div(1, 2))
+                assert(1 / 2 == test.div(1, 2))
             ]])
 
             run_coder([[
@@ -290,7 +280,7 @@ describe("Titan coder", function()
                     return x / y
                 end
             ]], [[
-                assert.is_equal(1.0 / 2.0, test.div(1.0, 2.0))
+                assert(1.0 / 2.0 == test.div(1.0, 2.0))
             ]])
 
             -- &
@@ -300,7 +290,7 @@ describe("Titan coder", function()
                     return x & y
                 end
             ]], [[
-                assert.is_equal(0xf00f & 0x00ff, test.band(0xf00f, 0x00ff))
+                assert(0xf00f & 0x00ff == test.band(0xf00f, 0x00ff))
             ]])
 
             -- |
@@ -310,7 +300,7 @@ describe("Titan coder", function()
                     return x | y
                 end
             ]], [[
-                assert.is_equal(0xf00f | 0x00ff, test.bor(0xf00f, 0x00ff))
+                assert(0xf00f | 0x00ff == test.bor(0xf00f, 0x00ff))
             ]])
 
             -- ~
@@ -320,7 +310,7 @@ describe("Titan coder", function()
                     return x ~ y
                 end
             ]], [[
-                assert.is_equal(0xf00f ~ 0x00ff, test.bxor(0xf00f, 0x00ff))
+                assert(0xf00f ~ 0x00ff == test.bxor(0xf00f, 0x00ff))
             ]])
 
             -- <<
@@ -330,7 +320,7 @@ describe("Titan coder", function()
                     return x << y
                 end
             ]], [[
-                assert.is_equal(0xf0 << 1, test.shiftl(0xf0, 1))
+                assert(0xf0 << 1 == test.shiftl(0xf0, 1))
             ]])
 
             -- >>
@@ -340,7 +330,7 @@ describe("Titan coder", function()
                     return x >> y
                 end
             ]], [[
-                assert.is_equal(0xf0 >> 1, test.shiftr(0xf0, 1))
+                assert(0xf0 >> 1 == test.shiftr(0xf0, 1))
             ]])
 
             -- %
@@ -350,7 +340,7 @@ describe("Titan coder", function()
                     return x % y
                 end
             ]], [[
-                assert.is_equal(10 % 3, test.mod(10, 3))
+                assert(10 % 3 == test.mod(10, 3))
             ]])
 
             -- //
@@ -360,7 +350,7 @@ describe("Titan coder", function()
                     return x // y
                 end
             ]], [[
-                assert.is_equal(10 // 3, test.idiv(10, 3))
+                assert(10 // 3 == test.idiv(10, 3))
             ]])
 
             run_coder([[
@@ -368,7 +358,7 @@ describe("Titan coder", function()
                     return x // y
                 end
             ]], [[
-                assert.is_equal(10.0 // 3.0, test.idiv(10.0, 3.0))
+                assert(10.0 // 3.0 == test.idiv(10.0, 3.0))
             ]])
 
             -- ^
@@ -378,7 +368,7 @@ describe("Titan coder", function()
                     return x ^ y
                 end
             ]], [[
-                assert.is_equal(2.0 ^ 3.0, test.pow(2.0, 3.0))
+                assert(2.0 ^ 3.0 == test.pow(2.0, 3.0))
             ]])
 
             -- ==
@@ -388,9 +378,9 @@ describe("Titan coder", function()
                     return x == y
                 end
             ]], [[
-                assert.is_equal(0 == 1, test.eq(0, 1))
-                assert.is_equal(1 == 1, test.eq(1, 1))
-                assert.is_equal(1 == 0, test.eq(1, 0))
+                assert((0 == 1) == test.eq(0, 1))
+                assert((1 == 1) == test.eq(1, 1))
+                assert((1 == 0) == test.eq(1, 0))
             ]])
 
             -- ~=
@@ -400,9 +390,9 @@ describe("Titan coder", function()
                     return x ~= y
                 end
             ]], [[
-                assert.is_equal(0 ~= 1, test.neq(0, 1))
-                assert.is_equal(1 ~= 1, test.neq(1, 1))
-                assert.is_equal(1 ~= 0, test.neq(1, 0))
+                assert((0 ~= 1) == test.neq(0, 1))
+                assert((1 ~= 1) == test.neq(1, 1))
+                assert((1 ~= 0) == test.neq(1, 0))
             ]])
 
             -- <
@@ -412,9 +402,9 @@ describe("Titan coder", function()
                     return x < y
                 end
             ]], [[
-                assert.is_equal(0 < 1, test.lt(0, 1))
-                assert.is_equal(1 < 1, test.lt(1, 1))
-                assert.is_equal(1 < 0, test.lt(1, 0))
+                assert((0 < 1) == test.lt(0, 1))
+                assert((1 < 1) == test.lt(1, 1))
+                assert((1 < 0) == test.lt(1, 0))
             ]])
 
             -- >
@@ -424,9 +414,9 @@ describe("Titan coder", function()
                     return x > y
                 end
             ]], [[
-                assert.is_equal(0 > 1, test.gt(0, 1))
-                assert.is_equal(1 > 1, test.gt(1, 1))
-                assert.is_equal(1 > 0, test.gt(1, 0))
+                assert((0 > 1) == test.gt(0, 1))
+                assert((1 > 1) == test.gt(1, 1))
+                assert((1 > 0) == test.gt(1, 0))
             ]])
 
             -- <=
@@ -436,9 +426,9 @@ describe("Titan coder", function()
                     return x <= y
                 end
             ]], [[
-                assert.is_equal(0 <= 1, test.le(0, 1))
-                assert.is_equal(1 <= 1, test.le(1, 1))
-                assert.is_equal(1 <= 0, test.le(1, 0))
+                assert((0 <= 1) == test.le(0, 1))
+                assert((1 <= 1) == test.le(1, 1))
+                assert((1 <= 0) == test.le(1, 0))
             ]])
 
             -- >=
@@ -448,9 +438,9 @@ describe("Titan coder", function()
                     return x >= y
                 end
             ]], [[
-                assert.is_equal(0 >= 1, test.ge(0, 1))
-                assert.is_equal(1 >= 1, test.ge(1, 1))
-                assert.is_equal(1 >= 0, test.ge(1, 0))
+                assert((0 >= 1) == test.ge(0, 1))
+                assert((1 >= 1) == test.ge(1, 1))
+                assert((1 >= 0) == test.ge(1, 0))
             ]])
 
             -- and
@@ -460,10 +450,10 @@ describe("Titan coder", function()
                     return x and y
                 end
             ]], [[
-                assert.is_equal(true  and true,  test.bool_and(true,  true))
-                assert.is_equal(true  and false, test.bool_and(true,  false))
-                assert.is_equal(false and true,  test.bool_and(false, true))
-                assert.is_equal(false and false, test.bool_and(false, false))
+                assert((true  and true ) == test.bool_and(true,  true))
+                assert((true  and false) == test.bool_and(true,  false))
+                assert((false and true ) == test.bool_and(false, true))
+                assert((false and false) == test.bool_and(false, false))
             ]])
 
             -- or
@@ -473,10 +463,10 @@ describe("Titan coder", function()
                     return x or y
                 end
             ]], [[
-                assert.is_equal(true  or true,  test.bool_or(true,  true))
-                assert.is_equal(true  or false, test.bool_or(true,  false))
-                assert.is_equal(false or true,  test.bool_or(false, true))
-                assert.is_equal(false or false, test.bool_or(false, false))
+                assert((true  or true ) == test.bool_or(true,  true))
+                assert((true  or false) == test.bool_or(true,  false))
+                assert((false or true ) == test.bool_or(false, true))
+                assert((false or false) == test.bool_or(false, false))
             ]])
 
         end)
@@ -497,7 +487,7 @@ describe("Titan coder", function()
                     return a + b
                 end
             ]], [[
-                assert.is_equal(4, test.f())
+                assert(4 == test.f())
             ]])
         end)
 
@@ -512,7 +502,7 @@ describe("Titan coder", function()
                     return r
                 end
             ]], [[
-                assert.is_equal(720, test.f(6))
+                assert(720 == test.f(6))
             ]])
         end)
 
@@ -527,7 +517,7 @@ describe("Titan coder", function()
                     return r
                 end
             ]], [[
-                assert.is_equal(720, test.f(6))
+                assert(720 == test.f(6))
             ]])
         end)
 
@@ -543,9 +533,9 @@ describe("Titan coder", function()
                     end
                 end
             ]],[[
-                assert.is_equal(-1, test.sign(-10))
-                assert.is_equal( 0, test.sign(  0))
-                assert.is_equal( 1, test.sign( 10))
+                assert(-1 == test.sign(-10))
+                assert( 0 == test.sign(  0))
+                assert( 1 == test.sign( 10))
             ]])
         end)
 
@@ -558,9 +548,9 @@ describe("Titan coder", function()
                     return -x
                 end
             ]],[[
-                assert.is_equal(10, test.abs(-10))
-                assert.is_equal( 0, test.abs(  0))
-                assert.is_equal(10, test.abs( 10))
+                assert(10 == test.abs(-10))
+                assert( 0 == test.abs(  0))
+                assert(10 == test.abs( 10))
             ]])
         end)
 
@@ -574,7 +564,7 @@ describe("Titan coder", function()
                     return res
                 end
             ]], [[
-                assert.is_equal(720, test.f(6))
+                assert(720 == test.f(6))
             ]])
         end)
 
@@ -588,7 +578,7 @@ describe("Titan coder", function()
                     return res
                 end
             ]], [[
-                assert.is_equal(720, test.f(6))
+                assert(720 == test.f(6))
             ]])
         end)
 
@@ -602,7 +592,7 @@ describe("Titan coder", function()
                     return res
                 end
             ]], [[
-                assert.is_equal(720.0, test.f(6.0))
+                assert(720.0 == test.f(6.0))
             ]])
         end)
 
@@ -616,7 +606,7 @@ describe("Titan coder", function()
                     return res
                 end
             ]], [[
-                assert.is_equal(720.0, test.f(6.0))
+                assert(720.0 == test.f(6.0))
             ]])
         end)
 
@@ -634,7 +624,7 @@ describe("Titan coder", function()
                     return next()
                 end
             ]], [[
-                assert.is_equal(2, test.f())
+                assert(2 == test.f())
             ]])
         end)
     end)
@@ -650,9 +640,9 @@ describe("Titan coder", function()
         ]], [[
             local pi = 3.141592653589793
             local e  = 2.718281828459045
-            assert.is_equal(pi, test.pi())
-            assert.is_equal(e, test.e())
-            assert.is_equal(pi*e*e, test.pi() * test.e() * test.e())
+            assert(pi == test.pi())
+            assert(e  == test.e())
+            assert(pi*e*e == test.pi() * test.e() * test.e())
         ]])
     end)
 end)
