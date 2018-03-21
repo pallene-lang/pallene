@@ -701,38 +701,37 @@ generate_exp = function(exp) -- TODO
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
-            local tmp = tmp_name()
-            local tmp_decl = c_declaration("Table *", tmp)
+            local tbl = tmp_name()
+            local tbl_decl = c_declaration("Table *", tbl)
 
-            local tmparr = tmp_name()
-            local tmparr_decl = c_declaration("TValue *", tmparr)
+            local array_part = tmp_name()
+            local array_part_decl = c_declaration("TValue *", array_part)
 
             local init_cstats = {}
             for i, field in ipairs(exp.fields) do
                 local field_cstats, field_cvalue = generate_exp(field.exp)
-                local slot = util.render([[${TMPARR} + ${I}]], {
-                    TMPARR = tmparr,
+                local slot = util.render([[${ARRAY_PART} + ${I}]], {
+                    ARRAY_PART = array_part,
                     I = c_integer(i-1)
                 })
                 table.insert(init_cstats, field_cstats)
                 table.insert(init_cstats, set_slot(exp._type.elem, slot, field_cvalue))
             end
 
-
             local cstats = util.render([[
-                ${TMP_DECL} = luaH_new(L);
-                luaH_resizearray(L, ${TMP}, ${N});
-                ${TMPARR_DECL} = ${TMP}->array;
+                ${TBL_DECL} = luaH_new(L);
+                luaH_resizearray(L, ${TBL}, ${N});
+                ${ARRAY_PART_DECL} = ${TBL}->array;
                 ${FIELD_INIT}
             ]], {
-                TMP = tmp,
-                TMP_DECL = tmp_decl,
-                TMPARR_DECL = tmparr_decl,
+                TBL = tbl,
+                TBL_DECL = tbl_decl,
+                ARRAY_PART_DECL = array_part_decl,
                 N = c_integer(#exp.fields),
                 FIELD_INIT = table.concat(init_cstats, "\n")
             })
 
-            return cstats, tmp
+            return cstats, tbl
 
 
         elseif exp._type._tag == types.T.Record then
