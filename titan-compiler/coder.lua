@@ -130,7 +130,6 @@ end
 -- @param varname: (string) C variable name
 -- @returns A syntactically valid variable declaration
 local function c_declaration(ctyp, varname)
-    -- This would be harder if we also allowed array or function pointers...
     return ctyp .. " " .. varname
 end
 
@@ -138,9 +137,7 @@ end
 --
 --
 
--- This name-mangling scheme is designed to avoid clashes between the function
--- names created in separate models.
-local function mangle_function_name(_modname, funcname, kind)
+local function function_name(funcname, kind)
     return string.format("function_%s_%s", funcname, kind)
 end
 
@@ -262,9 +259,9 @@ generate_program = function(prog, modname)
     for _, tl_node in ipairs(prog) do
         if tl_node._tag == ast.Toplevel.Func then
             tl_node._titan_entry_point =
-                mangle_function_name(modname, tl_node.name, "titan")
+                function_name(tl_node.name, "titan")
             tl_node._lua_entry_point =
-                mangle_function_name(modname, tl_node.name, "lua")
+                function_name(tl_node.name, "lua")
         end
     end
 
