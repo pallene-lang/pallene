@@ -700,7 +700,46 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     elseif tag == ast.Exp.Initlist then
-        error("not implemented yet")
+        if exp._type._tag == types.T.Array then
+            local tmp = tmp_name()
+            local tmp_decl = c_declaration("Table *", tmp)
+
+            local tmparr = tmp_name()
+            local tmparr_decl = c_declaration("TValue *", tmparr)
+
+            local init_cstats = {}
+            for i, field in ipairs(exp.fields) do
+                local field_cstats, field_cvalue = generate_exp(field.exp)
+                local slot = util.render([[${TMPARR} + ${I}]], {
+                    TMPARR = tmparr,
+                    I = c_integer(i-1)
+                })
+                table.insert(init_cstats, field_cstats)
+                table.insert(init_cstats, set_slot(exp._type.elem, slot, field_cvalue))
+            end
+
+
+            local cstats = util.render([[
+                ${TMP_DECL} = luaH_new(L);
+                luaH_resizearray(L, ${TMP}, ${N});
+                ${TMPARR_DECL} = ${TMP}->array;
+                ${FIELD_INIT}
+            ]], {
+                TMP = tmp,
+                TMP_DECL = tmp_decl,
+                TMPARR_DECL = tmparr_decl,
+                N = c_integer(#exp.fields),
+                FIELD_INIT = table.concat(init_cstats, "\n")
+            })
+
+            return cstats, tmp
+
+
+        elseif exp._type._tag == types.T.Record then
+            error("not implemented yet")
+        else
+            error("impossible")
+        end
 
     elseif tag == ast.Exp.Call then
         if     exp.args._tag == ast.Args.Func then

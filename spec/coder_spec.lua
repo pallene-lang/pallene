@@ -92,6 +92,19 @@ describe("Titan coder", function()
             ]], [[
                 assert(3.14 == test.f())
             ]])
+
+            run_coder([[
+                function f(): {integer}
+                    return {10,20,30}
+                end
+            ]],[[
+                local t = test.f()
+                assert(type(t) == "table")
+                assert(#t == 3)
+                assert(10 == t[1])
+                assert(20 == t[2])
+                assert(30 == t[3])
+            ]])
         end)
 
         it("Function calls (no parameters)", function()
