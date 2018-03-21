@@ -73,7 +73,7 @@ int luaopen_${MODNAME}(lua_State *L)
         CClosure *func = luaF_newCclosure(L, 1);
         func->f = init_${MODNAME};
         sethvalue(L, &func->upvalue[0], titan_globals);
-        setclCvalue(L, &L->top->val, func);
+        setclCvalue(L, s2v(L->top), func);
         api_incr_top(L);
 
         lua_call(L, 0, 0);
@@ -130,7 +130,6 @@ end
 -- @param varname: (string) C variable name
 -- @returns A syntactically valid variable declaration
 local function c_declaration(ctyp, varname)
-    -- This would be harder if we also allowed array or function pointers...
     return ctyp .. " " .. varname
 end
 
@@ -138,9 +137,7 @@ end
 --
 --
 
--- This name-mangling scheme is designed to avoid clashes between the function
--- names created in separate models.
-local function mangle_function_name(_modname, funcname, kind)
+local function function_name(funcname, kind)
     return string.format("function_%s_%s", funcname, kind)
 end
 
@@ -262,9 +259,9 @@ generate_program = function(prog, modname)
     for _, tl_node in ipairs(prog) do
         if tl_node._tag == ast.Toplevel.Func then
             tl_node._titan_entry_point =
-                mangle_function_name(modname, tl_node.name, "titan")
+                function_name(tl_node.name, "titan")
             tl_node._lua_entry_point =
-                mangle_function_name(modname, tl_node.name, "lua")
+                function_name(tl_node.name, "lua")
         end
     end
 
@@ -312,7 +309,7 @@ generate_program = function(prog, modname)
                     -- TODO: fix: the error message is not able specify if the
                     -- given type is float or integer (it prints "number")
                     local decl = util.render([[
-                        ${SLOT_DECL} = &(L->ci->func + ${I})->val;
+                        ${SLOT_DECL} = s2v(L->ci->func + ${I});
                         if (!${CHECK_TAG}) {
                             luaL_error(L,
                                 "wrong type for argument %s at line %d, "
@@ -352,7 +349,7 @@ generate_program = function(prog, modname)
                         RET_DECL = c_declaration(ctype(ret_typ), "ret"),
                         ARGS_DECL = table.concat(args_decl, "\n"),
                         ARGS = table.concat(args, ", "),
-                        SET_RET = set_slot(ret_typ, "&L->top->val", "ret"),
+                        SET_RET = set_slot(ret_typ, "s2v(L->top)", "ret"),
                     })
                 )
             end
@@ -370,7 +367,7 @@ generate_program = function(prog, modname)
 
         if n_toplevel > 0 then
             table.insert(parts,
-                [[Table *titan_globals = hvalue(&clCvalue(&L->ci->func->val)->upvalue[0]);]])
+                [[Table *titan_globals = hvalue(&clCvalue(s2v(L->ci->func))->upvalue[0]);]])
         end
 
         for _, tl_node in ipairs(prog) do
@@ -703,7 +700,45 @@ generate_exp = function(exp) -- TODO
         error("not implemented yet")
 
     elseif tag == ast.Exp.Initlist then
-        error("not implemented yet")
+        if exp._type._tag == types.T.Array then
+            local tbl = tmp_name()
+            local tbl_decl = c_declaration("Table *", tbl)
+
+            local array_part = tmp_name()
+            local array_part_decl = c_declaration("TValue *", array_part)
+
+            local init_cstats = {}
+            for i, field in ipairs(exp.fields) do
+                local field_cstats, field_cvalue = generate_exp(field.exp)
+                local slot = util.render([[${ARRAY_PART} + ${I}]], {
+                    ARRAY_PART = array_part,
+                    I = c_integer(i-1)
+                })
+                table.insert(init_cstats, field_cstats)
+                table.insert(init_cstats, set_slot(exp._type.elem, slot, field_cvalue))
+            end
+
+            local cstats = util.render([[
+                ${TBL_DECL} = luaH_new(L);
+                luaH_resizearray(L, ${TBL}, ${N});
+                ${ARRAY_PART_DECL} = ${TBL}->array;
+                ${FIELD_INIT}
+            ]], {
+                TBL = tbl,
+                TBL_DECL = tbl_decl,
+                ARRAY_PART_DECL = array_part_decl,
+                N = c_integer(#exp.fields),
+                FIELD_INIT = table.concat(init_cstats, "\n")
+            })
+
+            return cstats, tbl
+
+
+        elseif exp._type._tag == types.T.Record then
+            error("not implemented yet")
+        else
+            error("impossible")
+        end
 
     elseif tag == ast.Exp.Call then
         if     exp.args._tag == ast.Args.Func then
