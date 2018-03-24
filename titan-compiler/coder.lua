@@ -576,9 +576,24 @@ generate_stat = function(stat)
         local assign_stat
         if     var_lvalue._tag == coder.Lvalue.CVar then
             assign_stat = var_lvalue.varname.." = "..exp_cvalue..";"
-        elseif var_lvalue._tag == coder.Lvalue.Slot then
+        elseif var_lvalue._tag == coder.Lvalue.SafeSlot then
             assign_stat = set_slot(
                 stat.exp._type, var_lvalue.slot_address, exp_cvalue)
+        elseif var_lvalue._tag == coder.Lvalue.ArraySlot then
+            local assign_slot = set_slot(
+                stat.exp._type, var_lvalue.slot_address, exp_cvalue)
+            assign_stat = util.render([[
+                if (isempty(${SLOT})) {
+                    luaL_error(L,
+                        "out of bounds (inside array part) at line %d",
+                        ${LINE});
+                }
+                ${ASSIGN_SLOT}
+            ]], {
+                SLOT = var_lvalue.slot_address,
+                ASSIGN_SLOT = assign_slot,
+                LINE = c_integer(stat.loc.line),
+            })
         else
             error("impossible")
         end
@@ -632,8 +647,9 @@ generate_stat = function(stat)
 end
 
 typedecl.declare(coder, "coder", "Lvalue", {
-    CVar = {"varname"},
-    Slot = {"slot_address"}
+    CVar      = {"varname"},
+    SafeSlot  = {"slot_address"},
+    ArraySlot = {"slot_address"},
 })
 
 -- @param var: (ast.Var)
@@ -656,7 +672,7 @@ generate_var = function(var)
             local slot_address = util.render(
                 "&${GLOBALS}->array[${I}]",
                 { GLOBALS = globals, I = c_integer(i) })
-            return "", coder.Lvalue.Slot(slot_address)
+            return "", coder.Lvalue.SafeSlot(slot_address)
 
         elseif decl._tag == ast.Toplevel.Func then
             -- Toplevel function
@@ -667,7 +683,32 @@ generate_var = function(var)
         end
 
     elseif tag == ast.Var.Bracket then
-        error("not implemented yet")
+        local ui = tmp_name()
+        local slot = tmp_name()
+        local t_cstats, t_cvalue = generate_exp(var.exp1)
+        local k_cstats, k_cvalue = generate_exp(var.exp2)
+        local stats = util.render([[
+            ${T_CSTATS}
+            ${K_CSTATS}
+            ${UI_DECL} = ((lua_Unsigned)${K_CVALUE}) - 1;
+            if (${UI} >= ${T_CVALUE}->sizearray) {
+                luaL_error(L,
+                    "out of bounds (outside array part) at line %d",
+                    ${LINE});
+            }
+            ${SLOT_DECL} = &${T_CVALUE}->array[${UI}];
+        ]], {
+            T_CSTATS = t_cstats,
+            T_CVALUE = t_cvalue,
+            K_CSTATS = k_cstats,
+            K_CVALUE = k_cvalue,
+            UI = ui,
+            UI_DECL = c_declaration("lua_Unsigned", ui),
+            SLOT = slot,
+            SLOT_DECL = c_declaration("TValue *", slot),
+            LINE = c_integer(var.loc.line),
+        })
+        return stats, coder.Lvalue.ArraySlot(slot)
 
     elseif tag == ast.Var.Dot then
         error("not implemented yet")
@@ -793,7 +834,28 @@ generate_exp = function(exp) -- TODO
         local cvalue
         if     lvalue._tag == coder.Lvalue.CVar then
             cvalue = lvalue.varname
-        elseif lvalue._tag == coder.Lvalue.Slot then
+        elseif lvalue._tag == coder.Lvalue.SafeSlot then
+            cvalue = get_slot(exp.var._type, lvalue.slot_address)
+        elseif lvalue._tag == coder.Lvalue.ArraySlot then
+            local slot = lvalue.slot_address
+            cstats = cstats .. "\n" .. util.render([[
+                if (isempty(${SLOT})) {
+                    luaL_error(L,
+                        "out of bounds (inside array part) at line %d",
+                        ${LINE});
+                }
+                if (!${CHECK_TAG}) {
+                    luaL_error(L,
+                        "wrong type for array element at line %d, "
+                        "expected %s but found %s",
+                        ${LINE}, ${EXP_TYPE}, lua_typename(L, ttype(${SLOT})));
+                }
+            ]], {
+                SLOT = slot,
+                CHECK_TAG = check_tag(exp._type, slot),
+                LINE = c_integer(exp.loc.line),
+                EXP_TYPE = c_string(types.tostring(exp._type)),
+            })
             cvalue = get_slot(exp.var._type, lvalue.slot_address)
         else
             error("impossible")

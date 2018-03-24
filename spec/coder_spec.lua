@@ -92,19 +92,6 @@ describe("Titan coder", function()
             ]], [[
                 assert(3.14 == test.f())
             ]])
-
-            run_coder([[
-                function f(): {integer}
-                    return {10,20,30}
-                end
-            ]],[[
-                local t = test.f()
-                assert(type(t) == "table")
-                assert(#t == 3)
-                assert(10 == t[1])
-                assert(20 == t[2])
-                assert(30 == t[3])
-            ]])
         end)
 
         it("Function calls (no parameters)", function()
@@ -657,5 +644,109 @@ describe("Titan coder", function()
             assert(e  == test.e())
             assert(pi*e*e == test.pi() * test.e() * test.e())
         ]])
+    end)
+
+    describe("Arrays", function()
+        it("creates an array", function()
+            run_coder([[
+                function f(): {integer}
+                    return {10,20,30}
+                end
+            ]],[[
+                local t = test.f()
+                assert(type(t) == "table")
+                assert(#t == 3)
+                assert(10 == t[1])
+                assert(20 == t[2])
+                assert(30 == t[3])
+            ]])
+        end)
+
+        local array_get_set = [[
+            function get(arr: {integer}, i: integer): integer
+                return arr[i]
+            end
+
+            function set(arr: {integer}, i: integer, v: integer): nil
+                arr[i] = v
+                return nil
+            end
+        ]]
+
+        it("reads from an array", function()
+            run_coder(array_get_set, [[
+                local arr = {10, 20, 30}
+                assert(10 == test.get(arr, 1))
+                assert(20 == test.get(arr, 2))
+                assert(30 == test.get(arr, 3))
+            ]])
+        end)
+
+        it("writes to an array", function()
+            run_coder(array_get_set, [[
+                local arr = {10, 20, 30}
+                test.set(arr, 2, 123)
+                assert(10 == arr[1])
+                assert(123 == arr[2])
+                assert(30 == arr[3])
+            ]])
+        end)
+
+        it("check out of bounds errors in get", function()
+            run_coder(array_get_set, [[
+                local arr = {10, 20, 30}
+
+                local ok, err = pcall(test.get, arr, 0)
+                assert(not ok)
+                assert(string.find(err, "out of bounds", nil, true))
+
+                local ok, err = pcall(test.get, arr, 4)
+                assert(not ok)
+                assert(string.find(err, "out of bounds", nil, true))
+
+                table.remove(arr)
+                local ok, err = pcall(test.get, arr, 3)
+                assert(not ok)
+                assert(string.find(err, "out of bounds", nil, true))
+            ]])
+        end)
+
+        it("check out of bounds errors in set", function()
+            run_coder(array_get_set, [[
+                local arr = {10, 20, 30}
+
+                local ok, err = pcall(test.set, arr, 0, 123)
+                assert(not ok)
+                assert(string.find(err, "out of bounds", nil, true))
+
+                local ok, err = pcall(test.set, arr, 4, 123)
+                assert(not ok)
+                assert(string.find(err, "out of bounds", nil, true))
+
+                table.remove(arr)
+                local ok, err = pcall(test.set, arr, 3, 123)
+                assert(not ok)
+                assert(string.find(err, "out of bounds", nil, true))
+            ]])
+        end)
+
+        it("checks type tags in get", function()
+            run_coder(array_get_set, [[
+                local arr = {10, 20, "hello"}
+
+                local ok, err = pcall(test.get, arr, 3)
+                assert(not ok)
+                assert(
+                    string.find(err, "wrong type for array element", nil, true))
+            ]])
+        end)
+
+        it("can set wrongly typed arrays in set", function()
+            run_coder(array_get_set, [[
+                local arr = {10, 20, "hello"}
+                test.set(arr, 3, 123)
+                assert(123 == arr[3])
+            ]])
+        end)
     end)
 end)
