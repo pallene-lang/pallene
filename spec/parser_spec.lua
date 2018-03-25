@@ -422,16 +422,16 @@ describe("Titan parser", function()
 
     it("can parse return statements", function()
         assert_statements_ast("return", {
-            { _tag = ast.Stat.Return, exp = false }})
+            { _tag = ast.Stat.Return, exps = {} }})
 
         assert_statements_ast("return;", {
-            { _tag = ast.Stat.Return, exp = false }})
+            { _tag = ast.Stat.Return, exps = {} }})
 
         assert_statements_ast("return x", {
-            { _tag = ast.Stat.Return, exp = { _tag = ast.Exp.Var } },
+            { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } },
         })
         assert_statements_ast("return x;", {
-            { _tag = ast.Stat.Return, exp = { _tag = ast.Exp.Var } },
+            { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } },
         })
     end)
 

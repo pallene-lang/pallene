@@ -636,7 +636,9 @@ generate_stat = function(stat)
         })
 
     elseif tag == ast.Stat.Return then
-        local cstats, cvalue = generate_exp(stat.exp)
+        assert(#stat.exps == 1)
+        local exp = stat.exps[1]
+        local cstats, cvalue = generate_exp(exp)
         return util.render([[
             ${CSTATS}
             return ${CVALUE};

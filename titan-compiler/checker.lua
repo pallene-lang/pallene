@@ -292,8 +292,9 @@ check_stat = function(stat, errors, rettypes)
     elseif tag == ast.Stat.Return then
         assert(#rettypes == 1)
         local rettype = rettypes[1]
-        check_exp(stat.exp, errors, rettype)
-        checkmatch("return statement", rettype, stat.exp._type, errors, stat.exp.loc)
+        local exp = stat.exps[1]
+        check_exp(exp, errors, rettype)
+        checkmatch("return statement", rettype, exp._type, errors, exp.loc)
         return true
 
     elseif tag == ast.Stat.If then

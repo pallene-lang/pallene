@@ -289,7 +289,7 @@ local grammar = re.compile([[
 
     elseopt         <- (ELSE block)?                             -> opt
 
-    returnstat      <- (P  RETURN (exp? -> opt) SEMICOLON?)      -> StatReturn
+    returnstat      <- (P  RETURN {| exp? |} SEMICOLON?)         -> StatReturn
 
     op1             <- ( OR -> 'or' )
     op2             <- ( AND -> 'and' )

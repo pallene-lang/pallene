@@ -38,7 +38,7 @@ declare_type("Stat", {
     Assign = {"loc", "var", "exp"},
     Decl   = {"loc", "decl", "exp"},
     Call   = {"loc", "callexp"},
-    Return = {"loc", "exp"},
+    Return = {"loc", "exps"},
 })
 
 declare_type("Then", {

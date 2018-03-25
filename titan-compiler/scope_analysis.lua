@@ -217,7 +217,9 @@ bind_names_stat = function(stat, st, errors)
         bind_names_exp(stat.callexp, st, errors)
 
     elseif tag == ast.Stat.Return then
-        bind_names_exp(stat.exp, st, errors)
+        for _, exp in ipairs(stat.exps) do
+            bind_names_exp(exp, st, errors)
+        end
 
     else
         error("impossible")
