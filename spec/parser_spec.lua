@@ -199,8 +199,8 @@ describe("Titan parser", function()
             local function bar()
             end
         ]], {
-            { _tag = ast.Toplevel.Func, name = "foo", rettypes = { { _tag = ast.Type.Nil } } },
-            { _tag = ast.Toplevel.Func, name = "bar", rettypes = { { _tag = ast.Type.Nil } } },
+            { _tag = ast.Toplevel.Func, name = "foo", rettypes = { } },
+            { _tag = ast.Toplevel.Func, name = "bar", rettypes = { } },
         })
     end)
 

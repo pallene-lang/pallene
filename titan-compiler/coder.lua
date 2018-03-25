@@ -276,8 +276,14 @@ generate_program = function(prog, modname)
         for _, tl_node in ipairs(prog) do
             if tl_node._tag == ast.Toplevel.Func then
                 -- Titan entry point
-                assert(#tl_node._type.rettypes == 1)
-                local ret_ctype = ctype(tl_node._type.rettypes[1])
+                assert(#tl_node._type.rettypes <= 1)
+
+                local ret_ctype
+                if #tl_node._type.rettypes == 0 then
+                    ret_ctype = "void"
+                else
+                    ret_ctype = ctype(tl_node._type.rettypes[1])
+                end
 
                 local titan_params = {}
                 table.insert(titan_params, [[lua_State * L]])
@@ -301,8 +307,7 @@ generate_program = function(prog, modname)
                 )
 
                 -- Lua entry point
-                assert(#tl_node._type.rettypes == 1)
-                local ret_typ = tl_node._type.rettypes[1]
+                assert(#tl_node._type.rettypes <= 1)
 
                 local args_decl = {}
                 local args = {}
@@ -337,23 +342,41 @@ generate_program = function(prog, modname)
                     table.insert(args, arg_name)
                 end
 
+                local ret_init, set_ret
+                if #tl_node._type.rettypes == 0 then
+                    ret_init = ""
+                    set_ret = ""
+                elseif #tl_node._type.rettypes == 1 then
+                    local ret_typ = tl_node._type.rettypes[1]
+                        ret_init = c_declaration(ctype(ret_typ), "ret") .. " ="
+                    set_ret = util.render([[
+                        ${SET_SLOT}
+                        api_incr_top(L);
+                    ]], {
+                        SET_SLOT = set_slot(ret_typ, "s2v(L->top)", "ret")
+                    })
+                else
+                    error("not implemented")
+                end
+
+
                 table.insert(function_definitions,
                     util.render([[
                         static int ${LUA_ENTRY_POINT}(lua_State *L)
                         {
                             ${ARGS_DECL}
-                            ${RET_DECL} = ${TITAN_ENTRY_POINT}(${ARGS});
+                            ${RET_INIT} ${TITAN_ENTRY_POINT}(${ARGS});
                             ${SET_RET}
-                            api_incr_top(L);
-                            return 1;
+                            return ${NRET};
                         }
                     ]], {
                         LUA_ENTRY_POINT = tl_node._lua_entry_point,
                         TITAN_ENTRY_POINT = tl_node._titan_entry_point,
-                        RET_DECL = c_declaration(ctype(ret_typ), "ret"),
+                        RET_INIT = ret_init,
                         ARGS_DECL = table.concat(args_decl, "\n"),
                         ARGS = table.concat(args, ", "),
-                        SET_RET = set_slot(ret_typ, "s2v(L->top)", "ret"),
+                        SET_RET = set_ret,
+                        NRET = c_integer(#tl_node._type.rettypes)
                     })
                 )
             end
@@ -627,12 +650,20 @@ generate_stat = function(stat)
 
     elseif tag == ast.Stat.Call then
         local cstats, cvalue = generate_exp(stat.callexp)
+
+        local ignore_result
+        if stat.callexp._type._tag == types.T.Invalid then
+            ignore_result = ""
+        else
+            ignore_result = "(void) " .. cvalue .. ";"
+        end
+
         return util.render([[
             ${STATS}
-            (void) ${VALUE};
+            ${IGNORE_RESULT}
         ]], {
             STATS = cstats,
-            VALUE = cvalue
+            IGNORE_RESULT = ignore_result
         })
 
     elseif tag == ast.Stat.Return then
@@ -806,20 +837,27 @@ generate_exp = function(exp) -- TODO
                 end
 
                 local tl_node = fexp.var._decl
-                assert(#tl_node._type.rettypes == 1)
-                local rettype = tl_node._type.rettypes[1]
 
-                local tmp_var = tmp_name()
-                local tmp_decl = c_declaration(ctype(rettype), tmp_var)
+                local tmp_var, tmp_init
+                if #tl_node._type.rettypes == 0 then
+                    tmp_var = "VOID" -- gives C error if accidentaly used
+                    tmp_init = ""
+                elseif #tl_node._type.rettypes == 1 then
+                    local rettype = tl_node._type.rettypes[1]
+                    tmp_var = tmp_name()
+                    tmp_init = c_declaration(ctype(rettype), tmp_var) .. " ="
+                else
+                    error("not implemented")
+                end
 
                 local cstats = util.render([[
                     ${ARG_STATS}
-                    ${TMP_DECL} = ${FUN_NAME}(${ARGS});
+                    ${TMP_INIT} ${FUN_NAME}(${ARGS});
                 ]], {
                     FUN_NAME  = tl_node._titan_entry_point,
                     ARG_STATS = table.concat(arg_cstatss, "\n"),
                     ARGS      = table.concat(arg_cvalues, ", "),
-                    TMP_DECL = tmp_decl,
+                    TMP_INIT = tmp_init,
                 })
                 return cstats, tmp_var
 

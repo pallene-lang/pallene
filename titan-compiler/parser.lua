@@ -45,11 +45,9 @@ function defs.tofalse()
     return false
 end
 
-function defs.rettypeopt(pos, x)
+function defs.rettypeopt(_pos, x)
     if not x then
-        -- When possible, we should change this default to the empty list
-        -- or infer the return type.
-        return { ast.Type.Nil(pos) }
+        return { }
     else
         return x
     end

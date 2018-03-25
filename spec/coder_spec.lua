@@ -150,6 +150,23 @@ describe("Titan coder", function()
             ]])
         end)
 
+        it("Function calls (void functions)", function()
+            run_coder([[
+                local x = 10
+
+                function incr(): ()
+                    x = x + 1
+                end
+
+                function f(): integer
+                    incr()
+                    return x
+                end
+            ]], [[
+                assert(11 == test.f())
+            ]])
+        end)
+
         describe("Vars", function()
             it("Local variables", function()
                 run_coder([[
@@ -667,9 +684,8 @@ describe("Titan coder", function()
                 return arr[i]
             end
 
-            function set(arr: {integer}, i: integer, v: integer): nil
+            function set(arr: {integer}, i: integer, v: integer)
                 arr[i] = v
-                return nil
             end
         ]]
 
