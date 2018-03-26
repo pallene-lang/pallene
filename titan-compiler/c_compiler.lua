@@ -4,7 +4,7 @@ local util = require "titan-compiler.util"
 local c_compiler = {}
 
 c_compiler.LUA_SOURCE_PATH = "./lua/src"
-c_compiler.CFLAGS_BASE = "--std=c99 -Wall"
+c_compiler.CFLAGS_BASE = "--std=c99 -Wall -g"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
