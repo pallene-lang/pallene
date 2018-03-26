@@ -69,6 +69,10 @@ int luaopen_${MODNAME}(lua_State *L)
     Table *titan_globals = luaH_new(L);
     luaH_resizearray(L, titan_globals, ${N_TOPLEVEL});
 
+    /* Save to stack because lua_call might invoke the GC*/
+    sethvalue(L, s2v(L->top), titan_globals);
+    api_incr_top(L);
+
     {
         CClosure *func = luaF_newCclosure(L, 1);
         func->f = init_${MODNAME};
