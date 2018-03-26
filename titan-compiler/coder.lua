@@ -421,7 +421,7 @@ generate_program = function(prog, modname)
                 table.insert(parts,
                     util.render([[
                         lua_pushstring(L, ${NAME});
-                        setobj(L, &L->top->val, &titan_globals->array[${I}]); api_incr_top(L);
+                        setobj(L, s2v(L->top), &titan_globals->array[${I}]); api_incr_top(L);
                         lua_settable(L, -3);
                     ]], {
                         NAME = c_string(ast.toplevel_name(tl_node)),
@@ -671,7 +671,7 @@ generate_var = function(var)
 
         elseif decl._tag == ast.Toplevel.Var then
             local i = decl._global_index
-            local closure = "clCvalue(&L->ci->func->val)"
+            local closure = "clCvalue(s2v(L->ci->func))"
             local globals = "hvalue(&"..closure.."->upvalue[0])"
             local slot_address = util.render(
                 "&${GLOBALS}->array[${I}]",
