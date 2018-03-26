@@ -141,13 +141,13 @@ end
 
 function defs.suffix_funccall(pos, args)
     return function(exp)
-        return ast.Exp.Call(pos, exp, ast.Args.Func(pos, args))
+        return ast.Exp.CallFunc(pos, exp,  args)
     end
 end
 
 function defs.suffix_methodcall(pos, name, args)
     return function(exp)
-        return ast.Exp.Call(pos, exp, ast.Args.Method(pos, name, args))
+        return ast.Exp.CallMethod(pos, exp, name, args)
     end
 end
 
@@ -184,7 +184,8 @@ function defs.exp_is_var(_, pos, exp)
 end
 
 function defs.exp_is_call(_, pos, exp)
-    if exp._tag == ast.Exp.Call then
+    if exp._tag == ast.Exp.CallFunc or
+       exp._tag == ast.Exp.CallMethod then
         return pos, exp
     else
         return false

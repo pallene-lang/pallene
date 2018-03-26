@@ -617,7 +617,7 @@ check_exp = function(exp, errors, typehint)
             error("impossible")
         end
 
-    elseif tag == ast.Exp.Call then
+    elseif tag == ast.Exp.CallFunc then
         assert(exp.exp._tag == ast.Exp.Var, "function calls are first-order only!")
         local var = exp.exp.var
         check_var(var, errors)
@@ -626,7 +626,7 @@ check_exp = function(exp, errors, typehint)
         if var._type._tag == types.T.Function then
             local ftype = var._type
             local nparams = #ftype.params
-            local args = exp.args.args
+            local args = exp.args
             local nargs = #args
             local arity = math.max(nparams, nargs)
             for i = 1, arity do
@@ -664,6 +664,9 @@ check_exp = function(exp, errors, typehint)
                 fname, types.tostring(var._type))
             exp._type = types.T.Invalid()
         end
+
+    elseif tag == ast.Exp.CallMethod then
+        error("not implemented")
 
     elseif tag == ast.Exp.Cast then
         local target = check_type(exp.target, errors)

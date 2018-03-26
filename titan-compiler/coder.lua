@@ -824,60 +824,55 @@ generate_exp = function(exp) -- TODO
             error("impossible")
         end
 
-    elseif tag == ast.Exp.Call then
-        if     exp.args._tag == ast.Args.Func then
-            local fexp = exp.exp
-            local fargs = exp.args
-            if fexp._tag == ast.Exp.Var and
-                fexp.var._tag == ast.Var.Name and
-                fexp.var._decl._tag == ast.Toplevel.Func
-            then
-                -- Directly calling a toplevel function
+    elseif tag == ast.Exp.CallFunc then
+        local fexp = exp.exp
+        local fargs = exp.args
+        if fexp._tag == ast.Exp.Var and
+            fexp.var._tag == ast.Var.Name and
+            fexp.var._decl._tag == ast.Toplevel.Func
+        then
+            -- Directly calling a toplevel function
 
-                local arg_cstatss = {}
-                local arg_cvalues = {"L"}
-                for _, arg_exp in ipairs(fargs.args) do
-                    local cstats, cvalue = generate_exp(arg_exp)
-                    table.insert(arg_cstatss, cstats)
-                    table.insert(arg_cvalues, cvalue)
-                end
-
-                local tl_node = fexp.var._decl
-
-                local tmp_var, tmp_init
-                if #tl_node._type.rettypes == 0 then
-                    tmp_var = "VOID" -- gives C error if accidentaly used
-                    tmp_init = ""
-                elseif #tl_node._type.rettypes == 1 then
-                    local rettype = tl_node._type.rettypes[1]
-                    tmp_var = tmp_name()
-                    tmp_init = c_declaration(ctype(rettype), tmp_var) .. " ="
-                else
-                    error("not implemented")
-                end
-
-                local cstats = util.render([[
-                    ${ARG_STATS}
-                    ${TMP_INIT} ${FUN_NAME}(${ARGS});
-                ]], {
-                    FUN_NAME  = tl_node._titan_entry_point,
-                    ARG_STATS = table.concat(arg_cstatss, "\n"),
-                    ARGS      = table.concat(arg_cvalues, ", "),
-                    TMP_INIT  = tmp_init,
-                })
-                return cstats, tmp_var
-
-            else
-                -- First-class functions
-                error("not implemented yet")
+            local arg_cstatss = {}
+            local arg_cvalues = {"L"}
+            for _, arg_exp in ipairs(fargs) do
+                local cstats, cvalue = generate_exp(arg_exp)
+                table.insert(arg_cstatss, cstats)
+                table.insert(arg_cvalues, cvalue)
             end
 
-        elseif exp.args._tag == ast.Args.Method then
-            error("not implemented")
+            local tl_node = fexp.var._decl
+
+            local tmp_var, tmp_init
+            if #tl_node._type.rettypes == 0 then
+                tmp_var = "VOID" -- gives C error if accidentaly used
+                tmp_init = ""
+            elseif #tl_node._type.rettypes == 1 then
+                local rettype = tl_node._type.rettypes[1]
+                tmp_var = tmp_name()
+                tmp_init = c_declaration(ctype(rettype), tmp_var) .. " ="
+            else
+                error("not implemented")
+            end
+
+            local cstats = util.render([[
+                ${ARG_STATS}
+                ${TMP_INIT} ${FUN_NAME}(${ARGS});
+            ]], {
+                FUN_NAME  = tl_node._titan_entry_point,
+                ARG_STATS = table.concat(arg_cstatss, "\n"),
+                ARGS      = table.concat(arg_cvalues, ", "),
+                TMP_INIT = tmp_init,
+            })
+            return cstats, tmp_var
 
         else
-            error("impossible")
+            -- First-class functions
+            error("not implemented yet")
         end
+
+    elseif tag == ast.CallMethod then
+        error("not implemented")
 
     elseif tag == ast.Exp.Var then
         local cstats, lvalue = generate_var(exp.var)

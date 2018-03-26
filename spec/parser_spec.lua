@@ -397,7 +397,7 @@ describe("Titan parser", function()
                         var = { name = "x" },
                         exp = { value = 11 } },
                     { _tag = ast.Stat.Call,
-                        callexp = { _tag = ast.Exp.Call } } } },
+                        callexp = { _tag = ast.Exp.CallFunc } } } },
         })
     end)
 
@@ -540,44 +540,44 @@ describe("Titan parser", function()
                     lhs = { _tag = ast.Exp.Var, var = {
                         _tag = ast.Var.Bracket,
                         exp2 = { value = 2 },
-                        exp1 = { _tag = ast.Exp.Call,
-                            args = { _tag = ast.Args.Func },
-                            exp = { _tag = ast.Exp.Call,
-                                args = { _tag = ast.Args.Func },
+                        exp1 = { _tag = ast.Exp.CallFunc,
+                            args = { },
+                            exp = { _tag = ast.Exp.CallFunc,
+                                args = { },
                                 exp = { _tag = ast.Exp.Var,
                                     var = { _tag = ast.Var.Name, name = "x" }}}}}}}})
     end)
 
     it("can parse function calls without the optional parenthesis", function()
         assert_expression_ast([[ f() ]],
-            { _tag = ast.Exp.Call, args = {
-                _tag = ast.Args.Func, args = { } } })
+            { _tag = ast.Exp.CallFunc, args = { } })
 
         assert_expression_ast([[ f "qwe" ]],
-            { _tag = ast.Exp.Call, args = {
-                _tag = ast.Args.Func, args = {
-                    { _tag = ast.Exp.String, value = "qwe" } } } })
+            { _tag = ast.Exp.CallFunc, args = {
+                { _tag = ast.Exp.String, value = "qwe" } } })
 
         assert_expression_ast([[ f {} ]],
-            { _tag = ast.Exp.Call, args = {
-                _tag = ast.Args.Func, args = {
-                    { _tag = ast.Exp.Initlist } } } })
+            { _tag = ast.Exp.CallFunc, args = {
+                { _tag = ast.Exp.Initlist } } })
     end)
 
     it("can parse method calls without the optional parenthesis", function()
         assert_expression_ast([[ o:m () ]],
-            { _tag = ast.Exp.Call, args = {
-                _tag = ast.Args.Method, args = { } } })
+            { _tag = ast.Exp.CallMethod,
+                method = "m",
+                args = { } })
 
         assert_expression_ast([[ o:m "asd" ]],
-            { _tag = ast.Exp.Call, args = {
-                _tag = ast.Args.Method, args = {
-                    { _tag = ast.Exp.String, value = "asd" } } } })
+            { _tag = ast.Exp.CallMethod,
+                method = "m",
+                args = {
+                    { _tag = ast.Exp.String, value = "asd" } } })
 
         assert_expression_ast([[ o:m {} ]],
-            { _tag = ast.Exp.Call, args = {
-                _tag = ast.Args.Method, args = {
-                    { _tag = ast.Exp.Initlist } } } })
+            { _tag = ast.Exp.CallMethod,
+                method = "m",
+                args = {
+                    { _tag = ast.Exp.Initlist } } })
     end)
 
     it("only allows call expressions as statements", function()
@@ -610,12 +610,12 @@ describe("Titan parser", function()
                   var = { _tag = ast.Var.Name, name = "foo" }
                 },
                 name = "bar" } },
-            { callexp = { args = { args = { { var = {
+            { callexp = { args = { { var = {
                 _tag = ast.Var.Dot,
                 exp = { _tag = ast.Exp.Var,
                   var = { _tag = ast.Var.Name, name = "foo" }
                 },
-              name = "bar" } } } } } },
+              name = "bar" } } } } },
             { callexp = {
                 exp = { var = {
                     _tag = ast.Var.Dot,
@@ -687,20 +687,20 @@ describe("Titan parser", function()
                 { name = "next", exp = { _tag = ast.Exp.Nil } } }})
 
         assert_expression_ast([[ Point.new(1.1, 2.2) ]],
-            { _tag = ast.Exp.Call,
-                args = { args = {
+            { _tag = ast.Exp.CallFunc,
+                args = {
                   { value = 1.1 },
-                  { value = 2.2 } } },
+                  { value = 2.2 } },
                 exp = { var = {
                     _tag = ast.Var.Dot,
                     exp = { var = { name = "Point" } },
                     name = "new" } } })
 
         assert_expression_ast([[ List.new({}, nil) ]],
-            { _tag = ast.Exp.Call,
-                args = { args = {
+            { _tag = ast.Exp.CallFunc,
+                args = {
                   { _tag = ast.Exp.Initlist },
-                  { _tag = ast.Exp.Nil } } },
+                  { _tag = ast.Exp.Nil } },
                 exp = { var = {
                     _tag = ast.Var.Dot,
                     exp = { var = { name = "List" } },
