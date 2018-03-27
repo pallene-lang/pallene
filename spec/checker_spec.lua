@@ -45,6 +45,29 @@ end
 
 describe("Titan type checker", function()
 
+    it("detects when a non-type is used in a type variable", function()
+        local prog, errs = run_checker([[
+            local foo: integer = 10
+            local bar: foo = 11
+        ]])
+        assert.falsy(prog)
+        assert.match("'foo' isn't a type", errs)
+    end)
+
+    it("detects when a non-value is used in a value variable", function()
+        local prog, errs = run_checker([[
+            record Point
+                x: integer
+                y: integer
+            end
+            local bar: integer = Point
+        ]])
+        assert.falsy(prog)
+        assert.match("'Point' isn't a value", errs)
+    end)
+
+
+
     it("for loop iteration variables don't shadow var limit and step", function()
         local code = [[
             function fn(x: integer): integer

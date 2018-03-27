@@ -83,12 +83,7 @@ bind_names_type = function(type_node, st, errors)
         local name = type_node.name
         local decl = st:find_symbol(name)
         if decl then
-            if decl._tag == ast.Toplevel.Record then
-                type_node._decl = decl
-            else
-                scope_error(errors, type_node.loc, "'%s' isn't a type", name)
-                type_node._decl = false
-            end
+            type_node._decl = decl
         else
             scope_error(errors, type_node.loc, "type '%s' is not declared", name)
             type_node._decl = false
@@ -241,15 +236,7 @@ bind_names_var = function(var, st, errors)
         local name = var.name
         local decl = st:find_symbol(name)
         if decl then
-            if decl._tag == ast.Toplevel.Var or
-                decl._tag == ast.Toplevel.Func or
-                decl._tag == ast.Decl.Decl
-            then
-                var._decl = decl
-            else
-                scope_error(errors, var.loc, "'%s' isn't a value", name)
-                var._decl = false
-            end
+            var._decl = decl
         else
             scope_error(errors, var.loc, "variable '%s' is not declared", name)
             var._decl = false

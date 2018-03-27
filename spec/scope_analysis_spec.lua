@@ -248,25 +248,4 @@ describe("Scope analysis: ", function()
         assert.match("function 'fn' has multiple parameters named 'x'", errs)
     end)
 
-    it("detects when a non-type is used in a type variable", function()
-        local prog, errs = run_scope_analysis([[
-            local foo: integer = 10
-            local bar: foo = 11
-        ]])
-        assert.falsy(prog)
-        assert.match("'foo' isn't a type", errs)
-    end)
-
-    it("detects when a non-value is used in a value variable", function()
-        local prog, errs = run_scope_analysis([[
-            record Point
-                x: integer
-                y: integer
-            end
-            local bar: integer = Point
-        ]])
-        assert.falsy(prog)
-        assert.match("'Point' isn't a value", errs)
-    end)
-
 end)

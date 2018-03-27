@@ -105,7 +105,13 @@ check_type = function(typ, errors)
         return types.T.String()
 
     elseif tag == ast.Type.Name then
-        return typ._decl._type
+        local decl = typ._decl
+        if decl._tag == ast.Toplevel.Record then
+            return decl._type
+        else
+            type_error(errors, typ.loc, "'%s' isn't a type", typ.name)
+            return types.T.Invalid()
+        end
 
     elseif tag == ast.Type.Array then
         return types.T.Array(check_type(typ.subtype, errors))
@@ -327,7 +333,16 @@ end
 check_var = function(var, errors)
     local tag = var._tag
     if     tag == ast.Var.Name then
-        var._type = var._decl._type
+        local decl = var._decl
+        if decl._tag == ast.Toplevel.Var or
+            decl._tag == ast.Toplevel.Func or
+            decl._tag == ast.Decl.Decl
+        then
+            var._type = var._decl._type
+        else
+            type_error(errors, var.loc, "'%s' isn't a value", var.name)
+            var._type = types.T.Invalid()
+        end
 
     elseif tag == ast.Var.Dot then
         check_exp(var.exp, errors, nil)
