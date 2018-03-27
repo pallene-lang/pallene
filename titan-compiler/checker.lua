@@ -467,19 +467,7 @@ check_exp = function(exp, errors, typehint)
 
     elseif tag == ast.Exp.Var then
         check_var(exp.var, errors)
-        local texp = exp.var._type
-        if texp._tag == types.T.Module then
-            type_error(errors, exp.loc,
-                "trying to access module '%s' as a first-class value",
-                exp.var.name)
-            exp._type = types.T.Invalid()
-        elseif texp._tag == types.T.Function then
-            type_error(errors, exp.loc,
-                "trying to access a function as a first-class value")
-            exp._type = types.T.Invalid()
-        else
-            exp._type = texp
-        end
+        exp._type = exp.var._type
 
     elseif tag == ast.Exp.Unop then
         check_exp(exp.exp, errors, nil)
@@ -633,39 +621,25 @@ check_exp = function(exp, errors, typehint)
         end
 
     elseif tag == ast.Exp.CallFunc then
-        assert(exp.exp._tag == ast.Exp.Var, "function calls are first-order only!")
-        local var = exp.exp.var
-        check_var(var, errors)
-        exp.exp._type = var._type
-        local fname = var._tag == ast.Var.Name and var.name or (var.exp.var.name .. "." .. var.name)
-        if var._type._tag == types.T.Function then
-            local ftype = var._type
-            local nparams = #ftype.params
-            local args = exp.args
-            local nargs = #args
-            local arity = math.max(nparams, nargs)
-            for i = 1, arity do
-                local arg = args[i]
-                local ptype = ftype.params[i]
-                local atype
-                if not arg then
-                    atype = ptype
-                else
-                    check_exp(arg, errors, ptype)
-                    ptype = ptype or arg._type
-                    atype = args[i]._type
-                end
-                if not ptype then
-                    ptype = atype
-                end
-                checkmatch(
-                    "argument " .. i .. " of call to function '" .. fname .. "'",
-                    ptype, atype, errors, exp.exp.loc)
-            end
-            if nargs ~= nparams then
+        local fexp = exp.exp
+        local args = exp.args
+
+        check_exp(fexp, errors, nil)
+        local ftype = fexp._type
+
+        if ftype._tag == types.T.Function then
+            if #ftype.params ~= #args then
                 type_error(errors, exp.loc,
-                    "function %s called with %d arguments but expects %d",
-                    fname, nargs, nparams)
+                    "function expects %d argument(s) but received %d",
+                    #ftype.params, #args)
+            end
+            for i = 1, math.min(#ftype.params, #args) do
+                local ptype = ftype.params[i]
+                local arg = args[i]
+                check_exp(arg, errors, ptype)
+                checkmatch(
+                    "argument " .. i .. " of call to function",
+                    ptype, arg._type, errors, fexp.loc)
             end
             assert(#ftype.rettypes <= 1)
             if #ftype.rettypes >= 1 then
@@ -675,8 +649,8 @@ check_exp = function(exp, errors, typehint)
             end
         else
             type_error(errors, exp.loc,
-                "'%s' is not a function but %s",
-                fname, types.tostring(var._type))
+                "attempting to call a %s value",
+                types.tostring(exp.exp._type))
             exp._type = types.T.Invalid()
         end
 

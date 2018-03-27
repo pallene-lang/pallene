@@ -777,7 +777,36 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("is not a function", errs)
+        assert.match("attempting to call a integer value" , errs)
+    end)
+
+    it("detects wrong number of arguments to functions", function()
+        local prog, errs = run_checker([[
+            function f(x: integer, y: integer): integer
+                return x + y
+            end
+
+            function g(): integer
+                return f(1)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("function expects 2 argument(s) but received 1", errs,
+            nil, true)
+    end)
+
+    it("detects wrong types of arguments to functions", function()
+        local prog, errs = run_checker([[
+            function f(x: integer, y: integer): integer
+                return x + y
+            end
+
+            function g(): integer
+                return f(1.0, 2.0)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("expected integer but found float", errs,nil, true)
     end)
 
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
@@ -1235,17 +1264,6 @@ describe("Titan type checker", function()
         end)
     end
 
-    it("catches use of function as first-class value", function ()
-        local code = [[
-            function foo(): integer
-                return foo
-            end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.falsy(prog)
-        assert.match("access a function", errs)
-    end)
-
     it("catches assignment to function", function ()
         local code = [[
             function foo(): integer
@@ -1255,18 +1273,6 @@ describe("Titan type checker", function()
         local prog, errs = run_checker(code)
         assert.falsy(prog)
         assert.match("assign to a function", errs)
-    end)
-
-    it("catches call of non-function function", function ()
-        local code = [[
-            local a = 2
-            function foo(): integer
-                return a()
-            end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.falsy(prog)
-        assert.match("'a' is not a function", errs)
     end)
 end)
 
