@@ -61,6 +61,18 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[1].elsestat.stats[1].exps[1].rhs.exp.var._decl)
     end)
 
+    it("builtins work", function()
+        local prog, errs = run_scope_analysis([[
+            function fn(xs:{integer})
+                table_insert(xs, 17)
+            end
+        ]])
+        assert.truthy(prog)
+        local exp = prog[1].block.stats[1].callexp._tag
+        assert.are.equal(ast.Exp.CallBuiltin, exp._tag)
+        assert.are.equal("table.insert", exp.builtin_name)
+    end)
+
     it("forbids variables from being used before they are defined", function()
         local prog, errs = run_scope_analysis([[
             function fn(): nil
@@ -247,5 +259,4 @@ describe("Scope analysis: ", function()
         assert.falsy(prog)
         assert.match("function 'fn' has multiple parameters named 'x'", errs)
     end)
-
 end)

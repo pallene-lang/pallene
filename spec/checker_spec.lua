@@ -66,8 +66,6 @@ describe("Titan type checker", function()
         assert.match("'Point' isn't a value", errs)
     end)
 
-
-
     it("for loop iteration variables don't shadow var limit and step", function()
         local code = [[
             function fn(x: integer): integer
@@ -1328,6 +1326,19 @@ describe("Titan typecheck of records", function()
                           wrap_record[[ p.x = p ]])
         assert_type_error("expected Point but found float",
                           wrap_record[[ local p: Point = p.x ]])
+    end)
+
+    it("typechecks table.insert", function()
+        local prog, errs = run_checker([[
+            function f(xs: {integer})
+                table_insert(xs, 10)
+            end
+
+            function g(xs: {float})
+                table_insert(xs, 3.14)
+            end
+        ]])
+        assert.truthy(prog)
     end)
 end)
 
