@@ -17,6 +17,7 @@ declare_type("T", {
     Function = {"params", "rettypes"},
     Array    = {"elem"},
     Record   = {"type_decl"},
+    Builtin  = {"builtin_decl"},
 })
 
 function types.is_basic(t)
@@ -94,6 +95,8 @@ function types.tostring(t)
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == types.T.Record then
         return t.type_decl.name
+    elseif tag == types.T.Builtin then
+        return "builtin(".. t.builtin_decl.name ..")"
     else
         error("impossible")
     end

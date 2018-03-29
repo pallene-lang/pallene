@@ -23,6 +23,7 @@ declare_type("Toplevel", {
     Var    = {"loc", "decl", "value"},
     Record = {"loc", "name", "field_decls"},
     Import = {"loc", "localname", "modname"},
+    Builtin = {"loc", "name"},
 })
 
 declare_type("Decl", {

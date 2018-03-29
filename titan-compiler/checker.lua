@@ -1,6 +1,7 @@
 local checker = {}
 
 local ast = require "titan-compiler.ast"
+local builtins = require "titan-compiler.builtins"
 local location = require "titan-compiler.location"
 local scope_analysis = require "titan-compiler.scope_analysis"
 local types = require "titan-compiler.types"
@@ -82,6 +83,11 @@ end
 --
 
 check_program = function(prog, errors)
+    -- Ugh
+    for name, decl in pairs(builtins) do
+        decl._type = types.T.Builtin(decl)
+    end
+
     for _, tlnode in ipairs(prog) do
         check_toplevel(tlnode, errors)
     end
@@ -336,6 +342,7 @@ check_var = function(var, errors)
         local decl = var._decl
         if decl._tag == ast.Toplevel.Var or
             decl._tag == ast.Toplevel.Func or
+            decl._tag == ast.Toplevel.Builtin or
             decl._tag == ast.Decl.Decl
         then
             var._type = var._decl._type
@@ -380,6 +387,11 @@ check_var = function(var, errors)
     else
         error("impossible")
     end
+end
+
+
+local function check_exp_callfunc_builtin(fexp, args)
+    error("not implemented")
 end
 
 -- @param typehint Expected type; Used to infer polymorphic/record constructors.
@@ -647,6 +659,8 @@ check_exp = function(exp, errors, typehint)
             else
                 exp._type = types.T.Void()
             end
+        elseif ftype._tag == types.T.Builtin then
+            check_exp_callfunc_builtin(fexp, args)
         else
             type_error(errors, exp.loc,
                 "attempting to call a %s value",

@@ -1,6 +1,7 @@
 local scope_analysis = {}
 
 local ast = require "titan-compiler.ast"
+local builtins = require "titan-compiler.builtins"
 local location = require "titan-compiler.location"
 local parser = require "titan-compiler.parser"
 local symtab = require "titan-compiler.symtab"
@@ -41,11 +42,13 @@ local function scope_error(errors, loc, fmt, ...)
     table.insert(errors, errmsg)
 end
 
---
--- bind_names
---
+local function add_builtins_to_symbol_table(st)
+    for name, decl in pairs(builtins) do
+        st:add_symbol(name, decl)
+    end
+end
 
-bind_names_program = function(prog, st, errors)
+local function process_toplevel(prog, st, errors)
     st:with_block(function()
         for _, tlnode in ipairs(prog) do
             local name = ast.toplevel_name(tlnode)
@@ -59,6 +62,17 @@ bind_names_program = function(prog, st, errors)
                 bind_names_toplevel(tlnode, st, errors)
             end
         end
+    end)
+end
+
+--
+-- bind_names
+--
+
+bind_names_program = function(prog, st, errors)
+    st:with_block(function()
+        add_builtins_to_symbol_table(st)
+        process_toplevel(prog, st, errors)
     end)
 end
 

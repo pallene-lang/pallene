@@ -1,4 +1,7 @@
-local scope_analysis = require 'titan-compiler.scope_analysis'
+local scope_analysis = require "titan-compiler.scope_analysis"
+
+local ast = require "titan-compiler.ast"
+local builtins = require "titan-compiler.builtins"
 
 local function run_scope_analysis(code)
     local prog, errs = scope_analysis.bind_names("(scope_analysis_spec)", code)
@@ -68,9 +71,14 @@ describe("Scope analysis: ", function()
             end
         ]])
         assert.truthy(prog)
-        local exp = prog[1].block.stats[1].callexp._tag
-        assert.are.equal(ast.Exp.CallBuiltin, exp._tag)
-        assert.are.equal("table.insert", exp.builtin_name)
+        local exp = prog[1].block.stats[1].callexp
+        assert.are.equal(ast.Exp.CallFunc, exp._tag)
+        local f_exp = exp.exp
+        assert.are.equal(ast.Exp.Var, f_exp._tag)
+        local var = f_exp.var
+        assert.are.equal(ast.Var.Name, var._tag)
+        local decl = var._decl
+        assert.are_equal(builtins.table_insert, decl)
     end)
 
     it("forbids variables from being used before they are defined", function()
