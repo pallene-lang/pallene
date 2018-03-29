@@ -155,6 +155,9 @@ describe("Titan coder", function()
                 local x = 10
 
                 function incr(): ()
+                    if x >= 100 then
+                        return
+                    end
                     x = x + 1
                 end
 

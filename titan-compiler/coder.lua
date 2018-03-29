@@ -666,9 +666,16 @@ generate_stat = function(stat)
         })
 
     elseif tag == ast.Stat.Return then
-        assert(#stat.exps == 1)
-        local exp = stat.exps[1]
-        local cstats, cvalue = generate_exp(exp)
+        assert(#stat.exps <= 1)
+
+        local cstats, cvalue
+        if #stat.exps == 0 then
+            cstats = ""
+            cvalue = ""
+        else
+            cstats, cvalue = generate_exp(stat.exps[1])
+        end
+
         return util.render([[
             ${CSTATS}
             return ${CVALUE};
