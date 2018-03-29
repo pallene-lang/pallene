@@ -682,6 +682,19 @@ describe("Titan coder", function()
             ]])
         end)
 
+        it("can use # operator", function()
+            pending("")
+            run_coder([[
+                function f(xs:{integer}): integer
+                    return #xs
+                end
+            ]], [[
+                assert(0 == test.f({}))
+                assert(1 == test.f({10}))
+                assert(2 == test.f({10, 20}))
+            ]])
+        end)
+
         local array_get_set = [[
             function get(arr: {integer}, i: integer): integer
                 return arr[i]
@@ -767,5 +780,48 @@ describe("Titan coder", function()
                 assert(123 == arr[3])
             ]])
         end)
+
+        local insert_remove = [[
+            function insert_int(xs: {integer}, v:integer): ()
+                table_insert(xs, v)
+            end
+
+            function remove_int(xs: {integer}): ()
+                table_remove(xs)
+            end
+        ]]
+
+        it("can use insert", function()
+            pending("")
+            run_coder(insert_remove, [[
+                local arr = {}
+                for i = 1, 50 do
+                    test.insert_int(arr, 10*i)
+                    assert(i == #arr)
+                    for j = 1, i do
+                        assert(10*i == arr[j])
+                    end
+                end
+            ]])
+        end)
+
+        it("can use remove", function()
+            pending("")
+            run_coder(insert_remove, [[
+                local arr = {}
+                for i = 1, 100 do
+                    arr[i] = 10*i
+                end
+                for i = 99, 50, -1 do
+                    test.remove_int(arr)
+                    assert(i == #arr)
+                    for j = 1, i do
+                        assert(10*i == arr[j])
+                    end
+                end
+            ]])
+        end)
+
+
     end)
 end)

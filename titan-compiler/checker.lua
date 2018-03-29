@@ -55,12 +55,27 @@ end
 --   loc: location of the term that is being compared
 local function checkmatch(term, expected, found, errors, loc)
     if not types.equals(expected, found) then
-        local msg = "types in %s do not match, expected %s but found %s"
-        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
+        local fmt = "types in %s do not match, expected %s but found %s"
+        local msg = string.format(fmt, term, types.tostring(expected), types.tostring(found))
         type_error(errors, loc, msg)
     end
 end
 
+local function check_arity(term, expected, found, errors, loc)
+    if expected ~= found then
+        local fmt = "%s: expected %d value(s) but found %d"
+        local msg = string.format(fmt, term, expected, found)
+        type_error(errors, loc, msg)
+    end
+end
+
+local function check_is_array(term, found, errors, loc)
+    if found._tag ~= types.T.Array then
+        local fmt = "%s: expected array but found %s"
+        local msg = string.format(fmt, term, types.tostring(found))
+        type_error(errors, loc, msg)
+    end
+end
 
 local function is_numeric_type(typ)
     return typ._tag == types.T.Integer or typ._tag == types.T.Float
@@ -84,7 +99,7 @@ end
 
 check_program = function(prog, errors)
     -- Ugh
-    for name, decl in pairs(builtins) do
+    for _, decl in pairs(builtins) do
         decl._type = types.T.Builtin(decl)
     end
 
@@ -390,8 +405,29 @@ check_var = function(var, errors)
 end
 
 
-local function check_exp_callfunc_builtin(fexp, args)
-    error("not implemented")
+local function check_exp_callfunc_builtin(exp, errors)
+    local fexp = exp.exp
+    local args = exp.args
+    local builtin_name = fexp._type.builtin_decl.name
+    if builtin_name == "table.insert" then
+        check_arity("table.insert arguments", 2, #args, errors, exp.loc)
+        check_exp(args[1], errors, nil)
+        check_is_array("table.insert first argument",
+            args[1]._type, errors, args[1].loc)
+        local elem_type = args[1]._type.elem
+        check_exp(args[2], errors, elem_type)
+        checkmatch("table.insert second argument",
+            elem_type, args[2]._type, errors, args[2].loc)
+        exp._type = types.T.Void()
+    elseif builtin_name == "table.remove" then
+        check_arity("table.insert arguments", 1, #args, errors, exp.loc)
+        check_exp(args[1], errors, nil)
+        check_is_array("table.insert first argument",
+            args[1]._type, errors, args[1].loc)
+        exp._type = types.T.Void()
+    else
+        error("impossible")
+    end
 end
 
 -- @param typehint Expected type; Used to infer polymorphic/record constructors.
@@ -660,7 +696,7 @@ check_exp = function(exp, errors, typehint)
                 exp._type = types.T.Void()
             end
         elseif ftype._tag == types.T.Builtin then
-            check_exp_callfunc_builtin(fexp, args)
+            check_exp_callfunc_builtin(exp, errors, nil)
         else
             type_error(errors, exp.loc,
                 "attempting to call a %s value",
