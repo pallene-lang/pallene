@@ -17,7 +17,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1], -- x
-            prog[2].block.stats[1].exp.var._decl)
+            prog[2].block.stats[1].exps[1].var._decl)
     end)
 
     it("function parameters work", function()
@@ -29,7 +29,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1].params[1], -- x
-            prog[1].block.stats[1].exp.var._decl)
+            prog[1].block.stats[1].exps[1].var._decl)
     end)
 
     it("local variables work", function()
@@ -42,7 +42,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1].block.stats[1].decl, -- x
-            prog[1].block.stats[2].exp.var._decl)
+            prog[1].block.stats[2].exps[1].var._decl)
     end)
 
     it("functions can be recursive", function()
@@ -58,7 +58,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1], -- fac
-            prog[1].block.stats[1].elsestat.stats[1].exp.rhs.exp.var._decl)
+            prog[1].block.stats[1].elsestat.stats[1].exps[1].rhs.exp.var._decl)
     end)
 
     it("forbids variables from being used before they are defined", function()
@@ -118,7 +118,7 @@ describe("Scope analysis: ", function()
             prog[2].block.stats[1].decl.type._decl)
         assert.are.equal(
             prog[2].block.stats[1].decl, -- local x
-            prog[2].block.stats[2].exp.var.exp.var._decl)
+            prog[2].block.stats[2].exps[1].var.exp.var._decl)
     end)
 
     it("local variable scope doesn't shadow its initializer", function()
@@ -135,7 +135,7 @@ describe("Scope analysis: ", function()
             prog[2].block.stats[1].exp.lhs.var._decl)
         assert.are.equal(
             prog[2].block.stats[1].decl, -- local x
-            prog[2].block.stats[2].exp.var._decl)
+            prog[2].block.stats[2].exps[1].var._decl)
     end)
 
     it("repeat-until scope includes the condition", function()
@@ -173,7 +173,7 @@ describe("Scope analysis: ", function()
             prog[2].block.stats[1].decl.type._decl)
         assert.are.equal(
             prog[2].block.stats[1].decl, -- local x
-            prog[2].block.stats[1].block.stats[1].exp.var._decl)
+            prog[2].block.stats[1].block.stats[1].exps[1].var._decl)
     end)
 
     it("for loop variable scope doesn't shadow its initializers", function()
@@ -197,7 +197,7 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[2].inc.var._decl)
         assert.are.equal(
             prog[1].block.stats[2].decl, -- for x
-            prog[1].block.stats[2].block.stats[1].exp.var._decl)
+            prog[1].block.stats[2].block.stats[1].exps[1].var._decl)
     end)
 
     it("allows recursive functions", function()
@@ -213,7 +213,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1], -- fat
-            prog[1].block.stats[1].elsestat.stats[1].exp.rhs.exp.var._decl)
+            prog[1].block.stats[1].elsestat.stats[1].exps[1].rhs.exp.var._decl)
     end)
 
     it("forbids mutually recursive definitions", function()

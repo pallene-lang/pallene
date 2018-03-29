@@ -642,8 +642,48 @@ describe("Titan type checker", function()
         assert.match("'for' step expression", errs)
     end)
 
-    it("detects when a functionr returns the wrong type", function()
-        local code, errors = run_checker([[
+    it("detects wrong number of return values", function()
+        local prog, errs = run_checker([[
+            function f(): ()
+                return 1
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match(
+            "returning 1 value(s) but function expects 0", errs,
+            nil, true)
+
+        local prog, errs = run_checker([[
+            function f(): integer
+                return
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match(
+            "returning 0 value(s) but function expects 1", errs,
+            nil, true)
+    end)
+
+    it("accepts functions that return 0 values", function()
+        local prog, errors = run_checker([[
+            function f(): ()
+                return
+            end
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("accepts functions that return 1 value", function()
+        local prog, errors = run_checker([[
+            function f(): integer
+                return 17
+            end
+        ]])
+        assert.truthy(prog)
+    end)
+
+    it("detects when a function returns the wrong type", function()
+        local prog, errors = run_checker([[
             function fn(): integer
                 return "hello"
             end
@@ -652,7 +692,7 @@ describe("Titan type checker", function()
         assert.match("types in return statement do not match, expected integer but found string", errors)
     end)
 
-    it("detects nil returns on non-nil functions", function()
+    it("detects missing return statements", function()
         local code = {[[
             function fn(): integer
             end
@@ -688,8 +728,21 @@ describe("Titan type checker", function()
         for _, c in ipairs(code) do
             local prog, errs = run_checker(c)
             assert.falsy(prog)
-            assert.match("control reaches end of function with non%-nil return type", errs)
+            assert.match("control reaches end of function with non%-empty return type", errs)
         end
+    end)
+
+    it("rejects void functions in expression contexts", function()
+        local prog, errs = run_checker([[
+            local function f(): ()
+            end
+
+            local function g(): integer
+                return 1 + f()
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("void instead of a number", errs)
     end)
 
     it("detects attempts to call non-functions", function()
@@ -707,7 +760,7 @@ describe("Titan type checker", function()
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
         it("coerces "..op.." to float if any side is a float", function()
             local code = [[
-                function fn(): nil
+                function fn()
                     local i: integer = 1
                     local f: float = 1.5
                     local i_f = i ]] .. op .. [[ f
@@ -740,7 +793,7 @@ describe("Titan type checker", function()
     for _, op in ipairs({"/", "^"}) do
         it("always coerces "..op.." to float", function()
             local code = [[
-                function fn(): nil
+                function fn()
                     local i: integer = 1
                     local f: float = 1.5
                     local i_f = i ]] .. op .. [[ f

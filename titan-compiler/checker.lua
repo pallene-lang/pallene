@@ -13,7 +13,6 @@ local check_stat
 --local check_then
 local check_var
 local check_exp
---local check_args
 --local check_field
 
 -- Type-check a Titan module
@@ -112,8 +111,8 @@ check_type = function(typ, errors)
         return types.T.Array(check_type(typ.subtype, errors))
 
     elseif tag == ast.Type.Function then
-        if #typ.argtypes ~= 1 then
-            error("functions with 0 or 2+ return values are not yet implemented")
+        if #typ.rettypes >= 2 then
+            error("functions with 2+ return values are not yet implemented")
         end
         local ptypes = {}
         for _, ptype in ipairs(typ.argtypes) do
@@ -147,8 +146,8 @@ check_toplevel = function(tl_node, errors)
         end
 
     elseif tag == ast.Toplevel.Func then
-        if #tl_node.rettypes ~= 1 then
-            error("functions with 0 or 2+ return values are not yet implemented")
+        if #tl_node.rettypes >= 2 then
+            error("functions with 2+ return values are not yet implemented")
         end
 
         local ptypes = {}
@@ -164,9 +163,9 @@ check_toplevel = function(tl_node, errors)
         tl_node._type = types.T.Function(ptypes, rettypes)
 
         local ret = check_stat(tl_node.block, errors, rettypes)
-        if not ret and tl_node._type.rettypes[1]._tag ~= types.T.Nil then
+        if not ret and #tl_node._type.rettypes > 0 then
             type_error(errors, tl_node.loc,
-                "control reaches end of function with non-nil return type")
+                "control reaches end of function with non-empty return type")
         end
 
     elseif tag == ast.Toplevel.Record then
@@ -290,10 +289,19 @@ check_stat = function(stat, errors, rettypes)
         return false
 
     elseif tag == ast.Stat.Return then
-        assert(#rettypes == 1)
-        local rettype = rettypes[1]
-        check_exp(stat.exp, errors, rettype)
-        checkmatch("return statement", rettype, stat.exp._type, errors, stat.exp.loc)
+        assert(#rettypes <= 1)
+        if #stat.exps ~= #rettypes then
+            type_error(errors, stat.loc,
+                "returning %d value(s) but function expects %s",
+                #stat.exps, #rettypes)
+        else
+            for i = 1, #stat.exps do
+                local exp = stat.exps[i]
+                local rettype = rettypes[i]
+                check_exp(exp, errors, rettype)
+                checkmatch("return statement", rettype, exp._type, errors, exp.loc)
+            end
+        end
         return true
 
     elseif tag == ast.Stat.If then
@@ -554,7 +562,7 @@ check_exp = function(exp, errors, typehint)
                         "left hand side of arithmetic expression is a %s instead of a number",
                         types.tostring(exp.lhs._type))
                 end
-                if not is_numeric_type(exp.lhs._type) then
+                if not is_numeric_type(exp.rhs._type) then
                     type_error(errors, exp.loc,
                         "right hand side of arithmetic expression is a %s instead of a number",
                         types.tostring(exp.rhs._type))
@@ -644,8 +652,12 @@ check_exp = function(exp, errors, typehint)
                     "function %s called with %d arguments but expects %d",
                     fname, nargs, nparams)
             end
-            assert(#ftype.rettypes == 1)
-            exp._type = ftype.rettypes[1]
+            assert(#ftype.rettypes <= 1)
+            if #ftype.rettypes >= 1 then
+                exp._type = ftype.rettypes[1]
+            else
+                exp._type = types.T.Void()
+            end
         else
             type_error(errors, exp.loc,
                 "'%s' is not a function but %s",
