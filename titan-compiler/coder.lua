@@ -348,7 +348,7 @@ generate_program = function(prog, modname)
                     set_ret = ""
                 elseif #tl_node._type.rettypes == 1 then
                     local ret_typ = tl_node._type.rettypes[1]
-                        ret_init = c_declaration(ctype(ret_typ), "ret") .. " ="
+                    ret_init = c_declaration(ctype(ret_typ), "ret") .. " ="
                     set_ret = util.render([[
                         ${SET_SLOT}
                         api_incr_top(L);
@@ -358,7 +358,6 @@ generate_program = function(prog, modname)
                 else
                     error("not implemented")
                 end
-
 
                 table.insert(function_definitions,
                     util.render([[
@@ -652,7 +651,7 @@ generate_stat = function(stat)
         local cstats, cvalue = generate_exp(stat.callexp)
 
         local ignore_result
-        if stat.callexp._type._tag == types.T.Invalid then
+        if stat.callexp._type._tag == types.T.Void then
             ignore_result = ""
         else
             ignore_result = "(void) " .. cvalue .. ";"
@@ -857,7 +856,7 @@ generate_exp = function(exp) -- TODO
                     FUN_NAME  = tl_node._titan_entry_point,
                     ARG_STATS = table.concat(arg_cstatss, "\n"),
                     ARGS      = table.concat(arg_cvalues, ", "),
-                    TMP_INIT = tmp_init,
+                    TMP_INIT  = tmp_init,
                 })
                 return cstats, tmp_var
 

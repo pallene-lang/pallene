@@ -13,7 +13,6 @@ local check_stat
 --local check_then
 local check_var
 local check_exp
---local check_args
 --local check_field
 
 -- Type-check a Titan module
@@ -113,7 +112,7 @@ check_type = function(typ, errors)
 
     elseif tag == ast.Type.Function then
         if #typ.rettypes >= 2 then
-            error("functions with 0 or 2+ return values are not yet implemented")
+            error("functions with 2+ return values are not yet implemented")
         end
         local ptypes = {}
         for _, ptype in ipairs(typ.argtypes) do
@@ -148,7 +147,7 @@ check_toplevel = function(tl_node, errors)
 
     elseif tag == ast.Toplevel.Func then
         if #tl_node.rettypes >= 2 then
-            error("functions with 0 or 2+ return values are not yet implemented")
+            error("functions with 2+ return values are not yet implemented")
         end
 
         local ptypes = {}
@@ -563,7 +562,7 @@ check_exp = function(exp, errors, typehint)
                         "left hand side of arithmetic expression is a %s instead of a number",
                         types.tostring(exp.lhs._type))
                 end
-                if not is_numeric_type(exp.lhs._type) then
+                if not is_numeric_type(exp.rhs._type) then
                     type_error(errors, exp.loc,
                         "right hand side of arithmetic expression is a %s instead of a number",
                         types.tostring(exp.rhs._type))
@@ -657,7 +656,7 @@ check_exp = function(exp, errors, typehint)
             if #ftype.rettypes >= 1 then
                 exp._type = ftype.rettypes[1]
             else
-                exp._type = types.T.Invalid()
+                exp._type = types.T.Void()
             end
         else
             type_error(errors, exp.loc,

@@ -738,12 +738,11 @@ describe("Titan type checker", function()
             end
 
             local function g(): integer
-                local x = 1 + f()
-                return x
+                return 1 + f()
             end
         ]])
         assert.falsy(prog)
-        assert.match("expected integer but found invalid type", errs)
+        assert.match("void instead of a number", errs)
     end)
 
     it("detects attempts to call non-functions", function()
