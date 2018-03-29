@@ -3,7 +3,7 @@ local symtab = {}
 symtab.__index = symtab
 
 function symtab.new()
-    return setmetatable({ blocks = { {} } }, symtab)
+    return setmetatable({ blocks = {} }, symtab)
 end
 
 function symtab:open_block()
