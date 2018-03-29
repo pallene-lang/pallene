@@ -52,23 +52,19 @@ declare_type("Var", {
 })
 
 declare_type("Exp", {
-    Nil      = {"loc"},
-    Bool     = {"loc", "value"},
-    Integer  = {"loc", "value"},
-    Float    = {"loc", "value"},
-    String   = {"loc", "value"},
-    Initlist = {"loc", "fields"},
-    Call     = {"loc", "exp", "args"},
-    Var      = {"loc", "var"},
-    Unop     = {"loc", "op", "exp"},
-    Concat   = {"loc", "exps"},
-    Binop    = {"loc", "lhs", "op", "rhs"},
-    Cast     = {"loc", "exp", "target"}
-})
-
-declare_type("Args", {
-    Func   = {"loc", "args"},
-    Method = {"loc", "method", "args"},
+    Nil        = {"loc"},
+    Bool       = {"loc", "value"},
+    Integer    = {"loc", "value"},
+    Float      = {"loc", "value"},
+    String     = {"loc", "value"},
+    Initlist   = {"loc", "fields"},
+    CallFunc   = {"loc", "exp", "args"},
+    CallMethod = {"loc", "exp", "method", "args"},
+    Var        = {"loc", "var"},
+    Unop       = {"loc", "op", "exp"},
+    Concat     = {"loc", "exps"},
+    Binop      = {"loc", "lhs", "op", "rhs"},
+    Cast       = {"loc", "exp", "target"}
 })
 
 declare_type("Field", {

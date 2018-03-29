@@ -13,7 +13,6 @@ local bind_names_stat
 local bind_names_then
 local bind_names_var
 local bind_names_exp
-local bind_names_args
 local bind_names_field
 
 -- Implement the lexical scoping for a Titan module.
@@ -290,9 +289,17 @@ bind_names_exp = function(exp, st, errors)
             bind_names_field(field, st, errors)
         end
 
-    elseif tag == ast.Exp.Call then
+    elseif tag == ast.Exp.CallFunc then
         bind_names_exp(exp.exp, st, errors)
-        bind_names_args(exp.args, st, errors)
+        for _, arg_exp in ipairs(exp.args) do
+            bind_names_exp(arg_exp, st, errors)
+        end
+
+    elseif tag == ast.Exp.CallMethod then
+        bind_names_exp(exp.exp, st, errors)
+        for _, arg_exp in ipairs(exp.args) do
+            bind_names_exp(arg_exp, st, errors)
+        end
 
     elseif tag == ast.Exp.Var then
         bind_names_var(exp.var, st, errors)
@@ -312,23 +319,6 @@ bind_names_exp = function(exp, st, errors)
     elseif tag == ast.Exp.Cast then
         bind_names_exp(exp.exp, st, errors)
         bind_names_type(exp.target, st, errors)
-
-    else
-        error("impossible")
-    end
-end
-
-bind_names_args = function(args, st, errors)
-    local tag = args._tag
-    if     tag == ast.Args.Func then
-        for _, exp in ipairs(args.args) do
-            bind_names_exp(exp, st, errors)
-        end
-
-    elseif tag == ast.Args.Method then
-        for _, exp in ipairs(args.args) do
-            bind_names_exp(exp, st, errors)
-        end
 
     else
         error("impossible")
