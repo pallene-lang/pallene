@@ -798,7 +798,6 @@ describe("Titan coder", function()
         end)
 
         it("can use remove", function()
-            pending("")
             run_coder([[
                 function remove_int(xs: {integer}): ()
                     table_remove(xs)
@@ -812,7 +811,7 @@ describe("Titan coder", function()
                     test.remove_int(arr)
                     assert(i == #arr)
                     for j = 1, i do
-                        assert(10*i == arr[j])
+                        assert(10*j == arr[j])
                     end
                 end
             ]])

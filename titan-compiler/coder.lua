@@ -762,7 +762,6 @@ generate_var = function(var)
 end
 
 local function generate_exp_builtin_table_insert(exp)
-    local fexp = exp.exp
     local args = exp.args
     assert(#args == 2)
     local cstats_t, cvalue_t = generate_exp(args[1])
@@ -806,7 +805,38 @@ local function generate_exp_builtin_table_insert(exp)
 end
 
 local function generate_exp_builtin_table_remove(exp)
-    error("not implemented")
+    local args = exp.args
+    assert(#args == 1)
+    local cstats_t, cvalue_t = generate_exp(args[1])
+    local ui = tmp_name()
+    local ui_decl = c_declaration("lua_Unsigned", ui)
+    local halfsize = tmp_name()
+    local halfsize_decl = c_declaration("lua_Unsigned", halfsize)
+    local slot = tmp_name()
+    local slot_decl = c_declaration("TValue*", slot)
+    local cstats = util.render([[
+        ${CSTATS_T}
+        ${UI_DECL} = luaH_getn(${CVALUE_T});
+        if (${UI} > 0) {
+            ${UI} = ${UI} - 1;
+            ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
+            setnilvalue(${SLOT});
+            ${HALFSIZE_DECL} = ${CVALUE_T}->sizearray / 2;
+            if (${UI} < ${HALFSIZE}) {
+                luaH_resizearray(L, ${CVALUE_T}, ${HALFSIZE});
+            }
+        }
+    ]], {
+        CSTATS_T = cstats_t,
+        CVALUE_T = cvalue_t,
+        UI = ui,
+        UI_DECL = ui_decl,
+        HALFSIZE = halfsize,
+        HALFSIZE_DECL = halfsize_decl,
+        SLOT = slot,
+        SLOT_DECL = slot_decl,
+    })
+    return cstats, "VOID"
 end
 
 
