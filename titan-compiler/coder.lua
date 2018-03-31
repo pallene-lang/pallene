@@ -761,6 +761,55 @@ generate_var = function(var)
     end
 end
 
+local function generate_exp_builtin_table_insert(exp)
+    local fexp = exp.exp
+    local args = exp.args
+    assert(#args == 2)
+    local cstats_t, cvalue_t = generate_exp(args[1])
+    local cstats_v, cvalue_v = generate_exp(args[2])
+    local ui = tmp_name()
+    local ui_decl = c_declaration("lua_Unsigned", ui)
+    local size = tmp_name()
+    local size_decl = c_declaration("lua_Unsigned", size)
+    local slot = tmp_name()
+    local slot_decl = c_declaration("TValue*", slot)
+    local cstats = util.render([[
+        ${CSTATS_T}
+        ${CSTATS_V}
+        ${UI_DECL} = luaH_getn(${CVALUE_T});
+        ${SIZE_DECL} = ${CVALUE_T}->sizearray;
+        if (${SIZE} <= ${UI}) {
+            if (${SIZE} < 8) {
+                /* avoid infinite loop if sizearray == 0 */
+                ${SIZE} = 8;
+            }
+            while (${SIZE} <= ${UI}) {
+                ${SIZE} = ${SIZE}*2;
+            }
+            luaH_resizearray(L, ${CVALUE_T}, ${SIZE});
+        }
+        ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
+        ${SET_SLOT}
+    ]], {
+        CSTATS_T = cstats_t,
+        CVALUE_T = cvalue_t,
+        CSTATS_V = cstats_v,
+        CVALUE_V = cvalue_v,
+        UI = ui,
+        UI_DECL = ui_decl,
+        SIZE = size,
+        SIZE_DECL = size_decl,
+        SLOT_DECL = slot_decl,
+        SET_SLOT = set_slot(args[2]._type, slot, cvalue_v),
+    })
+    return cstats, "VOID"
+end
+
+local function generate_exp_builtin_table_remove(exp)
+    error("not implemented")
+end
+
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -827,7 +876,17 @@ generate_exp = function(exp) -- TODO
     elseif tag == ast.Exp.CallFunc then
         local fexp = exp.exp
         local fargs = exp.args
-        if fexp._tag == ast.Exp.Var and
+
+        if fexp._type._tag == types.T.Builtin then
+            local builtin_name = fexp._type.builtin_decl.name
+            if builtin_name == "table.insert" then
+                return generate_exp_builtin_table_insert(exp)
+            elseif builtin_name == "table.remove" then
+                return generate_exp_builtin_table_remove(exp)
+            else
+                error("impossible")
+            end
+        elseif fexp._tag == ast.Exp.Var and
             fexp.var._tag == ast.Var.Name and
             fexp.var._decl._tag == ast.Toplevel.Func
         then

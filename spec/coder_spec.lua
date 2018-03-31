@@ -780,25 +780,18 @@ describe("Titan coder", function()
             ]])
         end)
 
-        local insert_remove = [[
-            function insert_int(xs: {integer}, v:integer): ()
-                table_insert(xs, v)
-            end
-
-            function remove_int(xs: {integer}): ()
-                table_remove(xs)
-            end
-        ]]
-
         it("can use insert", function()
-            pending("")
-            run_coder(insert_remove, [[
+            run_coder([[
+                function insert_int(xs: {integer}, v:integer): ()
+                    table_insert(xs, v)
+                end
+            ]], [[
                 local arr = {}
                 for i = 1, 50 do
                     test.insert_int(arr, 10*i)
                     assert(i == #arr)
                     for j = 1, i do
-                        assert(10*i == arr[j])
+                        assert(10*j == arr[j])
                     end
                 end
             ]])
@@ -806,7 +799,11 @@ describe("Titan coder", function()
 
         it("can use remove", function()
             pending("")
-            run_coder(insert_remove, [[
+            run_coder([[
+                function remove_int(xs: {integer}): ()
+                    table_remove(xs)
+                end
+            ]], [[
                 local arr = {}
                 for i = 1, 100 do
                     arr[i] = 10*i
