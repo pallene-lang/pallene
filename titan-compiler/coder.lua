@@ -912,7 +912,17 @@ generate_exp = function(exp) -- TODO
 
         local op = exp.op
         if op == "#" then
-            error("not implemented yet")
+            local tmp = tmp_name()
+            local tmp_decl = c_declaration("lua_Integer", tmp)
+            local cstats_op = util.render([[
+                ${CSTATS}
+                ${TMP_DECL} = luaH_getn(${CVALUE});
+            ]], {
+                CSTATS = cstats,
+                CVALUE = cvalue,
+                TMP_DECL = tmp_decl,
+            })
+            return cstats_op, tmp
 
         elseif op == "-" then
             return cstats, "(".."-"..cvalue..")"

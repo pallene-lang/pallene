@@ -683,7 +683,6 @@ describe("Titan coder", function()
         end)
 
         it("can use # operator", function()
-            pending("")
             run_coder([[
                 function f(xs:{integer}): integer
                     return #xs
