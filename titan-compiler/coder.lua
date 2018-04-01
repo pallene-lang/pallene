@@ -196,7 +196,9 @@ local function get_slot(typ, src_slot_address)
 end
 
 
-local function set_slot(typ, dst_slot_address, value)
+-- Don't call this function directly, call set_stack_slot or set_heap_slot
+-- instead
+local function set_slot_(typ, dst_slot_address, value)
     local tmpl
     local tag = typ._tag
     if     tag == types.T.Nil      then tmpl = "(void) ${SRC}; setnilvalue(${DST});"
@@ -226,6 +228,47 @@ local function check_tag(typ, slot)
     else error("impossible")
     end
     return util.render(tmpl, {SLOT = slot})
+end
+
+-- Specialized version of luaH_barrierback. To be called when setting v as an
+-- element of p. This is intended to preserve the invariant that black objects
+-- cannot point to white objects.
+--
+-- Instead of checking iscollectable(v) at runtime, we determine this at compile
+-- time. And instead of v being a TValue*, it is an internal pointer (as
+-- described by ctype()), just like p.
+--
+-- @param typ: Type of child object
+-- @param p: Internal pointer to parent object
+-- @param v: Internal pointer to child object
+-- @returns C statements
+local function barrierback(typ, p, v)
+    if not types.is_gc(typ) then
+        return ""
+    else
+        return util.render([[
+            if (isblack(obj2gco(${P})) && iswhite(obj2gco(${V}))) {
+                luaC_barrierback_(L, obj2gco(${P}));
+            }
+        ]], {
+            P = p,
+            V = v,
+        })
+    end
+end
+
+local function set_stack_slot(typ, dst, src)
+    return set_slot_(typ, dst, src)
+end
+
+local function set_heap_slot(typ, dst, src, parent)
+    return util.render([[
+        ${SET_SLOT}
+        ${BARRIER}
+    ]], {
+        SET_SLOT = set_slot_(typ, dst, src),
+        BARRIER = barrierback(typ, parent, src),
+    })
 end
 
 local function toplevel_is_value_declaration(tl_node)
@@ -353,7 +396,7 @@ generate_program = function(prog, modname)
                         ${SET_SLOT}
                         api_incr_top(L);
                     ]], {
-                        SET_SLOT = set_slot(ret_typ, "s2v(L->top)", "ret")
+                        SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", "ret")
                     })
                 else
                     error("not implemented")
@@ -422,7 +465,8 @@ generate_program = function(prog, modname)
                     local exp = tl_node.value
                     local cstats, cvalue = generate_exp(exp)
                     table.insert(parts, cstats)
-                    table.insert(parts, set_slot(exp._type, arr_slot, cvalue))
+                    table.insert(parts, set_heap_slot(
+                        exp._type, arr_slot, cvalue, arr_slot))
                 else
                     error("impossible")
                 end
@@ -603,11 +647,13 @@ generate_stat = function(stat)
         if     var_lvalue._tag == coder.Lvalue.CVar then
             assign_stat = var_lvalue.varname.." = "..exp_cvalue..";"
         elseif var_lvalue._tag == coder.Lvalue.SafeSlot then
-            assign_stat = set_slot(
-                stat.exp._type, var_lvalue.slot_address, exp_cvalue)
+            assign_stat = set_heap_slot(
+                stat.exp._type, var_lvalue.slot_address, exp_cvalue,
+                var_lvalue.parent_pointer)
         elseif var_lvalue._tag == coder.Lvalue.ArraySlot then
-            local assign_slot = set_slot(
-                stat.exp._type, var_lvalue.slot_address, exp_cvalue)
+            local assign_slot = set_heap_slot(
+                stat.exp._type, var_lvalue.slot_address, exp_cvalue,
+                var_lvalue.parent_pointer)
             assign_stat = util.render([[
                 if (isempty(${SLOT})) {
                     luaL_error(L,
@@ -691,8 +737,8 @@ end
 
 typedecl.declare(coder, "coder", "Lvalue", {
     CVar      = {"varname"},
-    SafeSlot  = {"slot_address"},
-    ArraySlot = {"slot_address"},
+    SafeSlot  = {"slot_address", "parent_pointer"},
+    ArraySlot = {"slot_address", "parent_pointer"},
 })
 
 -- @param var: (ast.Var)
@@ -709,13 +755,28 @@ generate_var = function(var)
             return "", coder.Lvalue.CVar( local_name(decl.name) )
 
         elseif decl._tag == ast.Toplevel.Var then
-            local i = decl._global_index
-            local closure = "clCvalue(s2v(L->ci->func))"
-            local globals = "hvalue(&"..closure.."->upvalue[0])"
-            local slot_address = util.render(
-                "&${GLOBALS}->array[${I}]",
-                { GLOBALS = globals, I = c_integer(i) })
-            return "", coder.Lvalue.SafeSlot(slot_address)
+            local closure = tmp_name()
+            local closure_decl = c_declaration("CClosure *", closure)
+            local t = tmp_name()
+            local t_decl = c_declaration("Table*", t)
+            local v = tmp_name()
+            local v_decl = c_declaration("TValue*", v)
+            local i = c_integer(decl._global_index)
+
+            local cstats = util.render([[
+                ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
+                ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
+                ${V_DECL} = &${T}->array[${I}];
+            ]], {
+                CLOSURE = closure,
+                CLOSURE_DECL = closure_decl,
+                T = t,
+                T_DECL = t_decl,
+                V_DECL = v_decl,
+                I = i,
+            })
+            local lvalue = coder.Lvalue.SafeSlot(v, t)
+            return cstats, lvalue
 
         elseif decl._tag == ast.Toplevel.Func then
             -- Toplevel function
@@ -751,7 +812,7 @@ generate_var = function(var)
             SLOT_DECL = c_declaration("TValue *", slot),
             LINE = c_integer(var.loc.line),
         })
-        return stats, coder.Lvalue.ArraySlot(slot)
+        return stats, coder.Lvalue.ArraySlot(slot, t_cvalue)
 
     elseif tag == ast.Var.Dot then
         error("not implemented yet")
@@ -799,7 +860,7 @@ local function generate_exp_builtin_table_insert(exp)
         SIZE = size,
         SIZE_DECL = size_decl,
         SLOT_DECL = slot_decl,
-        SET_SLOT = set_slot(args[2]._type, slot, cvalue_v),
+        SET_SLOT = set_heap_slot(args[2]._type, slot, cvalue_v, cvalue_t),
     })
     return cstats, "VOID"
 end
@@ -878,7 +939,8 @@ generate_exp = function(exp) -- TODO
                     I = c_integer(i-1)
                 })
                 table.insert(init_cstats, field_cstats)
-                table.insert(init_cstats, set_slot(exp._type.elem, slot, field_cvalue))
+                table.insert(init_cstats, set_heap_slot(
+                    exp._type.elem, slot, field_cvalue, tbl))
             end
 
             local cstats = util.render([[
