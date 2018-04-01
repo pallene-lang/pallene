@@ -98,7 +98,16 @@ end
 --
 
 check_program = function(prog, errors)
-    -- Ugh
+    -- Ugh!
+    -- Here we mutate fields in "constant" variables from another module, which
+    -- definitely smells bad. There are many ways we vould fix this but I don't
+    -- know which one would be best:
+    -- * Have the builtins module fill in the _type field once and forall
+    -- * Have `type` be a local table mapping decls to types instead of a field
+    --   we set in the decl.
+    -- * Modify the AST in a previous step, replacing CallFunc nodes with
+    --   CallBuiltin nodes. This would avoid needing to type builtin functions
+    --   in the first place.
     for _, decl in pairs(builtins) do
         decl._type = types.T.Builtin(decl)
     end
@@ -403,7 +412,6 @@ check_var = function(var, errors)
         error("impossible")
     end
 end
-
 
 local function check_exp_callfunc_builtin(exp, errors)
     local fexp = exp.exp
