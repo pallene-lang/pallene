@@ -806,10 +806,12 @@ generate_exp = function(exp) -- TODO
                 ${TBL_DECL} = luaH_new(L);
                 luaH_resizearray(L, ${TBL}, ${N});
                 ${ARRAY_PART_DECL} = ${TBL}->array;
+                (void) ${ARRAY_PART}; /* avoid warnings if array is empty */
                 ${FIELD_INIT}
             ]], {
                 TBL = tbl,
                 TBL_DECL = tbl_decl,
+                ARRAY_PART = array_part,
                 ARRAY_PART_DECL = array_part_decl,
                 N = c_integer(#exp.fields),
                 FIELD_INIT = table.concat(init_cstats, "\n")
