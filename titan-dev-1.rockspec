@@ -24,6 +24,7 @@ build = {
    type = "builtin",
    modules = {
       ["titan-compiler.ast"] = "titan-compiler/ast.lua",
+      ["titan-compiler.builtins"] = "titan-compiler/builtins.lua",
       ["titan-compiler.c_compiler"] = "titan-compiler/c_compiler.lua",
       ["titan-compiler.checker"] = "titan-compiler/checker.lua",
       ["titan-compiler.coder"] = "titan-compiler/coder.lua",

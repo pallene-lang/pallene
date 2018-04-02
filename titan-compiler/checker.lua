@@ -1,6 +1,7 @@
 local checker = {}
 
 local ast = require "titan-compiler.ast"
+local builtins = require "titan-compiler.builtins"
 local location = require "titan-compiler.location"
 local scope_analysis = require "titan-compiler.scope_analysis"
 local types = require "titan-compiler.types"
@@ -54,12 +55,27 @@ end
 --   loc: location of the term that is being compared
 local function checkmatch(term, expected, found, errors, loc)
     if not types.equals(expected, found) then
-        local msg = "types in %s do not match, expected %s but found %s"
-        msg = string.format(msg, term, types.tostring(expected), types.tostring(found))
+        local fmt = "types in %s do not match, expected %s but found %s"
+        local msg = string.format(fmt, term, types.tostring(expected), types.tostring(found))
         type_error(errors, loc, msg)
     end
 end
 
+local function check_arity(term, expected, found, errors, loc)
+    if expected ~= found then
+        local fmt = "%s: expected %d value(s) but found %d"
+        local msg = string.format(fmt, term, expected, found)
+        type_error(errors, loc, msg)
+    end
+end
+
+local function check_is_array(term, found, errors, loc)
+    if found._tag ~= types.T.Array then
+        local fmt = "%s: expected array but found %s"
+        local msg = string.format(fmt, term, types.tostring(found))
+        type_error(errors, loc, msg)
+    end
+end
 
 local function is_numeric_type(typ)
     return typ._tag == types.T.Integer or typ._tag == types.T.Float
@@ -82,6 +98,20 @@ end
 --
 
 check_program = function(prog, errors)
+    -- Ugh!
+    -- Here we mutate fields in "constant" variables from another module, which
+    -- definitely smells bad. There are many ways we vould fix this but I don't
+    -- know which one would be best:
+    -- * Have the builtins module fill in the _type field once and forall
+    -- * Have `type` be a local table mapping decls to types instead of a field
+    --   we set in the decl.
+    -- * Modify the AST in a previous step, replacing CallFunc nodes with
+    --   CallBuiltin nodes. This would avoid needing to type builtin functions
+    --   in the first place.
+    for _, decl in pairs(builtins) do
+        decl._type = types.T.Builtin(decl)
+    end
+
     for _, tlnode in ipairs(prog) do
         check_toplevel(tlnode, errors)
     end
@@ -105,7 +135,13 @@ check_type = function(typ, errors)
         return types.T.String()
 
     elseif tag == ast.Type.Name then
-        return typ._decl._type
+        local decl = typ._decl
+        if decl._tag == ast.Toplevel.Record then
+            return decl._type
+        else
+            type_error(errors, typ.loc, "'%s' isn't a type", typ.name)
+            return types.T.Invalid()
+        end
 
     elseif tag == ast.Type.Array then
         return types.T.Array(check_type(typ.subtype, errors))
@@ -327,7 +363,17 @@ end
 check_var = function(var, errors)
     local tag = var._tag
     if     tag == ast.Var.Name then
-        var._type = var._decl._type
+        local decl = var._decl
+        if decl._tag == ast.Toplevel.Var or
+            decl._tag == ast.Toplevel.Func or
+            decl._tag == ast.Toplevel.Builtin or
+            decl._tag == ast.Decl.Decl
+        then
+            var._type = var._decl._type
+        else
+            type_error(errors, var.loc, "'%s' isn't a value", var.name)
+            var._type = types.T.Invalid()
+        end
 
     elseif tag == ast.Var.Dot then
         check_exp(var.exp, errors, nil)
@@ -362,6 +408,31 @@ check_var = function(var, errors)
         check_exp(var.exp2, errors, nil)
         checkmatch("array indexing", types.T.Integer(), var.exp2._type, errors, var.exp2.loc)
 
+    else
+        error("impossible")
+    end
+end
+
+local function check_exp_callfunc_builtin(exp, errors)
+    local fexp = exp.exp
+    local args = exp.args
+    local builtin_name = fexp._type.builtin_decl.name
+    if builtin_name == "table.insert" then
+        check_arity("table.insert arguments", 2, #args, errors, exp.loc)
+        check_exp(args[1], errors, nil)
+        check_is_array("table.insert first argument",
+            args[1]._type, errors, args[1].loc)
+        local elem_type = args[1]._type.elem
+        check_exp(args[2], errors, elem_type)
+        checkmatch("table.insert second argument",
+            elem_type, args[2]._type, errors, args[2].loc)
+        exp._type = types.T.Void()
+    elseif builtin_name == "table.remove" then
+        check_arity("table.insert arguments", 1, #args, errors, exp.loc)
+        check_exp(args[1], errors, nil)
+        check_is_array("table.insert first argument",
+            args[1]._type, errors, args[1].loc)
+        exp._type = types.T.Void()
     else
         error("impossible")
     end
@@ -452,19 +523,7 @@ check_exp = function(exp, errors, typehint)
 
     elseif tag == ast.Exp.Var then
         check_var(exp.var, errors)
-        local texp = exp.var._type
-        if texp._tag == types.T.Module then
-            type_error(errors, exp.loc,
-                "trying to access module '%s' as a first-class value",
-                exp.var.name)
-            exp._type = types.T.Invalid()
-        elseif texp._tag == types.T.Function then
-            type_error(errors, exp.loc,
-                "trying to access a function as a first-class value")
-            exp._type = types.T.Invalid()
-        else
-            exp._type = texp
-        end
+        exp._type = exp.var._type
 
     elseif tag == ast.Exp.Unop then
         check_exp(exp.exp, errors, nil)
@@ -618,39 +677,25 @@ check_exp = function(exp, errors, typehint)
         end
 
     elseif tag == ast.Exp.CallFunc then
-        assert(exp.exp._tag == ast.Exp.Var, "function calls are first-order only!")
-        local var = exp.exp.var
-        check_var(var, errors)
-        exp.exp._type = var._type
-        local fname = var._tag == ast.Var.Name and var.name or (var.exp.var.name .. "." .. var.name)
-        if var._type._tag == types.T.Function then
-            local ftype = var._type
-            local nparams = #ftype.params
-            local args = exp.args
-            local nargs = #args
-            local arity = math.max(nparams, nargs)
-            for i = 1, arity do
-                local arg = args[i]
-                local ptype = ftype.params[i]
-                local atype
-                if not arg then
-                    atype = ptype
-                else
-                    check_exp(arg, errors, ptype)
-                    ptype = ptype or arg._type
-                    atype = args[i]._type
-                end
-                if not ptype then
-                    ptype = atype
-                end
-                checkmatch(
-                    "argument " .. i .. " of call to function '" .. fname .. "'",
-                    ptype, atype, errors, exp.exp.loc)
-            end
-            if nargs ~= nparams then
+        local fexp = exp.exp
+        local args = exp.args
+
+        check_exp(fexp, errors, nil)
+        local ftype = fexp._type
+
+        if ftype._tag == types.T.Function then
+            if #ftype.params ~= #args then
                 type_error(errors, exp.loc,
-                    "function %s called with %d arguments but expects %d",
-                    fname, nargs, nparams)
+                    "function expects %d argument(s) but received %d",
+                    #ftype.params, #args)
+            end
+            for i = 1, math.min(#ftype.params, #args) do
+                local ptype = ftype.params[i]
+                local arg = args[i]
+                check_exp(arg, errors, ptype)
+                checkmatch(
+                    "argument " .. i .. " of call to function",
+                    ptype, arg._type, errors, fexp.loc)
             end
             assert(#ftype.rettypes <= 1)
             if #ftype.rettypes >= 1 then
@@ -658,10 +703,12 @@ check_exp = function(exp, errors, typehint)
             else
                 exp._type = types.T.Void()
             end
+        elseif ftype._tag == types.T.Builtin then
+            check_exp_callfunc_builtin(exp, errors, nil)
         else
             type_error(errors, exp.loc,
-                "'%s' is not a function but %s",
-                fname, types.tostring(var._type))
+                "attempting to call a %s value",
+                types.tostring(exp.exp._type))
             exp._type = types.T.Invalid()
         end
 

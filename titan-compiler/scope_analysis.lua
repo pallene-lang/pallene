@@ -1,6 +1,7 @@
 local scope_analysis = {}
 
 local ast = require "titan-compiler.ast"
+local builtins = require "titan-compiler.builtins"
 local location = require "titan-compiler.location"
 local parser = require "titan-compiler.parser"
 local symtab = require "titan-compiler.symtab"
@@ -41,11 +42,13 @@ local function scope_error(errors, loc, fmt, ...)
     table.insert(errors, errmsg)
 end
 
---
--- bind_names
---
+local function add_builtins_to_symbol_table(st)
+    for name, decl in pairs(builtins) do
+        st:add_symbol(name, decl)
+    end
+end
 
-bind_names_program = function(prog, st, errors)
+local function process_toplevel(prog, st, errors)
     st:with_block(function()
         for _, tlnode in ipairs(prog) do
             local name = ast.toplevel_name(tlnode)
@@ -59,6 +62,17 @@ bind_names_program = function(prog, st, errors)
                 bind_names_toplevel(tlnode, st, errors)
             end
         end
+    end)
+end
+
+--
+-- bind_names
+--
+
+bind_names_program = function(prog, st, errors)
+    st:with_block(function()
+        add_builtins_to_symbol_table(st)
+        process_toplevel(prog, st, errors)
     end)
 end
 
@@ -83,12 +97,7 @@ bind_names_type = function(type_node, st, errors)
         local name = type_node.name
         local decl = st:find_symbol(name)
         if decl then
-            if decl._tag == ast.Toplevel.Record then
-                type_node._decl = decl
-            else
-                scope_error(errors, type_node.loc, "'%s' isn't a type", name)
-                type_node._decl = false
-            end
+            type_node._decl = decl
         else
             scope_error(errors, type_node.loc, "type '%s' is not declared", name)
             type_node._decl = false
@@ -241,15 +250,7 @@ bind_names_var = function(var, st, errors)
         local name = var.name
         local decl = st:find_symbol(name)
         if decl then
-            if decl._tag == ast.Toplevel.Var or
-                decl._tag == ast.Toplevel.Func or
-                decl._tag == ast.Decl.Decl
-            then
-                var._decl = decl
-            else
-                scope_error(errors, var.loc, "'%s' isn't a value", name)
-                var._decl = false
-            end
+            var._decl = decl
         else
             scope_error(errors, var.loc, "variable '%s' is not declared", name)
             var._decl = false

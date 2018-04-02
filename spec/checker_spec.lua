@@ -45,6 +45,27 @@ end
 
 describe("Titan type checker", function()
 
+    it("detects when a non-type is used in a type variable", function()
+        local prog, errs = run_checker([[
+            local foo: integer = 10
+            local bar: foo = 11
+        ]])
+        assert.falsy(prog)
+        assert.match("'foo' isn't a type", errs)
+    end)
+
+    it("detects when a non-value is used in a value variable", function()
+        local prog, errs = run_checker([[
+            record Point
+                x: integer
+                y: integer
+            end
+            local bar: integer = Point
+        ]])
+        assert.falsy(prog)
+        assert.match("'Point' isn't a value", errs)
+    end)
+
     it("for loop iteration variables don't shadow var limit and step", function()
         local code = [[
             function fn(x: integer): integer
@@ -754,7 +775,36 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("is not a function", errs)
+        assert.match("attempting to call a integer value" , errs)
+    end)
+
+    it("detects wrong number of arguments to functions", function()
+        local prog, errs = run_checker([[
+            function f(x: integer, y: integer): integer
+                return x + y
+            end
+
+            function g(): integer
+                return f(1)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("function expects 2 argument(s) but received 1", errs,
+            nil, true)
+    end)
+
+    it("detects wrong types of arguments to functions", function()
+        local prog, errs = run_checker([[
+            function f(x: integer, y: integer): integer
+                return x + y
+            end
+
+            function g(): integer
+                return f(1.0, 2.0)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("expected integer but found float", errs,nil, true)
     end)
 
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
@@ -1212,17 +1262,6 @@ describe("Titan type checker", function()
         end)
     end
 
-    it("catches use of function as first-class value", function ()
-        local code = [[
-            function foo(): integer
-                return foo
-            end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.falsy(prog)
-        assert.match("access a function", errs)
-    end)
-
     it("catches assignment to function", function ()
         local code = [[
             function foo(): integer
@@ -1234,17 +1273,29 @@ describe("Titan type checker", function()
         assert.match("assign to a function", errs)
     end)
 
-    it("catches call of non-function function", function ()
-        local code = [[
-            local a = 2
-            function foo(): integer
-                return a()
+    it("typechecks table.insert", function()
+        local prog, errs = run_checker([[
+            function f(xs: {integer})
+                table_insert(xs, 10)
             end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.falsy(prog)
-        assert.match("'a' is not a function", errs)
+
+            function g(xs: {float})
+                table_insert(xs, 3.14)
+            end
+        ]])
+        assert.truthy(prog, errs)
     end)
+
+    it("typechecks table.insert (error)", function()
+        local prog, errs = run_checker([[
+            function f(xs: {integer})
+                table_insert(xs, "asd")
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("expected integer but found string", errs, nil, true)
+    end)
+
 end)
 
 describe("Titan typecheck of records", function()

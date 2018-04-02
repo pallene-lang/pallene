@@ -1,4 +1,7 @@
-local scope_analysis = require 'titan-compiler.scope_analysis'
+local scope_analysis = require "titan-compiler.scope_analysis"
+
+local ast = require "titan-compiler.ast"
+local builtins = require "titan-compiler.builtins"
 
 local function run_scope_analysis(code)
     local prog, errs = scope_analysis.bind_names("(scope_analysis_spec)", code)
@@ -59,6 +62,23 @@ describe("Scope analysis: ", function()
         assert.are.equal(
             prog[1], -- fac
             prog[1].block.stats[1].elsestat.stats[1].exps[1].rhs.exp.var._decl)
+    end)
+
+    it("builtins work", function()
+        local prog, errs = run_scope_analysis([[
+            function fn(xs:{integer})
+                table_insert(xs, 17)
+            end
+        ]])
+        assert.truthy(prog)
+        local exp = prog[1].block.stats[1].callexp
+        assert.are.equal(ast.Exp.CallFunc, exp._tag)
+        local f_exp = exp.exp
+        assert.are.equal(ast.Exp.Var, f_exp._tag)
+        local var = f_exp.var
+        assert.are.equal(ast.Var.Name, var._tag)
+        local decl = var._decl
+        assert.are_equal(builtins.table_insert, decl)
     end)
 
     it("forbids variables from being used before they are defined", function()
@@ -247,26 +267,4 @@ describe("Scope analysis: ", function()
         assert.falsy(prog)
         assert.match("function 'fn' has multiple parameters named 'x'", errs)
     end)
-
-    it("detects when a non-type is used in a type variable", function()
-        local prog, errs = run_scope_analysis([[
-            local foo: integer = 10
-            local bar: foo = 11
-        ]])
-        assert.falsy(prog)
-        assert.match("'foo' isn't a type", errs)
-    end)
-
-    it("detects when a non-value is used in a value variable", function()
-        local prog, errs = run_scope_analysis([[
-            record Point
-                x: integer
-                y: integer
-            end
-            local bar: integer = Point
-        ]])
-        assert.falsy(prog)
-        assert.match("'Point' isn't a value", errs)
-    end)
-
 end)
