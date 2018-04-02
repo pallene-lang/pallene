@@ -13,9 +13,10 @@
 -- [2] https://github.com/vim-syntastic/syntastic
 
 ignore = {
-    "212/_.*", -- Unused argument, (unless name starts with "_")
-    "411/err", -- Redefining local (unless called "err")
-    "421/err", -- Shadowing local (unless called "err")
+    "212/_.*",  -- Unused argument, when name starts with "_"
+    "212/self", -- Unused argument "self"
+    "411/err", -- Redefining local "err"
+    "421/err", -- Shadowing local "err"
     "542", -- Empty if branch.
     "6..", -- Whitespace warnings
 }
