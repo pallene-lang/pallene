@@ -1,5 +1,5 @@
 local ast = require "titan-compiler.ast"
-local checker = require "titan-compiler.checker"
+local global_upvalues = require "titan-compiler.global_upvalues"
 local util = require "titan-compiler.util"
 local pretty = require "titan-compiler.pretty"
 local typedecl = require "titan-compiler.typedecl"
@@ -13,7 +13,7 @@ local generate_var
 local generate_exp
 
 function coder.generate(filename, input, modname)
-    local prog, errors = checker.check(filename, input)
+    local prog, errors = global_upvalues.analyze(filename, input)
     if not prog then return false, errors end
     local code = generate_program(prog, modname)
     return code, errors
@@ -67,7 +67,7 @@ int init_${MODNAME}(lua_State *L)
 int luaopen_${MODNAME}(lua_State *L)
 {
     Table *titan_globals = luaH_new(L);
-    luaH_resizearray(L, titan_globals, ${N_TOPLEVEL});
+    luaH_resizearray(L, titan_globals, ${N_GLOBALS});
 
     /* Save to stack because lua_call might invoke the GC */
     sethvalue(L, s2v(L->top), titan_globals);
@@ -271,36 +271,10 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
-local function toplevel_is_value_declaration(tl_node)
-    local tag = tl_node._tag
-    if     tag == ast.Toplevel.Func then
-        return true
-    elseif tag == ast.Toplevel.Var then
-        return true
-    elseif tag == ast.Toplevel.Record then
-        return false
-    elseif tag == ast.Toplevel.Import then
-        return false
-    else
-        error("impossible")
-    end
-end
-
 -- @param prog: (ast) Annotated AST for the whole module
 -- @param modname: (string) Lua module name (for luaopen)
 -- @return (string) C code for the whole module
 generate_program = function(prog, modname)
-
-    -- Find where each global variable gets stored in the global table
-    local n_toplevel = 0
-    do
-        for _, tl_node in ipairs(prog) do
-            if toplevel_is_value_declaration(tl_node) then
-                tl_node._global_index = n_toplevel
-                n_toplevel = n_toplevel + 1
-            end
-        end
-    end
 
     -- Name all the function entry points
     for _, tl_node in ipairs(prog) do
@@ -434,7 +408,7 @@ generate_program = function(prog, modname)
     do
         local parts = {}
 
-        if n_toplevel > 0 then
+        if prog._n_globals > 0 then
             table.insert(parts,
                 [[Table *titan_globals = hvalue(&clCvalue(s2v(L->ci->func))->upvalue[0]);]])
         end
@@ -511,7 +485,7 @@ generate_program = function(prog, modname)
 
     local code = util.render(whole_file_template, {
         MODNAME = modname,
-        N_TOPLEVEL = c_integer(n_toplevel),
+        N_GLOBALS = c_integer(prog._n_globals),
         DEFINE_FUNCTIONS = define_functions,
         INITIALIZE_TOPLEVEL = initialize_toplevel,
         CREATE_MODULE_TABLE = create_module_table,
