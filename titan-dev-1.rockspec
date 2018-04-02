@@ -29,6 +29,7 @@ build = {
       ["titan-compiler.c_compiler"] = "titan-compiler/c_compiler.lua",
       ["titan-compiler.checker"] = "titan-compiler/checker.lua",
       ["titan-compiler.coder"] = "titan-compiler/coder.lua",
+      ["titan-compiler.global_upvalues"] = "titan-compiler/global_upvalues.lua",
       ["titan-compiler.lexer"] = "titan-compiler/lexer.lua",
       ["titan-compiler.location"] = "titan-compiler/location.lua",
       ["titan-compiler.parser"] = "titan-compiler/parser.lua",
