@@ -311,15 +311,43 @@ generate_program = function(prog, modname)
                         c_declaration(ctype(typ), local_name(name)))
                 end
 
+                local body = {}
+                if #tl_node._referenced_globals > 0 then
+                    local closure = tmp_name()
+                    local closure_decl = c_declaration("CClosure *", closure)
+                    local t = "titan_globals_table"
+                    local t_decl = c_declaration("Table*", t)
+                    local arr = "titan_globals_arr"
+                    local arr_decl = c_declaration("TValue*", arr)
+                    table.insert(body, util.render([[
+                        ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
+                        ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
+                        ${ARR_DECL} = ${T}->array;
+                    ]], {
+                        CLOSURE = closure,
+                        CLOSURE_DECL = closure_decl,
+                        T = t,
+                        T_DECL = t_decl,
+                        ARR = arr,
+                        ARR_DECL = arr_decl,
+                    }))
+                end
+                assert(tl_node.block._tag == ast.Stat.Block)
+                for _, stat in ipairs(tl_node.block.stats) do
+                    table.insert(body, generate_stat(stat))
+                end
+
                 table.insert(function_definitions,
                     util.render([[
                         static ${RET} ${NAME}(${PARAMS})
-                        ${BODY}
+                        {
+                            ${BODY}
+                        }
                     ]], {
                         RET = ret_ctype,
                         NAME = tl_node._titan_entry_point,
                         PARAMS = table.concat(titan_params, ", "),
-                        BODY = generate_stat(tl_node.block)
+                        BODY = table.concat(body, "\n"),
                     })
                 )
 
@@ -729,28 +757,9 @@ generate_var = function(var)
             return "", coder.Lvalue.CVar( local_name(decl.name) )
 
         elseif decl._tag == ast.Toplevel.Var then
-            local closure = tmp_name()
-            local closure_decl = c_declaration("CClosure *", closure)
-            local t = tmp_name()
-            local t_decl = c_declaration("Table*", t)
-            local v = tmp_name()
-            local v_decl = c_declaration("TValue*", v)
             local i = c_integer(decl._global_index)
-
-            local cstats = util.render([[
-                ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
-                ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
-                ${V_DECL} = &${T}->array[${I}];
-            ]], {
-                CLOSURE = closure,
-                CLOSURE_DECL = closure_decl,
-                T = t,
-                T_DECL = t_decl,
-                V_DECL = v_decl,
-                I = i,
-            })
-            local lvalue = coder.Lvalue.SafeSlot(v, t)
-            return cstats, lvalue
+            local slot = util.render("&titan_globals_arr[${I}]", { I = i })
+            return "", coder.Lvalue.SafeSlot(slot, "titan_globals_table")
 
         elseif decl._tag == ast.Toplevel.Func then
             -- Toplevel function
