@@ -816,7 +816,5 @@ describe("Titan coder", function()
                 end
             ]])
         end)
-
-
     end)
 end)
