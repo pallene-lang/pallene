@@ -36,7 +36,6 @@ function global_upvalues.analyze(filename, input)
     return prog, errors
 end
 
-
 local function toplevel_is_value_declaration(tlnode)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
@@ -65,7 +64,6 @@ function analyze:Program(prog)
     ast_iterator.default.Program(self, prog)
 end
 
-
 function analyze:Toplevel(tlnode)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
@@ -77,7 +75,6 @@ function analyze:Toplevel(tlnode)
         end
         table.sort(referenced_globals)
         tlnode._referenced_globals = referenced_globals
-
     else
         ast_iterator.default.Toplevel(self, tlnode)
     end

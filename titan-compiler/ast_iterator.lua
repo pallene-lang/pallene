@@ -12,7 +12,6 @@ function ast_iterator.new()
     return iterator
 end
 
-
 -- Default AST iterator. Does nothing, but specific methods can be overriden
 -- since all the recursive calls are late bound (via `self`).
 ast_iterator.default = {}
@@ -171,21 +170,11 @@ end
 
 function ast_iterator.default:Exp(exp, ...)
     local tag = exp._tag
-    if     tag == ast.Exp.Nil then
-        -- Nothing to do
-
-    elseif tag == ast.Exp.Bool then
-        -- Nothing to do
-
-    elseif tag == ast.Exp.Integer then
-        -- Nothing to do
-
-    elseif tag == ast.Exp.Float then
-        -- Nothing to do
-
-    elseif tag == ast.Exp.String then
-        -- Nothing to do
-
+    if     tag == ast.Exp.Nil then -- Nothing to do
+    elseif tag == ast.Exp.Bool then -- Nothing to do
+    elseif tag == ast.Exp.Integer then -- Nothing to do
+    elseif tag == ast.Exp.Float then -- Nothing to do
+    elseif tag == ast.Exp.String then -- Nothing to do
     elseif tag == ast.Exp.Initlist then
         for i = 1, #exp.fields do
             self:Field(exp.fields[i], ...)

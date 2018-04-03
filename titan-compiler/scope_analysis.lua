@@ -62,7 +62,6 @@ end
 -- bind_names
 --
 
-
 function bind_names:Program(prog, st, errors)
     st:with_block(function()
         add_builtins_to_symbol_table(st)

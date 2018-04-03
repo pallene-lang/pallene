@@ -6,7 +6,6 @@ local function run_global_upvalues(code)
 end
 
 describe("Global variable pass:", function()
-
     it("function without globals", function()
         local prog, errs = run_global_upvalues([[
             local function f(x: integer): integer
@@ -82,4 +81,3 @@ describe("Global variable pass:", function()
         assert.equals(0, f._referenced_globals[1])
     end)
 end)
-
