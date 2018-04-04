@@ -271,6 +271,133 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
+local function generate_titan_entry_point(tl_node)
+    local ret_ctype
+    if #tl_node._type.rettypes == 0 then
+        ret_ctype = "void"
+    else
+        ret_ctype = ctype(tl_node._type.rettypes[1])
+    end
+
+    local titan_params = {}
+    table.insert(titan_params, [[lua_State * L]])
+    for _, param in ipairs(tl_node.params) do
+        local name = param.name
+        local typ  = param._type
+        table.insert(titan_params,
+            c_declaration(ctype(typ), local_name(name)))
+    end
+
+    local body = {}
+    if #tl_node._referenced_globals > 0 then
+        local closure = tmp_name()
+        local closure_decl = c_declaration("CClosure *", closure)
+        local t = "titan_globals_table"
+        local t_decl = c_declaration("Table*", t)
+        local arr = "titan_globals_arr"
+        local arr_decl = c_declaration("TValue*", arr)
+        table.insert(body, util.render([[
+            ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
+            ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
+            ${ARR_DECL} = ${T}->array;
+        ]], {
+            CLOSURE = closure,
+            CLOSURE_DECL = closure_decl,
+            T = t,
+            T_DECL = t_decl,
+            ARR = arr,
+            ARR_DECL = arr_decl,
+        }))
+    end
+    assert(tl_node.block._tag == ast.Stat.Block)
+    for _, stat in ipairs(tl_node.block.stats) do
+        table.insert(body, generate_stat(stat))
+    end
+
+    return util.render([[
+        static ${RET} ${NAME}(${PARAMS})
+        {
+            ${BODY}
+        }
+    ]], {
+        RET = ret_ctype,
+        NAME = tl_node._titan_entry_point,
+        PARAMS = table.concat(titan_params, ", "),
+        BODY = table.concat(body, "\n"),
+    })
+end
+
+
+local function generate_lua_entry_point(tl_node)
+    local args_decl = {}
+    local args = {}
+    table.insert(args, [[L]])
+    for i, param in ipairs(tl_node.params) do
+        local slot_name = tmp_name()
+        local arg_name = tmp_name()
+        -- TODO: fix: the error message is not able specify if the
+        -- given type is float or integer (it prints "number")
+        local decl = util.render([[
+            ${SLOT_DECL} = s2v(L->ci->func + ${I});
+            if (!${CHECK_TAG}) {
+                luaL_error(L,
+                    "wrong type for argument %s at line %d, "
+                    "expected %s but found %s",
+                    ${ARG_NAME}, ${LINE}, ${EXP_TYPE},
+                    lua_typename(L, ttype(${SLOT_NAME})));
+            }
+            ${ARG_DECL} = ${SLOT_VALUE};
+        ]], {
+            SLOT_DECL = c_declaration("TValue*", slot_name),
+            I = c_integer(i),
+            CHECK_TAG = check_tag(param._type, slot_name),
+            ARG_NAME = c_string(param.name),
+            LINE = c_integer(param.loc.line),
+            EXP_TYPE = c_string(types.tostring(param._type)),
+            SLOT_NAME = slot_name,
+            ARG_DECL = c_declaration(ctype(param._type), arg_name),
+            SLOT_VALUE = get_slot(param._type, slot_name),
+        })
+        table.insert(args_decl, decl)
+        table.insert(args, arg_name)
+    end
+
+    local ret_init, set_ret
+    if #tl_node._type.rettypes == 0 then
+        ret_init = ""
+        set_ret = ""
+    elseif #tl_node._type.rettypes == 1 then
+        local ret_typ = tl_node._type.rettypes[1]
+        ret_init = c_declaration(ctype(ret_typ), "ret") .. " ="
+        set_ret = util.render([[
+            ${SET_SLOT}
+            api_incr_top(L);
+        ]], {
+            SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", "ret")
+        })
+    else
+        error("not implemented")
+    end
+
+    return util.render([[
+        static int ${LUA_ENTRY_POINT}(lua_State *L)
+        {
+            ${ARGS_DECL}
+            ${RET_INIT} ${TITAN_ENTRY_POINT}(${ARGS});
+            ${SET_RET}
+            return ${NRET};
+        }
+    ]], {
+        LUA_ENTRY_POINT = tl_node._lua_entry_point,
+        TITAN_ENTRY_POINT = tl_node._titan_entry_point,
+        RET_INIT = ret_init,
+        ARGS_DECL = table.concat(args_decl, "\n"),
+        ARGS = table.concat(args, ", "),
+        SET_RET = set_ret,
+        NRET = c_integer(#tl_node._type.rettypes)
+    })
+end
+
 -- @param prog: (ast) Annotated AST for the whole module
 -- @param modname: (string) Lua module name (for luaopen)
 -- @return (string) C code for the whole module
@@ -292,137 +419,11 @@ generate_program = function(prog, modname)
         local function_definitions = {}
         for _, tl_node in ipairs(prog) do
             if tl_node._tag == ast.Toplevel.Func then
-                -- Titan entry point
                 assert(#tl_node._type.rettypes <= 1)
-
-                local ret_ctype
-                if #tl_node._type.rettypes == 0 then
-                    ret_ctype = "void"
-                else
-                    ret_ctype = ctype(tl_node._type.rettypes[1])
-                end
-
-                local titan_params = {}
-                table.insert(titan_params, [[lua_State * L]])
-                for _, param in ipairs(tl_node.params) do
-                    local name = param.name
-                    local typ  = param._type
-                    table.insert(titan_params,
-                        c_declaration(ctype(typ), local_name(name)))
-                end
-
-                local body = {}
-                if #tl_node._referenced_globals > 0 then
-                    local closure = tmp_name()
-                    local closure_decl = c_declaration("CClosure *", closure)
-                    local t = "titan_globals_table"
-                    local t_decl = c_declaration("Table*", t)
-                    local arr = "titan_globals_arr"
-                    local arr_decl = c_declaration("TValue*", arr)
-                    table.insert(body, util.render([[
-                        ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
-                        ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
-                        ${ARR_DECL} = ${T}->array;
-                    ]], {
-                        CLOSURE = closure,
-                        CLOSURE_DECL = closure_decl,
-                        T = t,
-                        T_DECL = t_decl,
-                        ARR = arr,
-                        ARR_DECL = arr_decl,
-                    }))
-                end
-                assert(tl_node.block._tag == ast.Stat.Block)
-                for _, stat in ipairs(tl_node.block.stats) do
-                    table.insert(body, generate_stat(stat))
-                end
-
                 table.insert(function_definitions,
-                    util.render([[
-                        static ${RET} ${NAME}(${PARAMS})
-                        {
-                            ${BODY}
-                        }
-                    ]], {
-                        RET = ret_ctype,
-                        NAME = tl_node._titan_entry_point,
-                        PARAMS = table.concat(titan_params, ", "),
-                        BODY = table.concat(body, "\n"),
-                    })
-                )
-
-                -- Lua entry point
-                assert(#tl_node._type.rettypes <= 1)
-
-                local args_decl = {}
-                local args = {}
-                table.insert(args, [[L]])
-                for i, param in ipairs(tl_node.params) do
-                    local slot_name = tmp_name()
-                    local arg_name = tmp_name()
-                    -- TODO: fix: the error message is not able specify if the
-                    -- given type is float or integer (it prints "number")
-                    local decl = util.render([[
-                        ${SLOT_DECL} = s2v(L->ci->func + ${I});
-                        if (!${CHECK_TAG}) {
-                            luaL_error(L,
-                                "wrong type for argument %s at line %d, "
-                                "expected %s but found %s",
-                                ${ARG_NAME}, ${LINE}, ${EXP_TYPE},
-                                lua_typename(L, ttype(${SLOT_NAME})));
-                        }
-                        ${ARG_DECL} = ${SLOT_VALUE};
-                    ]], {
-                        SLOT_DECL = c_declaration("TValue*", slot_name),
-                        I = c_integer(i),
-                        CHECK_TAG = check_tag(param._type, slot_name),
-                        ARG_NAME = c_string(param.name),
-                        LINE = c_integer(param.loc.line),
-                        EXP_TYPE = c_string(types.tostring(param._type)),
-                        SLOT_NAME = slot_name,
-                        ARG_DECL = c_declaration(ctype(param._type), arg_name),
-                        SLOT_VALUE = get_slot(param._type, slot_name),
-                    })
-                    table.insert(args_decl, decl)
-                    table.insert(args, arg_name)
-                end
-
-                local ret_init, set_ret
-                if #tl_node._type.rettypes == 0 then
-                    ret_init = ""
-                    set_ret = ""
-                elseif #tl_node._type.rettypes == 1 then
-                    local ret_typ = tl_node._type.rettypes[1]
-                    ret_init = c_declaration(ctype(ret_typ), "ret") .. " ="
-                    set_ret = util.render([[
-                        ${SET_SLOT}
-                        api_incr_top(L);
-                    ]], {
-                        SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", "ret")
-                    })
-                else
-                    error("not implemented")
-                end
-
+                    generate_titan_entry_point(tl_node))
                 table.insert(function_definitions,
-                    util.render([[
-                        static int ${LUA_ENTRY_POINT}(lua_State *L)
-                        {
-                            ${ARGS_DECL}
-                            ${RET_INIT} ${TITAN_ENTRY_POINT}(${ARGS});
-                            ${SET_RET}
-                            return ${NRET};
-                        }
-                    ]], {
-                        LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                        TITAN_ENTRY_POINT = tl_node._titan_entry_point,
-                        RET_INIT = ret_init,
-                        ARGS_DECL = table.concat(args_decl, "\n"),
-                        ARGS = table.concat(args, ", "),
-                        SET_RET = set_ret,
-                        NRET = c_integer(#tl_node._type.rettypes)
-                    })
-                )
+                    generate_lua_entry_point(tl_node))
             end
         end
         define_functions = table.concat(function_definitions, "\n")
