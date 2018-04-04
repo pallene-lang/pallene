@@ -61,7 +61,7 @@ function analyze:Program(prog)
     end
     prog._n_globals = n_globals
 
-    ast_iterator.default.Program(self, prog)
+    ast_iterator.Program(self, prog)
 end
 
 function analyze:Toplevel(tlnode)
@@ -76,7 +76,7 @@ function analyze:Toplevel(tlnode)
         table.sort(referenced_globals)
         tlnode._referenced_globals = referenced_globals
     else
-        ast_iterator.default.Toplevel(self, tlnode)
+        ast_iterator.Toplevel(self, tlnode)
     end
 end
 
@@ -89,7 +89,7 @@ function analyze:Var(var, referenced_globals_map)
             referenced_globals_map[index] = true
         end
     else
-        ast_iterator.default.Var(self, var, referenced_globals_map)
+        ast_iterator.Var(self, var, referenced_globals_map)
     end
 end
 
@@ -114,7 +114,7 @@ function analyze:Exp(exp, referenced_globals_map)
         end
 
     else
-        ast_iterator.default.Exp(self, exp, referenced_globals_map)
+        ast_iterator.Exp(self, exp, referenced_globals_map)
     end
 end
 

@@ -82,7 +82,7 @@ function bind_names:Type(type_node, st, errors)
         end
 
     else
-        ast_iterator.default.Type(self, type_node, st, errors)
+        ast_iterator.Type(self, type_node, st, errors)
     end
 end
 
@@ -110,7 +110,7 @@ function bind_names:Toplevel(tlnode, st, errors)
         end)
 
     else
-        ast_iterator.default.Toplevel(self, tlnode, st, errors)
+        ast_iterator.Toplevel(self, tlnode, st, errors)
     end
 end
 
@@ -150,7 +150,7 @@ function bind_names:Stat(stat, st, errors)
         st:add_symbol(stat.decl.name, stat.decl)
 
     else
-        ast_iterator.default.Stat(self, stat, st, errors)
+        ast_iterator.Stat(self, stat, st, errors)
     end
 end
 
@@ -167,7 +167,7 @@ function bind_names:Var(var, st, errors)
         end
 
     else
-        ast_iterator.default.Var(self, var, st, errors)
+        ast_iterator.Var(self, var, st, errors)
     end
 end
 
