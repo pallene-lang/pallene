@@ -1,28 +1,24 @@
 local ast = require "titan-compiler.ast"
 
+-- AST iterator class. The default implementation does nothing, but specific
+-- methods can be overriden since all the recursive cals are late bound (via
+-- `self`).
 local ast_iterator = {}
+ast_iterator.__index = ast_iterator
 
 --  Creates a copy of the default do-nothing iterator. The caller is expected to
 --  customize it by overriding some of the methods.
 function ast_iterator.new()
-    local iterator = {}
-    for name, func in pairs(ast_iterator.default) do
-        iterator[name] = func
-    end
-    return iterator
+    return setmetatable({}, ast_iterator)
 end
 
--- Default AST iterator. Does nothing, but specific methods can be overriden
--- since all the recursive calls are late bound (via `self`).
-ast_iterator.default = {}
-
-function ast_iterator.default:Program(prog, ...)
+function ast_iterator:Program(prog, ...)
     for i = 1, #prog do
         self:Toplevel(prog[i], ...)
     end
 end
 
-function ast_iterator.default:Type(typ, ...)
+function ast_iterator:Type(typ, ...)
     local tag = typ._tag
     if     tag == ast.Type.Nil then  -- nothing to do
     elseif tag == ast.Type.Boolean then -- nothing to do
@@ -46,7 +42,7 @@ function ast_iterator.default:Type(typ, ...)
     end
 end
 
-function ast_iterator.default:Toplevel(tlnode, ...)
+function ast_iterator:Toplevel(tlnode, ...)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
         for i = 1, #tlnode.params do
@@ -77,7 +73,7 @@ function ast_iterator.default:Toplevel(tlnode, ...)
     end
 end
 
-function ast_iterator.default:Decl(decl, ...)
+function ast_iterator:Decl(decl, ...)
     local tag = decl._tag
     if tag == ast.Decl.Decl then
         if decl.type then
@@ -88,7 +84,7 @@ function ast_iterator.default:Decl(decl, ...)
     end
 end
 
-function ast_iterator.default:Stat(stat, ...)
+function ast_iterator:Stat(stat, ...)
     local tag = stat._tag
     if     tag == ast.Stat.Block then
         for i = 1, #stat.stats do
@@ -141,7 +137,7 @@ function ast_iterator.default:Stat(stat, ...)
     end
 end
 
-function ast_iterator.default:Then(then_, ...)
+function ast_iterator:Then(then_, ...)
     local tag = then_._tag
     if tag == ast.Then.Then then
         self:Exp(then_.condition, ...)
@@ -151,7 +147,7 @@ function ast_iterator.default:Then(then_, ...)
     end
 end
 
-function ast_iterator.default:Var(var, ...)
+function ast_iterator:Var(var, ...)
     local tag = var._tag
     if     tag == ast.Var.Name then
         -- Nothing to do
@@ -168,7 +164,7 @@ function ast_iterator.default:Var(var, ...)
     end
 end
 
-function ast_iterator.default:Exp(exp, ...)
+function ast_iterator:Exp(exp, ...)
     local tag = exp._tag
     if     tag == ast.Exp.Nil then -- Nothing to do
     elseif tag == ast.Exp.Bool then -- Nothing to do
@@ -219,7 +215,7 @@ function ast_iterator.default:Exp(exp, ...)
     end
 end
 
-function ast_iterator.default:Field(field, ...)
+function ast_iterator:Field(field, ...)
     local tag = field._tag
     if tag == ast.Field.Field then
         self:Exp(field.exp, ...)
