@@ -1,5 +1,5 @@
 local ast = require "titan-compiler.ast"
-local checker = require "titan-compiler.checker"
+local global_upvalues = require "titan-compiler.global_upvalues"
 local util = require "titan-compiler.util"
 local pretty = require "titan-compiler.pretty"
 local typedecl = require "titan-compiler.typedecl"
@@ -13,7 +13,7 @@ local generate_var
 local generate_exp
 
 function coder.generate(filename, input, modname)
-    local prog, errors = checker.check(filename, input)
+    local prog, errors = global_upvalues.analyze(filename, input)
     if not prog then return false, errors end
     local code = generate_program(prog, modname)
     return code, errors
@@ -67,7 +67,7 @@ int init_${MODNAME}(lua_State *L)
 int luaopen_${MODNAME}(lua_State *L)
 {
     Table *titan_globals = luaH_new(L);
-    luaH_resizearray(L, titan_globals, ${N_TOPLEVEL});
+    luaH_resizearray(L, titan_globals, ${N_GLOBALS});
 
     /* Save to stack because lua_call might invoke the GC */
     sethvalue(L, s2v(L->top), titan_globals);
@@ -271,36 +271,10 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
-local function toplevel_is_value_declaration(tl_node)
-    local tag = tl_node._tag
-    if     tag == ast.Toplevel.Func then
-        return true
-    elseif tag == ast.Toplevel.Var then
-        return true
-    elseif tag == ast.Toplevel.Record then
-        return false
-    elseif tag == ast.Toplevel.Import then
-        return false
-    else
-        error("impossible")
-    end
-end
-
 -- @param prog: (ast) Annotated AST for the whole module
 -- @param modname: (string) Lua module name (for luaopen)
 -- @return (string) C code for the whole module
 generate_program = function(prog, modname)
-
-    -- Find where each global variable gets stored in the global table
-    local n_toplevel = 0
-    do
-        for _, tl_node in ipairs(prog) do
-            if toplevel_is_value_declaration(tl_node) then
-                tl_node._global_index = n_toplevel
-                n_toplevel = n_toplevel + 1
-            end
-        end
-    end
 
     -- Name all the function entry points
     for _, tl_node in ipairs(prog) do
@@ -337,15 +311,43 @@ generate_program = function(prog, modname)
                         c_declaration(ctype(typ), local_name(name)))
                 end
 
+                local body = {}
+                if #tl_node._referenced_globals > 0 then
+                    local closure = tmp_name()
+                    local closure_decl = c_declaration("CClosure *", closure)
+                    local t = "titan_globals_table"
+                    local t_decl = c_declaration("Table*", t)
+                    local arr = "titan_globals_arr"
+                    local arr_decl = c_declaration("TValue*", arr)
+                    table.insert(body, util.render([[
+                        ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
+                        ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
+                        ${ARR_DECL} = ${T}->array;
+                    ]], {
+                        CLOSURE = closure,
+                        CLOSURE_DECL = closure_decl,
+                        T = t,
+                        T_DECL = t_decl,
+                        ARR = arr,
+                        ARR_DECL = arr_decl,
+                    }))
+                end
+                assert(tl_node.block._tag == ast.Stat.Block)
+                for _, stat in ipairs(tl_node.block.stats) do
+                    table.insert(body, generate_stat(stat))
+                end
+
                 table.insert(function_definitions,
                     util.render([[
                         static ${RET} ${NAME}(${PARAMS})
-                        ${BODY}
+                        {
+                            ${BODY}
+                        }
                     ]], {
                         RET = ret_ctype,
                         NAME = tl_node._titan_entry_point,
                         PARAMS = table.concat(titan_params, ", "),
-                        BODY = generate_stat(tl_node.block)
+                        BODY = table.concat(body, "\n"),
                     })
                 )
 
@@ -434,7 +436,7 @@ generate_program = function(prog, modname)
     do
         local parts = {}
 
-        if n_toplevel > 0 then
+        if prog._n_globals > 0 then
             table.insert(parts,
                 [[Table *titan_globals = hvalue(&clCvalue(s2v(L->ci->func))->upvalue[0]);]])
         end
@@ -511,7 +513,7 @@ generate_program = function(prog, modname)
 
     local code = util.render(whole_file_template, {
         MODNAME = modname,
-        N_TOPLEVEL = c_integer(n_toplevel),
+        N_GLOBALS = c_integer(prog._n_globals),
         DEFINE_FUNCTIONS = define_functions,
         INITIALIZE_TOPLEVEL = initialize_toplevel,
         CREATE_MODULE_TABLE = create_module_table,
@@ -755,28 +757,9 @@ generate_var = function(var)
             return "", coder.Lvalue.CVar( local_name(decl.name) )
 
         elseif decl._tag == ast.Toplevel.Var then
-            local closure = tmp_name()
-            local closure_decl = c_declaration("CClosure *", closure)
-            local t = tmp_name()
-            local t_decl = c_declaration("Table*", t)
-            local v = tmp_name()
-            local v_decl = c_declaration("TValue*", v)
             local i = c_integer(decl._global_index)
-
-            local cstats = util.render([[
-                ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
-                ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
-                ${V_DECL} = &${T}->array[${I}];
-            ]], {
-                CLOSURE = closure,
-                CLOSURE_DECL = closure_decl,
-                T = t,
-                T_DECL = t_decl,
-                V_DECL = v_decl,
-                I = i,
-            })
-            local lvalue = coder.Lvalue.SafeSlot(v, t)
-            return cstats, lvalue
+            local slot = util.render("&titan_globals_arr[${I}]", { I = i })
+            return "", coder.Lvalue.SafeSlot(slot, "titan_globals_table")
 
         elseif decl._tag == ast.Toplevel.Func then
             -- Toplevel function
