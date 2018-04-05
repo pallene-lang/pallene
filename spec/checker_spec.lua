@@ -1269,7 +1269,9 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("assign to a function", errs)
+        assert.match(
+            "attempting to assign to toplevel constant function foo",
+            errs, nil, true)
     end)
 
     it("typechecks table.insert", function()
