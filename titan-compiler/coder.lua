@@ -356,18 +356,26 @@ end
 local function generate_lua_entry_point(tl_node)
     local ctx = Context.new()
 
+
+    local base = ctx:new_cvar("StackValue*")
+    local set_base = util.render("${BASE_DECL} = L->ci->func;", {
+        BASE_DECL = c_declaration(base)
+    })
+
+    local function argslot(i)
+        return util.render("s2v(${BASE} + ${I})", {
+            BASE = base.name,
+            I = c_integer(i),
+        })
+    end
+
     -- TODO: fix: the error message is not able specify if the
     -- given type is float or integer (it prints "number")
-
-    local checks = {}
-    local titan_args = {"L"}
-    local titan_args_decls = {}
+    local check_args = {}
     for i, param in ipairs(tl_node.params) do
-        local slot = ctx:new_cvar("TValue *", param.name)
-        local arg = ctx:new_cvar(ctype(param._type))
-
-        table.insert(checks, util.render([[
-            ${SLOT_DECL} = s2v(L->ci->func + ${I});
+        local slot = ctx:new_cvar("TValue*")
+        table.insert(check_args, util.render([[
+            ${SLOT_DECL} = ${SLOT_ADDRESS};
             if (!${CHECK_TAG}) {
                 luaL_error(L,
                     "wrong type for argument %s at line %d, "
@@ -376,38 +384,56 @@ local function generate_lua_entry_point(tl_node)
                     lua_typename(L, ttype(${SLOT_NAME})));
             }
         ]], {
+            SLOT_NAME = slot.name,
             SLOT_DECL = c_declaration(slot),
-            I = c_integer(i),
+            SLOT_ADDRESS = argslot(i),
             CHECK_TAG = check_tag(param._type, slot.name),
             PARAM_NAME = c_string(param.name),
             LINE = c_integer(param.loc.line),
             EXP_TYPE = c_string(types.tostring(param._type)),
-            SLOT_NAME = slot.name,
-        }))
-
-        table.insert(titan_args, arg.name)
-
-        table.insert(titan_args_decls, util.render([[
-            ${ARG_DECL} = ${SLOT_VALUE};
-        ]], {
-            ARG_DECL = c_declaration(arg),
-            SLOT_VALUE = get_slot(param._type, slot.name),
         }))
     end
 
-    local ret_init, set_ret
+    local arg_vars  = {}
+    local get_args = {}
+    for i, param in ipairs(tl_node.params) do
+        local arg = ctx:new_tvar(param._type)
+        table.insert(arg_vars, arg)
+        table.insert(get_args, util.render([[
+            ${ARG_DECL} = ${SLOT_VALUE};
+        ]], {
+            ARG_DECL = c_declaration(arg),
+            SLOT_VALUE = get_slot(param._type, argslot(i)),
+        }))
+    end
+
+    local titan_args = {"L"}
+    for _, var in ipairs(arg_vars) do
+        table.insert(titan_args, var.name)
+    end
+    local titan_call = util.render("${TITAN_ENTRY_POINT}(${ARGS})", {
+        TITAN_ENTRY_POINT = tl_node._titan_entry_point,
+        ARGS = table.concat(titan_args, ", "),
+    })
+
+    local set_return
     if #tl_node._type.rettypes == 0 then
-        ret_init = ""
-        set_ret = ""
+        set_return = util.render([[
+            ${TITAN_CALL};
+        ]], {
+            TITAN_CALL = titan_call,
+        })
     elseif #tl_node._type.rettypes == 1 then
         local ret_typ = tl_node._type.rettypes[1]
         local ret = ctx:new_cvar(ctype(ret_typ), "ret")
-        ret_init = c_declaration(ret) .. " ="
-        set_ret = util.render([[
+        set_return = util.render([[
+            ${RET_DECL} = ${TITAN_CALL};
             ${SET_SLOT}
             api_incr_top(L);
         ]], {
-            SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", ret.name)
+            TITAN_CALL = titan_call,
+            RET_DECL = c_declaration(ret),
+            SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", ret.name),
         })
     else
         error("not implemented")
@@ -416,21 +442,19 @@ local function generate_lua_entry_point(tl_node)
     return util.render([[
         static int ${LUA_ENTRY_POINT}(lua_State *L)
         {
-            ${CHECKS}
-            ${TITAN_ARGS_DECLS}
-            ${RET_INIT} ${TITAN_ENTRY_POINT}(${TITAN_ARGS});
-            ${SET_RET}
+            ${SET_BASE}
+            ${CHECK_ARGS}
+            ${GET_ARGS}
+            ${SET_RETURN}
             return ${NRET};
         }
     ]], {
         LUA_ENTRY_POINT = tl_node._lua_entry_point,
-        TITAN_ENTRY_POINT = tl_node._titan_entry_point,
-        RET_INIT = ret_init,
-        CHECKS = table.concat(checks, "\n"),
-        TITAN_ARGS = table.concat(titan_args, ", "),
-        TITAN_ARGS_DECLS = table.concat(titan_args_decls, "\n"),
-        SET_RET = set_ret,
-        NRET = c_integer(#tl_node._type.rettypes)
+        SET_BASE = set_base,
+        CHECK_ARGS = table.concat(check_args, "\n"),
+        GET_ARGS = table.concat(get_args, "\n"),
+        SET_RETURN = set_return,
+        NRET = c_integer(#tl_node._type.rettypes),
     })
 end
 
