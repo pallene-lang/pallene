@@ -4,7 +4,7 @@ local checker = require "titan-compiler.checker"
 
 local global_upvalues = {}
 
-local analyze = ast_iterator.new()
+local analyze_upvalues
 
 -- Analyzes when global variables are used, to optimize reading and writing to
 -- them. Our current approach is to store global variables in a flat (not safe
@@ -27,12 +27,12 @@ local analyze = ast_iterator.new()
 --     Integer, describes the index of the variable in the upvalue table.
 --
 -- _referenced_globals:
---     In Toplevel.Func nodes.
+--     In Program node and Toplevel.Func nodes.
 --     List of integers, describes what global variables the function uses.
 function global_upvalues.analyze(filename, input)
     local prog, errors = checker.check(filename, input)
     if not prog then return false, errors end
-    analyze:Program(prog)
+    analyze_upvalues(prog)
     return prog, errors
 end
 
@@ -51,7 +51,18 @@ local function toplevel_is_value_declaration(tlnode)
     end
 end
 
-function analyze:Program(prog)
+local function sorted_keys(obj)
+    local ks = {}
+    for k, _ in pairs(obj) do
+        table.insert(ks, k)
+    end
+    table.sort(ks)
+    return ks
+end
+
+local analyze = ast_iterator.new()
+
+analyze_upvalues = function(prog)
     local n_globals = 0
     for _, tlnode in ipairs(prog) do
         if toplevel_is_value_declaration(tlnode) then
@@ -61,22 +72,19 @@ function analyze:Program(prog)
     end
     prog._n_globals = n_globals
 
-    ast_iterator.Program(self, prog)
+    local referenced_globals_map = {}
+    analyze:Program(prog, referenced_globals_map)
+    prog._referenced_globas = sorted_keys(referenced_globals_map)
 end
 
-function analyze:Toplevel(tlnode)
+function analyze:Toplevel(tlnode, referenced_globals_map)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
-        local referenced_globals_map = {}
-        analyze:Stat(tlnode.block, referenced_globals_map)
-        local referenced_globals = {}
-        for index, _ in pairs(referenced_globals_map) do
-            table.insert(referenced_globals, index)
-        end
-        table.sort(referenced_globals)
-        tlnode._referenced_globals = referenced_globals
+        local func_referenced_globals_map = {}
+        analyze:Stat(tlnode.block, func_referenced_globals_map)
+        tlnode._referenced_globals = sorted_keys(func_referenced_globals_map)
     else
-        ast_iterator.Toplevel(self, tlnode)
+        ast_iterator.Toplevel(self, tlnode, referenced_globals_map)
     end
 end
 
