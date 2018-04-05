@@ -144,7 +144,11 @@ check_type = function(typ, errors)
         end
 
     elseif tag == ast.Type.Array then
-        return types.T.Array(check_type(typ.subtype, errors))
+        local subtype = check_type(typ.subtype, errors)
+        if subtype._tag == types.T.Nil then
+            type_error(errors, typ.loc, "array of nil is not allowed")
+        end
+        return types.T.Array(subtype)
 
     elseif tag == ast.Type.Function then
         if #typ.rettypes >= 2 then

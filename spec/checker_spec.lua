@@ -417,11 +417,21 @@ describe("Titan type checker", function()
     end)
 
     it("forbids type hints that are not array or records", function()
-         local prog, errors = run_checker([[
+        local prog, errors = run_checker([[
             local p: string = { 10, 20, 30 }
         ]])
         assert.falsy(prog)
         assert.matches("type hint for array or record initializer is not an array or record type", errors)
+    end)
+
+    it("forbids array of nil", function()
+        local prog, errors = run_checker([[
+            local xs: {nil} = {}
+        ]])
+        assert.falsy(prog)
+        assert.matches(
+            "array of nil is not allowed",
+            errors, nil, true)
     end)
 
     it("type-checks numeric 'for' (integer, implicit step)", function()
