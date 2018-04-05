@@ -140,6 +140,10 @@ local function new_cvar(name, ctyp, comment)
     return { name = name, ctyp = ctyp, comment = comment }
 end
 
+local function new_tvar(cvar, typ)
+    return { cvar = cvar, typ = typ }
+end
+
 -- @returns A syntactically valid variable declaration
 local function c_declaration(cvar)
     local comment
@@ -194,7 +198,7 @@ end
 function Context:new_tvar(typ, comment)
     local cvar = self:new_cvar(ctype(typ), comment)
     if types.is_gc(typ) then
-        table.insert(self.live_vars, cvar)
+        table.insert(self.live_vars, new_tvar(cvar, typ))
         self.max_depth = math.max(self.max_depth, #self.live_vars)
     end
     return cvar
@@ -300,6 +304,90 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
+--
+-- GC
+--
+
+-- Reserves stack space. This should go at the start of the generated function
+-- but this should be the last piece of code to be generated, so it can know how
+-- big the stack needs to be.
+local function gc_reserve_stack(ctx)
+    local n = ctx.max_depth
+    return string.format("/* TODO: reserve stack (%d) */", n)
+end
+
+-- Push potentially live variables to the Lua stack, so the Lua GC can see they
+-- are not garbage.
+--
+-- Returns two pieces of code:
+--  - Code to save variables to the stack
+--  - Code to release the variables from the stack.
+local function gc_save_vars(ctx)
+
+    -- Avoid warnings
+    if #ctx.live_vars == 0 then
+        return "", ""
+    end
+
+    local save_vars
+    do
+        local parts = {}
+
+        local top = ctx:new_cvar("StackValue*")
+        table.insert(parts, util.render([[
+            ${TOP_DECL} = L->top;
+        ]], {
+            TOP_DECL = c_declaration(top)
+        }))
+
+        for i, tvar in ipairs(ctx.live_vars) do
+            local slot = util.render("s2v($TOP)", { TOP = top.name })
+            table.insert(parts, util.render([[
+                ${SET_SLOT} ${TOP}++;
+            ]], {
+                SET_SLOT = set_stack_slot(tvar.typ, slot, tvar.cvar.name),
+                TOP = top.name,
+            }))
+        end
+
+        table.insert(parts, util.render([[
+            L->top = ${TOP};
+        ]], {
+            TOP = top.name
+        }))
+
+        save_vars = table.concat(parts, "\n")
+    end
+
+    local release_vars = util.render([[
+        L->top -= ${NSLOTS};
+    ]], {
+        NSLOTS = c_integer(#ctx.live_vars)
+    })
+
+    return save_vars, release_vars
+end
+
+-- Insert a call to luaC_condgc in the program. This invokes the garbage
+-- collector and calls the stack-saving code only if needed.
+local function gc_cond_gc(ctx)
+    local save, release = gc_save_vars(ctx)
+    return util.render([[
+        luaC_condGC(L, ({
+            ${SAVE}
+        }), ({
+            ${RELEASE}
+        }));
+    ]],{
+        SAVE = save,
+        RELEASE = release,
+    })
+end
+
+--
+--
+--
+
 local function generate_titan_entry_point(tl_node)
     local ctx = Context.new()
 
@@ -339,15 +427,19 @@ local function generate_titan_entry_point(tl_node)
     end
     table.insert(body, generate_stat(tl_node.block, ctx))
 
+    local reserve_stack = gc_reserve_stack(ctx)
+
     return util.render([[
         static ${RET} ${NAME}(
             ${PARAMS})
         {
+            ${RESERVE_STACK}
             ${BODY}
         }
     ]], {
         RET = ret_ctype,
         NAME = tl_node._titan_entry_point,
+        RESERVE_STACK = reserve_stack,
         PARAMS = table.concat(params, ",\n"),
         BODY = table.concat(body, "\n"),
     })
@@ -355,7 +447,6 @@ end
 
 local function generate_lua_entry_point(tl_node)
     local ctx = Context.new()
-
 
     local base = ctx:new_cvar("StackValue*", "ci->func")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
@@ -455,9 +546,14 @@ local function generate_lua_entry_point(tl_node)
         error("not implemented")
     end
 
+    -- Todo: This is a regular Lua function call so we only need to call
+    -- checkstack if we need >= 20 slots.
+    local reserve_stack = gc_reserve_stack(ctx)
+
     return util.render([[
         static int ${LUA_ENTRY_POINT}(lua_State *L)
         {
+            ${RESERVE_STACK}
             ${SET_BASE}
             ${CHECK_NARGS}
             ${CHECK_TYPES}
@@ -467,6 +563,7 @@ local function generate_lua_entry_point(tl_node)
         }
     ]], {
         LUA_ENTRY_POINT = tl_node._lua_entry_point,
+        RESERVE_STACK = reserve_stack,
         SET_BASE = set_base,
         CHECK_NARGS = check_nargs,
         CHECK_TYPES = table.concat(check_types, "\n"),
@@ -596,9 +693,14 @@ local function generate_luaopen(prog, modname)
     local init_exports =
         generate_luaopen_exports_table(prog, ctx)
 
+    -- todo: make this reserve_stack optional
+    -- (see similar comment in lua entry point)
+    local reserve_stack = gc_reserve_stack(ctx)
+
     return util.render([[
         int luaopen_${MODNAME}(lua_State *L)
         {
+            ${RESERVE_STACK}
             /* Allocate upvalue table */
             /* ---------------------- */
             ${ALLOCATE_UPVALUES}
@@ -612,6 +714,7 @@ local function generate_luaopen(prog, modname)
         }
     ]], {
         MODNAME = modname,
+        RESERVE_STACK = reserve_stack,
         ALLOCATE_UPVALUES = allocate_upvalues,
         INIT_UPVALUES = init_upvalues,
         INIT_EXPORTS = init_exports,
@@ -975,6 +1078,7 @@ local function generate_exp_builtin_table_insert(exp, ctx)
     local ui = ctx:new_cvar("lua_Unsigned", "ui")
     local size = ctx:new_cvar("lua_Unsigned", "size")
     local slot = ctx:new_cvar("TValue *", "slot")
+    local cond_gc = gc_cond_gc(ctx)
     local cstats = util.render([[
         ${CSTATS_T}
         ${CSTATS_V}
@@ -992,6 +1096,7 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         }
         ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
         ${SET_SLOT}
+        ${COND_GC}
     ]], {
         CSTATS_T = cstats_t,
         CVALUE_T = cvalue_t,
@@ -1003,6 +1108,7 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         SIZE_DECL = c_declaration(size),
         SLOT_DECL = c_declaration(slot),
         SET_SLOT = set_heap_slot(args[2]._type, slot.name, cvalue_v, cvalue_t),
+        COND_GC = cond_gc,
     })
     return cstats, "VOID"
 end
@@ -1088,18 +1194,22 @@ generate_exp = function(exp, ctx)
                 }))
             end
 
+            local cond_gc = gc_cond_gc(ctx)
+
             local cstats = util.render([[
                 ${TBL_DECL} = luaH_new(L);
                 luaH_resizearray(L, ${TBL}, ${N});
                 ${ARRAY_PART_DECL} = ${TBL}->array;
                 ${FIELD_INIT}
+                ${COND_GC}
             ]], {
                 TBL = tbl.name,
                 TBL_DECL = c_declaration(tbl),
                 ARRAY_PART = array_part.name,
                 ARRAY_PART_DECL = c_declaration(array_part),
                 N = c_integer(#exp.fields),
-                FIELD_INIT = table.concat(init_cstats, "\n")
+                FIELD_INIT = table.concat(init_cstats, "\n"),
+                COND_GC = cond_gc,
             })
 
             return cstats, tbl.name
@@ -1138,6 +1248,8 @@ generate_exp = function(exp, ctx)
                 table.insert(arg_cvalues, cvalue)
             end
 
+            local save_vars, release_vars = gc_save_vars(ctx)
+
             local tl_node = fexp.var._decl
 
             local tmp_var, tmp_init
@@ -1155,12 +1267,16 @@ generate_exp = function(exp, ctx)
 
             local cstats = util.render([[
                 ${ARG_STATS}
+                ${SAVE_VARS}
                 ${TMP_INIT} ${FUN_NAME}(${ARGS});
+                ${RELEASE_VARS}
             ]], {
                 FUN_NAME  = tl_node._titan_entry_point,
                 ARG_STATS = table.concat(arg_cstatss, "\n"),
                 ARGS      = table.concat(arg_cvalues, ", "),
                 TMP_INIT  = tmp_init,
+                SAVE_VARS = save_vars,
+                RELEASE_VARS = release_vars,
             })
             return cstats, tmp_var
 
