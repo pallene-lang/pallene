@@ -485,6 +485,15 @@ local function generate_luaopen_upvalue_array(prog, ctx)
         end
     end
 
+    -- Avoid warnings
+    if #parts == 0 then
+        table.insert(parts, util.render([[
+            (void) ${ARR};
+        ]], {
+            ARR = ctx.upvalues.array.name
+        }))
+    end
+
     return table.concat(parts, "\n")
 end
 
@@ -532,7 +541,6 @@ local function generate_luaopen(prog, modname)
         ${TBL_DECL} = luaH_new(L);
         luaH_resizearray(L, ${TBL}, ${N});
         ${ARR_DECL} = ${TBL}->array;
-        (void) ${ARR};
     ]], {
         N = c_integer(prog._n_globals),
         TBL = ctx.upvalues.table.name,
@@ -1031,11 +1039,19 @@ generate_exp = function(exp, ctx)
                     exp._type.elem, slot, field_cvalue, tbl.name))
             end
 
+            -- Avoid warnings
+            if #init_cstats == 0 then
+                table.insert(init_cstats, util.render([[
+                    (void) ${ARRAY_PART};
+                ]], {
+                    ARRAY_PART = array_part.name
+                }))
+            end
+
             local cstats = util.render([[
                 ${TBL_DECL} = luaH_new(L);
                 luaH_resizearray(L, ${TBL}, ${N});
                 ${ARRAY_PART_DECL} = ${TBL}->array;
-                (void) ${ARRAY_PART};
                 ${FIELD_INIT}
             ]], {
                 TBL = tbl.name,
