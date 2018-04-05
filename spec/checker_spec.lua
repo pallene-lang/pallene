@@ -424,17 +424,6 @@ describe("Titan type checker", function()
         assert.matches("type hint for array or record initializer is not an array or record type", errors)
     end)
 
-    it("allows setting element of array as nil", function ()
-        local code = [[
-            function fn()
-                local arr: {integer} = { 10, 20, 30 }
-                arr[1] = nil
-            end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.truthy(prog)
-    end)
-
     it("type-checks numeric 'for' (integer, implicit step)", function()
         local code = [[
             function fn(x: integer): integer

@@ -314,9 +314,7 @@ check_stat = function(stat, errors, rettypes)
         elseif texp._tag == types.T.Function then
             type_error(errors, stat.loc, "trying to assign to a function")
         else
-            if stat.var._tag ~= ast.Var.Bracket or stat.exp._type._tag ~= types.T.Nil then
-                checkmatch("assignment", stat.var._type, stat.exp._type, errors, stat.var.loc)
-            end
+            checkmatch("assignment", stat.var._type, stat.exp._type, errors, stat.var.loc)
         end
         return false
 
