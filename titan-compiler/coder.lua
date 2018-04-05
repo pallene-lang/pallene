@@ -142,12 +142,13 @@ end
 
 -- @returns A syntactically valid variable declaration
 local function c_declaration(cvar)
+    local comment
     if cvar.comment then
-        return string.format("%s %s /* %s */", cvar.ctyp, cvar.name,
-            cvar.comment)
+        comment = string.format(" /* %s */", cvar.comment)
     else
-        return string.format("%s %s", cvar.ctyp, cvar.name)
+        comment = ""
     end
+    return string.format("%s %s%s", cvar.ctyp, cvar.name, comment)
 end
 
 -- Indicates which GC variables should be saved in the Lua stack and which slot
