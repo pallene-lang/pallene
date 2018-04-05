@@ -354,7 +354,7 @@ local function gc_save_vars(ctx)
         TOP_DECL = c_declaration(top)
     }))
 
-    for i, tvar in ipairs(ctx.live_vars) do
+    for _, tvar in ipairs(ctx.live_vars) do
         local slot = util.render("s2v($TOP)", { TOP = top.name })
         table.insert(parts, util.render([[
             ${SET_SLOT} ${TOP}++;
