@@ -473,7 +473,7 @@ local function generate_luaopen_upvalue_array(prog, ctx)
             elseif tag == ast.Toplevel.Var then
                 ctx:begin_scope()
                 local exp = tl_node.value
-                local cstats, cvalue = generate_exp(exp)
+                local cstats, cvalue = generate_exp(exp, ctx)
                 table.insert(parts, cstats)
                 table.insert(parts, set_heap_slot(
                     exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
