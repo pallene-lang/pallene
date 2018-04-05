@@ -357,7 +357,7 @@ local function generate_lua_entry_point(tl_node)
     local ctx = Context.new()
 
 
-    local base = ctx:new_cvar("StackValue*")
+    local base = ctx:new_cvar("StackValue*", "ci->func")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
         BASE_DECL = c_declaration(base)
     })
@@ -369,12 +369,28 @@ local function generate_lua_entry_point(tl_node)
         })
     end
 
+    local nargs = ctx:new_cvar("int", "nargs")
+    local check_nargs = util.render([[
+        ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
+        if (${NARGS} != ${EXPECTED}) {
+            luaL_error(L,
+                "wrong number of arguments to function, "
+                "expected %d but received %d",
+                ${EXPECTED}, ${NARGS});
+        }
+    ]], {
+        BASE = base.name,
+        NARGS = nargs.name,
+        NARGS_DECL = c_declaration(nargs),
+        EXPECTED = c_integer(#tl_node.params),
+    })
+
     -- TODO: fix: the error message is not able specify if the
     -- given type is float or integer (it prints "number")
-    local check_args = {}
+    local check_types = {}
     for i, param in ipairs(tl_node.params) do
         local slot = ctx:new_cvar("TValue*")
-        table.insert(check_args, util.render([[
+        table.insert(check_types, util.render([[
             ${SLOT_DECL} = ${SLOT_ADDRESS};
             if (!${CHECK_TAG}) {
                 luaL_error(L,
@@ -443,7 +459,8 @@ local function generate_lua_entry_point(tl_node)
         static int ${LUA_ENTRY_POINT}(lua_State *L)
         {
             ${SET_BASE}
-            ${CHECK_ARGS}
+            ${CHECK_NARGS}
+            ${CHECK_TYPES}
             ${GET_ARGS}
             ${SET_RETURN}
             return ${NRET};
@@ -451,7 +468,8 @@ local function generate_lua_entry_point(tl_node)
     ]], {
         LUA_ENTRY_POINT = tl_node._lua_entry_point,
         SET_BASE = set_base,
-        CHECK_ARGS = table.concat(check_args, "\n"),
+        CHECK_NARGS = check_nargs,
+        CHECK_TYPES = table.concat(check_types, "\n"),
         GET_ARGS = table.concat(get_args, "\n"),
         SET_RETURN = set_return,
         NRET = c_integer(#tl_node._type.rettypes),
