@@ -54,6 +54,12 @@ local whole_file_template = [[
 
 #include "math.h"
 
+#define titan_setclvalue(L,obj,x) \
+  { TValue *io = (obj); Closure *x_ = (x); \
+    GCObject *gco = obj2gco(x_); \
+    val_(io).gc = gco; settt_(io, ctb(gco->tt)); \
+    checkliveness(L,io); }
+
 /* This pragma is used to ignore noisy warnings caused by clang's -Wall */
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wparentheses-equality"
@@ -61,34 +67,7 @@ local whole_file_template = [[
 
 ${DEFINE_FUNCTIONS}
 
-int init_${MODNAME}(lua_State *L)
-{
-    ${INITIALIZE_TOPLEVEL}
-    return 0;
-}
-
-int luaopen_${MODNAME}(lua_State *L)
-{
-    Table *titan_globals = luaH_new(L);
-    luaH_resizearray(L, titan_globals, ${N_GLOBALS});
-
-    /* Save to stack because lua_call might invoke the GC */
-    sethvalue(L, s2v(L->top), titan_globals);
-    api_incr_top(L);
-
-    {
-        CClosure *func = luaF_newCclosure(L, 1);
-        func->f = init_${MODNAME};
-        sethvalue(L, &func->upvalue[0], titan_globals);
-        setclCvalue(L, s2v(L->top), func);
-        api_incr_top(L);
-
-        lua_call(L, 0, 0);
-    }
-
-    ${CREATE_MODULE_TABLE}
-    return 1;
-}
+${LUAOPEN_FUNCTION}
 ]]
 
 --
@@ -146,7 +125,7 @@ local function ctype(typ)
     elseif tag == types.T.Integer  then return "lua_Integer"
     elseif tag == types.T.Float    then return "lua_Number"
     elseif tag == types.T.String   then return "TString *"
-    elseif tag == types.T.Function then error("not implemented yet")
+    elseif tag == types.T.Function then return "Closure *"
     elseif tag == types.T.Array    then return "Table *"
     elseif tag == types.T.Record   then error("not implemented yet")
     else error("impossible")
@@ -236,7 +215,7 @@ local function get_slot(typ, src_slot_address)
     elseif tag == types.T.Integer  then tmpl = "ivalue(${SRC})"
     elseif tag == types.T.Float    then tmpl = "fltvalue(${SRC})"
     elseif tag == types.T.String   then tmpl = "tsvalue(${SRC})"
-    elseif tag == types.T.Function then error("not implemented")
+    elseif tag == types.T.Function then tmpl = "clvalue(${SRC})"
     elseif tag == types.T.Array    then tmpl = "hvalue(${SRC})"
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
@@ -255,7 +234,7 @@ local function set_slot_(typ, dst_slot_address, value)
     elseif tag == types.T.Integer  then tmpl = "setivalue(${DST}, ${SRC});"
     elseif tag == types.T.Float    then tmpl = "setfltvalue(${DST}, ${SRC});"
     elseif tag == types.T.String   then tmpl = "setsvalue(L, ${DST}, ${SRC});"
-    elseif tag == types.T.Function then error("not implemented yet")
+    elseif tag == types.T.Function then tmpl = "titan_setclvalue(L, ${DST}, ${SRC});"
     elseif tag == types.T.Array    then tmpl = "sethvalue(L, ${DST}, ${SRC});"
     elseif tag == types.T.Record   then error("not implemented yet")
     else error("impossible")
@@ -271,7 +250,7 @@ local function check_tag(typ, slot)
     elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
     elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
     elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
-    elseif tag == types.T.Function then error("not implemented")
+    elseif tag == types.T.Function then tmpl = "ttisclosure(${SLOT})"
     elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
@@ -341,8 +320,8 @@ local function generate_titan_entry_point(tl_node)
     if #tl_node._referenced_globals > 0 then
         local closure = ctx:new_cvar("CClosure *")
         ctx.upvalues = {
-            table = ctx:new_cvar("Table *", "titan_globals_table"),
-            array = ctx:new_cvar("TValue *", "titan_globals_arr"),
+            table = ctx:new_cvar("Table *", "upvalue table"),
+            array = ctx:new_cvar("TValue *", "upvalue array"),
         }
         table.insert(body, util.render([[
             ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
@@ -459,6 +438,142 @@ local function generate_lua_entry_point(tl_node)
     })
 end
 
+local function generate_luaopen_upvalue_array(prog, ctx)
+    local parts = {}
+
+    for _, tl_node in ipairs(prog) do
+        if tl_node._global_index then
+            local arr_slot = util.render([[ &${ARR}[${I}] ]], {
+                ARR = ctx.upvalues.array.name,
+                I = c_integer(tl_node._global_index),
+            })
+
+            table.insert(parts,
+                string.format("/* %s */", ast.toplevel_name(tl_node)))
+
+            local tag = tl_node._tag
+            if     tag == ast.Toplevel.Func then
+                ctx:begin_scope()
+                local func    = ctx:new_cvar("CClosure*")
+                local func_cl = "((Closure*)" .. func.name .. ")"
+                table.insert(parts,
+                    util.render([[
+                        ${FUNC_DECL} = luaF_newCclosure(L, 1);
+                        ${FUNC}->f = ${LUA_ENTRY_POINT};
+                        sethvalue(L, &${FUNC}->upvalue[0], ${UPVALUES});
+                        ${SET_SLOT}
+                    ]],{
+                        LUA_ENTRY_POINT = tl_node._lua_entry_point,
+                        UPVALUES = ctx.upvalues.table.name,
+                        FUNC = func.name,
+                        FUNC_DECL = c_declaration(func),
+                        SET_SLOT = set_heap_slot( -- TODO
+                            tl_node._type, arr_slot, func_cl,
+                            ctx.upvalues.table.name),
+                    })
+                )
+                ctx:end_scope()
+
+            elseif tag == ast.Toplevel.Var then
+                ctx:begin_scope()
+                local exp = tl_node.value
+                local cstats, cvalue = generate_exp(exp)
+                table.insert(parts, cstats)
+                table.insert(parts, set_heap_slot(
+                    exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
+                ctx:end_scope()
+
+            else
+                error("impossible")
+            end
+        end
+    end
+
+    return table.concat(parts, "\n")
+end
+
+local function generate_luaopen_exports_table(prog, ctx)
+
+    local n_exported_functions = 0
+    local parts = {}
+
+    for _, tl_node in ipairs(prog) do
+        if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
+            n_exported_functions = n_exported_functions + 1
+            table.insert(parts,
+                util.render([[
+                    lua_pushstring(L, ${NAME});
+                    setobj(L, s2v(L->top), &${ARR}[${I}]); api_incr_top(L);
+                    lua_settable(L, -3);
+                ]], {
+                    NAME = c_string(ast.toplevel_name(tl_node)),
+                    ARR = ctx.upvalues.array.name,
+                    I = c_integer(tl_node._global_index)
+                })
+            )
+        end
+    end
+
+    return util.render([[
+        lua_createtable(L, 0, ${N});
+        ${PARTS}
+    ]], {
+        N = c_integer(n_exported_functions),
+        PARTS = table.concat(parts, "\n")
+    })
+end
+
+local function generate_luaopen(prog, modname)
+    local ctx = Context.new()
+    -- TODO: this is actually an array of Value
+    local table_typ = types.T.Array( types.T.Integer() )
+    ctx.upvalues = {
+        table = ctx:new_tvar(table_typ), -- tvar: Don't GC this!
+        array = ctx:new_cvar("TValue *"),
+    }
+
+    local allocate_upvalues = util.render([[
+        ${TBL_DECL} = luaH_new(L);
+        luaH_resizearray(L, ${TBL}, ${N});
+        ${ARR_DECL} = ${TBL}->array;
+        (void) ${ARR};
+    ]], {
+        N = c_integer(prog._n_globals),
+        TBL = ctx.upvalues.table.name,
+        TBL_DECL = c_declaration(ctx.upvalues.table),
+        ARR = ctx.upvalues.array.name,
+        ARR_DECL = c_declaration(ctx.upvalues.array),
+    })
+
+    local init_upvalues =
+        generate_luaopen_upvalue_array(prog, ctx)
+
+    local init_exports =
+        generate_luaopen_exports_table(prog, ctx)
+
+    return util.render([[
+        int luaopen_${MODNAME}(lua_State *L)
+        {
+            /* Allocate upvalue table */
+            /* ---------------------- */
+            ${ALLOCATE_UPVALUES}
+            /* Initialize upvalue table */
+            /* ------------------------ */
+            ${INIT_UPVALUES}
+            /* Create exports table     */
+            /* ------------------------ */
+            ${INIT_EXPORTS}
+            return 1;
+        }
+    ]], {
+        MODNAME = modname,
+        ALLOCATE_UPVALUES = allocate_upvalues,
+        INIT_UPVALUES = init_upvalues,
+        INIT_EXPORTS = init_exports,
+    })
+end
+
+
 -- @param prog: (ast) Annotated AST for the whole module
 -- @param modname: (string) Lua module name (for luaopen)
 -- @return (string) C code for the whole module
@@ -490,95 +605,12 @@ generate_program = function(prog, modname)
         define_functions = table.concat(function_definitions, "\n")
     end
 
-    -- Construct the values in the toplevel
-    -- This needs to happen inside a C closure with all the same upvalues that
-    -- a titan function has, because the initializer expressions might rely on
-    -- that.
-    local initialize_toplevel
-    do
-        local parts = {}
-
-        if prog._n_globals > 0 then
-            table.insert(parts,
-                [[Table *titan_globals = hvalue(&clCvalue(s2v(L->ci->func))->upvalue[0]);]])
-        end
-
-        for _, tl_node in ipairs(prog) do
-            if tl_node._global_index then
-                local arr_slot = util.render([[ &titan_globals->array[${I}] ]], {
-                    I = c_integer(tl_node._global_index)
-                })
-
-                local tag = tl_node._tag
-                if     tag == ast.Toplevel.Func then
-                    table.insert(parts,
-                        util.render([[
-                            {
-                                CClosure *func = luaF_newCclosure(L, 1);
-                                func->f = ${LUA_ENTRY_POINT};
-                                sethvalue(L, &func->upvalue[0], titan_globals);
-                                setclCvalue(L, ${ARR_SLOT}, func);
-                            }
-                        ]],{
-                            LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                            TITAN_ENTRY_POINT = tl_node._titan_entry_point,
-                            ARR_SLOT = arr_slot,
-                        })
-                    )
-                elseif tag == ast.Toplevel.Var then
-                    local exp = tl_node.value
-                    local cstats, cvalue = generate_exp(exp)
-                    table.insert(parts, cstats)
-                    table.insert(parts, set_heap_slot(
-                        exp._type, arr_slot, cvalue, arr_slot))
-                else
-                    error("impossible")
-                end
-            end
-        end
-
-        initialize_toplevel = table.concat(parts, "\n")
-    end
-
-    local create_module_table
-    do
-
-        local n_exported_functions = 0
-        local parts = {}
-        for _, tl_node in ipairs(prog) do
-            if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
-                n_exported_functions = n_exported_functions + 1
-                table.insert(parts,
-                    util.render([[
-                        lua_pushstring(L, ${NAME});
-                        setobj(L, s2v(L->top), &titan_globals->array[${I}]); api_incr_top(L);
-                        lua_settable(L, -3);
-                    ]], {
-                        NAME = c_string(ast.toplevel_name(tl_node)),
-                        I = c_integer(tl_node._global_index)
-                    })
-                )
-            end
-        end
-
-        create_module_table = util.render([[
-            {
-                /* Initialize module table */
-                lua_createtable(L, 0, ${N});
-                ${PARTS}
-            }
-        ]], {
-            N = c_integer(n_exported_functions),
-            PARTS = table.concat(parts, "\n")
-        })
-    end
+    local luaopen_function =
+        generate_luaopen(prog, modname)
 
     local code = util.render(whole_file_template, {
-        MODNAME = modname,
-        N_GLOBALS = c_integer(prog._n_globals),
         DEFINE_FUNCTIONS = define_functions,
-        INITIALIZE_TOPLEVEL = initialize_toplevel,
-        CREATE_MODULE_TABLE = create_module_table,
+        LUAOPEN_FUNCTION = luaopen_function,
     })
     return pretty.reindent_c(code)
 end
@@ -1007,7 +1039,7 @@ generate_exp = function(exp, ctx)
                 ${TBL_DECL} = luaH_new(L);
                 luaH_resizearray(L, ${TBL}, ${N});
                 ${ARRAY_PART_DECL} = ${TBL}->array;
-                (void) ${ARRAY_PART}; /* avoid warnings if array is empty */
+                (void) ${ARRAY_PART};
                 ${FIELD_INIT}
             ]], {
                 TBL = tbl.name,
