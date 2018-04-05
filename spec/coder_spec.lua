@@ -841,4 +841,36 @@ describe("Titan coder", function()
             ]])
         end)
     end)
+
+    describe("First class functions", function()
+        local inc_dec = [[
+            function inc(x:integer): integer
+                return x + 1
+            end
+            function dec(x:integer): integer
+                return x - 1
+            end
+            local f: integer->integer = inc
+            function setf(g:integer->integer): ()
+                f = g
+            end
+            function getf(): integer->integer
+                return f
+            end
+        ]]
+
+        it("Can get and set global function vars", function()
+            run_coder(inc_dec, [[
+                assert(11 == test.getf()(10))
+                test.setf(test.dec)
+                assert( 9 == test.getf()(10))
+            ]])
+        end)
+
+        it("Object identity for function variables", function()
+            run_coder(inc_dec, [[
+                assert(test.getf() == test.getf())
+            ]])
+        end)
+    end)
 end)

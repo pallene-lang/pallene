@@ -1069,17 +1069,15 @@ generate_var = function(var, ctx)
             -- Local variable
             return "", coder.Lvalue.CVar(decl._cvar.name)
 
-        elseif decl._tag == ast.Toplevel.Var then
+        elseif decl._tag == ast.Toplevel.Var or
+                decl._tag == ast.Toplevel.Func
+        then
             local i = c_integer(decl._global_index)
             local slot_exp = util.render("&${ARR}[${I}]", {
                 ARR = ctx.upvalues.array.name,
                 I = i,
             })
             return "", coder.Lvalue.SafeSlot(slot_exp, ctx.upvalues.table.name)
-
-        elseif decl._tag == ast.Toplevel.Func then
-            -- Toplevel function
-            error("not implemented yet")
 
         else
             error("impossible")
