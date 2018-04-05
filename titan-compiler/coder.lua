@@ -336,12 +336,7 @@ local function generate_titan_entry_point(tl_node)
             ARR_DECL = c_declaration(ctx.upvalues.array),
         }))
     end
-    assert(tl_node.block._tag == ast.Stat.Block)
-    ctx:begin_scope()
-    for _, stat in ipairs(tl_node.block.stats) do
-        table.insert(body, generate_stat(stat, ctx))
-    end
-    ctx:end_scope()
+    table.insert(body, generate_stat(tl_node.block, ctx))
 
     return util.render([[
         static ${RET} ${NAME}(
