@@ -604,9 +604,6 @@ end
 local function generate_luaopen_modvar_upvalues(prog, ctx)
     local parts = {}
 
-
-
-
     for _, tl_node in ipairs(prog) do
         if tl_node._global_index then
             local arr_slot = util.render([[ &${ARR}[${I}] ]], {
@@ -815,8 +812,10 @@ generate_stat = function(stat, ctx)
         return table.concat(cstatss, "\n")
 
     elseif tag == ast.Stat.While then
+        ctx:begin_scope()
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
         local block_cstats = generate_stat(stat.block, ctx)
+        ctx:end_scope()
         return util.render([[
             for(;;) {
                 ${COND_STATS}
@@ -830,8 +829,10 @@ generate_stat = function(stat, ctx)
         })
 
     elseif tag == ast.Stat.Repeat then
+        ctx:begin_scope()
         local block_cstats = generate_stat(stat.block, ctx)
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
+        ctx:end_scope()
         return util.render([[
             for(;;){
                 ${BLOCK}
@@ -845,6 +846,8 @@ generate_stat = function(stat, ctx)
         })
 
     elseif tag == ast.Stat.If then
+        ctx:begin_scope()
+
         local cstats
         if stat.elsestat then
             cstats = generate_stat(stat.elsestat, ctx)
@@ -870,9 +873,12 @@ generate_stat = function(stat, ctx)
             })
         end
 
+        ctx:end_scope()
+
         return cstats
 
     elseif tag == ast.Stat.For then
+        ctx:begin_scope()
         local typ = stat.decl._type
 
         local start_cstats, start_cvalue = generate_exp(stat.start, ctx)
@@ -910,6 +916,7 @@ generate_stat = function(stat, ctx)
             error("impossible")
         end
 
+        ctx:end_scope()
         return util.render([[
             {
                 ${START_STAT}
@@ -942,6 +949,7 @@ generate_stat = function(stat, ctx)
         })
 
     elseif tag == ast.Stat.Assign then
+        ctx:begin_scope()
         local var_cstats, var_lvalue = generate_var(stat.var, ctx)
         local exp_cstats, exp_cvalue = generate_exp(stat.exp, ctx)
         local assign_stat
@@ -973,6 +981,7 @@ generate_stat = function(stat, ctx)
         else
             error("impossible")
         end
+        ctx:end_scope()
         return util.render([[
             ${VAR_STATS}
             ${EXP_STATS}
@@ -984,7 +993,9 @@ generate_stat = function(stat, ctx)
         })
 
     elseif tag == ast.Stat.Decl then
+        ctx:begin_scope()
         local exp_cstats, exp_cvalue = generate_exp(stat.exp, ctx)
+        ctx:end_scope() -- (don't put the tvar inside this scope!)
         stat.decl._cvar = ctx:new_tvar(stat.decl._type, stat.decl.name)
         return util.render([[
             ${STATS}
@@ -996,6 +1007,7 @@ generate_stat = function(stat, ctx)
         })
 
     elseif tag == ast.Stat.Call then
+        ctx:begin_scope()
         local cstats, cvalue = generate_exp(stat.callexp, ctx)
 
         local ignore_result
@@ -1004,6 +1016,7 @@ generate_stat = function(stat, ctx)
         else
             ignore_result = "(void) " .. cvalue .. ";"
         end
+        ctx:end_scope()
 
         return util.render([[
             ${STATS}
@@ -1015,7 +1028,7 @@ generate_stat = function(stat, ctx)
 
     elseif tag == ast.Stat.Return then
         assert(#stat.exps <= 1)
-
+        ctx:begin_scope()
         local cstats, cvalue
         if #stat.exps == 0 then
             cstats = ""
@@ -1023,7 +1036,7 @@ generate_stat = function(stat, ctx)
         else
             cstats, cvalue = generate_exp(stat.exps[1], ctx)
         end
-
+        ctx:end_scope()
         return util.render([[
             ${CSTATS}
             return ${CVALUE};
