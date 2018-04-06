@@ -695,6 +695,8 @@ local function generate_luaopen_exports_table(prog, ctx)
 
     local parts = {}
 
+    table.insert(parts, gc_save_vars(ctx)) -- createtable may call gc
+
     ctx:reserve_slots(3)
     table.insert(parts, util.render([[
         lua_createtable(L, 0, ${N});
@@ -717,6 +719,10 @@ local function generate_luaopen_exports_table(prog, ctx)
         end
     end
     ctx:free_slots(3)
+
+    -- Don't free the vars because the table we want to return is still on top
+    -- and we are already returning anyway...
+    --table.insert(parts, gc_release_vars(ctx))
 
     return table.concat(parts, "\n")
 end
