@@ -960,18 +960,17 @@ generate_stat = function(stat, ctx)
 
         ctx:end_scope()
         return util.render([[
-            {
-                ${START_STAT}
-                ${START_DECL} = ${START_VALUE};
-                ${FINISH_STAT}
-                ${FINISH_DECL} = ${FINISH_VALUE};
-                ${INC_STAT}
-                ${INC_DECL} = ${INC_VALUE};
-                while (${LOOP_COND}) {
-                    ${LOOP_DECL} = ${START};
-                    ${BLOCK}
-                    ${LOOP_STEP}
-                }
+            ${START_STAT}
+            ${START_DECL} = ${START_VALUE};
+            ${FINISH_STAT}
+            ${FINISH_DECL} = ${FINISH_VALUE};
+            ${INC_STAT}
+            ${INC_DECL} = ${INC_VALUE};
+            while (${LOOP_COND}) {
+                ${LOOPVAR_DECL} = ${START};
+                (void) ${LOOPVAR};
+                ${BLOCK}
+                ${LOOP_STEP}
             }
         ]], {
             START = start.name,
@@ -986,7 +985,8 @@ generate_stat = function(stat, ctx)
             INC_DECL  = c_declaration(inc),
             LOOP_COND = loop_cond,
             LOOP_STEP = loop_step,
-            LOOP_DECL = c_declaration(stat.decl._cvar),
+            LOOPVAR      = stat.decl._cvar.name,
+            LOOPVAR_DECL = c_declaration(stat.decl._cvar),
             BLOCK = block_cstats,
         })
 
