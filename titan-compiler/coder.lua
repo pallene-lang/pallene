@@ -163,24 +163,31 @@ Context.__index = Context
 function Context.new()
     local o = {
         tmp_index = 1,       -- next free tmp variable name
-        stack_slots = 0,     -- current number of used stack slots
+
+        n_stack_slots = 0,   -- current number of used stack slots
         max_stack_slots = 0, -- maximum number of needed stack slots
+
         live_vars = {},      -- (superset of) current live gc variables
         scopes = {},         -- first index of each scope
-        is_saving = false,   -- ensure allocations between gc_save and gc_release
+
+        n_saved_vars = 0,    -- how many vars are currently saved in stack
+        saveds = {},         -- first index of each group of saved variables
+
         upvalues = false,    -- global upvalues table and array
     }
     return setmetatable(o, Context)
 end
 
 function Context:reserve_slots(n)
-    self.stack_slots = self.stack_slots + n
-    self.max_stack_slots = math.max(self.max_stack_slots, self.stack_slots)
+    assert(n >= 0)
+    self.n_stack_slots = self.n_stack_slots + n
+    self.max_stack_slots = math.max(self.max_stack_slots, self.n_stack_slots)
 end
 
 function Context:free_slots(n)
-    self.stack_slots = self.stack_slots - n
-    self.max_stack_slots = math.max(self.max_stack_slots, self.stack_slots)
+    assert(n >= 0)
+    self.n_stack_slots = self.n_stack_slots - n
+    assert(self.n_stack_slots >= self.n_saved_vars)
 end
 
 function Context:begin_scope()
@@ -190,10 +197,32 @@ end
 function Context:end_scope()
     assert(#self.scopes > 0)
     local scope_start = self.scopes[#self.scopes]
+    assert(scope_start > self.n_saved_vars)
     for _ = #self.live_vars, scope_start, -1 do
         table.remove(self.live_vars)
     end
     table.remove(self.scopes)
+end
+
+function Context:begin_save()
+    local first = self.n_saved_vars + 1
+    local last  = #self.live_vars
+    local n = last - first + 1
+    self:reserve_slots(n)
+    self.n_saved_vars = last
+    table.insert(self.saveds, first)
+    return first, last, n
+end
+
+function Context:end_save()
+    assert(#self.saveds > 0)
+    local first = self.saveds[#self.saveds]
+    local last  = self.n_saved_vars
+    local n = last - first + 1
+    table.remove(self.saveds)
+    self.n_saved_vars = first - 1
+    self:free_slots(n)
+    return first, last, n
 end
 
 function Context:new_name()
@@ -210,7 +239,6 @@ end
 function Context:new_tvar(typ, comment)
     local cvar = self:new_cvar(ctype(typ), comment)
     if types.is_gc(typ) then
-        assert(not self.is_saving)
         table.insert(self.live_vars, new_tvar(cvar, typ))
     end
     return cvar
@@ -335,15 +363,12 @@ end
 -- Push potentially live variables to the Lua stack, so the Lua GC can see they
 -- are not garbage.
 local function gc_save_vars(ctx)
-    assert(not ctx.is_saving)
-    ctx.is_saving = true
+    local first, last, n = ctx:begin_save()
 
     -- Avoid warnings
-    if #ctx.live_vars == 0 then
+    if n == 0 then
         return ""
     end
-
-    ctx:reserve_slots(#ctx.live_vars)
 
     local parts = {}
 
@@ -354,7 +379,8 @@ local function gc_save_vars(ctx)
         TOP_DECL = c_declaration(top)
     }))
 
-    for _, tvar in ipairs(ctx.live_vars) do
+    for i = first, last do
+        local tvar = ctx.live_vars[i]
         local slot = util.render("s2v($TOP)", { TOP = top.name })
         table.insert(parts, util.render([[
             ${SET_SLOT} ${TOP}++;
@@ -375,20 +401,17 @@ end
 
 -- Release variables saved by gc_save_vars
 local function gc_release_vars(ctx)
-    assert(ctx.is_saving)
-    ctx.is_saving = false
+    local _first, _last, n = ctx:end_save()
 
      -- Avoid warnings
-    if #ctx.live_vars == 0 then
+    if n == 0 then
         return ""
     end
-
-    ctx:free_slots(#ctx.live_vars)
 
     return util.render([[
         L->top -= ${NSLOTS};
     ]], {
-        NSLOTS = c_integer(#ctx.live_vars)
+        NSLOTS = c_integer(n)
     })
 end
 
@@ -1296,7 +1319,7 @@ generate_exp = function(exp, ctx)
                 table.insert(arg_cvalues, cvalue)
             end
 
-            local save_vars    = gc_save_vars(ctx)
+            local save_vars = gc_save_vars(ctx)
 
             local tl_node = fexp.var._decl
 
