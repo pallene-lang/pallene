@@ -867,6 +867,12 @@ describe("Titan coder", function()
             end
         ]]
 
+        it("Object identity for function variables", function()
+            run_coder(inc_dec, [[
+                assert(test.getf() == test.getf())
+            ]])
+        end)
+
         it("Can get and set global function vars", function()
             run_coder(inc_dec, [[
                 assert(11 == test.getf()(10))
@@ -881,9 +887,17 @@ describe("Titan coder", function()
             ]])
         end)
 
-        it("Object identity for function variables", function()
-            run_coder(inc_dec, [[
-                assert(test.getf() == test.getf())
+        it("Can call Lua functions", function()
+            run_coder([[
+                function call(
+                    f : integer -> integer,
+                    x : integer
+                ) :  integer
+                    return f(x)
+                end
+            ]], [[
+                local f = function(x) return x * 20 end
+                assert(200 == test.call(f, 10))
             ]])
         end)
     end)
