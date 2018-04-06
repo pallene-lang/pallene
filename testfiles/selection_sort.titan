@@ -1,4 +1,4 @@
-function selection_sort(xs: {integer}): nil
+function selection_sort(xs: {integer}): ()
     local N: integer = #xs
     for i: integer = 1, N do
 
