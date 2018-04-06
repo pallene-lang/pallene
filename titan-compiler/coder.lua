@@ -54,12 +54,6 @@ local whole_file_template = [[
 
 #include "math.h"
 
-#define titan_setclvalue(L,obj,x) \
-  { TValue *io = (obj); Closure *x_ = (x); \
-    GCObject *gco = obj2gco(x_); \
-    val_(io).gc = gco; settt_(io, ctb(gco->tt)); \
-    checkliveness(L,io); }
-
 /* This pragma is used to ignore noisy warnings caused by clang's -Wall */
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wparentheses-equality"
@@ -125,7 +119,7 @@ local function ctype(typ)
     elseif tag == types.T.Integer  then return "lua_Integer"
     elseif tag == types.T.Float    then return "lua_Number"
     elseif tag == types.T.String   then return "TString *"
-    elseif tag == types.T.Function then return "Closure *"
+    elseif tag == types.T.Function then return "TValue"
     elseif tag == types.T.Array    then return "Table *"
     elseif tag == types.T.Record   then error("not implemented yet")
     else error("impossible")
@@ -260,7 +254,7 @@ local function get_slot(typ, src_slot_address)
     elseif tag == types.T.Integer  then tmpl = "ivalue(${SRC})"
     elseif tag == types.T.Float    then tmpl = "fltvalue(${SRC})"
     elseif tag == types.T.String   then tmpl = "tsvalue(${SRC})"
-    elseif tag == types.T.Function then tmpl = "clvalue(${SRC})"
+    elseif tag == types.T.Function then tmpl = "*${SRC}"
     elseif tag == types.T.Array    then tmpl = "hvalue(${SRC})"
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
@@ -279,7 +273,7 @@ local function set_slot_(typ, dst_slot_address, value)
     elseif tag == types.T.Integer  then tmpl = "setivalue(${DST}, ${SRC});"
     elseif tag == types.T.Float    then tmpl = "setfltvalue(${DST}, ${SRC});"
     elseif tag == types.T.String   then tmpl = "setsvalue(L, ${DST}, ${SRC});"
-    elseif tag == types.T.Function then tmpl = "titan_setclvalue(L, ${DST}, ${SRC});"
+    elseif tag == types.T.Function then tmpl = "setobj(L, ${DST}, &${SRC});"
     elseif tag == types.T.Array    then tmpl = "sethvalue(L, ${DST}, ${SRC});"
     elseif tag == types.T.Record   then error("not implemented yet")
     else error("impossible")
@@ -295,7 +289,7 @@ local function check_tag(typ, slot)
     elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
     elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
     elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
-    elseif tag == types.T.Function then tmpl = "ttisclosure(${SLOT})"
+    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
     elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
@@ -318,6 +312,15 @@ end
 local function barrierback(typ, p, v)
     if not types.is_gc(typ) then
         return ""
+    elseif typ._tag == types.T.Function then
+        return util.render([[
+            if (iscollectable(&${V}) && isblack(obj2gco(${P})) && iswhite(gcvalue(&${V}))) {
+                luaC_barrierback_(L, obj2gco(${P}));
+            }
+        ]], {
+            P = p,
+            V = v,
+        })
     else
         return util.render([[
             if (isblack(obj2gco(${P})) && iswhite(obj2gco(${V}))) {
@@ -646,21 +649,24 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
             local tag = tl_node._tag
             if     tag == ast.Toplevel.Func then
                 ctx:begin_scope()
-                local func    = ctx:new_cvar("CClosure*")
-                local func_cl = "((Closure*)" .. func.name .. ")"
+                local closure = ctx:new_cvar("CClosure*")
+                local func    = ctx:new_cvar("TValue")
                 table.insert(parts,
                     util.render([[
-                        ${FUNC_DECL} = luaF_newCclosure(L, 1);
-                        ${FUNC}->f = ${LUA_ENTRY_POINT};
-                        sethvalue(L, &${FUNC}->upvalue[0], ${UPVALUES});
+                        ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
+                        ${CLOSURE}->f = ${LUA_ENTRY_POINT};
+                        sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+                        ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
                         ${SET_SLOT}
                     ]],{
                         LUA_ENTRY_POINT = tl_node._lua_entry_point,
                         UPVALUES = ctx.upvalues.table.name,
+                        CLOSURE = closure.name,
+                        CLOSURE_DECL = c_declaration(closure),
                         FUNC = func.name,
                         FUNC_DECL = c_declaration(func),
-                        SET_SLOT = set_heap_slot( -- TODO
-                            tl_node._type, arr_slot, func_cl,
+                        SET_SLOT = set_heap_slot(
+                            tl_node._type, arr_slot, func.name,
                             ctx.upvalues.table.name),
                     })
                 )
