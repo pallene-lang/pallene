@@ -344,6 +344,15 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
+local function push_to_stack(typ, src)
+    return util.render([[
+        ${SET_SLOT}
+        api_incr_top(L);
+    ]],{
+        SET_SLOT = set_stack_slot(typ, "s2v(L->top)", src),
+    })
+end
+
 --
 -- GC
 --
@@ -584,12 +593,11 @@ local function generate_lua_entry_point(tl_node)
         ctx:reserve_slots(1)
         set_return = util.render([[
             ${RET_DECL} = ${TITAN_CALL};
-            ${SET_SLOT}
-            api_incr_top(L);
+            ${PUSH_RET}
         ]], {
             TITAN_CALL = titan_call,
             RET_DECL = c_declaration(ret),
-            SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", ret.name),
+            PUSH_RET = push_to_stack(ret_typ, ret.name),
         })
     else
         error("not implemented")
@@ -1358,8 +1366,84 @@ generate_exp = function(exp, ctx)
             return cstats, tmp_var
 
         else
-            -- First-class functions
-            error("not implemented yet")
+            -- First-class functions and Lua function calls
+            local nargs = #fexp._type.params
+            local nret = #fexp._type.rettypes
+
+            ctx:reserve_slots(1)
+            local push_function = {}
+            do
+                local cstats, cvalue = generate_exp(fexp, ctx)
+                table.insert(push_function, cstats)
+                table.insert(push_function, push_to_stack(fexp._type, cvalue))
+            end
+
+            ctx:reserve_slots(nargs)
+            local push_args = {}
+            for _, arg_exp in ipairs(fargs) do
+                local cstats, cvalue = generate_exp(arg_exp, ctx)
+                table.insert(push_args, cstats)
+                table.insert(push_args, push_to_stack(arg_exp._type, cvalue)
+                )
+            end
+
+            ctx:free_slots(nargs + 1)
+            ctx:reserve_slots(nret)
+            local call_function = util.render([[
+                lua_call(L, ${NARGS}, ${NRET});
+            ]], {
+                NARGS = nargs,
+                NRET = nret,
+            })
+
+            local check_rets = {}
+            local retval
+            if nret == 0 then
+                retval = "VOID"
+
+            elseif nret == 1 then
+                local ret_typ = fexp._type.rettypes[1]
+                local slot = ctx:new_cvar("TValue*")
+                local ret = ctx:new_tvar(ret_typ)
+                retval = ret.name
+                table.insert(check_rets, util.render([[
+                    ${SLOT_DECL} = s2v(L->top-1);
+                    if (!${CHECK_TAG}) {
+                        luaL_error(L,
+                            "wrong type for function result at line %d, "
+                            "expected %s but found %s",
+                            ${LINE}, ${EXP_TYPE},
+                            lua_typename(L, ttype(${SLOT})));
+                    }
+                    ${RET_DECL} = ${GET_SLOT};
+                    L->top--;
+                ]], {
+                    SLOT      = slot.name,
+                    SLOT_DECL = c_declaration(slot),
+                    CHECK_TAG = check_tag(ret_typ, slot.name),
+                    LINE = c_integer(exp.loc.line),
+                    EXP_TYPE = c_string(types.tostring(ret_typ)),
+                    RET_DECL = c_declaration(ret),
+                    GET_SLOT = get_slot(ret_typ, slot.name),
+                }))
+            else
+                error("not implemented")
+            end
+            ctx:free_slots(nret)
+
+            local cstats = util.render([[
+                ${PUSH_FUNCTION}
+                ${PUSH_ARGS}
+                ${CALL_FUNCTION}
+                ${CHECK_RETS}
+            ]], {
+                PUSH_FUNCTION = table.concat(push_function, "\n"),
+                PUSH_ARGS     = table.concat(push_args, "\n"),
+                CALL_FUNCTION = call_function,
+                CHECK_RETS    = table.concat(check_rets, "\n"),
+            })
+
+            return cstats, retval
         end
 
     elseif tag == ast.CallMethod then

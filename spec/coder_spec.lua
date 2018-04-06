@@ -847,15 +847,23 @@ describe("Titan coder", function()
             function inc(x:integer): integer
                 return x + 1
             end
+
             function dec(x:integer): integer
                 return x - 1
             end
+
             local f: integer->integer = inc
+
             function setf(g:integer->integer): ()
                 f = g
             end
+
             function getf(): integer->integer
                 return f
+            end
+
+            function callf(x:integer): integer
+                return f(x)
             end
         ]]
 
@@ -864,6 +872,12 @@ describe("Titan coder", function()
                 assert(11 == test.getf()(10))
                 test.setf(test.dec)
                 assert( 9 == test.getf()(10))
+            ]])
+        end)
+
+        it("Can call global function vars", function()
+            run_coder(inc_dec, [[
+                assert(11 == test.callf(10))
             ]])
         end)
 
