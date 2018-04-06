@@ -16,10 +16,7 @@ else
     c_compiler.CFLAGS_SHARED = "-fPIC -shared"
 end
 
-function c_compiler.compile_c_file(c_filename)
-    local name, ext = util.split_ext(c_filename)
-    assert(ext == "c")
-    local so_filename = name .. ".so"
+function c_compiler.compile_c_file(c_filename, so_filename)
     local args = {
         c_compiler.CC,
         c_compiler.CFLAGS_BASE,
@@ -27,7 +24,7 @@ function c_compiler.compile_c_file(c_filename)
         c_compiler.CFLAGS_SHARED,
         "-I", c_compiler.LUA_SOURCE_PATH,
         "-o", so_filename,
-        c_filename,
+        "-x", "c", c_filename,
     }
     local cmd = table.concat(args, " ")
     local ok = os.execute(cmd)
@@ -44,7 +41,8 @@ end
 function c_compiler.compile_titan(filename, input)
     local name, ext = util.split_ext(filename)
     assert(ext == "titan")
-    local c_filename = name .. ".c"
+    local c_filename = os.tmpname()
+    local so_filename = name .. ".so"
     local modname = string.gsub(name, "/", "_")
 
     local code, errors = coder.generate(filename, input, modname)
@@ -53,7 +51,9 @@ function c_compiler.compile_titan(filename, input)
     local ok, err = util.set_file_contents(c_filename, code)
     if not ok then return nil, {err} end
 
-    return c_compiler.compile_c_file(c_filename)
+    local ok, errs = c_compiler.compile_c_file(c_filename, so_filename)
+    os.remove(c_filename)
+    return ok, errs
 end
 
 return c_compiler

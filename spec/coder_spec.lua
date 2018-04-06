@@ -15,7 +15,6 @@ end
 
 describe("Titan coder", function()
     after_each(function()
-        os.execute("rm -f test.c")
         os.execute("rm -f test.so")
         os.execute("rm -f test_script.lua")
     end)
