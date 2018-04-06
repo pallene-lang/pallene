@@ -8,7 +8,7 @@ local util = require "titan-compiler.util"
 -- run the command a single time and return the time elapsed
 local function time(cmd)
     local result = util.shell(
-        [[ { TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1 ]])
+        [[ bash -c "{ TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1" ]])
     local time_elapsed = tonumber(result)
     if not time_elapsed then
         io.stderr:write(result, "\n")
