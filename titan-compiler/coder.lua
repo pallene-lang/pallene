@@ -496,7 +496,7 @@ end
 local function generate_lua_entry_point(tl_node)
     local ctx = Context.new()
 
-    local base = ctx:new_cvar("StackValue*", "ci->func")
+    local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
         BASE_DECL = c_declaration(base)
     })
