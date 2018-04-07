@@ -362,13 +362,6 @@ local function generate_lua_entry_point(tl_node)
         BASE_DECL = c_declaration(base)
     })
 
-    local function argslot(i)
-        return util.render("s2v(${BASE} + ${I})", {
-            BASE = base.name,
-            I = c_integer(i),
-        })
-    end
-
     local nargs = ctx:new_cvar("int", "nargs")
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
@@ -384,6 +377,13 @@ local function generate_lua_entry_point(tl_node)
         NARGS_DECL = c_declaration(nargs),
         EXPECTED = c_integer(#tl_node.params),
     })
+
+    local function argslot(i)
+        return util.render("s2v(${BASE} + ${I})", {
+            BASE = base.name,
+            I = c_integer(i),
+        })
+    end
 
     -- TODO: fix: the error message is not able specify if the
     -- given type is float or integer (it prints "number")
@@ -476,7 +476,7 @@ local function generate_lua_entry_point(tl_node)
     })
 end
 
-local function generate_luaopen_upvalue_array(prog, ctx)
+local function generate_luaopen_modvar_upvalues(prog, ctx)
     local parts = {}
 
     for _, tl_node in ipairs(prog) do
@@ -540,7 +540,6 @@ local function generate_luaopen_upvalue_array(prog, ctx)
 end
 
 local function generate_luaopen_exports_table(prog, ctx)
-
     local n_exported_functions = 0
     local parts = {}
 
@@ -573,7 +572,7 @@ end
 local function generate_luaopen(prog, modname)
     local ctx = Context.new()
     -- TODO: this is actually an array of Value
-    local table_typ = types.T.Array( types.T.Integer() )
+    local table_typ = types.T.Array(types.T.Integer())
     ctx.upvalues = {
         table = ctx:new_tvar(table_typ), -- tvar: Don't GC this!
         array = ctx:new_cvar("TValue *"),
@@ -592,7 +591,7 @@ local function generate_luaopen(prog, modname)
     })
 
     local init_upvalues =
-        generate_luaopen_upvalue_array(prog, ctx)
+        generate_luaopen_modvar_upvalues(prog, ctx)
 
     local init_exports =
         generate_luaopen_exports_table(prog, ctx)
@@ -603,8 +602,8 @@ local function generate_luaopen(prog, modname)
             /* Allocate upvalue table */
             /* ---------------------- */
             ${ALLOCATE_UPVALUES}
-            /* Initialize upvalue table */
-            /* ------------------------ */
+            /* Initialize module var upvalues */
+            /* ------------------------------ */
             ${INIT_UPVALUES}
             /* Create exports table     */
             /* ------------------------ */
@@ -618,7 +617,6 @@ local function generate_luaopen(prog, modname)
         INIT_EXPORTS = init_exports,
     })
 end
-
 
 -- @param prog: (ast) Annotated AST for the whole module
 -- @param modname: (string) Lua module name (for luaopen)
