@@ -347,7 +347,8 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
-local function push_to_stack(typ, src)
+local function push_to_stack(ctx, typ, src)
+    ctx:reserve_slots(1)
     return util.render([[
         ${SET_SLOT}
         api_incr_top(L);
@@ -593,14 +594,14 @@ local function generate_lua_entry_point(tl_node)
     elseif #tl_node._type.rettypes == 1 then
         local ret_typ = tl_node._type.rettypes[1]
         local ret = ctx:new_cvar(ctype(ret_typ), "ret")
-        ctx:reserve_slots(1)
+        local push_ret = push_to_stack(ctx, ret_typ, ret.name)
         set_return = util.render([[
             ${RET_DECL} = ${TITAN_CALL};
             ${PUSH_RET}
         ]], {
             TITAN_CALL = titan_call,
             RET_DECL = c_declaration(ret),
-            PUSH_RET = push_to_stack(ret_typ, ret.name),
+            PUSH_RET = push_ret,
         })
     else
         error("not implemented")
@@ -1376,21 +1377,20 @@ generate_exp = function(exp, ctx)
             local nargs = #fexp._type.params
             local nret = #fexp._type.rettypes
 
-            ctx:reserve_slots(1)
             local push_function = {}
             do
                 local cstats, cvalue = generate_exp(fexp, ctx)
+                local push = push_to_stack(ctx, fexp._type, cvalue)
                 table.insert(push_function, cstats)
-                table.insert(push_function, push_to_stack(fexp._type, cvalue))
+                table.insert(push_function, push)
             end
 
-            ctx:reserve_slots(nargs)
             local push_args = {}
             for _, arg_exp in ipairs(fargs) do
                 local cstats, cvalue = generate_exp(arg_exp, ctx)
+                local push = push_to_stack(ctx, arg_exp._type, cvalue)
                 table.insert(push_args, cstats)
-                table.insert(push_args, push_to_stack(arg_exp._type, cvalue)
-                )
+                table.insert(push_args, push)
             end
 
             ctx:free_slots(nargs + 1)
