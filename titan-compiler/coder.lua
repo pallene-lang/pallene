@@ -1377,32 +1377,36 @@ generate_exp = function(exp, ctx)
             local nargs = #fexp._type.params
             local nret = #fexp._type.rettypes
 
-            local push_function = {}
-            do
-                local cstats, cvalue = generate_exp(fexp, ctx)
-                local push = push_to_stack(ctx, fexp._type, cvalue)
-                table.insert(push_function, cstats)
-                table.insert(push_function, push)
+            local to_push = {}
+            function generate(exp)
+                local cstats, cvalue = generate_exp(exp, ctx)
+                -- we don't use ctx:new_tvar because values were already saved
+                table.insert(to_push, { typ = exp._type, cvalue = cvalue })
+                return cstats
             end
 
-            local push_args = {}
+            local body = {}
+            table.insert(body, generate(fexp))
             for _, arg_exp in ipairs(fargs) do
-                local cstats, cvalue = generate_exp(arg_exp, ctx)
-                local push = push_to_stack(ctx, arg_exp._type, cvalue)
-                table.insert(push_args, cstats)
-                table.insert(push_args, push)
+                table.insert(body, generate(arg_exp))
+            end
+
+            table.insert(body, gc_save_vars(ctx))
+
+            for _, x in ipairs(to_push) do
+                local push = push_to_stack(ctx, x.typ, x.cvalue)
+                table.insert(body, push)
             end
 
             ctx:free_slots(nargs + 1)
             ctx:reserve_slots(nret)
-            local call_function = util.render([[
+            table.insert(body, util.render([[
                 lua_call(L, ${NARGS}, ${NRET});
             ]], {
                 NARGS = nargs,
                 NRET = nret,
-            })
+            }))
 
-            local check_rets = {}
             local retval
             if nret == 0 then
                 retval = "VOID"
@@ -1412,7 +1416,7 @@ generate_exp = function(exp, ctx)
                 local slot = ctx:new_cvar("TValue*")
                 local ret = ctx:new_tvar(ret_typ)
                 retval = ret.name
-                table.insert(check_rets, util.render([[
+                table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top-1);
                     if (!${CHECK_TAG}) {
                         luaL_error(L,
@@ -1437,18 +1441,9 @@ generate_exp = function(exp, ctx)
             end
             ctx:free_slots(nret)
 
-            local cstats = util.render([[
-                ${PUSH_FUNCTION}
-                ${PUSH_ARGS}
-                ${CALL_FUNCTION}
-                ${CHECK_RETS}
-            ]], {
-                PUSH_FUNCTION = table.concat(push_function, "\n"),
-                PUSH_ARGS     = table.concat(push_args, "\n"),
-                CALL_FUNCTION = call_function,
-                CHECK_RETS    = table.concat(check_rets, "\n"),
-            })
+            table.insert(body, gc_release_vars(ctx))
 
+            local cstats = table.concat(body, "\n")
             return cstats, retval
         end
 
