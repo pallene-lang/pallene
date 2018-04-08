@@ -414,7 +414,7 @@ end
 
 -- Release variables saved by gc_save_vars
 local function gc_release_vars(ctx)
-    local _first, _last, n = ctx:end_save()
+    local _, _, n = ctx:end_save()
 
      -- Avoid warnings
     if n == 0 then
@@ -1378,10 +1378,11 @@ generate_exp = function(exp, ctx)
             local nret = #fexp._type.rettypes
 
             local to_push = {}
-            function generate(exp)
-                local cstats, cvalue = generate_exp(exp, ctx)
+            local function generate(exp_to_push)
+                local cstats, cvalue = generate_exp(exp_to_push, ctx)
                 -- we don't use ctx:new_tvar because values were already saved
-                table.insert(to_push, { typ = exp._type, cvalue = cvalue })
+                table.insert(to_push,
+                    { typ = exp_to_push._type, cvalue = cvalue })
                 return cstats
             end
 
