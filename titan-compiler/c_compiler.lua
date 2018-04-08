@@ -57,7 +57,8 @@ function c_compiler.compile_c_to_so(c_filename, so_filename)
         c_compiler.CFLAGS_SHARED,
         "-I", c_compiler.LUA_SOURCE_PATH,
         "-o", so_filename,
-        "-x", "c", c_filename,
+        "-x", "c",
+        c_filename,
     }
     local cmd = table.concat(args, " ")
     local ok = os.execute(cmd)
