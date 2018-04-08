@@ -2,7 +2,6 @@
 
 local lfs = require "lfs"
 
-local c_compiler = require "titan-compiler.c_compiler"
 local util = require "titan-compiler.util"
 
 -- run the command a single time and return the time elapsed
@@ -45,23 +44,26 @@ local compile = {
 
     ["titan"] =
         function(file_name)
-            return c_compiler.compile_titan(file_name,
-                    util.get_file_contents(file_name))
+            util.shell(string.format("./titanc %s", file_name))
+            return true, {}
         end,
 
     ["c"] =
         function(file_name)
-            return c_compiler.compile_c_file(file_name)
+            util.shell(string.format("./titanc --compile-c %s", file_name))
+            return true, {}
         end,
 }
 
+-- TODO: In the current state, this is just a `rm -rf ./*.so`, for all cases.
+-- Check if we can simplify to just that or if the luajut stuff will behave
+-- differently when we implement it.
 local cleanup = {
     ["lua"] =
         function() end,
 
     ["titan"] =
         function(test_dir, name)
-            os.remove(test_dir .. "/" .. name .. ".c")
             os.remove(test_dir .. "/" .. name .. ".so")
         end,
 

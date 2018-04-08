@@ -16,7 +16,40 @@ else
     c_compiler.CFLAGS_SHARED = "-fPIC -shared"
 end
 
-function c_compiler.compile_c_file(c_filename, so_filename)
+function c_compiler.compile_titan_to_so(titan_filename, input, so_filename)
+    local _, ext = util.split_ext(titan_filename)
+    assert(ext == "titan")
+
+    local c_filename = os.tmpname()
+
+    local ok, errs =
+        c_compiler.compile_titan_to_c(titan_filename, input, c_filename)
+    if not ok then return ok, errs end
+
+    local ok, errs =
+        c_compiler.compile_c_to_so(c_filename, so_filename)
+    if not ok then return ok, errs end
+
+    os.remove(c_filename)
+
+    return true, {}
+end
+
+function c_compiler.compile_titan_to_c(titan_filename, input, c_filename)
+    local name, ext = util.split_ext(titan_filename)
+    assert(ext == "titan")
+    local modname = string.gsub(name, "/", "_")
+
+    local code, errors = coder.generate(titan_filename, input, modname)
+    if not code then return false, errors end
+
+    local ok, err = util.set_file_contents(c_filename, code)
+    if not ok then return nil, {err} end
+
+    return true, {}
+end
+
+function c_compiler.compile_c_to_so(c_filename, so_filename)
     local args = {
         c_compiler.CC,
         c_compiler.CFLAGS_BASE,
@@ -28,32 +61,14 @@ function c_compiler.compile_c_file(c_filename, so_filename)
     }
     local cmd = table.concat(args, " ")
     local ok = os.execute(cmd)
-    if ok then
-        return true, {}
-    else
+    if not ok then
         return false, {
             "internal error: gcc failed",
             "compilation line: " .. cmd,
         }
     end
-end
 
-function c_compiler.compile_titan(filename, input)
-    local name, ext = util.split_ext(filename)
-    assert(ext == "titan")
-    local c_filename = os.tmpname()
-    local so_filename = name .. ".so"
-    local modname = string.gsub(name, "/", "_")
-
-    local code, errors = coder.generate(filename, input, modname)
-    if not code then return false, errors end
-
-    local ok, err = util.set_file_contents(c_filename, code)
-    if not ok then return nil, {err} end
-
-    local ok, errs = c_compiler.compile_c_file(c_filename, so_filename)
-    os.remove(c_filename)
-    return ok, errs
+    return true, {}
 end
 
 return c_compiler
