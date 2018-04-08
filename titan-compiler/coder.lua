@@ -1260,6 +1260,8 @@ generate_exp = function(exp, ctx)
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
+            local cond_gc = gc_cond_gc(ctx)
+
             local tbl = ctx:new_tvar(exp._type)
             local array_part = ctx:new_cvar("TValue *")
 
@@ -1284,14 +1286,12 @@ generate_exp = function(exp, ctx)
                 }))
             end
 
-            local cond_gc = gc_cond_gc(ctx)
-
             local cstats = util.render([[
+                ${COND_GC}
                 ${TBL_DECL} = luaH_new(L);
                 luaH_resizearray(L, ${TBL}, ${N});
                 ${ARRAY_PART_DECL} = ${TBL}->array;
                 ${FIELD_INIT}
-                ${COND_GC}
             ]], {
                 TBL = tbl.name,
                 TBL_DECL = c_declaration(tbl),
