@@ -1,0 +1,15 @@
+function matmul(A: {{integer}}, B:{{integer}}): {{integer}}
+    local C : {{integer}} = {}
+    for i = 1, #A do
+        local line: {integer} = {}
+        for j = 1, #B[i] do
+            local cij = 0
+            for k = 1, #A[i] do
+                cij = cij + A[i][k] * B[k][j]
+            end
+            table_insert(line, cij)
+        end
+        table_insert(C, line)
+    end
+    return C
+end
