@@ -40,6 +40,30 @@ describe("Titan coder", function()
         ]])
     end)
 
+    it("Verify the argument numbers", function()
+        local code = [[
+            function f(x: integer): integer
+                return x
+            end
+        ]]
+
+        run_coder(code, [[
+            local ok, err = pcall(test.f)
+            assert(string.find(err,
+                "wrong number of arguments to function, " ..
+                "expected 1 but received 0",
+                nil, true))
+        ]])
+
+        run_coder(code, [[
+            local ok, err = pcall(test.f, 10, 20)
+            assert(string.find(err,
+                "wrong number of arguments to function, " ..
+                "expected 1 but received 2",
+                nil, true))
+        ]])
+    end)
+
     it("Verify the argument's tag", function()
         run_coder([[
             function f(x: float): float
