@@ -144,7 +144,11 @@ check_type = function(typ, errors)
         end
 
     elseif tag == ast.Type.Array then
-        return types.T.Array(check_type(typ.subtype, errors))
+        local subtype = check_type(typ.subtype, errors)
+        if subtype._tag == types.T.Nil then
+            type_error(errors, typ.loc, "array of nil is not allowed")
+        end
+        return types.T.Array(subtype)
 
     elseif tag == ast.Type.Function then
         if #typ.rettypes >= 2 then
@@ -308,15 +312,13 @@ check_stat = function(stat, errors, rettypes)
     elseif tag == ast.Stat.Assign then
         check_var(stat.var, errors)
         check_exp(stat.exp, errors, stat.var._type)
-        local texp = stat.var._type
-        if texp._tag == types.T.Module then
-            type_error(errors, stat.loc, "trying to assign to a module")
-        elseif texp._tag == types.T.Function then
-            type_error(errors, stat.loc, "trying to assign to a function")
-        else
-            if stat.var._tag ~= ast.Var.Bracket or stat.exp._type._tag ~= types.T.Nil then
-                checkmatch("assignment", stat.var._type, stat.exp._type, errors, stat.var.loc)
-            end
+        checkmatch("assignment", stat.var._type, stat.exp._type, errors, stat.var.loc)
+        if stat.var._tag == ast.Var.Name and
+            stat.var._decl._tag == ast.Toplevel.Func
+        then
+            type_error(errors, stat.loc,
+                "attempting to assign to toplevel constant function %s",
+                stat.var.name)
         end
         return false
 

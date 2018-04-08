@@ -417,22 +417,21 @@ describe("Titan type checker", function()
     end)
 
     it("forbids type hints that are not array or records", function()
-         local prog, errors = run_checker([[
+        local prog, errors = run_checker([[
             local p: string = { 10, 20, 30 }
         ]])
         assert.falsy(prog)
         assert.matches("type hint for array or record initializer is not an array or record type", errors)
     end)
 
-    it("allows setting element of array as nil", function ()
-        local code = [[
-            function fn()
-                local arr: {integer} = { 10, 20, 30 }
-                arr[1] = nil
-            end
-        ]]
-        local prog, errs = run_checker(code)
-        assert.truthy(prog)
+    it("forbids array of nil", function()
+        local prog, errors = run_checker([[
+            local xs: {nil} = {}
+        ]])
+        assert.falsy(prog)
+        assert.matches(
+            "array of nil is not allowed",
+            errors, nil, true)
     end)
 
     it("type-checks numeric 'for' (integer, implicit step)", function()
@@ -1270,7 +1269,9 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("assign to a function", errs)
+        assert.match(
+            "attempting to assign to toplevel constant function foo",
+            errs, nil, true)
     end)
 
     it("typechecks table.insert", function()

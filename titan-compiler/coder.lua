@@ -54,12 +54,6 @@ local whole_file_template = [[
 
 #include "math.h"
 
-#define titan_setclvalue(L,obj,x) \
-  { TValue *io = (obj); Closure *x_ = (x); \
-    GCObject *gco = obj2gco(x_); \
-    val_(io).gc = gco; settt_(io, ctb(gco->tt)); \
-    checkliveness(L,io); }
-
 /* This pragma is used to ignore noisy warnings caused by clang's -Wall */
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wparentheses-equality"
@@ -125,7 +119,7 @@ local function ctype(typ)
     elseif tag == types.T.Integer  then return "lua_Integer"
     elseif tag == types.T.Float    then return "lua_Number"
     elseif tag == types.T.String   then return "TString *"
-    elseif tag == types.T.Function then return "Closure *"
+    elseif tag == types.T.Function then return "TValue"
     elseif tag == types.T.Array    then return "Table *"
     elseif tag == types.T.Record   then error("not implemented yet")
     else error("impossible")
@@ -163,24 +157,31 @@ Context.__index = Context
 function Context.new()
     local o = {
         tmp_index = 1,       -- next free tmp variable name
-        stack_slots = 0,     -- current number of used stack slots
+
+        n_stack_slots = 0,   -- current number of used stack slots
         max_stack_slots = 0, -- maximum number of needed stack slots
+
         live_vars = {},      -- (superset of) current live gc variables
         scopes = {},         -- first index of each scope
-        is_saving = false,   -- ensure allocations between gc_save and gc_release
+
+        n_saved_vars = 0,    -- how many vars are currently saved in stack
+        saveds = {},         -- first index of each group of saved variables
+
         upvalues = false,    -- global upvalues table and array
     }
     return setmetatable(o, Context)
 end
 
 function Context:reserve_slots(n)
-    self.stack_slots = self.stack_slots + n
-    self.max_stack_slots = math.max(self.max_stack_slots, self.stack_slots)
+    assert(n >= 0)
+    self.n_stack_slots = self.n_stack_slots + n
+    self.max_stack_slots = math.max(self.max_stack_slots, self.n_stack_slots)
 end
 
 function Context:free_slots(n)
-    self.stack_slots = self.stack_slots - n
-    self.max_stack_slots = math.max(self.max_stack_slots, self.stack_slots)
+    assert(n >= 0)
+    self.n_stack_slots = self.n_stack_slots - n
+    assert(self.n_stack_slots >= self.n_saved_vars)
 end
 
 function Context:begin_scope()
@@ -190,10 +191,32 @@ end
 function Context:end_scope()
     assert(#self.scopes > 0)
     local scope_start = self.scopes[#self.scopes]
+    assert(scope_start > self.n_saved_vars)
     for _ = #self.live_vars, scope_start, -1 do
         table.remove(self.live_vars)
     end
     table.remove(self.scopes)
+end
+
+function Context:begin_save()
+    local first = self.n_saved_vars + 1
+    local last  = #self.live_vars
+    local n = last - first + 1
+    self:reserve_slots(n)
+    self.n_saved_vars = last
+    table.insert(self.saveds, first)
+    return first, last, n
+end
+
+function Context:end_save()
+    assert(#self.saveds > 0)
+    local first = self.saveds[#self.saveds]
+    local last  = self.n_saved_vars
+    local n = last - first + 1
+    table.remove(self.saveds)
+    self.n_saved_vars = first - 1
+    self:free_slots(n)
+    return first, last, n
 end
 
 function Context:new_name()
@@ -210,7 +233,6 @@ end
 function Context:new_tvar(typ, comment)
     local cvar = self:new_cvar(ctype(typ), comment)
     if types.is_gc(typ) then
-        assert(not self.is_saving)
         table.insert(self.live_vars, new_tvar(cvar, typ))
     end
     return cvar
@@ -232,7 +254,7 @@ local function get_slot(typ, src_slot_address)
     elseif tag == types.T.Integer  then tmpl = "ivalue(${SRC})"
     elseif tag == types.T.Float    then tmpl = "fltvalue(${SRC})"
     elseif tag == types.T.String   then tmpl = "tsvalue(${SRC})"
-    elseif tag == types.T.Function then tmpl = "clvalue(${SRC})"
+    elseif tag == types.T.Function then tmpl = "*${SRC}"
     elseif tag == types.T.Array    then tmpl = "hvalue(${SRC})"
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
@@ -251,7 +273,7 @@ local function set_slot_(typ, dst_slot_address, value)
     elseif tag == types.T.Integer  then tmpl = "setivalue(${DST}, ${SRC});"
     elseif tag == types.T.Float    then tmpl = "setfltvalue(${DST}, ${SRC});"
     elseif tag == types.T.String   then tmpl = "setsvalue(L, ${DST}, ${SRC});"
-    elseif tag == types.T.Function then tmpl = "titan_setclvalue(L, ${DST}, ${SRC});"
+    elseif tag == types.T.Function then tmpl = "setobj(L, ${DST}, &${SRC});"
     elseif tag == types.T.Array    then tmpl = "sethvalue(L, ${DST}, ${SRC});"
     elseif tag == types.T.Record   then error("not implemented yet")
     else error("impossible")
@@ -267,7 +289,7 @@ local function check_tag(typ, slot)
     elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
     elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
     elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
-    elseif tag == types.T.Function then tmpl = "ttisclosure(${SLOT})"
+    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
     elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
@@ -290,6 +312,15 @@ end
 local function barrierback(typ, p, v)
     if not types.is_gc(typ) then
         return ""
+    elseif typ._tag == types.T.Function then
+        return util.render([[
+            if (iscollectable(&${V}) && isblack(obj2gco(${P})) && iswhite(gcvalue(&${V}))) {
+                luaC_barrierback_(L, obj2gco(${P}));
+            }
+        ]], {
+            P = p,
+            V = v,
+        })
     else
         return util.render([[
             if (isblack(obj2gco(${P})) && iswhite(obj2gco(${V}))) {
@@ -316,6 +347,15 @@ local function set_heap_slot(typ, dst, src, parent)
     })
 end
 
+local function push_to_stack(typ, src)
+    return util.render([[
+        ${SET_SLOT}
+        api_incr_top(L);
+    ]],{
+        SET_SLOT = set_stack_slot(typ, "s2v(L->top)", src),
+    })
+end
+
 --
 -- GC
 --
@@ -335,15 +375,12 @@ end
 -- Push potentially live variables to the Lua stack, so the Lua GC can see they
 -- are not garbage.
 local function gc_save_vars(ctx)
-    assert(not ctx.is_saving)
-    ctx.is_saving = true
+    local first, last, n = ctx:begin_save()
 
     -- Avoid warnings
-    if #ctx.live_vars == 0 then
+    if n == 0 then
         return ""
     end
-
-    ctx:reserve_slots(#ctx.live_vars)
 
     local parts = {}
 
@@ -354,7 +391,8 @@ local function gc_save_vars(ctx)
         TOP_DECL = c_declaration(top)
     }))
 
-    for i, tvar in ipairs(ctx.live_vars) do
+    for i = first, last do
+        local tvar = ctx.live_vars[i]
         local slot = util.render("s2v($TOP)", { TOP = top.name })
         table.insert(parts, util.render([[
             ${SET_SLOT} ${TOP}++;
@@ -375,20 +413,17 @@ end
 
 -- Release variables saved by gc_save_vars
 local function gc_release_vars(ctx)
-    assert(ctx.is_saving)
-    ctx.is_saving = false
+    local _first, _last, n = ctx:end_save()
 
      -- Avoid warnings
-    if #ctx.live_vars == 0 then
+    if n == 0 then
         return ""
     end
-
-    ctx:free_slots(#ctx.live_vars)
 
     return util.render([[
         L->top -= ${NSLOTS};
     ]], {
-        NSLOTS = c_integer(#ctx.live_vars)
+        NSLOTS = c_integer(n)
     })
 end
 
@@ -473,9 +508,7 @@ end
 local function generate_lua_entry_point(tl_node)
     local ctx = Context.new()
 
-    ctx:reserve_slots(#tl_node.params)
-
-    local base = ctx:new_cvar("StackValue*", "ci->func")
+    local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
         BASE_DECL = c_declaration(base)
     })
@@ -563,12 +596,11 @@ local function generate_lua_entry_point(tl_node)
         ctx:reserve_slots(1)
         set_return = util.render([[
             ${RET_DECL} = ${TITAN_CALL};
-            ${SET_SLOT}
-            api_incr_top(L);
+            ${PUSH_RET}
         ]], {
             TITAN_CALL = titan_call,
             RET_DECL = c_declaration(ret),
-            SET_SLOT = set_stack_slot(ret_typ, "s2v(L->top)", ret.name),
+            PUSH_RET = push_to_stack(ret_typ, ret.name),
         })
     else
         error("not implemented")
@@ -617,21 +649,24 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
             local tag = tl_node._tag
             if     tag == ast.Toplevel.Func then
                 ctx:begin_scope()
-                local func    = ctx:new_cvar("CClosure*")
-                local func_cl = "((Closure*)" .. func.name .. ")"
+                local closure = ctx:new_cvar("CClosure*")
+                local func    = ctx:new_cvar("TValue")
                 table.insert(parts,
                     util.render([[
-                        ${FUNC_DECL} = luaF_newCclosure(L, 1);
-                        ${FUNC}->f = ${LUA_ENTRY_POINT};
-                        sethvalue(L, &${FUNC}->upvalue[0], ${UPVALUES});
+                        ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
+                        ${CLOSURE}->f = ${LUA_ENTRY_POINT};
+                        sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+                        ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
                         ${SET_SLOT}
                     ]],{
                         LUA_ENTRY_POINT = tl_node._lua_entry_point,
                         UPVALUES = ctx.upvalues.table.name,
+                        CLOSURE = closure.name,
+                        CLOSURE_DECL = c_declaration(closure),
                         FUNC = func.name,
                         FUNC_DECL = c_declaration(func),
-                        SET_SLOT = set_heap_slot( -- TODO
-                            tl_node._type, arr_slot, func_cl,
+                        SET_SLOT = set_heap_slot(
+                            tl_node._type, arr_slot, func.name,
                             ctx.upvalues.table.name),
                     })
                 )
@@ -674,6 +709,8 @@ local function generate_luaopen_exports_table(prog, ctx)
 
     local parts = {}
 
+    table.insert(parts, gc_save_vars(ctx)) -- createtable may call gc
+
     ctx:reserve_slots(3)
     table.insert(parts, util.render([[
         lua_createtable(L, 0, ${N});
@@ -696,6 +733,10 @@ local function generate_luaopen_exports_table(prog, ctx)
         end
     end
     ctx:free_slots(3)
+
+    -- Don't free the vars because the table we want to return is still on top
+    -- and we are already returning anyway...
+    --table.insert(parts, gc_release_vars(ctx))
 
     return table.concat(parts, "\n")
 end
@@ -1069,17 +1110,15 @@ generate_var = function(var, ctx)
             -- Local variable
             return "", coder.Lvalue.CVar(decl._cvar.name)
 
-        elseif decl._tag == ast.Toplevel.Var then
+        elseif decl._tag == ast.Toplevel.Var or
+                decl._tag == ast.Toplevel.Func
+        then
             local i = c_integer(decl._global_index)
             local slot_exp = util.render("&${ARR}[${I}]", {
                 ARR = ctx.upvalues.array.name,
                 I = i,
             })
             return "", coder.Lvalue.SafeSlot(slot_exp, ctx.upvalues.table.name)
-
-        elseif decl._tag == ast.Toplevel.Func then
-            -- Toplevel function
-            error("not implemented yet")
 
         else
             error("impossible")
@@ -1298,7 +1337,7 @@ generate_exp = function(exp, ctx)
                 table.insert(arg_cvalues, cvalue)
             end
 
-            local save_vars    = gc_save_vars(ctx)
+            local save_vars = gc_save_vars(ctx)
 
             local tl_node = fexp.var._decl
 
@@ -1333,8 +1372,84 @@ generate_exp = function(exp, ctx)
             return cstats, tmp_var
 
         else
-            -- First-class functions
-            error("not implemented yet")
+            -- First-class functions and Lua function calls
+            local nargs = #fexp._type.params
+            local nret = #fexp._type.rettypes
+
+            ctx:reserve_slots(1)
+            local push_function = {}
+            do
+                local cstats, cvalue = generate_exp(fexp, ctx)
+                table.insert(push_function, cstats)
+                table.insert(push_function, push_to_stack(fexp._type, cvalue))
+            end
+
+            ctx:reserve_slots(nargs)
+            local push_args = {}
+            for _, arg_exp in ipairs(fargs) do
+                local cstats, cvalue = generate_exp(arg_exp, ctx)
+                table.insert(push_args, cstats)
+                table.insert(push_args, push_to_stack(arg_exp._type, cvalue)
+                )
+            end
+
+            ctx:free_slots(nargs + 1)
+            ctx:reserve_slots(nret)
+            local call_function = util.render([[
+                lua_call(L, ${NARGS}, ${NRET});
+            ]], {
+                NARGS = nargs,
+                NRET = nret,
+            })
+
+            local check_rets = {}
+            local retval
+            if nret == 0 then
+                retval = "VOID"
+
+            elseif nret == 1 then
+                local ret_typ = fexp._type.rettypes[1]
+                local slot = ctx:new_cvar("TValue*")
+                local ret = ctx:new_tvar(ret_typ)
+                retval = ret.name
+                table.insert(check_rets, util.render([[
+                    ${SLOT_DECL} = s2v(L->top-1);
+                    if (!${CHECK_TAG}) {
+                        luaL_error(L,
+                            "wrong type for function result at line %d, "
+                            "expected %s but found %s",
+                            ${LINE}, ${EXP_TYPE},
+                            lua_typename(L, ttype(${SLOT})));
+                    }
+                    ${RET_DECL} = ${GET_SLOT};
+                    L->top--;
+                ]], {
+                    SLOT      = slot.name,
+                    SLOT_DECL = c_declaration(slot),
+                    CHECK_TAG = check_tag(ret_typ, slot.name),
+                    LINE = c_integer(exp.loc.line),
+                    EXP_TYPE = c_string(types.tostring(ret_typ)),
+                    RET_DECL = c_declaration(ret),
+                    GET_SLOT = get_slot(ret_typ, slot.name),
+                }))
+            else
+                error("not implemented")
+            end
+            ctx:free_slots(nret)
+
+            local cstats = util.render([[
+                ${PUSH_FUNCTION}
+                ${PUSH_ARGS}
+                ${CALL_FUNCTION}
+                ${CHECK_RETS}
+            ]], {
+                PUSH_FUNCTION = table.concat(push_function, "\n"),
+                PUSH_ARGS     = table.concat(push_args, "\n"),
+                CALL_FUNCTION = call_function,
+                CHECK_RETS    = table.concat(check_rets, "\n"),
+            })
+
+            return cstats, retval
         end
 
     elseif tag == ast.CallMethod then
