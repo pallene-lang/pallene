@@ -15,8 +15,13 @@
 ignore = {
     "212/_.*",  -- Unused argument, when name starts with "_"
     "212/self", -- Unused argument "self"
-    "411/err", -- Redefining local "err"
-    "421/err", -- Shadowing local "err"
+
+    "411/ok",    -- Redefining local "ok"
+    "412/errs?", -- Redefining local "err" or "errs"
+
+    "421/ok",    -- Shadowing local "ok"
+    "421/errs?", -- Shadowing local "err" or "errs"
+
     "542", -- Empty if branch.
     "6..", -- Whitespace warnings
 }
