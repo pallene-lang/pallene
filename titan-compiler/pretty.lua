@@ -48,9 +48,11 @@ function pretty.reindent_c(input)
         line = line:match("^[ \t]*(.-)[ \t]*$")
 
         local is_blank = (#line == 0)
-        local do_print =
+        local should_print =
             (not is_blank) or
             (not previous_is_blank and indent == 0)
+
+        local is_preprocessor_directive = (line:match("^#"))
 
         if line:match("^[})]") then
             indent = indent - 1
@@ -59,8 +61,10 @@ function pretty.reindent_c(input)
             -- heuristics have failed to spot the "{" that matches this "}"
             if indent < 0 then indent = 0 end
         end
-        if do_print then
-            table.insert(out, string.rep("    ", indent))
+        if should_print then
+            if not is_preprocessor_directive then
+                table.insert(out, string.rep("    ", indent))
+            end
             table.insert(out, line)
             table.insert(out, "\n")
         end
