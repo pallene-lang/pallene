@@ -78,6 +78,21 @@ describe("Titan coder", function()
         ]])
     end)
 
+    it("Verify the argument's tag (float/integer vs number)", function()
+        run_coder([[
+            function f(x: float): float
+                return x
+            end
+        ]], [[
+            local ok, err = pcall(test.f, 10)
+            assert(string.find(err,
+                "wrong type for argument x at line 1, " ..
+                "expected float but found integer",
+                nil, true))
+        ]])
+    end)
+
+
     describe("Expressions:", function()
 
         it("Constants", function()
