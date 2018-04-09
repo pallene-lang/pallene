@@ -6,8 +6,8 @@ local pretty = {}
 -- To keep the implementation simple, we assume that the input C code conforms
 -- to our style guide for generated C code, which is described here. The
 -- important bit is ensuring that our heuristics can correctly identify when to
--- indent and unindent based solely on the position of {} characters in the
--- input program.
+-- indent and unindent based solely on the position of {} and () characters in
+-- the input program.
 --
 -- COMMENTS:
 --     - Prefer /**/-style comments over //-style comments
@@ -43,20 +43,16 @@ local pretty = {}
 function pretty.reindent_c(input)
     local out = {}
     local indent = 0
-    local blank = false
+    local previous_is_blank = true
     for line in input:gmatch("([^\n]*)") do
-        local do_print = true
         line = line:match("^[ \t]*(.-)[ \t]*$")
-        if #line == 0 then
-            if blank or indent > 0 then
-                do_print = false
-            else
-                blank = true
-            end
-        else
-            blank = false
-        end
-        if line:match("^}") then
+
+        local is_blank = (#line == 0)
+        local do_print =
+            (not is_blank) or
+            (not previous_is_blank and indent == 0)
+
+        if line:match("^[})]") then
             indent = indent - 1
             -- Don't let the indentation level get negative. This confines the
             -- messed-up indentation to a single function in cases where our
@@ -68,9 +64,11 @@ function pretty.reindent_c(input)
             table.insert(out, line)
             table.insert(out, "\n")
         end
-        if line:match("{$") then
+        if line:match("[{(]$") then
             indent = indent + 1
         end
+
+        previous_is_blank = is_blank
     end
     return table.concat(out)
 end
