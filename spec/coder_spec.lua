@@ -796,11 +796,14 @@ describe("Titan coder", function()
             ]])
         end)
 
-        it("can set wrongly typed arrays in set", function()
+        it("checks type tags in set", function()
             run_coder(array_get_set, [[
                 local arr = {10, 20, "hello"}
-                test.set(arr, 3, 123)
-                assert(123 == arr[3])
+
+                local ok, err = pcall(test.set, arr, 3, 20)
+                assert(not ok)
+                assert(
+                    string.find(err, "wrong type for array element", nil, true))
             ]])
         end)
 
