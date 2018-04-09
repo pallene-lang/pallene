@@ -492,8 +492,8 @@ local function generate_titan_entry_point(tl_node)
 
     return util.render([[
         static ${RET} ${NAME}(
-            ${PARAMS})
-        {
+            ${PARAMS}
+        ){
             ${RESERVE_STACK}
             ${BODY}
         }
