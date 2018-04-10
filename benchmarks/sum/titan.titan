@@ -1,0 +1,9 @@
+function sum(arr: {float}, n: integer): float
+    local s = 0.0
+    for i = 1, n do
+        for i = 1, #arr do
+            s = s + arr[i]
+        end
+    end
+    return s
+end
