@@ -1545,27 +1545,45 @@ generate_exp = function(exp, ctx)
         error("not implemented")
 
     elseif tag == ast.Exp.Var then
-        local cstats, lvalue = generate_var(exp.var, ctx)
-        local cvalue
+        local exp_cstats, lvalue = generate_var(exp.var, ctx)
+
         if     lvalue._tag == coder.Lvalue.CVar then
-            cvalue = lvalue.varname
+            return exp_cstats, lvalue.varname
+
         elseif lvalue._tag == coder.Lvalue.SafeSlot then
-            cvalue = get_slot(exp.var._type, lvalue.slot_address)
+            local cvar = ctx:new_cvar(ctype(exp._type))
+            local cstats = util.render([[
+                ${EXP_STATS}
+                ${VAR_DECL} = ${GET_SLOT};
+            ]], {
+                EXP_STATS = exp_cstats,
+                VAR_DECL = c_declaration(cvar),
+                GET_SLOT = get_slot(exp.var._type, lvalue.slot_address),
+            })
+            return cstats, cvar.name
+
         elseif lvalue._tag == coder.Lvalue.ArraySlot then
+            local cvar = ctx:new_cvar(ctype(exp._type))
             local slot = lvalue.slot_address
-            cstats = cstats .. "\n" .. util.render([[
+            local cstats = util.render([[
+                ${EXP_STATS}
                 if (!${CHECK_TAG}) {
                     titan_runtime_array_type_error(
                         L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}
                     );
                 }
+                ${VAR_DECL} = ${GET_SLOT};
             ]], {
-                SLOT = slot,
+                EXP_STATS = exp_cstats,
                 CHECK_TAG = check_tag(exp._type, slot),
                 LINE = c_integer(exp.loc.line),
                 EXPECTED_TAG = titan_type_tag(exp._type),
+                SLOT = slot,
+                VAR_DECL = c_declaration(cvar),
+                GET_SLOT = get_slot(exp.var._type, lvalue.slot_address),
             })
-            cvalue = get_slot(exp.var._type, lvalue.slot_address)
+            return cstats, cvar.name
+
         else
             error("impossible")
         end
