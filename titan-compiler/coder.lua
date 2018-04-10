@@ -1057,10 +1057,10 @@ generate_stat = function(stat, ctx)
         ctx:end_scope()
         return util.render([[
             ${START_STAT}
-            ${START_DECL} = ${START_VALUE};
             ${FINISH_STAT}
-            ${FINISH_DECL} = ${FINISH_VALUE};
             ${INC_STAT}
+            ${START_DECL} = ${START_VALUE};
+            ${FINISH_DECL} = ${FINISH_VALUE};
             ${INC_DECL} = ${INC_VALUE};
             while (${LOOP_COND}) {
                 ${LOOPVAR_DECL} = ${START};
