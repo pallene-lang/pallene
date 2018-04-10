@@ -1,5 +1,4 @@
 local _M = {}
-
 function _M.sum(arr, n)
     local s = 0.0
     for i = 1, n do
@@ -9,5 +8,4 @@ function _M.sum(arr, n)
     end
     return s
 end
-
 return _M
