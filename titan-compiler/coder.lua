@@ -1104,11 +1104,7 @@ generate_stat = function(stat, ctx)
                 stat.exp._type, var_lvalue.slot_address, exp_cvalue,
                 var_lvalue.parent_pointer)
             assign_stat = util.render([[
-                if (!${CHECK_TAG}) {
-                    titan_runtime_array_type_error(
-                        L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}
-                    );
-                }
+                if (!${CHECK_TAG}) { titan_runtime_array_type_error( L, ${LINE}, ${EXPECTED_TAG}, ${SLOT} ); }
                 ${ASSIGN_SLOT}
             ]], {
                 SLOT = var_lvalue.slot_address,
@@ -1231,9 +1227,7 @@ generate_var = function(var, ctx)
             ${T_CSTATS}
             ${K_CSTATS}
             ${UI_DECL} = ((lua_Unsigned)${K_CVALUE}) - 1;
-            if (${UI_NAME} >= ${T_CVALUE}->sizearray) {
-                titan_runtime_array_bounds_error(L, ${LINE});
-            }
+            if (${UI_NAME} >= ${T_CVALUE}->sizearray) { titan_runtime_array_bounds_error(L, ${LINE}); }
             ${SLOT_DECL} = &${T_CVALUE}->array[${UI_NAME}];
         ]], {
             T_CSTATS = t_cstats,
@@ -1567,11 +1561,7 @@ generate_exp = function(exp, ctx)
             local slot = lvalue.slot_address
             local cstats = util.render([[
                 ${EXP_STATS}
-                if (!${CHECK_TAG}) {
-                    titan_runtime_array_type_error(
-                        L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}
-                    );
-                }
+                if (!${CHECK_TAG}) { titan_runtime_array_type_error( L, ${LINE}, ${EXPECTED_TAG}, ${SLOT} ); }
                 ${VAR_DECL} = ${GET_SLOT};
             ]], {
                 EXP_STATS = exp_cstats,
