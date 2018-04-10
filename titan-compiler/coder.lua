@@ -1645,7 +1645,7 @@ generate_exp = function(exp, ctx)
         -- parameters
         local function binop(op)
             local cstats = lhs_cstats..rhs_cstats
-            local cvalue = util.render("((${LHS})${OP}(${RHS}))", {
+            local cvalue = util.render("(${LHS} ${OP} ${RHS})", {
                 OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
             return cstats, cvalue
         end
