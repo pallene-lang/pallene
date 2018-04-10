@@ -65,6 +65,7 @@ static const char * titan_tag_name(int raw_tag)
     }
 }
 
+__attribute__((noreturn))
 static void titan_runtime_arity_error(
     lua_State *L,
     int expected,
@@ -75,8 +76,10 @@ static void titan_runtime_arity_error(
         "wrong number of arguments to function, expected %d but received %d",
         expected, received
     );
+    __builtin_unreachable();
 }
 
+__attribute__((noreturn))
 static void titan_runtime_argument_type_error(
     lua_State *L,
     const char *param_name,
@@ -91,8 +94,10 @@ static void titan_runtime_argument_type_error(
         "wrong type for argument %s at line %d, expected %s but found %s",
         param_name, line, expected_type, received_type
     );
+    __builtin_unreachable();
 }
 
+__attribute__((noreturn))
 static void titan_runtime_array_bounds_error(
     lua_State *L,
     int line
@@ -102,8 +107,10 @@ static void titan_runtime_array_bounds_error(
         "out of bounds (outside array part) at line %d",
         line
     );
+    __builtin_unreachable();
 }
 
+__attribute__((noreturn))
 static void titan_runtime_array_type_error(
    lua_State *L,
    int line,
@@ -111,19 +118,25 @@ static void titan_runtime_array_type_error(
    TValue *slot
 ){
     if (isempty(slot)) {
-        luaL_error(L,
+        luaL_error(
+            L,
             "out of bounds (inside array part) at line %d",
-            line);
+            line
+        );
+        __builtin_unreachable();
     } else {
         const char *expected_type = titan_tag_name(expected_tag);
         const char *received_type = titan_tag_name(rawtt(slot));
-        luaL_error(L,
-            "wrong type for array element at line %d, "
-            "expected %s but found %s",
-            line, expected_type, received_type);
+        luaL_error(
+            L,
+            "wrong type for array element at line %d, expected %s but found %s",
+            line, expected_type, received_type
+        );
+        __builtin_unreachable();
     }
 }
 
+__attribute__((noreturn))
 static void titan_runtime_function_return_error(
     lua_State *L,
     int line,
@@ -137,6 +150,7 @@ static void titan_runtime_function_return_error(
         "wrong type for function result at line %d, expected %s but found %s",
         line, expected_type, received_type
     );
+    __builtin_unreachable();
 }
 
 ${DEFINE_FUNCTIONS}
