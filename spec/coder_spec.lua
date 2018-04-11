@@ -90,8 +90,19 @@ describe("Titan coder", function()
                 "expected float but found integer",
                 nil, true))
         ]])
-    end)
 
+        run_coder([[
+            function f(x: integer): integer
+                return x
+            end
+        ]], [[
+            local ok, err = pcall(test.f, 3.14)
+            assert(string.find(err,
+                "wrong type for argument x at line 1, " ..
+                "expected integer but found float",
+                nil, true))
+        ]])
+    end)
 
     describe("Expressions:", function()
 
