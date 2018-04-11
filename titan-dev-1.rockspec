@@ -18,7 +18,8 @@ dependencies = {
    "lpeglabel >= 1.5.0",
    "inspect >= 3.1.0",
    "argparse >= 0.5.0",
-   "luafilesystem >= 1.7.0"
+   "luafilesystem >= 1.7.0",
+   "chronos >= 0.2",
 }
 build = {
    type = "builtin",
