@@ -54,11 +54,6 @@ local whole_file_template = [[
 
 #include "math.h"
 
-/* Ignore noisy warnings caused by clang's -Wall */
-#ifdef __clang__
-#pragma clang diagnostic ignored "-Wparentheses-equality"
-#endif
-
 static const char * titan_tag_name(int raw_tag)
 {
     if (raw_tag == LUA_TNUMINT) {
