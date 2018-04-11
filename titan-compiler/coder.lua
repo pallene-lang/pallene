@@ -390,7 +390,6 @@ local function titan_type_tag(typ)
     else error("impossible")
     end
     return util.render(tmpl, {SLOT = slot})
-
 end
 
 -- Specialized version of luaH_barrierback. To be called when setting v as an
@@ -1099,7 +1098,7 @@ generate_stat = function(stat, ctx)
                 stat.exp._type, var_lvalue.slot_address, exp_cvalue,
                 var_lvalue.parent_pointer)
             assign_stat = util.render([[
-                if (!${CHECK_TAG}) { titan_runtime_array_type_error( L, ${LINE}, ${EXPECTED_TAG}, ${SLOT} ); }
+                if (!${CHECK_TAG}) { titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
                 ${ASSIGN_SLOT}
             ]], {
                 SLOT = var_lvalue.slot_address,
@@ -1572,7 +1571,6 @@ generate_exp = function(exp, ctx)
         else
             error("impossible")
         end
-        return cstats, cvalue
 
     elseif tag == ast.Exp.Unop then
         local cstats, cvalue = generate_exp(exp.exp, ctx)
