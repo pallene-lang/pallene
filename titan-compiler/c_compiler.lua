@@ -5,7 +5,7 @@ local c_compiler = {}
 
 c_compiler.LUA_SOURCE_PATH = "./lua/src"
 c_compiler.CFLAGS_BASE = "--std=c99 -g "
-c_compiler.CFLAGS_WARN = "-Wall -Wno-unused-function -Wno-parenthesis-equality"
+c_compiler.CFLAGS_WARN = "-Wall -Wno-unused-function -Wno-parentheses-equality"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
