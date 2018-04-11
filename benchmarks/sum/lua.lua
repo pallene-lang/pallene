@@ -1,7 +1,7 @@
 local _M = {}
-function _M.sum(arr, n)
+function _M.sum(arr, nrep)
     local s = 0.0
-    for i = 1, n do
+    for rep = 1, nrep do
         for i = 1, #arr do
             s = s + arr[i]
         end
