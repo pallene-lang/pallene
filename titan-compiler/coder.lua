@@ -54,10 +54,90 @@ local whole_file_template = [[
 
 #include "math.h"
 
-/* This pragma is used to ignore noisy warnings caused by clang's -Wall */
-#ifdef __clang__
-#pragma clang diagnostic ignored "-Wparentheses-equality"
-#endif
+static const char * titan_tag_name(int raw_tag)
+{
+    if (raw_tag == LUA_TNUMINT) {
+        return "integer";
+    } else if (raw_tag == LUA_TNUMFLT) {
+        return "float";
+    } else {
+        return ttypename(novariant(raw_tag));
+    }
+}
+
+static void titan_runtime_arity_error(
+    lua_State *L,
+    int expected,
+    int received
+){
+    luaL_error(
+        L,
+        "wrong number of arguments to function, expected %d but received %d",
+        expected, received
+    );
+}
+
+static void titan_runtime_argument_type_error(
+    lua_State *L,
+    const char *param_name,
+    int line,
+    int expected_tag,
+    TValue *slot
+){
+    const char *expected_type = titan_tag_name(expected_tag);
+    const char *received_type = titan_tag_name(rawtt(slot));
+    luaL_error(
+        L,
+        "wrong type for argument %s at line %d, expected %s but found %s",
+        param_name, line, expected_type, received_type
+    );
+}
+
+static void titan_runtime_array_bounds_error(
+    lua_State *L,
+    int line
+){
+    luaL_error(
+        L,
+        "out of bounds (outside array part) at line %d",
+        line
+    );
+}
+
+static void titan_runtime_array_type_error(
+   lua_State *L,
+   int line,
+   int expected_tag,
+   TValue *slot
+){
+    if (isempty(slot)) {
+        luaL_error(L,
+            "out of bounds (inside array part) at line %d",
+            line);
+    } else {
+        const char *expected_type = titan_tag_name(expected_tag);
+        const char *received_type = titan_tag_name(rawtt(slot));
+        luaL_error(L,
+            "wrong type for array element at line %d, "
+            "expected %s but found %s",
+            line, expected_type, received_type);
+    }
+}
+
+static void titan_runtime_function_return_error(
+    lua_State *L,
+    int line,
+    int expected_tag,
+    TValue *slot
+){
+    const char *expected_type = titan_tag_name(expected_tag);
+    const char *received_type = titan_tag_name(rawtt(slot));
+    luaL_error(
+        L,
+        "wrong type for function result at line %d, expected %s but found %s",
+        line, expected_type, received_type
+    );
+}
 
 ${DEFINE_FUNCTIONS}
 
@@ -297,6 +377,21 @@ local function check_tag(typ, slot)
     return util.render(tmpl, {SLOT = slot})
 end
 
+local function titan_type_tag(typ)
+    local tag = typ._tag
+    if     tag == types.T.Nil      then return "LUA_TNIL"
+    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
+    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
+    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
+    elseif tag == types.T.String   then return "LUA_TSTRING"
+    elseif tag == types.T.Function then return "LUA_TFUNCTION"
+    elseif tag == types.T.Array    then return "LUA_TTABLE"
+    elseif tag == types.T.Record   then error("not implemented")
+    else error("impossible")
+    end
+    return util.render(tmpl, {SLOT = slot})
+end
+
 -- Specialized version of luaH_barrierback. To be called when setting v as an
 -- element of p. This is intended to preserve the invariant that black objects
 -- cannot point to white objects.
@@ -517,12 +612,7 @@ local function generate_lua_entry_point(tl_node)
     local nargs = ctx:new_cvar("int", "nargs")
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
-        if (${NARGS} != ${EXPECTED}) {
-            luaL_error(L,
-                "wrong number of arguments to function, "
-                "expected %d but received %d",
-                ${EXPECTED}, ${NARGS});
-        }
+        if (${NARGS} != ${EXPECTED}) { titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS}); }
     ]], {
         BASE = base.name,
         NARGS = nargs.name,
@@ -544,13 +634,7 @@ local function generate_lua_entry_point(tl_node)
         local slot = ctx:new_cvar("TValue*")
         table.insert(check_types, util.render([[
             ${SLOT_DECL} = ${SLOT_ADDRESS};
-            if (!${CHECK_TAG}) {
-                luaL_error(L,
-                    "wrong type for argument %s at line %d, "
-                    "expected %s but found %s",
-                    ${PARAM_NAME}, ${LINE}, ${EXP_TYPE},
-                    lua_typename(L, ttype(${SLOT_NAME})));
-            }
+            if (!${CHECK_TAG}) { titan_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME}); }
         ]], {
             SLOT_NAME = slot.name,
             SLOT_DECL = c_declaration(slot),
@@ -558,7 +642,7 @@ local function generate_lua_entry_point(tl_node)
             CHECK_TAG = check_tag(param._type, slot.name),
             PARAM_NAME = c_string(param.name),
             LINE = c_integer(param.loc.line),
-            EXP_TYPE = c_string(types.tostring(param._type)),
+            EXPECTED_TAG = titan_type_tag(param._type),
         }))
     end
 
@@ -961,10 +1045,10 @@ generate_stat = function(stat, ctx)
         ctx:end_scope()
         return util.render([[
             ${START_STAT}
-            ${START_DECL} = ${START_VALUE};
             ${FINISH_STAT}
-            ${FINISH_DECL} = ${FINISH_VALUE};
             ${INC_STAT}
+            ${START_DECL} = ${START_VALUE};
+            ${FINISH_DECL} = ${FINISH_VALUE};
             ${INC_DECL} = ${INC_VALUE};
             while (${LOOP_COND}) {
                 ${LOOPVAR_DECL} = ${START};
@@ -1008,18 +1092,15 @@ generate_stat = function(stat, ctx)
                 stat.exp._type, var_lvalue.slot_address, exp_cvalue,
                 var_lvalue.parent_pointer)
             assign_stat = util.render([[
-                if (isempty(${SLOT})) {
-                    luaL_error(L,
-                        "out of bounds (inside array part) at line %d",
-                        ${LINE});
-                }
+                if (!${CHECK_TAG}) { titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
                 ${ASSIGN_SLOT}
             ]], {
                 SLOT = var_lvalue.slot_address,
-                ASSIGN_SLOT = assign_slot,
+                CHECK_TAG = check_tag(stat.exp._type, var_lvalue.slot_address),
                 LINE = c_integer(stat.loc.line),
+                EXPECTED_TAG = titan_type_tag(stat.exp._type),
+                ASSIGN_SLOT = assign_slot,
             })
-
         else
             error("impossible")
         end
@@ -1134,11 +1215,7 @@ generate_var = function(var, ctx)
             ${T_CSTATS}
             ${K_CSTATS}
             ${UI_DECL} = ((lua_Unsigned)${K_CVALUE}) - 1;
-            if (${UI_NAME} >= ${T_CVALUE}->sizearray) {
-                luaL_error(L,
-                    "out of bounds (outside array part) at line %d",
-                    ${LINE});
-            }
+            if (${UI_NAME} >= ${T_CVALUE}->sizearray) { titan_runtime_array_bounds_error(L, ${LINE}); }
             ${SLOT_DECL} = &${T_CVALUE}->array[${UI_NAME}];
         ]], {
             T_CSTATS = t_cstats,
@@ -1419,13 +1496,7 @@ generate_exp = function(exp, ctx)
                 retval = ret.name
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top-1);
-                    if (!${CHECK_TAG}) {
-                        luaL_error(L,
-                            "wrong type for function result at line %d, "
-                            "expected %s but found %s",
-                            ${LINE}, ${EXP_TYPE},
-                            lua_typename(L, ttype(${SLOT})));
-                    }
+                    if (!${CHECK_TAG}) { titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
                     ${RET_DECL} = ${GET_SLOT};
                     L->top--;
                 ]], {
@@ -1433,7 +1504,7 @@ generate_exp = function(exp, ctx)
                     SLOT_DECL = c_declaration(slot),
                     CHECK_TAG = check_tag(ret_typ, slot.name),
                     LINE = c_integer(exp.loc.line),
-                    EXP_TYPE = c_string(types.tostring(ret_typ)),
+                    EXPECTED_TAG = titan_type_tag(ret_typ),
                     RET_DECL = c_declaration(ret),
                     GET_SLOT = get_slot(ret_typ, slot.name),
                 }))
@@ -1452,37 +1523,44 @@ generate_exp = function(exp, ctx)
         error("not implemented")
 
     elseif tag == ast.Exp.Var then
-        local cstats, lvalue = generate_var(exp.var, ctx)
-        local cvalue
+        local exp_cstats, lvalue = generate_var(exp.var, ctx)
+
         if     lvalue._tag == coder.Lvalue.CVar then
-            cvalue = lvalue.varname
+            return exp_cstats, lvalue.varname
+
         elseif lvalue._tag == coder.Lvalue.SafeSlot then
-            cvalue = get_slot(exp.var._type, lvalue.slot_address)
-        elseif lvalue._tag == coder.Lvalue.ArraySlot then
-            local slot = lvalue.slot_address
-            cstats = cstats .. "\n" .. util.render([[
-                if (isempty(${SLOT})) {
-                    luaL_error(L,
-                        "out of bounds (inside array part) at line %d",
-                        ${LINE});
-                }
-                if (!${CHECK_TAG}) {
-                    luaL_error(L,
-                        "wrong type for array element at line %d, "
-                        "expected %s but found %s",
-                        ${LINE}, ${EXP_TYPE}, lua_typename(L, ttype(${SLOT})));
-                }
+            local cvar = ctx:new_cvar(ctype(exp._type))
+            local cstats = util.render([[
+                ${EXP_STATS}
+                ${VAR_DECL} = ${GET_SLOT};
             ]], {
-                SLOT = slot,
+                EXP_STATS = exp_cstats,
+                VAR_DECL = c_declaration(cvar),
+                GET_SLOT = get_slot(exp.var._type, lvalue.slot_address),
+            })
+            return cstats, cvar.name
+
+        elseif lvalue._tag == coder.Lvalue.ArraySlot then
+            local cvar = ctx:new_cvar(ctype(exp._type))
+            local slot = lvalue.slot_address
+            local cstats = util.render([[
+                ${EXP_STATS}
+                if (!${CHECK_TAG}) { titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
+                ${VAR_DECL} = ${GET_SLOT};
+            ]], {
+                EXP_STATS = exp_cstats,
                 CHECK_TAG = check_tag(exp._type, slot),
                 LINE = c_integer(exp.loc.line),
-                EXP_TYPE = c_string(types.tostring(exp._type)),
+                EXPECTED_TAG = titan_type_tag(exp._type),
+                SLOT = slot,
+                VAR_DECL = c_declaration(cvar),
+                GET_SLOT = get_slot(exp.var._type, lvalue.slot_address),
             })
-            cvalue = get_slot(exp.var._type, lvalue.slot_address)
+            return cstats, cvar.name
+
         else
             error("impossible")
         end
-        return cstats, cvalue
 
     elseif tag == ast.Exp.Unop then
         local cstats, cvalue = generate_exp(exp.exp, ctx)
@@ -1540,7 +1618,7 @@ generate_exp = function(exp, ctx)
         -- parameters
         local function binop(op)
             local cstats = lhs_cstats..rhs_cstats
-            local cvalue = util.render("((${LHS})${OP}(${RHS}))", {
+            local cvalue = util.render("(${LHS} ${OP} ${RHS})", {
                 OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
             return cstats, cvalue
         end
