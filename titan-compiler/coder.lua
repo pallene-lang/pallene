@@ -612,9 +612,7 @@ local function generate_lua_entry_point(tl_node)
     local nargs = ctx:new_cvar("int", "nargs")
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
-        if (${NARGS} != ${EXPECTED}) {
-            titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS});
-        }
+        if (${NARGS} != ${EXPECTED}) { titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS}); }
     ]], {
         BASE = base.name,
         NARGS = nargs.name,
@@ -636,11 +634,7 @@ local function generate_lua_entry_point(tl_node)
         local slot = ctx:new_cvar("TValue*")
         table.insert(check_types, util.render([[
             ${SLOT_DECL} = ${SLOT_ADDRESS};
-            if (!${CHECK_TAG}) {
-                titan_runtime_argument_type_error(
-                    L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME}
-                );
-            }
+            if (!${CHECK_TAG}) { titan_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME}); }
         ]], {
             SLOT_NAME = slot.name,
             SLOT_DECL = c_declaration(slot),
@@ -1502,11 +1496,7 @@ generate_exp = function(exp, ctx)
                 retval = ret.name
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top-1);
-                    if (!${CHECK_TAG}) {
-                        titan_runtime_function_return_error(
-                            L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}
-                        );
-                    }
+                    if (!${CHECK_TAG}) { titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
                     ${RET_DECL} = ${GET_SLOT};
                     L->top--;
                 ]], {
@@ -1555,7 +1545,7 @@ generate_exp = function(exp, ctx)
             local slot = lvalue.slot_address
             local cstats = util.render([[
                 ${EXP_STATS}
-                if (!${CHECK_TAG}) { titan_runtime_array_type_error( L, ${LINE}, ${EXPECTED_TAG}, ${SLOT} ); }
+                if (!${CHECK_TAG}) { titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
                 ${VAR_DECL} = ${GET_SLOT};
             ]], {
                 EXP_STATS = exp_cstats,
