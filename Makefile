@@ -5,7 +5,6 @@ CFLAGS:=--std=c99 -g -Wall -O2 -fPIC -shared
 
 all: lua runtime/tcore.o
 
-
 lua:
 	cd lua/src; make linux-readline
 

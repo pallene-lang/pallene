@@ -68,8 +68,6 @@ void titan_runtime_array_bounds_error_slow(
     );
 }
 
-
-
 void titan_runtime_array_type_error(
    lua_State *L,
    int line,
@@ -107,5 +105,3 @@ void titan_runtime_function_return_error(
         line, expected_type, received_type
     );
 }
-
-
