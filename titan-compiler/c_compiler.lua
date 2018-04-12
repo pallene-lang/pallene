@@ -10,11 +10,44 @@ c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
 local UNAME = util.shell("uname -s")
-
 if string.find(UNAME, "Darwin") then
     c_compiler.CFLAGS_SHARED = "-fPIC -shared -undefined dynamic_lookup"
 else
     c_compiler.CFLAGS_SHARED = "-fPIC -shared"
+end
+
+local function compile_c(mode, c_filename, out_filename)
+    local extra_flags
+    if     mode == "so" then
+        extra_flags = ""
+    elseif mode == "s" then
+        extra_flags = "-S"
+    else
+        error("impossible")
+    end
+
+    local args = {
+        c_compiler.CC,
+        c_compiler.CFLAGS_BASE,
+        c_compiler.CFLAGS_WARN,
+        c_compiler.CFLAGS_OPT,
+        c_compiler.CFLAGS_SHARED,
+        "-I", c_compiler.LUA_SOURCE_PATH,
+        extra_flags,
+        "-o", out_filename,
+        "-x", "c",
+        c_filename,
+    }
+    local cmd = table.concat(args, " ")
+    local ok = os.execute(cmd)
+    if not ok then
+        return false, {
+            "internal error: gcc failed",
+            "compilation line: " .. cmd,
+        }
+    end
+
+    return true, {}
 end
 
 function c_compiler.compile_titan_to_so(titan_filename, input, so_filename)
@@ -51,27 +84,11 @@ function c_compiler.compile_titan_to_c(titan_filename, input, c_filename)
 end
 
 function c_compiler.compile_c_to_so(c_filename, so_filename)
-    local args = {
-        c_compiler.CC,
-        c_compiler.CFLAGS_BASE,
-        c_compiler.CFLAGS_WARN,
-        c_compiler.CFLAGS_OPT,
-        c_compiler.CFLAGS_SHARED,
-        "-I", c_compiler.LUA_SOURCE_PATH,
-        "-o", so_filename,
-        "-x", "c",
-        c_filename,
-    }
-    local cmd = table.concat(args, " ")
-    local ok = os.execute(cmd)
-    if not ok then
-        return false, {
-            "internal error: gcc failed",
-            "compilation line: " .. cmd,
-        }
-    end
+    return compile_c("so", c_filename, so_filename)
+end
 
-    return true, {}
+function c_compiler.compile_c_to_asm(c_filename, s_filename)
+    return compile_c("s", c_filename, s_filename)
 end
 
 return c_compiler
