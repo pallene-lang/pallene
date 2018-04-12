@@ -96,9 +96,9 @@ if args.emit_asm  then table.insert(flags, "--emit-s") end
 if args.compile_c then table.insert(flags, "--compile-c") end
 
 if #flags >= 2 then
-    titanc_abort(string.format(
-    "flags %s are mutually exclusive", table.concat(flags, " and ")
-    ))
+    local conflicting = table.concat(flags, " and ")
+    local msg = string.format("flags %s are mutually exclusive", conflicting)
+    titanc_abort(msg)
 end
 
 if     #flags == 0    then compile_titan_to_so() -- Default case
