@@ -4,6 +4,7 @@
 #include "lapi.h"
 
 #define TITAN_NORETURN __attribute__((noreturn))
+#define TITAN_UNREACHABLE __builtin_unreachable()
 
 const char * titan_tag_name(int raw_tag);
 
