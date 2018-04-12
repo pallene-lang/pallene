@@ -403,7 +403,6 @@ local function titan_type_tag(typ)
     elseif tag == types.T.Record   then error("not implemented")
     else error("impossible")
     end
-    return util.render(tmpl, {SLOT = slot})
 end
 
 -- Specialized version of luaH_barrierback. To be called when setting v as an
