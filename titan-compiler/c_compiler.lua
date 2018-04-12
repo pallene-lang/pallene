@@ -3,7 +3,7 @@ local util = require "titan-compiler.util"
 
 local c_compiler = {}
 
-c_compiler.LUA_SOURCE_PATH = "./lua/src"
+c_compiler.CPPFLAGS = "-I./lua/src -I./runtime"
 c_compiler.CFLAGS_BASE = "--std=c99 -g "
 c_compiler.CFLAGS_WARN = "-Wall -Wno-unused-function -Wno-parentheses-equality"
 c_compiler.CFLAGS_OPT = "-O2"
@@ -19,7 +19,7 @@ end
 local function compile_c(mode, c_filename, out_filename)
     local extra_flags
     if     mode == "so" then
-        extra_flags = ""
+        extra_flags = "runtime/tcore.o"
     elseif mode == "s" then
         extra_flags = "-S"
     else
@@ -28,11 +28,11 @@ local function compile_c(mode, c_filename, out_filename)
 
     local args = {
         c_compiler.CC,
+        c_compiler.CPPFLAGS,
         c_compiler.CFLAGS_BASE,
         c_compiler.CFLAGS_WARN,
         c_compiler.CFLAGS_OPT,
         c_compiler.CFLAGS_SHARED,
-        "-I", c_compiler.LUA_SOURCE_PATH,
         extra_flags,
         "-o", out_filename,
         "-x", "c",
