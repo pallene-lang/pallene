@@ -11,7 +11,6 @@ clean:
 	cd lua/src && $(MAKE) clean
 	rm -f ./runtime/*.o ./runtime/*.a
 
-
 linux-readline:   runtime/tcore.o lua-linux-readline
 linux-noreadline: runtime/tcore.o lua-linux-noreadline
 macos:            runtime/tcore.o lua-macos
