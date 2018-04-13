@@ -7,7 +7,7 @@
 #include "lstate.h"
 #include "ltm.h"
 
-const char * titan_tag_name(int raw_tag)
+const char *titan_tag_name(int raw_tag)
 {
     if (raw_tag == LUA_TNUMINT) {
         return "integer";

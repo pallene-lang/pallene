@@ -6,7 +6,7 @@
 #define TITAN_NORETURN __attribute__((noreturn))
 #define TITAN_UNREACHABLE __builtin_unreachable()
 
-const char * titan_tag_name(int raw_tag);
+const char *titan_tag_name(int raw_tag);
 
 void titan_runtime_arity_error(
     lua_State *L, int expected, int received)
