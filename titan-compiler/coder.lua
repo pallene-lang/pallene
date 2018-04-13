@@ -1217,7 +1217,7 @@ local function generate_exp_builtin_table_remove(exp, ctx)
         if (TITAN_LIKELY(${UI} > 0)) {
             ${UI} = ${UI} - 1;
             ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
-            setnilvalue(${SLOT});
+            setempty(${SLOT});
             ${HALFSIZE_DECL} = ${CVALUE_T}->sizearray / 2;
             if (${UI} < ${HALFSIZE}) {
                 luaH_resizearray(L, ${CVALUE_T}, ${HALFSIZE});
