@@ -11,9 +11,9 @@ clean:
 	cd lua/src && $(MAKE) clean
 	rm -f ./runtime/*.o ./runtime/*.a
 
-linux-readline:   runtime/tcore.o lua-linux-readline
-linux-noreadline: runtime/tcore.o lua-linux-noreadline
-macos:            runtime/tcore.o lua-macos
+linux-readline:   runtime/titanlib.a lua-linux-readline
+linux-noreadline: runtime/titanlib.a lua-linux-noreadline
+macos:            runtime/titanlib.a lua-macos
 
 lua-linux-readline:
 	cd lua/src && $(MAKE) linux-readline
@@ -25,3 +25,7 @@ lua-macos:
 	cd lua/src && $(MAKE) macos
 
 runtime/tcore.o: runtime/tcore.c runtime/tcore.h
+
+runtime/titanlib.a: runtime/tcore.o
+	$(AR) rc $@ $^
+	ranlib $@
