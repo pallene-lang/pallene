@@ -49,12 +49,10 @@ local function compile(ext, file_name)
 end
 
 local function benchmark(test_dir, no_lua)
-    -- remove temporaries from previous runs
-    util.shell(string.format([[ rm -f %s/*.so ]], test_dir))
-
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
         if not string.find(file_name, "^%.") and
+           not string.find(file_name, "%.so$") and
            file_name ~= "main.lua" then
             table.insert(file_names, file_name)
         end
