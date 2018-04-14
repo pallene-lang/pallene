@@ -1,17 +1,18 @@
 #!/usr/bin/env lua
 
 local lfs = require "lfs"
+local chronos = require "chronos"
 
 local util = require "titan-compiler.util"
 
 -- run the command a single time and return the time elapsed
 local function time(cmd)
-    local result = util.shell(
-        [[ bash -c "{ TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1" ]])
-    local time_elapsed = tonumber(result)
-    if not time_elapsed then
-        io.stderr:write(result, "\n")
-        return -1
+    local t = chronos.nanotime()
+    local result, err = util.shell(cmd .. " > /dev/null")
+    local time_elapsed = chronos.nanotime() - t
+    if not result then
+        io.stderr:write(err .. "\n")
+        os.exit(1)
     end
     return time_elapsed
 end
