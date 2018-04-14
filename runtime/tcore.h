@@ -6,6 +6,9 @@
 #define TITAN_NORETURN __attribute__((noreturn))
 #define TITAN_UNREACHABLE __builtin_unreachable()
 
+#define TITAN_LIKELY(x)   __builtin_expect(!!(x), 1)
+#define TITAN_UNLIKELY(x) __builtin_expect(!!(x), 0)
+
 const char *titan_tag_name(int raw_tag);
 
 void titan_runtime_arity_error(

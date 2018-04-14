@@ -528,7 +528,9 @@ local function generate_lua_entry_point(tl_node)
     local nargs = ctx:new_cvar("int", "nargs")
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
-        if (${NARGS} != ${EXPECTED}) { titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS}); }
+        if (TITAN_UNLIKELY(${NARGS} != ${EXPECTED})) {
+            titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS});
+        }
     ]], {
         BASE = base.name,
         NARGS = nargs.name,
@@ -550,7 +552,9 @@ local function generate_lua_entry_point(tl_node)
         local slot = ctx:new_cvar("TValue*")
         table.insert(check_types, util.render([[
             ${SLOT_DECL} = ${SLOT_ADDRESS};
-            if (!${CHECK_TAG}) { titan_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME}); }
+            if (TITAN_UNLIKELY(!${CHECK_TAG})) {
+                titan_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME});
+            }
         ]], {
             SLOT_NAME = slot.name,
             SLOT_DECL = c_declaration(slot),
@@ -1008,7 +1012,9 @@ generate_stat = function(stat, ctx)
                 stat.exp._type, var_lvalue.slot_address, exp_cvalue,
                 var_lvalue.parent_pointer)
             assign_stat = util.render([[
-                if (!${CHECK_TAG}) { titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
+                if (TITAN_UNLIKELY(!${CHECK_TAG})) {
+                    titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT});
+                }
                 ${ASSIGN_SLOT}
             ]], {
                 SLOT = var_lvalue.slot_address,
@@ -1131,7 +1137,9 @@ generate_var = function(var, ctx)
             ${T_CSTATS}
             ${K_CSTATS}
             ${UI_DECL} = ((lua_Unsigned)${K_CVALUE}) - 1;
-            if (${UI_NAME} >= ${T_CVALUE}->sizearray) { titan_runtime_array_bounds_error(L, ${LINE}); }
+            if (TITAN_UNLIKELY(${UI_NAME} >= ${T_CVALUE}->sizearray)) {
+                titan_runtime_array_bounds_error(L, ${LINE});
+            }
             ${SLOT_DECL} = &${T_CVALUE}->array[${UI_NAME}];
         ]], {
             T_CSTATS = t_cstats,
@@ -1167,7 +1175,7 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         ${CSTATS_V}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
         ${SIZE_DECL} = ${CVALUE_T}->sizearray;
-        if (${SIZE} <= ${UI}) {
+        if (TITAN_UNLIKELY(${SIZE} <= ${UI})) {
             if (${SIZE} < 8) {
                 /* avoid infinite loop if sizearray == 0 */
                 ${SIZE} = 8;
@@ -1206,7 +1214,7 @@ local function generate_exp_builtin_table_remove(exp, ctx)
     local cstats = util.render([[
         ${CSTATS_T}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
-        if (${UI} > 0) {
+        if (TITAN_LIKELY(${UI} > 0)) {
             ${UI} = ${UI} - 1;
             ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
             setnilvalue(${SLOT});
@@ -1412,7 +1420,9 @@ generate_exp = function(exp, ctx)
                 retval = ret.name
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top-1);
-                    if (!${CHECK_TAG}) { titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
+                    if (TITAN_UNLIKELY(!${CHECK_TAG})) {
+                        titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT});
+                    }
                     ${RET_DECL} = ${GET_SLOT};
                     L->top--;
                 ]], {
@@ -1461,7 +1471,9 @@ generate_exp = function(exp, ctx)
             local slot = lvalue.slot_address
             local cstats = util.render([[
                 ${EXP_STATS}
-                if (!${CHECK_TAG}) { titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT}); }
+                if (TITAN_UNLIKELY(!${CHECK_TAG})) {
+                    titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT});
+                }
                 ${VAR_DECL} = ${GET_SLOT};
             ]], {
                 EXP_STATS = exp_cstats,
