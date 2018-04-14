@@ -113,7 +113,7 @@ local function benchmark(test_dir)
 
     table.sort(results, function(r1, r2) return r1.name < r2.name end)
     for _, r in ipairs(results) do
-        print(r.name, r.result)
+        print(string.format("%-16s%.3f", r.name, r.result))
     end
     print("----------")
 end
