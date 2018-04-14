@@ -53,6 +53,11 @@ function util.shell(cmd)
     return out
 end
 
+function util.abort(msg)
+    io.stderr:write(msg, "\n")
+    os.exit(1)
+end
+
 function util.split_ext(file_name)
 	local name, ext = string.match(file_name, "(.*)%.(.*)")
     return name, ext
