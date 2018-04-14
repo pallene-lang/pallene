@@ -56,25 +56,10 @@ local function compile(ext, file_name)
     end
 end
 
--- TODO: In the current state, this is just a `rm -rf ./*.so`, for all cases.
--- Check if we can simplify to just that or if the luajut stuff will behave
--- differently when we implement it.
-local cleanup = {
-    ["lua"] =
-        function() end,
-
-    ["titan"] =
-        function(test_dir, name)
-            os.remove(test_dir .. "/" .. name .. ".so")
-        end,
-
-    ["c"] =
-        function(test_dir, name)
-            os.remove(test_dir .. "/" .. name .. ".so")
-        end,
-}
-
 local function benchmark(test_dir)
+    -- remove temporaries from previous runs
+    util.shell(string.format([[ rm -f %s/*.so ]], test_dir))
+
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
         if not string.find(file_name, "^%.") and
@@ -93,7 +78,6 @@ local function benchmark(test_dir)
         end
         local result = measure(test_dir, name)
         table.insert(results, {name = name, result = result})
-        cleanup[ext](test_dir, name)
     end
 
     table.sort(results, function(r1, r2) return r1.name < r2.name end)
