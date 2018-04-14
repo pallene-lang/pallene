@@ -5,7 +5,7 @@ local argparse = require "argparse"
 local c_compiler = require "titan-compiler.c_compiler"
 local util = require "titan-compiler.util"
 
-local p = argparse("titan", "Titan compiler")
+local p = argparse("titanc", "Titan compiler")
 p:argument("source_file", "File to compile")
 p:flag("--emit-c", "Generate a .c file instead of an .so file")
 p:flag("--emit-asm", "Generate a .s file instead of an .so file")
