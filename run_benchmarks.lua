@@ -48,7 +48,7 @@ local function compile(ext, file_name)
     end
 end
 
-local function benchmark(test_dir, disable_lua)
+local function benchmark(test_dir, no_lua)
     -- remove temporaries from previous runs
     util.shell(string.format([[ rm -f %s/*.so ]], test_dir))
 
@@ -76,7 +76,7 @@ local function benchmark(test_dir, disable_lua)
             lua = "lua/src/lua"
         end
 
-        if not (ext == "lua" and disable_lua) then
+        if not (ext == "lua" and no_lua) then
             local result = measure(lua, test_dir, name)
             table.insert(results, {name = name, result = result})
         end
@@ -105,11 +105,11 @@ local function benchmark(test_dir, disable_lua)
     print("----------")
 end
 
-local function run_all_benchmarks(disable_lua)
+local function run_all_benchmarks(no_lua)
     for test in lfs.dir("benchmarks") do
         if not string.find(test, "^%.") then
             local test_dir = "benchmarks/" .. test
-            benchmark(test_dir, disable_lua)
+            benchmark(test_dir, no_lua)
         end
     end
 end
@@ -120,12 +120,12 @@ end
 
 local p = argparse(arg[0], "Titan benchmarks")
 p:argument("test_dir", "Only benchmark a specific directory"):args("?")
-p:flag("--disable-lua", "Do not run the lua benchmark")
+p:flag("--no-lua", "Do not run the (slow) lua benchmark")
 local args = p:parse()
 
 if args.test_dir then
     local test_dir = string.gsub(args.test_dir, "/*$", "")
-    benchmark(test_dir, args.disable_lua)
+    benchmark(test_dir, args.no_lua)
 else
-    run_all_benchmarks(args.disable_lua)
+    run_all_benchmarks(args.no_lua)
 end
