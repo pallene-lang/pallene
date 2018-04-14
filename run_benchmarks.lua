@@ -11,8 +11,7 @@ local function time(cmd)
     local result, err = util.shell(cmd .. " > /dev/null")
     local time_elapsed = chronos.nanotime() - t
     if not result then
-        io.stderr:write(err .. "\n")
-        os.exit(1)
+        util.abort(err)
     end
     return time_elapsed
 end
@@ -37,24 +36,17 @@ local function measure(test_dir, name)
     return results
 end
 
-local compile = {
-    ["lua"] =
-        function()
-            return true, {}
-        end,
-
-    ["titan"] =
-        function(file_name)
-            util.shell(string.format("./titanc %s", file_name))
-            return true, {}
-        end,
-
-    ["c"] =
-        function(file_name)
-            util.shell(string.format("./titanc --compile-c %s", file_name))
-            return true, {}
-        end,
-}
+local function compile(ext, file_name)
+    if     ext == "titan" then
+        return util.shell(string.format("./titanc %s", file_name))
+    elseif ext == "c" then
+        return util.shell(string.format("./titanc --compile-c %s", file_name))
+    elseif ext == "lua" then
+        return true
+    else
+        return false, string.format("unknow extension: %s", ext)
+    end
+end
 
 -- TODO: In the current state, this is just a `rm -rf ./*.so`, for all cases.
 -- Check if we can simplify to just that or if the luajut stuff will behave
@@ -95,20 +87,13 @@ local function benchmark(test_dir)
     for _, file_name in ipairs(file_names) do
         local name, ext = util.split_ext(file_name)
         local path = test_dir .. "/" .. file_name
-        local compile_ext = compile[ext]
-        if not compile_ext then
-            goto continue
+        local ok, err = compile(ext, path)
+        if not ok then
+            util.abort(err)
         end
-        local ok, errors = compile_ext(path)
-        if ok then
-            local result = min(measure(test_dir, name))
-            table.insert(results, {name = name, result = result})
-        end
+        local result = min(measure(test_dir, name))
+        table.insert(results, {name = name, result = result})
         cleanup[ext](test_dir, name)
-        if #errors > 0 then
-            error(table.concat(errors, "\n"))
-        end
-        ::continue::
     end
 
     table.sort(results, function(r1, r2) return r1.name < r2.name end)
