@@ -1,17 +1,18 @@
 #!/usr/bin/env lua
 
 local lfs = require "lfs"
+local chronos = require "chronos"
 
 local util = require "titan-compiler.util"
 
 -- run the command a single time and return the time elapsed
 local function time(cmd)
-    local result = util.shell(
-        [[ bash -c "{ TIMEFORMAT='%3R'; time ]].. cmd ..[[ > /dev/null; } 2>&1" ]])
-    local time_elapsed = tonumber(result)
-    if not time_elapsed then
-        io.stderr:write(result, "\n")
-        return -1
+    local t = chronos.nanotime()
+    local result, err = util.shell(cmd .. " > /dev/null")
+    local time_elapsed = chronos.nanotime() - t
+    if not result then
+        io.stderr:write(err .. "\n")
+        os.exit(1)
     end
     return time_elapsed
 end
@@ -112,7 +113,7 @@ local function benchmark(test_dir)
 
     table.sort(results, function(r1, r2) return r1.name < r2.name end)
     for _, r in ipairs(results) do
-        print(r.name, r.result)
+        print(string.format("%-16s%.3f", r.name, r.result))
     end
     print("----------")
 end

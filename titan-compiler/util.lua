@@ -46,7 +46,10 @@ end
 function util.shell(cmd)
     local p = io.popen(cmd)
     local out = p:read("*a")
-    p:close()
+    local ok, _ = p:close()
+    if not ok then
+        return false, "command failed: " .. cmd
+    end
     return out
 end
 
