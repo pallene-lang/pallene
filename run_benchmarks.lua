@@ -24,18 +24,9 @@ local function min(arr)
     return m
 end
 
-local function measure(test_dir, name)
+local function measure(lua, test_dir, name)
     local test_name = string.gsub(test_dir, "/", ".") .. "." .. name
-
-    local lua
-    if string.match(name, "^luajit") then
-        lua = "luajit"
-    else
-        lua = "lua/src/lua"
-    end
-
-    local cmd = string.format(
-            [[ %s %s/main.lua %s ]], lua, test_dir, test_name)
+    local cmd = string.format([[%s %s/main.lua %s]], lua, test_dir, test_name)
     print("running", cmd)
     local results = {}
     for i = 1, 3 do
@@ -76,8 +67,32 @@ local function benchmark(test_dir)
         if not ok then
             util.abort(err)
         end
-        local result = measure(test_dir, name)
+
+        local lua
+        if name == "luajit" then
+            lua = "luajit"
+        else
+            lua = "lua/src/lua"
+        end
+
+        local result = measure(lua, test_dir, name)
         table.insert(results, {name = name, result = result})
+    end
+
+    -- run luajit against *.lua if there is no luajit.lua
+    local luajit_run = false
+    local lua_file = nil
+    for _, file_name in ipairs(file_names) do
+        local name, ext = util.split_ext(file_name)
+        if name == "luajit" then
+            luajit_run = true
+        elseif ext == "lua" then
+            lua_file = name
+        end
+    end
+    if not luajit_run and lua_file then
+        local result = measure("luajit", test_dir, lua_file)
+        table.insert(results, {name = "luajit", result = result})
     end
 
     table.sort(results, function(r1, r2) return r1.name < r2.name end)
