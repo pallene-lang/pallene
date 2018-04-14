@@ -16,6 +16,14 @@ local function time(cmd)
     return time_elapsed
 end
 
+local function min(arr)
+    local m = math.maxinteger
+    for _, v in ipairs(arr) do
+        m = math.min(m, v)
+    end
+    return m
+end
+
 local function measure(test_dir, name)
     local test_name = string.gsub(test_dir, "/", ".") .. "." .. name
 
@@ -33,7 +41,7 @@ local function measure(test_dir, name)
     for i = 1, 3 do
         table.insert(results, time(cmd))
     end
-    return results
+    return min(results)
 end
 
 local function compile(ext, file_name)
@@ -66,14 +74,6 @@ local cleanup = {
         end,
 }
 
-local function min(arr)
-    local m = math.maxinteger
-    for _, v in ipairs(arr) do
-        m = math.min(m, v)
-    end
-    return m
-end
-
 local function benchmark(test_dir)
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
@@ -91,7 +91,7 @@ local function benchmark(test_dir)
         if not ok then
             util.abort(err)
         end
-        local result = min(measure(test_dir, name))
+        local result = measure(test_dir, name)
         table.insert(results, {name = name, result = result})
         cleanup[ext](test_dir, name)
     end
