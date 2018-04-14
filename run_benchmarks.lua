@@ -1,7 +1,8 @@
 #!/usr/bin/env lua
 
-local lfs = require "lfs"
+local argparse = require "argparse"
 local chronos = require "chronos"
+local lfs = require "lfs"
 
 local util = require "titan-compiler.util"
 
@@ -47,7 +48,7 @@ local function compile(ext, file_name)
     end
 end
 
-local function benchmark(test_dir)
+local function benchmark(test_dir, disable_lua)
     -- remove temporaries from previous runs
     util.shell(string.format([[ rm -f %s/*.so ]], test_dir))
 
@@ -75,8 +76,10 @@ local function benchmark(test_dir)
             lua = "lua/src/lua"
         end
 
-        local result = measure(lua, test_dir, name)
-        table.insert(results, {name = name, result = result})
+        if not (ext == "lua" and disable_lua) then
+            local result = measure(lua, test_dir, name)
+            table.insert(results, {name = name, result = result})
+        end
     end
 
     -- run luajit against *.lua if there is no luajit.lua
@@ -102,19 +105,27 @@ local function benchmark(test_dir)
     print("----------")
 end
 
-local function run_all_benchmarks()
+local function run_all_benchmarks(disable_lua)
     for test in lfs.dir("benchmarks") do
         if not string.find(test, "^%.") then
             local test_dir = "benchmarks/" .. test
-            benchmark(test_dir)
+            benchmark(test_dir, disable_lua)
         end
     end
 end
 
-local test_dir = arg[1]
-if test_dir then
-    test_dir = string.gsub(test_dir, "/*$", "")
-    benchmark(test_dir)
+--
+--
+--
+
+local p = argparse(arg[0], "Titan benchmarks")
+p:argument("test_dir", "Only benchmark a specific directory"):args("?")
+p:flag("--disable-lua", "Do not run the lua benchmark")
+local args = p:parse()
+
+if args.test_dir then
+    local test_dir = string.gsub(args.test_dir, "/*$", "")
+    benchmark(test_dir, args.disable_lua)
 else
-    run_all_benchmarks()
+    run_all_benchmarks(args.disable_lua)
 end
