@@ -16,8 +16,20 @@ else
     c_compiler.CFLAGS_SHARED = "-shared"
 end
 
+local function run_cc(args)
+    local cmd = table.concat(args, " ")
+    local ok = os.execute(cmd)
+    if not ok then
+        return false, {
+            "internal error: compiler failed",
+            "compilation line: " .. cmd,
+        }
+    end
+    return true, {}
+end
+
 local function compile_c(c_filename, out_filename, extra_flags)
-    local args = {
+    return run_cc({
         c_compiler.CC,
         c_compiler.CPPFLAGS,
         c_compiler.CFLAGS_BASE,
@@ -26,35 +38,17 @@ local function compile_c(c_filename, out_filename, extra_flags)
         extra_flags,
         "-o", out_filename,
         c_filename,
-    }
-    local cmd = table.concat(args, " ")
-    local ok = os.execute(cmd)
-    if not ok then
-        return false, {
-            "internal error: compiler failed",
-            "compilation line: " .. cmd,
-        }
-    end
-    return true, {}
+    })
 end
 
-local function link_obj_to_so(o_filename, so_filename)
-    local args = {
+local function link_obj(o_filename, so_filename)
+    return run_cc({
         c_compiler.CC,
         c_compiler.CFLAGS_SHARED,
         "-o", so_filename,
         o_filename,
         "runtime/titanlib.a"
-    }
-    local cmd = table.concat(args, " ")
-    local ok = os.execute(cmd)
-    if not ok then
-        return false, {
-            "internal error: compiler failed",
-            "compilation line: " .. cmd,
-        }
-    end
-    return true, {}
+    })
 end
 
 function c_compiler.compile_titan_to_so(titan_filename, input, so_filename)
@@ -63,21 +57,14 @@ function c_compiler.compile_titan_to_so(titan_filename, input, so_filename)
 
     local ok, errs
     local c_filename = os.tmpname() .. ".c"
-    local o_filename = os.tmpname() .. ".o"
 
     ok, errs = c_compiler.compile_titan_to_c(titan_filename, input, c_filename)
     if not ok then goto done end
 
-    ok, errs = c_compiler.compile_c_to_obj(c_filename, o_filename)
+    ok, errs = c_compiler.compile_c_to_so(c_filename, so_filename)
     if not ok then goto done end
-
-    ok, errs = link_obj_to_so(o_filename, so_filename)
-    if not ok then goto done end
-
-    ok, errs = true, {}
 
     ::done::
-    os.remove(o_filename)
     os.remove(c_filename)
     return ok, errs
 end
@@ -92,10 +79,8 @@ function c_compiler.compile_c_to_so(c_filename, so_filename)
     ok, errs = c_compiler.compile_c_to_obj(c_filename, o_filename)
     if not ok then goto done end
 
-    ok, errs = link_obj_to_so(o_filename, so_filename)
+    ok, errs = link_obj(o_filename, so_filename)
     if not ok then goto done end
-
-    ok, errs = true, {}
 
     ::done::
     os.remove(o_filename)
@@ -123,7 +108,5 @@ end
 function c_compiler.compile_c_to_asm(c_filename, s_filename)
     return compile_c(c_filename, s_filename, "-S")
 end
-
-
 
 return c_compiler
