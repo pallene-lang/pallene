@@ -44,7 +44,7 @@ local function compile(ext, file_name)
     elseif ext == "lua" then
         return true
     else
-        return false, string.format("unknow extension: %s", ext)
+        return false, string.format("unknown extension: %s", ext)
     end
 end
 
