@@ -577,6 +577,20 @@ describe("Titan coder", function()
                 assert(math.mininteger == test.f(math.mininteger, -1))
             ]])
         end)
+
+        it("(%)", function()
+            run_coder([[
+                function f(x:integer, y:integer): integer
+                    return x % y
+                end
+            ]], [[
+                assert( 1 == test.f( 10,  3))
+                assert(-2 == test.f( 10, -3))
+                assert( 2 == test.f(-10,  3))
+                assert(-1 == test.f(-10, -3))
+                assert(0 == test.f(math.mininteger, -1))
+            ]])
+        end)
     end)
 
     describe("Statements", function()

@@ -1342,6 +1342,39 @@ local function generate_binop_intdiv(exp, ctx)
     return cstats, q.name
 end
 
+-- Lua/Titan guarantees that (m == n*(m//n) + (,%n))
+-- See generate binop_intdiv and luaV_mod
+local function generate_binop_intmod(exp, ctx)
+    local m_stats, m_var = generate_exp(exp.lhs, ctx)
+    local n_stats, n_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${M_STATS}
+        ${N_STATS}
+        ${R_DECL};
+        if (l_castS2U(${N}) + 1u <= 1u) {
+            if (${N} == 0){
+                titan_runtime_mod_by_zero_error(L);
+            } else {
+                ${R} = 0;
+            }
+        } else {
+            ${R} = ${M} % ${N};
+            if (${R} != 0 && (${M} ^ ${N}) < 0) {
+                ${R} += ${N};
+            }
+        }
+    ]], {
+        M = m_var,
+        M_STATS = m_stats,
+        N = n_var,
+        N_STATS = n_stats,
+        R = r.name,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -1717,10 +1750,7 @@ generate_exp = function(exp, ctx)
 
         elseif op == "%" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("luaV_mod(L, ${LHS}, ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
+                return generate_binop_intmod(exp, ctx)
 
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 -- see luai_nummod

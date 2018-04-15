@@ -36,4 +36,8 @@ void titan_runtime_divide_by_zero_error(
     lua_State *L)
     TITAN_NORETURN;
 
+void titan_runtime_mod_by_zero_error(
+    lua_State *L)
+    TITAN_NORETURN;
+
 #endif
