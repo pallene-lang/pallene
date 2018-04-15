@@ -1277,7 +1277,7 @@ local function generate_binop(op, exp, ctx)
     return cstats, r.name
 end
 
--- For integer arithmetic and bitwise operators Lua/Titan mandates well-defined
+-- For integer arithmetic operators Lua/Titan mandates well-defined
 -- two's-compliment wraparound in case of overflow.
 local function generate_intop(op, exp, ctx)
     local x_stats, x_var = generate_exp(exp.lhs, ctx)
@@ -1414,6 +1414,49 @@ local function generate_binop_pow(exp, ctx)
         X_STATS = x_stats,
         Y = y_var,
         Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- In Lua and Titan, the shift ammount in a bitshift can be any integer, but in
+-- C shift ammount must be a positive number less than the width of the integer
+-- type being shifted. This means that we need some if statements to implement
+-- the Lua shift semantics in C.
+--
+-- Most of the time, the shift amount should be a constant, which will allow the
+-- C compiler to eliminate all of these branches as dead code and generate code
+-- that is just as good as a raw C bitshift without the extra Lua semantics.
+--
+-- For the dynamic case, we gain a bit of performance (~20%) compared to the
+-- algorithm in luaV_shiftl by reordering the branches to put the common case
+-- (shift ammount is a small positive integer) under only one level of branching
+-- and with a TITAN_LIKELY annotation.
+local function generate_binop_shift(shift_pos, shift_neg, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL};
+        if (TITAN_LIKELY(l_castS2U(${Y}) < TITAN_LUAINTEGER_NBITS)) {
+            ${R} = intop(${SHIFT_POS}, ${X}, ${Y});
+        } else {
+            if (l_castS2U(-${Y}) < TITAN_LUAINTEGER_NBITS) {
+                ${R} = intop(${SHIFT_NEG}, ${X}, -${Y});
+            } else {
+                ${R} = 0;
+            }
+        }
+    ]], {
+        SHIFT_POS = shift_pos,
+        SHIFT_NEG = shift_neg,
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R = r.name,
         R_DECL = c_declaration(r),
     })
     return cstats, r.name
@@ -1776,14 +1819,14 @@ generate_exp = function(exp, ctx)
 
         elseif op == "<<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return generate_intop("<<", exp, ctx)
+                return generate_binop_shift("<<", ">>", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == ">>" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return generate_intop(">>", exp, ctx)
+                return generate_binop_shift(">>", "<<", exp, ctx)
             else
                 error("impossible")
             end

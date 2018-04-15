@@ -541,7 +541,7 @@ describe("Titan coder", function()
         end)
     end)
 
-    describe("Two-s compliment integer arithmetic", function()
+    describe("Lua vs C operator semantics", function()
         it("unary (-)", function()
             run_coder([[
                 function f(x:integer): integer
@@ -569,10 +569,10 @@ describe("Titan coder", function()
                     return x // y
                 end
             ]], [[
-                assert( 3 == test.f( 10,  3))
-                assert(-4 == test.f( 10, -3))
-                assert(-4 == test.f(-10,  3))
-                assert( 3 == test.f(-10, -3))
+                assert( 10 //  3 == test.f( 10,  3))
+                assert( 10 // -3 == test.f( 10, -3))
+                assert(-10 //  3 == test.f(-10,  3))
+                assert(-10 // -3 == test.f(-10, -3))
                 assert(math.mininteger == test.f(math.mininteger, -1))
             ]])
         end)
@@ -583,11 +583,26 @@ describe("Titan coder", function()
                     return x % y
                 end
             ]], [[
-                assert( 1 == test.f( 10,  3))
-                assert(-2 == test.f( 10, -3))
-                assert( 2 == test.f(-10,  3))
-                assert(-1 == test.f(-10, -3))
+                assert( 10 %  3 == test.f( 10,  3))
+                assert( 10 % -3 == test.f( 10, -3))
+                assert(-10 %  3 == test.f(-10,  3))
+                assert(-10 % -3 == test.f(-10, -3))
                 assert(0 == test.f(math.mininteger, -1))
+            ]])
+        end)
+
+        it("(>>)", function()
+            run_coder([[
+                function f(x:integer, y:integer): integer
+                    return x >> y
+                end
+            ]], [[
+                assert(0xdead >>  1 == test.f(0xdead,  1))
+                assert(0xdead >> -1 == test.f(0xdead, -1))
+                assert(0 == test.f(0xdead,  100))
+                assert(0 == test.f(0xdead, -100))
+                assert(0 == test.f(0xdead, math.maxinteger))
+                assert(0 == test.f(0xdead, math.mininteger))
             ]])
         end)
     end)
