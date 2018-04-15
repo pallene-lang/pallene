@@ -76,7 +76,7 @@ local function benchmark(test_dir, no_lua)
             lua = "lua/src/lua"
         end
 
-        if not (ext == "lua" and no_lua) then
+        if not (ext == "lua" and lua == "lua/src/lua" and no_lua) then
             local result = measure(lua, test_dir, name)
             table.insert(results, {name = name, result = result})
         end
