@@ -1710,12 +1710,8 @@ generate_exp = function(exp, ctx)
         error("not implemented yet")
 
     elseif tag == ast.Exp.Binop then
-        local lhs_cstats, lhs_cvalue = generate_exp(exp.lhs, ctx)
-        local rhs_cstats, rhs_cvalue = generate_exp(exp.rhs, ctx)
-
         local ltyp = exp.lhs._type._tag
         local rtyp = exp.rhs._type._tag
-
         local op = exp.op
         if     op == "+" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
