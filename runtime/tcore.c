@@ -112,3 +112,10 @@ void titan_runtime_function_return_error(
     );
     TITAN_UNREACHABLE;
 }
+
+void titan_runtime_divide_by_zero_error(
+    lua_State *L
+){
+    luaL_error(L, "attempt to divide by zero");
+    TITAN_UNREACHABLE;
+}

@@ -1308,6 +1308,40 @@ local function generate_unop_intneg(exp, ctx)
     return cstats, r.name
 end
 
+-- Lua/Titan integer division rounds to negative infinity instead of towards
+-- zero. We inline luaV_div here to give the C compiler more optimization
+-- opportunities (see that function for comments on how it works).
+local function generate_binop_intdiv(exp, ctx)
+    local m_stats, m_var = generate_exp(exp.lhs, ctx)
+    local n_stats, n_var = generate_exp(exp.rhs, ctx)
+    local q = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${M_STATS}
+        ${N_STATS}
+        ${Q_DECL};
+        if (l_castS2U(${N}) + 1u <= 1u) {
+            if (${N} == 0){
+                titan_runtime_divide_by_zero_error(L);
+            } else {
+                ${Q} = intop(-, 0, ${M});
+            }
+        } else {
+            ${Q} = ${M} / ${N};
+            if ((${M} ^ ${N}) < 0 && ${M} % ${N} != 0) {
+                ${Q} -= 1;
+            }
+        }
+    ]], {
+        M = m_var,
+        M_STATS = m_stats,
+        N = n_var,
+        N_STATS = n_stats,
+        Q = q.name,
+        Q_DECL = c_declaration(q),
+    })
+    return cstats, q.name
+end
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -1698,10 +1732,7 @@ generate_exp = function(exp, ctx)
 
         elseif op == "//" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("luaV_div(L, ${LHS}, ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
+                return generate_binop_intdiv(exp, ctx)
 
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 -- see luai_numidiv

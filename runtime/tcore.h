@@ -32,4 +32,8 @@ void titan_runtime_function_return_error(
     lua_State *L, int line, int expected_tag, TValue *slot)
     TITAN_NORETURN;
 
+void titan_runtime_divide_by_zero_error(
+    lua_State *L)
+    TITAN_NORETURN;
+
 #endif
