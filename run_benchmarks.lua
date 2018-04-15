@@ -51,9 +51,11 @@ end
 local function benchmark(test_dir, no_lua)
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
-        if not string.find(file_name, "^%.") and
-           not string.find(file_name, "%.so$") and
-           file_name ~= "main.lua" then
+        local _, ext = util.split_ext(file_name)
+        if (ext == "titan" or ext == "c" or ext == "lua") and
+            not string.find(file_name, "^%.") and
+            file_name ~= "main.lua"
+        then
             table.insert(file_names, file_name)
         end
     end
