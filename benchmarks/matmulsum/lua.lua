@@ -8,10 +8,9 @@ function matmul.matmul(A, B)
     for k = 1, NK do
         local Bk = B[k]
         for i = 1, NI do
-            local Ai = A[i]
+            local Aik = A[i][k]
             for j = 1, NJ do
-                s = s + Ai[k] * Bk[j]
-                --s = s + A[i][k] * B[k][j]
+                s = s + Aik * Bk[j]
             end
         end
     end
