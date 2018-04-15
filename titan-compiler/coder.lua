@@ -1394,6 +1394,25 @@ local function generate_binop_idiv_flt(exp, ctx)
     return cstats, r.name
 end
 
+-- see luai_numpow
+local function generate_binop_pow(exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = pow(${X}, ${Y});
+    ]], {
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -1788,12 +1807,7 @@ generate_exp = function(exp, ctx)
 
         elseif op == "^" then
             if     ltyp == types.T.Float and rtyp == types.T.Float then
-                -- see luai_numpow
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("pow(${LHS}, ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
-
+                return generate_binop_pow(exp, ctx)
             else
                 error("impossible")
             end
