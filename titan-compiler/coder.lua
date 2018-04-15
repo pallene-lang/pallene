@@ -1945,16 +1945,25 @@ generate_exp = function(exp, ctx)
         end
 
     elseif tag == ast.Exp.Cast then
-        local cstats, cvalue = generate_exp(exp.exp, ctx)
+        local exp_cstats, exp_cvalue = generate_exp(exp.exp, ctx)
 
         local src_typ = exp.exp._type
         local dst_typ = exp._type
 
         if     src_typ._tag == dst_typ._tag then
-            return cstats, cvalue
+            return exp_cstats, exp_cvalue
 
         elseif src_typ._tag == types.T.Integer and dst_typ._tag == types.T.Float then
-            return cstats, "((lua_Number)"..cvalue..")"
+            local v = ctx:new_tvar(dst_typ)
+            local cstats = util.render([[
+                ${X_STATS}
+                ${V_DECL} = (lua_Number) ${X};
+            ]], {
+                X = exp_cvalue,
+                X_STATS = exp_cstats,
+                V_DECL = c_declaration(v),
+            })
+            return cstats, v.name
 
         elseif src_typ._tag == types.T.Float and dst_typ._tag == types.T.Integer then
             error("not implemented yet")
