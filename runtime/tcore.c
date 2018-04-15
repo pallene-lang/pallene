@@ -48,60 +48,27 @@ void titan_runtime_argument_type_error(
     TITAN_UNREACHABLE;
 }
 
-void titan_runtime_array_bounds_error(
-    lua_State *L,
-    int line
-){
-    luaL_error(
-        L,
-        "out of bounds (outside array part) at line %d",
-        line
-    );
-    TITAN_UNREACHABLE;
-}
-
-void titan_runtime_array_bounds_error_slow(
-    lua_State *L,
-    int line
-){
-    luaL_error(
-        L,
-        "out of bounds (outside array part) at line %d",
-        line
-    );
-    TITAN_UNREACHABLE;
-}
-
 void titan_runtime_array_type_error(
    lua_State *L,
    int line,
    int expected_tag,
-   TValue *slot
+   const TValue *slot
 ){
-    if (isempty(slot)) {
-        luaL_error(
-            L,
-            "out of bounds (inside array part) at line %d",
-            line
-        );
-        TITAN_UNREACHABLE;
-    } else {
-        const char *expected_type = titan_tag_name(expected_tag);
-        const char *received_type = titan_tag_name(rawtt(slot));
-        luaL_error(
-            L,
-            "wrong type for array element at line %d, expected %s but found %s",
-            line, expected_type, received_type
-        );
-        TITAN_UNREACHABLE;
-    }
+    const char *expected_type = titan_tag_name(expected_tag);
+    const char *received_type = titan_tag_name(rawtt(slot));
+    luaL_error(
+        L,
+        "wrong type for array element at line %d, expected %s but found %s",
+        line, expected_type, received_type
+    );
+    TITAN_UNREACHABLE;
 }
 
 void titan_runtime_function_return_error(
     lua_State *L,
     int line,
     int expected_tag,
-    TValue *slot
+    const TValue *slot
 ){
     const char *expected_type = titan_tag_name(expected_tag);
     const char *received_type = titan_tag_name(rawtt(slot));

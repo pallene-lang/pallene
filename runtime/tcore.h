@@ -22,16 +22,12 @@ void titan_runtime_argument_type_error(
     TValue *slot)
     TITAN_NORETURN;
 
-void titan_runtime_array_bounds_error(
-    lua_State *L, int line)
-    TITAN_NORETURN;
-
 void titan_runtime_array_type_error(
-    lua_State *L, int line, int expected_tag, TValue *slot)
+    lua_State *L, int line, int expected_tag, const TValue *slot)
     TITAN_NORETURN;
 
 void titan_runtime_function_return_error(
-    lua_State *L, int line, int expected_tag, TValue *slot)
+    lua_State *L, int line, int expected_tag, const TValue *slot)
     TITAN_NORETURN;
 
 void titan_runtime_divide_by_zero_error(
