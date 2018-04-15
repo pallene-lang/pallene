@@ -542,6 +542,29 @@ describe("Titan coder", function()
         end)
     end)
 
+    describe("Two-s compliment integer arithmetic", function()
+        it("unary (-)", function()
+            run_coder([[
+                function f(x:integer): integer
+                    return -x
+                end
+            ]], [[
+                assert(math.mininteger == test.f(math.mininteger))
+            ]])
+        end)
+
+        it("unary (+)", function()
+            run_coder([[
+                function f(x:integer, y:integer): integer
+                    return x + y
+                end
+            ]], [[
+                assert(math.mininteger == test.f(math.maxinteger, 1))
+                assert(math.maxinteger == test.f(math.mininteger, -1))
+            ]])
+        end)
+    end)
+
     describe("Statements", function()
 
         it("Block, Assign, Decl", function()

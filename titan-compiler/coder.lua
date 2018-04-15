@@ -1237,6 +1237,77 @@ local function generate_exp_builtin_table_remove(exp, ctx)
 end
 
 
+local function generate_unop(op, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.exp, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${R_DECL} = ${OP} ${X};
+    ]], {
+        OP = op,
+        X = x_var,
+        X_STATS = x_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- Relational operators, and basic float operations have the same semantics in C
+-- and in Lua / Titan.
+local function generate_binop(op, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = ${X} ${OP} ${Y};
+    ]], {
+        OP = op,
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- For integer arithmetic and bitwise operators Lua/Titan mandates well-defined
+-- two's-compliment wraparound in case of overflow.
+local function generate_intop(op, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = intop(${OP}, ${X}, ${Y});
+    ]], {
+        OP = op,
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+local function generate_unop_intneg(exp, ctx)
+    local x_stats, x_var = generate_exp(exp.exp, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${R_DECL} = intop(-, 0, ${X});
+    ]], {
+        X = x_var,
+        X_STATS = x_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -1491,10 +1562,9 @@ generate_exp = function(exp, ctx)
         end
 
     elseif tag == ast.Exp.Unop then
-        local cstats, cvalue = generate_exp(exp.exp, ctx)
-
         local op = exp.op
         if op == "#" then
+            local cstats, cvalue = generate_exp(exp.exp, ctx)
             if exp.exp._type._tag == types.T.Array then
                 local tmp = ctx:new_cvar("lua_Integer")
                 local cstats_op = util.render([[
@@ -1513,13 +1583,19 @@ generate_exp = function(exp, ctx)
             end
 
         elseif op == "-" then
-            return cstats, "(".."-"..cvalue..")"
+            if     exp._type._tag == types.T.Integer then
+                return generate_unop_intneg(exp, ctx)
+            elseif exp._type._tag == types.T.Float then
+                return generate_unop("-", exp, ctx)
+            else
+                error("impossible")
+            end
 
         elseif op == "~" then
-            return cstats, "(".."~"..cvalue..")"
+            return generate_unop("~", exp, ctx)
 
         elseif op == "not" then
-            return cstats, "(".."!"..cvalue..")"
+            return generate_unop("!", exp, ctx)
 
         else
             error("impossible")
@@ -1532,94 +1608,75 @@ generate_exp = function(exp, ctx)
         local lhs_cstats, lhs_cvalue = generate_exp(exp.lhs, ctx)
         local rhs_cstats, rhs_cvalue = generate_exp(exp.rhs, ctx)
 
-        -- Lua's arithmetic and bitwise operations for integers happen with
-        -- unsigned integers, to ensure 2's compliment behavior and avoid
-        -- undefined behavior.
-        local function intop(op)
-            local cstats = lhs_cstats..rhs_cstats
-            local cvalue = util.render("intop(${OP}, ${LHS}, ${RHS})", {
-                OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
-            return cstats, cvalue
-        end
-
-        -- Relational operators, and basic float operations don't convert their
-        -- parameters
-        local function binop(op)
-            local cstats = lhs_cstats..rhs_cstats
-            local cvalue = util.render("(${LHS} ${OP} ${RHS})", {
-                OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
-            return cstats, cvalue
-        end
-
         local ltyp = exp.lhs._type._tag
         local rtyp = exp.rhs._type._tag
 
         local op = exp.op
         if     op == "+" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("+")
+                return generate_intop("+", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("+")
+                return generate_binop("+", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "-" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("-")
+                return generate_intop("-", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("-")
+                return generate_binop("-", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "*" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("*")
+                return generate_intop("*", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("*")
+                return generate_binop("*", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "/" then
             if     ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("/")
+                return generate_binop("/", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "&" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("&")
+                return generate_intop("&", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "|" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("|")
+                return generate_intop("|", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "~" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("^")
+                return generate_intop("^", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "<<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("<<")
+                return generate_intop("<<", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == ">>" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop(">>")
+                return generate_intop(">>", exp, ctx)
             else
                 error("impossible")
             end
@@ -1671,27 +1728,27 @@ generate_exp = function(exp, ctx)
 
         elseif op == "==" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("==")
+                return generate_binop("==", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("==")
+                return generate_binop("==", exp, ctx)
             else
                 error("not implemented yet")
             end
 
         elseif op == "~=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("!=")
+                return generate_binop("!=", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("!=")
+                return generate_binop("!=", exp, ctx)
             else
                 error("not implemented yet")
             end
 
         elseif op == "<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("<")
+                return generate_binop("<", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("<")
+                return generate_binop("<", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1704,9 +1761,9 @@ generate_exp = function(exp, ctx)
 
         elseif op == ">" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop(">")
+                return generate_binop(">", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop(">")
+                return generate_binop(">", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1719,9 +1776,9 @@ generate_exp = function(exp, ctx)
 
         elseif op == "<=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("<=")
+                return generate_binop("<=", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("<=")
+                return generate_binop("<=", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1734,9 +1791,9 @@ generate_exp = function(exp, ctx)
 
         elseif op == ">=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop(">=")
+                return generate_binop(">=", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop(">=")
+                return generate_binop(">=", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
