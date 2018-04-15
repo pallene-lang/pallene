@@ -865,7 +865,7 @@ generate_stat = function(stat, ctx)
         return util.render([[
             for(;;) {
                 ${COND_STATS}
-                if (!(${COND})) break;
+                if (!${COND}) break;
                 ${BLOCK}
             }
         ]], {
