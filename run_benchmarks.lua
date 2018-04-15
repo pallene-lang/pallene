@@ -44,16 +44,18 @@ local function compile(ext, file_name)
     elseif ext == "lua" then
         return true
     else
-        return false, string.format("unknow extension: %s", ext)
+        return false, string.format("unknown extension: %s", ext)
     end
 end
 
 local function benchmark(test_dir, no_lua)
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
-        if not string.find(file_name, "^%.") and
-           not string.find(file_name, "%.so$") and
-           file_name ~= "main.lua" then
+        local _, ext = util.split_ext(file_name)
+        if (ext == "titan" or ext == "c" or ext == "lua") and
+            not string.find(file_name, "^%.") and
+            file_name ~= "main.lua"
+        then
             table.insert(file_names, file_name)
         end
     end
@@ -74,7 +76,7 @@ local function benchmark(test_dir, no_lua)
             lua = "lua/src/lua"
         end
 
-        if not (ext == "lua" and no_lua) then
+        if not (ext == "lua" and lua == "lua/src/lua" and no_lua) then
             local result = measure(lua, test_dir, name)
             table.insert(results, {name = name, result = result})
         end
