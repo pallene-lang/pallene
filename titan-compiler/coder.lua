@@ -951,7 +951,7 @@ local function generate_lvalue_read(lvalue, ctx)
                 ${ARRSLOT} = luaH_getint(${T}, ${I});
             }
             if (TITAN_UNLIKELY(!${CHECK_TAG})) {
-                titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, ${ARRSLOT});
+                titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
             }
             ${OUT_DECL} = ${GET_ARRSLOT};
         ]], {
@@ -1941,7 +1941,7 @@ generate_exp = function(exp, ctx)
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top - 1);
                     if (TITAN_UNLIKELY(!${CHECK_TAG})) {
-                        titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT});
+                        titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
                     }
                     ${RET_DECL} = ${GET_SLOT};
                     L->top--;

@@ -52,10 +52,10 @@ void titan_runtime_array_type_error(
    lua_State *L,
    int line,
    int expected_tag,
-   const TValue *slot
+   int received_tag
 ){
     const char *expected_type = titan_tag_name(expected_tag);
-    const char *received_type = titan_tag_name(rawtt(slot));
+    const char *received_type = titan_tag_name(received_tag);
     luaL_error(
         L,
         "wrong type for array element at line %d, expected %s but found %s",
@@ -68,10 +68,10 @@ void titan_runtime_function_return_error(
     lua_State *L,
     int line,
     int expected_tag,
-    const TValue *slot
+    int received_tag
 ){
     const char *expected_type = titan_tag_name(expected_tag);
-    const char *received_type = titan_tag_name(rawtt(slot));
+    const char *received_type = titan_tag_name(received_tag);
     luaL_error(
         L,
         "wrong type for function result at line %d, expected %s but found %s",
