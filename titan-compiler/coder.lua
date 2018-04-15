@@ -1311,7 +1311,7 @@ end
 -- Lua/Titan integer division rounds to negative infinity instead of towards
 -- zero. We inline luaV_div here to give the C compiler more optimization
 -- opportunities (see that function for comments on how it works).
-local function generate_binop_intdiv(exp, ctx)
+local function generate_binop_idiv_int(exp, ctx)
     local m_stats, m_var = generate_exp(exp.lhs, ctx)
     local n_stats, n_var = generate_exp(exp.rhs, ctx)
     local q = ctx:new_tvar(exp._type)
@@ -1344,7 +1344,7 @@ end
 
 -- Lua/Titan guarantees that (m == n*(m//n) + (,%n))
 -- See generate binop_intdiv and luaV_mod
-local function generate_binop_intmod(exp, ctx)
+local function generate_binop_mod_int(exp, ctx)
     local m_stats, m_var = generate_exp(exp.lhs, ctx)
     local n_stats, n_var = generate_exp(exp.rhs, ctx)
     local r = ctx:new_tvar(exp._type)
@@ -1370,6 +1370,25 @@ local function generate_binop_intmod(exp, ctx)
         N = n_var,
         N_STATS = n_stats,
         R = r.name,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- see luai_numidiv
+local function generate_binop_idiv_flt(exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = floor(${X} / ${Y});
+    ]], {
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
         R_DECL = c_declaration(r),
     })
     return cstats, r.name
@@ -1750,27 +1769,19 @@ generate_exp = function(exp, ctx)
 
         elseif op == "%" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return generate_binop_intmod(exp, ctx)
-
+                return generate_binop_mod_int(exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 -- see luai_nummod
                 error("not implemented yet")
-
             else
                 error("impossible")
             end
 
         elseif op == "//" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return generate_binop_intdiv(exp, ctx)
-
+                return generate_binop_idiv_int(exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                -- see luai_numidiv
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("floor(${LHS} / ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
-
+                return generate_binop_idiv_flt(exp, ctx)
             else
                 error("impossible")
             end

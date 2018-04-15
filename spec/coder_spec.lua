@@ -538,7 +538,6 @@ describe("Titan coder", function()
                 assert((false or true ) == test.bool_or(false, true))
                 assert((false or false) == test.bool_or(false, false))
             ]])
-
         end)
     end)
 
