@@ -1019,6 +1019,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         })
 
     elseif tag == coder.Lvalue.ArraySlot then
+        -- TODO: GC
         local typ = lvalue.var._type
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
         local arrslot = ctx:new_cvar("TValue *", "arrslot")
@@ -1411,27 +1412,22 @@ local function generate_exp_builtin_table_insert(exp, ctx)
     local cstats_t, cvalue_t = generate_exp(args[1], ctx)
     local cstats_v, cvalue_v = generate_exp(args[2], ctx)
     local ui = ctx:new_cvar("lua_Unsigned", "ui")
-    local size = ctx:new_cvar("lua_Unsigned", "size")
     local slot = ctx:new_cvar("TValue *", "slot")
-    local cond_gc = gc_cond_gc(ctx)
+    local k = ctx:new_cvar("TValue")
+    --local cond_gc = gc_cond_gc(ctx) --TODO
     local cstats = util.render([[
         ${CSTATS_T}
         ${CSTATS_V}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
-        ${SIZE_DECL} = ${CVALUE_T}->sizearray;
-        if (TITAN_UNLIKELY(${SIZE} <= ${UI})) {
-            if (${SIZE} < 8) {
-                /* avoid infinite loop if sizearray == 0 */
-                ${SIZE} = 8;
-            }
-            while (${SIZE} <= ${UI}) {
-                ${SIZE} = ${SIZE}*2;
-            }
-            luaH_resizearray(L, ${CVALUE_T}, ${SIZE});
+        ${SLOT_DECL};
+        if (TITAN_LIKELY(${UI} < ${CVALUE_T}->sizearray)) {
+            ${SLOT} = &${CVALUE_T}->array[${UI}];
+        } else {
+            ${K_DECL};
+            setivalue(&${K}, ${UI}+1);
+            ${SLOT} = luaH_newkey(L, ${CVALUE_T}, &${K});
         }
-        ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
         ${SET_SLOT}
-        ${COND_GC}
     ]], {
         CSTATS_T = cstats_t,
         CVALUE_T = cvalue_t,
@@ -1439,11 +1435,11 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         CVALUE_V = cvalue_v,
         UI = ui.name,
         UI_DECL = c_declaration(ui),
-        SIZE = size.name,
-        SIZE_DECL = c_declaration(size),
+        SLOT = slot.name,
         SLOT_DECL = c_declaration(slot),
+        K = k.name,
+        K_DECL = c_declaration(k),
         SET_SLOT = set_heap_slot(args[2]._type, slot.name, cvalue_v, cvalue_t),
-        COND_GC = cond_gc,
     })
     return cstats, "VOID"
 end
