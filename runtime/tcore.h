@@ -9,6 +9,8 @@
 #define TITAN_LIKELY(x)   __builtin_expect(!!(x), 1)
 #define TITAN_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
+#define TITAN_LUAINTEGER_NBITS  cast_int(sizeof(lua_Integer) * CHAR_BIT)
+
 const char *titan_tag_name(int raw_tag);
 
 void titan_runtime_arity_error(
