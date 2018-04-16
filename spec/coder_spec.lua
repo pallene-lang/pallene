@@ -538,7 +538,57 @@ describe("Titan coder", function()
                 assert((false or true ) == test.bool_or(false, true))
                 assert((false or false) == test.bool_or(false, false))
             ]])
+        end)
+    end)
 
+    describe("Two-s compliment integer arithmetic", function()
+        it("unary (-)", function()
+            run_coder([[
+                function f(x:integer): integer
+                    return -x
+                end
+            ]], [[
+                assert(math.mininteger == test.f(math.mininteger))
+            ]])
+        end)
+
+        it("unary (+)", function()
+            run_coder([[
+                function f(x:integer, y:integer): integer
+                    return x + y
+                end
+            ]], [[
+                assert(math.mininteger == test.f(math.maxinteger, 1))
+                assert(math.maxinteger == test.f(math.mininteger, -1))
+            ]])
+        end)
+
+        it("(//)", function()
+            run_coder([[
+                function f(x:integer, y:integer): integer
+                    return x // y
+                end
+            ]], [[
+                assert( 3 == test.f( 10,  3))
+                assert(-4 == test.f( 10, -3))
+                assert(-4 == test.f(-10,  3))
+                assert( 3 == test.f(-10, -3))
+                assert(math.mininteger == test.f(math.mininteger, -1))
+            ]])
+        end)
+
+        it("(%)", function()
+            run_coder([[
+                function f(x:integer, y:integer): integer
+                    return x % y
+                end
+            ]], [[
+                assert( 1 == test.f( 10,  3))
+                assert(-2 == test.f( 10, -3))
+                assert( 2 == test.f(-10,  3))
+                assert(-1 == test.f(-10, -3))
+                assert(0 == test.f(math.mininteger, -1))
+            ]])
         end)
     end)
 

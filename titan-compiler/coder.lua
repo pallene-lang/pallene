@@ -869,7 +869,7 @@ generate_stat = function(stat, ctx)
         return util.render([[
             for(;;) {
                 ${COND_STATS}
-                if (!(${COND})) break;
+                if (!${COND}) break;
                 ${BLOCK}
             }
         ]], {
@@ -1241,6 +1241,184 @@ local function generate_exp_builtin_table_remove(exp, ctx)
 end
 
 
+local function generate_unop(op, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.exp, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${R_DECL} = ${OP} ${X};
+    ]], {
+        OP = op,
+        X = x_var,
+        X_STATS = x_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- Relational operators, and basic float operations have the same semantics in C
+-- and in Lua / Titan.
+local function generate_binop(op, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = ${X} ${OP} ${Y};
+    ]], {
+        OP = op,
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- For integer arithmetic and bitwise operators Lua/Titan mandates well-defined
+-- two's-compliment wraparound in case of overflow.
+local function generate_intop(op, exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = intop(${OP}, ${X}, ${Y});
+    ]], {
+        OP = op,
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+local function generate_unop_intneg(exp, ctx)
+    local x_stats, x_var = generate_exp(exp.exp, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${R_DECL} = intop(-, 0, ${X});
+    ]], {
+        X = x_var,
+        X_STATS = x_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- Lua/Titan integer division rounds to negative infinity instead of towards
+-- zero. We inline luaV_div here to give the C compiler more optimization
+-- opportunities (see that function for comments on how it works).
+local function generate_binop_idiv_int(exp, ctx)
+    local m_stats, m_var = generate_exp(exp.lhs, ctx)
+    local n_stats, n_var = generate_exp(exp.rhs, ctx)
+    local q = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${M_STATS}
+        ${N_STATS}
+        ${Q_DECL};
+        if (l_castS2U(${N}) + 1u <= 1u) {
+            if (${N} == 0){
+                titan_runtime_divide_by_zero_error(L, ${LINE});
+            } else {
+                ${Q} = intop(-, 0, ${M});
+            }
+        } else {
+            ${Q} = ${M} / ${N};
+            if ((${M} ^ ${N}) < 0 && ${M} % ${N} != 0) {
+                ${Q} -= 1;
+            }
+        }
+    ]], {
+        M = m_var,
+        M_STATS = m_stats,
+        N = n_var,
+        N_STATS = n_stats,
+        Q = q.name,
+        Q_DECL = c_declaration(q),
+        LINE = c_integer(exp.loc.line),
+    })
+    return cstats, q.name
+end
+
+-- Lua/Titan guarantees that (m == n*(m//n) + (,%n))
+-- See generate binop_intdiv and luaV_mod
+local function generate_binop_mod_int(exp, ctx)
+    local m_stats, m_var = generate_exp(exp.lhs, ctx)
+    local n_stats, n_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${M_STATS}
+        ${N_STATS}
+        ${R_DECL};
+        if (l_castS2U(${N}) + 1u <= 1u) {
+            if (${N} == 0){
+                titan_runtime_mod_by_zero_error(L, ${LINE});
+            } else {
+                ${R} = 0;
+            }
+        } else {
+            ${R} = ${M} % ${N};
+            if (${R} != 0 && (${M} ^ ${N}) < 0) {
+                ${R} += ${N};
+            }
+        }
+    ]], {
+        M = m_var,
+        M_STATS = m_stats,
+        N = n_var,
+        N_STATS = n_stats,
+        R = r.name,
+        R_DECL = c_declaration(r),
+        LINE = c_integer(exp.loc.line),
+    })
+    return cstats, r.name
+end
+
+-- see luai_numidiv
+local function generate_binop_idiv_flt(exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = floor(${X} / ${Y});
+    ]], {
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
+-- see luai_numpow
+local function generate_binop_pow(exp, ctx)
+    local x_stats, x_var = generate_exp(exp.lhs, ctx)
+    local y_stats, y_var = generate_exp(exp.rhs, ctx)
+    local r = ctx:new_tvar(exp._type)
+    local cstats = util.render([[
+        ${X_STATS}
+        ${Y_STATS}
+        ${R_DECL} = pow(${X}, ${Y});
+    ]], {
+        X = x_var,
+        X_STATS = x_stats,
+        Y = y_var,
+        Y_STATS = y_stats,
+        R_DECL = c_declaration(r),
+    })
+    return cstats, r.name
+end
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -1495,10 +1673,9 @@ generate_exp = function(exp, ctx)
         end
 
     elseif tag == ast.Exp.Unop then
-        local cstats, cvalue = generate_exp(exp.exp, ctx)
-
         local op = exp.op
         if op == "#" then
+            local cstats, cvalue = generate_exp(exp.exp, ctx)
             if exp.exp._type._tag == types.T.Array then
                 local tmp = ctx:new_cvar("lua_Integer")
                 local cstats_op = util.render([[
@@ -1517,13 +1694,19 @@ generate_exp = function(exp, ctx)
             end
 
         elseif op == "-" then
-            return cstats, "(".."-"..cvalue..")"
+            if     exp._type._tag == types.T.Integer then
+                return generate_unop_intneg(exp, ctx)
+            elseif exp._type._tag == types.T.Float then
+                return generate_unop("-", exp, ctx)
+            else
+                error("impossible")
+            end
 
         elseif op == "~" then
-            return cstats, "(".."~"..cvalue..")"
+            return generate_unop("~", exp, ctx)
 
         elseif op == "not" then
-            return cstats, "(".."!"..cvalue..")"
+            return generate_unop("!", exp, ctx)
 
         else
             error("impossible")
@@ -1533,169 +1716,127 @@ generate_exp = function(exp, ctx)
         error("not implemented yet")
 
     elseif tag == ast.Exp.Binop then
-        local lhs_cstats, lhs_cvalue = generate_exp(exp.lhs, ctx)
-        local rhs_cstats, rhs_cvalue = generate_exp(exp.rhs, ctx)
-
-        -- Lua's arithmetic and bitwise operations for integers happen with
-        -- unsigned integers, to ensure 2's compliment behavior and avoid
-        -- undefined behavior.
-        local function intop(op)
-            local cstats = lhs_cstats..rhs_cstats
-            local cvalue = util.render("intop(${OP}, ${LHS}, ${RHS})", {
-                OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
-            return cstats, cvalue
-        end
-
-        -- Relational operators, and basic float operations don't convert their
-        -- parameters
-        local function binop(op)
-            local cstats = lhs_cstats..rhs_cstats
-            local cvalue = util.render("(${LHS} ${OP} ${RHS})", {
-                OP=op, LHS=lhs_cvalue, RHS=rhs_cvalue })
-            return cstats, cvalue
-        end
-
         local ltyp = exp.lhs._type._tag
         local rtyp = exp.rhs._type._tag
-
         local op = exp.op
         if     op == "+" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("+")
+                return generate_intop("+", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("+")
+                return generate_binop("+", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "-" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("-")
+                return generate_intop("-", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("-")
+                return generate_binop("-", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "*" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("*")
+                return generate_intop("*", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("*")
+                return generate_binop("*", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "/" then
             if     ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("/")
+                return generate_binop("/", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "&" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("&")
+                return generate_intop("&", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "|" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("|")
+                return generate_intop("|", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "~" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("^")
+                return generate_intop("^", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "<<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop("<<")
+                return generate_intop("<<", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == ">>" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return intop(">>")
+                return generate_intop(">>", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "%" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("luaV_mod(L, ${LHS}, ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
-
+                return generate_binop_mod_int(exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
                 -- see luai_nummod
                 error("not implemented yet")
-
             else
                 error("impossible")
             end
 
         elseif op == "//" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("luaV_div(L, ${LHS}, ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
-
+                return generate_binop_idiv_int(exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                -- see luai_numidiv
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("floor(${LHS} / ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
-
+                return generate_binop_idiv_flt(exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "^" then
             if     ltyp == types.T.Float and rtyp == types.T.Float then
-                -- see luai_numpow
-                local cstats = lhs_cstats..rhs_cstats
-                local cvalue = util.render("pow(${LHS}, ${RHS})", {
-                    LHS=lhs_cvalue, RHS=rhs_cvalue })
-                return cstats, cvalue
-
+                return generate_binop_pow(exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "==" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("==")
+                return generate_binop("==", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("==")
+                return generate_binop("==", exp, ctx)
             else
                 error("not implemented yet")
             end
 
         elseif op == "~=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("!=")
+                return generate_binop("!=", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("!=")
+                return generate_binop("!=", exp, ctx)
             else
                 error("not implemented yet")
             end
 
         elseif op == "<" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("<")
+                return generate_binop("<", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("<")
+                return generate_binop("<", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1708,9 +1849,9 @@ generate_exp = function(exp, ctx)
 
         elseif op == ">" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop(">")
+                return generate_binop(">", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop(">")
+                return generate_binop(">", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1723,9 +1864,9 @@ generate_exp = function(exp, ctx)
 
         elseif op == "<=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop("<=")
+                return generate_binop("<=", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop("<=")
+                return generate_binop("<=", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1738,9 +1879,9 @@ generate_exp = function(exp, ctx)
 
         elseif op == ">=" then
             if     ltyp == types.T.Integer and rtyp == types.T.Integer then
-                return binop(">=")
+                return generate_binop(">=", exp, ctx)
             elseif ltyp == types.T.Float and rtyp == types.T.Float then
-                return binop(">=")
+                return generate_binop(">=", exp, ctx)
             elseif ltyp == types.T.String and rtyp == types.T.String then
                 error("not implemented yet")
             elseif ltyp == types.T.Integer and rtyp == types.T.Float then
@@ -1810,16 +1951,25 @@ generate_exp = function(exp, ctx)
         end
 
     elseif tag == ast.Exp.Cast then
-        local cstats, cvalue = generate_exp(exp.exp, ctx)
+        local exp_cstats, exp_cvalue = generate_exp(exp.exp, ctx)
 
         local src_typ = exp.exp._type
         local dst_typ = exp._type
 
         if     src_typ._tag == dst_typ._tag then
-            return cstats, cvalue
+            return exp_cstats, exp_cvalue
 
         elseif src_typ._tag == types.T.Integer and dst_typ._tag == types.T.Float then
-            return cstats, "((lua_Number)"..cvalue..")"
+            local v = ctx:new_tvar(dst_typ)
+            local cstats = util.render([[
+                ${X_STATS}
+                ${V_DECL} = (lua_Number) ${X};
+            ]], {
+                X = exp_cvalue,
+                X_STATS = exp_cstats,
+                V_DECL = c_declaration(v),
+            })
+            return cstats, v.name
 
         elseif src_typ._tag == types.T.Float and dst_typ._tag == types.T.Integer then
             error("not implemented yet")
