@@ -5,7 +5,7 @@ local c_compiler = {}
 
 c_compiler.CPPFLAGS = "-I./lua/src -I./runtime"
 c_compiler.CFLAGS_BASE = "--std=c99 -g -fPIC"
-c_compiler.CFLAGS_WARN = "-Wall -Wno-parentheses-equality"
+c_compiler.CFLAGS_WARN = "-Wall"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
