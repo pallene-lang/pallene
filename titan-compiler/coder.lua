@@ -1022,31 +1022,30 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         -- TODO: GC
         local typ = lvalue.var._type
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
-        local arrslot = ctx:new_cvar("TValue *", "arrslot")
-        local tvalue = ctx:new_cvar("TValue")
+        local slot = ctx:new_cvar("TValue *", "slot")
+        local k = ctx:new_cvar("TValue")
         return util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
+            ${SLOT_DECL};
             if (TITAN_LIKELY(${UI} < ${T}->sizearray)) {
-                ${ARRSLOT_DECL} = &${T}->array[${UI}];
-                ${SET_ARRSLOT}
+                ${SLOT} = &${T}->array[${UI}];
             } else {
-                ${TVALUE_DECL};
-                ${SET_TVALUE};
-                luaH_setint(L, ${T}, ${I}, &${TVALUE});
+                ${K_DECL};
+                setivalue(&${K}, ${UI}+1);
+                ${SLOT} = luaH_newkey(L, ${T}, &${K});
             }
+            ${SET_SLOT}
         ]], {
             T = lvalue.t_varname,
             I = lvalue.i_varname,
             UI = ui.name,
             UI_DECL = c_declaration(ui),
-            ARRSLOT = arrslot.name,
-            ARRSLOT_DECL = c_declaration(arrslot),
-            SET_ARRSLOT = set_heap_slot(
-                typ, arrslot.name, exp_cvalue, lvalue.t_varname),
-            TVALUE = tvalue.name,
-            TVALUE_DECL = c_declaration(tvalue),
-            SET_TVALUE = set_stack_slot(
-                typ, "&"..tvalue.name, exp_cvalue),
+            SLOT = slot.name,
+            SLOT_DECL = c_declaration(slot),
+            K = k.name,
+            K_DECL = c_declaration(k),
+            SET_SLOT = set_heap_slot(
+                typ, slot.name, exp_cvalue, lvalue.t_varname),
         })
 
     elseif tag == coder.Lvalue.GlobalVar then
