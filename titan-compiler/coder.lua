@@ -1321,7 +1321,7 @@ local function generate_binop_idiv_int(exp, ctx)
         ${Q_DECL};
         if (l_castS2U(${N}) + 1u <= 1u) {
             if (${N} == 0){
-                titan_runtime_divide_by_zero_error(L);
+                titan_runtime_divide_by_zero_error(L, ${LINE});
             } else {
                 ${Q} = intop(-, 0, ${M});
             }
@@ -1338,6 +1338,7 @@ local function generate_binop_idiv_int(exp, ctx)
         N_STATS = n_stats,
         Q = q.name,
         Q_DECL = c_declaration(q),
+        LINE = c_integer(exp.loc.line),
     })
     return cstats, q.name
 end
@@ -1354,7 +1355,7 @@ local function generate_binop_mod_int(exp, ctx)
         ${R_DECL};
         if (l_castS2U(${N}) + 1u <= 1u) {
             if (${N} == 0){
-                titan_runtime_mod_by_zero_error(L);
+                titan_runtime_mod_by_zero_error(L, ${LINE});
             } else {
                 ${R} = 0;
             }
@@ -1371,6 +1372,7 @@ local function generate_binop_mod_int(exp, ctx)
         N_STATS = n_stats,
         R = r.name,
         R_DECL = c_declaration(r),
+        LINE = c_integer(exp.loc.line),
     })
     return cstats, r.name
 end

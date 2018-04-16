@@ -114,15 +114,17 @@ void titan_runtime_function_return_error(
 }
 
 void titan_runtime_divide_by_zero_error(
-    lua_State *L
+    lua_State *L,
+    int line
 ){
-    luaL_error(L, "attempt to divide by zero");
+    luaL_error(L, "attempt to divide by zero at line %d", line);
     TITAN_UNREACHABLE;
 }
 
 void titan_runtime_mod_by_zero_error(
-    lua_State *L
+    lua_State *L,
+    int line
 ){
-    luaL_error(L, "attempt to perform 'n%%0'");
+    luaL_error(L, "attempt to perform 'n%%0' at line %d", line);
     TITAN_UNREACHABLE;
 }
