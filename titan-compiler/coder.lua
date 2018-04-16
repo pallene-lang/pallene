@@ -377,11 +377,15 @@ end
 -- big the stack needs to be.
 local function gc_reserve_stack(ctx)
     local n = ctx.max_stack_slots
-    return util.render([[
-        lua_checkstack(L, ${N});
-    ]], {
-        N = c_integer(n),
-    })
+    if n > 0 then
+        return util.render([[
+            lua_checkstack(L, ${N});
+        ]], {
+            N = c_integer(n),
+        })
+    else
+        return ""
+    end
 end
 
 -- Push potentially live variables to the Lua stack, so the Lua GC can see they
