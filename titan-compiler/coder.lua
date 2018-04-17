@@ -59,6 +59,14 @@ ${LUAOPEN_FUNCTION}
 ]]
 
 --
+--
+--
+
+local function declare_type(typename, cons)
+    typedecl.declare(coder, "coder", typename, cons)
+end
+
+--
 -- C syntax
 --
 
@@ -1094,7 +1102,7 @@ generate_stat = function(stat, ctx)
     end
 end
 
-typedecl.declare(coder, "coder", "Lvalue", {
+declare_type("Lvalue", {
     CVar      = {"varname"},
     SafeSlot  = {"slot_address", "parent_pointer"},
     ArraySlot = {"slot_address", "parent_pointer"},
