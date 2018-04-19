@@ -642,52 +642,52 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
     local parts = {}
 
     for _, tl_node in ipairs(prog._globals) do
-            local arr_slot = util.render([[ &${ARR}[${I}] ]], {
-                ARR = ctx.upvalues.array.name,
-                I = c_integer(tl_node._global_index-1),
-            })
+        local arr_slot = util.render([[ &${ARR}[${I}] ]], {
+            ARR = ctx.upvalues.array.name,
+            I = c_integer(tl_node._global_index-1),
+        })
 
+        table.insert(parts,
+            string.format("/* %s */", ast.toplevel_name(tl_node)))
+
+        local tag = tl_node._tag
+        if     tag == ast.Toplevel.Func then
+            ctx:begin_scope()
+            local closure = ctx:new_cvar("CClosure*")
+            local func    = ctx:new_cvar("TValue")
             table.insert(parts,
-                string.format("/* %s */", ast.toplevel_name(tl_node)))
+                util.render([[
+                    ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
+                    ${CLOSURE}->f = ${LUA_ENTRY_POINT};
+                    sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+                    ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
+                    ${SET_SLOT}
+                ]],{
+                    LUA_ENTRY_POINT = tl_node._lua_entry_point,
+                    UPVALUES = ctx.upvalues.table.name,
+                    CLOSURE = closure.name,
+                    CLOSURE_DECL = c_declaration(closure),
+                    FUNC = func.name,
+                    FUNC_DECL = c_declaration(func),
+                    SET_SLOT = set_heap_slot(
+                        tl_node._type, arr_slot, func.name,
+                        ctx.upvalues.table.name),
+                })
+            )
+            ctx:end_scope()
 
-            local tag = tl_node._tag
-            if     tag == ast.Toplevel.Func then
-                ctx:begin_scope()
-                local closure = ctx:new_cvar("CClosure*")
-                local func    = ctx:new_cvar("TValue")
-                table.insert(parts,
-                    util.render([[
-                        ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
-                        ${CLOSURE}->f = ${LUA_ENTRY_POINT};
-                        sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
-                        ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
-                        ${SET_SLOT}
-                    ]],{
-                        LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                        UPVALUES = ctx.upvalues.table.name,
-                        CLOSURE = closure.name,
-                        CLOSURE_DECL = c_declaration(closure),
-                        FUNC = func.name,
-                        FUNC_DECL = c_declaration(func),
-                        SET_SLOT = set_heap_slot(
-                            tl_node._type, arr_slot, func.name,
-                            ctx.upvalues.table.name),
-                    })
-                )
-                ctx:end_scope()
+        elseif tag == ast.Toplevel.Var then
+            ctx:begin_scope()
+            local exp = tl_node.value
+            local cstats, cvalue = generate_exp(exp, ctx)
+            table.insert(parts, cstats)
+            table.insert(parts, set_heap_slot(
+                exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
+            ctx:end_scope()
 
-            elseif tag == ast.Toplevel.Var then
-                ctx:begin_scope()
-                local exp = tl_node.value
-                local cstats, cvalue = generate_exp(exp, ctx)
-                table.insert(parts, cstats)
-                table.insert(parts, set_heap_slot(
-                    exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
-                ctx:end_scope()
-
-            else
-                error("impossible")
-            end
+        else
+            error("impossible")
+        end
     end
 
     -- Avoid warnings
