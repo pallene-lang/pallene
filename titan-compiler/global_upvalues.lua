@@ -6,28 +6,28 @@ local global_upvalues = {}
 
 local analyze_upvalues
 
--- Analyzes when global variables are used, to optimize reading and writing to
--- them. Our current approach is to store global variables in a flat (not safe
--- for space) datastructure that gets stored as an upvalue in each of our
--- functions. Functions that read or write to global variables create a
--- reference to this data structure, once at the top of the function, and
--- functions that don't use global variables do not. A further optimization
--- would be to only initialize inside the code branch using global variables, if
--- the function doesn't always use globals but we would need to test first to
--- see if this would be worth the trouble.
+-- This pass analyzes what module-level variables each Titan function needs to
+-- have accessible via upvalues.
 --
--- Sets the following fields in the AST:
+-- At the moment we store this global data in a single flat table and keep a
+-- reference to it as the first upvalue to all the Titan closures in a module.
+-- While a titan function is running, the topmost function in the Lua stack
+-- (L->func) will be the "lua entry point" of the first Titan function called
+-- by Lua, which is also from the same module and therefore also has a reference
+-- to this module's upvalue table.
 --
--- _n_globals:
+-- This pass sets the following fields in the AST:
+--
+-- _globals:
 --     In Program node
---     Integar, how many global variables the program defines
+--     List of Toplevel AST value nodes (Var and Func).
 --
 -- _global_index:
---     In Toplevel value nodes (Var and Func).
---     Integer, describes the index of the variable in the upvalue table.
+--     In Toplevel value nodes
+--     Integer. The index of this node in the _globals array.
 --
 -- _referenced_globals:
---     In Program node and Toplevel.Func nodes.
+--     In Toplevel.Func nodes.
 --     List of integers, describes what global variables the function uses.
 function global_upvalues.analyze(filename, input)
     local prog, errors = checker.check(filename, input)
@@ -63,18 +63,17 @@ end
 local analyze = ast_iterator.new()
 
 analyze_upvalues = function(prog)
-    local n_globals = 0
+    local globals = {}
     for _, tlnode in ipairs(prog) do
         if toplevel_is_value_declaration(tlnode) then
-            tlnode._global_index = n_globals
-            n_globals = n_globals + 1
+            local n = #globals + 1
+            tlnode._global_index = n
+            globals[n] = tlnode
         end
     end
-    prog._n_globals = n_globals
+    prog._globals = globals
 
-    local referenced_globals_map = {}
-    analyze:Program(prog, referenced_globals_map)
-    prog._referenced_globas = sorted_keys(referenced_globals_map)
+    analyze:Program(prog, {}) -- Ignore this "referenced globals" map
 end
 
 function analyze:Toplevel(tlnode, referenced_globals_map)

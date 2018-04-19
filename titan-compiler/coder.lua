@@ -27,10 +27,6 @@ end
 -- _cvar:
 --     In Decl nodes.
 --
--- _global_index:
---     In Toplevel value nodes (Var and Func).
---     Describes where in the variable is stored in the upvalue table.
---
 -- _lua_entry_point
 -- _titan_entry_point
 --     In Toplevel.Func nodes.
@@ -645,11 +641,10 @@ end
 local function generate_luaopen_modvar_upvalues(prog, ctx)
     local parts = {}
 
-    for _, tl_node in ipairs(prog) do
-        if tl_node._global_index then
+    for _, tl_node in ipairs(prog._globals) do
             local arr_slot = util.render([[ &${ARR}[${I}] ]], {
                 ARR = ctx.upvalues.array.name,
-                I = c_integer(tl_node._global_index),
+                I = c_integer(tl_node._global_index-1),
             })
 
             table.insert(parts,
@@ -693,7 +688,6 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
             else
                 error("impossible")
             end
-        end
     end
 
     -- Avoid warnings
@@ -736,7 +730,7 @@ local function generate_luaopen_exports_table(prog, ctx)
                 ]], {
                     NAME = c_string(ast.toplevel_name(tl_node)),
                     ARR = ctx.upvalues.array.name,
-                    I = c_integer(tl_node._global_index)
+                    I = c_integer(tl_node._global_index-1)
                 })
             )
         end
@@ -764,7 +758,7 @@ local function generate_luaopen(prog, modname)
         luaH_resizearray(L, ${TBL}, ${N});
         ${ARR_DECL} = ${TBL}->array;
     ]], {
-        N = c_integer(prog._n_globals),
+        N = c_integer(#prog._globals),
         TBL = ctx.upvalues.table.name,
         TBL_DECL = c_declaration(ctx.upvalues.table),
         ARR = ctx.upvalues.array.name,
@@ -1121,7 +1115,7 @@ generate_var = function(var, ctx)
         elseif decl._tag == ast.Toplevel.Var or
                 decl._tag == ast.Toplevel.Func
         then
-            local i = c_integer(decl._global_index)
+            local i = c_integer(decl._global_index - 1)
             local slot_exp = util.render("&${ARR}[${I}]", {
                 ARR = ctx.upvalues.array.name,
                 I = i,
