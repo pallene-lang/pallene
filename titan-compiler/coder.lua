@@ -514,31 +514,34 @@ local function rec_declare_struct(rec)
     })
 end
 
+local function rec_gc_slot(rec, udata, field_name)
+    return util.render([[&${UDATA}->uv[${I}].uv]], {
+        UDATA = udata,
+        I = rec._layout.pos[field_name],
+    })
+end
+
+local function rec_primitive_slot(rec, udata, field_name)
+    return util.render(
+        [[((${STRUCT_NAME} *)getudatamem(${UDATA}))->${FIELD_NAME}]],
+    {
+        STRUCT_NAME = rec_struct_name(rec),
+        UDATA = udata,
+        FIELD_NAME = field_name,
+    })
+end
+
 local function rec_set_field(rec, udata, field_name, cvalue, ctx)
     local typ = rec._field_types[field_name]
     if types.is_gc(typ) then
-        local slot = util.render([[&${UDATA}->uv[${I}].uv]], {
-            UDATA = udata,
-            I = rec._layout.pos[field_name],
-        })
+        local slot = rec_gc_slot(rec, udata, field_name)
         return set_heap_slot(typ, slot, cvalue, udata)
     else
-        local tmp = ctx:new_cvar(ctype(typ))
         return util.render([[
-            ${TMP_DECL} = ${CVALUE};
-            memcpy(
-                getudatamem(${UDATA}) + offsetof(${STRUCT_NAME}, ${FIELD_NAME}),
-                &${TMP},
-                sizeof(${FIELD_TYPE})
-            );
+            ${SLOT} = ${CVALUE};
         ]], {
-            TMP = tmp.name,
-            TMP_DECL = c_declaration(tmp),
-            UDATA = udata,
-            STRUCT_NAME = rec_struct_name(rec),
-            FIELD_NAME = field_name,
+            SLOT = rec_primitive_slot(rec, udata, field_name),
             CVALUE = cvalue,
-            FIELD_TYPE = ctype(typ),
         })
     end
 end
@@ -1118,6 +1121,7 @@ generate_stat = function(stat, ctx)
                 EXPECTED_TAG = titan_type_tag(stat.exp._type),
                 ASSIGN_SLOT = assign_slot,
             })
+
         else
             error("impossible")
         end
