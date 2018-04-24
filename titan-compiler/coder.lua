@@ -1253,7 +1253,16 @@ generate_var = function(var, ctx)
         return stats, coder.Lvalue.ArraySlot(slot.name, t_cvalue)
 
     elseif tag == ast.Var.Dot then
-        error("not implemented yet")
+        local rec = var.exp._type.type_decl
+        local typ = rec._field_types[var.name]
+        local cstats, udata = generate_exp(var.exp)
+        if types.is_gc(typ) then
+            local slot = rec_gc_slot(rec, udata, var.name)
+            return cstats, coder.Lvalue.ArraySlot(slot, udata)
+        else
+            local slot = rec_primitive_slot(rec, udata, var.name)
+            return cstats, coder.Lvalue.CVar(slot)
+        end
 
     else
         error("impossible")
