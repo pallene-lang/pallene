@@ -33,7 +33,7 @@ function lift_strings.lift(filename, input)
     if not prog then return false, errors end
 
     local strings = {}
-    lift:Program(prog, false, strings)
+    lift:Program(prog, strings)
 
     -- Put the variables for the string literals as the first thing, so they are
     -- in scope for the whole file.
@@ -48,33 +48,22 @@ function lift_strings.lift(filename, input)
     return newprog, errors
 end
 
-function lift:Toplevel(tlnode, is_inside_function, strings)
-    local tag = tlnode._tag
-    if tag == ast.Toplevel.Func then
-        ast_iterator.Toplevel(self, tlnode, true, strings)
-    else
-        ast_iterator.Toplevel(self, tlnode, is_inside_function, strings)
-    end
-end
-
-function lift:Exp(exp, is_inside_function, strings)
+function lift:Exp(exp, strings)
     local tag = exp._tag
     if tag == ast.Exp.String then
-        if is_inside_function then
-            local loc = exp.loc
+        local loc = exp.loc
 
-            local name = string.format("<string_literal_%d>", #strings+1)
-            local decl = ast.Decl.Decl(loc, name, ast.Type.String(loc))
-            local tlnode = ast.Toplevel.Var(loc, decl, exp)
+        local name = string.format("<string_literal_%d>", #strings+1)
+        local decl = ast.Decl.Decl(loc, name, ast.Type.String(loc))
+        local tlnode = ast.Toplevel.Var(loc, decl, exp)
 
-            local newexp_var = ast.Var.Name(loc, name)
-            local newexp_exp = ast.Exp.Var(loc, newexp_var)
+        local newexp_var = ast.Var.Name(loc, name)
+        local newexp_exp = ast.Exp.Var(loc, newexp_var)
 
-            table.insert(strings, tlnode)
-            return newexp_exp
-        end
+        table.insert(strings, tlnode)
+        return newexp_exp
     else
-        ast_iterator.Exp(self, exp, is_inside_function, strings)
+        ast_iterator.Exp(self, exp, strings)
     end
 end
 
