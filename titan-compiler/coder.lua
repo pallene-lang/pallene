@@ -1293,6 +1293,33 @@ local function generate_intop(op, exp, ctx)
     return cstats, r.name
 end
 
+local function generate_unop_arraylen(exp, ctx)
+    local cstats, cvalue = generate_exp(exp.exp, ctx)
+    local tmp = ctx:new_cvar("lua_Integer")
+    local cstats_op = util.render([[
+        ${CSTATS}
+        ${TMP_DECL} = luaH_getn(${CVALUE});
+    ]], {
+        CSTATS = cstats,
+        CVALUE = cvalue,
+        TMP_DECL = c_declaration(tmp),
+    })
+    return cstats_op, tmp.name
+end
+
+local function generate_unop_strlen(exp, ctx)
+    local cstats, cvalue = generate_exp(exp.exp, ctx)
+    local tmp = ctx:new_cvar("lua_Integer")
+    local cstats_op = util.render([[
+        ${TMP_DECL} = tsslen(${CVALUE});
+    ]], {
+        CSTATS = cstats,
+        CVALUE = cvalue,
+        TMP_DECL = c_declaration(tmp),
+    })
+    return cstats_op, tmp.name
+end
+
 local function generate_unop_intneg(exp, ctx)
     local x_stats, x_var = generate_exp(exp.exp, ctx)
     local r = ctx:new_tvar(exp._type)
@@ -1720,20 +1747,10 @@ generate_exp = function(exp, ctx)
     elseif tag == ast.Exp.Unop then
         local op = exp.op
         if op == "#" then
-            local cstats, cvalue = generate_exp(exp.exp, ctx)
             if exp.exp._type._tag == types.T.Array then
-                local tmp = ctx:new_cvar("lua_Integer")
-                local cstats_op = util.render([[
-                    ${CSTATS}
-                    ${TMP_DECL} = luaH_getn(${CVALUE});
-                ]], {
-                    CSTATS = cstats,
-                    CVALUE = cvalue,
-                    TMP_DECL = c_declaration(tmp),
-                })
-                return cstats_op, tmp.name
+                return generate_unop_arraylen(exp, ctx)
             elseif exp.exp._type._tag == types.T.String then
-                error("not implemented")
+                return generate_unop_strlen(exp, ctx)
             else
                 error("impossible")
             end

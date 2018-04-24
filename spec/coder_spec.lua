@@ -1003,4 +1003,18 @@ describe("Titan coder", function()
             ]])
         end)
     end)
+
+    describe("Strings", function()
+        it("can use # operator", function()
+            run_coder([[
+                function f(s:string): integer
+                    return #s
+                end
+            ]], [[
+                assert( 0 == test.f(""))
+                assert( 1 == test.f("H"))
+                assert(11 == test.f("Hello World"))
+            ]])
+        end)
+    end)
 end)
