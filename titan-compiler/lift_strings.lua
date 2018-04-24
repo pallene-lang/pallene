@@ -53,7 +53,7 @@ function lift:Exp(exp, strings)
     if tag == ast.Exp.String then
         local loc = exp.loc
 
-        local name = string.format("<string_literal_%d>", #strings+1)
+        local name = string.format("<string_literal_%d>", #strings + 1)
         local decl = ast.Decl.Decl(loc, name, ast.Type.String(loc))
         local tlnode = ast.Toplevel.Var(loc, decl, exp)
 

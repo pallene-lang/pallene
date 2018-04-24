@@ -645,7 +645,7 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
     for _, tl_node in ipairs(prog._globals) do
         local arr_slot = util.render([[ &${ARR}[${I}] ]], {
             ARR = ctx.upvalues.array.name,
-            I = c_integer(tl_node._global_index-1),
+            I = c_integer(tl_node._global_index - 1),
         })
 
         table.insert(parts,
@@ -731,7 +731,7 @@ local function generate_luaopen_exports_table(prog, ctx)
                 ]], {
                     NAME = c_string(ast.toplevel_name(tl_node)),
                     ARR = ctx.upvalues.array.name,
-                    I = c_integer(tl_node._global_index-1)
+                    I = c_integer(tl_node._global_index - 1)
                 })
             )
         end
@@ -1504,7 +1504,7 @@ generate_exp = function(exp, ctx)
         return "", c_float(exp.value)
 
     elseif tag == ast.Exp.String then
-        local s = ctx:new_cvar("TString *")
+        local s = ctx:new_tvar(exp._type)
         local cstats = util.render([[
             ${S_DECL} = luaS_new(L, ${STRLIT});
         ]], {
@@ -1525,7 +1525,7 @@ generate_exp = function(exp, ctx)
                 local field_cstats, field_cvalue = generate_exp(field.exp, ctx)
                 local slot = util.render([[${ARRAY_PART} + ${I}]], {
                     ARRAY_PART = array_part.name,
-                    I = c_integer(i-1)
+                    I = c_integer(i - 1)
                 })
                 table.insert(init_cstats, field_cstats)
                 table.insert(init_cstats, set_heap_slot(
@@ -1673,7 +1673,7 @@ generate_exp = function(exp, ctx)
                 local ret = ctx:new_tvar(ret_typ)
                 retval = ret.name
                 table.insert(body, util.render([[
-                    ${SLOT_DECL} = s2v(L->top-1);
+                    ${SLOT_DECL} = s2v(L->top - 1);
                     if (TITAN_UNLIKELY(!${CHECK_TAG})) {
                         titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT});
                     }

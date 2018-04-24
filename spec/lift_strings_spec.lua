@@ -1,7 +1,6 @@
 local lift_strings = require "titan-compiler.lift_strings"
 
 local ast = require "titan-compiler.ast"
-local builtins = require "titan-compiler.builtins"
 
 local function run_lift_strings(code)
     local prog, errs = lift_strings.lift("(lift_strings_spec)", code)
@@ -28,5 +27,3 @@ describe("Lift Strings: ", function()
             prog[2].block.stats[1].exps[1].var.name)
     end)
 end)
-
-
