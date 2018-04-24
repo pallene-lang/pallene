@@ -142,6 +142,14 @@ describe("Titan coder", function()
             ]], [[
                 assert(3.14 == test.f())
             ]])
+
+            run_coder([[
+                function f(): string
+                    return "Hello World"
+                end
+            ]], [[
+                assert("Hello World" == test.f())
+            ]])
         end)
 
         it("Function calls (no parameters)", function()
@@ -992,6 +1000,20 @@ describe("Titan coder", function()
             ]], [[
                 local f = function(x) return x * 20 end
                 assert(200 == test.call(f, 10))
+            ]])
+        end)
+    end)
+
+    describe("Strings", function()
+        it("can use # operator", function()
+            run_coder([[
+                function f(s:string): integer
+                    return #s
+                end
+            ]], [[
+                assert( 0 == test.f(""))
+                assert( 1 == test.f("H"))
+                assert(11 == test.f("Hello World"))
             ]])
         end)
     end)

@@ -27,10 +27,6 @@ end
 -- _cvar:
 --     In Decl nodes.
 --
--- _global_index:
---     In Toplevel value nodes (Var and Func).
---     Describes where in the variable is stored in the upvalue table.
---
 -- _lua_entry_point
 -- _titan_entry_point
 --     In Toplevel.Func nodes.
@@ -51,6 +47,7 @@ local whole_file_template = [[
 #include "lgc.h"
 #include "lobject.h"
 #include "lstate.h"
+#include "lstring.h"
 #include "ltable.h"
 #include "lvm.h"
 
@@ -645,54 +642,52 @@ end
 local function generate_luaopen_modvar_upvalues(prog, ctx)
     local parts = {}
 
-    for _, tl_node in ipairs(prog) do
-        if tl_node._global_index then
-            local arr_slot = util.render([[ &${ARR}[${I}] ]], {
-                ARR = ctx.upvalues.array.name,
-                I = c_integer(tl_node._global_index),
-            })
+    for _, tl_node in ipairs(prog._globals) do
+        local arr_slot = util.render([[ &${ARR}[${I}] ]], {
+            ARR = ctx.upvalues.array.name,
+            I = c_integer(tl_node._global_index - 1),
+        })
 
+        table.insert(parts,
+            string.format("/* %s */", ast.toplevel_name(tl_node)))
+
+        local tag = tl_node._tag
+        if     tag == ast.Toplevel.Func then
+            ctx:begin_scope()
+            local closure = ctx:new_cvar("CClosure*")
+            local func    = ctx:new_cvar("TValue")
             table.insert(parts,
-                string.format("/* %s */", ast.toplevel_name(tl_node)))
+                util.render([[
+                    ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
+                    ${CLOSURE}->f = ${LUA_ENTRY_POINT};
+                    sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+                    ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
+                    ${SET_SLOT}
+                ]],{
+                    LUA_ENTRY_POINT = tl_node._lua_entry_point,
+                    UPVALUES = ctx.upvalues.table.name,
+                    CLOSURE = closure.name,
+                    CLOSURE_DECL = c_declaration(closure),
+                    FUNC = func.name,
+                    FUNC_DECL = c_declaration(func),
+                    SET_SLOT = set_heap_slot(
+                        tl_node._type, arr_slot, func.name,
+                        ctx.upvalues.table.name),
+                })
+            )
+            ctx:end_scope()
 
-            local tag = tl_node._tag
-            if     tag == ast.Toplevel.Func then
-                ctx:begin_scope()
-                local closure = ctx:new_cvar("CClosure*")
-                local func    = ctx:new_cvar("TValue")
-                table.insert(parts,
-                    util.render([[
-                        ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
-                        ${CLOSURE}->f = ${LUA_ENTRY_POINT};
-                        sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
-                        ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
-                        ${SET_SLOT}
-                    ]],{
-                        LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                        UPVALUES = ctx.upvalues.table.name,
-                        CLOSURE = closure.name,
-                        CLOSURE_DECL = c_declaration(closure),
-                        FUNC = func.name,
-                        FUNC_DECL = c_declaration(func),
-                        SET_SLOT = set_heap_slot(
-                            tl_node._type, arr_slot, func.name,
-                            ctx.upvalues.table.name),
-                    })
-                )
-                ctx:end_scope()
+        elseif tag == ast.Toplevel.Var then
+            ctx:begin_scope()
+            local exp = tl_node.value
+            local cstats, cvalue = generate_exp(exp, ctx)
+            table.insert(parts, cstats)
+            table.insert(parts, set_heap_slot(
+                exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
+            ctx:end_scope()
 
-            elseif tag == ast.Toplevel.Var then
-                ctx:begin_scope()
-                local exp = tl_node.value
-                local cstats, cvalue = generate_exp(exp, ctx)
-                table.insert(parts, cstats)
-                table.insert(parts, set_heap_slot(
-                    exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
-                ctx:end_scope()
-
-            else
-                error("impossible")
-            end
+        else
+            error("impossible")
         end
     end
 
@@ -736,7 +731,7 @@ local function generate_luaopen_exports_table(prog, ctx)
                 ]], {
                     NAME = c_string(ast.toplevel_name(tl_node)),
                     ARR = ctx.upvalues.array.name,
-                    I = c_integer(tl_node._global_index)
+                    I = c_integer(tl_node._global_index - 1)
                 })
             )
         end
@@ -764,7 +759,7 @@ local function generate_luaopen(prog, modname)
         luaH_resizearray(L, ${TBL}, ${N});
         ${ARR_DECL} = ${TBL}->array;
     ]], {
-        N = c_integer(prog._n_globals),
+        N = c_integer(#prog._globals),
         TBL = ctx.upvalues.table.name,
         TBL_DECL = c_declaration(ctx.upvalues.table),
         ARR = ctx.upvalues.array.name,
@@ -1121,7 +1116,7 @@ generate_var = function(var, ctx)
         elseif decl._tag == ast.Toplevel.Var or
                 decl._tag == ast.Toplevel.Func
         then
-            local i = c_integer(decl._global_index)
+            local i = c_integer(decl._global_index - 1)
             local slot_exp = util.render("&${ARR}[${I}]", {
                 ARR = ctx.upvalues.array.name,
                 I = i,
@@ -1296,6 +1291,33 @@ local function generate_intop(op, exp, ctx)
         R_DECL = c_declaration(r),
     })
     return cstats, r.name
+end
+
+local function generate_unop_arraylen(exp, ctx)
+    local cstats, cvalue = generate_exp(exp.exp, ctx)
+    local tmp = ctx:new_cvar("lua_Integer")
+    local cstats_op = util.render([[
+        ${CSTATS}
+        ${TMP_DECL} = luaH_getn(${CVALUE});
+    ]], {
+        CSTATS = cstats,
+        CVALUE = cvalue,
+        TMP_DECL = c_declaration(tmp),
+    })
+    return cstats_op, tmp.name
+end
+
+local function generate_unop_strlen(exp, ctx)
+    local cstats, cvalue = generate_exp(exp.exp, ctx)
+    local tmp = ctx:new_cvar("lua_Integer")
+    local cstats_op = util.render([[
+        ${TMP_DECL} = tsslen(${CVALUE});
+    ]], {
+        CSTATS = cstats,
+        CVALUE = cvalue,
+        TMP_DECL = c_declaration(tmp),
+    })
+    return cstats_op, tmp.name
 end
 
 local function generate_unop_intneg(exp, ctx)
@@ -1482,7 +1504,14 @@ generate_exp = function(exp, ctx)
         return "", c_float(exp.value)
 
     elseif tag == ast.Exp.String then
-        error("not implemented yet")
+        local s = ctx:new_tvar(exp._type)
+        local cstats = util.render([[
+            ${S_DECL} = luaS_new(L, ${STRLIT});
+        ]], {
+            S_DECL = c_declaration(s),
+            STRLIT = c_string(exp.value),
+        })
+        return cstats, s.name
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
@@ -1496,7 +1525,7 @@ generate_exp = function(exp, ctx)
                 local field_cstats, field_cvalue = generate_exp(field.exp, ctx)
                 local slot = util.render([[${ARRAY_PART} + ${I}]], {
                     ARRAY_PART = array_part.name,
-                    I = c_integer(i-1)
+                    I = c_integer(i - 1)
                 })
                 table.insert(init_cstats, field_cstats)
                 table.insert(init_cstats, set_heap_slot(
@@ -1644,7 +1673,7 @@ generate_exp = function(exp, ctx)
                 local ret = ctx:new_tvar(ret_typ)
                 retval = ret.name
                 table.insert(body, util.render([[
-                    ${SLOT_DECL} = s2v(L->top-1);
+                    ${SLOT_DECL} = s2v(L->top - 1);
                     if (TITAN_UNLIKELY(!${CHECK_TAG})) {
                         titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, ${SLOT});
                     }
@@ -1718,20 +1747,10 @@ generate_exp = function(exp, ctx)
     elseif tag == ast.Exp.Unop then
         local op = exp.op
         if op == "#" then
-            local cstats, cvalue = generate_exp(exp.exp, ctx)
             if exp.exp._type._tag == types.T.Array then
-                local tmp = ctx:new_cvar("lua_Integer")
-                local cstats_op = util.render([[
-                    ${CSTATS}
-                    ${TMP_DECL} = luaH_getn(${CVALUE});
-                ]], {
-                    CSTATS = cstats,
-                    CVALUE = cvalue,
-                    TMP_DECL = c_declaration(tmp),
-                })
-                return cstats_op, tmp.name
+                return generate_unop_arraylen(exp, ctx)
             elseif exp.exp._type._tag == types.T.String then
-                error("not implemented")
+                return generate_unop_strlen(exp, ctx)
             else
                 error("impossible")
             end

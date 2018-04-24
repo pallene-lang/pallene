@@ -13,9 +13,9 @@ describe("Global variable pass:", function()
             end
         ]])
         assert.is_truthy(prog)
-        assert.equals(1, prog._n_globals)
+        assert.equals(1, #prog._globals)
         local f = prog[1]
-        assert.equals(0, f._global_index)
+        assert.equals(1, f._global_index)
         assert.equals(0, #f._referenced_globals)
     end)
 
@@ -27,13 +27,13 @@ describe("Global variable pass:", function()
             end
         ]])
         assert.is_truthy(prog)
-        assert.equals(2, prog._n_globals)
+        assert.equals(2, #prog._globals)
         local n = prog[1]
-        assert.equals(0, n._global_index)
+        assert.equals(1, n._global_index)
         local f = prog[2]
-        assert.equals(1, f._global_index)
+        assert.equals(2, f._global_index)
         assert.equals(1, #f._referenced_globals)
-        assert.equals(0, f._referenced_globals[1])
+        assert.equals(1, f._referenced_globals[1])
     end)
 
     it("calling a titan function", function()
@@ -46,12 +46,12 @@ describe("Global variable pass:", function()
             end
         ]])
         assert.is_truthy(prog)
-        assert.equals(2, prog._n_globals)
+        assert.equals(2, #prog._globals)
         local inc = prog[1]
-        assert.equals(0, inc._global_index)
+        assert.equals(1, inc._global_index)
         assert.equals(0, #inc._referenced_globals)
         local f = prog[2]
-        assert.equals(1, f._global_index)
+        assert.equals(2, f._global_index)
         assert.equals(0, #f._referenced_globals)
     end)
 
@@ -68,16 +68,16 @@ describe("Global variable pass:", function()
             end
         ]])
         assert.is_truthy(prog)
-        assert.equals(3, prog._n_globals)
+        assert.equals(3, #prog._globals)
         local inc = prog[1]
-        assert.equals(0, inc._global_index)
+        assert.equals(1, inc._global_index)
         assert.equals(0, #inc._referenced_globals)
         local atzero = prog[2]
-        assert.equals(1, atzero._global_index)
+        assert.equals(2, atzero._global_index)
         assert.equals(0, #atzero._referenced_globals)
         local f = prog[3]
-        assert.equals(2, f._global_index)
+        assert.equals(3, f._global_index)
         assert.equals(1, #f._referenced_globals)
-        assert.equals(0, f._referenced_globals[1])
+        assert.equals(1, f._referenced_globals[1])
     end)
 end)
