@@ -966,4 +966,32 @@ describe("Titan coder /", function()
             run_test([[ assert(11 == test.len("Hello World")) ]])
         end)
     end)
+
+    describe("Records", function()
+        setup(compile([[
+            record foo
+                x: integer
+                y: float
+                a: {integer}
+                b: integer->integer
+            end
+
+            function make_foo(
+                x: integer,
+                y: float,
+                a: {integer},
+                b: integer->integer
+            ): foo
+                return { x = x, y = y, a = a, b = b }
+            end
+        ]]))
+
+        it("can create records", function()
+            run_test([[
+                local f = function(x) return x end
+                local foo = test.make_foo(123, 3.14, {}, f)
+                assert("userdata" == type(foo))
+            ]])
+        end)
+    end)
 end)
