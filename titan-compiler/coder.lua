@@ -1669,13 +1669,11 @@ generate_exp = function(exp, ctx)
             return cstats, tbl.name
 
         elseif exp._type._tag == types.T.Record then
-            local rec = exp._type.type_decl
-
             local body = {}
             table.insert(body, gc_cond_gc(ctx))
 
+            local rec = exp._type.type_decl
             local udata = ctx:new_tvar(exp._type)
-
             table.insert(body, util.render([[
                 ${UDATA_DECL} = luaS_newudata(L, sizeof(${STRUCT}), ${UV_SIZE});
             ]], {
