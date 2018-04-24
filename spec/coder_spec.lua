@@ -142,6 +142,14 @@ describe("Titan coder", function()
             ]], [[
                 assert(3.14 == test.f())
             ]])
+
+            run_coder([[
+                function f(): string
+                    return "Hello World"
+                end
+            ]], [[
+                assert("Hello World" == test.f())
+            ]])
         end)
 
         it("Function calls (no parameters)", function()

@@ -47,6 +47,7 @@ local whole_file_template = [[
 #include "lgc.h"
 #include "lobject.h"
 #include "lstate.h"
+#include "lstring.h"
 #include "ltable.h"
 #include "lvm.h"
 
@@ -1476,7 +1477,14 @@ generate_exp = function(exp, ctx)
         return "", c_float(exp.value)
 
     elseif tag == ast.Exp.String then
-        error("not implemented yet")
+        local s = ctx:new_cvar("TString *")
+        local cstats = util.render([[
+            ${S_DECL} = luaS_new(L, ${STRLIT});
+        ]], {
+            S_DECL = c_declaration(s),
+            STRLIT = c_string(exp.value),
+        })
+        return cstats, s.name
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
