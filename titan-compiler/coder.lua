@@ -523,14 +523,17 @@ local function rec_set_field(rec, udata, field_name, cvalue, ctx)
         })
         return set_heap_slot(typ, slot, cvalue, udata)
     else
-        -- TODO check if cvalue is always a lvalue
+        local tmp = ctx:new_cvar(ctype(typ))
         return util.render([[
+            ${TMP_DECL} = ${CVALUE};
             memcpy(
                 getudatamem(${UDATA}) + offsetof(${STRUCT_NAME}, ${FIELD_NAME}),
-                &${CVALUE},
+                &${TMP},
                 sizeof(${FIELD_TYPE})
             );
         ]], {
+            TMP = tmp.name,
+            TMP_DECL = c_declaration(tmp),
             UDATA = udata,
             STRUCT_NAME = rec_struct_name(rec),
             FIELD_NAME = field_name,
