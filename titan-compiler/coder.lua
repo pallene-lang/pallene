@@ -27,8 +27,8 @@ end
 -- _cvar:
 --     In Decl nodes. (see @decl)
 --
--- _lua_entry_point
--- _titan_entry_point
+-- _lua_entry_point:
+-- _titan_entry_point:
 --     In Toplevel.Func nodes.
 --     Names of the C functions that we generate for each titan function
 --
