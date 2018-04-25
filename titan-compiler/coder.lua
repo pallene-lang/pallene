@@ -476,23 +476,31 @@ end
 -- @records
 --
 
--- Compute the layout for the gc fields stored in the UValue array.
--- We use a C struct to compute the layout of fields stored in mem part.
+-- Compute the record layout. We store the gc fields in UValue array and
+-- primitive fields in the mem part.
 local function rec_compute_layout(rec)
-    local index = 0
+    local gc_index = 0
+    local prim_index = 0
     local pos = {}
     for _, field in ipairs(rec.field_decls) do
         local typ = rec._field_types[field.name]
         if types.is_gc(typ) then
-            pos[field.name] = index
-            index = index + 1
+            pos[field.name] = gc_index
+            gc_index = gc_index + 1
+        else
+            pos[field.name] = prim_index
+            prim_index = prim_index + 1
         end
     end
-    return { pos = pos, size = index }
+    return { pos = pos, gc_size = gc_index, prim_size = prim_index }
 end
 
 local function rec_struct_name(rec)
     return string.format("struct record_%s", rec.name)
+end
+
+local function rec_field_name(rec, field_name)
+    return string.format("field_%d", rec._layout.pos[field_name])
 end
 
 local function rec_declare_struct(rec)
@@ -500,7 +508,9 @@ local function rec_declare_struct(rec)
     for _, field in ipairs(rec.field_decls) do
         local typ = rec._field_types[field.name]
         if not types.is_gc(typ) then
-            local decl = string.format("%s %s;", ctype(typ), field.name)
+            local name = rec_field_name(rec, field.name)
+            local field = new_cvar(name, ctype(typ))
+            local decl = c_declaration(field) .. ";"
             table.insert(fields, decl)
         end
     end
@@ -527,7 +537,7 @@ local function rec_primitive_slot(rec, udata, field_name)
     {
         STRUCT_NAME = rec_struct_name(rec),
         UDATA = udata,
-        FIELD_NAME = field_name,
+        FIELD_NAME = rec_field_name(rec, field_name),
     })
 end
 
@@ -1679,7 +1689,7 @@ generate_exp = function(exp, ctx)
             ]], {
                 UDATA_DECL = c_declaration(udata),
                 STRUCT = rec_struct_name(rec),
-                UV_SIZE = rec._layout.size,
+                UV_SIZE = rec._layout.gc_size,
             }))
 
             for _, field in ipairs(exp.fields) do
