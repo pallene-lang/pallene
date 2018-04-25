@@ -461,11 +461,11 @@ local function gc_cond_gc(ctx)
     local save_vars = gc_save_vars(ctx)
     local release_vars = gc_release_vars(ctx)
     return util.render([[
-        luaC_condGC(L, ({
+        luaC_condGC(L, {
             ${SAVE_VARS}
-        }), ({
+        }, {
             ${RELEASE_VARS}
-        }));
+        });
     ]],{
         SAVE_VARS = save_vars,
         RELEASE_VARS = release_vars,
@@ -503,7 +503,22 @@ local function rec_field_name(rec, field_name)
     return string.format("field_%d", rec._layout.pos[field_name])
 end
 
+local function rec_gc_size(rec)
+    return rec._layout.gc_size
+end
+
+local function rec_mem_size(rec)
+    local layout = rec._layout
+    if layout.prim_size == 0 then
+        return 0
+    else
+        return string.format("sizeof(%s)", rec_struct_name(rec))
+    end
+end
+
 local function rec_declare_struct(rec)
+    if rec._layout.prim_size == 0 then return "" end
+
     local fields = {}
     for _, field in ipairs(rec.field_decls) do
         local typ = rec._field_types[field.name]
@@ -514,6 +529,7 @@ local function rec_declare_struct(rec)
             table.insert(fields, decl)
         end
     end
+
     return util.render([[
         $NAME {
             $FIELDS
@@ -1685,11 +1701,11 @@ generate_exp = function(exp, ctx)
             local rec = exp._type.type_decl
             local udata = ctx:new_tvar(exp._type)
             table.insert(body, util.render([[
-                ${UDATA_DECL} = luaS_newudata(L, sizeof(${STRUCT}), ${UV_SIZE});
+                ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
             ]], {
                 UDATA_DECL = c_declaration(udata),
-                STRUCT = rec_struct_name(rec),
-                UV_SIZE = rec._layout.gc_size,
+                MEM_SIZE = rec_mem_size(rec),
+                UV_SIZE = rec_gc_size(rec),
             }))
 
             for _, field in ipairs(exp.fields) do
