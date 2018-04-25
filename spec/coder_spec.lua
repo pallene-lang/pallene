@@ -311,8 +311,8 @@ describe("Titan coder /", function()
             }))
 
             lua_tests[name] = util.render([[
-                local test_operators = require "test_operators"
-                test_operators.check_unop(
+                local test_op = require "spec.coder_test_operators"
+                test_op.check_unop(
                     $op_str,
                     function(x) return $op x end,
                     test.${name},
@@ -336,8 +336,8 @@ describe("Titan coder /", function()
             }))
 
             lua_tests[name] = util.render([[
-                local test_operators = require "test_operators"
-                test_operators.check_binop(
+                local test_op = require "spec.coder_test_operators"
+                test_op.check_binop(
                     $op_str,
                     function(x, y) return (x $op y) end,
                     test.${name},

@@ -3,7 +3,7 @@
 local values = {
     ["boolean"] = { true, false },
     ["integer"] = {
-        math.mininteger, -10, -3, -2, -1, 0, 1, 2, 3, 10, math.mininteger,
+        math.mininteger, -10, -3, -2, -1, 0, 1, 2, 3, 10, math.maxinteger,
     },
     ["float"] = {
         -math.huge, -2.0, -1.0, 0.0, 1.0, math.pi
