@@ -966,4 +966,60 @@ describe("Titan coder /", function()
             run_test([[ assert(11 == test.len("Hello World")) ]])
         end)
     end)
+
+    describe("Records", function()
+        setup(compile([[
+            record Foo
+                x: integer
+                y: {integer}
+            end
+
+            function make_foo(x: integer, y: {integer}): Foo
+                return { x = x, y = y }
+            end
+
+            function get_x(foo: Foo): integer
+                return foo.x
+            end
+
+            function set_x(foo: Foo, x: integer)
+                foo.x = x
+            end
+
+            function get_y(foo: Foo): {integer}
+                return foo.y
+            end
+
+            function set_y(foo: Foo, y: {integer})
+                foo.y = y
+            end
+        ]]))
+
+        it("can create records", function()
+            run_test([[
+                local foo = test.make_foo(123, {})
+                assert("userdata" == type(foo))
+            ]])
+        end)
+
+        it("can get/set primitive fields in titan", function()
+            run_test([[
+                local foo = test.make_foo(123, {})
+                assert(123 == test.get_x(foo))
+                test.set_x(foo, 456)
+                assert(456 == test.get_x(foo))
+            ]])
+        end)
+
+        it("can get/set gc fields in titan", function()
+            run_test([[
+                local a = {}
+                local b = {}
+                local foo = test.make_foo(123, a)
+                assert(a == test.get_y(foo))
+                test.set_y(foo, b)
+                assert(b == test.get_y(foo))
+            ]])
+        end)
+    end)
 end)
