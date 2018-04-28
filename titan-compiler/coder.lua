@@ -653,6 +653,22 @@ local function rec_create_metatable(rec, ctx)
     return cstats, mt.name
 end
 
+local function rec_create_instance(rec, typ, ctx)
+    local udata = ctx:new_tvar(typ)
+    local mt_slot = upvalues_slot(rec._upvalue_index, ctx)
+    local cstats = util.render([[
+        ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
+        ${UDATA}->metatable = ${GET_MT_SLOT};
+    ]], {
+        UDATA_DECL = c_declaration(udata),
+        MEM_SIZE = rec_mem_size(rec),
+        UV_SIZE = rec_gc_size(rec),
+        UDATA = udata.name,
+        GET_MT_SLOT = get_slot(rec_metatable_type(), mt_slot),
+    })
+    return cstats, udata.name
+end
+
 --
 -- code generation
 --
@@ -1877,32 +1893,18 @@ generate_exp = function(exp, ctx)
             table.insert(body, gc_cond_gc(ctx))
 
             local rec = exp._type.type_decl
-            local udata = ctx:new_tvar(exp._type)
-            table.insert(body, util.render([[
-                ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
-            ]], {
-                UDATA_DECL = c_declaration(udata),
-                MEM_SIZE = rec_mem_size(rec),
-                UV_SIZE = rec_gc_size(rec),
-            }))
-
-            local mt_slot = upvalues_slot(rec._upvalue_index, ctx)
-            table.insert(body, util.render([[
-                ${UDATA}->metatable = ${GET_MT_SLOT};
-            ]], {
-                UDATA = udata.name,
-                GET_MT_SLOT = get_slot(rec_metatable_type(), mt_slot),
-            }))
+            local cstats, udata = rec_create_instance(rec, exp._type, ctx)
+            table.insert(body, cstats)
 
             for _, field in ipairs(exp.fields) do
                 local field_cstats, field_cvalue = generate_exp(field.exp, ctx)
                 local set_field = rec_set_field(
-                        rec, udata.name, field.name, field_cvalue, ctx)
+                        rec, udata, field.name, field_cvalue, ctx)
                 table.insert(body, field_cstats)
                 table.insert(body, set_field)
             end
 
-            return table.concat(body, "\n"), udata.name
+            return table.concat(body, "\n"), udata
 
         else
             error("impossible")
