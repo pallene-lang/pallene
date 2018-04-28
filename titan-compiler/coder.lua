@@ -27,8 +27,8 @@ end
 -- _cvar:
 --     In Decl nodes. (see @decl)
 --
--- _lua_entry_point
--- _titan_entry_point
+-- _lua_entry_point:
+-- _titan_entry_point:
 --     In Toplevel.Func nodes.
 --     Names of the C functions that we generate for each titan function
 --
@@ -461,11 +461,11 @@ local function gc_cond_gc(ctx)
     local save_vars = gc_save_vars(ctx)
     local release_vars = gc_release_vars(ctx)
     return util.render([[
-        luaC_condGC(L, ({
+        luaC_condGC(L, {
             ${SAVE_VARS}
-        }), ({
+        }, {
             ${RELEASE_VARS}
-        }));
+        });
     ]],{
         SAVE_VARS = save_vars,
         RELEASE_VARS = release_vars,
@@ -476,34 +476,67 @@ end
 -- @records
 --
 
--- Compute the layout for the gc fields stored in the UValue array.
--- We use a C struct to compute the layout of fields stored in mem part.
+-- Compute the record layout. We store the gc fields in UValue array and
+-- primitive fields in the mem part.
 local function rec_compute_layout(rec)
-    local index = 0
-    local pos = {}
+    local gc_pos = {}
+    local gc_index = 1
+    local prim_pos = {}
+    local prim_index = 1
     for _, field in ipairs(rec.field_decls) do
         local typ = rec._field_types[field.name]
         if types.is_gc(typ) then
-            pos[field.name] = index
-            index = index + 1
+            gc_pos[field.name] = gc_index
+            gc_index = gc_index + 1
+        else
+            prim_pos[field.name] = prim_index
+            prim_index = prim_index + 1
         end
     end
-    return { pos = pos, size = index }
+    return {
+        gc_pos = gc_pos,
+        gc_size = gc_index - 1,
+        prim_pos = prim_pos,
+        prim_size = prim_index - 1,
+    }
 end
 
 local function rec_struct_name(rec)
     return string.format("struct record_%s", rec.name)
 end
 
+local function rec_field_name(rec, field_name)
+    return string.format("f%d", rec._layout.prim_pos[field_name])
+end
+
+local function rec_gc_size(rec)
+    return rec._layout.gc_size
+end
+
+local function rec_mem_size(rec)
+    local layout = rec._layout
+    if layout.prim_size == 0 then
+        return 0
+    else
+        return string.format("sizeof(%s)", rec_struct_name(rec))
+    end
+end
+
 local function rec_declare_struct(rec)
+    -- Empty struct are not allowed in standard C (they are a GCC extension)
+    if rec._layout.prim_size == 0 then return "" end
+
     local fields = {}
     for _, field in ipairs(rec.field_decls) do
         local typ = rec._field_types[field.name]
         if not types.is_gc(typ) then
-            local decl = string.format("%s %s;", ctype(typ), field.name)
+            local name = rec_field_name(rec, field.name)
+            local field = new_cvar(name, ctype(typ), field.name)
+            local decl = c_declaration(field) .. ";"
             table.insert(fields, decl)
         end
     end
+
     return util.render([[
         $NAME {
             $FIELDS
@@ -517,7 +550,7 @@ end
 local function rec_gc_slot(rec, udata, field_name)
     return util.render([[&${UDATA}->uv[${I}].uv]], {
         UDATA = udata,
-        I = rec._layout.pos[field_name],
+        I = rec._layout.gc_pos[field_name] - 1,
     })
 end
 
@@ -527,7 +560,7 @@ local function rec_primitive_slot(rec, udata, field_name)
     {
         STRUCT_NAME = rec_struct_name(rec),
         UDATA = udata,
-        FIELD_NAME = field_name,
+        FIELD_NAME = rec_field_name(rec, field_name),
     })
 end
 
@@ -1675,11 +1708,11 @@ generate_exp = function(exp, ctx)
             local rec = exp._type.type_decl
             local udata = ctx:new_tvar(exp._type)
             table.insert(body, util.render([[
-                ${UDATA_DECL} = luaS_newudata(L, sizeof(${STRUCT}), ${UV_SIZE});
+                ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
             ]], {
                 UDATA_DECL = c_declaration(udata),
-                STRUCT = rec_struct_name(rec),
-                UV_SIZE = rec._layout.size,
+                MEM_SIZE = rec_mem_size(rec),
+                UV_SIZE = rec_gc_size(rec),
             }))
 
             for _, field in ipairs(exp.fields) do

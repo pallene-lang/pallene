@@ -993,6 +993,22 @@ describe("Titan coder /", function()
             function set_y(foo: Foo, y: {integer})
                 foo.y = y
             end
+
+            record Prim
+                x: integer
+            end
+
+            function make_prim(x: integer): Prim
+                return { x = x }
+            end
+
+            record Gc
+                x: {integer}
+            end
+
+            function make_gc(x: {integer}): Gc
+                return { x = x }
+            end
         ]]))
 
         it("can create records", function()
@@ -1019,6 +1035,20 @@ describe("Titan coder /", function()
                 assert(a == test.get_y(foo))
                 test.set_y(foo, b)
                 assert(b == test.get_y(foo))
+            ]])
+        end)
+
+        it("can create records with only primitive fields", function()
+            run_test([[
+                local x = test.make_prim(123)
+                assert("userdata" == type(x))
+            ]])
+        end)
+
+        it("can create records with only gc fields", function()
+            run_test([[
+                local x = test.make_gc({})
+                assert("userdata" == type(x))
             ]])
         end)
     end)
