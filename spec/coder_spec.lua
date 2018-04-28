@@ -298,315 +298,126 @@ describe("Titan coder /", function()
     end)
 
     describe("Operators /", function()
-        setup(compile([[
-            function neg_int(x:integer): integer
-                return -x
-            end
+        local titan_program_parts = {}
+        local lua_tests = {}
 
-            function bnot(x:integer): integer
-                return ~x
-            end
-
-            function not_bool(x:boolean): boolean
-                return not x
-            end
-
-            function add_int(x:integer, y:integer): integer
-                return x + y
-            end
-
-            function add_float(x: float, y:float): float
-                return x + y
-            end
-
-            function sub_int(x:integer, y:integer): integer
-                return x - y
-            end
-
-            function sub_float(x: float, y:float): float
-                return x - y
-            end
-
-            function mul_int(x:integer, y:integer): integer
-                return x * y
-            end
-
-            function mul_float(x: float, y:float): float
-                return x * y
-            end
-
-            function floatdiv_int(x:integer, y:integer): float
-                return x / y
-            end
-
-            function floatdiv_float(x:float, y:float): float
-                return x / y
-            end
-
-            function band(x:integer, y:integer): integer
-                return x & y
-            end
-
-            function bor(x:integer, y:integer): integer
-                return x | y
-            end
-
-            function bxor(x:integer, y:integer): integer
-                return x ~ y
-            end
-
-            function lshift(x:integer, y:integer): integer
-                return x << y
-            end
-
-            function rshift(x:integer, y:integer): integer
-                return x >> y
-            end
-
-            function mod_int(x:integer, y:integer): integer
-                return x % y
-            end
-
-            function intdiv_int(x:integer, y:integer): integer
-                return x // y
-            end
-
-            function intdiv_float(x:float, y:float): float
-                return x // y
-            end
-
-            function pow_float(x:float, y:float): float
-                return x ^ y
-            end
-
-            function eq_int(x:integer, y:integer): boolean
-                return x == y
-            end
-
-            function neq_int(x:integer, y:integer): boolean
-                return x ~= y
-            end
-
-            function lt_int(x:integer, y:integer): boolean
-                return x < y
-            end
-
-            function gt_int(x:integer, y:integer): boolean
-                return x > y
-            end
-
-            function le_int(x:integer, y:integer): boolean
-                return x <= y
-            end
-
-            function ge_int(x:integer, y:integer): boolean
-                return x >= y
-            end
-
-            function and_bool(x:boolean, y:boolean): boolean
-                return x and y
-            end
-
-            function or_bool(x:boolean, y:boolean): boolean
-                return x or y
-            end
-        ]]))
-
-        local function run_unop_test(f, op, x)
-            run_test(util.render([[
-                assert(($OP $X) == test.${F}($X))
+        local function setup_unop(name, op, typ, rtyp)
+            table.insert(titan_program_parts, util.render([[
+                function $name (x: $typ): $rtyp
+                    return $op x
+                end
             ]], {
-                F = f,
-                OP = op,
-                X = x,
+                name = name, typ = typ, rtyp = rtyp, op = op,
             }))
+
+            lua_tests[name] = util.render([[
+                local test_op = require "spec.coder_test_operators"
+                test_op.check_unop(
+                    $op_str,
+                    function(x) return $op x end,
+                    test.${name},
+                    $typ_str
+                )
+            ]],{
+                name = name,
+                op = op,
+                op_str = string.format("%q", op),
+                typ_str = string.format("%q", typ),
+            })
         end
 
-        local function run_binop_test(f, op, x, y)
-            run_test(util.render([[
-                assert(($X $OP $Y) == test.${F}($X, $Y))
+        local function setup_binop(name, op, typ1, typ2, rtyp)
+            table.insert(titan_program_parts, util.render([[
+                function $name (x: $typ1, y:$typ2): $rtyp
+                    return x ${op} y
+                end
             ]], {
-                F = f,
-                OP = op,
-                X = x,
-                Y = y,
+                name = name, typ1 = typ1, typ2=typ2, rtyp = rtyp, op = op,
             }))
+
+            lua_tests[name] = util.render([[
+                local test_op = require "spec.coder_test_operators"
+                test_op.check_binop(
+                    $op_str,
+                    function(x, y) return (x $op y) end,
+                    test.${name},
+                    $typ1_str,
+                    $typ2_str
+                )
+            ]],{
+                name = name,
+                op = op,
+                op_str = string.format("%q", op),
+                typ1_str = string.format("%q", typ1),
+                typ2_str = string.format("%q", typ2),
+            })
         end
 
-        it("integer unary (-)", function()
-            run_unop_test("neg_int", "-", "17")
-        end)
+        local function optest(name)
+            run_test(lua_tests[name])
+        end
 
-        it("integer unary (~)", function()
-            run_unop_test("bnot", "~", "17")
-        end)
+        setup_unop("neg_int" , "-",   "integer", "integer")
+        setup_unop("bnot"    , "~",   "integer", "integer")
+        setup_unop("not_bool", "not", "boolean", "boolean")
 
-        it("boolean (not)", function()
-            run_unop_test("not_bool", "not", "true")
-        end)
+        setup_binop("add_int"       , "+",   "integer", "integer", "integer")
+        setup_binop("add_float"     , "+",   "float",   "float",   "float")
+        setup_binop("sub_int"       , "-",   "integer", "integer", "integer")
+        setup_binop("sub_float"     , "-",   "float",   "float",   "float")
+        setup_binop("mul_int"       , "*",   "integer", "integer", "integer")
+        setup_binop("mul_float"     , "*",   "float",   "float",   "float")
+        setup_binop("floatdiv_int"  , "/",   "integer", "integer", "float")
+        setup_binop("floatdiv_float", "/",   "float",   "float",   "float")
+        setup_binop("band"          , "&",   "integer", "integer", "integer")
+        setup_binop("bor"           , "|",   "integer", "integer", "integer")
+        setup_binop("bxor"          , "~",   "integer", "integer", "integer")
+        setup_binop("lshift"        , "<<",  "integer", "integer", "integer")
+        setup_binop("rshift"        , ">>",  "integer", "integer", "integer")
+        setup_binop("mod_int"       , "%",   "integer", "integer", "integer")
+        setup_binop("intdiv_int"    , "//",  "integer", "integer", "integer")
+        setup_binop("intdiv_float"  , "//",  "float",   "float",   "float")
+        setup_binop("pow_float"     , "^",   "float",   "float",   "float")
+        setup_binop("eq_int"        , "==",  "integer", "integer", "boolean")
+        setup_binop("neq_int"       , "~=",  "integer", "integer", "boolean")
+        setup_binop("lt_int"        , "<",   "integer", "integer", "boolean")
+        setup_binop("gt_int"        , ">",   "integer", "integer", "boolean")
+        setup_binop("le_int"        , "<=",  "integer", "integer", "boolean")
+        setup_binop("ge_int"        , ">=",  "integer", "integer", "boolean")
+        setup_binop("and_bool"      , "and", "boolean", "boolean", "boolean")
+        setup_binop("or_bool"       , "or",  "boolean", "boolean", "boolean")
 
-        it("integer (+)", function()
-            run_binop_test("add_int", "+", "1", "2")
-        end)
+        setup(compile(table.concat(titan_program_parts, "\n")))
 
-        it("float (+)", function()
-            run_binop_test("add_float", "+", "2.0", "4.0")
-        end)
+        it("integer unary (-)",  function() optest("neg_int") end)
+        it("integer unary (~)",  function() optest("bnot") end)
+        it("boolean (not)",      function() optest("not_bool") end)
 
-        it("integer (-)", function()
-            run_binop_test("sub_int", "-", "1", "2")
-        end)
-
-        it("float (-)", function()
-            run_binop_test("sub_float", "-", "2.0", "4.0")
-        end)
-
-        it("integer (*)", function()
-            run_binop_test("mul_int", "*", "2", "3")
-        end)
-
-        it("float (*)", function()
-            run_binop_test("mul_float", "*", "2.0", "3.0")
-        end)
-
-        it("integer (/)", function()
-            run_binop_test("floatdiv_int", "/", "1", "2")
-        end)
-
-        it("float (/)", function()
-            run_binop_test("floatdiv_float", "/", "1.0", "2.0")
-        end)
-
-        it("binary and (&)", function()
-            run_binop_test("band", "&", "0xf00f", "0x00ff")
-        end)
-
-        it("binary or (|)", function()
-            run_binop_test("bor", "|", "0xf00f", "0x00ff")
-        end)
-
-        it("binary xor (~)", function()
-            run_binop_test("bxor", "~", "0xf00f", "0x00ff")
-        end)
-
-        it("left shift (<<)", function()
-            run_binop_test("lshift", "<<", "0x00f0", "1")
-        end)
-
-        it("right shift (>>)", function()
-            run_binop_test("rshift", ">>", "0x00f0", "1")
-        end)
-
-        it("integer (%)", function()
-            run_binop_test("mod_int", "%", "10", "3")
-        end)
-
-        it("integer (//)", function()
-            run_binop_test("intdiv_int", "//", "10", "3")
-        end)
-
-        it("float (//)", function()
-            run_binop_test("intdiv_float", "//", "10.0", "3.0")
-        end)
-
-        it("float (^)", function()
-            run_binop_test("pow_float", "^", "2.0", "3.0")
-        end)
-
-        it("integer (==)", function()
-            run_binop_test("eq_int", "==", "0", "1")
-            run_binop_test("eq_int", "==", "1", "1")
-            run_binop_test("eq_int", "==", "1", "0")
-        end)
-
-        it("integer (~=)", function()
-            run_binop_test("neq_int", "~=", "0", "1")
-            run_binop_test("neq_int", "~=", "1", "1")
-            run_binop_test("neq_int", "~=", "1", "0")
-        end)
-
-        it("integer (<)", function()
-            run_binop_test("lt_int", "<", "0", "1")
-            run_binop_test("lt_int", "<", "1", "1")
-            run_binop_test("lt_int", "<", "1", "0")
-        end)
-
-        it("integer (>)", function()
-            run_binop_test("gt_int", ">", "0", "1")
-            run_binop_test("gt_int", ">", "1", "1")
-            run_binop_test("gt_int", ">", "1", "0")
-        end)
-
-        it("integer (<=)", function()
-            run_binop_test("le_int", "<=", "0", "1")
-            run_binop_test("le_int", "<=", "1", "1")
-            run_binop_test("le_int", "<=", "1", "0")
-        end)
-
-        it("integer (>=)", function()
-            run_binop_test("ge_int", ">=", "0", "1")
-            run_binop_test("ge_int", ">=", "1", "1")
-            run_binop_test("ge_int", ">=", "1", "0")
-        end)
-
-        it("boolean (and)", function()
-            run_binop_test("and_bool", "and", "true",  "true")
-            run_binop_test("and_bool", "and", "true",  "false")
-            run_binop_test("and_bool", "and", "false", "true")
-            run_binop_test("and_bool", "and", "false", "false")
-        end)
-
-        it("boolean (or)", function()
-            run_binop_test("or_bool", "or", "true",  "true")
-            run_binop_test("or_bool", "or", "true",  "false")
-            run_binop_test("or_bool", "or", "false", "true")
-            run_binop_test("or_bool", "or", "false", "false")
-        end)
-
-        describe("Corner cases /", function()
-            it("integer unary (-)", function()
-                run_unop_test("neg_int", "-", "math.mininteger")
-            end)
-
-            it("integer (+)", function()
-                run_binop_test("add_int", "+", "math.maxinteger", "1")
-                run_binop_test("add_int", "+", "math.mininteger", "-1")
-            end)
-
-            it("integer (//)", function()
-                run_binop_test("intdiv_int", "//", " 10", " 3")
-                run_binop_test("intdiv_int", "//", " 10", "-3")
-                run_binop_test("intdiv_int", "//", "-10", " 3")
-                run_binop_test("intdiv_int", "//", "-10", "-3")
-                run_binop_test("intdiv_int", "//", "math.mininteger", "-1")
-            end)
-
-            it("integer (%)", function()
-                run_binop_test("mod_int", "%", " 10", " 3")
-                run_binop_test("mod_int", "%", " 10", "-3")
-                run_binop_test("mod_int", "%", "-10", " 3")
-                run_binop_test("mod_int", "%", "-10", "-3")
-                run_binop_test("mod_int", "%", "math.mininteger", "-1")
-            end)
-
-            it("right shift (>>)", function()
-                run_binop_test("rshift", ">>", "0xdead", " 1")
-                run_binop_test("rshift", ">>", "0xdead", "-1")
-                run_binop_test("rshift", ">>", "0xdead", " 100")
-                run_binop_test("rshift", ">>", "0xdead", "-100")
-                run_binop_test("rshift", ">>", "0xdead", "math.maxinteger")
-                run_binop_test("rshift", ">>", "0xdead", "math.mininteger")
-            end)
-
-            it("left shift (<<)", function()
-                run_binop_test("lshift", "<<", "0xdead", " 1")
-                run_binop_test("lshift", "<<", "0xdead", "-1")
-                run_binop_test("lshift", "<<", "0xdead", " 100")
-                run_binop_test("lshift", "<<", "0xdead", "-100")
-                run_binop_test("lshift", "<<", "0xdead", "math.maxinteger")
-                run_binop_test("lshift", "<<", "0xdead", "math.mininteger")
-            end)
-        end)
+        it("integer (+)",        function() optest("add_int") end)
+        it("float (+)",          function() optest("add_float") end)
+        it("integer (-)",        function() optest("sub_int")  end)
+        it("float (-)",          function() optest("sub_float")  end)
+        it("integer (*)",        function() optest("mul_int")  end)
+        it("float (*)",          function() optest("mul_float") end)
+        it("integer (/)",        function() optest("floatdiv_int") end)
+        it("float (/)",          function() optest("floatdiv_float") end)
+        it("binary and (&)",     function() optest("band") end)
+        it("binary or (|)",      function() optest("bor") end)
+        it("binary xor (~)",     function() optest("bxor") end)
+        it("left shift (<<)",    function() optest("lshift")  end)
+        it("right shift (>>)",   function() optest("rshift") end)
+        it("integer (%)",        function() optest("mod_int") end)
+        it("integer (//)",       function() optest("intdiv_int") end)
+        it("float (//)",         function() optest("intdiv_float") end)
+        it("float (^)",          function() optest("pow_float") end)
+        it("integer (==)",       function() optest("eq_int") end)
+        it("integer (~=)",       function() optest("neq_int") end)
+        it("integer (<)",        function() optest("lt_int") end)
+        it("integer (>)",        function() optest("gt_int") end)
+        it("integer (<=)",       function() optest("le_int") end)
+        it("integer (>=)",       function() optest("ge_int") end)
+        it("boolean (and)",      function() optest("and_bool") end)
+        it("boolean (or)",       function() optest("or_bool") end)
     end)
 
     describe("Statements /", function()
