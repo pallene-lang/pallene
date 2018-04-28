@@ -479,20 +479,26 @@ end
 -- Compute the record layout. We store the gc fields in UValue array and
 -- primitive fields in the mem part.
 local function rec_compute_layout(rec)
-    local gc_index = 0
-    local prim_index = 0
-    local pos = {}
+    local gc_pos = {}
+    local gc_index = 1
+    local prim_pos = {}
+    local prim_index = 1
     for _, field in ipairs(rec.field_decls) do
         local typ = rec._field_types[field.name]
         if types.is_gc(typ) then
-            pos[field.name] = gc_index
+            gc_pos[field.name] = gc_index
             gc_index = gc_index + 1
         else
-            pos[field.name] = prim_index
+            prim_pos[field.name] = prim_index
             prim_index = prim_index + 1
         end
     end
-    return { pos = pos, gc_size = gc_index, prim_size = prim_index }
+    return {
+        gc_pos = gc_pos,
+        gc_size = gc_index - 1,
+        prim_pos = prim_pos,
+        prim_size = prim_index - 1,
+    }
 end
 
 local function rec_struct_name(rec)
@@ -500,7 +506,7 @@ local function rec_struct_name(rec)
 end
 
 local function rec_field_name(rec, field_name)
-    return string.format("field_%d", rec._layout.pos[field_name])
+    return string.format("f%d", rec._layout.prim_pos[field_name])
 end
 
 local function rec_gc_size(rec)
@@ -517,6 +523,7 @@ local function rec_mem_size(rec)
 end
 
 local function rec_declare_struct(rec)
+    -- Empty struct are not allowed in standard C (they are a GCC extension)
     if rec._layout.prim_size == 0 then return "" end
 
     local fields = {}
@@ -524,7 +531,7 @@ local function rec_declare_struct(rec)
         local typ = rec._field_types[field.name]
         if not types.is_gc(typ) then
             local name = rec_field_name(rec, field.name)
-            local field = new_cvar(name, ctype(typ))
+            local field = new_cvar(name, ctype(typ), field.name)
             local decl = c_declaration(field) .. ";"
             table.insert(fields, decl)
         end
@@ -543,7 +550,7 @@ end
 local function rec_gc_slot(rec, udata, field_name)
     return util.render([[&${UDATA}->uv[${I}].uv]], {
         UDATA = udata,
-        I = rec._layout.pos[field_name],
+        I = rec._layout.gc_pos[field_name] - 1,
     })
 end
 
