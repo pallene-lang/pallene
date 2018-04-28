@@ -1,6 +1,7 @@
 local ast = require "titan-compiler.ast"
 local ast_iterator = require "titan-compiler.ast_iterator"
 local checker = require "titan-compiler.checker"
+local types = require "titan-compiler.types"
 
 local upvalues = {}
 
@@ -44,7 +45,7 @@ local function toplevel_is_value_declaration(tlnode)
     elseif tag == ast.Toplevel.Var then
         return true
     elseif tag == ast.Toplevel.Record then
-        return false
+        return true -- metametable
     elseif tag == ast.Toplevel.Import then
         return false
     else
@@ -103,7 +104,14 @@ end
 
 function analyze:Exp(exp, referenced_upvalues_map)
     local tag = exp._tag
-    if tag == ast.Exp.CallFunc then
+    if     tag == ast.Exp.Initlist then
+        local typ = exp._type
+        if typ._tag == types.T.Record then
+            local rec = typ.type_decl
+            referenced_upvalues_map[rec._upvalue_index] = true
+        end
+
+    elseif tag == ast.Exp.CallFunc then
         local fexp = exp.exp
         local fargs = exp.args
 

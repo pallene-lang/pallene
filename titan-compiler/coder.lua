@@ -524,7 +524,7 @@ end
 local function upvalues_slot(i, ctx)
     return util.render([[ &${ARR}[${I}] ]], {
         ARR = ctx.upv.array.name,
-        I = c_integer(i),
+        I = c_integer(i - 1),
     })
 end
 
@@ -637,6 +637,20 @@ local function rec_set_field(rec, udata, field_name, cvalue, ctx)
             CVALUE = cvalue,
         })
     end
+end
+
+local function rec_metatable_type()
+    return types.T.Array(types.T.Integer())
+end
+
+local function rec_create_metatable(rec, ctx)
+    local mt = ctx:new_tvar(rec_metatable_type())
+    local cstats = util.render([[
+        ${MT_DECL} = luaH_new(L);
+    ]], {
+        MT_DECL = c_declaration(mt),
+    })
+    return cstats, mt.name
 end
 
 --
@@ -807,8 +821,8 @@ local function generate_luaopen_upvalues(prog, ctx)
     local parts = {}
 
     for _, tl_node in ipairs(prog._upvalues) do
-        local upvalues = upvalues_table(ctx)
-        local slot = upvalues_slot(tl_node._upvalue_index - 1, ctx)
+        local upv_table = upvalues_table(ctx)
+        local slot = upvalues_slot(tl_node._upvalue_index, ctx)
 
         table.insert(parts,
             string.format("/* %s */", ast.toplevel_name(tl_node)))
@@ -827,13 +841,13 @@ local function generate_luaopen_upvalues(prog, ctx)
                     ${SET_SLOT}
                 ]],{
                     LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                    UPVALUES = upvalues,
+                    UPVALUES = upv_table,
                     CLOSURE = closure.name,
                     CLOSURE_DECL = c_declaration(closure),
                     FUNC = func.name,
                     FUNC_DECL = c_declaration(func),
                     SET_SLOT = set_heap_slot(
-                        tl_node._type, slot, func.name, upvalues),
+                        tl_node._type, slot, func.name, upv_table),
                 })
             )
             ctx:end_scope()
@@ -844,8 +858,14 @@ local function generate_luaopen_upvalues(prog, ctx)
             local cstats, cvalue = generate_exp(exp, ctx)
             table.insert(parts, cstats)
             table.insert(parts, set_heap_slot(
-                exp._type, slot, cvalue, upvalues))
+                exp._type, slot, cvalue, upv_table))
             ctx:end_scope()
+
+        elseif tag == ast.Toplevel.Record then
+            local typ = rec_metatable_type()
+            local cstats, mt = rec_create_metatable(tl_node, ctx)
+            table.insert(parts, cstats)
+            table.insert(parts, set_heap_slot(typ, slot, mt, upv_table))
 
         else
             error("impossible")
@@ -882,7 +902,7 @@ local function generate_luaopen_exports_table(prog, ctx)
                     lua_settable(L, -3);
                 ]], {
                     NAME = c_string(ast.toplevel_name(tl_node)),
-                    SLOT = upvalues_slot(tl_node._upvalue_index - 1, ctx),
+                    SLOT = upvalues_slot(tl_node._upvalue_index, ctx),
                 })
             )
         end
@@ -927,7 +947,7 @@ end
 declare_type("Lvalue", {
     CVar       = {"var", "varname"},
     ArraySlot  = {"var", "t_varname", "i_varname"},
-    GlobalVar  = {"var", "global_index"},
+    GlobalVar  = {"var", "upvalue_index"},
     RecGcSlot  = {"var", "slot_address", "udata_pointer"},
 })
 
@@ -981,7 +1001,7 @@ local function generate_lvalue_read(lvalue, ctx)
             ${OUT_DECL} = ${GET_SLOT};
         ]], {
             SLOT_DECL = c_declaration(slot),
-            UPV_SLOT = upvalues_slot(lvalue.global_index - 1, ctx),
+            UPV_SLOT = upvalues_slot(lvalue.upvalue_index, ctx),
             OUT_DECL = c_declaration(out),
             GET_SLOT = get_slot(typ, slot.name),
         })
@@ -1053,7 +1073,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
             ${SET_SLOT}
         ]], {
             SLOT_DECL = c_declaration(slot),
-            UPV_SLOT = upvalues_slot(lvalue.global_index - 1, ctx),
+            UPV_SLOT = upvalues_slot(lvalue.upvalue_index, ctx),
             SET_SLOT = set_heap_slot(
                 typ, slot.name, exp_cvalue, upvalues_table(ctx)),
         })
@@ -1864,6 +1884,14 @@ generate_exp = function(exp, ctx)
                 UDATA_DECL = c_declaration(udata),
                 MEM_SIZE = rec_mem_size(rec),
                 UV_SIZE = rec_gc_size(rec),
+            }))
+
+            local mt_slot = upvalues_slot(rec._upvalue_index, ctx)
+            table.insert(body, util.render([[
+                ${UDATA}->metatable = ${GET_MT_SLOT};
+            ]], {
+                UDATA = udata.name,
+                GET_MT_SLOT = get_slot(rec_metatable_type(), mt_slot),
             }))
 
             for _, field in ipairs(exp.fields) do
