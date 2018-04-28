@@ -176,7 +176,7 @@ function Context.new()
         n_saved_vars = 0,    -- how many vars are currently saved in stack
         saveds = {},         -- first index of each group of saved variables
 
-        upvalues = false,    -- global upvalues table and array
+        upv = false          -- upvalues table and array (see @upvalues)
     }
     return setmetatable(o, Context)
 end
@@ -473,6 +473,66 @@ local function gc_cond_gc(ctx)
 end
 
 --
+-- @upvalues
+--
+
+local function upvalues_init(n, ctx)
+    if n == 0 then return "" end
+
+    local typ = types.T.Array(types.T.Integer())
+
+    ctx.upv = {}
+    ctx.upv.table = ctx:new_tvar(typ) -- tvar: Don't GC this!
+    ctx.upv.array = ctx:new_cvar("TValue *")
+
+    return util.render([[
+        ${TABLE_DECL} = luaH_new(L);
+        luaH_resizearray(L, ${TABLE}, ${N});
+        ${ARRAY_DECL} = ${TABLE}->array;
+    ]], {
+        N = c_integer(n),
+        TABLE = ctx.upv.table.name,
+        TABLE_DECL = c_declaration(ctx.upv.table),
+        ARRAY = ctx.upv.array.name,
+        ARRAY_DECL = c_declaration(ctx.upv.array),
+    })
+end
+
+local function upvalues_load_in_func(ref_upvalues, ctx)
+    if #ref_upvalues == 0 then return "" end
+
+    local closure = ctx:new_cvar("CClosure *")
+
+    ctx.upv = {}
+    ctx.upv.table = ctx:new_cvar("Table *", "upvalue table")
+    ctx.upv.array = ctx:new_cvar("TValue *", "upvalue array")
+
+    return util.render([[
+        ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
+        ${TABLE_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
+        ${ARRAY_DECL} = ${TABLE}->array;
+    ]], {
+        CLOSURE = closure.name,
+        CLOSURE_DECL = c_declaration(closure),
+        TABLE = ctx.upv.table.name,
+        TABLE_DECL = c_declaration(ctx.upv.table),
+        ARRAY = ctx.upv.array.name,
+        ARRAY_DECL = c_declaration(ctx.upv.array),
+    })
+end
+
+local function upvalues_slot(i, ctx)
+    return util.render([[ &${ARR}[${I}] ]], {
+        ARR = ctx.upv.array.name,
+        I = c_integer(i),
+    })
+end
+
+local function upvalues_table(ctx)
+    return ctx.upv.table.name
+end
+
+--
 -- @records
 --
 
@@ -580,7 +640,7 @@ local function rec_set_field(rec, udata, field_name, cvalue, ctx)
 end
 
 --
---
+-- code generation
 --
 
 local function generate_titan_entry_point(tl_node)
@@ -600,26 +660,9 @@ local function generate_titan_entry_point(tl_node)
         table.insert(params, c_declaration(param._cvar))
     end
 
+    -- TODO: change _referenced_globals to _use_upvalues
     local body = {}
-    if #tl_node._referenced_globals > 0 then
-        local closure = ctx:new_cvar("CClosure *")
-        ctx.upvalues = {
-            table = ctx:new_cvar("Table *", "upvalue table"),
-            array = ctx:new_cvar("TValue *", "upvalue array"),
-        }
-        table.insert(body, util.render([[
-            ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
-            ${T_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
-            ${ARR_DECL} = ${T}->array;
-        ]], {
-            CLOSURE = closure.name,
-            CLOSURE_DECL = c_declaration(closure),
-            T = ctx.upvalues.table.name,
-            T_DECL = c_declaration(ctx.upvalues.table),
-            ARR = ctx.upvalues.array.name,
-            ARR_DECL = c_declaration(ctx.upvalues.array),
-        }))
-    end
+    table.insert(body, upvalues_load_in_func(tl_node._referenced_globals, ctx))
     table.insert(body, generate_stat(tl_node.block, ctx))
 
     local reserve_stack = gc_reserve_stack(ctx)
@@ -761,14 +804,13 @@ local function generate_lua_entry_point(tl_node)
     })
 end
 
-local function generate_luaopen_modvar_upvalues(prog, ctx)
+local function generate_luaopen_modvar(prog, ctx)
     local parts = {}
 
     for _, tl_node in ipairs(prog._globals) do
-        local arr_slot = util.render([[ &${ARR}[${I}] ]], {
-            ARR = ctx.upvalues.array.name,
-            I = c_integer(tl_node._global_index - 1),
-        })
+        -- TODO: s/_global_index/_upv_index
+        local upvalues = upvalues_table(ctx)
+        local slot = upvalues_slot(tl_node._global_index - 1, ctx)
 
         table.insert(parts,
             string.format("/* %s */", ast.toplevel_name(tl_node)))
@@ -787,14 +829,13 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
                     ${SET_SLOT}
                 ]],{
                     LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                    UPVALUES = ctx.upvalues.table.name,
+                    UPVALUES = upvalues,
                     CLOSURE = closure.name,
                     CLOSURE_DECL = c_declaration(closure),
                     FUNC = func.name,
                     FUNC_DECL = c_declaration(func),
                     SET_SLOT = set_heap_slot(
-                        tl_node._type, arr_slot, func.name,
-                        ctx.upvalues.table.name),
+                        tl_node._type, slot, func.name, upvalues),
                 })
             )
             ctx:end_scope()
@@ -805,21 +846,12 @@ local function generate_luaopen_modvar_upvalues(prog, ctx)
             local cstats, cvalue = generate_exp(exp, ctx)
             table.insert(parts, cstats)
             table.insert(parts, set_heap_slot(
-                exp._type, arr_slot, cvalue, ctx.upvalues.table.name))
+                exp._type, slot, cvalue, upvalues))
             ctx:end_scope()
 
         else
             error("impossible")
         end
-    end
-
-    -- Avoid warnings
-    if #parts == 0 then
-        table.insert(parts, util.render([[
-            (void) ${ARR};
-        ]], {
-            ARR = ctx.upvalues.array.name
-        }))
     end
 
     return table.concat(parts, "\n")
@@ -848,12 +880,11 @@ local function generate_luaopen_exports_table(prog, ctx)
             table.insert(parts,
                 util.render([[
                     lua_pushstring(L, ${NAME});
-                    setobj(L, s2v(L->top), &${ARR}[${I}]); api_incr_top(L);
+                    setobj(L, s2v(L->top), ${SLOT}); api_incr_top(L);
                     lua_settable(L, -3);
                 ]], {
                     NAME = c_string(ast.toplevel_name(tl_node)),
-                    ARR = ctx.upvalues.array.name,
-                    I = c_integer(tl_node._global_index - 1)
+                    SLOT = upvalues_slot(tl_node._global_index - 1, ctx),
                 })
             )
         end
@@ -869,32 +900,16 @@ end
 
 local function generate_luaopen(prog, modname)
     local ctx = Context.new()
-    -- TODO: this is actually an array of Value
-    local table_typ = types.T.Array(types.T.Integer())
-    ctx.upvalues = {
-        table = ctx:new_tvar(table_typ), -- tvar: Don't GC this!
-        array = ctx:new_cvar("TValue *"),
-    }
 
-    local allocate_upvalues = util.render([[
-        ${TBL_DECL} = luaH_new(L);
-        luaH_resizearray(L, ${TBL}, ${N});
-        ${ARR_DECL} = ${TBL}->array;
-    ]], {
-        N = c_integer(#prog._globals),
-        TBL = ctx.upvalues.table.name,
-        TBL_DECL = c_declaration(ctx.upvalues.table),
-        ARR = ctx.upvalues.array.name,
-        ARR_DECL = c_declaration(ctx.upvalues.array),
-    })
+    local body = {}
+    -- TODO: s/_globals/_n_upvalues/g
+    table.insert(body, upvalues_init(#prog._globals, ctx))
+    table.insert(body, generate_luaopen_modvar(prog, ctx))
+    table.insert(body, generate_luaopen_exports_table(prog, ctx))
 
-    local init_upvalues =
-        generate_luaopen_modvar_upvalues(prog, ctx)
+    local body_sep = "\n/* -------------------- */\n"
 
-    local init_exports =
-        generate_luaopen_exports_table(prog, ctx)
-
-    -- todo: make this reserve_stack optional
+    -- TODO: make this reserve_stack optional
     -- (see similar comment in lua entry point)
     local reserve_stack = gc_reserve_stack(ctx)
 
@@ -902,23 +917,13 @@ local function generate_luaopen(prog, modname)
         int luaopen_${MODNAME}(lua_State *L)
         {
             ${RESERVE_STACK}
-            /* Allocate upvalue table */
-            /* ---------------------- */
-            ${ALLOCATE_UPVALUES}
-            /* Initialize module var upvalues */
-            /* ------------------------------ */
-            ${INIT_UPVALUES}
-            /* Create exports table     */
-            /* ------------------------ */
-            ${INIT_EXPORTS}
+            ${BODY}
             return 1;
         }
     ]], {
         MODNAME = modname,
         RESERVE_STACK = reserve_stack,
-        ALLOCATE_UPVALUES = allocate_upvalues,
-        INIT_UPVALUES = init_upvalues,
-        INIT_EXPORTS = init_exports,
+        BODY = table.concat(body, body_sep)
     })
 end
 
@@ -961,7 +966,6 @@ local function generate_lvalue_read(lvalue, ctx)
             UI_DECL = c_declaration(ui),
             ARRSLOT = arrslot.name,
             ARRSLOT_DECL = c_declaration(arrslot),
-            OUT = out.name,
             OUT_DECL = c_declaration(out),
             CHECK_TAG = check_tag(typ, arrslot.name),
             EXPECTED_TAG = titan_type_tag(typ),
@@ -973,18 +977,14 @@ local function generate_lvalue_read(lvalue, ctx)
 
     elseif tag == coder.Lvalue.GlobalVar then
         local typ = lvalue.var._type
-        local i = lvalue.global_index - 1
         local slot = ctx:new_cvar("TValue *")
         local out = ctx:new_tvar(typ)
         local cstats = util.render([[
-            ${SLOT_DECL} = &${ARR}[${I}];
+            ${SLOT_DECL} = ${UPV_SLOT};
             ${OUT_DECL} = ${GET_SLOT};
         ]], {
-            ARR = ctx.upvalues.array.name,
-            I = c_integer(i),
-            SLOT = slot.name,
             SLOT_DECL = c_declaration(slot),
-            OUT = out.name,
+            UPV_SLOT = upvalues_slot(lvalue.global_index - 1, ctx),
             OUT_DECL = c_declaration(out),
             GET_SLOT = get_slot(typ, slot.name),
         })
@@ -1050,18 +1050,15 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
 
     elseif tag == coder.Lvalue.GlobalVar then
         local typ = lvalue.var._type
-        local i = lvalue.global_index - 1
         local slot = ctx:new_cvar("TValue *")
         return util.render([[
-            ${SLOT_DECL} = &${ARR}[${I}];
+            ${SLOT_DECL} = ${UPV_SLOT};
             ${SET_SLOT}
         ]], {
-            ARR = ctx.upvalues.array.name,
-            I = c_integer(i),
-            SLOT = slot.name,
             SLOT_DECL = c_declaration(slot),
+            UPV_SLOT = upvalues_slot(lvalue.global_index - 1, ctx),
             SET_SLOT = set_heap_slot(
-                typ, slot.name, exp_cvalue, ctx.upvalues.table.name),
+                typ, slot.name, exp_cvalue, upvalues_table(ctx)),
         })
 
     elseif tag == coder.Lvalue.RecGcSlot then
@@ -1123,8 +1120,7 @@ generate_program = function(prog, modname)
         define_functions = table.concat(function_definitions, "\n")
     end
 
-    local luaopen_function =
-        generate_luaopen(prog, modname)
+    local luaopen_function = generate_luaopen(prog, modname)
 
     local code = util.render(whole_file_template, {
         STRUCTS = table.concat(structs, "\n\n"),
