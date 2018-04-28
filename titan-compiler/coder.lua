@@ -644,13 +644,50 @@ local function rec_metatable_type()
 end
 
 local function rec_create_metatable(rec, ctx)
+    local cstats = {}
+
     local mt = ctx:new_tvar(rec_metatable_type())
-    local cstats = util.render([[
+    table.insert(cstats, util.render([[
         ${MT_DECL} = luaH_new(L);
     ]], {
         MT_DECL = c_declaration(mt),
-    })
-    return cstats, mt.name
+    }))
+
+    -- TODO: this should become a function
+    -- TODO: we don't need to create a new string every time we set a slot.
+    --       We should create them only once in luaopen and store them in
+    --       upvalues table.
+    do
+        -- arguments:
+        local tabl = mt.name
+        local key_lit = "__metatable"
+        local typ = types.T.Boolean()
+        local cvalue = c_boolean(false)
+
+        local key_type = types.T.String()
+        local key = ctx:new_tvar(key_type)
+        local key_slot = ctx:new_cvar("TValue")
+        local key_slot_addr = "&" .. key_slot.name
+        local slot = ctx:new_cvar("TValue *")
+        table.insert(cstats, util.render([[
+            ${KEY_DECL} = luaS_new(L, ${KEY_LIT});
+            ${KEY_SLOT_DECL};
+            ${SET_KEY_SLOT}
+            ${SLOT_DECL} = luaH_set(L, ${TABLE}, ${KEY_SLOT_ADDR});
+            ${SET_SLOT}
+        ]], {
+            KEY_LIT = c_string(key_lit),
+            KEY_DECL = c_declaration(key),
+            KEY_SLOT_DECL = c_declaration(key_slot),
+            KEY_SLOT_ADDR = key_slot_addr,
+            SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key.name),
+            SLOT_DECL = c_declaration(slot),
+            TABLE = tabl,
+            SET_SLOT = set_heap_slot(typ, slot.name, cvalue, tabl),
+        }))
+    end
+
+    return table.concat(cstats, "\n"), mt.name
 end
 
 local function rec_create_instance(rec, typ, ctx)
