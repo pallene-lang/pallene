@@ -1,9 +1,9 @@
 local ast = require "titan-compiler.ast"
-local global_upvalues = require "titan-compiler.global_upvalues"
-local util = require "titan-compiler.util"
 local pretty = require "titan-compiler.pretty"
 local typedecl = require "titan-compiler.typedecl"
 local types = require "titan-compiler.types"
+local upvalues = require "titan-compiler.upvalues"
+local util = require "titan-compiler.util"
 
 local coder = {}
 
@@ -13,7 +13,7 @@ local generate_var
 local generate_exp
 
 function coder.generate(filename, input, modname)
-    local prog, errors = global_upvalues.analyze(filename, input)
+    local prog, errors = upvalues.analyze(filename, input)
     if not prog then return false, errors end
     local code = generate_program(prog, modname)
     return code, errors
@@ -660,9 +660,8 @@ local function generate_titan_entry_point(tl_node)
         table.insert(params, c_declaration(param._cvar))
     end
 
-    -- TODO: change _referenced_globals to _use_upvalues
     local body = {}
-    table.insert(body, upvalues_load_in_func(tl_node._referenced_globals, ctx))
+    table.insert(body, upvalues_load_in_func(tl_node._referenced_upvalues, ctx))
     table.insert(body, generate_stat(tl_node.block, ctx))
 
     local reserve_stack = gc_reserve_stack(ctx)
@@ -804,13 +803,12 @@ local function generate_lua_entry_point(tl_node)
     })
 end
 
-local function generate_luaopen_modvar(prog, ctx)
+local function generate_luaopen_upvalues(prog, ctx)
     local parts = {}
 
-    for _, tl_node in ipairs(prog._globals) do
-        -- TODO: s/_global_index/_upv_index
+    for _, tl_node in ipairs(prog._upvalues) do
         local upvalues = upvalues_table(ctx)
-        local slot = upvalues_slot(tl_node._global_index - 1, ctx)
+        local slot = upvalues_slot(tl_node._upvalue_index - 1, ctx)
 
         table.insert(parts,
             string.format("/* %s */", ast.toplevel_name(tl_node)))
@@ -884,7 +882,7 @@ local function generate_luaopen_exports_table(prog, ctx)
                     lua_settable(L, -3);
                 ]], {
                     NAME = c_string(ast.toplevel_name(tl_node)),
-                    SLOT = upvalues_slot(tl_node._global_index - 1, ctx),
+                    SLOT = upvalues_slot(tl_node._upvalue_index - 1, ctx),
                 })
             )
         end
@@ -902,9 +900,8 @@ local function generate_luaopen(prog, modname)
     local ctx = Context.new()
 
     local body = {}
-    -- TODO: s/_globals/_n_upvalues/g
-    table.insert(body, upvalues_init(#prog._globals, ctx))
-    table.insert(body, generate_luaopen_modvar(prog, ctx))
+    table.insert(body, upvalues_init(#prog._upvalues, ctx))
+    table.insert(body, generate_luaopen_upvalues(prog, ctx))
     table.insert(body, generate_luaopen_exports_table(prog, ctx))
 
     local body_sep = "\n/* -------------------- */\n"
@@ -1372,7 +1369,7 @@ generate_var = function(var, ctx)
         elseif decl._tag == ast.Toplevel.Var or
                 decl._tag == ast.Toplevel.Func
         then
-            return "", coder.Lvalue.GlobalVar(var, decl._global_index)
+            return "", coder.Lvalue.GlobalVar(var, decl._upvalue_index)
 
         else
             error("impossible")
