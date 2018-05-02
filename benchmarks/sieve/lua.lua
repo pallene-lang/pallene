@@ -2,9 +2,9 @@ local _M = {}
 
 function _M.sieve(N)
     local is_prime = {}
-    table.insert(is_prime, false)
+    is_prime[1] = false
     for n = 2, N do
-        table.insert(is_prime, true)
+        is_prime[2] = true
     end
 
     local nprimes = 0
@@ -13,7 +13,7 @@ function _M.sieve(N)
     for n = 1, N do
         if is_prime[n] then
             nprimes = nprimes + 1;
-            table.insert(primes, n)
+            primes[nprimes] = n
             for m = n+n, N, n do
                 is_prime[m] = false
             end

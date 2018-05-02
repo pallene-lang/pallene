@@ -7,9 +7,9 @@ function matmul(A: {{integer}}, B:{{integer}}): {{integer}}
             for k = 1, #A[i] do
                 cij = cij + A[i][k] * B[k][j]
             end
-            table_insert(line, cij)
+            line[j] = cij
         end
-        table_insert(C, line)
+        C[i] = line
     end
     return C
 end

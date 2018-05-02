@@ -1,8 +1,8 @@
 function sieve(N: integer): {integer}
     local is_prime: {boolean} = {}
-    table_insert(is_prime, false)
+    is_prime[1] = false
     for n:integer = 2, N do
-        table_insert(is_prime, true)
+        is_prime[n] = true
     end
 
     local nprimes: integer = 0
@@ -11,7 +11,7 @@ function sieve(N: integer): {integer}
     for n:integer = 1, N do
         if is_prime[n] then
             nprimes = nprimes + 1;
-            table_insert(primes, n)
+            primes[nprimes] = n
             for m:integer = n+n, N, n do
                 is_prime[m] = false
             end

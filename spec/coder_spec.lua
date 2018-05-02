@@ -618,35 +618,16 @@ describe("Titan coder /", function()
 
                 local ok, err = pcall(test.get, arr, 0)
                 assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
+                assert(string.find(err, "wrong type for array element", nil, true))
 
                 local ok, err = pcall(test.get, arr, 4)
                 assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
+                assert(string.find(err, "wrong type for array element", nil, true))
 
                 table.remove(arr)
                 local ok, err = pcall(test.get, arr, 3)
                 assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
-            ]])
-        end)
-
-        it("check out of bounds errors in set", function()
-            run_test([[
-                local arr = {10, 20, 30}
-
-                local ok, err = pcall(test.set, arr, 0, 123)
-                assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
-
-                local ok, err = pcall(test.set, arr, 4, 123)
-                assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
-
-                table.remove(arr)
-                local ok, err = pcall(test.set, arr, 3, 123)
-                assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
+                assert(string.find(err, "wrong type for array element", nil, true))
             ]])
         end)
 
@@ -655,17 +636,6 @@ describe("Titan coder /", function()
                 local arr = {10, 20, "hello"}
 
                 local ok, err = pcall(test.get, arr, 3)
-                assert(not ok)
-                assert(
-                    string.find(err, "wrong type for array element", nil, true))
-            ]])
-        end)
-
-        it("checks type tags in set", function()
-            run_test([[
-                local arr = {10, 20, "hello"}
-
-                local ok, err = pcall(test.set, arr, 3, 20)
                 assert(not ok)
                 assert(
                     string.find(err, "wrong type for array element", nil, true))
