@@ -1274,6 +1274,25 @@ describe("Titan type checker", function()
             errs, nil, true)
     end)
 
+    it("typechecks io.write", function()
+        local prog, errs = run_checker([[
+            function f()
+                io_write("Hello World\n")
+            end
+        ]])
+        assert.truthy(prog, errs)
+    end)
+
+    it("typechecks io.write (error)", function()
+        local prog, errs = run_checker([[
+            function f()
+                io_write(17)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("expected string but found integer", errs, nil, true)
+    end)
+
     it("typechecks table.insert", function()
         local prog, errs = run_checker([[
             function f(xs: {integer})

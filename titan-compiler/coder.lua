@@ -1405,6 +1405,32 @@ generate_var = function(var, ctx)
     end
 end
 
+local function generate_exp_builtin_io_write(exp, ctx)
+    local args = exp.args
+    assert(#args == 1)
+    local cstats_s, cvalue_s = generate_exp(args[1], ctx)
+    local f = ctx:new_cvar("FILE *")
+    local chars = ctx:new_cvar("const char *")
+    local len = ctx:new_cvar("size_t")
+    local cstats = util.render([[
+        ${CSTATS_S}
+        ${F_DECL} = stdout; /* TODO: use Lua output file */
+        ${CHARS_DECL} = getstr(${S});
+        ${LEN_DECL} = tsslen(${S});
+        fwrite(${CHARS}, sizeof(char), ${LEN}, ${F});
+    ]], {
+        S = cvalue_s,
+        CSTATS_S = cstats_s,
+        F = f.name,
+        F_DECL = c_declaration(f),
+        CHARS = chars.name,
+        CHARS_DECL = c_declaration(chars),
+        LEN = len.name,
+        LEN_DECL = c_declaration(len),
+    })
+    return cstats, "VOID"
+end
+
 local function generate_exp_builtin_table_insert(exp, ctx)
     local args = exp.args
     assert(#args == 2)
@@ -1834,7 +1860,9 @@ generate_exp = function(exp, ctx)
 
         if fexp._type._tag == types.T.Builtin then
             local builtin_name = fexp._type.builtin_decl.name
-            if builtin_name == "table.insert" then
+            if builtin_name == "io.write" then
+                return generate_exp_builtin_io_write(exp, ctx)
+            elseif builtin_name == "table.insert" then
                 return generate_exp_builtin_table_insert(exp, ctx)
             elseif builtin_name == "table.remove" then
                 return generate_exp_builtin_table_remove(exp, ctx)
