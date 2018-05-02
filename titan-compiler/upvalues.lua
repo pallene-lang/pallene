@@ -65,15 +65,15 @@ end
 local analyze = ast_iterator.new()
 
 analyze_upvalues = function(prog)
-    local upvalues = {}
+    local upvs = {}
     for _, tlnode in ipairs(prog) do
         if toplevel_is_value_declaration(tlnode) then
-            local n = #upvalues + 1
+            local n = #upvs + 1
             tlnode._upvalue_index = n
-            upvalues[n] = tlnode
+            upvs[n] = tlnode
         end
     end
-    prog._upvalues = upvalues
+    prog._upvalues = upvs
 
     analyze:Program(prog, {}) -- Ignore this "referenced upvalues" map
 end

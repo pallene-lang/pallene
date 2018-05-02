@@ -591,8 +591,8 @@ local function rec_declare_struct(rec)
         local typ = rec._field_types[field.name]
         if not types.is_gc(typ) then
             local name = rec_field_name(rec, field.name)
-            local field = new_cvar(name, ctype(typ), field.name)
-            local decl = c_declaration(field) .. ";"
+            local cvar = new_cvar(name, ctype(typ), field.name)
+            local decl = c_declaration(cvar) .. ";"
             table.insert(fields, decl)
         end
     end
@@ -624,7 +624,7 @@ local function rec_primitive_slot(rec, udata, field_name)
     })
 end
 
-local function rec_set_field(rec, udata, field_name, cvalue, ctx)
+local function rec_set_field(rec, udata, field_name, cvalue)
     local typ = rec._field_types[field_name]
     if types.is_gc(typ) then
         local slot = rec_gc_slot(rec, udata, field_name)
@@ -643,7 +643,7 @@ local function rec_metatable_type()
     return types.T.Array(types.T.Integer())
 end
 
-local function rec_create_metatable(rec, ctx)
+local function rec_create_metatable(ctx)
     local cstats = {}
 
     local mt = ctx:new_tvar(rec_metatable_type())
@@ -916,7 +916,7 @@ local function generate_luaopen_upvalues(prog, ctx)
 
         elseif tag == ast.Toplevel.Record then
             local typ = rec_metatable_type()
-            local cstats, mt = rec_create_metatable(tl_node, ctx)
+            local cstats, mt = rec_create_metatable(ctx)
             table.insert(parts, cstats)
             table.insert(parts, set_heap_slot(typ, slot, mt, upv_table))
 
@@ -1154,7 +1154,6 @@ end
 -- @param modname: (string) Lua module name (for luaopen)
 -- @return (string) C code for the whole module
 generate_program = function(prog, modname)
-
     -- Records
     local structs = {}
     for _, tl_node in ipairs(prog) do
@@ -1936,7 +1935,7 @@ generate_exp = function(exp, ctx)
             for _, field in ipairs(exp.fields) do
                 local field_cstats, field_cvalue = generate_exp(field.exp, ctx)
                 local set_field = rec_set_field(
-                        rec, udata, field.name, field_cvalue, ctx)
+                        rec, udata, field.name, field_cvalue)
                 table.insert(body, field_cstats)
                 table.insert(body, set_field)
             end
