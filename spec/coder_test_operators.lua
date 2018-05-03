@@ -22,15 +22,15 @@ end
 
 local function check(f_lua, f_titan, ...)
     local ok_lua,   r_lua   = pcall(f_lua, ...)
-    local ok_titan, b_titan = pcall(f_titan, ...)
+    local ok_titan, r_titan = pcall(f_titan, ...)
     if ok_lua ~= ok_titan then
         return false, string.format("lua %s but titan %s",
-            (ok1 and "didn't crash" or "crashed"),
-            (ok2 and "didn't crash" or "crashed"))
+            (ok_lua   and "didn't crash" or "crashed"),
+            (ok_titan and "didn't crash" or "crashed"))
     end
-    if ok_lua and ok_titan and not are_same(a, b) then
+    if ok_lua and ok_titan and not are_same(r_lua, r_titan) then
         return false, string.format("(lua: %s, titan: %s)",
-            tostring(a), tostring(b))
+            tostring(r_lua), tostring(r_titan))
     end
     return true
 end
