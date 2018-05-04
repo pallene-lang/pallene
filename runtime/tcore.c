@@ -99,11 +99,9 @@ void titan_runtime_mod_by_zero_error(
     TITAN_UNREACHABLE;
 }
 
-#define CONCAT_MAX 64
 TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
 {
     char buff[LUAI_MAXSHORTLEN];
-    size_t sizes[CONCAT_MAX];
 
 /* TODO */
 //    if (l >= (MAX_SIZE - sizeof(TString))/sizeof(char))
@@ -116,7 +114,6 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
     for (size_t i = 0; i < n; i++) {
         size_t l = tsslen(ss[i]);
         out_len += l;
-        sizes[i] = l;
     }
 
     TString *out_str;
@@ -130,7 +127,7 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
 
     char *b = out_buf;
     for (size_t i = 0; i < n; i ++) {
-        size_t l = sizes[i];
+        size_t l = tsslen(ss[i]);
         memcpy(b,  getstr(ss[i]), l);
         b += l;
     }
