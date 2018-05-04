@@ -103,16 +103,12 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
 {
     char buff[LUAI_MAXSHORTLEN];
 
-/* TODO */
-//    if (l >= (MAX_SIZE - sizeof(TString))/sizeof(char))
-//      luaM_toobig(L);
-//
-// if (l >= (MAX_SIZE/sizeof(char)) - tl)
-//      luaG_runerror(L, "string length overflow");
-
     size_t out_len = 0;
     for (size_t i = 0; i < n; i++) {
         size_t l = tsslen(ss[i]);
+        if (TITAN_UNLIKELY(l >= (MAX_SIZE/sizeof(char)) - out_len)) {
+            luaL_error(L, "string length overflow");
+        }
         out_len += l;
     }
 
