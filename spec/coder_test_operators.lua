@@ -9,7 +9,14 @@ local values = {
     },
     ["float"] = {
         -math.huge, -2.0, -1.0, 0.0, 1.0, math.pi, math.huge,
-    }
+    },
+    ["string"] = {
+        "",
+        "hello",
+        "c\0d",
+        "ABCDEFGHIJKLMNOPQRSTabcdefghilklmnopqrst", -- long string >= 40 chars
+    },
+
 }
 
 local function isnan(x)

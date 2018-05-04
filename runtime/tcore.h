@@ -38,4 +38,7 @@ void titan_runtime_mod_by_zero_error(
     lua_State *L, int line)
     TITAN_NORETURN;
 
+TString *titan_string_concatN(
+    lua_State *L, size_t n, TString **ss);
+
 #endif

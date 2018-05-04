@@ -1751,6 +1751,40 @@ local function generate_binop_shift(shift_pos, shift_neg, exp, ctx)
     return cstats, r.name
 end
 
+local function generate_concat(exp, ctx)
+    local gc = gc_cond_gc(ctx)
+    local init_parts = {}
+    for i, s_exp in ipairs(exp.exps) do
+        local s_stats, s_value = generate_exp(s_exp, ctx)
+        table.insert(init_parts, util.render([[
+            ${S_STATS}
+            ss[${i_minus_1}] = ${S_VALUE};
+        ]], {
+            i_minus_1 = c_integer(i-1),
+            S_STATS = s_stats,
+            S_VALUE = s_value,
+        }))
+    end
+    local out = ctx:new_tvar(types.T.String())
+    local cstats = util.render([[
+        ${OUT_DECL};
+        {
+            ${GC}
+            TString *ss[${N}];
+            ${INIT};
+            ${OUT} = titan_string_concatN(L, ${N}, ss);
+        }
+    ]], {
+        GC = gc,
+        N = c_integer(#exp.exps),
+        OUT = out.name,
+        OUT_DECL = c_declaration(out),
+        INIT = table.concat(init_parts, "\n"),
+    })
+    return cstats, out.name
+end
+
+
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
@@ -2029,7 +2063,7 @@ generate_exp = function(exp, ctx)
         end
 
     elseif tag == ast.Exp.Concat then
-        error("not implemented yet")
+        return generate_concat(exp, ctx)
 
     elseif tag == ast.Exp.Binop then
         local ltyp = exp.lhs._type._tag
