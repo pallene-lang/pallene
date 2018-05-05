@@ -419,7 +419,13 @@ local function check_exp_callfunc_builtin(exp, errors)
     local fexp = exp.exp
     local args = exp.args
     local builtin_name = fexp._type.builtin_decl.name
-    if builtin_name == "table.insert" then
+    if builtin_name == "io.write" then
+        check_arity("io.write arguments", 1, #args, errors, exp.loc)
+        check_exp(args[1], errors, nil)
+        checkmatch("io.write argument",
+            types.T.String(), args[1]._type, errors, args[1].loc)
+        exp._type = types.T.Void()
+    elseif builtin_name == "table.insert" then
         check_arity("table.insert arguments", 2, #args, errors, exp.loc)
         check_exp(args[1], errors, nil)
         check_is_array("table.insert first argument",

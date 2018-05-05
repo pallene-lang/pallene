@@ -833,4 +833,19 @@ describe("Titan coder /", function()
             ]])
         end)
     end)
+
+    describe("I/O", function()
+        setup(compile([[
+            function write(s:string)
+                io_write(s)
+            end
+        ]]))
+
+        it("Can run io.write without crashing", function()
+            -- todo: check if the output is correct as well...
+            run_test([[
+                test.write(":)")
+            ]])
+        end)
+    end)
 end)
