@@ -476,9 +476,10 @@ end
 -- @upvalues
 --
 
-local function upvalues_init(n, ctx)
+local function upvalues_create_table(n, ctx)
     if n == 0 then return "" end
 
+    -- TODO: this should be types.T.Array(types.T.Value())
     local typ = types.T.Array(types.T.Integer())
 
     ctx.upv = {}
@@ -498,7 +499,7 @@ local function upvalues_init(n, ctx)
     })
 end
 
-local function upvalues_load_in_func(ref_upvalues, ctx)
+local function upvalues_init_local_cvars(ref_upvalues, ctx)
     if #ref_upvalues == 0 then return "" end
 
     local closure = ctx:new_cvar("CClosure *")
@@ -640,6 +641,7 @@ local function rec_set_field(rec, udata, field_name, cvalue)
 end
 
 local function rec_metatable_type()
+    -- TODO: this should be types.T.Table()
     return types.T.Array(types.T.Integer())
 end
 
@@ -728,7 +730,8 @@ local function generate_titan_entry_point(tl_node)
     end
 
     local body = {}
-    table.insert(body, upvalues_load_in_func(tl_node._referenced_upvalues, ctx))
+    table.insert(body,
+        upvalues_init_local_cvars(tl_node._referenced_upvalues, ctx))
     table.insert(body, generate_stat(tl_node.block, ctx))
 
     local reserve_stack = gc_reserve_stack(ctx)
@@ -973,11 +976,18 @@ local function generate_luaopen(prog, modname)
     local ctx = Context.new()
 
     local body = {}
-    table.insert(body, upvalues_init(#prog._upvalues, ctx))
-    table.insert(body, generate_luaopen_upvalues(prog, ctx))
-    table.insert(body, generate_luaopen_exports_table(prog, ctx))
 
-    local body_sep = "\n/* -------------------- */\n"
+    table.insert(body, "/* Allocate upvalue table */")
+    table.insert(body, "/* ---------------------- */")
+    table.insert(body, upvalues_create_table(#prog._upvalues, ctx))
+
+    table.insert(body, "/* Initialize upvalues */")
+    table.insert(body, "/* ------------------- */")
+    table.insert(body, generate_luaopen_upvalues(prog, ctx))
+
+    table.insert(body, "/* Create exports table */")
+    table.insert(body, "/* -------------------- */")
+    table.insert(body, generate_luaopen_exports_table(prog, ctx))
 
     -- TODO: make this reserve_stack optional
     -- (see similar comment in lua entry point)
@@ -993,7 +1003,7 @@ local function generate_luaopen(prog, modname)
     ]], {
         MODNAME = modname,
         RESERVE_STACK = reserve_stack,
-        BODY = table.concat(body, body_sep)
+        BODY = table.concat(body, "\n"),
     })
 end
 
