@@ -99,10 +99,18 @@ void titan_runtime_mod_by_zero_error(
     TITAN_UNREACHABLE;
 }
 
+static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
+{
+    char *b = out_buf;
+    for (size_t i = 0; i < n; i ++) {
+        size_t l = tsslen(ss[i]);
+        memcpy(b,  getstr(ss[i]), l);
+        b += l;
+    }
+}
+
 TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
 {
-    char buff[LUAI_MAXSHORTLEN];
-
     size_t out_len = 0;
     for (size_t i = 0; i < n; i++) {
         size_t l = tsslen(ss[i]);
@@ -112,26 +120,14 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
         out_len += l;
     }
 
-    TString *out_str;
-    char * out_buf;
-    if(out_len <= LUAI_MAXSHORTLEN) {
-        out_buf = buff;
+    if (out_len <= LUAI_MAXSHORTLEN) {
+        char buff[LUAI_MAXSHORTLEN];
+        copy_strings_to_buffer(buff, n, ss);
+        return luaS_newlstr(L, buff, out_len);
     } else {
-        out_str = luaS_createlngstrobj(L, out_len);
-        out_buf = getstr(out_str);
+        TString *out_str = luaS_createlngstrobj(L, out_len);
+        char *buff = getstr(out_str);
+        copy_strings_to_buffer(buff, n, ss);
+        return out_str;
     }
-
-    char *b = out_buf;
-    for (size_t i = 0; i < n; i ++) {
-        size_t l = tsslen(ss[i]);
-        memcpy(b,  getstr(ss[i]), l);
-        b += l;
-    }
-
-    if(out_len <= LUAI_MAXSHORTLEN) {
-        out_str = luaS_newlstr(L, buff, out_len);
-    }
-
-    return out_str;
 }
-

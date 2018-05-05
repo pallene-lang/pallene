@@ -16,7 +16,6 @@ local values = {
         "c\0d",
         "ABCDEFGHIJKLMNOPQRSTabcdefghilklmnopqrst", -- long string >= 40 chars
     },
-
 }
 
 local function isnan(x)

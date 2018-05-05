@@ -1784,7 +1784,6 @@ local function generate_concat(exp, ctx)
     return cstats, out.name
 end
 
-
 -- @param exp: (ast.Exp)
 -- @returns (string, string) C statements, C rvalue
 --
