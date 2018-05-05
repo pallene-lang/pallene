@@ -1,13 +1,15 @@
 local ast = require "titan-compiler.ast"
 local ast_iterator = require "titan-compiler.ast_iterator"
 local checker = require "titan-compiler.checker"
+local types = require "titan-compiler.types"
 
-local global_upvalues = {}
+local upvalues = {}
 
 local analyze_upvalues
 
--- This pass analyzes what module-level variables each Titan function needs to
--- have accessible via upvalues.
+-- This pass analyzes what variables each Titan function needs to have
+-- accessible via upvalues. Those upvalues could be module varibles, string
+-- literals and records metatables.
 --
 -- At the moment we store this global data in a single flat table and keep a
 -- reference to it as the first upvalue to all the Titan closures in a module.
@@ -18,18 +20,18 @@ local analyze_upvalues
 --
 -- This pass sets the following fields in the AST:
 --
--- _globals:
+-- _upvalues:
 --     In Program node
---     List of Toplevel AST value nodes (Var and Func).
+--     List of Toplevel AST value nodes (Var, Func and Record).
 --
--- _global_index:
+-- _upvalue_index:
 --     In Toplevel value nodes
---     Integer. The index of this node in the _globals array.
+--     Integer. The index of this node in the _upvalues array.
 --
--- _referenced_globals:
+-- _referenced_upvalues:
 --     In Toplevel.Func nodes.
---     List of integers, describes what global variables the function uses.
-function global_upvalues.analyze(filename, input)
+--     List of integers, describes what upvalues the function uses.
+function upvalues.analyze(filename, input)
     local prog, errors = checker.check(filename, input)
     if not prog then return false, errors end
     analyze_upvalues(prog)
@@ -43,7 +45,7 @@ local function toplevel_is_value_declaration(tlnode)
     elseif tag == ast.Toplevel.Var then
         return true
     elseif tag == ast.Toplevel.Record then
-        return false
+        return true -- metametable
     elseif tag == ast.Toplevel.Import then
         return false
     else
@@ -63,46 +65,53 @@ end
 local analyze = ast_iterator.new()
 
 analyze_upvalues = function(prog)
-    local globals = {}
+    local upvs = {}
     for _, tlnode in ipairs(prog) do
         if toplevel_is_value_declaration(tlnode) then
-            local n = #globals + 1
-            tlnode._global_index = n
-            globals[n] = tlnode
+            local n = #upvs + 1
+            tlnode._upvalue_index = n
+            upvs[n] = tlnode
         end
     end
-    prog._globals = globals
+    prog._upvalues = upvs
 
-    analyze:Program(prog, {}) -- Ignore this "referenced globals" map
+    analyze:Program(prog, {}) -- Ignore this "referenced upvalues" map
 end
 
-function analyze:Toplevel(tlnode, referenced_globals_map)
+function analyze:Toplevel(tlnode, referenced_upvalues_map)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
-        local func_referenced_globals_map = {}
-        analyze:Stat(tlnode.block, func_referenced_globals_map)
-        tlnode._referenced_globals = sorted_keys(func_referenced_globals_map)
+        local func_referenced_upvalues_map = {}
+        analyze:Stat(tlnode.block, func_referenced_upvalues_map)
+        tlnode._referenced_upvalues = sorted_keys(func_referenced_upvalues_map)
     else
-        ast_iterator.Toplevel(self, tlnode, referenced_globals_map)
+        ast_iterator.Toplevel(self, tlnode, referenced_upvalues_map)
     end
 end
 
-function analyze:Var(var, referenced_globals_map)
+function analyze:Var(var, referenced_upvalues_map)
     local tag = var._tag
     if     tag == ast.Var.Name then
         local decl = var._decl
-        local index = decl._global_index
+        local index = decl._upvalue_index
         if index then
-            referenced_globals_map[index] = true
+            referenced_upvalues_map[index] = true
         end
     else
-        ast_iterator.Var(self, var, referenced_globals_map)
+        ast_iterator.Var(self, var, referenced_upvalues_map)
     end
 end
 
-function analyze:Exp(exp, referenced_globals_map)
+function analyze:Exp(exp, referenced_upvalues_map)
     local tag = exp._tag
-    if tag == ast.Exp.CallFunc then
+    if     tag == ast.Exp.Initlist then
+        local typ = exp._type
+        if typ._tag == types.T.Record then
+            local rec = typ.type_decl
+            referenced_upvalues_map[rec._upvalue_index] = true
+        end
+
+    elseif tag == ast.Exp.CallFunc then
         local fexp = exp.exp
         local fargs = exp.args
 
@@ -114,15 +123,15 @@ function analyze:Exp(exp, referenced_globals_map)
             fexp.var._decl._tag == ast.Toplevel.Func
 
         if not is_titan_call then
-            analyze:Exp(fexp, referenced_globals_map)
+            analyze:Exp(fexp, referenced_upvalues_map)
         end
         for i = 1, #fargs do
-            analyze:Exp(fargs[i], referenced_globals_map)
+            analyze:Exp(fargs[i], referenced_upvalues_map)
         end
 
     else
-        ast_iterator.Exp(self, exp, referenced_globals_map)
+        ast_iterator.Exp(self, exp, referenced_upvalues_map)
     end
 end
 
-return global_upvalues
+return upvalues

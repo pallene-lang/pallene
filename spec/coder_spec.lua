@@ -834,6 +834,13 @@ describe("Titan coder /", function()
                 assert("userdata" == type(x))
             ]])
         end)
+
+        it("can protect record metatables", function()
+            run_test([[
+                local x = test.make_prim(123)
+                assert(getmetatable(x) == false)
+            ]])
+        end)
     end)
 
     describe("I/O", function()
