@@ -386,6 +386,7 @@ describe("Titan coder /", function()
         setup_binop("ge_int"        , ">=",  "integer", "integer", "boolean")
         setup_binop("and_bool"      , "and", "boolean", "boolean", "boolean")
         setup_binop("or_bool"       , "or",  "boolean", "boolean", "boolean")
+        setup_binop("concat_str"    , "..",  "string",  "string",  "string")
 
         setup(compile(table.concat(titan_program_parts, "\n")))
 
@@ -418,6 +419,7 @@ describe("Titan coder /", function()
         it("integer (>=)",       function() optest("ge_int") end)
         it("boolean (and)",      function() optest("and_bool") end)
         it("boolean (or)",       function() optest("or_bool") end)
+        it("concat (..)",        function() optest("concat_str") end)
     end)
 
     describe("Statements /", function()
