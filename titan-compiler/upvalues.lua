@@ -1,6 +1,7 @@
 local ast = require "titan-compiler.ast"
 local ast_iterator = require "titan-compiler.ast_iterator"
 local checker = require "titan-compiler.checker"
+local typedecl = require "titan-compiler.typedecl"
 local types = require "titan-compiler.types"
 
 local upvalues = {}
@@ -24,6 +25,10 @@ local analyze_upvalues
 --     In Program node
 --     List of Toplevel AST value nodes (Var, Func and Record).
 --
+-- _literals:
+--     In Program node
+--     Map a literal to an upvalue.
+--
 -- _upvalue_index:
 --     In Toplevel value nodes
 --     Integer. The index of this node in the _upvalues array.
@@ -37,6 +42,15 @@ function upvalues.analyze(filename, input)
     analyze_upvalues(prog)
     return prog, errors
 end
+
+local function declare_type(typename, cons)
+    typedecl.declare(upvalues, "upvalues", typename, cons)
+end
+
+declare_type("T", {
+    Literal = {"lit"},
+    ModVar  = {"tl_node"},
+})
 
 local function toplevel_is_value_declaration(tlnode)
     local tag = tlnode._tag
@@ -70,15 +84,19 @@ analyze_upvalues = function(prog)
         if toplevel_is_value_declaration(tlnode) then
             local n = #upvs + 1
             tlnode._upvalue_index = n
-            upvs[n] = tlnode
+            upvs[n] = upvalues.T.ModVar(tlnode)
         end
     end
-    prog._upvalues = upvs
 
-    analyze:Program(prog, {}) -- Ignore this "referenced upvalues" map
+    local literals = {}
+
+    analyze:Program(prog, {}, literals) -- Ignore this "referenced upvalues" map
+
+    prog._upvalues = upvs
+    prog._literals = literals
 end
 
-function analyze:Toplevel(tlnode, referenced_upvalues_map)
+function analyze:Toplevel(tlnode, referenced_upvalues_map, literals)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
         local func_referenced_upvalues_map = {}
@@ -89,7 +107,7 @@ function analyze:Toplevel(tlnode, referenced_upvalues_map)
     end
 end
 
-function analyze:Var(var, referenced_upvalues_map)
+function analyze:Var(var, referenced_upvalues_map, literals)
     local tag = var._tag
     if     tag == ast.Var.Name then
         local decl = var._decl
@@ -102,7 +120,7 @@ function analyze:Var(var, referenced_upvalues_map)
     end
 end
 
-function analyze:Exp(exp, referenced_upvalues_map)
+function analyze:Exp(exp, referenced_upvalues_map, literals)
     local tag = exp._tag
     if     tag == ast.Exp.Initlist then
         local typ = exp._type

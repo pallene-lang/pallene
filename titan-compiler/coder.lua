@@ -873,59 +873,73 @@ local function generate_lua_entry_point(tl_node)
     })
 end
 
+local function generate_upvalue_literal(lit, ctx)
+    -- TODO
+end
+
+local function generate_upvalue_modvar(tl_node, ctx)
+    local typ, cstats, cvalue
+
+    local tag = tl_node._tag
+    if     tag == ast.Toplevel.Func then
+        local closure = ctx:new_cvar("CClosure*")
+        local func    = ctx:new_cvar("TValue")
+        typ = tl_node._type
+        cstats = util.render([[
+            ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
+            ${CLOSURE}->f = ${LUA_ENTRY_POINT};
+            sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+            ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
+        ]],{
+            LUA_ENTRY_POINT = tl_node._lua_entry_point,
+            UPVALUES = upvalues_table(ctx),
+            CLOSURE = closure.name,
+            CLOSURE_DECL = c_declaration(closure),
+            FUNC = func.name,
+            FUNC_DECL = c_declaration(func),
+        })
+        cvalue = func.name
+
+    elseif tag == ast.Toplevel.Var then
+        local exp = tl_node.value
+        typ = exp._type
+        cstats, cvalue = generate_exp(exp, ctx)
+
+    elseif tag == ast.Toplevel.Record then
+        typ = rec_metatable_type()
+        cstats, cvalue = rec_create_metatable(ctx)
+
+    else
+        error("impossible")
+    end
+
+    local upvname = string.format("/* %s */\n", ast.toplevel_name(tl_node))
+    return typ, upvname .. cstats, cvalue
+end
+
+local function generate_upvalue(upv, ctx)
+    local tag = upv._tag
+    if     tag == upvalues.T.Literal then
+        return generate_upvalue_literal(upv.lit, ctx)
+    elseif tag == upvalues.T.ModVar then
+        return generate_upvalue_modvar(upv.tl_node, ctx)
+    else
+        error("impossible")
+    end
+end
+
 local function generate_luaopen_upvalues(prog, ctx)
     local parts = {}
 
-    for _, tl_node in ipairs(prog._upvalues) do
+    for i, upv in ipairs(prog._upvalues) do
+        ctx:begin_scope()
+        local typ, cstats, cvalue = generate_upvalue(upv, ctx)
+        local slot = upvalues_slot(i, ctx)
         local upv_table = upvalues_table(ctx)
-        local slot = upvalues_slot(tl_node._upvalue_index, ctx)
-
-        table.insert(parts,
-            string.format("/* %s */", ast.toplevel_name(tl_node)))
-
-        local tag = tl_node._tag
-        if     tag == ast.Toplevel.Func then
-            ctx:begin_scope()
-            local closure = ctx:new_cvar("CClosure*")
-            local func    = ctx:new_cvar("TValue")
-            table.insert(parts,
-                util.render([[
-                    ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
-                    ${CLOSURE}->f = ${LUA_ENTRY_POINT};
-                    sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
-                    ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
-                    ${SET_SLOT}
-                ]],{
-                    LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                    UPVALUES = upv_table,
-                    CLOSURE = closure.name,
-                    CLOSURE_DECL = c_declaration(closure),
-                    FUNC = func.name,
-                    FUNC_DECL = c_declaration(func),
-                    SET_SLOT = set_heap_slot(
-                        tl_node._type, slot, func.name, upv_table),
-                })
-            )
-            ctx:end_scope()
-
-        elseif tag == ast.Toplevel.Var then
-            ctx:begin_scope()
-            local exp = tl_node.value
-            local cstats, cvalue = generate_exp(exp, ctx)
-            table.insert(parts, cstats)
-            table.insert(parts, set_heap_slot(
-                exp._type, slot, cvalue, upv_table))
-            ctx:end_scope()
-
-        elseif tag == ast.Toplevel.Record then
-            local typ = rec_metatable_type()
-            local cstats, mt = rec_create_metatable(ctx)
-            table.insert(parts, cstats)
-            table.insert(parts, set_heap_slot(typ, slot, mt, upv_table))
-
-        else
-            error("impossible")
-        end
+        local setslot = set_heap_slot(typ, slot, cvalue, upv_table)
+        table.insert(parts, cstats)
+        table.insert(parts, setslot)
+        ctx:end_scope()
     end
 
     return table.concat(parts, "\n")
