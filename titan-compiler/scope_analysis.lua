@@ -3,8 +3,8 @@ local scope_analysis = {}
 local ast = require "titan-compiler.ast"
 local ast_iterator = require "titan-compiler.ast_iterator"
 local builtins = require "titan-compiler.builtins"
-local lift_strings = require "titan-compiler.lift_strings"
 local location = require "titan-compiler.location"
+local parser = require "titan-compiler.parser"
 local symtab = require "titan-compiler.symtab"
 
 local bind_names = ast_iterator.new()
@@ -18,7 +18,7 @@ local bind_names = ast_iterator.new()
 -- @param prog AST for the whole module
 -- @return true or false, followed by a list of compilation errors
 function scope_analysis.bind_names(filename, input)
-    local prog, errors = lift_strings.lift(filename, input)
+    local prog, errors = parser.parse(filename, input)
     if not prog then return false, errors end
     local st = symtab.new()
     bind_names:Program(prog, st, errors)
