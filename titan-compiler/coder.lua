@@ -875,6 +875,7 @@ end
 
 local function generate_upvalue_literal(lit, ctx)
     -- TODO
+    return types.T.Integer(), "", "0"
 end
 
 local function generate_upvalue_modvar(tl_node, ctx)

@@ -52,6 +52,10 @@ declare_type("T", {
     ModVar  = {"tl_node"},
 })
 
+local internal_literals = {
+    "__index",
+}
+
 local function toplevel_is_value_declaration(tlnode)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
@@ -76,10 +80,23 @@ local function sorted_keys(obj)
     return ks
 end
 
+local function add_literal(upvs, literals, lit)
+    local n = #upvs + 1
+    upvs[n] = upvalues.T.Literal(lit)
+    literals[lit] = n
+    return n
+end
+
 local analyze = ast_iterator.new()
 
 analyze_upvalues = function(prog)
     local upvs = {}
+    local literals = {}
+
+    for _, lit in pairs(internal_literals) do
+        add_literal(upvs, literals, lit)
+    end
+
     for _, tlnode in ipairs(prog) do
         if toplevel_is_value_declaration(tlnode) then
             local n = #upvs + 1
@@ -88,26 +105,26 @@ analyze_upvalues = function(prog)
         end
     end
 
-    local literals = {}
-
-    analyze:Program(prog, {}, literals) -- Ignore this "referenced upvalues" map
+    -- Ignore referenced_upvalues_map in Program analyze
+    analyze:Program(prog, upvs, literals, {})
 
     prog._upvalues = upvs
     prog._literals = literals
 end
 
-function analyze:Toplevel(tlnode, referenced_upvalues_map, literals)
+function analyze:Toplevel(tlnode, upvs, literals, referenced_upvalues_map)
     local tag = tlnode._tag
     if     tag == ast.Toplevel.Func then
         local func_referenced_upvalues_map = {}
-        analyze:Stat(tlnode.block, func_referenced_upvalues_map)
+        analyze:Stat(tlnode.block, upvs, literals, func_referenced_upvalues_map)
         tlnode._referenced_upvalues = sorted_keys(func_referenced_upvalues_map)
     else
-        ast_iterator.Toplevel(self, tlnode, referenced_upvalues_map)
+        ast_iterator.Toplevel(self, tlnode, upvs, literals,
+                referenced_upvalues_map)
     end
 end
 
-function analyze:Var(var, referenced_upvalues_map, literals)
+function analyze:Var(var, upvs, literals, referenced_upvalues_map)
     local tag = var._tag
     if     tag == ast.Var.Name then
         local decl = var._decl
@@ -116,13 +133,18 @@ function analyze:Var(var, referenced_upvalues_map, literals)
             referenced_upvalues_map[index] = true
         end
     else
-        ast_iterator.Var(self, var, referenced_upvalues_map)
+        ast_iterator.Var(self, var, upvs, literals, referenced_upvalues_map)
     end
 end
 
-function analyze:Exp(exp, referenced_upvalues_map, literals)
+function analyze:Exp(exp, upvs, literals, referenced_upvalues_map)
     local tag = exp._tag
-    if     tag == ast.Exp.Initlist then
+    if     tag == ast.Exp.String then
+        local lit = exp.value
+        local n = add_literal(upvs, literals, lit)
+        referenced_upvalues_map[n] = true
+
+    elseif tag == ast.Exp.Initlist then
         local typ = exp._type
         if typ._tag == types.T.Record then
             local rec = typ.type_decl
@@ -141,14 +163,14 @@ function analyze:Exp(exp, referenced_upvalues_map, literals)
             fexp.var._decl._tag == ast.Toplevel.Func
 
         if not is_titan_call then
-            analyze:Exp(fexp, referenced_upvalues_map)
+            analyze:Exp(fexp, upvs, literals, referenced_upvalues_map)
         end
         for i = 1, #fargs do
-            analyze:Exp(fargs[i], referenced_upvalues_map)
+            analyze:Exp(fargs[i], upvs, literals, referenced_upvalues_map)
         end
 
     else
-        ast_iterator.Exp(self, exp, referenced_upvalues_map)
+        ast_iterator.Exp(self, exp, upvs, literals, referenced_upvalues_map)
     end
 end
 
