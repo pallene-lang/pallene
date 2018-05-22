@@ -176,7 +176,8 @@ function Context.new()
         n_saved_vars = 0,    -- how many vars are currently saved in stack
         saveds = {},         -- first index of each group of saved variables
 
-        upv = false          -- upvalues table and array (see @upvalues)
+        literals = false,    -- map a literal to upvalue index
+        upv = false,         -- upvalues table and array (see @upvalues)
     }
     return setmetatable(o, Context)
 end
@@ -712,8 +713,9 @@ end
 -- code generation
 --
 
-local function generate_titan_entry_point(tl_node)
+local function generate_titan_entry_point(tl_node, literals)
     local ctx = Context.new()
+    ctx.literals = literals
 
     local ret_ctype
     if #tl_node._type.rettypes == 0 then
@@ -752,8 +754,9 @@ local function generate_titan_entry_point(tl_node)
     })
 end
 
-local function generate_lua_entry_point(tl_node)
+local function generate_lua_entry_point(tl_node, literals)
     local ctx = Context.new()
+    ctx.literals = literals
 
     local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
@@ -874,8 +877,15 @@ local function generate_lua_entry_point(tl_node)
 end
 
 local function generate_upvalue_literal(lit, ctx)
-    -- TODO
-    return types.T.Integer(), "", "0"
+    local typ = types.T.String()
+    local s = ctx:new_tvar(typ)
+    local cstats = util.render([[
+        ${S_DECL} = luaS_new(L, ${STRLIT});
+    ]], {
+        S_DECL = c_declaration(s),
+        STRLIT = c_string(lit),
+    })
+    return typ, cstats, s.name
 end
 
 local function generate_upvalue_modvar(tl_node, ctx)
@@ -989,6 +999,7 @@ end
 
 local function generate_luaopen(prog, modname)
     local ctx = Context.new()
+    ctx.literals = prog._literals
 
     local body = {}
 
@@ -1206,9 +1217,9 @@ generate_program = function(prog, modname)
             if tl_node._tag == ast.Toplevel.Func then
                 assert(#tl_node._type.rettypes <= 1)
                 table.insert(function_definitions,
-                    generate_titan_entry_point(tl_node))
+                    generate_titan_entry_point(tl_node, prog._literals))
                 table.insert(function_definitions,
-                    generate_lua_entry_point(tl_node))
+                    generate_lua_entry_point(tl_node, prog._literals))
             end
         end
         define_functions = table.concat(function_definitions, "\n")
@@ -1894,14 +1905,18 @@ generate_exp = function(exp, ctx)
         return "", c_float(exp.value)
 
     elseif tag == ast.Exp.String then
-        local s = ctx:new_tvar(exp._type)
+        local slot = ctx:new_cvar("TValue *")
+        local out = ctx:new_tvar(exp._type)
         local cstats = util.render([[
-            ${S_DECL} = luaS_new(L, ${STRLIT});
+            ${SLOT_DECL} = ${UPV_SLOT};
+            ${OUT_DECL} = ${GET_SLOT};
         ]], {
-            S_DECL = c_declaration(s),
-            STRLIT = c_string(exp.value),
+            SLOT_DECL = c_declaration(slot),
+            UPV_SLOT = upvalues_slot(ctx.literals[exp.value], ctx),
+            OUT_DECL = c_declaration(out),
+            GET_SLOT = get_slot(exp._type, slot.name),
         })
-        return cstats, s.name
+        return cstats, out.name
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
