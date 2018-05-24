@@ -293,36 +293,6 @@ local function set_slot_(typ, dst_slot_address, value)
     return out
 end
 
-local function check_tag(typ, slot)
-    local tmpl
-    local tag = typ._tag
-    if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
-    elseif tag == types.T.Boolean  then tmpl = "ttisboolean(${SLOT})"
-    elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
-    elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
-    elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
-    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
-    elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
-    elseif tag == types.T.Record   then tmpl = "ttisfulluserdata(${SLOT})" -- TODO check metatable
-    else error("impossible")
-    end
-    return util.render(tmpl, {SLOT = slot})
-end
-
-local function titan_type_tag(typ)
-    local tag = typ._tag
-    if     tag == types.T.Nil      then return "LUA_TNIL"
-    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
-    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
-    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
-    elseif tag == types.T.String   then return "LUA_TSTRING"
-    elseif tag == types.T.Function then return "LUA_TFUNCTION"
-    elseif tag == types.T.Array    then return "LUA_TTABLE"
-    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
-    else error("impossible")
-    end
-end
-
 -- Specialized version of luaH_barrierback. To be called when setting v as an
 -- element of p. This is intended to preserve the invariant that black objects
 -- cannot point to white objects.
@@ -511,7 +481,11 @@ local function upvalues_create_table(n, ctx)
 end
 
 local function upvalues_init_local_cvars(ref_upvalues, ctx)
-    if #ref_upvalues == 0 then return "" end
+    -- TODO: Either bring ref_upvalues optimization back or remove it
+    -- completely. If we want to keep it, we have to track the correct record
+    -- metatable usage (in type checks). But this optimization might be useless,
+    -- because the c compiler probably can optmize this anyway.
+    --if #ref_upvalues == 0 then return "" end
 
     local closure = ctx:new_cvar("CClosure *")
 
@@ -574,7 +548,7 @@ end
 -- @table
 --
 
-local function table_get_slot(tabl, lit, ctx)
+local function table_newkey(tabl, lit, ctx)
     local key_cstats, key = literal_get(lit, ctx)
     local key_type = types.T.String()
     local key_slot = ctx:new_cvar("TValue")
@@ -584,7 +558,7 @@ local function table_get_slot(tabl, lit, ctx)
         ${KEY_CSTATS}
         ${KEY_SLOT_DECL};
         ${SET_KEY_SLOT}
-        ${SLOT_DECL} = luaH_set(L, ${TABL}, ${KEY_SLOT_ADDR});
+        ${SLOT_DECL} = luaH_newkey(L, ${TABL}, ${KEY_SLOT_ADDR});
     ]], {
         KEY_CSTATS = key_cstats,
         KEY_SLOT_DECL = c_declaration(key_slot),
@@ -596,8 +570,8 @@ local function table_get_slot(tabl, lit, ctx)
     return cstats, field.name
 end
 
-local function table_set_field(tabl, lit, typ, cvalue, ctx)
-    local field_cstats, field = table_get_slot(tabl, lit, ctx)
+local function table_set_new_field(tabl, lit, typ, cvalue, ctx)
+    local field_cstats, field = table_newkey(tabl, lit, ctx)
     local out = util.render([[
         ${FIELD_CSTATS}
         ${SET_SLOT}
@@ -734,7 +708,7 @@ local function rec_create_metatable(ctx)
         MT_DECL = c_declaration(mt),
     }))
 
-    table.insert(cstats, table_set_field(mt.name, "__metatable",
+    table.insert(cstats, table_set_new_field(mt.name, "__metatable",
             types.T.Boolean(), c_boolean(false), ctx))
 
     return table.concat(cstats, "\n"), mt.name
@@ -755,6 +729,49 @@ local function rec_create_instance(rec, typ, ctx)
     })
     return cstats, udata.name
 end
+
+--
+-- @tags
+--
+
+local function check_tag(typ, slot, ctx)
+    local tmpl
+    local tag = typ._tag
+    if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
+    elseif tag == types.T.Boolean  then tmpl = "ttisboolean(${SLOT})"
+    elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
+    elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
+    elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
+    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
+    elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
+    elseif tag == types.T.Record   then
+        local mt_index = typ.type_decl._upvalue_index
+        return util.render(
+            [[(ttisfulluserdata(${SLOT}) && ${UDATA}->metatable == ${MT})]],
+        {
+            SLOT = slot,
+            UDATA = get_slot(typ, slot),
+            MT = get_slot(rec_metatable_type(), upvalues_slot(mt_index, ctx)),
+        })
+    else error("impossible")
+    end
+    return util.render(tmpl, {SLOT = slot})
+end
+
+local function titan_type_tag(typ)
+    local tag = typ._tag
+    if     tag == types.T.Nil      then return "LUA_TNIL"
+    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
+    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
+    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
+    elseif tag == types.T.String   then return "LUA_TSTRING"
+    elseif tag == types.T.Function then return "LUA_TFUNCTION"
+    elseif tag == types.T.Array    then return "LUA_TTABLE"
+    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
+    else error("impossible")
+    end
+end
+
 
 --
 -- code generation
@@ -804,6 +821,12 @@ end
 local function generate_lua_entry_point(tl_node, literals)
     local ctx = Context.new(literals)
 
+    -- TODO: we are ignoring referenced_upvalues here, but in the lua entry
+    -- point we only need upvalues for checking record tags. Maybe we should
+    -- create a new field just for reference upvalues in parameters. See the
+    -- comment in upvalues_init_local_cvars for more info.
+    local init_upvalues = upvalues_init_local_cvars({}, ctx)
+
     local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
         BASE_DECL = c_declaration(base)
@@ -844,7 +867,7 @@ local function generate_lua_entry_point(tl_node, literals)
             SLOT_NAME = slot.name,
             SLOT_DECL = c_declaration(slot),
             SLOT_ADDRESS = argslot(i),
-            CHECK_TAG = check_tag(param._type, slot.name),
+            CHECK_TAG = check_tag(param._type, slot.name, ctx),
             PARAM_NAME = c_string(param.name),
             LINE = c_integer(param.loc.line),
             EXPECTED_TAG = titan_type_tag(param._type),
@@ -904,6 +927,7 @@ local function generate_lua_entry_point(tl_node, literals)
         static int ${LUA_ENTRY_POINT}(lua_State *L)
         {
             ${RESERVE_STACK}
+            ${INIT_UPVALUES}
             ${SET_BASE}
             ${CHECK_NARGS}
             ${CHECK_TYPES}
@@ -914,6 +938,7 @@ local function generate_lua_entry_point(tl_node, literals)
     ]], {
         LUA_ENTRY_POINT = tl_node._lua_entry_point,
         RESERVE_STACK = reserve_stack,
+        INIT_UPVALUES = init_upvalues,
         SET_BASE = set_base,
         CHECK_NARGS = check_nargs,
         CHECK_TYPES = table.concat(check_types, "\n"),
@@ -1121,7 +1146,7 @@ local function generate_lvalue_read(lvalue, ctx)
             ARRSLOT = arrslot.name,
             ARRSLOT_DECL = c_declaration(arrslot),
             OUT_DECL = c_declaration(out),
-            CHECK_TAG = check_tag(typ, arrslot.name),
+            CHECK_TAG = check_tag(typ, arrslot.name, ctx),
             EXPECTED_TAG = titan_type_tag(typ),
             LINE = loc.line,
             COL = loc.col,
@@ -2151,7 +2176,7 @@ generate_exp = function(exp, ctx)
                 ]], {
                     SLOT      = slot.name,
                     SLOT_DECL = c_declaration(slot),
-                    CHECK_TAG = check_tag(ret_typ, slot.name),
+                    CHECK_TAG = check_tag(ret_typ, slot.name, ctx),
                     LINE = c_integer(exp.loc.line),
                     EXPECTED_TAG = titan_type_tag(ret_typ),
                     RET_DECL = c_declaration(ret),
