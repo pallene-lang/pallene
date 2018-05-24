@@ -52,8 +52,9 @@ declare_type("T", {
     ModVar  = {"tl_node"},
 })
 
-local internal_literals = {
+upvalues.internal_literals = {
     "__index",
+    "__metatable",
 }
 
 local function toplevel_is_value_declaration(tlnode)
@@ -93,7 +94,9 @@ analyze_upvalues = function(prog)
     local upvs = {}
     local literals = {}
 
-    for _, lit in pairs(internal_literals) do
+    -- We add internals first because other user values might need them during
+    -- initalization
+    for _, lit in pairs(upvalues.internal_literals) do
         add_literal(upvs, literals, lit)
     end
 

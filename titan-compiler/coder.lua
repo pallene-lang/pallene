@@ -163,7 +163,7 @@ end
 local Context = {}
 Context.__index = Context
 
-function Context.new()
+function Context.new(literals)
     local o = {
         tmp_index = 1,       -- next free tmp variable name
 
@@ -176,7 +176,7 @@ function Context.new()
         n_saved_vars = 0,    -- how many vars are currently saved in stack
         saveds = {},         -- first index of each group of saved variables
 
-        literals = false,    -- map a literal to upvalue index
+        literals = literals, -- map a literal to upvalue index (see @literals)
         upv = false,         -- upvalues table and array (see @upvalues)
     }
     return setmetatable(o, Context)
@@ -535,6 +535,30 @@ local function upvalues_table(ctx)
 end
 
 --
+-- @literals
+--
+
+local function literal_get(lit, ctx)
+    -- TODO: this requires the upvalues table to be initalized, we should make
+    -- more resilient
+    assert(upvalues_table(ctx))
+
+    local typ = types.T.String()
+    local slot = ctx:new_cvar("TValue *")
+    local out = ctx:new_tvar(typ)
+    local cstats = util.render([[
+        ${SLOT_DECL} = ${UPV_SLOT};
+        ${OUT_DECL} = ${GET_SLOT};
+    ]], {
+        SLOT_DECL = c_declaration(slot),
+        UPV_SLOT = upvalues_slot(ctx.literals[lit], ctx),
+        OUT_DECL = c_declaration(out),
+        GET_SLOT = get_slot(typ, slot.name),
+    })
+    return cstats, out.name
+end
+
+--
 -- @records
 --
 
@@ -657,9 +681,6 @@ local function rec_create_metatable(ctx)
     }))
 
     -- TODO: this should become a function
-    -- TODO: we don't need to create a new string every time we set a slot.
-    --       We should create them only once in luaopen and store them in
-    --       upvalues table.
     do
         -- arguments:
         local tabl = mt.name
@@ -667,23 +688,22 @@ local function rec_create_metatable(ctx)
         local typ = types.T.Boolean()
         local cvalue = c_boolean(false)
 
+        local key_cstats, key = literal_get(key_lit, ctx)
         local key_type = types.T.String()
-        local key = ctx:new_tvar(key_type)
         local key_slot = ctx:new_cvar("TValue")
         local key_slot_addr = "&" .. key_slot.name
         local slot = ctx:new_cvar("TValue *")
         table.insert(cstats, util.render([[
-            ${KEY_DECL} = luaS_new(L, ${KEY_LIT});
+            ${KEY_CSTATS}
             ${KEY_SLOT_DECL};
             ${SET_KEY_SLOT}
             ${SLOT_DECL} = luaH_set(L, ${TABLE}, ${KEY_SLOT_ADDR});
             ${SET_SLOT}
         ]], {
-            KEY_LIT = c_string(key_lit),
-            KEY_DECL = c_declaration(key),
+            KEY_CSTATS = key_cstats,
             KEY_SLOT_DECL = c_declaration(key_slot),
             KEY_SLOT_ADDR = key_slot_addr,
-            SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key.name),
+            SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key),
             SLOT_DECL = c_declaration(slot),
             TABLE = tabl,
             SET_SLOT = set_heap_slot(typ, slot.name, cvalue, tabl),
@@ -714,8 +734,7 @@ end
 --
 
 local function generate_titan_entry_point(tl_node, literals)
-    local ctx = Context.new()
-    ctx.literals = literals
+    local ctx = Context.new(literals)
 
     local ret_ctype
     if #tl_node._type.rettypes == 0 then
@@ -755,8 +774,7 @@ local function generate_titan_entry_point(tl_node, literals)
 end
 
 local function generate_lua_entry_point(tl_node, literals)
-    local ctx = Context.new()
-    ctx.literals = literals
+    local ctx = Context.new(literals)
 
     local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
@@ -998,8 +1016,7 @@ local function generate_luaopen_exports_table(prog, ctx)
 end
 
 local function generate_luaopen(prog, modname)
-    local ctx = Context.new()
-    ctx.literals = prog._literals
+    local ctx = Context.new(prog._literals)
 
     local body = {}
 
@@ -1905,18 +1922,7 @@ generate_exp = function(exp, ctx)
         return "", c_float(exp.value)
 
     elseif tag == ast.Exp.String then
-        local slot = ctx:new_cvar("TValue *")
-        local out = ctx:new_tvar(exp._type)
-        local cstats = util.render([[
-            ${SLOT_DECL} = ${UPV_SLOT};
-            ${OUT_DECL} = ${GET_SLOT};
-        ]], {
-            SLOT_DECL = c_declaration(slot),
-            UPV_SLOT = upvalues_slot(ctx.literals[exp.value], ctx),
-            OUT_DECL = c_declaration(out),
-            GET_SLOT = get_slot(exp._type, slot.name),
-        })
-        return cstats, out.name
+        return literal_get(exp.value, ctx)
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
