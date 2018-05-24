@@ -559,6 +559,43 @@ local function literal_get(lit, ctx)
 end
 
 --
+-- @table
+--
+
+local function table_get_slot(tabl, lit, ctx)
+    local key_cstats, key = literal_get(lit, ctx)
+    local key_type = types.T.String()
+    local key_slot = ctx:new_cvar("TValue")
+    local key_slot_addr = "&" .. key_slot.name
+    local field = ctx:new_cvar("TValue *")
+    local cstats = util.render([[
+        ${KEY_CSTATS}
+        ${KEY_SLOT_DECL};
+        ${SET_KEY_SLOT}
+        ${SLOT_DECL} = luaH_set(L, ${TABL}, ${KEY_SLOT_ADDR});
+    ]], {
+        KEY_CSTATS = key_cstats,
+        KEY_SLOT_DECL = c_declaration(key_slot),
+        KEY_SLOT_ADDR = key_slot_addr,
+        SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key),
+        SLOT_DECL = c_declaration(field),
+        TABL = tabl,
+    })
+    return cstats, field.name
+end
+
+local function table_set_field(tabl, lit, typ, cvalue, ctx)
+    local field_cstats, field = table_get_slot(tabl, lit, ctx)
+    return util.render([[
+        ${FIELD_CSTATS}
+        ${SET_SLOT}
+    ]], {
+        FIELD_CSTATS = field_cstats,
+        SET_SLOT = set_heap_slot(typ, field, cvalue, tabl),
+    })
+end
+
+--
 -- @records
 --
 
@@ -680,35 +717,8 @@ local function rec_create_metatable(ctx)
         MT_DECL = c_declaration(mt),
     }))
 
-    -- TODO: this should become a function
-    do
-        -- arguments:
-        local tabl = mt.name
-        local key_lit = "__metatable"
-        local typ = types.T.Boolean()
-        local cvalue = c_boolean(false)
-
-        local key_cstats, key = literal_get(key_lit, ctx)
-        local key_type = types.T.String()
-        local key_slot = ctx:new_cvar("TValue")
-        local key_slot_addr = "&" .. key_slot.name
-        local slot = ctx:new_cvar("TValue *")
-        table.insert(cstats, util.render([[
-            ${KEY_CSTATS}
-            ${KEY_SLOT_DECL};
-            ${SET_KEY_SLOT}
-            ${SLOT_DECL} = luaH_set(L, ${TABLE}, ${KEY_SLOT_ADDR});
-            ${SET_SLOT}
-        ]], {
-            KEY_CSTATS = key_cstats,
-            KEY_SLOT_DECL = c_declaration(key_slot),
-            KEY_SLOT_ADDR = key_slot_addr,
-            SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key),
-            SLOT_DECL = c_declaration(slot),
-            TABLE = tabl,
-            SET_SLOT = set_heap_slot(typ, slot.name, cvalue, tabl),
-        }))
-    end
+    table.insert(cstats, table_set_field(mt.name, "__metatable",
+            types.T.Boolean(), c_boolean(false), ctx))
 
     return table.concat(cstats, "\n"), mt.name
 end
