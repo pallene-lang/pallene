@@ -480,13 +480,7 @@ local function upvalues_create_table(n, ctx)
     return out
 end
 
-local function upvalues_init_local_cvars(ref_upvalues, ctx)
-    -- TODO: Either bring ref_upvalues optimization back or remove it
-    -- completely. If we want to keep it, we have to track the correct record
-    -- metatable usage (in type checks). But this optimization might be useless,
-    -- because the c compiler probably can optmize this anyway.
-    --if #ref_upvalues == 0 then return "" end
-
+local function upvalues_init_local_cvars(ctx)
     local closure = ctx:new_cvar("CClosure *")
 
     ctx.upv = {}
@@ -497,6 +491,7 @@ local function upvalues_init_local_cvars(ref_upvalues, ctx)
         ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
         ${TABLE_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
         ${ARRAY_DECL} = ${TABLE}->array;
+        (void)${ARRAY};
     ]], {
         CLOSURE = closure.name,
         CLOSURE_DECL = c_declaration(closure),
@@ -795,8 +790,7 @@ local function generate_titan_entry_point(tl_node, literals)
     end
 
     local body = {}
-    table.insert(body,
-        upvalues_init_local_cvars(tl_node._referenced_upvalues, ctx))
+    table.insert(body, upvalues_init_local_cvars(ctx))
     table.insert(body, generate_stat(tl_node.block, ctx))
 
     local reserve_stack = gc_reserve_stack(ctx)
@@ -821,11 +815,7 @@ end
 local function generate_lua_entry_point(tl_node, literals)
     local ctx = Context.new(literals)
 
-    -- TODO: we are ignoring referenced_upvalues here, but in the lua entry
-    -- point we only need upvalues for checking record tags. Maybe we should
-    -- create a new field just for reference upvalues in parameters. See the
-    -- comment in upvalues_init_local_cvars for more info.
-    local init_upvalues = upvalues_init_local_cvars({}, ctx)
+    local init_upvalues = upvalues_init_local_cvars(ctx)
 
     local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
