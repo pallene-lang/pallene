@@ -269,7 +269,8 @@ local function get_slot(typ, src_slot_address)
     elseif tag == types.T.Record   then tmpl = "uvalue(${SRC})"
     else error("impossible")
     end
-    return util.render(tmpl, {SRC = src_slot_address})
+    local out = util.render(tmpl, {SRC = src_slot_address})
+    return out
 end
 
 
@@ -288,7 +289,8 @@ local function set_slot_(typ, dst_slot_address, value)
     elseif tag == types.T.Record   then tmpl = "setuvalue(L, ${DST}, ${SRC});"
     else error("impossible")
     end
-    return util.render(tmpl, { DST = dst_slot_address, SRC = value })
+    local out = util.render(tmpl, { DST = dst_slot_address, SRC = value })
+    return out
 end
 
 local function check_tag(typ, slot)
@@ -337,7 +339,7 @@ local function barrierback(typ, p, v)
     if not types.is_gc(typ) then
         return ""
     elseif typ._tag == types.T.Function then
-        return util.render([[
+        local out = util.render([[
             if (iscollectable(&${V}) && isblack(obj2gco(${P})) && iswhite(gcvalue(&${V}))) {
                 luaC_barrierback_(L, obj2gco(${P}));
             }
@@ -345,8 +347,9 @@ local function barrierback(typ, p, v)
             P = p,
             V = v,
         })
+        return out
     else
-        return util.render([[
+        local out = util.render([[
             if (isblack(obj2gco(${P})) && iswhite(obj2gco(${V}))) {
                 luaC_barrierback_(L, obj2gco(${P}));
             }
@@ -354,6 +357,7 @@ local function barrierback(typ, p, v)
             P = p,
             V = v,
         })
+        return out
     end
 end
 
@@ -362,23 +366,25 @@ local function set_stack_slot(typ, dst, src)
 end
 
 local function set_heap_slot(typ, dst, src, parent)
-    return util.render([[
+    local out = util.render([[
         ${SET_SLOT}
         ${BARRIER}
     ]], {
         SET_SLOT = set_slot_(typ, dst, src),
         BARRIER = barrierback(typ, parent, src),
     })
+    return out
 end
 
 local function push_to_stack(ctx, typ, src)
     ctx:reserve_slots(1)
-    return util.render([[
+    local out = util.render([[
         ${SET_SLOT}
         api_incr_top(L);
     ]],{
         SET_SLOT = set_stack_slot(typ, "s2v(L->top)", src),
     })
+    return out
 end
 
 --
@@ -391,11 +397,12 @@ end
 local function gc_reserve_stack(ctx)
     local n = ctx.max_stack_slots
     if n > 0 then
-        return util.render([[
+        local out = util.render([[
             lua_checkstack(L, ${N});
         ]], {
             N = c_integer(n),
         })
+        return out
     else
         return ""
     end
@@ -449,11 +456,12 @@ local function gc_release_vars(ctx)
         return ""
     end
 
-    return util.render([[
+    local out = util.render([[
         L->top -= ${NSLOTS};
     ]], {
         NSLOTS = c_integer(n)
     })
+    return out
 end
 
 -- Insert a call to luaC_condgc in the program. This invokes the garbage
@@ -461,7 +469,7 @@ end
 local function gc_cond_gc(ctx)
     local save_vars = gc_save_vars(ctx)
     local release_vars = gc_release_vars(ctx)
-    return util.render([[
+    local out = util.render([[
         luaC_condGC(L, {
             ${SAVE_VARS}
         }, {
@@ -471,6 +479,7 @@ local function gc_cond_gc(ctx)
         SAVE_VARS = save_vars,
         RELEASE_VARS = release_vars,
     })
+    return out
 end
 
 --
@@ -487,7 +496,7 @@ local function upvalues_create_table(n, ctx)
     ctx.upv.table = ctx:new_tvar(typ) -- tvar: Don't GC this!
     ctx.upv.array = ctx:new_cvar("TValue *")
 
-    return util.render([[
+    local out = util.render([[
         ${TABLE_DECL} = luaH_new(L);
         luaH_resizearray(L, ${TABLE}, ${N});
         ${ARRAY_DECL} = ${TABLE}->array;
@@ -498,6 +507,7 @@ local function upvalues_create_table(n, ctx)
         ARRAY = ctx.upv.array.name,
         ARRAY_DECL = c_declaration(ctx.upv.array),
     })
+    return out
 end
 
 local function upvalues_init_local_cvars(ref_upvalues, ctx)
@@ -509,7 +519,7 @@ local function upvalues_init_local_cvars(ref_upvalues, ctx)
     ctx.upv.table = ctx:new_cvar("Table *", "upvalue table")
     ctx.upv.array = ctx:new_cvar("TValue *", "upvalue array")
 
-    return util.render([[
+    local out = util.render([[
         ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
         ${TABLE_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
         ${ARRAY_DECL} = ${TABLE}->array;
@@ -521,13 +531,15 @@ local function upvalues_init_local_cvars(ref_upvalues, ctx)
         ARRAY = ctx.upv.array.name,
         ARRAY_DECL = c_declaration(ctx.upv.array),
     })
+    return out
 end
 
 local function upvalues_slot(i, ctx)
-    return util.render([[ &${ARR}[${I}] ]], {
+    local out = util.render([[ &${ARR}[${I}] ]], {
         ARR = ctx.upv.array.name,
         I = c_integer(i - 1),
     })
+    return out
 end
 
 local function upvalues_table(ctx)
@@ -586,13 +598,14 @@ end
 
 local function table_set_field(tabl, lit, typ, cvalue, ctx)
     local field_cstats, field = table_get_slot(tabl, lit, ctx)
-    return util.render([[
+    local out = util.render([[
         ${FIELD_CSTATS}
         ${SET_SLOT}
     ]], {
         FIELD_CSTATS = field_cstats,
         SET_SLOT = set_heap_slot(typ, field, cvalue, tabl),
     })
+    return out
 end
 
 --
@@ -660,7 +673,7 @@ local function rec_declare_struct(rec)
         end
     end
 
-    return util.render([[
+    local out = util.render([[
         $NAME {
             $FIELDS
         };
@@ -668,23 +681,26 @@ local function rec_declare_struct(rec)
         NAME = rec_struct_name(rec),
         FIELDS = table.concat(fields, "\n"),
     })
+    return out
 end
 
 local function rec_gc_slot(rec, udata, field_name)
-    return util.render([[&${UDATA}->uv[${I}].uv]], {
+    local out = util.render([[&${UDATA}->uv[${I}].uv]], {
         UDATA = udata,
         I = rec._layout.gc_pos[field_name] - 1,
     })
+    return out
 end
 
 local function rec_primitive_slot(rec, udata, field_name)
-    return util.render(
+    local out = util.render(
         [[((${STRUCT_NAME} *)getudatamem(${UDATA}))->${FIELD_NAME}]],
     {
         STRUCT_NAME = rec_struct_name(rec),
         UDATA = udata,
         FIELD_NAME = rec_field_name(rec, field_name),
     })
+    return out
 end
 
 local function rec_set_field(rec, udata, field_name, cvalue)
@@ -693,12 +709,13 @@ local function rec_set_field(rec, udata, field_name, cvalue)
         local slot = rec_gc_slot(rec, udata, field_name)
         return set_heap_slot(typ, slot, cvalue, udata)
     else
-        return util.render([[
+        local out = util.render([[
             ${SLOT} = ${CVALUE};
         ]], {
             SLOT = rec_primitive_slot(rec, udata, field_name),
             CVALUE = cvalue,
         })
+        return out
     end
 end
 
@@ -767,7 +784,7 @@ local function generate_titan_entry_point(tl_node, literals)
 
     local reserve_stack = gc_reserve_stack(ctx)
 
-    return util.render([[
+    local out = util.render([[
         static ${RET} ${NAME}(
             ${PARAMS}
         ){
@@ -781,6 +798,7 @@ local function generate_titan_entry_point(tl_node, literals)
         PARAMS = table.concat(params, ",\n"),
         BODY = table.concat(body, "\n"),
     })
+    return out
 end
 
 local function generate_lua_entry_point(tl_node, literals)
@@ -805,10 +823,11 @@ local function generate_lua_entry_point(tl_node, literals)
     })
 
     local function argslot(i)
-        return util.render("s2v(${BASE} + ${I})", {
+        local out = util.render("s2v(${BASE} + ${I})", {
             BASE = base.name,
             I = c_integer(i),
         })
+        return out
     end
 
     -- TODO: fix: the error message is not able specify if the
@@ -881,7 +900,7 @@ local function generate_lua_entry_point(tl_node, literals)
     -- checkstack if we need >= 20 slots.
     local reserve_stack = gc_reserve_stack(ctx)
 
-    return util.render([[
+    local out = util.render([[
         static int ${LUA_ENTRY_POINT}(lua_State *L)
         {
             ${RESERVE_STACK}
@@ -902,6 +921,7 @@ local function generate_lua_entry_point(tl_node, literals)
         SET_RETURN = set_return,
         NRET = c_integer(#tl_node._type.rettypes),
     })
+    return out
 end
 
 local function generate_upvalue_literal(lit, ctx)
@@ -1046,7 +1066,7 @@ local function generate_luaopen(prog, modname)
     -- (see similar comment in lua entry point)
     local reserve_stack = gc_reserve_stack(ctx)
 
-    return util.render([[
+    local out = util.render([[
         int luaopen_${MODNAME}(lua_State *L)
         {
             ${RESERVE_STACK}
@@ -1058,6 +1078,7 @@ local function generate_luaopen(prog, modname)
         RESERVE_STACK = reserve_stack,
         BODY = table.concat(body, "\n"),
     })
+    return out
 end
 
 declare_type("Lvalue", {
@@ -1144,12 +1165,13 @@ end
 local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
     local tag = lvalue._tag
     if     tag == coder.Lvalue.CVar then
-        return util.render([[
+        local out = util.render([[
             ${X} = ${VALUE};
         ]], {
             X = lvalue.varname,
             VALUE = exp_cvalue,
         })
+        return out
 
     elseif tag == coder.Lvalue.ArraySlot then
         -- TODO: GC
@@ -1157,7 +1179,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
         local slot = ctx:new_cvar("TValue *", "slot")
         local k = ctx:new_cvar("TValue")
-        return util.render([[
+        local out = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
             ${SLOT_DECL};
             if (TITAN_LIKELY(${UI} < ${T}->sizearray)) {
@@ -1180,11 +1202,12 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
             SET_SLOT = set_heap_slot(
                 typ, slot.name, exp_cvalue, lvalue.t_varname),
         })
+        return out
 
     elseif tag == coder.Lvalue.GlobalVar then
         local typ = lvalue.var._type
         local slot = ctx:new_cvar("TValue *")
-        return util.render([[
+        local out = util.render([[
             ${SLOT_DECL} = ${UPV_SLOT};
             ${SET_SLOT}
         ]], {
@@ -1193,11 +1216,12 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
             SET_SLOT = set_heap_slot(
                 typ, slot.name, exp_cvalue, upvalues_table(ctx)),
         })
+        return out
 
     elseif tag == coder.Lvalue.RecGcSlot then
         local typ = lvalue.var._type
         local slot = ctx:new_cvar("TValue *")
-        return util.render([[
+        local out = util.render([[
             ${SLOT_DECL} = ${SLOT_VALUE};
             ${SET_SLOT}
         ]], {
@@ -1206,6 +1230,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
             SET_SLOT = set_heap_slot(
                 typ, slot.name, exp_cvalue, lvalue.udata_pointer),
         })
+        return out
 
     else
         error("impossible")
@@ -1282,7 +1307,7 @@ generate_stat = function(stat, ctx)
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
         local block_cstats = generate_stat(stat.block, ctx)
         ctx:end_scope()
-        return util.render([[
+        local out = util.render([[
             for(;;) {
                 ${COND_STATS}
                 if (!${COND}) break;
@@ -1293,13 +1318,14 @@ generate_stat = function(stat, ctx)
             COND = cond_cvalue,
             BLOCK = block_cstats
         })
+        return out
 
     elseif tag == ast.Stat.Repeat then
         ctx:begin_scope()
         local block_cstats = generate_stat(stat.block, ctx)
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
         ctx:end_scope()
-        return util.render([[
+        local out = util.render([[
             for(;;){
                 ${BLOCK}
                 ${COND_STATS}
@@ -1310,6 +1336,7 @@ generate_stat = function(stat, ctx)
             COND = cond_cvalue,
             BLOCK = block_cstats,
         })
+        return out
 
     elseif tag == ast.Stat.If then
         ctx:begin_scope()
@@ -1383,7 +1410,7 @@ generate_stat = function(stat, ctx)
         end
 
         ctx:end_scope()
-        return util.render([[
+        local out = util.render([[
             ${START_STAT}
             ${FINISH_STAT}
             ${INC_STAT}
@@ -1413,6 +1440,7 @@ generate_stat = function(stat, ctx)
             LOOPVAR_DECL = c_declaration(stat.decl._cvar),
             BLOCK = block_cstats,
         })
+        return out
 
     elseif tag == ast.Stat.Assign then
         ctx:begin_scope()
@@ -1436,7 +1464,7 @@ generate_stat = function(stat, ctx)
         local exp_cstats, exp_cvalue = generate_exp(stat.exp, ctx)
         ctx:end_scope() -- (don't put the tvar inside this scope!)
         stat.decl._cvar = ctx:new_tvar(stat.decl._type, stat.decl.name)
-        return util.render([[
+        local out = util.render([[
             ${STATS}
             ${DECLARATION} = ${VALUE};
         ]], {
@@ -1444,6 +1472,7 @@ generate_stat = function(stat, ctx)
             VALUE = exp_cvalue,
             DECLARATION = c_declaration(stat.decl._cvar),
         })
+        return out
 
     elseif tag == ast.Stat.Call then
         ctx:begin_scope()
@@ -1457,13 +1486,14 @@ generate_stat = function(stat, ctx)
         end
         ctx:end_scope()
 
-        return util.render([[
+        local out = util.render([[
             ${STATS}
             ${IGNORE_RESULT}
         ]], {
             STATS = cstats,
             IGNORE_RESULT = ignore_result
         })
+        return out
 
     elseif tag == ast.Stat.Return then
         assert(#stat.exps <= 1)
@@ -1476,13 +1506,14 @@ generate_stat = function(stat, ctx)
             cstats, cvalue = generate_exp(stat.exps[1], ctx)
         end
         ctx:end_scope()
-        return util.render([[
+        local out = util.render([[
             ${CSTATS}
             return ${CVALUE};
         ]], {
             CSTATS = cstats,
             CVALUE = cvalue
         })
+        return out
 
     else
         error("impossible")
