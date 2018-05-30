@@ -15,8 +15,9 @@ end
 -- print a board
 local function printsolution (N, a)
   for i = 1, N do
+    local ai = a[i]
     for j = 1, N do
-      if a[i] == j then
+      if ai == j then
         io.write("X")
       else
         io.write("-")
