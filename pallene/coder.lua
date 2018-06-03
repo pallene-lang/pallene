@@ -580,6 +580,49 @@ local function table_set_new_field(tabl, lit, typ, cvalue, ctx)
 end
 
 --
+-- @tags
+--
+
+local function check_tag(typ, slot, ctx)
+    local tmpl
+    local tag = typ._tag
+    if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
+    elseif tag == types.T.Boolean  then tmpl = "ttisboolean(${SLOT})"
+    elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
+    elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
+    elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
+    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
+    elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
+    elseif tag == types.T.Record   then
+        local mt_index = typ.type_decl._upvalue_index
+        local mt_slot = upvalues_slot(mt_index, ctx)
+        return util.render(
+            [[(ttisfulluserdata(${SLOT}) && ${UDATA}->metatable == ${MT})]],
+        {
+            SLOT = slot,
+            UDATA = get_slot(typ, slot),
+            MT = get_slot(RecordCoder.metatable_type(), mt_slot),
+        })
+    else error("impossible")
+    end
+    return util.render(tmpl, {SLOT = slot})
+end
+
+local function pallene_type_tag(typ)
+    local tag = typ._tag
+    if     tag == types.T.Nil      then return "LUA_TNIL"
+    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
+    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
+    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
+    elseif tag == types.T.String   then return "LUA_TSTRING"
+    elseif tag == types.T.Function then return "LUA_TFUNCTION"
+    elseif tag == types.T.Array    then return "LUA_TTABLE"
+    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
+    else error("impossible")
+    end
+end
+
+--
 -- @records
 --
 
@@ -747,50 +790,6 @@ function RecordCoder:create_instance(typ, ctx)
     })
     return cstats, udata.name
 end
-
---
--- @tags
---
-
-local function check_tag(typ, slot, ctx)
-    local tmpl
-    local tag = typ._tag
-    if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
-    elseif tag == types.T.Boolean  then tmpl = "ttisboolean(${SLOT})"
-    elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
-    elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
-    elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
-    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
-    elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
-    elseif tag == types.T.Record   then
-        local mt_index = typ.type_decl._upvalue_index
-        local mt_slot = upvalues_slot(mt_index, ctx)
-        return util.render(
-            [[(ttisfulluserdata(${SLOT}) && ${UDATA}->metatable == ${MT})]],
-        {
-            SLOT = slot,
-            UDATA = get_slot(typ, slot),
-            MT = get_slot(RecordCoder.metatable_type(), mt_slot),
-        })
-    else error("impossible")
-    end
-    return util.render(tmpl, {SLOT = slot})
-end
-
-local function pallene_type_tag(typ)
-    local tag = typ._tag
-    if     tag == types.T.Nil      then return "LUA_TNIL"
-    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
-    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
-    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
-    elseif tag == types.T.String   then return "LUA_TSTRING"
-    elseif tag == types.T.Function then return "LUA_TFUNCTION"
-    elseif tag == types.T.Array    then return "LUA_TTABLE"
-    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
-    else error("impossible")
-    end
-end
-
 
 --
 -- code generation
