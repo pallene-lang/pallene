@@ -163,7 +163,7 @@ end
 local Context = {}
 Context.__index = Context
 
-function Context.new()
+function Context.new(literals)
     local o = {
         tmp_index = 1,       -- next free tmp variable name
 
@@ -176,7 +176,8 @@ function Context.new()
         n_saved_vars = 0,    -- how many vars are currently saved in stack
         saveds = {},         -- first index of each group of saved variables
 
-        upv = false          -- upvalues table and array (see @upvalues)
+        literals = literals, -- map a literal to upvalue index (see @literals)
+        upv = false,         -- upvalues table and array (see @upvalues)
     }
     return setmetatable(o, Context)
 end
@@ -534,6 +535,67 @@ local function upvalues_table(ctx)
 end
 
 --
+-- @literals
+--
+
+local function literal_get(lit, ctx)
+    -- TODO: this requires the upvalues table to be initalized, we should make
+    -- more resilient
+    assert(upvalues_table(ctx))
+
+    local typ = types.T.String()
+    local slot = ctx:new_cvar("TValue *")
+    local out = ctx:new_tvar(typ)
+    local cstats = util.render([[
+        ${SLOT_DECL} = ${UPV_SLOT};
+        ${OUT_DECL} = ${GET_SLOT};
+    ]], {
+        SLOT_DECL = c_declaration(slot),
+        UPV_SLOT = upvalues_slot(ctx.literals[lit], ctx),
+        OUT_DECL = c_declaration(out),
+        GET_SLOT = get_slot(typ, slot.name),
+    })
+    return cstats, out.name
+end
+
+--
+-- @table
+--
+
+local function table_get_slot(tabl, lit, ctx)
+    local key_cstats, key = literal_get(lit, ctx)
+    local key_type = types.T.String()
+    local key_slot = ctx:new_cvar("TValue")
+    local key_slot_addr = "&" .. key_slot.name
+    local field = ctx:new_cvar("TValue *")
+    local cstats = util.render([[
+        ${KEY_CSTATS}
+        ${KEY_SLOT_DECL};
+        ${SET_KEY_SLOT}
+        ${SLOT_DECL} = luaH_set(L, ${TABL}, ${KEY_SLOT_ADDR});
+    ]], {
+        KEY_CSTATS = key_cstats,
+        KEY_SLOT_DECL = c_declaration(key_slot),
+        KEY_SLOT_ADDR = key_slot_addr,
+        SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key),
+        SLOT_DECL = c_declaration(field),
+        TABL = tabl,
+    })
+    return cstats, field.name
+end
+
+local function table_set_field(tabl, lit, typ, cvalue, ctx)
+    local field_cstats, field = table_get_slot(tabl, lit, ctx)
+    return util.render([[
+        ${FIELD_CSTATS}
+        ${SET_SLOT}
+    ]], {
+        FIELD_CSTATS = field_cstats,
+        SET_SLOT = set_heap_slot(typ, field, cvalue, tabl),
+    })
+end
+
+--
 -- @records
 --
 
@@ -655,39 +717,8 @@ local function rec_create_metatable(ctx)
         MT_DECL = c_declaration(mt),
     }))
 
-    -- TODO: this should become a function
-    -- TODO: we don't need to create a new string every time we set a slot.
-    --       We should create them only once in luaopen and store them in
-    --       upvalues table.
-    do
-        -- arguments:
-        local tabl = mt.name
-        local key_lit = "__metatable"
-        local typ = types.T.Boolean()
-        local cvalue = c_boolean(false)
-
-        local key_type = types.T.String()
-        local key = ctx:new_tvar(key_type)
-        local key_slot = ctx:new_cvar("TValue")
-        local key_slot_addr = "&" .. key_slot.name
-        local slot = ctx:new_cvar("TValue *")
-        table.insert(cstats, util.render([[
-            ${KEY_DECL} = luaS_new(L, ${KEY_LIT});
-            ${KEY_SLOT_DECL};
-            ${SET_KEY_SLOT}
-            ${SLOT_DECL} = luaH_set(L, ${TABLE}, ${KEY_SLOT_ADDR});
-            ${SET_SLOT}
-        ]], {
-            KEY_LIT = c_string(key_lit),
-            KEY_DECL = c_declaration(key),
-            KEY_SLOT_DECL = c_declaration(key_slot),
-            KEY_SLOT_ADDR = key_slot_addr,
-            SET_KEY_SLOT = set_stack_slot(key_type, key_slot_addr, key.name),
-            SLOT_DECL = c_declaration(slot),
-            TABLE = tabl,
-            SET_SLOT = set_heap_slot(typ, slot.name, cvalue, tabl),
-        }))
-    end
+    table.insert(cstats, table_set_field(mt.name, "__metatable",
+            types.T.Boolean(), c_boolean(false), ctx))
 
     return table.concat(cstats, "\n"), mt.name
 end
@@ -712,8 +743,8 @@ end
 -- code generation
 --
 
-local function generate_titan_entry_point(tl_node)
-    local ctx = Context.new()
+local function generate_titan_entry_point(tl_node, literals)
+    local ctx = Context.new(literals)
 
     local ret_ctype
     if #tl_node._type.rettypes == 0 then
@@ -752,8 +783,8 @@ local function generate_titan_entry_point(tl_node)
     })
 end
 
-local function generate_lua_entry_point(tl_node)
-    local ctx = Context.new()
+local function generate_lua_entry_point(tl_node, literals)
+    local ctx = Context.new(literals)
 
     local base = ctx:new_cvar("StackValue*")
     local set_base = util.render("${BASE_DECL} = L->ci->func;", {
@@ -873,59 +904,81 @@ local function generate_lua_entry_point(tl_node)
     })
 end
 
+local function generate_upvalue_literal(lit, ctx)
+    local typ = types.T.String()
+    local s = ctx:new_tvar(typ)
+    local cstats = util.render([[
+        ${S_DECL} = luaS_new(L, ${STRLIT});
+    ]], {
+        S_DECL = c_declaration(s),
+        STRLIT = c_string(lit),
+    })
+    return typ, cstats, s.name
+end
+
+local function generate_upvalue_modvar(tl_node, ctx)
+    local typ, cstats, cvalue
+
+    local tag = tl_node._tag
+    if     tag == ast.Toplevel.Func then
+        local closure = ctx:new_cvar("CClosure*")
+        local func    = ctx:new_cvar("TValue")
+        typ = tl_node._type
+        cstats = util.render([[
+            ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
+            ${CLOSURE}->f = ${LUA_ENTRY_POINT};
+            sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+            ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
+        ]],{
+            LUA_ENTRY_POINT = tl_node._lua_entry_point,
+            UPVALUES = upvalues_table(ctx),
+            CLOSURE = closure.name,
+            CLOSURE_DECL = c_declaration(closure),
+            FUNC = func.name,
+            FUNC_DECL = c_declaration(func),
+        })
+        cvalue = func.name
+
+    elseif tag == ast.Toplevel.Var then
+        local exp = tl_node.value
+        typ = exp._type
+        cstats, cvalue = generate_exp(exp, ctx)
+
+    elseif tag == ast.Toplevel.Record then
+        typ = rec_metatable_type()
+        cstats, cvalue = rec_create_metatable(ctx)
+
+    else
+        error("impossible")
+    end
+
+    local upvname = string.format("/* %s */\n", ast.toplevel_name(tl_node))
+    return typ, upvname .. cstats, cvalue
+end
+
+local function generate_upvalue(upv, ctx)
+    local tag = upv._tag
+    if     tag == upvalues.T.Literal then
+        return generate_upvalue_literal(upv.lit, ctx)
+    elseif tag == upvalues.T.ModVar then
+        return generate_upvalue_modvar(upv.tl_node, ctx)
+    else
+        error("impossible")
+    end
+end
+
 local function generate_luaopen_upvalues(prog, ctx)
     local parts = {}
 
-    for _, tl_node in ipairs(prog._upvalues) do
+    for i, upv in ipairs(prog._upvalues) do
+        ctx:begin_scope()
+        local typ, cstats, cvalue = generate_upvalue(upv, ctx)
+        local slot = upvalues_slot(i, ctx)
         local upv_table = upvalues_table(ctx)
-        local slot = upvalues_slot(tl_node._upvalue_index, ctx)
-
-        table.insert(parts,
-            string.format("/* %s */", ast.toplevel_name(tl_node)))
-
-        local tag = tl_node._tag
-        if     tag == ast.Toplevel.Func then
-            ctx:begin_scope()
-            local closure = ctx:new_cvar("CClosure*")
-            local func    = ctx:new_cvar("TValue")
-            table.insert(parts,
-                util.render([[
-                    ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
-                    ${CLOSURE}->f = ${LUA_ENTRY_POINT};
-                    sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
-                    ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
-                    ${SET_SLOT}
-                ]],{
-                    LUA_ENTRY_POINT = tl_node._lua_entry_point,
-                    UPVALUES = upv_table,
-                    CLOSURE = closure.name,
-                    CLOSURE_DECL = c_declaration(closure),
-                    FUNC = func.name,
-                    FUNC_DECL = c_declaration(func),
-                    SET_SLOT = set_heap_slot(
-                        tl_node._type, slot, func.name, upv_table),
-                })
-            )
-            ctx:end_scope()
-
-        elseif tag == ast.Toplevel.Var then
-            ctx:begin_scope()
-            local exp = tl_node.value
-            local cstats, cvalue = generate_exp(exp, ctx)
-            table.insert(parts, cstats)
-            table.insert(parts, set_heap_slot(
-                exp._type, slot, cvalue, upv_table))
-            ctx:end_scope()
-
-        elseif tag == ast.Toplevel.Record then
-            local typ = rec_metatable_type()
-            local cstats, mt = rec_create_metatable(ctx)
-            table.insert(parts, cstats)
-            table.insert(parts, set_heap_slot(typ, slot, mt, upv_table))
-
-        else
-            error("impossible")
-        end
+        local setslot = set_heap_slot(typ, slot, cvalue, upv_table)
+        table.insert(parts, cstats)
+        table.insert(parts, setslot)
+        ctx:end_scope()
     end
 
     return table.concat(parts, "\n")
@@ -973,7 +1026,7 @@ local function generate_luaopen_exports_table(prog, ctx)
 end
 
 local function generate_luaopen(prog, modname)
-    local ctx = Context.new()
+    local ctx = Context.new(prog._literals)
 
     local body = {}
 
@@ -1191,9 +1244,9 @@ generate_program = function(prog, modname)
             if tl_node._tag == ast.Toplevel.Func then
                 assert(#tl_node._type.rettypes <= 1)
                 table.insert(function_definitions,
-                    generate_titan_entry_point(tl_node))
+                    generate_titan_entry_point(tl_node, prog._literals))
                 table.insert(function_definitions,
-                    generate_lua_entry_point(tl_node))
+                    generate_lua_entry_point(tl_node, prog._literals))
             end
         end
         define_functions = table.concat(function_definitions, "\n")
@@ -1879,14 +1932,7 @@ generate_exp = function(exp, ctx)
         return "", c_float(exp.value)
 
     elseif tag == ast.Exp.String then
-        local s = ctx:new_tvar(exp._type)
-        local cstats = util.render([[
-            ${S_DECL} = luaS_new(L, ${STRLIT});
-        ]], {
-            S_DECL = c_declaration(s),
-            STRLIT = c_string(exp.value),
-        })
-        return cstats, s.name
+        return literal_get(exp.value, ctx)
 
     elseif tag == ast.Exp.Initlist then
         if exp._type._tag == types.T.Array then
