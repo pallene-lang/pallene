@@ -6,7 +6,7 @@ function print_mat(A)
     end
 end
 
-local N = 300
+local N = 100
 
 local BIG1 = {}
 for i = 1, N do
@@ -19,7 +19,7 @@ end
 BIG2 = BIG1
 
 local C
-for i = 1, 10 do
+for i = 1, 500 do
     C = matmul.matmul(BIG1, BIG2)
 end
 print("#C", #C, #C[1])
