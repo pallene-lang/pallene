@@ -2,7 +2,6 @@ local ast = require "titan-compiler.ast"
 local ast_iterator = require "titan-compiler.ast_iterator"
 local checker = require "titan-compiler.checker"
 local typedecl = require "titan-compiler.typedecl"
-local types = require "titan-compiler.types"
 
 local upvalues = {}
 
@@ -32,10 +31,6 @@ local analyze_upvalues
 -- _upvalue_index:
 --     In Toplevel value nodes
 --     Integer. The index of this node in the _upvalues array.
---
--- _referenced_upvalues:
---     In Toplevel.Func nodes.
---     List of integers, describes what upvalues the function uses.
 function upvalues.analyze(filename, input)
     local prog, errors = checker.check(filename, input)
     if not prog then return false, errors end
@@ -72,20 +67,10 @@ local function toplevel_is_value_declaration(tlnode)
     end
 end
 
-local function sorted_keys(obj)
-    local ks = {}
-    for k, _ in pairs(obj) do
-        table.insert(ks, k)
-    end
-    table.sort(ks)
-    return ks
-end
-
 local function add_literal(upvs, literals, lit)
     local n = #upvs + 1
     upvs[n] = upvalues.T.Literal(lit)
     literals[lit] = n
-    return n
 end
 
 local analyze = ast_iterator.new()
@@ -100,6 +85,8 @@ analyze_upvalues = function(prog)
         add_literal(upvs, literals, lit)
     end
 
+    analyze:Program(prog, upvs, literals)
+
     for _, tlnode in ipairs(prog) do
         if toplevel_is_value_declaration(tlnode) then
             local n = #upvs + 1
@@ -108,72 +95,17 @@ analyze_upvalues = function(prog)
         end
     end
 
-    -- Ignore referenced_upvalues_map in Program analyze
-    analyze:Program(prog, upvs, literals, {})
-
     prog._upvalues = upvs
     prog._literals = literals
 end
 
-function analyze:Toplevel(tlnode, upvs, literals, referenced_upvalues_map)
-    local tag = tlnode._tag
-    if     tag == ast.Toplevel.Func then
-        local func_referenced_upvalues_map = {}
-        analyze:Stat(tlnode.block, upvs, literals, func_referenced_upvalues_map)
-        tlnode._referenced_upvalues = sorted_keys(func_referenced_upvalues_map)
-    else
-        ast_iterator.Toplevel(self, tlnode, upvs, literals,
-                referenced_upvalues_map)
-    end
-end
-
-function analyze:Var(var, upvs, literals, referenced_upvalues_map)
-    local tag = var._tag
-    if     tag == ast.Var.Name then
-        local decl = var._decl
-        local index = decl._upvalue_index
-        if index then
-            referenced_upvalues_map[index] = true
-        end
-    else
-        ast_iterator.Var(self, var, upvs, literals, referenced_upvalues_map)
-    end
-end
-
-function analyze:Exp(exp, upvs, literals, referenced_upvalues_map)
+function analyze:Exp(exp, upvs, literals)
     local tag = exp._tag
     if     tag == ast.Exp.String then
-        local lit = exp.value
-        local n = add_literal(upvs, literals, lit)
-        referenced_upvalues_map[n] = true
-
-    elseif tag == ast.Exp.Initlist then
-        local typ = exp._type
-        if typ._tag == types.T.Record then
-            local rec = typ.type_decl
-            referenced_upvalues_map[rec._upvalue_index] = true
-        end
-
-    elseif tag == ast.Exp.CallFunc then
-        local fexp = exp.exp
-        local fargs = exp.args
-
-        -- Function calls with the titan calling convention bypass the C closure
-        -- for the function itself.
-        local is_titan_call =
-            fexp._tag == ast.Exp.Var and
-            fexp.var._tag == ast.Var.Name and
-            fexp.var._decl._tag == ast.Toplevel.Func
-
-        if not is_titan_call then
-            analyze:Exp(fexp, upvs, literals, referenced_upvalues_map)
-        end
-        for i = 1, #fargs do
-            analyze:Exp(fargs[i], upvs, literals, referenced_upvalues_map)
-        end
+        add_literal(upvs, literals, exp.value)
 
     else
-        ast_iterator.Exp(self, exp, upvs, literals, referenced_upvalues_map)
+        ast_iterator.Exp(self, exp, upvs, literals)
     end
 end
 

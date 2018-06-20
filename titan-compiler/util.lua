@@ -28,19 +28,29 @@ end
 -- $VAR and ${VAR} placeholders in the `code` template by the corresponding
 -- strings in the `substs` table.
 function util.render(code, substs)
-    return (string.gsub(code, "%$({?)([A-Za-z_][A-Za-z_0-9]*)(}?)", function(a, k, b)
+    local err
+    local out = string.gsub(code, "%$({?)([A-Za-z_][A-Za-z_0-9]*)(}?)", function(a, k, b)
         if a == "{" and b == "" then
-            error("unmatched ${ in template")
+            err = "unmatched ${ in template"
+            return ""
         end
         local v = substs[k]
         if not v then
-            error("Internal compiler error: missing template variable " .. k)
+            err = "missing template variable " .. k
+            return ""
+        elseif type(v) ~= "string" and type(v) ~= "number" then
+            err = "template variable is not a string/number " .. k
+            return ""
         end
         if a == "" and b == "}" then
             v = v .. b
         end
         return v
-    end))
+    end)
+    if err then
+        error(err)
+    end
+    return out
 end
 
 function util.shell(cmd)

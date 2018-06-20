@@ -794,14 +794,14 @@ describe("Titan coder /", function()
             end
         ]]))
 
-        it("can create records", function()
+        it("create records", function()
             run_test([[
                 local foo = test.make_foo(123, {})
                 assert("userdata" == type(foo))
             ]])
         end)
 
-        it("can get/set primitive fields in titan", function()
+        it("get/set primitive fields in titan", function()
             run_test([[
                 local foo = test.make_foo(123, {})
                 assert(123 == test.get_x(foo))
@@ -810,7 +810,7 @@ describe("Titan coder /", function()
             ]])
         end)
 
-        it("can get/set gc fields in titan", function()
+        it("get/set gc fields in titan", function()
             run_test([[
                 local a = {}
                 local b = {}
@@ -821,25 +821,36 @@ describe("Titan coder /", function()
             ]])
         end)
 
-        it("can create records with only primitive fields", function()
+        it("create records with only primitive fields", function()
             run_test([[
                 local x = test.make_prim(123)
                 assert("userdata" == type(x))
             ]])
         end)
 
-        it("can create records with only gc fields", function()
+        it("create records with only gc fields", function()
             run_test([[
                 local x = test.make_gc({})
                 assert("userdata" == type(x))
             ]])
         end)
 
-        it("can protect record metatables", function()
+        it("protect record metatables", function()
             run_test([[
                 local x = test.make_prim(123)
                 assert(getmetatable(x) == false)
             ]])
+        end)
+
+        it("check record tags", function()
+            run_test([[
+                local prim = test.make_prim(123)
+                local ok, err = pcall(test.get_x, prim)
+                assert(not ok)
+                assert(string.find(err, "expected userdata but found userdata",
+                        nil, true))
+            ]])
+            pending("fix error message")
         end)
     end)
 
