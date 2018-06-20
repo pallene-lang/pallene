@@ -12,17 +12,16 @@ local BIG1 = {}
 for i = 1, N do
     BIG1[i] = {}
     for j = 1, N do
-        BIG1[i][j] = i + j
+        BIG1[i][j] = (i + j) * math.pi
     end
 end
 
 BIG2 = BIG1
 
 local C
-for i = 1, 1 do
+for i = 1, 10 do
     C = matmul.matmul(BIG1, BIG2)
 end
-print("#C=", #C, #C[1])
+print("#C", #C, #C[1])
+print("C[1][1]", C[1][1])
 --print_mat(C)
-
-
