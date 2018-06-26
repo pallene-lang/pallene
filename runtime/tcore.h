@@ -41,4 +41,7 @@ void titan_runtime_mod_by_zero_error(
 TString *titan_string_concatN(
     lua_State *L, size_t n, TString **ss);
 
+void titan_renormalize_array(
+    lua_State *L, Table *arr, unsigned int i, int line);
+
 #endif
