@@ -3,14 +3,36 @@
 
 #include <stdio.h>
 
+inline
+static void check_nargs(lua_State *L, int expected)
+{
+    int nargs = lua_gettop(L);
+    if (nargs != expected) {
+        luaL_error(L, "Expected %d arguments, got %d", expected, nargs);
+    }
+}
+
+inline
+static lua_Integer getinteger(lua_State *L, int slot)
+{
+    int isnum;
+    lua_Integer out = lua_tointegerx(L, slot, &isnum);
+    if (!isnum) { luaL_error(L, "impossible"); }
+    return out;
+}
+
+inline
+static lua_Number getnumber(lua_State *L, int slot)
+{
+    int isnum;
+    lua_Number out = lua_tonumberx(L, slot, &isnum);
+    if (!isnum) { luaL_error(L, "impossible"); }
+    return out;
+}
+
 static int matmul(lua_State *L)
 {
-    {
-        int nargs = lua_gettop(L);
-        if (nargs != 2) {
-            luaL_error(L, "Expected 2 arguments, got %d", nargs);
-        }
-    }
+    check_nargs(L, 2);
 
     // 1 = A
     // 2 = B
@@ -21,31 +43,16 @@ static int matmul(lua_State *L)
     lua_Number s = 0.0;
 
     lua_len(L, 1);
-    lua_Integer NI;
-    {
-        int isnum;
-        NI = lua_tointegerx(L, 3, &isnum);
-        if (!isnum) { luaL_error(L, "impossible"); }
-    }
+    lua_Integer NI = getinteger(L, -1);
     lua_pop(L, 1);
-    
+
     lua_len(L, 2);
-    lua_Integer NK;
-    {
-        int isnum;
-        NK = lua_tointegerx(L, 3, &isnum);
-        if (!isnum) { luaL_error(L, "impossible"); }
-    }
+    lua_Integer NK = getinteger(L, -1);
     lua_pop(L, 1);
 
     lua_geti(L, 2, 1);
     lua_len(L, 3);
-    lua_Integer NJ;
-    {
-        int isnum;
-        NJ = lua_tonumberx(L, 4, &isnum);
-        if (!isnum) { luaL_error(L, "impossible"); }
-    }
+    lua_Integer NJ = getinteger(L, -1);
     lua_pop(L, 2);
 
     for (lua_Integer k = 1; k <= NK; k++) {
@@ -53,21 +60,11 @@ static int matmul(lua_State *L)
         for (lua_Integer i = 1; i <= NI; i++) {
             lua_geti(L, 1, i);
             lua_geti(L, 4, k);
-            lua_Number Aik;
-            {
-                int isnum;
-                Aik = lua_tonumberx(L, 5, &isnum);
-                if (!isnum) { luaL_error(L, "A[i][k] is not a number"); }
-            }
+            lua_Number Aik = getnumber(L, -1);
             lua_pop(L, 2);
-            for (lua_Integer j = 1; j <= NJ; j++) {   
+            for (lua_Integer j = 1; j <= NJ; j++) {
                 lua_geti(L, 3, j);
-                lua_Number Bkj;
-                {
-                    int isnum;
-                    Bkj = lua_tonumberx(L, 4, &isnum);
-                    if (!isnum) { luaL_error(L, "B[k][j] is not a number"); }
-                }
+                lua_Number Bkj = getnumber(L, -1);
                 lua_pop(L, 1);
                 s = s + Aik * Bkj;
             }

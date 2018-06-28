@@ -2,6 +2,15 @@
 #include <lauxlib.h>
 
 inline
+static void check_nargs(lua_State *L, int expected)
+{
+    int nargs = lua_gettop(L);
+    if (nargs != expected) {
+        luaL_error(L, "Expected %d arguments, got %d", expected, nargs);
+    }
+}
+
+inline
 static lua_Integer getinteger(lua_State *L, int slot)
 {
     int isnum;
@@ -19,31 +28,25 @@ static lua_Number getnumber(lua_State *L, int slot)
     return out;
 }
 
-
 static int matmul(lua_State *L)
 {
-    {
-        int nargs = lua_gettop(L);
-        if (nargs != 2) {
-            luaL_error(L, "Expected 2 arguments, got %d", nargs);
-        }
-    }
+    check_nargs(L, 2);
 
     // 1 = A
     // 2 = B
     // 3 = C
 
     lua_len(L, 1);
-    lua_Integer NI = getinteger(L, 3);
+    lua_Integer NI = getinteger(L, -1);
     lua_pop(L, 1);
 
     lua_len(L, 2);
-    lua_Integer NK = getinteger(L, 3);
+    lua_Integer NK = getinteger(L, -1);
     lua_pop(L, 1);
 
     lua_geti(L, 2, 1);
     lua_len(L, 3);
-    lua_Integer NJ = getinteger(L, 4);
+    lua_Integer NJ = getinteger(L, -1);
     lua_pop(L, 2);
 
     // 4 = line
