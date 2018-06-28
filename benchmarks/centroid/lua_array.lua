@@ -17,7 +17,7 @@ function _M.centroid(points, N)
             y = y + p[2]
         end
     end
-    return { x / #points, y / #points }
+    return { x / npoints, y / npoints }
 end
 
 return _M

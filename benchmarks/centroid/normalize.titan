@@ -15,5 +15,5 @@ function centroid(points: {{float}}, N: integer): {float}
             y = y + p[2]
         end
     end
-    return { x / #points, y / #points }
+    return { x / npoints, y / npoints }
 end
