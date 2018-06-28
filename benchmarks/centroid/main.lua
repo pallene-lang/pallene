@@ -6,4 +6,4 @@ for i = 1, 1e4 do
 end
 
 local r = point.centroid(arr, 10000)
-print(x, y)
+print(r[1], r[2])
