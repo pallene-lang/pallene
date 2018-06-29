@@ -5,27 +5,46 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+inline
+static void check_nargs(lua_State *L, int expected)
+{
+    int nargs = lua_gettop(L);
+    if (nargs != expected) {
+        luaL_error(L, "Expected %d arguments, got %d", expected, nargs);
+    }
+}
+
+inline
+static lua_Integer getinteger(lua_State *L, int slot)
+{
+    int isnum;
+    lua_Integer out = lua_tointegerx(L, slot, &isnum);
+    if (!isnum) { luaL_error(L, "impossible"); }
+    return out;
+}
+
+inline
+static lua_Number getnumber(lua_State *L, int slot)
+{
+    int isnum;
+    lua_Number out = lua_tonumberx(L, slot, &isnum);
+    if (!isnum) { luaL_error(L, "impossible"); }
+    return out;
+}
+
+
 static int sieve(lua_State *L)
 {
+    check_nargs(L, 1);
+
     // Stack
     //   1 = N
     //   2 = is_prime
     //   3 = primes
     //   4 = is_prime[n]
 
-    {
-        int nargs = lua_gettop(L);
-        if ( nargs != 1 ) {
-            luaL_error(L, "Expected 1 argument, for %d", nargs);
-        }
-    }
+    lua_Integer N = getinteger(L, 1);
 
-    if (!lua_isinteger(L, 1)) {
-        luaL_error(L, "Argument 1 is not an integer");
-    }
-
-    lua_Integer N = lua_tointeger(L, 1);
-    
     lua_newtable(L);
     lua_pushboolean(L, 0);
     lua_seti(L, 2, 1);

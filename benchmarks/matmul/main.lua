@@ -12,7 +12,7 @@ local BIG1 = {}
 for i = 1, N do
     BIG1[i] = {}
     for j = 1, N do
-        BIG1[i][j] = (i + j) * math.pi
+        BIG1[i][j] = (i + j) * 3.1415
     end
 end
 
