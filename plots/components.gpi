@@ -1,0 +1,27 @@
+load 'config.gpi'
+load 'gnuplot-palettes/orrd.pal'
+
+set output 'components.png'
+set ylabel 'Time (normalized)'
+
+set yrange[0.7:1.3]
+
+array Col[10]
+Col[1] = 5
+Col[2] = 6
+Col[3] = 7
+
+array Title[10]
+Title[1] = "Hash"
+Title[2] = "Resize"
+Title[3] = "NoCheck"
+
+array Color[10]
+Color[1] = 2
+Color[2] = 5
+Color[3] = 8
+
+plot for[i=1:3] 'all.dat' \
+	using (column(Col[i]) / column(Col[3])):xtic(1) \
+	title Title[i] \
+	ls Color[i]

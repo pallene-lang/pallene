@@ -1,0 +1,15 @@
+set encoding utf8
+
+#set terminal postscript eps enhanced color font '22'
+set terminal png size 800,500 font 'Sans,14'
+
+set style data histogram
+set style histogram cluster gap 1
+set style fill solid border -1
+#set xtic font '14'
+set grid
+set key bmargin center horizontal Left reverse noenhanced autotitle columnhead nobox
+
+set xtic rotate by -30 scale 0
+set key under
+#set bmargin 6

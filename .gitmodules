@@ -1,0 +1,3 @@
+[submodule "plots/gnuplot-palettes"]
+	path = plots/gnuplot-palettes
+	url = https://github.com/Gnuplotting/gnuplot-palettes

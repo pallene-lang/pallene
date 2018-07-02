@@ -1,0 +1,30 @@
+load 'config.gpi'
+load 'gnuplot-palettes/orrd.pal'
+
+set output 'general.png'
+set ylabel 'Time (normalized)'
+
+set yrange[0:1.4]
+
+array Col[10]
+Col[1] = 2
+Col[2] = 4
+Col[3] = 3
+Col[4] = 6
+
+array Title[10]
+Title[1] = "Lua"
+Title[2] = "Lua-C API"
+Title[3] = "Luajit"
+Title[4] = "Pallene"
+
+array Color[10]
+Color[1] = 2
+Color[2] = 4
+Color[3] = 6
+Color[4] = 8
+
+plot for[i=1:4] 'all.dat' \
+	using (column(Col[i]) / column(Col[1])):xtic(1) \
+	title Title[i] \
+	ls Color[i]
