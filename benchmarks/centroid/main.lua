@@ -6,5 +6,5 @@ for i = 1, 10000 do
     arr[i] = point.new(d, d)
 end
 
-local r = point.centroid(arr, 10000)
+local r = point.centroid(arr, 50000)
 print(r[1], r[2])

@@ -1,12 +1,15 @@
 local matmul = require(arg[1])
 
-function print_mat(A)
-    for i = 1, #A do
-        print(table.concat(A[i], " "))
-    end
-end
+--local function print_mat(A)
+--    for i = 1, #A do
+--        print(table.concat(A[i], " "))
+--    end
+--end
 
-local N = 100
+local N = 800
+--local N = 400
+--local N = 200
+--local N = 100
 
 local BIG1 = {}
 for i = 1, N do
@@ -16,10 +19,13 @@ for i = 1, N do
     end
 end
 
-BIG2 = BIG1
+local BIG2 = BIG1
 
 local C
-for i = 1, 500 do
+for _ = 1, 2 do
+--for _ = 1, 16 do
+--for _ = 1, 128 do
+--for _ = 1, 1024 do
     C = matmul.matmul(BIG1, BIG2)
 end
 print("#C", #C, #C[1])
