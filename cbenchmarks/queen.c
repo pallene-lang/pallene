@@ -56,6 +56,6 @@ void nqueens(size_t N)
 
 int main()
 {
-    nqueens(12);
+    nqueens(13);
     return 0;
 }

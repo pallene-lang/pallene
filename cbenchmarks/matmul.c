@@ -28,7 +28,7 @@ double **matmul(double **A, double**B, size_t NI, size_t NK, size_t NJ)
 
 int main()
 {
-    size_t N = 100;
+    size_t N = 800;
 
     double **A = calloc(N, sizeof(double*));
     for (size_t i = 0; i < N; i++) {
@@ -39,7 +39,7 @@ int main()
     }
 
     double **C = NULL;
-    for (int i = 0; i < 500; i++) {
+    for (int i = 0; i < 1; i++) {
         free(C);
         C = matmul(A, A, N, N, N);
     }

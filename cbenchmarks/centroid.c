@@ -39,7 +39,7 @@ int main()
         points[i] = new_point(d, d);
     }
 
-    Point *p = centroid(points, N, 10000);
+    Point *p = centroid(points, N, 50000);
     printf("%lf %lf\n", p->x, p->y);
 }
 
