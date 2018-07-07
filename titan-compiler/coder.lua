@@ -1118,12 +1118,10 @@ local function generate_lvalue_read(lvalue, ctx)
         local out = ctx:new_tvar(typ)
         local cstats = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
-            ${ARRSLOT_DECL};
-            if (TITAN_LIKELY(${UI} < ${T}->sizearray)) {
-                ${ARRSLOT} = &${T}->array[${UI}];
-            } else {
-                ${ARRSLOT} = luaH_getint(${T}, ${I});
+            if (TITAN_UNLIKELY(${UI} >= ${T}->sizearray)) {
+                titan_renormalize_array(L, ${T}, ${UI}, ${LINE});
             }
+            ${ARRSLOT_DECL} = &${T}->array[${UI}];
             if (TITAN_UNLIKELY(!${CHECK_TAG})) {
                 titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
             }
@@ -1193,29 +1191,22 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         local typ = lvalue.var._type
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
         local slot = ctx:new_cvar("TValue *", "slot")
-        local k = ctx:new_cvar("TValue")
         local out = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
-            ${SLOT_DECL};
-            if (TITAN_LIKELY(${UI} < ${T}->sizearray)) {
-                ${SLOT} = &${T}->array[${UI}];
-            } else {
-                ${K_DECL};
-                setivalue(&${K}, ${UI}+1);
-                ${SLOT} = luaH_newkey(L, ${T}, &${K});
+            if (TITAN_UNLIKELY(${UI} >= ${T}->sizearray)) {
+                titan_renormalize_array(L, ${T}, ${UI}, ${LINE});
             }
+            ${SLOT_DECL} = &${T}->array[${UI}];
             ${SET_SLOT}
         ]], {
             T = lvalue.t_varname,
             I = lvalue.i_varname,
             UI = ui.name,
             UI_DECL = c_declaration(ui),
-            SLOT = slot.name,
             SLOT_DECL = c_declaration(slot),
-            K = k.name,
-            K_DECL = c_declaration(k),
             SET_SLOT = set_heap_slot(
                 typ, slot.name, exp_cvalue, lvalue.t_varname),
+            LINE = lvalue.var.loc.line,
         })
         return out
 
@@ -1612,20 +1603,15 @@ local function generate_exp_builtin_table_insert(exp, ctx)
     local cstats_v, cvalue_v = generate_exp(args[2], ctx)
     local ui = ctx:new_cvar("lua_Unsigned", "ui")
     local slot = ctx:new_cvar("TValue *", "slot")
-    local k = ctx:new_cvar("TValue")
     --local cond_gc = gc_cond_gc(ctx) --TODO
     local cstats = util.render([[
         ${CSTATS_T}
         ${CSTATS_V}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
-        ${SLOT_DECL};
-        if (TITAN_LIKELY(${UI} < ${CVALUE_T}->sizearray)) {
-            ${SLOT} = &${CVALUE_T}->array[${UI}];
-        } else {
-            ${K_DECL};
-            setivalue(&${K}, ${UI}+1);
-            ${SLOT} = luaH_newkey(L, ${CVALUE_T}, &${K});
+        if (TITAN_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
+            titan_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
         }
+        ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
         ${SET_SLOT}
     ]], {
         CSTATS_T = cstats_t,
@@ -1634,10 +1620,8 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         CVALUE_V = cvalue_v,
         UI = ui.name,
         UI_DECL = c_declaration(ui),
-        SLOT = slot.name,
+        LINE = exp.loc.line,
         SLOT_DECL = c_declaration(slot),
-        K = k.name,
-        K_DECL = c_declaration(k),
         SET_SLOT = set_heap_slot(args[2]._type, slot.name, cvalue_v, cvalue_t),
     })
     return cstats, "VOID"
@@ -1648,19 +1632,16 @@ local function generate_exp_builtin_table_remove(exp, ctx)
     assert(#args == 1)
     local cstats_t, cvalue_t = generate_exp(args[1])
     local ui = ctx:new_cvar("lua_Unsigned", "ui")
-    local halfsize = ctx:new_cvar("lua_Unsigned", "halfsize")
     local slot = ctx:new_cvar("TValue *", "slot")
     local cstats = util.render([[
         ${CSTATS_T}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
         if (TITAN_LIKELY(${UI} > 0)) {
             ${UI} = ${UI} - 1;
-            ${SLOT_DECL};
-            if (TITAN_LIKELY(${UI} < ${CVALUE_T}->sizearray)) {
-                ${SLOT} = &${CVALUE_T}->array[${UI}];
-            } else {
-                ${SLOT} = (TValue *) luaH_getint(${CVALUE_T}, ${UI});
+            if (TITAN_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
+                titan_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
             }
+            ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
             setempty(${SLOT});
         }
     ]], {
@@ -1668,9 +1649,8 @@ local function generate_exp_builtin_table_remove(exp, ctx)
         CVALUE_T = cvalue_t,
         UI = ui.name,
         UI_DECL = c_declaration(ui),
-        HALFSIZE = halfsize.name,
-        HALFSIZE_DECL = c_declaration(halfsize),
         SLOT = slot.name,
+        LINE = exp.loc.line,
         SLOT_DECL = c_declaration(slot),
     })
     return cstats, "VOID"

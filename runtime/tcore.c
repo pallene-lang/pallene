@@ -7,6 +7,7 @@
 #include "lstate.h"
 #include "lstring.h"
 #include "ltm.h"
+#include "ltable.h"
 
 #include <string.h>
 
@@ -130,4 +131,17 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
         copy_strings_to_buffer(buff, n, ss);
         return out_str;
     }
+}
+
+void titan_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
+{
+    if (i > INT_MAX) {
+        luaL_error(L, "out of bounds at line %d", line);
+    }
+    /* TODO: review initial value */
+    unsigned int newsize = 16;
+    while (newsize <= i) {
+        newsize *= 2;
+    }
+    luaH_resizearray(L, arr, newsize);
 }

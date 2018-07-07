@@ -6,6 +6,12 @@ local lfs = require "lfs"
 
 local util = require "titan-compiler.util"
 
+local p = argparse(arg[0], "Titan benchmarks")
+p:argument("test_dir", "Only benchmark a specific directory"):args("?")
+p:flag("--no-lua", "Do not run the (slow) lua benchmark")
+p:option("--sort", "Sort by name or result"):count("0-1")
+local args = p:parse()
+
 -- run the command a single time and return the time elapsed
 local function time(cmd)
     local t = chronos.nanotime()
@@ -48,7 +54,7 @@ local function compile(ext, file_name)
     end
 end
 
-local function benchmark(test_dir, no_lua)
+local function benchmark(test_dir)
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
         local _, ext = util.split_ext(file_name)
@@ -76,7 +82,7 @@ local function benchmark(test_dir, no_lua)
             lua = "lua/src/lua"
         end
 
-        if not (ext == "lua" and lua == "lua/src/lua" and no_lua) then
+        if not (ext == "lua" and lua == "lua/src/lua" and args.no_lua) then
             local result = measure(lua, test_dir, name)
             table.insert(results, {name = name, result = result})
         end
@@ -98,34 +104,40 @@ local function benchmark(test_dir, no_lua)
         table.insert(results, {name = "luajit", result = result})
     end
 
-    table.sort(results, function(r1, r2) return r1.name < r2.name end)
+    local worst = 0
     for _, r in ipairs(results) do
-        print(string.format("%-16s%.3f", r.name, r.result))
+        worst = math.max(worst, r.result)
+    end
+    local sort_func
+    if args.sort == "result" then
+        sort_func = function(r1, r2) return r1.result > r2.result end
+    else
+        sort_func = function(r1, r2) return r1.name < r2.name end
+    end
+    table.sort(results, sort_func)
+    for _, r in ipairs(results) do
+        local percent = r.result / worst
+        print(string.format("%-40s%-20.3f%-20.3f", r.name, r.result, percent))
     end
     print("----------")
 end
 
-local function run_all_benchmarks(no_lua)
+local function run_all_benchmarks()
     for test in lfs.dir("benchmarks") do
         if not string.find(test, "^%.") then
             local test_dir = "benchmarks/" .. test
-            benchmark(test_dir, no_lua)
+            benchmark(test_dir)
         end
     end
 end
 
 --
+-- main
 --
---
-
-local p = argparse(arg[0], "Titan benchmarks")
-p:argument("test_dir", "Only benchmark a specific directory"):args("?")
-p:flag("--no-lua", "Do not run the (slow) lua benchmark")
-local args = p:parse()
 
 if args.test_dir then
     local test_dir = string.gsub(args.test_dir, "/*$", "")
-    benchmark(test_dir, args.no_lua)
+    benchmark(test_dir)
 else
-    run_all_benchmarks(args.no_lua)
+    run_all_benchmarks()
 end
