@@ -30,7 +30,7 @@ local function measure(lua, test_dir, name)
     local cmd = string.format([[%s %s/main.lua %s]], lua, test_dir, test_name)
     print("running", cmd)
     local results = {}
-    for i = 1, 3 do
+    for i = 1, 5 do
         table.insert(results, time(cmd))
     end
     return min(results)

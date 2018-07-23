@@ -6,7 +6,7 @@ function print_mat(A)
     end
 end
 
-local N = 300
+local N = 600
 
 local BIG1 = {}
 for i = 1, N do
