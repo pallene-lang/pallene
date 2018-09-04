@@ -93,6 +93,49 @@ local function coerce_numeric_exp_to_float(exp)
     end
 end
 
+-- Does this statement always call "return"?
+--
+-- In the future I would like to get rid of the function, and make it a part of
+-- live-variable analysis. (A possibly-uninitialized "return variable" signifies
+-- a missing return statement.)
+local function stat_always_returns(stat)
+    local tag = stat._tag
+    if     tag  == ast.Stat.Decl then
+        return false
+    elseif tag == ast.Stat.Block then
+        for _, inner_stat in ipairs(stat.stats) do
+            if stat_always_returns(inner_stat) then
+                return true
+            end
+        end
+        return false
+    elseif tag == ast.Stat.While then
+        return false
+    elseif tag == ast.Stat.Repeat then
+        return false
+    elseif tag == ast.Stat.For then
+        return false
+    elseif tag == ast.Stat.Assign then
+        return false
+    elseif tag == ast.Stat.Call  then
+        return false
+    elseif tag == ast.Stat.Return then
+        return true
+    elseif tag == ast.Stat.If then
+        for _, thn in ipairs(stat.thens) do
+            if not stat_always_returns(thn.block) then
+                return false
+            end
+        end
+        if not stat.elsestat or not stat_always_returns(stat.elsestat) then
+            return false
+        end
+        return true
+    else
+        error("impossible")
+    end
+end
+
 --
 -- check
 --
@@ -202,8 +245,11 @@ check_toplevel = function(tl_node, errors)
         end
         tl_node._type = types.T.Function(ptypes, rettypes)
 
-        local ret = check_stat(tl_node.block, errors, rettypes)
-        if not ret and #tl_node._type.rettypes > 0 then
+        check_stat(tl_node.block, errors, rettypes)
+
+        if #tl_node._type.rettypes > 0 and
+           not stat_always_returns(tl_node.block)
+        then
             type_error(errors, tl_node.loc,
                 "control reaches end of function with non-empty return type")
         end
@@ -239,21 +285,17 @@ check_stat = function(stat, errors, rettypes)
         end
         checkmatch("declaration of local variable " .. stat.decl.name,
             stat.decl._type, stat.exp._type, errors, stat.decl.loc)
-        return false
 
     elseif tag == ast.Stat.Block then
-        local ret = false
         for _, inner_stat in ipairs(stat.stats) do
-            ret = ret or check_stat(inner_stat, errors, rettypes)
+            check_stat(inner_stat, errors, rettypes)
         end
-        return ret
 
     elseif tag == ast.Stat.While then
         check_exp(stat.condition, errors, false)
         checkmatch("while statement condition",
             types.T.Boolean(), stat.condition._type, errors, stat.condition.loc)
         check_stat(stat.block, errors, rettypes)
-        return false
 
     elseif tag == ast.Stat.Repeat then
         for _, inner_stat in ipairs(stat.block.stats) do
@@ -262,7 +304,6 @@ check_stat = function(stat, errors, rettypes)
         check_exp(stat.condition, errors, false)
         checkmatch("repeat statement condition",
             types.T.Boolean(), stat.condition._type, errors, stat.condition.loc)
-        return false
 
     elseif tag == ast.Stat.For then
         if stat.decl.type then
@@ -310,7 +351,6 @@ check_stat = function(stat, errors, rettypes)
         end
 
         check_stat(stat.block, errors, rettypes)
-        return false
 
     elseif tag == ast.Stat.Assign then
         check_var(stat.var, errors)
@@ -323,11 +363,9 @@ check_stat = function(stat, errors, rettypes)
                 "attempting to assign to toplevel constant function %s",
                 stat.var.name)
         end
-        return false
 
     elseif tag == ast.Stat.Call then
         check_exp(stat.callexp, errors, false)
-        return false
 
     elseif tag == ast.Stat.Return then
         assert(#rettypes <= 1)
@@ -343,22 +381,17 @@ check_stat = function(stat, errors, rettypes)
                 checkmatch("return statement", rettype, exp._type, errors, exp.loc)
             end
         end
-        return true
 
     elseif tag == ast.Stat.If then
-        local ret = true
         for _, thn in ipairs(stat.thens) do
             check_exp(thn.condition, errors, false)
             checkmatch("if statement condition",
                 types.T.Boolean(), thn.condition._type, errors, thn.loc)
-            ret = check_stat(thn.block, errors, rettypes) and ret
+            check_stat(thn.block, errors, rettypes)
         end
         if stat.elsestat then
-            ret = check_stat(stat.elsestat, errors, rettypes) and ret
-        else
-            ret = false
+            check_stat(stat.elsestat, errors, rettypes)
         end
-        return ret
 
     else
         error("impossible")
