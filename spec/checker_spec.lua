@@ -407,13 +407,11 @@ describe("Titan type checker", function()
         local prog, errors = run_checker([[
             record Point
                 x: float
-                y: float
             end
             local p: Point = { }
         ]])
         assert.falsy(prog)
         assert.matches("required field x is missing", errors)
-        assert.matches("required field y is missing", errors)
     end)
 
     it("forbids type hints that are not array or records", function()
@@ -579,7 +577,7 @@ describe("Titan type checker", function()
         local code = [[
             function fn(x: integer): integer
                 local i: integer = 15
-                while i do
+                while i > 0 do
                     local s: string = i
                 end
                 return x
@@ -1263,14 +1261,17 @@ describe("Titan type checker", function()
 
     it("catches assignment to function", function ()
         local code = [[
-            function foo(): integer
-                foo = 2
+            function f()
+            end
+
+            function g()
+                f = g
             end
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
         assert.match(
-            "attempting to assign to toplevel constant function foo",
+            "attempting to assign to toplevel constant function f",
             errs, nil, true)
     end)
 
