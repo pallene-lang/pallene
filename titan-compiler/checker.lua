@@ -181,7 +181,7 @@ check_toplevel = function(tl_node, errors)
             checkmatch("declaration of module variable " .. tl_node.decl.name,
                        tl_node._type, tl_node.value._type, errors, tl_node.loc)
         else
-            check_exp(tl_node.value, errors, nil)
+            check_exp(tl_node.value, errors, false)
             tl_node._type = tl_node.value._type
         end
 
@@ -233,7 +233,7 @@ check_stat = function(stat, errors, rettypes)
             check_decl(stat.decl, errors)
             check_exp(stat.exp, errors, stat.decl._type)
         else
-            check_exp(stat.exp, errors, nil)
+            check_exp(stat.exp, errors, false)
             stat.decl._type = stat.exp._type
             check_decl(stat.decl, errors)
         end
@@ -249,7 +249,7 @@ check_stat = function(stat, errors, rettypes)
         return ret
 
     elseif tag == ast.Stat.While then
-        check_exp(stat.condition, errors, nil)
+        check_exp(stat.condition, errors, false)
         checkmatch("while statement condition",
             types.T.Boolean(), stat.condition._type, errors, stat.condition.loc)
         check_stat(stat.block, errors, rettypes)
@@ -259,7 +259,7 @@ check_stat = function(stat, errors, rettypes)
         for _, inner_stat in ipairs(stat.block.stats) do
             check_stat(inner_stat, errors, rettypes)
         end
-        check_exp(stat.condition, errors, nil)
+        check_exp(stat.condition, errors, false)
         checkmatch("repeat statement condition",
             types.T.Boolean(), stat.condition._type, errors, stat.condition.loc)
         return false
@@ -267,7 +267,10 @@ check_stat = function(stat, errors, rettypes)
     elseif tag == ast.Stat.For then
         if stat.decl.type then
             check_decl(stat.decl, errors)
+        else
+            stat.decl._type =  false
         end
+
         check_exp(stat.start, errors, stat.decl._type)
         check_exp(stat.finish, errors, stat.decl._type)
         if stat.inc then
@@ -323,7 +326,7 @@ check_stat = function(stat, errors, rettypes)
         return false
 
     elseif tag == ast.Stat.Call then
-        check_exp(stat.callexp, errors, nil)
+        check_exp(stat.callexp, errors, false)
         return false
 
     elseif tag == ast.Stat.Return then
@@ -345,7 +348,7 @@ check_stat = function(stat, errors, rettypes)
     elseif tag == ast.Stat.If then
         local ret = true
         for _, thn in ipairs(stat.thens) do
-            check_exp(thn.condition, errors, nil)
+            check_exp(thn.condition, errors, false)
             checkmatch("if statement condition",
                 types.T.Boolean(), thn.condition._type, errors, thn.loc)
             ret = check_stat(thn.block, errors, rettypes) and ret
@@ -378,7 +381,7 @@ check_var = function(var, errors)
         end
 
     elseif tag == ast.Var.Dot then
-        check_exp(var.exp, errors, nil)
+        check_exp(var.exp, errors, false)
         local exptype = var.exp._type
         if exptype._tag == types.T.Record then
             local field_type = exptype.type_decl._field_types[var.name]
@@ -398,7 +401,7 @@ check_var = function(var, errors)
         end
 
     elseif tag == ast.Var.Bracket then
-        check_exp(var.exp1, errors, nil)
+        check_exp(var.exp1, errors, false)
         if var.exp1._type._tag ~= types.T.Array then
             type_error(errors, var.exp1.loc,
                 "array expression in indexing is not an array but %s",
@@ -407,7 +410,7 @@ check_var = function(var, errors)
         else
             var._type = var.exp1._type.elem
         end
-        check_exp(var.exp2, errors, nil)
+        check_exp(var.exp2, errors, false)
         checkmatch("array indexing", types.T.Integer(), var.exp2._type, errors, var.exp2.loc)
 
     else
@@ -415,19 +418,21 @@ check_var = function(var, errors)
     end
 end
 
-local function check_exp_callfunc_builtin(exp, errors)
+local function check_exp_callfunc_builtin(exp, errors, _typehint)
+    assert(_typehint ~= nil)
+
     local fexp = exp.exp
     local args = exp.args
     local builtin_name = fexp._type.builtin_decl.name
     if builtin_name == "io.write" then
         check_arity("io.write arguments", 1, #args, errors, exp.loc)
-        check_exp(args[1], errors, nil)
+        check_exp(args[1], errors, false)
         checkmatch("io.write argument",
             types.T.String(), args[1]._type, errors, args[1].loc)
         exp._type = types.T.Void()
     elseif builtin_name == "table.insert" then
         check_arity("table.insert arguments", 2, #args, errors, exp.loc)
-        check_exp(args[1], errors, nil)
+        check_exp(args[1], errors, false)
         check_is_array("table.insert first argument",
             args[1]._type, errors, args[1].loc)
         local elem_type = args[1]._type.elem
@@ -437,7 +442,7 @@ local function check_exp_callfunc_builtin(exp, errors)
         exp._type = types.T.Void()
     elseif builtin_name == "table.remove" then
         check_arity("table.insert arguments", 1, #args, errors, exp.loc)
-        check_exp(args[1], errors, nil)
+        check_exp(args[1], errors, false)
         check_is_array("table.insert first argument",
             args[1]._type, errors, args[1].loc)
         exp._type = types.T.Void()
@@ -448,6 +453,8 @@ end
 
 -- @param typehint Expected type; Used to infer polymorphic/record constructors.
 check_exp = function(exp, errors, typehint)
+    assert(typehint  ~= nil)
+
     local tag = exp._tag
     if     tag == ast.Exp.Nil then
         exp._type = types.T.Nil()
@@ -534,7 +541,7 @@ check_exp = function(exp, errors, typehint)
         exp._type = exp.var._type
 
     elseif tag == ast.Exp.Unop then
-        check_exp(exp.exp, errors, nil)
+        check_exp(exp.exp, errors, false)
         local op = exp.op
         if op == "#" then
             if exp.exp._type._tag ~= types.T.Array and exp.exp._type._tag ~= types.T.String then
@@ -571,7 +578,7 @@ check_exp = function(exp, errors, typehint)
 
     elseif tag == ast.Exp.Concat then
         for _, inner_exp in ipairs(exp.exps) do
-            check_exp(inner_exp, errors, nil)
+            check_exp(inner_exp, errors, false)
             local texp = inner_exp._type
             if texp._tag ~= types.T.String then
                 type_error(errors, inner_exp.loc,
@@ -581,8 +588,8 @@ check_exp = function(exp, errors, typehint)
         exp._type = types.T.String()
 
     elseif tag == ast.Exp.Binop then
-        check_exp(exp.lhs, errors, nil)
-        check_exp(exp.rhs, errors, nil)
+        check_exp(exp.lhs, errors, false)
+        check_exp(exp.rhs, errors, false)
         local op = exp.op
         if op == "==" or op == "~=" then
             if (exp.lhs._type._tag == types.T.Integer and exp.rhs._type._tag == types.T.Float) or
@@ -688,7 +695,7 @@ check_exp = function(exp, errors, typehint)
         local fexp = exp.exp
         local args = exp.args
 
-        check_exp(fexp, errors, nil)
+        check_exp(fexp, errors, false)
         local ftype = fexp._type
 
         if ftype._tag == types.T.Function then
@@ -712,7 +719,7 @@ check_exp = function(exp, errors, typehint)
                 exp._type = types.T.Void()
             end
         elseif ftype._tag == types.T.Builtin then
-            check_exp_callfunc_builtin(exp, errors, nil)
+            check_exp_callfunc_builtin(exp, errors, false)
         else
             type_error(errors, exp.loc,
                 "attempting to call a %s value",
