@@ -328,7 +328,7 @@ check_stat = function(stat, rettypes)
         if stat.decl.type then
             check_decl(stat.decl)
         else
-            stat.decl._type =  false
+            stat.decl._type = false
         end
 
         check_exp(stat.start, stat.decl._type)
@@ -340,34 +340,28 @@ check_stat = function(stat, rettypes)
             stat.decl._type = stat.start._type
         end
 
-        local loop_type_is_valid
         if     stat.decl._type._tag == types.T.Integer then
-            loop_type_is_valid = true
             if not stat.inc then
                 stat.inc = ast.Exp.Integer(stat.finish.loc, 1)
                 stat.inc._type = types.T.Integer()
             end
         elseif stat.decl._type._tag == types.T.Float then
-            loop_type_is_valid = true
             if not stat.inc then
                 stat.inc = ast.Exp.Float(stat.finish.loc, 1.0)
                 stat.inc._type = types.T.Float()
             end
         else
-            loop_type_is_valid = false
             type_error(stat.decl.loc,
                 "type of for control variable %s must be integer or float",
                 stat.decl.name)
         end
 
-        if loop_type_is_valid then
-            checkmatch("'for' start expression",
-                stat.decl._type, stat.start._type, stat.start.loc)
-            checkmatch("'for' finish expression",
-                stat.decl._type, stat.finish._type, stat.finish.loc)
-            checkmatch("'for' step expression",
-                stat.decl._type, stat.inc._type, stat.inc.loc)
-        end
+        checkmatch("'for' start expression",
+            stat.decl._type, stat.start._type, stat.start.loc)
+        checkmatch("'for' finish expression",
+            stat.decl._type, stat.finish._type, stat.finish.loc)
+        checkmatch("'for' step expression",
+            stat.decl._type, stat.inc._type, stat.inc.loc)
 
         check_stat(stat.block, rettypes)
 
@@ -392,13 +386,13 @@ check_stat = function(stat, rettypes)
             type_error(stat.loc,
                 "returning %d value(s) but function expects %s",
                 #stat.exps, #rettypes)
-        else
-            for i = 1, #stat.exps do
-                local exp = stat.exps[i]
-                local rettype = rettypes[i]
-                check_exp(exp, rettype)
-                checkmatch("return statement", rettype, exp._type, exp.loc)
-            end
+        end
+
+        for i = 1, #stat.exps do
+            local exp = stat.exps[i]
+            local rettype = rettypes[i]
+            check_exp(exp, rettype)
+            checkmatch("return statement", rettype, exp._type, exp.loc)
         end
 
     elseif tag == ast.Stat.If then
@@ -455,9 +449,8 @@ check_var = function(var)
             type_error(var.exp1.loc,
                 "array expression in indexing is not an array but %s",
                 types.tostring(var.exp1._type))
-        else
-            var._type = var.exp1._type.elem
         end
+        var._type = var.exp1._type.elem
         check_exp(var.exp2, false)
         checkmatch("array indexing", types.T.Integer(), var.exp2._type, var.exp2.loc)
 
@@ -536,38 +529,37 @@ check_exp = function(exp, typehint)
                     type_error(field.loc,
                         "named field %s in array initializer",
                         field.name)
-                else
-                    local field_type = typehint.elem
-                    check_exp(field.exp, field_type)
-                    checkmatch("array initializer",
-                        field_type, field.exp._type, field.loc)
                 end
+                local field_type = typehint.elem
+                check_exp(field.exp, field_type)
+                checkmatch("array initializer",
+                    field_type, field.exp._type, field.loc)
             end
 
         elseif typehint._tag == types.T.Record then
             local initialized_fields = {}
             for _, field in ipairs(exp.fields) do
-                if field.name then
-                    if initialized_fields[field.name] then
-                        type_error(field.loc,
-                            "duplicate field %s in record initializer",
-                            field.name)
-                    end
-                    initialized_fields[field.name] = true
-
-                    local field_type = typehint.type_decl._field_types[field.name]
-                    if field_type then
-                        check_exp(field.exp, field_type)
-                        checkmatch("record initializer",
-                            field_type, field.exp._type, field.loc)
-                    else
-                        type_error(field.loc,
-                            "invalid field %s in record initializer for %s",
-                            field.name, typehint.type_decl.name)
-                    end
-                else
+                if not field.name then
                     type_error(field.loc,
                         "record initializer has array part")
+                end
+
+                if initialized_fields[field.name] then
+                    type_error(field.loc,
+                        "duplicate field %s in record initializer",
+                        field.name)
+                end
+                initialized_fields[field.name] = true
+
+                local field_type = typehint.type_decl._field_types[field.name]
+                if field_type then
+                    check_exp(field.exp, field_type)
+                    checkmatch("record initializer",
+                        field_type, field.exp._type, field.loc)
+                else
+                    type_error(field.loc,
+                        "invalid field %s in record initializer for %s",
+                        field.name, typehint.type_decl.name)
                 end
             end
 
@@ -614,7 +606,7 @@ check_exp = function(exp, typehint)
             exp._type = types.T.Integer()
         elseif op == "not" then
             if exp.exp._type._tag ~= types.T.Boolean then
-                -- Titan is being intentionaly restrictive here
+                -- We are being intentionaly restrictive here w.r.t Lua
                 type_error(exp.loc,
                     "trying to boolean negate a %s instead of a boolean",
                     types.tostring(exp.exp._type))
@@ -645,7 +637,8 @@ check_exp = function(exp, typehint)
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
-            elseif not types.equals(exp.lhs._type, exp.rhs._type) then
+            end
+            if not types.equals(exp.lhs._type, exp.rhs._type) then
                 type_error(exp.loc,
                     "cannot compare %s and %s with %s",
                     types.tostring(exp.lhs._type), types.tostring(exp.rhs._type), op)
