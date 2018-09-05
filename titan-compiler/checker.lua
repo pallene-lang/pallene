@@ -148,7 +148,7 @@ end
 --
 
 typecheck = function(prog)
-    local ok, err = pcall(check_program, prog)
+    local ok, err = xpcall(check_program, debug.traceback, prog)
     if ok then
         return prog, {} -- TODO:  no {}
     else
