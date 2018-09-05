@@ -683,12 +683,12 @@ check_exp = function(exp, errors, typehint)
                 exp.rhs = coerce_numeric_exp_to_float(exp.rhs)
                 exp._type = types.T.Float()
             else
-                if not is_numeric_type(exp.lhs._type._tag) then
+                if not is_numeric_type(exp.lhs._type) then
                     type_error(errors, exp.loc,
                         "left hand side of arithmetic expression is a %s instead of a number",
                         types.tostring(exp.lhs._type))
                 end
-                if not is_numeric_type(exp.rhs._type._tag) then
+                if not is_numeric_type(exp.rhs._type) then
                     type_error(errors, exp.loc,
                         "right hand side of arithmetic expression is a %s instead of a number",
                         types.tostring(exp.rhs._type))

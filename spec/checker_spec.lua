@@ -1194,6 +1194,38 @@ describe("Titan type checker", function()
         end
     end
 
+    for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot use arithmetic operator " .. op .. " when left hand side is not a  number", function()
+                local code = [[
+                    function fn(a: ]] .. t .. [[, b: float): float
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local prog, errs = run_checker(code)
+                assert.falsy(prog)
+                assert.match("left hand side of arithmetic expression is a", errs)
+            end)
+        end
+    end
+
+    for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
+        for _, t in ipairs({"{integer}", "boolean", "string"}) do
+            it("cannot use arithmetic operator " .. op .. " when right hand side is not integer", function()
+                local code = [[
+                    function fn(a: float, b: ]] .. t .. [[): float
+                        return a ]] .. op .. [[ b
+                    end
+                ]]
+                local prog, errs = run_checker(code)
+                assert.falsy(prog)
+                assert.match("right hand side of arithmetic expression is a", errs)
+            end)
+        end
+    end
+
+
+
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
             local code = [[
