@@ -180,7 +180,7 @@ check_type = function(typ, errors)
     elseif tag == ast.Type.Name then
         local decl = typ._decl
         if decl._tag == ast.Toplevel.Record then
-            return decl._type
+            return assert(decl._type)
         else
             type_error(errors, typ.loc, "'%s' isn't a type", typ.name)
             return types.T.Invalid()
