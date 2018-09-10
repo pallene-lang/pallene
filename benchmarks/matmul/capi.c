@@ -1,8 +1,6 @@
 #include <lua.h>
 #include <lauxlib.h>
 
-#include <stdio.h>
-
 inline
 static void check_nargs(lua_State *L, int expected)
 {
@@ -36,11 +34,7 @@ static int matmul(lua_State *L)
 
     // 1 = A
     // 2 = B
-    // 3 = #A; #B; B[1]; Bk
-    // 4 = #B[1]; A[i]; Bk[j]
-    // 5 = A[i][k];
-
-    lua_Number s = 0.0;
+    // 3 = C
 
     lua_len(L, 1);
     lua_Integer NI = getinteger(L, -1);
@@ -55,33 +49,61 @@ static int matmul(lua_State *L)
     lua_Integer NJ = getinteger(L, -1);
     lua_pop(L, 2);
 
+    // 4 = line
+
+    lua_newtable(L);
+    for (lua_Integer i = 1; i <= NI; i++) {
+        lua_newtable(L);
+        for (lua_Integer j = 1; j <= NJ; j++) {
+            lua_pushnumber(L, 0.0);
+            lua_seti(L, 4, j);
+        }
+        lua_seti(L, 3, i);
+    }
+
+    // 4 = B[k]
+    // 5 = A[i]
+    // 6 = A[i][k]
+    // 7 = C[i]
+    // 8 = C[i][j]
+    // 9 = B[k][j]
+    // 10 = v
     for (lua_Integer k = 1; k <= NK; k++) {
         lua_geti(L, 2, k);
         for (lua_Integer i = 1; i <= NI; i++) {
             lua_geti(L, 1, i);
-            lua_geti(L, 4, k);
-            lua_Number Aik = getnumber(L, -1);
-            lua_pop(L, 2);
+            lua_geti(L, 5, k);
+            lua_Number Aik = getnumber(L, 6);
+
+            lua_geti(L, 3, i);
             for (lua_Integer j = 1; j <= NJ; j++) {
-                lua_geti(L, 3, j);
-                lua_Number Bkj = getnumber(L, -1);
-                lua_pop(L, 1);
-                s = s + Aik * Bkj;
+                lua_geti(L, 7, j);
+                lua_Number Cij = getnumber(L, 8);
+
+                lua_geti(L, 4, j);
+                lua_Number Bkj = getnumber(L, 9);
+
+                lua_Number v = Cij + Aik * Bkj;
+                lua_pushnumber(L, v);
+                lua_seti(L, 7, j);
+
+                lua_pop(L, 2);
             }
+
+            lua_pop(L, 3);
         }
         lua_pop(L, 1);
     }
 
-    lua_pushnumber(L, s);
     return 1;
 }
 
 static luaL_Reg capi_funcs[] = {
     { "matmul", matmul },
-    { NULL, NULL },
+    { NULL, NULL}
 };
 
-int luaopen_benchmarks_matmulsum_capi(lua_State *L)
+int luaopen_benchmarks_matmul_capi(lua_State *L)
 {
     luaL_newlib(L, capi_funcs);
     return 1;

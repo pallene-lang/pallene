@@ -1,28 +1,47 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+inline
+static void check_nargs(lua_State *L, int expected)
+{
+    int nargs = lua_gettop(L);
+    if (nargs != expected) {
+        luaL_error(L, "Expected %d arguments, got %d", expected, nargs);
+    }
+}
+
+inline
+static lua_Integer getinteger(lua_State *L, int slot)
+{
+    int isnum;
+    lua_Integer out = lua_tointegerx(L, slot, &isnum);
+    if (!isnum) { luaL_error(L, "impossible"); }
+    return out;
+}
+
+inline
+static lua_Number getnumber(lua_State *L, int slot)
+{
+    int isnum;
+    lua_Number out = lua_tonumberx(L, slot, &isnum);
+    if (!isnum) { luaL_error(L, "impossible"); }
+    return out;
+}
+
 static int binsearch (lua_State *L)
 {
+    check_nargs(L, 2);
+
     // 1 = t
     // 2 = x
     // 3 = #t; t[mid]
-    
-    lua_Integer x;
-    {
-        int isint;
-        x = lua_tointegerx(L, 2, &isint);
-        if (!isint) { luaL_error(L, "x is not integer"); }
-    }
-    
+
+    lua_Integer x = getinteger(L, 2);
+
     lua_Integer lo = 1;
 
     lua_len(L, 1);
-    lua_Integer hi;
-    {
-        int isint;
-        hi = lua_tointegerx(L, 3, &isint);
-        if (!isint) { luaL_error(L, "impossible"); }
-    }
+    lua_Integer hi = getinteger(L, 3);
     lua_pop(L, 1);
 
     lua_Integer steps = 0;
@@ -32,12 +51,7 @@ static int binsearch (lua_State *L)
         steps = steps + 1;
 
         lua_geti(L, 1, mid);
-        lua_Integer tmid;
-        {
-            int isint;
-            tmid = lua_tointegerx(L, 3, &isint);
-            if (!isint) { luaL_error(L, "t[mid] is not an integer"); }
-        }
+        lua_Integer tmid = getinteger(L, 3);
         lua_pop(L, 1);
 
         if (x == tmid) {
@@ -56,6 +70,8 @@ end:
 
 static int test (lua_State *L)
 {
+    check_nargs(L, 1);
+
     // 1 = t
     // 2 = binsearch
     // 3 = binsearch
@@ -70,13 +86,8 @@ static int test (lua_State *L)
         lua_pushvalue(L, 1);
         lua_pushinteger(L, i);
         lua_call(L, 2, 1);
-        
-        lua_Integer res;
-        {
-            int isint;
-            res = lua_tointegerx(L, 3, &isint);
-            if (!isint) { luaL_error(L, "binserach(t, i) is not an integer"); }
-        }
+
+        lua_Integer res = getinteger(L, 3);
         lua_pop(L, 1);
 
         if (res != 22) {
@@ -93,6 +104,7 @@ static int test (lua_State *L)
 static luaL_Reg capi_funcs[] = {
     { "binsearch", binsearch },
     { "test", test },
+    { NULL, NULL }
 };
 
 int luaopen_benchmarks_binsearch_capi(lua_State *L)

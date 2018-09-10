@@ -1,12 +1,10 @@
-local matmul = {}
-
-function matmul.matmul(A, B)
-    local C = {}
+function matmul(A: {{float}}, B:{{float}}): {{float}}
+    local C : {{float}} = {}
     local NI = #A
     local NK = #B
     local NJ = #B[1]
     for i = 1, NI do
-        local line = {}
+        local line: {float} = {}
         for j = 1, NJ do
             line[j] = 0.0
         end
@@ -24,5 +22,3 @@ function matmul.matmul(A, B)
     end
     return C
 end
-
-return matmul
