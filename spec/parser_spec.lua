@@ -1,5 +1,5 @@
 local ast = require 'titan-compiler.ast'
-local parser = require 'titan-compiler.parser'
+local driver = require 'titan-compiler.driver'
 local util = require 'titan-compiler.util'
 
 --
@@ -34,8 +34,13 @@ end
 -- Assertions for full programs
 --
 
+local function parse(program_str)
+    assert(util.set_file_contents("test.titan", program_str))
+    return driver.test_ast("parser", "test.titan")
+end
+
 local function assert_parses_successfuly(program_str)
-    local ast, errors = parser.parse("(parser_spec)", program_str)
+    local ast, errors = parse(program_str)
     if not ast then
         error(string.format("Unexpected Titan syntax error: %s", errors[1]))
     end
@@ -48,7 +53,7 @@ local function assert_program_ast(program_str, expected_ast)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
-    local ast, errors = parser.parse("(parser_spec)", program_str)
+    local ast, errors = parse(program_str)
     if ast then
         error(string.format(
             "Expected Titan syntax error %s but parsed successfuly",
@@ -133,6 +138,10 @@ end
 
 describe("Titan parser", function()
     assert:set_parameter("TableFormatLevel", -1)
+
+    teardown(function()
+        os.remove("test.titan")
+    end)
 
     it("can parse programs starting with whitespace or comments", function()
         -- (This is easy to get wrong in hand-written LPeg grammars)

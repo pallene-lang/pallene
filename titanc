@@ -2,7 +2,7 @@
 
 local argparse = require "argparse"
 
-local c_compiler = require "titan-compiler.c_compiler"
+local driver = require "titan-compiler.driver"
 local util = require "titan-compiler.util"
 
 local p = argparse("titanc", "Titan compiler")
@@ -19,65 +19,12 @@ local function titanc_abort(msg)
     return util.abort(titanc_err_prefix .. msg)
 end
 
-local function check_source_filename(expected_ext)
-    local name, ext = util.split_ext(args.source_file)
-    if ext ~= expected_ext then
-        titanc_abort(string.format(
-            "filename should have a .%s extension", expected_ext))
-    end
-    if not string.match(name, "^[a-zA-Z0-9_/]+$") then
-        titanc_abort("filename must not include special characters")
-    end
-    return name
-end
-
-local function get_source_file_contents()
-    local input, err = util.get_file_contents(args.source_file)
-    if not input then
-        titanc_abort(err)
-    end
-    return input
-end
-
-local function titanc_call(f, ...)
-    local ok, errs = f(...)
+local function compile(in_ext, out_ext)
+    local ok, errs = driver.compile(in_ext, out_ext, args.source_file)
     if not ok then
-        util.abort(table.concat(errs, "\n"))
+        -- TODO: Distinguish errors with source file from errors without
+        titanc_abort(table.concat(errs, "\n"))
     end
-end
-
---
---
---
-
-local function compile_titan_to_so()
-    local name = check_source_filename("titan")
-    local so_filename = name .. ".so"
-    local input = get_source_file_contents()
-    titanc_call(c_compiler.compile_titan_to_so,
-        args.source_file, input, so_filename)
-end
-
-local function compile_titan_to_c()
-    local name = check_source_filename("titan")
-    local c_filename = name .. ".c"
-    local input = get_source_file_contents()
-    titanc_call(c_compiler.compile_titan_to_c,
-        args.source_file, input, c_filename)
-end
-
-local function compile_c_to_asm()
-    local name = check_source_filename("c")
-    local s_filename = name .. ".s"
-    titanc_call(c_compiler.compile_c_to_asm,
-        args.source_file, s_filename)
-end
-
-local function compile_c_to_so()
-    local name = check_source_filename("c")
-    local so_filename = name .. ".so"
-    titanc_call(c_compiler.compile_c_to_so,
-        args.source_file, so_filename)
 end
 
 local flags = {}
@@ -91,10 +38,10 @@ if #flags >= 2 then
     titanc_abort(msg)
 end
 
-if     #flags == 0    then compile_titan_to_so() -- Default case
-elseif args.emit_c    then compile_titan_to_c()
-elseif args.emit_asm  then compile_c_to_asm()
-elseif args.compile_c then compile_c_to_so()
+if     #flags == 0    then compile("titan", "so")
+elseif args.emit_c    then compile("titan", "c")
+elseif args.emit_asm  then compile("c",     "s")
+elseif args.compile_c then compile("c" ,    "so")
 else
     error("impossible")
 end

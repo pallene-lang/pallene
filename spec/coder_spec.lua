@@ -1,10 +1,11 @@
-local c_compiler = require "titan-compiler.c_compiler"
+local driver = require "titan-compiler.driver"
 local util = require "titan-compiler.util"
 
 local function compile(titan_code)
     return function()
+        assert(util.set_file_contents("test.titan", titan_code))
         local ok, errors =
-            c_compiler.compile_titan_to_so("test.titan", titan_code, "test.so")
+            driver.compile("titan", "so", "test.titan")
         assert(ok, errors[1])
     end
 end
@@ -22,6 +23,7 @@ local function run_test(test_script)
 end
 
 local function cleanup()
+    os.execute("rm -f test.titan")
     os.execute("rm -f test.so")
 end
 
