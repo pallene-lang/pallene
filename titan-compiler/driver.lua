@@ -36,7 +36,7 @@ local function compile_pallene_to_ast(pallene_filename, stop_after)
     if stop_after == "parser" or not ast then return ast, errs end
 
     local stop_i = step_index(ast_passes, stop_after)
-    
+
     for i = 1, stop_i do
         local pass = ast_passes[i]
         ast, errs = pass.f(ast)
@@ -83,14 +83,17 @@ local compiler_steps = {
     { name = "so",    f = false },
 }
 
-local function check_source_filename(filename, expected_ext)
+local function check_source_filename(argv0, filename, expected_ext)
     local name, ext = util.split_ext(filename)
     if ext ~= expected_ext then
-        return false, string.format(
-            "filename should have a .%s extension", expected_ext)
+        local msg = string.format("%s: %s does not have a .%s extension",
+            argv0, filename, expected_ext)
+        return false, msg
     end
     if not string.match(name, "^[a-zA-Z0-9_/]+$") then
-        return false, "filename must not include special characters"
+        local msg = string.format("%s: filename %s is non-alphanumeric",
+            argv0, filename)
+        return false, msg
     end
     return name
 end
@@ -104,12 +107,12 @@ end
 --    compile("titan", "c", "foo.titan")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)          --> outputs "foo.so"
 --
-function driver.compile(input_ext, output_ext, input_filename)
-    local basename, err = check_source_filename(input_filename, input_ext)
+function driver.compile(argv0, input_ext, output_ext, input_filename)
+    local basename, err = check_source_filename(argv0, input_filename, input_ext)
     if not basename then return false, {err} end
 
     local modname = string.gsub(basename, "/", "_")
-    
+
     local first_step = step_index(compiler_steps, input_ext)
     local last_step  = step_index(compiler_steps, output_ext)
     assert(first_step < last_step, "impossible order")
@@ -140,7 +143,7 @@ end
 -- This is meant for unit tests.
 --
 function driver.test_ast(stop_after, input_filename)
-    local basename, err = check_source_filename(input_filename, "titan")
+    local basename, err = check_source_filename("titanc test", input_filename, "titan")
     if not basename then return false, {err} end
 
     return compile_pallene_to_ast(input_filename, stop_after)
