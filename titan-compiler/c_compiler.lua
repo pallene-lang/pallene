@@ -51,7 +51,7 @@ local function link_obj(o_filename, so_filename)
 end
 
 function c_compiler.compile_c_to_s(src, dst, _modname)
-    return compile_c(src, dst, "-S")
+    return compile_c(src, dst, "-S -fverbose-asm")
 end
 
 function c_compiler.compile_s_to_o(src, dst, _modname)
