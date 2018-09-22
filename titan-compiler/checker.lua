@@ -494,7 +494,7 @@ end
 
 -- @param typehint Expected type; Used to infer polymorphic/record constructors.
 check_exp = function(exp, typehint)
-    assert(typehint  ~= nil)
+    assert(typehint ~= nil)
 
     local tag = exp._tag
     if     tag == ast.Exp.Nil then
