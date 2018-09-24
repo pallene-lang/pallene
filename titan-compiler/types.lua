@@ -7,8 +7,7 @@ local function declare_type(typename, cons)
 end
 
 declare_type("T", {
-    Invalid  = {},
-    Void     = {}, -- Special kind of "invalid", for functions with 0 returns
+    Void     = {}, -- For functions with 0 returns
     Nil      = {},
     Boolean  = {},
     Integer  = {},
@@ -87,7 +86,6 @@ function types.tostring(t)
     elseif tag == types.T.String      then return "string"
     elseif tag == types.T.Nil         then return "nil"
     elseif tag == types.T.Float       then return "float"
-    elseif tag == types.T.Invalid     then return "invalid type"
     elseif tag == types.T.Void        then return "void"
     elseif tag == types.T.Function then
         return "function" -- TODO implement
