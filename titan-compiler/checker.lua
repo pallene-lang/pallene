@@ -370,15 +370,15 @@ check_stat = function(stat, rettypes)
 
         checkmatch(stat.start.loc,
             stat.decl._type, stat.start._type,
-            "'for' start expression")
+            "numeric for loop initializer")
 
         checkmatch(stat.finish.loc,
             stat.decl._type, stat.finish._type,
-            "'for' finish expression")
+            "numeric for loop limit")
 
         checkmatch(stat.inc.loc,
             stat.decl._type, stat.inc._type,
-            "'for' step expression")
+            "numeric for loop step")
 
         check_stat(stat.block, rettypes)
 

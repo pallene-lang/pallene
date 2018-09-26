@@ -628,7 +628,7 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("'for' start expression", errs)
+        assert.match("numeric for loop initializer", errs)
     end)
 
 
@@ -643,7 +643,7 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("'for' finish expression", errs)
+        assert.match("numeric for loop limit", errs)
     end)
 
     it("catches 'for' errors in the step expression", function()
@@ -657,7 +657,7 @@ describe("Titan type checker", function()
         ]]
         local prog, errs = run_checker(code)
         assert.falsy(prog)
-        assert.match("'for' step expression", errs)
+        assert.match("numeric for loop step", errs)
     end)
 
     it("detects wrong number of return values", function()
