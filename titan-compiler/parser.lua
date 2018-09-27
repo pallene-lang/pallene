@@ -84,9 +84,23 @@ function defs.name_exp(pos, name)
     return ast.Exp.Var(pos, ast.Var.Name(pos, name))
 end
 
-function defs.ifstat(pos, exp, block, thens, elseopt)
-    table.insert(thens, 1, ast.Then.Then(pos, exp, block))
-    return ast.Stat.If(pos, thens, elseopt)
+function defs.ifstat(pos, exp, block, elseifs, elseopt)
+    local else_ = elseopt
+
+    if not else_ then
+        else_ = ast.Stat.Block(pos, {})
+    end
+
+    for i = #elseifs, 1, -1 do
+        local e = elseifs[i]
+        else_ = ast.Stat.If(e.pos, e.exp, e.block, else_)
+    end
+
+    return ast.Stat.If(pos, exp, block, else_)
+end
+
+function defs.elseif_(pos, exp, block)
+    return { pos=pos, exp=exp, block=block }
 end
 
 function defs.fold_binop_left(pos, matches)
@@ -281,10 +295,10 @@ local grammar = re.compile([[
                      / (P  (suffixedexp => exp_is_call))         -> StatCall
                      / &exp %{ExpStat}
 
-    elseifstats     <- {| elseifstat* |}                         -- produces {Then}
+    elseifstats     <- {| elseifstat* |}                         -- produces {elseif}
 
     elseifstat      <- (P  ELSEIF exp^ExpElseIf
-                           THEN^ThenElseIf block)                -> ThenThen
+                           THEN^ThenElseIf block)                -> elseif_
 
     elseopt         <- (ELSE block)?                             -> opt
 

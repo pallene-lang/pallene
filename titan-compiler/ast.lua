@@ -34,16 +34,12 @@ declare_type("Stat", {
     Block  = {"loc", "stats"},
     While  = {"loc", "condition", "block"},
     Repeat = {"loc", "block", "condition"},
-    If     = {"loc", "thens", "elsestat"},
+    If     = {"loc", "condition", "then_", "else_"},
     For    = {"loc", "decl", "start", "finish", "inc", "block"},
     Assign = {"loc", "var", "exp"},
     Decl   = {"loc", "decl", "exp"},
     Call   = {"loc", "callexp"},
     Return = {"loc", "exps"},
-})
-
-declare_type("Then", {
-    Then = {"loc", "condition", "block"},
 })
 
 declare_type("Var", {

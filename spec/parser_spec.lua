@@ -348,36 +348,32 @@ describe("Titan parser", function()
     describe("can parse if statements", function()
         assert_statements_ast("if 10 then end", {
             { _tag = ast.Stat.If,
-                thens = {
-                    { _tag = ast.Then.Then, condition = { value = 10 } },
-                },
-              elsestat = false }
+                condition = { value = 10 },
+                then_ = { _tag = ast.Stat.Block },
+                else_ = { _tag = ast.Stat.Block }, }
         })
 
         assert_statements_ast("if 20 then else end", {
             { _tag = ast.Stat.If,
-                thens = {
-                    { _tag = ast.Then.Then, condition = { value = 20 } },
-                },
-                elsestat = { _tag = ast.Stat.Block } }
+                condition = { value = 20 },
+                then_ = { _tag = ast.Stat.Block },
+                else_ = { _tag = ast.Stat.Block }, }
         })
 
         assert_statements_ast("if 30 then elseif 40 then end", {
             { _tag = ast.Stat.If,
-                thens = {
-                    { _tag = ast.Then.Then, condition = { value = 30 } },
-                    { _tag = ast.Then.Then, condition = { value = 40 } },
-                },
-                elsestat = false }
+                condition = { value = 30 },
+                then_ = { _tag = ast.Stat.Block },
+                else_ = { _tag = ast.Stat.If,
+                    condition = { value = 40 }, }, }
         })
 
         assert_statements_ast("if 50 then elseif 60 then else end", {
             { _tag = ast.Stat.If,
-              thens = {
-                    { _tag = ast.Then.Then, condition = { value = 50 } },
-                    { _tag = ast.Then.Then, condition = { value = 60 } },
-                },
-                elsestat = { _tag = ast.Stat.Block } }
+                condition = { value = 50 },
+                then_ = { _tag = ast.Stat.Block },
+                else_ = { _tag = ast.Stat.If,
+                    condition = { value = 60 }, }, }
         })
     end)
 
