@@ -85,11 +85,7 @@ function defs.name_exp(pos, name)
 end
 
 function defs.ifstat(pos, exp, block, elseifs, elseopt)
-    local else_ = elseopt
-
-    if not else_ then
-        else_ = ast.Stat.Block(pos, {})
-    end
+    local else_ = elseopt or ast.Stat.Block(pos, {})
 
     for i = #elseifs, 1, -1 do
         local e = elseifs[i]
