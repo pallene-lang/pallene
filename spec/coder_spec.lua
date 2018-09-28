@@ -27,10 +27,10 @@ local function assert_test_output(expected)
 end
 
 local function cleanup()
-    os.execute("rm -f test.titan")
-    os.execute("rm -f test.so")
-    os.execute("rm -f test_script.lua")
-    os.execute("rm -f test_output.txt")
+    os.remove("test.titan")
+    os.remove("test.so")
+    os.remove("test_script.lua")
+    os.remove("test_output.txt")
 end
 
 describe("Titan coder /", function()
