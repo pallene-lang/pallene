@@ -632,7 +632,7 @@ describe("Titan type checker", function()
     end)
 
 
-    it("catches 'for' errors in the finish expression", function()
+    it("catches 'for' errors in the limit expression", function()
         local code = [[
             function fn(x: integer, s: string): integer
                 for i = 1, s, 2 do

@@ -135,9 +135,9 @@ function bind_names:Stat(stat, st, errors)
     elseif tag == ast.Stat.For then
         bind_names:Decl(stat.decl, st, errors)
         bind_names:Exp(stat.start, st, errors)
-        bind_names:Exp(stat.finish, st, errors)
-        if stat.inc then
-            bind_names:Exp(stat.inc, st, errors)
+        bind_names:Exp(stat.limit, st, errors)
+        if stat.step then
+            bind_names:Exp(stat.step, st, errors)
         end
         st:with_block(function()
             st:add_symbol(stat.decl.name, stat.decl)

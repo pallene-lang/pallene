@@ -1370,33 +1370,33 @@ generate_stat = function(stat, ctx)
         local start_cstats, start_cvalue = generate_exp(stat.start, ctx)
         local start = ctx:new_tvar(typ, "start")
 
-        local finish_cstats, finish_cvalue = generate_exp(stat.finish, ctx)
-        local finish = ctx:new_tvar(typ, "finish")
+        local limit_cstats, limit_cvalue = generate_exp(stat.limit, ctx)
+        local limit = ctx:new_tvar(typ, "limit")
 
-        local inc_cstats, inc_cvalue = generate_exp(stat.inc, ctx)
-        local inc = ctx:new_tvar(typ, "inc")
+        local step_cstats, step_cvalue = generate_exp(stat.step, ctx)
+        local step = ctx:new_tvar(typ, "step")
 
         stat.decl._cvar = ctx:new_tvar(typ, stat.decl.name)
 
         local block_cstats = generate_stat(stat.block, ctx)
 
         local render_names = {
-            INC = inc.name,
+            STEP = step.name,
             START = start.name,
-            FINISH = finish.name,
+            LIMIT = limit.name,
         }
 
         -- TODO: remove ternary operator when step is a constant
         local loop_cond = util.render(
-            [[(${INC} >= 0 ? ${START} <= ${FINISH} : ${START} >= ${FINISH})]],
+            [[(${STEP} >= 0 ? ${START} <= ${LIMIT} : ${START} >= ${LIMIT})]],
             render_names)
 
         local loop_step
         if typ._tag == types.T.Integer then
-            loop_step = util.render([[${START} = intop(+, ${START}, ${INC});]],
+            loop_step = util.render([[${START} = intop(+, ${START}, ${STEP});]],
                 render_names)
         elseif typ._tag == types.T.Float then
-            loop_step = util.render([[${START} = ${START} + ${INC};]],
+            loop_step = util.render([[${START} = ${START} + ${STEP};]],
                 render_names)
         else
             error("impossible")
@@ -1405,11 +1405,11 @@ generate_stat = function(stat, ctx)
         ctx:end_scope()
         local out = util.render([[
             ${START_STAT}
-            ${FINISH_STAT}
-            ${INC_STAT}
+            ${LIMIT_STAT}
+            ${STEP_STAT}
             ${START_DECL} = ${START_VALUE};
-            ${FINISH_DECL} = ${FINISH_VALUE};
-            ${INC_DECL} = ${INC_VALUE};
+            ${LIMIT_DECL} = ${LIMIT_VALUE};
+            ${STEP_DECL} = ${STEP_VALUE};
             while (${LOOP_COND}) {
                 ${LOOPVAR_DECL} = ${START};
                 (void) ${LOOPVAR};
@@ -1421,12 +1421,12 @@ generate_stat = function(stat, ctx)
             START_STAT  = start_cstats,
             START_VALUE = start_cvalue,
             START_DECL  = c_declaration(start),
-            FINISH_STAT  = finish_cstats,
-            FINISH_VALUE = finish_cvalue,
-            FINISH_DECL  = c_declaration(finish),
-            INC_STAT  = inc_cstats,
-            INC_VALUE = inc_cvalue,
-            INC_DECL  = c_declaration(inc),
+            LIMIT_STAT  = limit_cstats,
+            LIMIT_VALUE = limit_cvalue,
+            LIMIT_DECL  = c_declaration(limit),
+            STEP_STAT  = step_cstats,
+            STEP_VALUE = step_cvalue,
+            STEP_DECL  = c_declaration(step),
             LOOP_COND = loop_cond,
             LOOP_STEP = loop_step,
             LOOPVAR      = stat.decl._cvar.name,
