@@ -25,3 +25,5 @@ ignore = {
     "542", -- Empty if branch.
     "6..", -- Whitespace warnings
 }
+
+files["spec"] = { std = "+busted" }
