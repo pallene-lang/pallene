@@ -17,14 +17,20 @@ local function run_test(test_script)
     ]], {
         TEST_SCRIPT = test_script
     }))
-    local ok = os.execute("./lua/src/lua test_script.lua")
-    os.execute("rm -f test_script.lua")
+    local ok = os.execute("./lua/src/lua test_script.lua > test_output.txt")
     assert.truthy(ok)
+end
+
+local function assert_test_output(expected)
+    local output = assert(util.get_file_contents("test_output.txt"))
+    assert.are.same(expected, output)
 end
 
 local function cleanup()
     os.execute("rm -f test.titan")
     os.execute("rm -f test.so")
+    os.execute("rm -f test_script.lua")
+    os.execute("rm -f test_output.txt")
 end
 
 describe("Titan coder /", function()
@@ -864,10 +870,10 @@ describe("Titan coder /", function()
         ]]))
 
         it("Can run io.write without crashing", function()
-            -- todo: check if the output is correct as well...
             run_test([[
-                test.write(":)")
+                test.write("Hello:)World")
             ]])
+            assert_test_output("Hello:)World")
         end)
     end)
 end)
