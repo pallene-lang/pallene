@@ -105,12 +105,9 @@ function ast_iterator:Stat(stat, ...)
         stat.condition = self:Exp(stat.condition, ...) or stat.condition
 
     elseif tag == ast.Stat.If then
-        for i = 1, #stat.thens do
-            stat.thens[i] = self:Then(stat.thens[i], ...) or stat.thens[i]
-        end
-        if stat.elsestat then
-            stat.elsestat = self:Stat(stat.elsestat, ...) or stat.elsestat
-        end
+        stat.condition = self:Exp(stat.condition, ...) or stat.condition
+        stat.then_ = self:Stat(stat.then_, ...) or stat.then_
+        stat.else_ = self:Stat(stat.else_, ...) or stat.else_
 
     elseif tag == ast.Stat.For then
         stat.decl = self:Decl(stat.decl, ...) or stat.decl
@@ -137,16 +134,6 @@ function ast_iterator:Stat(stat, ...)
             stat.exps[i] = self:Exp(stat.exps[i], ...) or stat.exps[i]
         end
 
-    else
-        error("impossible")
-    end
-end
-
-function ast_iterator:Then(then_, ...)
-    local tag = then_._tag
-    if tag == ast.Then.Then then
-        then_.condition = self:Exp(then_.condition, ...) or then_.condition
-        then_.block = self:Stat(then_.block, ...) or then_.block
     else
         error("impossible")
     end

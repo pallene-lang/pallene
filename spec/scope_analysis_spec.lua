@@ -61,7 +61,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1], -- fac
-            prog[1].block.stats[1].elsestat.stats[1].exps[1].rhs.exp.var._decl)
+            prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
     end)
 
     it("builtins work", function()
@@ -233,7 +233,7 @@ describe("Scope analysis: ", function()
         assert.truthy(prog)
         assert.are.equal(
             prog[1], -- fat
-            prog[1].block.stats[1].elsestat.stats[1].exps[1].rhs.exp.var._decl)
+            prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
     end)
 
     it("forbids mutually recursive definitions", function()

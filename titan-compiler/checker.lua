@@ -137,15 +137,8 @@ local function stat_always_returns(stat)
     elseif tag == ast.Stat.Return then
         return true
     elseif tag == ast.Stat.If then
-        for _, thn in ipairs(stat.thens) do
-            if not stat_always_returns(thn.block) then
-                return false
-            end
-        end
-        if not stat.elsestat or not stat_always_returns(stat.elsestat) then
-            return false
-        end
-        return true
+        return stat_always_returns(stat.then_) and
+                stat_always_returns(stat.else_)
     else
         error("impossible")
     end
@@ -417,16 +410,14 @@ check_stat = function(stat, rettypes)
         end
 
     elseif tag == ast.Stat.If then
-        for _, thn in ipairs(stat.thens) do
-            check_exp(thn.condition, false)
-            checkmatch(thn.loc,
-                types.T.Boolean(), thn.condition._type,
-                "if statement condition")
-            check_stat(thn.block, rettypes)
-        end
-        if stat.elsestat then
-            check_stat(stat.elsestat, rettypes)
-        end
+        local cond = stat.condition
+        check_exp(cond, false)
+        checkmatch(cond.loc,
+            types.T.Boolean(), cond._type,
+            "if statement condition")
+
+        check_stat(stat.then_, rettypes)
+        check_stat(stat.else_, rettypes)
 
     else
         error("impossible")

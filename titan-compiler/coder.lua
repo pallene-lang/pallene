@@ -1346,34 +1346,21 @@ generate_stat = function(stat, ctx)
 
     elseif tag == ast.Stat.If then
         ctx:begin_scope()
-
-        local cstats
-        if stat.elsestat then
-            cstats = generate_stat(stat.elsestat, ctx)
-        else
-            cstats = nil
-        end
-
-        for i = #stat.thens, 1, -1 do
-            local then_ = stat.thens[i]
-            local cond_cstats, cond_cvalue = generate_exp(then_.condition, ctx)
-            local block_cstats = generate_stat(then_.block, ctx)
-            local else_ = (cstats and "else " .. cstats or "")
-
-            cstats = util.render(
-                [[{
-                    ${STATS}
-                    if (${COND}) ${BLOCK} ${ELSE}
-                }]], {
-                STATS = cond_cstats,
-                COND = cond_cvalue,
-                BLOCK = block_cstats,
-                ELSE = else_
-            })
-        end
-
+        local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
+        local then_cstats = generate_stat(stat.then_, ctx)
+        local else_cstats = generate_stat(stat.else_, ctx)
         ctx:end_scope()
 
+        local cstats = util.render(
+            [[{
+                ${COND_STATS}
+                if (${COND}) ${THEN} else ${ELSE}
+            }]], {
+            COND_STATS = cond_cstats,
+            COND = cond_cvalue,
+            THEN = then_cstats,
+            ELSE = else_cstats,
+        })
         return cstats
 
     elseif tag == ast.Stat.For then
