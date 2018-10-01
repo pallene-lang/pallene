@@ -112,9 +112,9 @@ function ast_iterator:Stat(stat, ...)
     elseif tag == ast.Stat.For then
         stat.decl = self:Decl(stat.decl, ...) or stat.decl
         stat.start = self:Exp(stat.start, ...) or stat.start
-        stat.finish = self:Exp(stat.finish, ...) or stat.finish
-        if stat.inc then
-            stat.inc = self:Exp(stat.inc, ...) or stat.inc
+        stat.limit = self:Exp(stat.limit, ...) or stat.limit
+        if stat.step then
+            stat.step = self:Exp(stat.step, ...) or stat.step
         end
         stat.block = self:Stat(stat.block, ...) or stat.block
 

@@ -410,9 +410,9 @@ describe("Titan parser", function()
                     exp = { var = { _tag = ast.Var.Name, name = "i" } },
                     var = { _tag = ast.Var.Name, name = "x" } } } },
               decl = { _tag = ast.Decl.Decl, name = "i", type = false },
-              finish = { _tag = ast.Exp.Integer, value = 2 },
-              inc =    { _tag = ast.Exp.Integer, value = 3 },
-              start =  { _tag = ast.Exp.Integer, value = 1 } },
+              start =  { _tag = ast.Exp.Integer, value = 1 },
+              limit =  { _tag = ast.Exp.Integer, value = 2 },
+              step =   { _tag = ast.Exp.Integer, value = 3 }, },
         })
     end)
 

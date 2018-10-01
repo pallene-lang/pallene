@@ -211,10 +211,10 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[2].start.var._decl)
         assert.are.equal(
             prog[1].block.stats[1].decl,
-            prog[1].block.stats[2].finish.var._decl)
+            prog[1].block.stats[2].limit.var._decl)
         assert.are.equal(
             prog[1].block.stats[1].decl,
-            prog[1].block.stats[2].inc.var._decl)
+            prog[1].block.stats[2].step.var._decl)
         assert.are.equal(
             prog[1].block.stats[2].decl, -- for x
             prog[1].block.stats[2].block.stats[1].exps[1].var._decl)

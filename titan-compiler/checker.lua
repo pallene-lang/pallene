@@ -337,23 +337,23 @@ check_stat = function(stat, rettypes)
         end
 
         check_exp(stat.start, stat.decl._type)
-        check_exp(stat.finish, stat.decl._type)
-        if stat.inc then
-            check_exp(stat.inc, stat.decl._type)
+        check_exp(stat.limit, stat.decl._type)
+        if stat.step then
+            check_exp(stat.step, stat.decl._type)
         end
         if not stat.decl.type then
             stat.decl._type = stat.start._type
         end
 
         if     stat.decl._type._tag == types.T.Integer then
-            if not stat.inc then
-                stat.inc = ast.Exp.Integer(stat.finish.loc, 1)
-                stat.inc._type = types.T.Integer()
+            if not stat.step then
+                stat.step = ast.Exp.Integer(stat.limit.loc, 1)
+                stat.step._type = types.T.Integer()
             end
         elseif stat.decl._type._tag == types.T.Float then
-            if not stat.inc then
-                stat.inc = ast.Exp.Float(stat.finish.loc, 1.0)
-                stat.inc._type = types.T.Float()
+            if not stat.step then
+                stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
+                stat.step._type = types.T.Float()
             end
         else
             type_error(stat.decl.loc,
@@ -365,12 +365,12 @@ check_stat = function(stat, rettypes)
             stat.decl._type, stat.start._type,
             "numeric for loop initializer")
 
-        checkmatch(stat.finish.loc,
-            stat.decl._type, stat.finish._type,
+        checkmatch(stat.limit.loc,
+            stat.decl._type, stat.limit._type,
             "numeric for loop limit")
 
-        checkmatch(stat.inc.loc,
-            stat.decl._type, stat.inc._type,
+        checkmatch(stat.step.loc,
+            stat.decl._type, stat.step._type,
             "numeric for loop step")
 
         check_stat(stat.block, rettypes)
