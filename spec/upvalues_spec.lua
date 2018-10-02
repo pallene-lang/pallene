@@ -96,6 +96,7 @@ describe("Upvalues pass:", function()
         assert.truthy(prog._upvalues[pos])
         assert.equals(lit, prog._upvalues[pos].lit)
         local f = prog[1]
+        assert.equals(n_upvs + 2, f._upvalue_index)
     end)
 
     it("initalize literals before variables", function()
@@ -103,10 +104,8 @@ describe("Upvalues pass:", function()
             local happy_face = ":)"
         ]])
         assert(prog, errs)
-        local pos = n_upvs + 1
         assert.equals(n_upvs + 2, #prog._upvalues)
         assert.equals(upvalues.T.Literal, prog._upvalues[n_upvs + 1]._tag)
         assert.equals(upvalues.T.ModVar, prog._upvalues[n_upvs + 2]._tag)
-        local f = prog[1]
     end)
 end)
