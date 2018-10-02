@@ -48,7 +48,7 @@ describe("Titan type checker", function()
     end)
 
     it("for loop iteration variables don't shadow var limit and step", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 local i: string = "asdfg"
                 for i = 1, #i do
@@ -56,34 +56,31 @@ describe("Titan type checker", function()
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("coerces to integer", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(): integer
                 local f: float = 1.0
                 local i: integer = f as integer
                 return 1
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
         assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
         assert.same(types.T.Integer, prog[1].block.stats[2].exp._type._tag)
     end)
 
     it("coerces to float", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(): integer
                 local i: integer = 12
                 local f: float = i as float
                 return 1
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
         assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
         assert.same(types.T.Float, prog[1].block.stats[2].exp._type._tag)
@@ -130,103 +127,94 @@ describe("Titan type checker", function()
     end)
 
     it("catches array expression in indexing is not an array", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer)
                 x[1] = 2
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("array expression in indexing is not an array", errs)
     end)
 
     it("accepts correct use of length operator", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: {integer}): integer
                 return #x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("catches wrong use of length operator", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 return #x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("trying to take the length", errs)
     end)
 
     it("catches wrong use of unary minus", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: boolean): boolean
                 return -x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("trying to negate a", errs)
     end)
 
     it("catches wrong use of bitwise not", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: boolean): boolean
                 return ~x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("trying to bitwise negate a", errs)
     end)
 
     it("catches wrong use of boolean not", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(): boolean
                 return not nil
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("trying to boolean negate a nil", errs)
     end)
 
     it("catches mismatching types in locals", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn()
                 local i: integer = 1
                 local s: string = "foo"
                 s = i
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("expected string but found integer", errs)
     end)
 
     it("function can call another function", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn1()
             end
 
             function fn2()
               fn1()
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("catches mismatching types in arguments", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(i: integer, s: string): integer
                 s = i
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("expected string but found integer", errs)
     end)
@@ -414,59 +402,55 @@ describe("Titan type checker", function()
     end)
 
     it("type-checks numeric 'for' (integer, implicit step)", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 for i:integer = 1, 10 do
                     x = x + 1
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("type-checks numeric 'for' (integer, explicit step)", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 for i:integer = 1, 10, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("type-checks numeric 'for' (float, implicit step)", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: float): float
                 for i:float = 1.0, 10.0 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("type-checks numeric 'for' (float, explicit step)", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: float): float
                 for i:float = 1.0, 10.0, 2.0 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("type-checks 'while'", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 local i: integer = 15
                 while x < 100 do
@@ -474,27 +458,25 @@ describe("Titan type checker", function()
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("requires while statement conditions to be boolean", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x:integer): integer
                 while x do
                     return 10
                 end
                 return 20
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.matches("types in while statement condition do not match, expected boolean but found integer", errs)
     end)
 
     it("type-checks 'repeat'", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 local i: integer = 15
                 repeat
@@ -502,27 +484,25 @@ describe("Titan type checker", function()
                 until x >= 100
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
      it("requires repeat statement conditions to be boolean", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x:integer): integer
                 repeat
                     return 10
                 until x
                 return 20
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.matches("types in repeat statement condition do not match, expected boolean but found integer", errs)
     end)
 
     it("type-checks 'if'", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 local i: integer = 15
                 if x < 100 then
@@ -534,13 +514,12 @@ describe("Titan type checker", function()
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     it("requires if statement conditions to be boolean", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x:integer): integer
                 if x then
                     return 10
@@ -548,14 +527,13 @@ describe("Titan type checker", function()
                     return 20
                 end
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.matches("types in if statement condition do not match, expected boolean but found integer", errs)
     end)
 
     it("checks code inside the 'while' block", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer): integer
                 local i: integer = 15
                 while i > 0 do
@@ -563,80 +541,74 @@ describe("Titan type checker", function()
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("expected string but found integer", errs)
     end)
 
     it("ensures numeric 'for' variable has number type (with annotation)", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer, s: string): integer
                 for i: string = 1, 10, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("control variable", errs)
     end)
 
     it("ensures numeric 'for' variable has number type (without annotation)", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer, s: string): integer
                 for i = s, 10, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("control variable", errs)
     end)
 
 
     it("catches 'for' errors in the start expression", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer, s: string): integer
                 for i:integer = s, 10, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("numeric for loop initializer", errs)
     end)
 
 
     it("catches 'for' errors in the limit expression", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer, s: string): integer
                 for i = 1, s, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("numeric for loop limit", errs)
     end)
 
     it("catches 'for' errors in the step expression", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(x: integer, s: string): integer
                 for i = 1, 10, s do
                     x = x + i
                 end
                 return x
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("numeric for loop step", errs)
     end)
@@ -745,13 +717,12 @@ describe("Titan type checker", function()
     end)
 
     it("detects attempts to call non-functions", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn(): integer
                 local i: integer = 0
                 i()
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("attempting to call a integer value" , errs)
     end)
@@ -787,7 +758,7 @@ describe("Titan type checker", function()
 
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
         it("coerces "..op.." to float if any side is a float", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn()
                     local i: integer = 1
                     local f: float = 1.5
@@ -796,8 +767,7 @@ describe("Titan type checker", function()
                     local f_f = f ]] .. op .. [[ f
                     local i_i = i ]] .. op .. [[ i
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
 
             assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
@@ -820,7 +790,7 @@ describe("Titan type checker", function()
 
     for _, op in ipairs({"/", "^"}) do
         it("always coerces "..op.." to float", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn()
                     local i: integer = 1
                     local f: float = 1.5
@@ -829,8 +799,7 @@ describe("Titan type checker", function()
                     local f_f = f ]] .. op .. [[ f
                     local i_i = i ]] .. op .. [[ i
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
 
             assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
@@ -852,105 +821,96 @@ describe("Titan type checker", function()
     end
 
     it("cannot concatenate with boolean", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn()
                 local s = "foo" .. true
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("cannot concatenate with boolean value", errs)
     end)
 
     it("cannot concatenate with nil", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn()
                 local s = "foo" .. nil
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("cannot concatenate with nil value", errs)
     end)
 
     it("cannot concatenate with array", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn()
                 local xs: {integer} = {}
                 local s = "foo" .. xs
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match("cannot concatenate with { integer } value", errs)
     end)
 
     it("can concatenate with integer and float", function()
-        local code = [[
+        local prog, errs = run_checker([[
             function fn()
                 local s = 1 .. 2.5
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.truthy(prog)
     end)
 
     for _, op in ipairs({"==", "~="}) do
         it("can compare arrays of same type using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a1: {integer}, a2: {integer}): boolean
                     return a1 ]] .. op .. [[ a2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
         end)
     end
 
     for _, op in ipairs({"==", "~="}) do
         it("can compare booleans using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(b1: string, b2: string): boolean
                     return b1 ]] .. op .. [[ b2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
         end)
     end
 
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
         it("can compare floats using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(f1: string, f2: string): boolean
                     return f1 ]] .. op .. [[ f2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
         end)
     end
 
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
         it("can compare integers using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(i1: string, i2: string): boolean
                     return i1 ]] .. op .. [[ i2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
         end)
     end
 
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
         it("can compare integers and floats using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(i: integer, f: float): boolean
                     return i ]] .. op .. [[ f
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("comparisons between float and integers are not yet implemented", errs)
         end)
@@ -958,24 +918,22 @@ describe("Titan type checker", function()
 
     for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
         it("can compare strings using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(s1: string, s2: string): boolean
                     return s1 ]] .. op .. [[ s2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
         end)
     end
 
     for _, op in ipairs({"==", "~="}) do
         it("cannot compare arrays of different types using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a1: {integer}, a2: {float}): boolean
                     return a1 ]] .. op .. [[ a2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("cannot compare .* and .* with .*", errs)
         end)
@@ -986,12 +944,11 @@ describe("Titan type checker", function()
             for _, t2 in ipairs({"{integer}", "boolean", "float", "string"}) do
                 if t1 ~= t2 then
                     it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                        local code = [[
+                        local prog, errs = run_checker([[
                             function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
                                 return a ]] .. op .. [[ b
                             end
-                        ]]
-                        local prog, errs = run_checker(code)
+                        ]])
                         assert.falsy(prog)
                         assert.match("cannot compare .* and .* with .*", errs)
                     end)
@@ -1003,12 +960,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare " .. t .. " and float using " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: ]] .. t .. [[, b: float): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("cannot compare .* and .* with .*", errs)
             end)
@@ -1018,12 +974,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare float and " .. t .. " using " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: float, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("cannot compare .* and .* with .*", errs)
             end)
@@ -1033,12 +988,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare " .. t .. " and integer using " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: ]] .. t .. [[, b: integer): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("cannot compare .* and .* with .*", errs)
             end)
@@ -1048,12 +1002,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare integer and " .. t .. " using " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: integer, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("cannot compare .* and .* with .*", errs)
             end)
@@ -1063,12 +1016,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean"}) do
             it("cannot compare " .. t .. " and string using " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: ]] .. t .. [[, b: string): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("cannot compare .* and .* with .*", errs)
             end)
@@ -1078,12 +1030,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean"}) do
             it("cannot compare string and " .. t .. " using " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: string, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("cannot compare .* and .* with .*", errs)
             end)
@@ -1094,12 +1045,11 @@ describe("Titan type checker", function()
         for _, t1 in ipairs({"{integer}", "boolean"}) do
             for _, t2 in ipairs({"{integer}", "boolean"}) do
                 it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                    local code = [[
+                    local prog, errs = run_checker([[
                         function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
                             return a ]] .. op .. [[ b
                         end
-                    ]]
-                    local prog, errs = run_checker(code)
+                    ]])
                     assert.falsy(prog)
                     assert.match("cannot compare .* and .* with .*", errs)
                 end)
@@ -1110,22 +1060,20 @@ describe("Titan type checker", function()
     for _, op in ipairs({"and", "or"}) do
         for _, t1 in ipairs({"{integer}", "integer", "string"}) do
             it("cannot have " .. t1 .. " as left operand of " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(x: ]] .. t1 .. [[): boolean
                         return x ]] .. op .. [[ true
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("left hand side of logical expression is a", errs)
             end)
             it("cannot have " .. t1 .. " as right operand of " .. op, function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(x: ]] .. t1 .. [[): boolean
                         return true ]] .. op .. [[ x
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("right hand side of logical expression is a", errs)
             end)
@@ -1135,12 +1083,11 @@ describe("Titan type checker", function()
 
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
         it("can use bitwise operators with integers using " .. op, function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(i1: integer, i2: integer): integer
                     return i1 ]] .. op .. [[ i2
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.truthy(prog)
         end)
     end
@@ -1148,12 +1095,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use bitwise operator " .. op .. " when left hand side is not integer", function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: ]] .. t .. [[, b: integer): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("left hand side of arithmetic expression is a", errs)
             end)
@@ -1163,12 +1109,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use bitwise operator " .. op .. " when right hand side is not integer", function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: integer, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("right hand side of arithmetic expression is a", errs)
             end)
@@ -1178,12 +1123,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use arithmetic operator " .. op .. " when left hand side is not a  number", function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: ]] .. t .. [[, b: float): float
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("left hand side of arithmetic expression is a", errs)
             end)
@@ -1193,12 +1137,11 @@ describe("Titan type checker", function()
     for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use arithmetic operator " .. op .. " when right hand side is not integer", function()
-                local code = [[
+                local prog, errs = run_checker([[
                     function fn(a: float, b: ]] .. t .. [[): float
                         return a ]] .. op .. [[ b
                     end
-                ]]
-                local prog, errs = run_checker(code)
+                ]])
                 assert.falsy(prog)
                 assert.match("right hand side of arithmetic expression is a", errs)
             end)
@@ -1209,12 +1152,11 @@ describe("Titan type checker", function()
 
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a: ]] .. t .. [[): {integer}
                     return a as {integer}
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("cannot cast", errs)
         end)
@@ -1222,12 +1164,11 @@ describe("Titan type checker", function()
 
     for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to float", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a: ]] .. t .. [[): float
                     return a as float
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("cannot cast", errs)
         end)
@@ -1235,12 +1176,11 @@ describe("Titan type checker", function()
 
     for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to integer", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a: ]] .. t .. [[): integer
                     return a as integer
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("cannot cast", errs)
         end)
@@ -1248,12 +1188,11 @@ describe("Titan type checker", function()
 
     for _, t in ipairs({"{integer}", "boolean", "float", "integer", "string"}) do
         it("cannot explicitly cast from " .. t .. " to nil", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a: ]] .. t .. [[): nil
                     return a as nil
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("cannot cast", errs)
         end)
@@ -1261,27 +1200,25 @@ describe("Titan type checker", function()
 
     for _, t in ipairs({"{integer}", "boolean", "nil"}) do
         it("cannot explicitly cast from " .. t .. " to string", function()
-            local code = [[
+            local prog, errs = run_checker([[
                 function fn(a: ]] .. t .. [[): string
                     return a as string
                 end
-            ]]
-            local prog, errs = run_checker(code)
+            ]])
             assert.falsy(prog)
             assert.match("cannot cast", errs)
         end)
     end
 
     it("catches assignment to function", function ()
-        local code = [[
+        local prog, errs = run_checker([[
             function f()
             end
 
             function g()
                 f = g
             end
-        ]]
-        local prog, errs = run_checker(code)
+        ]])
         assert.falsy(prog)
         assert.match(
             "attempting to assign to toplevel constant function f",
