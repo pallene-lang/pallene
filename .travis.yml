@@ -64,9 +64,6 @@ install:
 script:
   - busted -c -o gtest -v spec/
 
-#after_success:
-  - luacov "titan%-compiler" "/spec/[^/]+.lua" "titanc" && bash <(curl -s https://codecov.io/bash)
-
 notifications:
   email:
     on_success: change

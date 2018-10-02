@@ -1,6 +1,5 @@
 # Titan
 [![Build Status](https://travis-ci.org/titan-lang/titan.svg?branch=master)](https://travis-ci.org/titan-lang/titan)
-[![Coverage Status](https://codecov.io/gh/titan-lang/titan/coverage.svg?branch=master)](https://codecov.io/gh/titan-lang/titan/branch/master)
 
 Titan is a new programming language, designed to be a statically-typed,
 ahead-of-time compiled sister language to [Lua](http://www.lua.org). It is an
