@@ -5,7 +5,7 @@ local argparse = require "argparse"
 local driver = require "titan-compiler.driver"
 local util = require "titan-compiler.util"
 
-local p = argparse("titanc", "Titan compiler")
+local p = argparse("pallenec", "Titan compiler")
 p:argument("source_file", "File to compile")
 p:flag("--emit-c", "Generate a .c file instead of an .so file")
 p:flag("--emit-asm", "Generate a .s file instead of an .so file")
@@ -32,7 +32,7 @@ if args.compile_c then table.insert(flags, "--compile-c") end
 if #flags >= 2 then
     local conflicting = table.concat(flags, " and ")
     local msg = string.format("flags %s are mutually exclusive", conflicting)
-    titanc_abort(msg)
+    pallenec_abort(msg)
 end
 
 if     #flags == 0    then compile("titan", "so")

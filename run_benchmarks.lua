@@ -44,9 +44,9 @@ end
 
 local function compile(ext, file_name)
     if     ext == "titan" then
-        return util.shell(string.format("./titanc %s", file_name))
+        return util.shell(string.format("./pallenec %s", file_name))
     elseif ext == "c" then
-        return util.shell(string.format("./titanc --compile-c %s", file_name))
+        return util.shell(string.format("./pallenec --compile-c %s", file_name))
     elseif ext == "lua" then
         return true
     else
