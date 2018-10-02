@@ -21,7 +21,7 @@ describe("Upvalues pass:", function()
                 return x + 1
             end
         ]])
-        assert.is_truthy(prog)
+        assert(prog, errs)
         assert.equals(n_upvs + 1, #prog._upvalues)
         local f = prog[1]
         assert.equals(n_upvs + 1, f._upvalue_index)
@@ -34,7 +34,7 @@ describe("Upvalues pass:", function()
                 return 1 + n
             end
         ]])
-        assert.is_truthy(prog)
+        assert(prog, errs)
         assert.equals(n_upvs + 2, #prog._upvalues)
         local n = prog[1]
         assert.equals(n_upvs + 1, n._upvalue_index)
@@ -51,7 +51,7 @@ describe("Upvalues pass:", function()
                 return inc(0)
             end
         ]])
-        assert.is_truthy(prog)
+        assert(prog, errs)
         assert.equals(n_upvs + 2, #prog._upvalues)
         local inc = prog[1]
         assert.equals(n_upvs + 1, inc._upvalue_index)
@@ -71,7 +71,7 @@ describe("Upvalues pass:", function()
                 return inc(atzero(inc))
             end
         ]])
-        assert.is_truthy(prog)
+        assert(prog, errs)
         assert.equals(n_upvs + 3, #prog._upvalues)
         local inc = prog[1]
         assert.equals(n_upvs + 1, inc._upvalue_index)
@@ -89,7 +89,7 @@ describe("Upvalues pass:", function()
         ]])
         local lit = "Hello world"
         local pos = n_upvs + 1
-        assert.is_truthy(prog)
+        assert(prog, errs)
         assert.equals(n_upvs + 2, #prog._upvalues)
         assert.truthy(prog._literals)
         assert.equals(pos, prog._literals[lit])
@@ -102,7 +102,7 @@ describe("Upvalues pass:", function()
         local prog, errs = run_upvalues([[
             local happy_face = ":)"
         ]])
-        assert.is_truthy(prog)
+        assert(prog, errs)
         local pos = n_upvs + 1
         assert.equals(n_upvs + 2, #prog._upvalues)
         assert.equals(upvalues.T.Literal, prog._upvalues[n_upvs + 1]._tag)
