@@ -613,7 +613,7 @@ describe("Titan type checker", function()
         assert.match("numeric for loop step", errs)
     end)
 
-    it("detects wrong number of return values", function()
+    it("detects too many return values", function()
         local prog, errs = run_checker([[
             function f(): ()
                 return 1
@@ -623,7 +623,9 @@ describe("Titan type checker", function()
         assert.match(
             "returning 1 value(s) but function expects 0", errs,
             nil, true)
+    end)
 
+    it("detects too few return values", function()
         local prog, errs = run_checker([[
             function f(): integer
                 return
