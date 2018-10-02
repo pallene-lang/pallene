@@ -57,7 +57,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("coerces to integer", function()
@@ -68,7 +68,7 @@ describe("Titan type checker", function()
                 return 1
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
         assert.same(types.T.Integer, prog[1].block.stats[2].exp._type._tag)
     end)
@@ -81,7 +81,7 @@ describe("Titan type checker", function()
                 return 1
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.same(ast.Exp.Cast, prog[1].block.stats[2].exp._tag)
         assert.same(types.T.Float, prog[1].block.stats[2].exp._type._tag)
     end)
@@ -142,7 +142,7 @@ describe("Titan type checker", function()
                 return #x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("catches wrong use of length operator", function()
@@ -206,7 +206,7 @@ describe("Titan type checker", function()
               fn1()
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("catches mismatching types in arguments", function()
@@ -223,21 +223,21 @@ describe("Titan type checker", function()
         local prog, errs = run_checker([[
             local xs: {integer} = {}
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("can create non-empty array (with type annotation)", function()
         local prog, errs = run_checker([[
             local xs: {integer} = {10, 20, 30}
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("can create array of array (with type annotation)", function()
         local prog, errs = run_checker([[
             local xs: {{integer}} = {{10,20}, {30,40}}
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("forbids empty array (without type annotation)", function()
@@ -280,7 +280,7 @@ describe("Titan type checker", function()
             end
             local p: Point = { x = 10.0, y = 20.0 }
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("can create array of record (with type annotation)", function()
@@ -294,7 +294,7 @@ describe("Titan type checker", function()
                 { x = 30.0, y = 40.0 },
             }
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("can create record of record (with type annotation)", function()
@@ -309,7 +309,7 @@ describe("Titan type checker", function()
             end
             local c: Circle = { center = { x = 10.0, y = 20.0 }, radius = 5.0 }
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("forbids record creation (without type annotation)", function()
@@ -410,7 +410,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("type-checks numeric 'for' (integer, explicit step)", function()
@@ -422,7 +422,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("type-checks numeric 'for' (float, implicit step)", function()
@@ -434,7 +434,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("type-checks numeric 'for' (float, explicit step)", function()
@@ -446,7 +446,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("type-checks 'while'", function()
@@ -459,7 +459,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("requires while statement conditions to be boolean", function()
@@ -485,7 +485,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
      it("requires repeat statement conditions to be boolean", function()
@@ -515,7 +515,7 @@ describe("Titan type checker", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("requires if statement conditions to be boolean", function()
@@ -641,7 +641,7 @@ describe("Titan type checker", function()
                 return
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("accepts functions that return 1 value", function()
@@ -650,7 +650,7 @@ describe("Titan type checker", function()
                 return 17
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     it("detects when a function returns the wrong type", function()
@@ -768,7 +768,7 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
 
             assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
             assert.same(types.T.Float(), prog[1].block.stats[3].exp.rhs._type)
@@ -800,7 +800,7 @@ describe("Titan type checker", function()
                     local i_i = i ]] .. op .. [[ i
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
 
             assert.same(types.T.Float(), prog[1].block.stats[3].exp.lhs._type)
             assert.same(types.T.Float(), prog[1].block.stats[3].exp.rhs._type)
@@ -857,7 +857,7 @@ describe("Titan type checker", function()
                 local s = 1 .. 2.5
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
     end)
 
     for _, op in ipairs({"==", "~="}) do
@@ -867,7 +867,7 @@ describe("Titan type checker", function()
                     return a1 ]] .. op .. [[ a2
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
         end)
     end
 
@@ -878,7 +878,7 @@ describe("Titan type checker", function()
                     return b1 ]] .. op .. [[ b2
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
         end)
     end
 
@@ -889,7 +889,7 @@ describe("Titan type checker", function()
                     return f1 ]] .. op .. [[ f2
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
         end)
     end
 
@@ -900,7 +900,7 @@ describe("Titan type checker", function()
                     return i1 ]] .. op .. [[ i2
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
         end)
     end
 
@@ -923,7 +923,7 @@ describe("Titan type checker", function()
                     return s1 ]] .. op .. [[ s2
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
         end)
     end
 
@@ -1088,7 +1088,7 @@ describe("Titan type checker", function()
                     return i1 ]] .. op .. [[ i2
                 end
             ]])
-            assert.truthy(prog)
+            assert(prog, errs)
         end)
     end
 
