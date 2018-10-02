@@ -23,7 +23,7 @@ describe("Scope analysis: ", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1], -- x
             prog[2].block.stats[1].exps[1].var._decl)
@@ -35,7 +35,7 @@ describe("Scope analysis: ", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1].params[1], -- x
             prog[1].block.stats[1].exps[1].var._decl)
@@ -48,7 +48,7 @@ describe("Scope analysis: ", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1].block.stats[1].decl, -- x
             prog[1].block.stats[2].exps[1].var._decl)
@@ -64,7 +64,7 @@ describe("Scope analysis: ", function()
                 end
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1], -- fac
             prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
@@ -76,7 +76,7 @@ describe("Scope analysis: ", function()
                 table_insert(xs, 17)
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         local exp = prog[1].block.stats[1].callexp
         assert.are.equal(ast.Exp.CallFunc, exp._tag)
         local f_exp = exp.exp
@@ -138,7 +138,7 @@ describe("Scope analysis: ", function()
                 return x.x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1], -- global x
             prog[2].block.stats[1].decl.type._decl)
@@ -155,7 +155,7 @@ describe("Scope analysis: ", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1], -- global x
             prog[2].block.stats[1].exp.lhs.var._decl)
@@ -175,7 +175,7 @@ describe("Scope analysis: ", function()
                 return x
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1].block.stats[2].block.stats[2].decl, -- local limit
             prog[1].block.stats[2].condition.lhs.var._decl)
@@ -193,7 +193,7 @@ describe("Scope analysis: ", function()
                 end
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1], -- global x
             prog[2].block.stats[1].decl.type._decl)
@@ -211,7 +211,7 @@ describe("Scope analysis: ", function()
                 end
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1].block.stats[1].decl, -- local x
             prog[1].block.stats[2].start.var._decl)
@@ -236,7 +236,7 @@ describe("Scope analysis: ", function()
                 end
             end
         ]])
-        assert.truthy(prog)
+        assert(prog, errs)
         assert.are.equal(
             prog[1], -- fat
             prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
