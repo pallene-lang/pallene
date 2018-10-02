@@ -1,10 +1,11 @@
 local ast = require 'titan-compiler.ast'
-local checker = require 'titan-compiler.checker'
+local driver = require 'titan-compiler.driver'
 local types = require 'titan-compiler.types'
 local util = require 'titan-compiler.util'
 
 local function run_checker(code)
-    local prog, errs = checker.check("(checker_spec)", code)
+    assert(util.set_file_contents("test.titan", code))
+    local prog, errs = driver.test_ast("checker", "test.titan")
     return prog, table.concat(errs, "\n")
 end
 
@@ -44,6 +45,10 @@ local function assert_prog(program, expected)
 end
 
 describe("Titan type checker", function()
+
+    teardown(function()
+        os.remove("test.titan")
+    end)
 
     it("detects when a non-type is used in a type variable", function()
         local prog, errs = run_checker([[

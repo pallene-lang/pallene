@@ -1,6 +1,5 @@
 local ast = require "titan-compiler.ast"
 local ast_iterator = require "titan-compiler.ast_iterator"
-local checker = require "titan-compiler.checker"
 local typedecl = require "titan-compiler.typedecl"
 
 local upvalues = {}
@@ -31,11 +30,9 @@ local analyze_upvalues
 -- _upvalue_index:
 --     In Toplevel value nodes
 --     Integer. The index of this node in the _upvalues array.
-function upvalues.analyze(filename, input)
-    local prog, errors = checker.check(filename, input)
-    if not prog then return false, errors end
+function upvalues.analyze(prog)
     analyze_upvalues(prog)
-    return prog, errors
+    return prog, {}
 end
 
 local function declare_type(typename, cons)
@@ -84,7 +81,7 @@ analyze_upvalues = function(prog)
     for _, lit in pairs(upvalues.internal_literals) do
         add_literal(upvs, literals, lit)
     end
-
+    
     analyze:Program(prog, upvs, literals)
 
     for _, tlnode in ipairs(prog) do

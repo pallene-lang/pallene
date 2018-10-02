@@ -1,13 +1,20 @@
+local driver = require "titan-compiler.driver"
 local upvalues = require "titan-compiler.upvalues"
+local util = require "titan-compiler.util"
 
 local function run_upvalues(code)
-    local prog, errs = upvalues.analyze("(upvalues_spec)", code)
+    assert(util.set_file_contents("test.titan", code))
+    local prog, errs = driver.test_ast("upvalues", "test.titan")
     return prog, table.concat(errs, "\n")
 end
 
 local n_upvs = #upvalues.internal_literals
 
 describe("Upvalues pass:", function()
+    teardown(function()
+        os.remove("test.titan")
+    end)
+
     it("function without globals", function()
         local prog, errs = run_upvalues([[
             local function f(x: integer): integer

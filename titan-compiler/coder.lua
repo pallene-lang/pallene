@@ -12,11 +12,9 @@ local generate_stat
 local generate_var
 local generate_exp
 
-function coder.generate(filename, input, modname)
-    local prog, errors = upvalues.analyze(filename, input)
-    if not prog then return false, errors end
+function coder.generate(prog, modname)
     local code = generate_program(prog, modname)
-    return code, errors
+    return code, {}
 end
 
 

@@ -1,14 +1,20 @@
-local scope_analysis = require "titan-compiler.scope_analysis"
+local driver = require "titan-compiler.driver"
+local util = require "titan-compiler.util"
 
 local ast = require "titan-compiler.ast"
 local builtins = require "titan-compiler.builtins"
 
 local function run_scope_analysis(code)
-    local prog, errs = scope_analysis.bind_names("(scope_analysis_spec)", code)
+    assert(util.set_file_contents("test.titan", code))
+    local prog, errs = driver.test_ast("scope_analysis", "test.titan")
     return prog, table.concat(errs, "\n")
 end
 
 describe("Scope analysis: ", function()
+
+    teardown(function()
+        os.remove("test.titan")
+    end)
 
     it("global variables work", function()
         local prog, errs = run_scope_analysis([[

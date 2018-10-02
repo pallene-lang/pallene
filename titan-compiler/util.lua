@@ -68,8 +68,8 @@ function util.abort(msg)
     os.exit(1)
 end
 
-function util.split_ext(file_name)
-	local name, ext = string.match(file_name, "(.*)%.(.*)")
+function util.split_ext(filename)
+    local name, ext = string.match(filename, "(.*)%.(.*)")
     return name, ext
 end
 
