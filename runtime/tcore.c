@@ -143,7 +143,7 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
 void titan_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
 {
     if (i >= MAXASIZE) {
-        luaL_error(L, "Index is too large for a Pallene table");
+        luaL_error(L, "invalid index for Pallene array at line %d", line);
     }
 
     // This loop doesn't overflow because i < MAXASIZE and
