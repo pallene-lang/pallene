@@ -60,7 +60,7 @@ install:
   - luarocks make # This installs necessary runtime dependencies
 
 script:
-  - busted -c -o gtest -v spec/
+  - busted -o gtest -v spec/
 
 notifications:
   email:
