@@ -34,7 +34,7 @@ this will also install all dependencies automatically.
 
 # Usage
 
-        $ titanc [--print-ast] [--lua <path>] [--tree <path>] <module> [<module>]
+        $ pallenec [--print-ast] [--lua <path>] [--tree <path>] <module> [<module>]
 
 The compiler takes a list of module names that you want to compile. Modules
 are looked up in the source tree (defaults to the current working directory,

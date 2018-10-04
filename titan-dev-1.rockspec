@@ -44,7 +44,7 @@ build = {
    },
    install = {
       bin = {
-         "titanc"
+         "pallenec"
       }
    }
 }
