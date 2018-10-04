@@ -134,20 +134,20 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
     }
 }
 
-// These definitions are from ltable.h:
+/* These definitions are from ltable.c */
 #define MAXABITS        cast_int(sizeof(int) * CHAR_BIT - 1)
 #define MAXASIZE        luaM_limitN(1u << MAXABITS, TValue)
 
-// Grows the table so that it can fit index "i"
-// Our strategy is to grow to the next available power of 2.
+/* Grows the table so that it can fit index "i"
+ * Our strategy is to grow to the next available power of 2. */
 void titan_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
 {
     if (i >= MAXASIZE) {
         luaL_error(L, "invalid index for Pallene array at line %d", line);
     }
 
-    // This loop doesn't overflow because i < MAXASIZE and
-    // MAXASIZE is a power of two
+    /* This loop doesn't overflow because i < MAXASIZE and
+     * MAXASIZE is a power of two */
     size_t new_size = 1;
     while (i >= new_size) {
         new_size *= 2;
