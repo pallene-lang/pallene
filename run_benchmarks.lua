@@ -89,17 +89,17 @@ local function benchmark(test_dir)
     end
 
     -- run luajit against *.lua if there is no luajit.lua
-    local luajit_run = false
+    local luajit_executed = false
     local lua_files = {}
     for _, file_name in ipairs(file_names) do
         local name, ext = util.split_ext(file_name)
         if name == "luajit" then
-            luajit_run = true
+            luajit_executed = true
         elseif ext == "lua" then
             table.insert(lua_files, name)
         end
     end
-    if not luajit_run and #lua_files ~= 0 then
+    if not luajit_executed and #lua_files ~= 0 then
         for _, f in ipairs(lua_files) do
             local result = measure("luajit", test_dir, f)
             local name = f .. " luajit"
