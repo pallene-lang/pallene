@@ -3,6 +3,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+#include "lmem.h"
 #include "lobject.h"
 #include "lstate.h"
 #include "lstring.h"
@@ -133,15 +134,24 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
     }
 }
 
+/* These definitions are from ltable.c */
+#define MAXABITS        cast_int(sizeof(int) * CHAR_BIT - 1)
+#define MAXASIZE        luaM_limitN(1u << MAXABITS, TValue)
+
+/* Grows the table so that it can fit index "i"
+ * Our strategy is to grow to the next available power of 2. */
 void titan_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
 {
-    if (i > INT_MAX) {
-        luaL_error(L, "out of bounds at line %d", line);
+    if (i >= MAXASIZE) {
+        luaL_error(L, "invalid index for Pallene array at line %d", line);
     }
-    /* TODO: review initial value */
-    unsigned int newsize = 16;
-    while (newsize <= i) {
-        newsize *= 2;
+
+    /* This loop doesn't overflow because i < MAXASIZE and
+     * MAXASIZE is a power of two */
+    size_t new_size = 1;
+    while (i >= new_size) {
+        new_size *= 2;
     }
-    luaH_resizearray(L, arr, newsize);
+
+    luaH_resizearray(L, arr, new_size);
 }

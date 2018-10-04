@@ -628,7 +628,7 @@ describe("Titan coder /", function()
 
                 local ok, err = pcall(test.get, arr, 0)
                 assert(not ok)
-                assert(string.find(err, "out of bounds", nil, true))
+                assert(string.find(err, "invalid index", nil, true))
 
                 local ok, err = pcall(test.get, arr, 4)
                 assert(not ok)
