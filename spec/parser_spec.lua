@@ -26,8 +26,8 @@ local function restrict(t1, t2)
     end
 end
 
-local function assert_is_subset(expected_ast, ast)
-    assert.are.same(expected_ast, restrict(expected_ast, ast))
+local function assert_is_subset(expected_ast, parsed_ast)
+    assert.are.same(expected_ast, restrict(expected_ast, parsed_ast))
 end
 
 --
@@ -40,21 +40,21 @@ local function parse(program_str)
 end
 
 local function assert_parses_successfuly(program_str)
-    local ast, errors = parse(program_str)
-    if not ast then
+    local prog_ast, errors = parse(program_str)
+    if not prog_ast then
         error(string.format("Unexpected Titan syntax error: %s", errors[1]))
     end
-    return ast
+    return prog_ast
 end
 
 local function assert_program_ast(program_str, expected_ast)
-    local ast = assert_parses_successfuly(program_str)
-    assert_is_subset(expected_ast, ast)
+    local prog_ast = assert_parses_successfuly(program_str)
+    assert_is_subset(expected_ast, prog_ast)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
-    local ast, errors = parse(program_str)
-    if ast then
+    local prog_ast, errors = parse(program_str)
+    if prog_ast then
         error(string.format(
             "Expected Titan syntax error %s but parsed successfuly",
             expected_error))
@@ -75,8 +75,8 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local ast = program_ast[1].decl.type
-    assert_is_subset(expected_ast, ast)
+    local type_ast = program_ast[1].decl.type
+    assert_is_subset(expected_ast, type_ast)
 end
 
 local function assert_type_syntax_error(code, expected_error)
@@ -99,8 +99,8 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local ast = program_ast[1].block.stats[1].exp
-    assert_is_subset(expected_ast, ast)
+    local exp_ast = program_ast[1].block.stats[1].exp
+    assert_is_subset(expected_ast, exp_ast)
 end
 
 local function assert_expression_syntax_error(code, expected_error)
@@ -123,8 +123,8 @@ end
 local function assert_statements_ast(code, expected_ast)
     local program_str = statements_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local ast = program_ast[1].block.stats
-    assert_is_subset(expected_ast, ast)
+    local stats_ast = program_ast[1].block.stats
+    assert_is_subset(expected_ast, stats_ast)
 end
 
 local function assert_statements_syntax_error(code, expected_error)
@@ -144,9 +144,9 @@ describe("Titan parser", function()
     end)
 
     it("can parse programs starting with whitespace or comments", function()
-        -- (This is easy to get wrong in hand-written LPeg grammars)
-        local ast = assert_parses_successfuly("--hello\n--bla\n  ")
-        assert.are.same({}, ast)
+        -- This is easy to get wrong in hand-written LPeg grammars...
+        local prog_ast = assert_parses_successfuly("--hello\n--bla\n  ")
+        assert.are.same({}, prog_ast)
     end)
 
     it("can parse toplevel var declarations", function()
@@ -661,23 +661,23 @@ describe("Titan parser", function()
     end)
 
     it("can parse the record field optional separator", function()
-        local ast = {{ field_decls = { { name = "x" }, { name = "y" } } }}
+        local expected_ast = {{ field_decls = { { name = "x" }, { name = "y" } } }}
 
         assert_program_ast([[
             record Point x: float y: float end
-        ]], ast)
+        ]], expected_ast)
 
         assert_program_ast([[
             record Point x: float; y: float end
-        ]], ast)
+        ]], expected_ast)
 
         assert_program_ast([[
             record Point x: float y: float; end
-        ]], ast)
+        ]], expected_ast)
 
         assert_program_ast([[
             record Point x: float; y: float; end
-        ]], ast)
+        ]], expected_ast)
     end)
 
     it("can parse record constructors", function()

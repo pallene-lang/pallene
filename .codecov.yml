@@ -1,8 +1,0 @@
-# See https://docs.codecov.io/docs/codecov-yaml
-
-comment:
-  layout: "files, footer"
-  behavior: default
-  require_changes: yes # Require coverage change to post comment
-  require_base: no
-  require_head: yes
