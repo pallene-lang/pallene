@@ -1,16 +1,14 @@
-package = "titan"
+package = "pallene"
 version = "dev-1"
 source = {
-   url = "git+https://github.com/titan-lang/titan"
+   url = "git+https://github.com/pallene-lang/pallene"
 }
 description = {
-   summary = "Initial prototype of the Titan compiler",
+   summary = "Initial prototype of the Pallene compiler",
    detailed = [[
-      Initial prototype of the Titan compiler.
-      This is a proof-of-concept, implementing a subset of
-      the Titan language.
+      Initial prototype of the Pallene compiler.
    ]],
-   homepage = "http://github.com/titan-lang/titan",
+   homepage = "http://github.com/pallene-lang/pallene",
    license = "MIT"
 }
 dependencies = {
