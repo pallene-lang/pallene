@@ -1,4 +1,4 @@
-local types = require "titan-compiler.types"
+local types = require "pallene.types"
 
 describe("Titan types", function()
 

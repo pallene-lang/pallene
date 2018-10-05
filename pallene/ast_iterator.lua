@@ -1,4 +1,4 @@
-local ast = require "titan-compiler.ast"
+local ast = require "pallene.ast"
 
 -- AST iterator/modifier class. The default implementation does nothing, but
 -- specific methods can be overriden since all the recursive cals are late bound

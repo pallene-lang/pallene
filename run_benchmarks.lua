@@ -4,7 +4,7 @@ local argparse = require "argparse"
 local chronos = require "chronos"
 local lfs = require "lfs"
 
-local util = require "titan-compiler.util"
+local util = require "pallene.util"
 
 local p = argparse(arg[0], "Titan benchmarks")
 p:argument("test_dir", "Only benchmark a specific directory"):args("?")

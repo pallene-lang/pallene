@@ -1,5 +1,5 @@
-local driver = require "titan-compiler.driver"
-local util = require "titan-compiler.util"
+local driver = require "pallene.driver"
+local util = require "pallene.util"
 
 local function compile(titan_code)
     return function()

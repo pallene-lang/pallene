@@ -1,10 +1,10 @@
-local c_compiler = require "titan-compiler.c_compiler"
-local checker = require "titan-compiler.checker"
-local coder = require "titan-compiler.coder"
-local parser = require "titan-compiler.parser"
-local scope_analysis = require "titan-compiler.scope_analysis"
-local upvalues = require "titan-compiler.upvalues"
-local util = require "titan-compiler.util"
+local c_compiler = require "pallene.c_compiler"
+local checker = require "pallene.checker"
+local coder = require "pallene.coder"
+local parser = require "pallene.parser"
+local scope_analysis = require "pallene.scope_analysis"
+local upvalues = require "pallene.upvalues"
+local util = require "pallene.util"
 
 local driver = {}
 

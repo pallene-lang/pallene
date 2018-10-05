@@ -1,9 +1,9 @@
 local checker = {}
 
-local ast = require "titan-compiler.ast"
-local builtins = require "titan-compiler.builtins"
-local location = require "titan-compiler.location"
-local types = require "titan-compiler.types"
+local ast = require "pallene.ast"
+local builtins = require "pallene.builtins"
+local location = require "pallene.location"
+local types = require "pallene.types"
 
 local typecheck
 

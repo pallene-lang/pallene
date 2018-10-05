@@ -1,6 +1,6 @@
-local ast = require 'titan-compiler.ast'
-local driver = require 'titan-compiler.driver'
-local util = require 'titan-compiler.util'
+local ast = require 'pallene.ast'
+local driver = require 'pallene.driver'
+local util = require 'pallene.util'
 
 --
 -- Our syntax trees contain a lot of extra information in them such as token

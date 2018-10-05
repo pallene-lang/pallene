@@ -3,10 +3,10 @@ local parser = {}
 local re = require "relabel"
 local inspect = require "inspect"
 
-local ast = require "titan-compiler.ast"
-local lexer = require "titan-compiler.lexer"
-local location = require "titan-compiler.location"
-local syntax_errors = require "titan-compiler.syntax_errors"
+local ast = require "pallene.ast"
+local lexer = require "pallene.lexer"
+local location = require "pallene.location"
+local syntax_errors = require "pallene.syntax_errors"
 
 -- File name of the file that is currently being parsed.
 -- Since this is a global the parser is not reentrant but we couldn't think of

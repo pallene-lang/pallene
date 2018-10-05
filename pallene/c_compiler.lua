@@ -1,4 +1,4 @@
-local util = require "titan-compiler.util"
+local util = require "pallene.util"
 
 local c_compiler = {}
 

@@ -1,6 +1,6 @@
-local driver = require "titan-compiler.driver"
-local upvalues = require "titan-compiler.upvalues"
-local util = require "titan-compiler.util"
+local driver = require "pallene.driver"
+local upvalues = require "pallene.upvalues"
+local util = require "pallene.util"
 
 local function run_upvalues(code)
     assert(util.set_file_contents("test.titan", code))

@@ -4,7 +4,7 @@
 --
 -- How to use Luacheck:
 --    - luarocks install luacheck
---    - luacheck ./titan-compiler
+--    - luacheck ./pallene
 --
 -- For vim integration, I recommend ALE[2]. It supports luacheck out of the box
 --
