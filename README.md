@@ -1,121 +1,97 @@
-# Titan
-[![Build Status](https://travis-ci.org/titan-lang/titan.svg?branch=master)](https://travis-ci.org/titan-lang/titan)
+# Pallene
+[![Build Status](https://travis-ci.org/pallene-lang/pallene.svg?branch=master)](https://travis-ci.org/pallene-lang/pallene)
 
-Titan is a new programming language, designed to be a statically-typed,
-ahead-of-time compiled sister language to [Lua](http://www.lua.org). It is an
-application programming language with a focus on performance.
+Pallene is a statically typed, ahead-of-time-compiled sister language to
+[Lua](https://www.lua.org), with a focus on performance. It is also a friendly
+fork of the [Titan](https://www.github.com/titan-lang/titan).
 
-This repository contains the initial prototype
-of the Titan compiler. It compiles a single Titan module
-to C code in the [artisanal style](https://github.com/titan-lang/artisanal-titan).
-The syntax is a subset of Lua syntax, plus types, and is specified in `titan-v0.ebnf`.
+Pallene is intended for writing performance sensitive code that interacts with
+Lua, a spacce that is ccurrently filled by C modules and by LuaJIT. Compared to
+C, Pallene should offer better support for interacting with Lua data types,
+bypassing the unfriendly syntax and performance overhead of the Lua-C API.
+Compared to LuaJIT, Pallene aims to offer more predictable run-time performance.
 
-# Install
+## Building the Pallene Compiler
 
-First you need to build and install the Lua interpreter in the `lua` folder, 
-as it has the needed changes to `luaconf.h` to be able to load Titan modules. 
-Apart from the changes in `luaconf.h` this interpreter is identical to Lua 5.3.4.
-The `package.cpath` of this interpreter has a `/usr/local/lib/titan/0.5/?.so`
-entry for any system-wide Titan modules.
+In order to use this source distribution of the Pallene compiler, you need to
+install its Lua library dependencies and compile its run-time library.
 
-You can install the Titan compiler itself using  [LuaRocks](http://luarocks.org)
-this will also install all dependencies automatically.
+### Installing dependencies
 
-        $ [install luarocks]
-        $ luarocks install titan-scm-1.rockspec
+The easiest way to install the dependencies for the Pallene compiler is through
+the [LuaRocks](http://luarocks.org) package manager:
+
+```sh
+$ luarocks install --local pallene-scm-1.rockspec
+```
+
+If you want to use Pallene on Linux we also recommend installing the `readline`
+library:
+
+```sh
+$ sudo apt install readline-dev   # for Ubuntu & Debian-based distros
+$ sudo dnf install readline-devel # for Fedora and OpenSUSE
+```
+
+### Compiling the runtime libraries
+
+Pallene must be run against a custom-built version of the Lua interpreter, as
+well as the Pallene runtime library. Both of these are written in C and must be
+compiled before the Pallene compiler can be used.
+
+These two components can be built through the Makefile we provide. The command
+to be used depends on your operating system:
+
+```sh
+make linux-readline # for Linux
+make macosx         # for MacOS
+```
+
+## Usage
+
+To compile a `foo.pallene` file to a `foo.so` module call `pallenec` as follows.
+
+Note: Your current working directory must be the root of this repository, due to 
+[Bug #16](https://github.com/pallene-lang/pallene/issues/16).
 
 
-# Requirements for running the compiler
+```sh
+$ ./pallenec foo.pallene
+```
 
-1. [LPegLabel](https://github.com/sqmedeiros/lpeglabel) >= 1.0.0, < 1.5.0
-2. [inspect](https://github.com/kikito/inspect.lua) >= 3.1.0
-3. [argparse](https://github.com/mpeterv/argparse) >= 0.5.0
-4. [luafilesystem](https://github.com/keplerproject/luafilesystem) >= 1.7.0
+To run Pallene, you must currently use the bundled version of the Lua
+interpreter (again, see [Bug #16](https://github.com/pallene-lang/pallene/issues/16)).
 
-# Usage
+```sh
+$ ./lua/src/lua -l foo
+```
 
-        $ pallenec [--print-ast] [--lua <path>] [--tree <path>] <module> [<module>]
+For more compiler options, see `./pallenec --help`
 
-The compiler takes a list of module names that you want to compile. Modules
-are looked up in the source tree (defaults to the current working directory,
-but you can override this with the `--tree` option), as well as in the Titan
-binary path, a semicolon-separated list of paths 
-(defaults to `.;/usr/local/lib/titan/0.5`, you can override with a `TITAN_PATH_0_5`
-or `TITAN_PATH` environment variable). A module gets compiled if its `.titan` file
-is newer than its binary, or a binary does not exist.
+## Running the test suite
 
-If everything is all right with your modules this will generate shared libraries
-(in the same path as the module source) that you can `require` from Lua, and
-call any exported functions/access exported variables.
+We use Busted to run our test suite. It can be installed using LuaRocks:
 
-# Running the test suite
+```sh
+$ luarocks install --local busted
+```
 
-The test suite es written using Busted, which can be installed using LuaRocks:
+To run the test suite, just run busted on the root directory of this repository:
 
-        $ luarocks install busted
-
-Then, you need to bulid the local copy of Lua, and run `busted` from the root directory
-of this repository:
-
-        $ cd lua
-        $ make linux
-        $ cd ..
-        $ busted
-
-You may need to adapt the invocation of `make` above to your platform.
-
-# Running the benchmarks suite
+```sh
+$ busted                       # Run all tests
+$ busted spec/parser_spec.lua  # Run just one of the test suite files
+```
+## Running the benchmarks suite
 
 Running all benchmarks in `benchmarks` directory:
 
-	$ ./run_benchmarks.lua
+```sh
+$ ./run_benchmarks.lua
+```
 
 Running a single benchmark:
 
-	$ ./run_benchmarks.lua benchmarks/<benchmark_name>
-
-# Compiler options
-
-        --print-ast                     Print the AST.
-        --lua <path>                    Path to the Lua sources (default 'lua/src')
-        --tree <path>                   Path to the source tree for your Titan modules (default '.')
-        -h, --help                      Show this help message and exit.
-        
-# Tentative roadmap
-
-This is a *very* preliminary roadmap towards Titan 1.0, where everything is
-subject to change, with things more likely to change the further
-they are in the roadmap:
-
-## Supported
-
-* control structures
-* integers
-* floats
-* booleans
-* strings
-* arrays
-* top-level functions
-* early-bound modules
-
-## In progress
-
-* records (structs)
-* first-class functions (still only in the top-level)
-
-## Next
-
-* maps
-* basic FFI with C (C arrays, C structs, C pointers, call C functions that take numbers and pointers as arguments)
-* standard library that is a subset of Lua's standard library, built using the C FFI
-* tagged variants (unions of structs with some syntax for switch/case on the tag)
-* multiple assignment/multiple returns
-* polymorphic functions
-* for-in
-* self-hosted compiler
-* nested and anonymous first-class functions with proper lexical scoping (closures)
-* ":" syntax sugar for records of functions
-* classes with single inheritance, either Go/Java/C#/Swift-like interfaces/protocols or Haskell/Rust-like typeclasses/traits
-* ":" method calls (not syntax sugar)
-* operator overloading
-* ...Titan 1.0!
+```sh
+$ ./run_benchmarks.lua benchmarks/<benchmark_name>
+```
