@@ -1,4 +1,4 @@
-local lexer = require 'titan-compiler.lexer'
+local lexer = require 'pallene.lexer'
 local lpeg = require 'lpeglabel'
 
 local function table_extend(t1, t2)

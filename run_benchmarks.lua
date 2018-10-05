@@ -4,9 +4,9 @@ local argparse = require "argparse"
 local chronos = require "chronos"
 local lfs = require "lfs"
 
-local util = require "titan-compiler.util"
+local util = require "pallene.util"
 
-local p = argparse(arg[0], "Titan benchmarks")
+local p = argparse(arg[0], "Pallene benchmarks")
 p:argument("test_dir", "Only benchmark a specific directory"):args("?")
 p:flag("--no-lua", "Do not run the (slow) lua benchmark")
 p:option("--sort", "Sort by name or result"):count("0-1")
@@ -43,7 +43,7 @@ local function measure(lua, test_dir, name)
 end
 
 local function compile(ext, file_name)
-    if     ext == "titan" then
+    if     ext == "pallene" then
         return util.shell(string.format("./pallenec %s", file_name))
     elseif ext == "c" then
         return util.shell(string.format("./pallenec --compile-c %s", file_name))
@@ -58,7 +58,7 @@ local function benchmark(test_dir)
     local file_names = {}
     for file_name in lfs.dir(test_dir) do
         local _, ext = util.split_ext(file_name)
-        if (ext == "titan" or ext == "c" or ext == "lua") and
+        if (ext == "pallene" or ext == "c" or ext == "lua") and
             not string.find(file_name, "^%.") and
             file_name ~= "main.lua"
         then

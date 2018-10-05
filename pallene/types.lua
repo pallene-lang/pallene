@@ -1,4 +1,4 @@
-local typedecl = require "titan-compiler.typedecl"
+local typedecl = require "pallene.typedecl"
 
 local types = {}
 

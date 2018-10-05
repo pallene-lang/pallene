@@ -1,4 +1,4 @@
-local location = require "titan-compiler.location"
+local location = require "pallene.location"
 
 local function check_get_line_number(text, line_numbers)
     for i = 1, #line_numbers do

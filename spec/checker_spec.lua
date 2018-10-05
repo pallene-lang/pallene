@@ -1,11 +1,11 @@
-local ast = require 'titan-compiler.ast'
-local driver = require 'titan-compiler.driver'
-local types = require 'titan-compiler.types'
-local util = require 'titan-compiler.util'
+local ast = require 'pallene.ast'
+local driver = require 'pallene.driver'
+local types = require 'pallene.types'
+local util = require 'pallene.util'
 
 local function run_checker(code)
-    assert(util.set_file_contents("test.titan", code))
-    local prog, errs = driver.test_ast("checker", "test.titan")
+    assert(util.set_file_contents("test.pallene", code))
+    local prog, errs = driver.test_ast("checker", "test.pallene")
     return prog, table.concat(errs, "\n")
 end
 
@@ -23,7 +23,7 @@ end
 describe("Titan type checker", function()
 
     teardown(function()
-        os.remove("test.titan")
+        os.remove("test.pallene")
     end)
 
     it("detects when a non-type is used in a type variable", function()

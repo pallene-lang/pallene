@@ -1,11 +1,11 @@
-local driver = require "titan-compiler.driver"
-local util = require "titan-compiler.util"
+local driver = require "pallene.driver"
+local util = require "pallene.util"
 
 local function compile(titan_code)
     return function()
-        assert(util.set_file_contents("test.titan", titan_code))
+        assert(util.set_file_contents("test.pallene", titan_code))
         local ok, errors =
-            driver.compile("pallenec-tests", "titan", "so", "test.titan")
+            driver.compile("pallenec-tests", "pallene", "so", "test.pallene")
         assert(ok, errors[1])
     end
 end
@@ -27,7 +27,7 @@ local function assert_test_output(expected)
 end
 
 local function cleanup()
-    os.remove("test.titan")
+    os.remove("test.pallene")
     os.remove("test.so")
     os.remove("test_script.lua")
     os.remove("test_output.txt")

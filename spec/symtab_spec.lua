@@ -1,4 +1,4 @@
-local symtab = require 'titan-compiler.symtab'
+local symtab = require 'pallene.symtab'
 
 describe("Titan symbol table", function()
 

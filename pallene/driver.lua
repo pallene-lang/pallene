@@ -1,10 +1,10 @@
-local c_compiler = require "titan-compiler.c_compiler"
-local checker = require "titan-compiler.checker"
-local coder = require "titan-compiler.coder"
-local parser = require "titan-compiler.parser"
-local scope_analysis = require "titan-compiler.scope_analysis"
-local upvalues = require "titan-compiler.upvalues"
-local util = require "titan-compiler.util"
+local c_compiler = require "pallene.c_compiler"
+local checker = require "pallene.checker"
+local coder = require "pallene.coder"
+local parser = require "pallene.parser"
+local scope_analysis = require "pallene.scope_analysis"
+local upvalues = require "pallene.upvalues"
+local util = require "pallene.util"
 
 local driver = {}
 
@@ -76,11 +76,11 @@ local function compile_pallene_to_c(pallene_filename, c_filename, modname)
 end
 
 local compiler_steps = {
-    { name = "titan", f = compile_pallene_to_c },
-    { name = "c",     f = c_compiler.compile_c_to_s },
-    { name = "s",     f = c_compiler.compile_s_to_o },
-    { name = "o",     f = c_compiler.compile_o_to_so},
-    { name = "so",    f = false },
+    { name = "pallene", f = compile_pallene_to_c },
+    { name = "c",       f = c_compiler.compile_c_to_s },
+    { name = "s",       f = c_compiler.compile_s_to_o },
+    { name = "o",       f = c_compiler.compile_o_to_so},
+    { name = "so",      f = false },
 }
 
 local function check_source_filename(argv0, filename, expected_ext)
@@ -103,8 +103,8 @@ end
 -- [output_ext]. Erases any intermediate files that are produced along the way.
 --
 -- Example:
---    compile("titan", "so", "foo.titan") --> outputs "foo.so"
---    compile("titan", "c", "foo.titan")  --> outputs "foo.c"
+--    compile("pallene", "so", "foo.pallene") --> outputs "foo.so"
+--    compile("pallene", "c", "foo.pallene")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)          --> outputs "foo.so"
 --
 function driver.compile(argv0, input_ext, output_ext, input_filename)
@@ -143,7 +143,7 @@ end
 -- This is meant for unit tests.
 --
 function driver.test_ast(stop_after, input_filename)
-    local basename, err = check_source_filename("pallenec test", input_filename, "titan")
+    local basename, err = check_source_filename("pallenec test", input_filename, "pallene")
     if not basename then return false, {err} end
 
     return compile_pallene_to_ast(input_filename, stop_after)

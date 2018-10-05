@@ -1,19 +1,19 @@
-local driver = require "titan-compiler.driver"
-local util = require "titan-compiler.util"
+local driver = require "pallene.driver"
+local util = require "pallene.util"
 
-local ast = require "titan-compiler.ast"
-local builtins = require "titan-compiler.builtins"
+local ast = require "pallene.ast"
+local builtins = require "pallene.builtins"
 
 local function run_scope_analysis(code)
-    assert(util.set_file_contents("test.titan", code))
-    local prog, errs = driver.test_ast("scope_analysis", "test.titan")
+    assert(util.set_file_contents("test.pallene", code))
+    local prog, errs = driver.test_ast("scope_analysis", "test.pallene")
     return prog, table.concat(errs, "\n")
 end
 
 describe("Scope analysis: ", function()
 
     teardown(function()
-        os.remove("test.titan")
+        os.remove("test.pallene")
     end)
 
     it("global variables work", function()

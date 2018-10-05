@@ -1,6 +1,6 @@
-local ast = require "titan-compiler.ast"
-local ast_iterator = require "titan-compiler.ast_iterator"
-local typedecl = require "titan-compiler.typedecl"
+local ast = require "pallene.ast"
+local ast_iterator = require "pallene.ast_iterator"
+local typedecl = require "pallene.typedecl"
 
 local upvalues = {}
 

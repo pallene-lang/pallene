@@ -1,10 +1,10 @@
 local scope_analysis = {}
 
-local ast = require "titan-compiler.ast"
-local ast_iterator = require "titan-compiler.ast_iterator"
-local builtins = require "titan-compiler.builtins"
-local location = require "titan-compiler.location"
-local symtab = require "titan-compiler.symtab"
+local ast = require "pallene.ast"
+local ast_iterator = require "pallene.ast_iterator"
+local builtins = require "pallene.builtins"
+local location = require "pallene.location"
+local symtab = require "pallene.symtab"
 
 local bind_names = ast_iterator.new()
 
