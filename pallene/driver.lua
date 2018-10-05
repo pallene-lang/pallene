@@ -103,8 +103,8 @@ end
 -- [output_ext]. Erases any intermediate files that are produced along the way.
 --
 -- Example:
---    compile("titan", "so", "foo.pallene") --> outputs "foo.so"
---    compile("titan", "c", "foo.pallene")  --> outputs "foo.c"
+--    compile("pallene", "so", "foo.pallene") --> outputs "foo.so"
+--    compile("pallene", "c", "foo.pallene")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)          --> outputs "foo.so"
 --
 function driver.compile(argv0, input_ext, output_ext, input_filename)
