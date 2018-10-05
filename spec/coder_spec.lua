@@ -5,7 +5,7 @@ local function compile(titan_code)
     return function()
         assert(util.set_file_contents("test.pallene", titan_code))
         local ok, errors =
-            driver.compile("pallenec-tests", "titan", "so", "test.pallene")
+            driver.compile("pallenec-tests", "pallene", "so", "test.pallene")
         assert(ok, errors[1])
     end
 end
