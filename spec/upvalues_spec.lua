@@ -3,8 +3,8 @@ local upvalues = require "pallene.upvalues"
 local util = require "pallene.util"
 
 local function run_upvalues(code)
-    assert(util.set_file_contents("test.titan", code))
-    local prog, errs = driver.test_ast("upvalues", "test.titan")
+    assert(util.set_file_contents("test.pallene", code))
+    local prog, errs = driver.test_ast("upvalues", "test.pallene")
     return prog, table.concat(errs, "\n")
 end
 
@@ -12,7 +12,7 @@ local n_upvs = #upvalues.internal_literals
 
 describe("Upvalues pass:", function()
     teardown(function()
-        os.remove("test.titan")
+        os.remove("test.pallene")
     end)
 
     it("function without globals", function()

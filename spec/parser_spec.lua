@@ -35,8 +35,8 @@ end
 --
 
 local function parse(program_str)
-    assert(util.set_file_contents("test.titan", program_str))
-    return driver.test_ast("parser", "test.titan")
+    assert(util.set_file_contents("test.pallene", program_str))
+    return driver.test_ast("parser", "test.pallene")
 end
 
 local function assert_parses_successfuly(program_str)
@@ -140,7 +140,7 @@ describe("Titan parser", function()
     assert:set_parameter("TableFormatLevel", -1)
 
     teardown(function()
-        os.remove("test.titan")
+        os.remove("test.pallene")
     end)
 
     it("can parse programs starting with whitespace or comments", function()
