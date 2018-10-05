@@ -76,11 +76,11 @@ local function compile_pallene_to_c(pallene_filename, c_filename, modname)
 end
 
 local compiler_steps = {
-    { name = "titan", f = compile_pallene_to_c },
-    { name = "c",     f = c_compiler.compile_c_to_s },
-    { name = "s",     f = c_compiler.compile_s_to_o },
-    { name = "o",     f = c_compiler.compile_o_to_so},
-    { name = "so",    f = false },
+    { name = "pallene", f = compile_pallene_to_c },
+    { name = "c",       f = c_compiler.compile_c_to_s },
+    { name = "s",       f = c_compiler.compile_s_to_o },
+    { name = "o",       f = c_compiler.compile_o_to_so},
+    { name = "so",      f = false },
 }
 
 local function check_source_filename(argv0, filename, expected_ext)
@@ -143,7 +143,7 @@ end
 -- This is meant for unit tests.
 --
 function driver.test_ast(stop_after, input_filename)
-    local basename, err = check_source_filename("pallenec test", input_filename, "titan")
+    local basename, err = check_source_filename("pallenec test", input_filename, "pallene")
     if not basename then return false, {err} end
 
     return compile_pallene_to_ast(input_filename, stop_after)
