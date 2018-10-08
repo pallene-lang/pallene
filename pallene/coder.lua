@@ -755,7 +755,7 @@ local function check_tag(typ, slot, ctx)
     return util.render(tmpl, {SLOT = slot})
 end
 
-local function titan_type_tag(typ)
+local function pallene_type_tag(typ)
     local tag = typ._tag
     if     tag == types.T.Nil      then return "LUA_TNIL"
     elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
@@ -774,7 +774,7 @@ end
 -- code generation
 --
 
-local function generate_titan_entry_point(tl_node, literals)
+local function generate_pallene_entry_point(tl_node, literals)
     local ctx = Context.new(literals)
 
     local ret_ctype
@@ -806,7 +806,7 @@ local function generate_titan_entry_point(tl_node, literals)
         }
     ]], {
         RET = ret_ctype,
-        NAME = tl_node._titan_entry_point,
+        NAME = tl_node._pallene_entry_point,
         RESERVE_STACK = reserve_stack,
         PARAMS = table.concat(params, ",\n"),
         BODY = table.concat(body, "\n"),
@@ -862,7 +862,7 @@ local function generate_lua_entry_point(tl_node, literals)
             CHECK_TAG = check_tag(param._type, slot.name, ctx),
             PARAM_NAME = c_string(param.name),
             LINE = c_integer(param.loc.line),
-            EXPECTED_TAG = titan_type_tag(param._type),
+            EXPECTED_TAG = pallene_type_tag(param._type),
         }))
     end
 
@@ -879,31 +879,31 @@ local function generate_lua_entry_point(tl_node, literals)
         }))
     end
 
-    local titan_args = {"L"}
+    local pallene_args = {"L"}
     for _, var in ipairs(arg_vars) do
-        table.insert(titan_args, var.name)
+        table.insert(pallene_args, var.name)
     end
-    local titan_call = util.render("${TITAN_ENTRY_POINT}(${ARGS})", {
-        TITAN_ENTRY_POINT = tl_node._titan_entry_point,
-        ARGS = table.concat(titan_args, ", "),
+    local pallene_call = util.render("${PALLENE_ENTRY_POINT}(${ARGS})", {
+        PALLENE_ENTRY_POINT = tl_node._pallene_entry_point,
+        ARGS = table.concat(pallene_args, ", "),
     })
 
     local set_return
     if #tl_node._type.rettypes == 0 then
         set_return = util.render([[
-            ${TITAN_CALL};
+            ${PALLENE_CALL};
         ]], {
-            TITAN_CALL = titan_call,
+            PALLENE_CALL = pallene_call,
         })
     elseif #tl_node._type.rettypes == 1 then
         local ret_typ = tl_node._type.rettypes[1]
         local ret = ctx:new_cvar(ctype(ret_typ), "ret")
         local push_ret = push_to_stack(ctx, ret_typ, ret.name)
         set_return = util.render([[
-            ${RET_DECL} = ${TITAN_CALL};
+            ${RET_DECL} = ${PALLENE_CALL};
             ${PUSH_RET}
         ]], {
-            TITAN_CALL = titan_call,
+            PALLENE_CALL = pallene_call,
             RET_DECL = c_declaration(ret),
             PUSH_RET = push_ret,
         })
@@ -1137,7 +1137,7 @@ local function generate_lvalue_read(lvalue, ctx)
             ARRSLOT_DECL = c_declaration(arrslot),
             OUT_DECL = c_declaration(out),
             CHECK_TAG = check_tag(typ, arrslot.name, ctx),
-            EXPECTED_TAG = titan_type_tag(typ),
+            EXPECTED_TAG = pallene_type_tag(typ),
             LINE = loc.line,
             COL = loc.col,
             GET_ARRSLOT = get_slot(typ, arrslot.name),
@@ -1262,8 +1262,8 @@ generate_program = function(prog, modname)
     -- Name all the function entry points
     for _, tl_node in ipairs(prog) do
         if tl_node._tag == ast.Toplevel.Func then
-            tl_node._titan_entry_point =
-                function_name(tl_node.name, "titan")
+            tl_node._pallene_entry_point =
+                function_name(tl_node.name, "pallene")
             tl_node._lua_entry_point =
                 function_name(tl_node.name, "lua")
         end
@@ -1277,7 +1277,7 @@ generate_program = function(prog, modname)
             if tl_node._tag == ast.Toplevel.Func then
                 assert(#tl_node._type.rettypes <= 1)
                 table.insert(function_definitions,
-                    generate_titan_entry_point(tl_node, prog._literals))
+                    generate_pallene_entry_point(tl_node, prog._literals))
                 table.insert(function_definitions,
                     generate_lua_entry_point(tl_node, prog._literals))
             end
@@ -2071,7 +2071,7 @@ generate_exp = function(exp, ctx)
                 ${TMP_INIT} ${FUN_NAME}(${ARGS});
                 ${RELEASE_VARS}
             ]], {
-                FUN_NAME  = tl_node._titan_entry_point,
+                FUN_NAME  = tl_node._pallene_entry_point,
                 ARG_STATS = table.concat(arg_cstatss, "\n"),
                 ARGS      = table.concat(arg_cvalues, ", "),
                 TMP_INIT  = tmp_init,
@@ -2137,7 +2137,7 @@ generate_exp = function(exp, ctx)
                     SLOT_DECL = c_declaration(slot),
                     CHECK_TAG = check_tag(ret_typ, slot.name, ctx),
                     LINE = c_integer(exp.loc.line),
-                    EXPECTED_TAG = titan_type_tag(ret_typ),
+                    EXPECTED_TAG = pallene_type_tag(ret_typ),
                     RET_DECL = c_declaration(ret),
                     GET_SLOT = get_slot(ret_typ, slot.name),
                 }))
