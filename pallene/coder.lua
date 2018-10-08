@@ -39,7 +39,7 @@ local whole_file_template = [[
 
 #include <string.h>
 
-#include "tcore.h"
+#include "pallene_core.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -827,8 +827,8 @@ local function generate_lua_entry_point(tl_node, literals)
     local nargs = ctx:new_cvar("int", "nargs")
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
-        if (TITAN_UNLIKELY(${NARGS} != ${EXPECTED})) {
-            titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS});
+        if (PALLENE_UNLIKELY(${NARGS} != ${EXPECTED})) {
+            pallene_runtime_arity_error(L, ${EXPECTED}, ${NARGS});
         }
     ]], {
         BASE = base.name,
@@ -852,8 +852,8 @@ local function generate_lua_entry_point(tl_node, literals)
         local slot = ctx:new_cvar("TValue*")
         table.insert(check_types, util.render([[
             ${SLOT_DECL} = ${SLOT_ADDRESS};
-            if (TITAN_UNLIKELY(!${CHECK_TAG})) {
-                titan_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME});
+            if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                pallene_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME});
             }
         ]], {
             SLOT_NAME = slot.name,
@@ -1120,12 +1120,12 @@ local function generate_lvalue_read(lvalue, ctx)
         local out = ctx:new_tvar(typ)
         local cstats = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
-            if (TITAN_UNLIKELY(${UI} >= ${T}->sizearray)) {
-                titan_renormalize_array(L, ${T}, ${UI}, ${LINE});
+            if (PALLENE_UNLIKELY(${UI} >= ${T}->sizearray)) {
+                pallene_renormalize_array(L, ${T}, ${UI}, ${LINE});
             }
             ${ARRSLOT_DECL} = &${T}->array[${UI}];
-            if (TITAN_UNLIKELY(!${CHECK_TAG})) {
-                titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
+            if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                pallene_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
             }
             ${OUT_DECL} = ${GET_ARRSLOT};
         ]], {
@@ -1195,8 +1195,8 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         local slot = ctx:new_cvar("TValue *", "slot")
         local out = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
-            if (TITAN_UNLIKELY(${UI} >= ${T}->sizearray)) {
-                titan_renormalize_array(L, ${T}, ${UI}, ${LINE});
+            if (PALLENE_UNLIKELY(${UI} >= ${T}->sizearray)) {
+                pallene_renormalize_array(L, ${T}, ${UI}, ${LINE});
             }
             ${SLOT_DECL} = &${T}->array[${UI}];
             ${SET_SLOT}
@@ -1597,8 +1597,8 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         ${CSTATS_T}
         ${CSTATS_V}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
-        if (TITAN_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
-            titan_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
+        if (PALLENE_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
+            pallene_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
         }
         ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
         ${SET_SLOT}
@@ -1625,10 +1625,10 @@ local function generate_exp_builtin_table_remove(exp, ctx)
     local cstats = util.render([[
         ${CSTATS_T}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
-        if (TITAN_LIKELY(${UI} > 0)) {
+        if (PALLENE_LIKELY(${UI} > 0)) {
             ${UI} = ${UI} - 1;
-            if (TITAN_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
-                titan_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
+            if (PALLENE_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
+                pallene_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
             }
             ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
             setempty(${SLOT});
@@ -1757,7 +1757,7 @@ local function generate_binop_idiv_int(exp, ctx)
         ${Q_DECL};
         if (l_castS2U(${N}) + 1u <= 1u) {
             if (${N} == 0){
-                titan_runtime_divide_by_zero_error(L, ${LINE});
+                pallene_runtime_divide_by_zero_error(L, ${LINE});
             } else {
                 ${Q} = intop(-, 0, ${M});
             }
@@ -1791,7 +1791,7 @@ local function generate_binop_mod_int(exp, ctx)
         ${R_DECL};
         if (l_castS2U(${N}) + 1u <= 1u) {
             if (${N} == 0){
-                titan_runtime_mod_by_zero_error(L, ${LINE});
+                pallene_runtime_mod_by_zero_error(L, ${LINE});
             } else {
                 ${R} = 0;
             }
@@ -1863,7 +1863,7 @@ end
 -- For the dynamic case, we gain a bit of performance (~20%) compared to the
 -- algorithm in luaV_shiftl by reordering the branches to put the common case
 -- (shift ammount is a small positive integer) under only one level of branching
--- and with a TITAN_LIKELY annotation.
+-- and with a PALLENE_LIKELY annotation.
 local function generate_binop_shift(shift_pos, shift_neg, exp, ctx)
     local x_stats, x_var = generate_exp(exp.lhs, ctx)
     local y_stats, y_var = generate_exp(exp.rhs, ctx)
@@ -1872,10 +1872,10 @@ local function generate_binop_shift(shift_pos, shift_neg, exp, ctx)
         ${X_STATS}
         ${Y_STATS}
         ${R_DECL};
-        if (TITAN_LIKELY(l_castS2U(${Y}) < TITAN_LUAINTEGER_NBITS)) {
+        if (PALLENE_LIKELY(l_castS2U(${Y}) < PALLENE_LUAINTEGER_NBITS)) {
             ${R} = intop(${SHIFT_POS}, ${X}, ${Y});
         } else {
-            if (l_castS2U(-${Y}) < TITAN_LUAINTEGER_NBITS) {
+            if (l_castS2U(-${Y}) < PALLENE_LUAINTEGER_NBITS) {
                 ${R} = intop(${SHIFT_NEG}, ${X}, -${Y});
             } else {
                 ${R} = 0;
@@ -1915,7 +1915,7 @@ local function generate_concat(exp, ctx)
             ${GC}
             TString *ss[${N}];
             ${INIT};
-            ${OUT} = titan_string_concatN(L, ${N}, ss);
+            ${OUT} = pallene_string_concatN(L, ${N}, ss);
         }
     ]], {
         GC = gc,
@@ -2127,8 +2127,8 @@ generate_exp = function(exp, ctx)
                 retval = ret.name
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top - 1);
-                    if (TITAN_UNLIKELY(!${CHECK_TAG})) {
-                        titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
+                    if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                        pallene_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
                     }
                     ${RET_DECL} = ${GET_SLOT};
                     L->top--;
