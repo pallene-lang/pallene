@@ -800,6 +800,13 @@ describe("Pallene coder /", function()
             function make_gc(x: {integer}): Gc
                 return { x = x }
             end
+
+            record Empty
+            end
+
+            function make_empty(): Empty
+                return {}
+            end
         ]]))
 
         it("create records", function()
@@ -839,6 +846,13 @@ describe("Pallene coder /", function()
         it("create records with only gc fields", function()
             run_test([[
                 local x = test.make_gc({})
+                assert("userdata" == type(x))
+            ]])
+        end)
+
+        it("create empty records", function()
+            run_test([[
+                local x = test.make_empty()
                 assert("userdata" == type(x))
             ]])
         end)
