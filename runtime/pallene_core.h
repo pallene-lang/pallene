@@ -11,7 +11,7 @@
 
 #define PALLENE_LUAINTEGER_NBITS  cast_int(sizeof(lua_Integer) * CHAR_BIT)
 
-const char *titan_tag_name(int raw_tag);
+const char *pallene_tag_name(int raw_tag);
 
 void titan_runtime_arity_error(
     lua_State *L, int expected, int received)
@@ -38,10 +38,10 @@ void titan_runtime_mod_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
 
-TString *titan_string_concatN(
+TString *pallene_string_concatN(
     lua_State *L, size_t n, TString **ss);
 
-void titan_renormalize_array(
+void pallene_renormalize_array(
     lua_State *L, Table *arr, unsigned int i, int line);
 
 #endif

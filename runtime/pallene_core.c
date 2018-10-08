@@ -12,7 +12,7 @@
 
 #include <string.h>
 
-const char *titan_tag_name(int raw_tag)
+const char *pallene_tag_name(int raw_tag)
 {
     if (raw_tag == LUA_TNUMINT) {
         return "integer";
@@ -43,8 +43,8 @@ void titan_runtime_argument_type_error(
     int expected_tag,
     TValue *slot
 ){
-    const char *expected_type = titan_tag_name(expected_tag);
-    const char *received_type = titan_tag_name(rawtt(slot));
+    const char *expected_type = pallene_tag_name(expected_tag);
+    const char *received_type = pallene_tag_name(rawtt(slot));
     luaL_error(
         L,
         "wrong type for argument %s at line %d, expected %s but found %s",
@@ -59,8 +59,8 @@ void titan_runtime_array_type_error(
    int expected_tag,
    int received_tag
 ){
-    const char *expected_type = titan_tag_name(expected_tag);
-    const char *received_type = titan_tag_name(received_tag);
+    const char *expected_type = pallene_tag_name(expected_tag);
+    const char *received_type = pallene_tag_name(received_tag);
     luaL_error(
         L,
         "wrong type for array element at line %d, expected %s but found %s",
@@ -75,8 +75,8 @@ void titan_runtime_function_return_error(
     int expected_tag,
     int received_tag
 ){
-    const char *expected_type = titan_tag_name(expected_tag);
-    const char *received_type = titan_tag_name(received_tag);
+    const char *expected_type = pallene_tag_name(expected_tag);
+    const char *received_type = pallene_tag_name(received_tag);
     luaL_error(
         L,
         "wrong type for function result at line %d, expected %s but found %s",
@@ -111,7 +111,7 @@ static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
     }
 }
 
-TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
+TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
 {
     size_t out_len = 0;
     for (size_t i = 0; i < n; i++) {
@@ -140,7 +140,7 @@ TString *titan_string_concatN(lua_State *L, size_t n, TString **ss)
 
 /* Grows the table so that it can fit index "i"
  * Our strategy is to grow to the next available power of 2. */
-void titan_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
+void pallene_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
 {
     if (i >= MAXASIZE) {
         luaL_error(L, "invalid index for Pallene array at line %d", line);

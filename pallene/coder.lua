@@ -1121,7 +1121,7 @@ local function generate_lvalue_read(lvalue, ctx)
         local cstats = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
             if (PALLENE_UNLIKELY(${UI} >= ${T}->sizearray)) {
-                titan_renormalize_array(L, ${T}, ${UI}, ${LINE});
+                pallene_renormalize_array(L, ${T}, ${UI}, ${LINE});
             }
             ${ARRSLOT_DECL} = &${T}->array[${UI}];
             if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
@@ -1196,7 +1196,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         local out = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
             if (PALLENE_UNLIKELY(${UI} >= ${T}->sizearray)) {
-                titan_renormalize_array(L, ${T}, ${UI}, ${LINE});
+                pallene_renormalize_array(L, ${T}, ${UI}, ${LINE});
             }
             ${SLOT_DECL} = &${T}->array[${UI}];
             ${SET_SLOT}
@@ -1598,7 +1598,7 @@ local function generate_exp_builtin_table_insert(exp, ctx)
         ${CSTATS_V}
         ${UI_DECL} = luaH_getn(${CVALUE_T});
         if (PALLENE_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
-            titan_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
+            pallene_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
         }
         ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
         ${SET_SLOT}
@@ -1628,7 +1628,7 @@ local function generate_exp_builtin_table_remove(exp, ctx)
         if (PALLENE_LIKELY(${UI} > 0)) {
             ${UI} = ${UI} - 1;
             if (PALLENE_UNLIKELY(${UI} >= ${CVALUE_T}->sizearray)) {
-                titan_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
+                pallene_renormalize_array(L, ${CVALUE_T}, ${UI}, ${LINE});
             }
             ${SLOT_DECL} = &${CVALUE_T}->array[${UI}];
             setempty(${SLOT});
@@ -1915,7 +1915,7 @@ local function generate_concat(exp, ctx)
             ${GC}
             TString *ss[${N}];
             ${INIT};
-            ${OUT} = titan_string_concatN(L, ${N}, ss);
+            ${OUT} = pallene_string_concatN(L, ${N}, ss);
         }
     ]], {
         GC = gc,
