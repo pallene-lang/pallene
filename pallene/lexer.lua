@@ -1,5 +1,5 @@
 --
--- This module exports lpeg patterns that can lex Titan source code.
+-- This module exports lpeg patterns that can lex Pallene source code.
 --
 -- The lexer follows the "longest match" rule and for any given input there
 -- will be at most one token that matches it. For example, lexer.LE matches
@@ -206,7 +206,7 @@ local symbols = {
     LCURLY   = "{", RCURLY   = "}",
     SEMICOLON = ";", COMMA = ",",
     DOT = ".", DOTS = "...", DBLCOLON = "::",
-    -- Titan:
+    -- Pallene:
     COLON = ":",
     RARROW = "->",
 }

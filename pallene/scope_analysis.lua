@@ -8,7 +8,7 @@ local symtab = require "pallene.symtab"
 
 local bind_names = ast_iterator.new()
 
--- Implement the lexical scoping for a Titan module.
+-- Implement the lexical scoping for a Pallene module.
 --
 -- Sets a _decl field on Var.Name and Type.Name nodes.
 -- This will need to be revised when we introduce modules, because then the "."

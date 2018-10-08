@@ -17,7 +17,7 @@ local check_var
 local check_exp
 --local check_field
 
--- Type-check a Titan module
+-- Type-check a Pallene module
 --
 -- Sets a _type field on some AST nodes:
 --  - Value declarations:
