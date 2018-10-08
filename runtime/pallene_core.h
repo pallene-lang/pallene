@@ -13,28 +13,28 @@
 
 const char *pallene_tag_name(int raw_tag);
 
-void titan_runtime_arity_error(
+void pallene_runtime_arity_error(
     lua_State *L, int expected, int received)
     PALLENE_NORETURN;
 
-void titan_runtime_argument_type_error(
+void pallene_runtime_argument_type_error(
     lua_State *L, const char *param_name, int line, int expected_tag,
     TValue *slot)
     PALLENE_NORETURN;
 
-void titan_runtime_array_type_error(
+void pallene_runtime_array_type_error(
     lua_State *L, int line, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 
-void titan_runtime_function_return_error(
+void pallene_runtime_function_return_error(
     lua_State *L, int line, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 
-void titan_runtime_divide_by_zero_error(
+void pallene_runtime_divide_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
 
-void titan_runtime_mod_by_zero_error(
+void pallene_runtime_mod_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
 

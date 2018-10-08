@@ -828,7 +828,7 @@ local function generate_lua_entry_point(tl_node, literals)
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
         if (PALLENE_UNLIKELY(${NARGS} != ${EXPECTED})) {
-            titan_runtime_arity_error(L, ${EXPECTED}, ${NARGS});
+            pallene_runtime_arity_error(L, ${EXPECTED}, ${NARGS});
         }
     ]], {
         BASE = base.name,
@@ -853,7 +853,7 @@ local function generate_lua_entry_point(tl_node, literals)
         table.insert(check_types, util.render([[
             ${SLOT_DECL} = ${SLOT_ADDRESS};
             if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                titan_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME});
+                pallene_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME});
             }
         ]], {
             SLOT_NAME = slot.name,
@@ -1125,7 +1125,7 @@ local function generate_lvalue_read(lvalue, ctx)
             }
             ${ARRSLOT_DECL} = &${T}->array[${UI}];
             if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                titan_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
+                pallene_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
             }
             ${OUT_DECL} = ${GET_ARRSLOT};
         ]], {
@@ -1757,7 +1757,7 @@ local function generate_binop_idiv_int(exp, ctx)
         ${Q_DECL};
         if (l_castS2U(${N}) + 1u <= 1u) {
             if (${N} == 0){
-                titan_runtime_divide_by_zero_error(L, ${LINE});
+                pallene_runtime_divide_by_zero_error(L, ${LINE});
             } else {
                 ${Q} = intop(-, 0, ${M});
             }
@@ -1791,7 +1791,7 @@ local function generate_binop_mod_int(exp, ctx)
         ${R_DECL};
         if (l_castS2U(${N}) + 1u <= 1u) {
             if (${N} == 0){
-                titan_runtime_mod_by_zero_error(L, ${LINE});
+                pallene_runtime_mod_by_zero_error(L, ${LINE});
             } else {
                 ${R} = 0;
             }
@@ -2128,7 +2128,7 @@ generate_exp = function(exp, ctx)
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top - 1);
                     if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                        titan_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
+                        pallene_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
                     }
                     ${RET_DECL} = ${GET_SLOT};
                     L->top--;
