@@ -48,8 +48,6 @@ local errors = {
 
     EndRecord = "Expected 'end' to close the record.",
 
-    FieldRecord = "Expected a field in record declaration.",
-
     NameImport = "Expected a name after 'local'.",
 
     --this label is not thrown in rule 'import' because rule 'toplevelvar'
