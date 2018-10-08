@@ -46,7 +46,7 @@ local function link_obj(o_filename, so_filename)
         c_compiler.CFLAGS_SHARED,
         "-o", so_filename,
         o_filename,
-        "runtime/titanlib.a"
+        "runtime/pallenelib.a"
     })
 end
 
