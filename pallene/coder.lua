@@ -457,21 +457,25 @@ end
 local function upvalues_create_table(n, ctx)
     if n == 0 then return "" end
 
-    -- TODO: this should be types.T.Array(types.T.Value())
-    local typ = types.T.Array(types.T.Integer())
+    -- This is a bit of a hack... we need to declare this variable as a tvar
+    -- to avoid letting it be garbage collected, but in order to do that we
+    -- need to pretend that it has a Pallene type...
+    --
+    -- We might be able to do this away after the IR refactor, which will
+    -- change how the garbage collection and variable-saving works.
+    local typ = types.T.Record(false)
 
     ctx.upv = {}
     ctx.upv.table = ctx:new_tvar(typ) -- tvar: Don't GC this!
-    ctx.upv.array = ctx:new_cvar("TValue *")
+    ctx.upv.array = ctx:new_cvar("UValue *")
 
     local out = util.render([[
-        ${TABLE_DECL} = luaH_new(L);
-        luaH_resizearray(L, ${TABLE}, ${N});
-        ${ARRAY_DECL} = ${TABLE}->array;
+        ${UDATA_DECL} = luaS_newudata(L, 0, ${N});
+        ${ARRAY_DECL} = ${UDATA}->uv;
     ]], {
         N = c_integer(n),
-        TABLE = ctx.upv.table.name,
-        TABLE_DECL = c_declaration(ctx.upv.table),
+        UDATA = ctx.upv.table.name,
+        UDATA_DECL = c_declaration(ctx.upv.table),
         ARRAY = ctx.upv.array.name,
         ARRAY_DECL = c_declaration(ctx.upv.array),
     })
@@ -482,19 +486,19 @@ local function upvalues_init_local_cvars(ctx)
     local closure = ctx:new_cvar("CClosure *")
 
     ctx.upv = {}
-    ctx.upv.table = ctx:new_cvar("Table *", "upvalue table")
-    ctx.upv.array = ctx:new_cvar("TValue *", "upvalue array")
+    ctx.upv.table = ctx:new_cvar("Udata *", "upvalue table")
+    ctx.upv.array = ctx:new_cvar("UValue *", "upvalue array")
 
     local out = util.render([[
         ${CLOSURE_DECL} = clCvalue(s2v(L->ci->func));
-        ${TABLE_DECL} = hvalue(&${CLOSURE}->upvalue[0]);
-        ${ARRAY_DECL} = ${TABLE}->array;
+        ${UDATA_DECL} = uvalue(&${CLOSURE}->upvalue[0]);
+        ${ARRAY_DECL} = ${UDATA}->uv;
         (void)${ARRAY};
     ]], {
         CLOSURE = closure.name,
         CLOSURE_DECL = c_declaration(closure),
-        TABLE = ctx.upv.table.name,
-        TABLE_DECL = c_declaration(ctx.upv.table),
+        UDATA = ctx.upv.table.name,
+        UDATA_DECL = c_declaration(ctx.upv.table),
         ARRAY = ctx.upv.array.name,
         ARRAY_DECL = c_declaration(ctx.upv.array),
     })
@@ -502,7 +506,7 @@ local function upvalues_init_local_cvars(ctx)
 end
 
 local function upvalues_slot(i, ctx)
-    local out = util.render([[ &${ARR}[${I}] ]], {
+    local out = util.render([[ &${ARR}[${I}].uv ]], {
         ARR = ctx.upv.array.name,
         I = c_integer(i - 1),
     })
@@ -960,7 +964,7 @@ local function generate_upvalue_modvar(tl_node, ctx)
         cstats = util.render([[
             ${CLOSURE_DECL} = luaF_newCclosure(L, 1);
             ${CLOSURE}->f = ${LUA_ENTRY_POINT};
-            sethvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
+            setuvalue(L, &${CLOSURE}->upvalue[0], ${UPVALUES});
             ${FUNC_DECL}; setclCvalue(L, &${FUNC}, ${CLOSURE});
         ]],{
             LUA_ENTRY_POINT = tl_node._lua_entry_point,
