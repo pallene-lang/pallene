@@ -217,7 +217,7 @@ local grammar = re.compile([[
     toplevelvar     <- (P  LOCAL decl ASSIGN^AssignVar
                            !IMPORT exp^ExpVarDec)                -> ToplevelVar
 
-    toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields^FieldRecord
+    toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
 
     localopt        <- (LOCAL)?                                  -> boolopt
@@ -263,7 +263,7 @@ local grammar = re.compile([[
                            rettype^TypeReturnTypes)              -> TypeFunction
                      / simpletype
 
-    recordfields    <- {| recordfield+ |}                        -- produces {Decl}
+    recordfields    <- {| recordfield* |}                        -- produces {Decl}
 
     recordfield     <- (P  NAME COLON^ColonRecordField
                            type^TypeRecordField SEMICOLON?)      -> DeclDecl

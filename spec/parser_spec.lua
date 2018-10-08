@@ -660,6 +660,17 @@ describe("Pallene parser", function()
         })
     end)
 
+    it("allows empty record declarations", function()
+        assert_program_ast([[
+            record Empty
+            end
+        ]], {
+            { _tag = ast.Toplevel.Record,
+              name = "Empty",
+              field_decls = {}},
+        })
+    end)
+
     it("can parse the record field optional separator", function()
         local expected_ast = {{ field_decls = { { name = "x" }, { name = "y" } } }}
 
@@ -816,11 +827,6 @@ describe("Pallene parser", function()
             record A
                 x : int
         ]], "Expected 'end' to close the record.")
-
-        assert_program_syntax_error([[
-            record A
-            end
-        ]], "Expected a field in record declaration.")
 
         assert_program_syntax_error([[
             local = import "bola"
