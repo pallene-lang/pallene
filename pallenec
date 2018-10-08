@@ -5,7 +5,7 @@ local argparse = require "argparse"
 local driver = require "pallene.driver"
 local util = require "pallene.util"
 
-local p = argparse("pallenec", "Titan compiler")
+local p = argparse("pallenec", "Pallene compiler")
 p:argument("source_file", "File to compile")
 p:flag("--emit-c", "Generate a .c file instead of an .so file")
 p:flag("--emit-asm", "Generate a .s file instead of an .so file")
