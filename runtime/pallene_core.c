@@ -1,4 +1,4 @@
-#include "tcore.h"
+#include "pallene_core.h"
 
 #include "lua.h"
 #include "lauxlib.h"

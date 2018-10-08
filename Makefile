@@ -24,8 +24,8 @@ lua-linux-noreadline:
 lua-macosx:
 	cd lua/src && $(MAKE) macosx
 
-runtime/tcore.o: runtime/tcore.c runtime/tcore.h
+runtime/pallene_core.o: runtime/pallene_core.c runtime/pallene_core.h
 
-runtime/titanlib.a: runtime/tcore.o
+runtime/titanlib.a: runtime/pallene_core.o
 	$(AR) rc $@ $^
 	ranlib $@
