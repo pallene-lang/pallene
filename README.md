@@ -6,7 +6,7 @@ Pallene is a statically typed, ahead-of-time-compiled sister language to
 fork of the [Titan](https://www.github.com/titan-lang/titan).
 
 Pallene is intended for writing performance sensitive code that interacts with
-Lua, a spacce that is ccurrently filled by C modules and by LuaJIT. Compared to
+Lua, a space that is currently filled by C modules and by LuaJIT. Compared to
 C, Pallene should offer better support for interacting with Lua data types,
 bypassing the unfriendly syntax and performance overhead of the Lua-C API.
 Compared to LuaJIT, Pallene aims to offer more predictable run-time performance.
