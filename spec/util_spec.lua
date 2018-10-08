@@ -1,7 +1,7 @@
 local util = require "pallene.util"
 
 
-describe("Titan utils", function()
+describe("Pallene utils", function()
 
      it("returns error when a file doesn't exist", function()
 

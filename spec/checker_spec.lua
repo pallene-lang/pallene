@@ -20,7 +20,7 @@ local function assert_type_error(expected, code)
     assert.match(expected, errs)
 end
 
-describe("Titan type checker", function()
+describe("Pallene type checker", function()
 
     teardown(function()
         os.remove("test.pallene")
@@ -1271,7 +1271,7 @@ describe("Titan type checker", function()
 
 end)
 
-describe("Titan typecheck of records", function()
+describe("Pallene typecheck of records", function()
     it("typechecks record declarations", function()
         assert_type_check([[
             record Point

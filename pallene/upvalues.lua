@@ -6,14 +6,14 @@ local upvalues = {}
 
 local analyze_upvalues
 
--- This pass analyzes what variables each Titan function needs to have
+-- This pass analyzes what variables each Pallene function needs to have
 -- accessible via upvalues. Those upvalues could be module varibles, string
 -- literals and records metatables.
 --
 -- At the moment we store this global data in a single flat table and keep a
--- reference to it as the first upvalue to all the Titan closures in a module.
--- While a titan function is running, the topmost function in the Lua stack
--- (L->func) will be the "lua entry point" of the first Titan function called
+-- reference to it as the first upvalue to all the Pallene closures in a module.
+-- While a pallene function is running, the topmost function in the Lua stack
+-- (L->func) will be the "lua entry point" of the first Pallene function called
 -- by Lua, which is also from the same module and therefore also has a reference
 -- to this module's upvalue table.
 --

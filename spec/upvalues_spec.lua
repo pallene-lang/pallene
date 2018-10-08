@@ -42,7 +42,7 @@ describe("Upvalues pass:", function()
         assert.equals(n_upvs + 2, f._upvalue_index)
     end)
 
-    it("calling a titan function", function()
+    it("calling a pallene function", function()
         local prog, errs = run_upvalues([[
             local function inc(x:integer): integer
                 return x + 1
@@ -59,7 +59,7 @@ describe("Upvalues pass:", function()
         assert.equals(n_upvs + 2, f._upvalue_index)
     end)
 
-    it("using a titan function as first-class value", function()
+    it("using a pallene function as first-class value", function()
         local prog, errs = run_upvalues([[
             local function inc(x: integer): integer
                 return x + 1

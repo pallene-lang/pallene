@@ -273,7 +273,7 @@
 ** give a warning about it. To avoid these warnings, change to the
 ** default definition.
 */
-#define LUAI_FUNC	LUA_API    /* Titan exports everything */
+#define LUAI_FUNC	LUA_API    /* Pallene exports everything */
 
 #define LUAI_DDEC	LUAI_FUNC
 #define LUAI_DDEF	/* empty */

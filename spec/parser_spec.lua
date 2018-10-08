@@ -42,7 +42,7 @@ end
 local function assert_parses_successfuly(program_str)
     local prog_ast, errors = parse(program_str)
     if not prog_ast then
-        error(string.format("Unexpected Titan syntax error: %s", errors[1]))
+        error(string.format("Unexpected Pallene syntax error: %s", errors[1]))
     end
     return prog_ast
 end
@@ -56,7 +56,7 @@ local function assert_program_syntax_error(program_str, expected_error)
     local prog_ast, errors = parse(program_str)
     if prog_ast then
         error(string.format(
-            "Expected Titan syntax error %s but parsed successfuly",
+            "Expected Pallene syntax error %s but parsed successfuly",
             expected_error))
     end
     assert.matches(expected_error, errors[1], 1, true)
@@ -136,7 +136,7 @@ end
 --
 --
 
-describe("Titan parser", function()
+describe("Pallene parser", function()
     assert:set_parameter("TableFormatLevel", -1)
 
     teardown(function()

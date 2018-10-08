@@ -33,7 +33,7 @@ local function cleanup()
     os.remove("test_output.txt")
 end
 
-describe("Titan coder /", function()
+describe("Pallene coder /", function()
     teardown(cleanup)
 
     describe("Empty program /", function()
@@ -809,7 +809,7 @@ describe("Titan coder /", function()
             ]])
         end)
 
-        it("get/set primitive fields in titan", function()
+        it("get/set primitive fields in pallene", function()
             run_test([[
                 local foo = test.make_foo(123, {})
                 assert(123 == test.get_x(foo))
@@ -818,7 +818,7 @@ describe("Titan coder /", function()
             ]])
         end)
 
-        it("get/set gc fields in titan", function()
+        it("get/set gc fields in pallene", function()
             run_test([[
                 local a = {}
                 local b = {}
