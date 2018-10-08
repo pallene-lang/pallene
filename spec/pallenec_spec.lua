@@ -21,7 +21,7 @@ describe("pallenec", function()
         os.remove("test_script.lua")
     end)
 
-    it("Can compile titan files", function()
+    it("Can compile pallene files", function()
         util.shell("./pallenec test.pallene")
         local out = util.shell("./lua/src/lua test_script.lua")
         assert.equals("17\n", out)

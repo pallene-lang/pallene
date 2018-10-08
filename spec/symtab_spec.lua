@@ -1,6 +1,6 @@
 local symtab = require 'pallene.symtab'
 
-describe("Titan symbol table", function()
+describe("Pallene symbol table", function()
 
     it("can find some symbols", function()
         local st = symtab.new()

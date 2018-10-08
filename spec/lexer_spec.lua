@@ -65,7 +65,7 @@ local function assert_error(source, expected_error )
     assert.are.same(expected, lexed)
 end
 
-describe("Titan lexer", function()
+describe("Pallene lexer", function()
 
     it("can lex some keywords", function()
         assert_lex("and", {"AND"}, {})

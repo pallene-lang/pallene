@@ -1,6 +1,6 @@
 local types = require "pallene.types"
 
-describe("Titan types", function()
+describe("Pallene types", function()
 
     it("pretty-prints types", function()
         assert.same("{ integer }", types.tostring(types.T.Array(types.T.Integer())))
