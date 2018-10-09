@@ -26,24 +26,24 @@ local function are_same(a, b)
     return (a == b) or (isnan(a) and isnan(b))
 end
 
-local function check(f_lua, f_titan, ...)
+local function check(f_lua, f_pallene, ...)
     local ok_lua,   r_lua   = pcall(f_lua, ...)
-    local ok_titan, r_titan = pcall(f_titan, ...)
-    if ok_lua ~= ok_titan then
-        return false, string.format("lua %s but titan %s",
+    local ok_pallene, r_pallene = pcall(f_pallene, ...)
+    if ok_lua ~= ok_pallene then
+        return false, string.format("lua %s but pallene %s",
             (ok_lua   and "didn't crash" or "crashed"),
-            (ok_titan and "didn't crash" or "crashed"))
+            (ok_pallene and "didn't crash" or "crashed"))
     end
-    if ok_lua and ok_titan and not are_same(r_lua, r_titan) then
-        return false, string.format("(lua: %s, titan: %s)",
-            tostring(r_lua), tostring(r_titan))
+    if ok_lua and ok_pallene and not are_same(r_lua, r_pallene) then
+        return false, string.format("(lua: %s, pallene: %s)",
+            tostring(r_lua), tostring(r_pallene))
     end
     return true
 end
 
-function coder_test_operators.check_unop(op_str, f_lua, f_titan, typ1)
+function coder_test_operators.check_unop(op_str, f_lua, f_pallene, typ1)
     for _, x in ipairs(values[typ1]) do
-        local ok, err = check(f_lua, f_titan, x)
+        local ok, err = check(f_lua, f_pallene, x)
         if not ok then
             error(string.format("%s %s: %s",
                 op_str, tostring(x), err))
@@ -51,10 +51,10 @@ function coder_test_operators.check_unop(op_str, f_lua, f_titan, typ1)
     end
 end
 
-function coder_test_operators.check_binop(op_str, f_lua, f_titan, typ1, typ2)
+function coder_test_operators.check_binop(op_str, f_lua, f_pallene, typ1, typ2)
     for _, x in ipairs(values[typ1]) do
         for _, y in ipairs(values[typ2]) do
-            local ok, err = check(f_lua, f_titan, x, y)
+            local ok, err = check(f_lua, f_pallene, x, y)
             if not ok then
                 error(string.format("%s %s %s: %s",
                     tostring(x), op_str, tostring(y), err))

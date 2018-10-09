@@ -1,9 +1,9 @@
 local driver = require "pallene.driver"
 local util = require "pallene.util"
 
-local function compile(titan_code)
+local function compile(pallene_code)
     return function()
-        assert(util.set_file_contents("test.pallene", titan_code))
+        assert(util.set_file_contents("test.pallene", pallene_code))
         local ok, errors =
             driver.compile("pallenec-tests", "pallene", "so", "test.pallene")
         assert(ok, errors[1])
@@ -306,11 +306,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("Operators /", function()
-        local titan_program_parts = {}
+        local pallene_program_parts = {}
         local lua_tests = {}
 
         local function setup_unop(name, op, typ, rtyp)
-            table.insert(titan_program_parts, util.render([[
+            table.insert(pallene_program_parts, util.render([[
                 function $name (x: $typ): $rtyp
                     return $op x
                 end
@@ -335,7 +335,7 @@ describe("Pallene coder /", function()
         end
 
         local function setup_binop(name, op, typ1, typ2, rtyp)
-            table.insert(titan_program_parts, util.render([[
+            table.insert(pallene_program_parts, util.render([[
                 function $name (x: $typ1, y:$typ2): $rtyp
                     return x ${op} y
                 end
@@ -396,7 +396,7 @@ describe("Pallene coder /", function()
         setup_binop("or_bool"       , "or",  "boolean", "boolean", "boolean")
         setup_binop("concat_str"    , "..",  "string",  "string",  "string")
 
-        setup(compile(table.concat(titan_program_parts, "\n")))
+        setup(compile(table.concat(pallene_program_parts, "\n")))
 
         it("integer unary (-)",  function() optest("neg_int") end)
         it("integer unary (~)",  function() optest("bnot") end)
