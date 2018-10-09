@@ -38,11 +38,11 @@ void pallene_runtime_mod_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
 
-void pallene_runtime_record_index_error(
+int pallene_runtime_record_index_error(
     lua_State *L, const char *key)
     PALLENE_NORETURN;
 
-void pallene_runtime_record_type_error(
+int pallene_runtime_record_type_error(
     lua_State *L, const char *key, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 

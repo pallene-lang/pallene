@@ -101,7 +101,7 @@ void pallene_runtime_mod_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_record_index_error(
+int pallene_runtime_record_index_error(
     lua_State *L,
     const char *key
 ){
@@ -109,7 +109,7 @@ void pallene_runtime_record_index_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_record_type_error(
+int pallene_runtime_record_type_error(
     lua_State *L,
     const char *key,
     int expected_tag,

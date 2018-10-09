@@ -780,78 +780,51 @@ function RecordCoder:set_field(udata, field_name, cvalue)
     end
 end
 
-function RecordCoder:dyn_dispatch_linear(fields, key, action)
-    local cstats = {}
-
-    for i, field in ipairs(fields) do
-        table.insert(cstats, util.render([[
-            ${IF} (strcmp(${KEY}, ${FIELD}) == 0) {
-                ${ACTION}
-            }
-        ]], {
-            IF = i == 1 and "if" or "else if",
-            KEY = key,
-            FIELD = c_string(field.name),
-            ACTION = action(field.name),
-        }))
+function RecordCoder:dyn_dispatch_bin(i, j, args)
+    local n = j - i + 1
+    if n < 1 then
+        return string.format("goto %s;", args.errlabel)
     end
-
-    table.insert(cstats, util.render([[
-        ${ELSE} {
-            pallene_runtime_record_index_error(L, ${KEY});
+    local m = i + n // 2
+    local field_name = args.fields[m].name
+    local cmp = args.ctx:new_cvar("int")
+    local out = util.render([[
+        ${CMP_DECL} = strcmp(${KEY}, ${FIELD});
+        if (${CMP} == 0) {
+            ${ACTION}
+        }
+        else if (${CMP} < 0) {
+            ${LOWER}
+        }
+        else {
+            ${GREATER}
         }
     ]], {
-        ELSE = #fields > 0 and "else" or "",
-        KEY = key,
-    }))
-
-    return table.concat(cstats, "\n")
-end
-
-function RecordCoder:dyn_dispatch_bin(fields, key, action, ctx)
-    local out
-    local n = #fields
-    if n <= 2 then
-        return self:dyn_dispatch_linear(fields, key, action, ctx)
-    else
-        local m = (n + 1) // 2
-        local field_name = fields[m].name
-        local cmp = ctx:new_cvar("int")
-        out = util.render([[
-            ${CMP_DECL} = strcmp(${KEY}, ${FIELD});
-            if (${CMP} == 0) {
-                ${ACTION}
-            }
-            else if (${CMP} < 0) {
-                ${LOWER}
-            }
-            else {
-                ${GREATER}
-            }
-        ]], {
-            CMP = cmp.name,
-            CMP_DECL = c_declaration(cmp),
-            KEY = key,
-            FIELD = c_string(field_name),
-            ACTION = action(field_name),
-            LOWER = self:dyn_dispatch_bin(
-                    util.slice(fields, 1, m - 1), key, action, ctx),
-            GREATER = self:dyn_dispatch_bin(
-                    util.slice(fields, m + 1, n), key, action, ctx),
-        })
-    end
+        CMP = cmp.name,
+        CMP_DECL = c_declaration(cmp),
+        KEY = args.key,
+        FIELD = c_string(field_name),
+        ACTION = args.action(field_name),
+        LOWER = self:dyn_dispatch_bin(i, m - 1, args),
+        GREATER = self:dyn_dispatch_bin(m + 1, j, args),
+    })
     return out
 end
 
 -- Call action (field_name -> c_decl) for each field
-function RecordCoder:dyn_dispatch(key, action, ctx)
+function RecordCoder:dyn_dispatch(key, action, errlabel, ctx)
     local sorted_fields = {}
     for _, field in ipairs(self.tl_node.field_decls) do
         table.insert(sorted_fields, field)
     end
     table.sort(sorted_fields, function(a, b) return a.name < b.name end)
-
-    return self:dyn_dispatch_bin(sorted_fields, key, action, ctx)
+    return self:dyn_dispatch_bin(1, #sorted_fields, {
+        fields = sorted_fields,
+        key = key,
+        action = action,
+        errlabel = errlabel,
+        ctx = ctx,
+    })
 end
 
 function RecordCoder:declare_index()
@@ -878,17 +851,21 @@ function RecordCoder:declare_index()
         table.insert(stats, set_stack_slot(typ, dst_slot, value.name))
         return table.concat(stats, "\n")
     end
-    table.insert(cstats, self:dyn_dispatch(key.name, action, ctx))
+    table.insert(cstats, self:dyn_dispatch(key.name, action, "err", ctx))
 
     local out = util.render([[
         static int ${NAME}(lua_State *L)
         {
             ${CSTATS}
             return 1;
+
+          err:
+            return pallene_runtime_record_index_error(L, ${KEY});
         }
     ]], {
         CSTATS = table.concat(cstats, "\n"),
         NAME = self:index(),
+        KEY = key.name,
     })
     return out
 end
@@ -931,17 +908,21 @@ function RecordCoder:declare_newindex()
         table.insert(stats, self:set_field(udata.name, field_name, value.name))
         return table.concat(stats, "\n")
     end
-    table.insert(cstats, self:dyn_dispatch(key.name, action, ctx))
+    table.insert(cstats, self:dyn_dispatch(key.name, action, "err", ctx))
 
     local out = util.render([[
         static int ${NAME}(lua_State *L)
         {
             ${CSTATS}
             return 0;
+
+          err:
+            return pallene_runtime_record_index_error(L, ${KEY});
         }
     ]], {
         CSTATS = table.concat(cstats, "\n"),
         NAME = self:newindex(),
+        KEY = key.name,
     })
     return out
 end
