@@ -639,9 +639,14 @@ end
 --
 -- @records
 --
+-- Records are implemented with full userdata (Udata *), where the gc fields are
+-- stored in the UValue array and primitive fields in the mem part.
+-- With this layout, pallene is able to compute each field offset during compile
+-- time.
+-- In order to read and write record fields in Lua, we implement __index and
+-- __newindex methametods for each record type.
+--
 
--- Compute the record layout. We store the gc fields in UValue array and
--- primitive fields in the mem part.
 local function compute_layout(tl_node)
     local gc_pos = {}
     local gc_index = 1
