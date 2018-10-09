@@ -939,9 +939,9 @@ describe("Pallene coder /", function()
 
         it("(__index) works for records with a lot of fields", function()
             run_test([[
-                local big = test.make_big(1, 2, 3, 4, 5, 6, 7, 8, 9)
+                local big = test.make_big(10, 20, 30, 40, 50, 60, 70, 80, 90)
                 for i = 1, 9 do
-                    assert(i == big['f' .. i])
+                    assert(i * 10 == big['f' .. i])
                 end
             ]])
         end)
