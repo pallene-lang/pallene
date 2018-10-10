@@ -137,9 +137,19 @@ end
 --
 
 describe("Pallene parser", function()
-    assert:set_parameter("TableFormatLevel", -1)
+    local ORIGINAL_FORMAT_LEVEL
+
+    setup(function()
+        -- Print the whole AST when it doesn't match, instead of just a handful
+        -- of nodes. A depth of 100 should be more than enough. Although the
+        -- luassert docs suggest -1 to show an infinite number of levels, that
+        -- can get stuck in an infinite loop if we have self-referential tables.
+        ORIGINAL_FORMAT_LEVEL = assert:get_parameter("TableFormatLevel")
+        assert:set_parameter("TableFormatLevel", 100)
+    end)
 
     teardown(function()
+        assert:set_parameter("TableFormatLevel", ORIGINAL_FORMAT_LEVEL)
         os.remove("test.pallene")
     end)
 
