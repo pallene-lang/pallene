@@ -101,6 +101,30 @@ void pallene_runtime_mod_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
+int pallene_runtime_record_index_error(
+    lua_State *L,
+    const char *key
+){
+    luaL_error(L, "attempt to access nonexistent field '%s'", key);
+    PALLENE_UNREACHABLE;
+}
+
+int pallene_runtime_record_type_error(
+    lua_State *L,
+    const char *key,
+    int expected_tag,
+    int received_tag
+){
+    const char *expected_type = pallene_tag_name(expected_tag);
+    const char *received_type = pallene_tag_name(received_tag);
+    luaL_error(
+        L,
+        "wrong type for record field '%s', expected %s but found %s",
+        key, expected_type, received_type
+    );
+    PALLENE_UNREACHABLE;
+}
+
 static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
 {
     char *b = out_buf;

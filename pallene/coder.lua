@@ -30,7 +30,7 @@ end
 --     In Toplevel.Func nodes.
 --     Names of the C functions that we generate for each pallene function
 --
--- _layout:
+-- _rec:
 --     In Toplevel.Record nodes. (see @records)
 
 local whole_file_template = [[
@@ -156,6 +156,16 @@ local function c_declaration(cvar)
     return string.format("%s %s%s", cvar.ctyp, cvar.name, comment)
 end
 
+local function init_cvar(cvar, exp)
+    local out = util.render([[
+        ${DECL} = ${EXP};
+    ]], {
+        DECL = c_declaration(cvar),
+        EXP = exp,
+    })
+    return out
+end
+
 -- Indicates which GC variables should be saved in the Lua stack and which slot
 -- they need to be saved in.
 local Context = {}
@@ -262,7 +272,7 @@ local function get_slot(typ, src_slot_address)
     elseif tag == types.T.Integer  then tmpl = "ivalue(${SRC})"
     elseif tag == types.T.Float    then tmpl = "fltvalue(${SRC})"
     elseif tag == types.T.String   then tmpl = "tsvalue(${SRC})"
-    elseif tag == types.T.Function then tmpl = "*${SRC}"
+    elseif tag == types.T.Function then tmpl = "*(${SRC})"
     elseif tag == types.T.Array    then tmpl = "hvalue(${SRC})"
     elseif tag == types.T.Record   then tmpl = "uvalue(${SRC})"
     else error("impossible")
@@ -529,12 +539,13 @@ local function literal_get(lit, ctx)
     local typ = types.T.String()
     local slot = ctx:new_cvar("TValue *")
     local out = ctx:new_tvar(typ)
+    local i = assert(ctx.literals[lit], "lit not found: " .. lit)
     local cstats = util.render([[
         ${SLOT_DECL} = ${UPV_SLOT};
         ${OUT_DECL} = ${GET_SLOT};
     ]], {
         SLOT_DECL = c_declaration(slot),
-        UPV_SLOT = upvalues_slot(ctx.literals[lit], ctx),
+        UPV_SLOT = upvalues_slot(i, ctx),
         OUT_DECL = c_declaration(out),
         GET_SLOT = get_slot(typ, slot.name),
     })
@@ -579,153 +590,8 @@ local function table_set_new_field(tabl, lit, typ, cvalue, ctx)
     return out
 end
 
---
--- @records
---
-
--- Compute the record layout. We store the gc fields in UValue array and
--- primitive fields in the mem part.
-local function rec_compute_layout(rec)
-    local gc_pos = {}
-    local gc_index = 1
-    local prim_pos = {}
-    local prim_index = 1
-    for _, field in ipairs(rec.field_decls) do
-        local typ = rec._field_types[field.name]
-        if types.is_gc(typ) then
-            gc_pos[field.name] = gc_index
-            gc_index = gc_index + 1
-        else
-            prim_pos[field.name] = prim_index
-            prim_index = prim_index + 1
-        end
-    end
-    return {
-        gc_pos = gc_pos,
-        gc_size = gc_index - 1,
-        prim_pos = prim_pos,
-        prim_size = prim_index - 1,
-    }
-end
-
-local function rec_struct_name(rec)
-    return string.format("struct record_%s", rec.name)
-end
-
-local function rec_field_name(rec, field_name)
-    return string.format("f%d", rec._layout.prim_pos[field_name])
-end
-
-local function rec_gc_size(rec)
-    return rec._layout.gc_size
-end
-
-local function rec_mem_size(rec)
-    local layout = rec._layout
-    if layout.prim_size == 0 then
-        return 0
-    else
-        return string.format("sizeof(%s)", rec_struct_name(rec))
-    end
-end
-
-local function rec_declare_struct(rec)
-    -- Empty struct are not allowed in standard C (they are a GCC extension)
-    if rec._layout.prim_size == 0 then return "" end
-
-    local fields = {}
-    for _, field in ipairs(rec.field_decls) do
-        local typ = rec._field_types[field.name]
-        if not types.is_gc(typ) then
-            local name = rec_field_name(rec, field.name)
-            local cvar = new_cvar(name, ctype(typ), field.name)
-            local decl = c_declaration(cvar) .. ";"
-            table.insert(fields, decl)
-        end
-    end
-
-    local out = util.render([[
-        $NAME {
-            $FIELDS
-        };
-    ]], {
-        NAME = rec_struct_name(rec),
-        FIELDS = table.concat(fields, "\n"),
-    })
-    return out
-end
-
-local function rec_gc_slot(rec, udata, field_name)
-    local out = util.render([[&${UDATA}->uv[${I}].uv]], {
-        UDATA = udata,
-        I = rec._layout.gc_pos[field_name] - 1,
-    })
-    return out
-end
-
-local function rec_primitive_slot(rec, udata, field_name)
-    local out = util.render(
-        [[((${STRUCT_NAME} *)getudatamem(${UDATA}))->${FIELD_NAME}]],
-    {
-        STRUCT_NAME = rec_struct_name(rec),
-        UDATA = udata,
-        FIELD_NAME = rec_field_name(rec, field_name),
-    })
-    return out
-end
-
-local function rec_set_field(rec, udata, field_name, cvalue)
-    local typ = rec._field_types[field_name]
-    if types.is_gc(typ) then
-        local slot = rec_gc_slot(rec, udata, field_name)
-        return set_heap_slot(typ, slot, cvalue, udata)
-    else
-        local out = util.render([[
-            ${SLOT} = ${CVALUE};
-        ]], {
-            SLOT = rec_primitive_slot(rec, udata, field_name),
-            CVALUE = cvalue,
-        })
-        return out
-    end
-end
-
-local function rec_metatable_type()
-    -- TODO: this should be types.T.Table()
-    return types.T.Array(types.T.Integer())
-end
-
-local function rec_create_metatable(ctx)
-    local cstats = {}
-
-    local mt = ctx:new_tvar(rec_metatable_type())
-    table.insert(cstats, util.render([[
-        ${MT_DECL} = luaH_new(L);
-    ]], {
-        MT_DECL = c_declaration(mt),
-    }))
-
-    table.insert(cstats, table_set_new_field(mt.name, "__metatable",
-            types.T.Boolean(), c_boolean(false), ctx))
-
-    return table.concat(cstats, "\n"), mt.name
-end
-
-local function rec_create_instance(rec, typ, ctx)
-    local udata = ctx:new_tvar(typ)
-    local mt_slot = upvalues_slot(rec._upvalue_index, ctx)
-    local cstats = util.render([[
-        ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
-        ${UDATA}->metatable = ${GET_MT_SLOT};
-    ]], {
-        UDATA_DECL = c_declaration(udata),
-        MEM_SIZE = rec_mem_size(rec),
-        UV_SIZE = rec_gc_size(rec),
-        UDATA = udata.name,
-        GET_MT_SLOT = get_slot(rec_metatable_type(), mt_slot),
-    })
-    return cstats, udata.name
-end
+-- TODO: this should be types.T.LuaRecord()
+local metatable_type = types.T.Array(types.T.Integer())
 
 --
 -- @tags
@@ -743,12 +609,13 @@ local function check_tag(typ, slot, ctx)
     elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
     elseif tag == types.T.Record   then
         local mt_index = typ.type_decl._upvalue_index
+        local mt_slot = upvalues_slot(mt_index, ctx)
         return util.render(
             [[(ttisfulluserdata(${SLOT}) && ${UDATA}->metatable == ${MT})]],
         {
             SLOT = slot,
             UDATA = get_slot(typ, slot),
-            MT = get_slot(rec_metatable_type(), upvalues_slot(mt_index, ctx)),
+            MT = get_slot(metatable_type, mt_slot),
         })
     else error("impossible")
     end
@@ -769,6 +636,361 @@ local function pallene_type_tag(typ)
     end
 end
 
+--
+-- @records
+--
+-- Records are implemented with full userdata (Udata *), where the gc fields are
+-- stored in the UValue array and primitive fields in the mem part.
+-- With this layout, pallene is able to compute each field offset during compile
+-- time.
+-- In order to read and write record fields in Lua, we implement __index and
+-- __newindex methametods for each record type.
+--
+
+local function compute_layout(tl_node)
+    local gc_pos = {}
+    local gc_index = 1
+    local prim_pos = {}
+    local prim_index = 1
+    for _, field in ipairs(tl_node.field_decls) do
+        local typ = tl_node._field_types[field.name]
+        if types.is_gc(typ) then
+            gc_pos[field.name] = gc_index
+            gc_index = gc_index + 1
+        else
+            prim_pos[field.name] = prim_index
+            prim_index = prim_index + 1
+        end
+    end
+    return {
+        gc_pos = gc_pos,
+        gc_size = gc_index - 1,
+        prim_pos = prim_pos,
+        prim_size = prim_index - 1,
+    }
+end
+
+local RecordCoder = {}
+RecordCoder.__index = RecordCoder
+
+function RecordCoder.new(tl_node)
+    local o = {
+        tl_node = tl_node,
+        layout = compute_layout(tl_node),
+    }
+    return setmetatable(o, RecordCoder)
+end
+
+function RecordCoder:struct()
+    return string.format("struct record_%s", self.tl_node.name)
+end
+
+function RecordCoder:index()
+    return string.format("record_index_%s", self.tl_node.name)
+end
+
+function RecordCoder:newindex()
+    return string.format("record_newindex_%s", self.tl_node.name)
+end
+
+function RecordCoder:field(name)
+    return string.format("f%d", self.layout.prim_pos[name])
+end
+
+function RecordCoder:field_type(name)
+    return self.tl_node._field_types[name]
+end
+
+function RecordCoder:field_slot(udata, name)
+    local typ = self:field_type(name)
+    local slot
+    if types.is_gc(typ) then
+        slot = self:gc_slot(udata, name)
+    else
+        slot = self:primitive_slot(udata, name)
+    end
+    return slot, typ
+end
+
+function RecordCoder:gc_size()
+    return self.layout.gc_size
+end
+
+function RecordCoder:mem_size()
+    if self.layout.prim_size == 0 then
+        return 0
+    else
+        return string.format("sizeof(%s)", self:struct())
+    end
+end
+
+function RecordCoder:declare_struct()
+    -- Empty struct are not allowed in standard C (they are a GCC extension)
+    if self.layout.prim_size == 0 then return "" end
+
+    local fields = {}
+    for _, field in ipairs(self.tl_node.field_decls) do
+        local typ = self:field_type(field.name)
+        if not types.is_gc(typ) then
+            local name = self:field(field.name)
+            local cvar = new_cvar(name, ctype(typ), field.name)
+            local decl = c_declaration(cvar) .. ";"
+            table.insert(fields, decl)
+        end
+    end
+
+    local out = util.render([[
+        $NAME {
+            $FIELDS
+        };
+    ]], {
+        NAME = self:struct(),
+        FIELDS = table.concat(fields, "\n"),
+    })
+    return out
+end
+
+function RecordCoder:gc_slot(udata, field_name)
+    local out = util.render([[&${UDATA}->uv[${I}].uv]], {
+        UDATA = udata,
+        I = self.layout.gc_pos[field_name] - 1,
+    })
+    return out
+end
+
+function RecordCoder:primitive_slot(udata, field_name)
+    local out = util.render(
+        [[((${STRUCT_NAME} *)getudatamem(${UDATA}))->${FIELD_NAME}]],
+    {
+        STRUCT_NAME = self:struct(),
+        UDATA = udata,
+        FIELD_NAME = self:field(field_name),
+    })
+    return out
+end
+
+function RecordCoder:set_field(udata, field_name, cvalue)
+    local typ = self.tl_node._field_types[field_name]
+    if types.is_gc(typ) then
+        local slot = self:gc_slot(udata, field_name)
+        return set_heap_slot(typ, slot, cvalue, udata)
+    else
+        local out = util.render([[
+            ${SLOT} = ${CVALUE};
+        ]], {
+            SLOT = self:primitive_slot(udata, field_name),
+            CVALUE = cvalue,
+        })
+        return out
+    end
+end
+
+function RecordCoder:dyn_dispatch_bin(i, j, args)
+    local n = j - i + 1
+    if n < 1 then
+        return string.format("goto %s;", args.errlabel)
+    end
+    local m = i + n // 2
+    local field_name = args.fields[m].name
+    local cmp = args.ctx:new_cvar("int")
+    local out = util.render([[
+        ${CMP_DECL} = strcmp(${KEY}, ${FIELD});
+        if (${CMP} == 0) {
+            ${ACTION}
+        }
+        else if (${CMP} < 0) {
+            ${LOWER}
+        }
+        else {
+            ${GREATER}
+        }
+    ]], {
+        CMP = cmp.name,
+        CMP_DECL = c_declaration(cmp),
+        KEY = args.key,
+        FIELD = c_string(field_name),
+        ACTION = args.action(field_name),
+        LOWER = self:dyn_dispatch_bin(i, m - 1, args),
+        GREATER = self:dyn_dispatch_bin(m + 1, j, args),
+    })
+    return out
+end
+
+-- Call action (field_name -> c_decl) for each field
+function RecordCoder:dyn_dispatch(key, action, errlabel, ctx)
+    local sorted_fields = {}
+    for _, field in ipairs(self.tl_node.field_decls) do
+        table.insert(sorted_fields, field)
+    end
+    table.sort(sorted_fields, function(a, b) return a.name < b.name end)
+    return self:dyn_dispatch_bin(1, #sorted_fields, {
+        fields = sorted_fields,
+        key = key,
+        action = action,
+        errlabel = errlabel,
+        ctx = ctx,
+    })
+end
+
+function RecordCoder:declare_index()
+    local ctx = Context.new()
+
+    local cstats = {}
+
+    local rec_typ = types.T.Record(self.tl_node)
+    local udata = ctx:new_tvar(rec_typ)
+    local udata_init = get_slot(rec_typ, "s2v(L->ci->func + 1)")
+    table.insert(cstats, init_cvar(udata, udata_init))
+    table.insert(cstats, "(void)" .. udata.name .. ";")
+
+    local key = ctx:new_cvar("const char *")
+    table.insert(cstats, init_cvar(key, "svalue(s2v(L->ci->func + 2))"))
+
+    local action = function(field_name)
+        local src_slot, typ = self:field_slot(udata.name, field_name)
+        local dst_slot = "s2v(L->ci->func + 2)"
+        local value = ctx:new_tvar(typ)
+        local init = types.is_gc(typ) and get_slot(typ, src_slot) or src_slot
+        local stats = {}
+        table.insert(stats, init_cvar(value, init))
+        table.insert(stats, set_stack_slot(typ, dst_slot, value.name))
+        return table.concat(stats, "\n")
+    end
+    table.insert(cstats, self:dyn_dispatch(key.name, action, "err", ctx))
+
+    local out = util.render([[
+        static int ${NAME}(lua_State *L)
+        {
+            ${CSTATS}
+            return 1;
+
+          err:
+            return pallene_runtime_record_index_error(L, ${KEY});
+        }
+    ]], {
+        CSTATS = table.concat(cstats, "\n"),
+        NAME = self:index(),
+        KEY = key.name,
+    })
+    return out
+end
+
+function RecordCoder:declare_newindex()
+    local ctx = Context.new()
+
+    local cstats = {}
+
+    table.insert(cstats, upvalues_init_local_cvars(ctx))
+
+    local rec_typ = types.T.Record(self.tl_node)
+    local udata = ctx:new_tvar(rec_typ)
+    local udata_init = get_slot(rec_typ, "s2v(L->ci->func + 1)")
+    table.insert(cstats, init_cvar(udata, udata_init))
+    table.insert(cstats, "(void)" .. udata.name .. ";")
+
+    local key = ctx:new_cvar("const char *")
+    table.insert(cstats, init_cvar(key, "svalue(s2v(L->ci->func + 2))"))
+
+    local src_slot = ctx:new_cvar("TValue *")
+    table.insert(cstats, init_cvar(src_slot, "s2v(L->ci->func + 3)"))
+    table.insert(cstats, "(void)" .. src_slot.name .. ";")
+
+    local action = function(field_name)
+        local typ = self:field_type(field_name)
+        local value = ctx:new_tvar(typ)
+        local stats = {}
+        table.insert(stats, util.render([[
+            if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                pallene_runtime_record_type_error(L, ${KEY}, ${EXPECTED_TAG}, rawtt(${SRC_SLOT}));
+            }
+        ]], {
+            CHECK_TAG = check_tag(typ, src_slot.name, ctx),
+            KEY = key.name,
+            EXPECTED_TAG = pallene_type_tag(typ),
+            SRC_SLOT = src_slot.name,
+        }))
+        table.insert(stats, init_cvar(value, get_slot(typ, src_slot.name)))
+        table.insert(stats, self:set_field(udata.name, field_name, value.name))
+        return table.concat(stats, "\n")
+    end
+    table.insert(cstats, self:dyn_dispatch(key.name, action, "err", ctx))
+
+    local out = util.render([[
+        static int ${NAME}(lua_State *L)
+        {
+            ${CSTATS}
+            return 0;
+
+          err:
+            return pallene_runtime_record_index_error(L, ${KEY});
+        }
+    ]], {
+        CSTATS = table.concat(cstats, "\n"),
+        NAME = self:newindex(),
+        KEY = key.name,
+    })
+    return out
+end
+
+function RecordCoder:make_declarations()
+    local decls = {
+        self:declare_struct(),
+        self:declare_index(),
+        self:declare_newindex(),
+    }
+    return table.concat(decls, "\n")
+end
+
+function RecordCoder:create_metatable(ctx)
+    local cstats = {}
+
+    local mt = ctx:new_tvar(metatable_type)
+    table.insert(cstats, util.render([[
+        ${MT_DECL} = luaH_new(L);
+    ]], {
+        MT_DECL = c_declaration(mt),
+    }))
+
+    local function set_function(key, f)
+        local typ = types.T.Function({}, {})
+        local fslot = ctx:new_cvar(ctype(typ))
+        local out = util.render([[
+            ${FSLOT_DECL};
+            setfvalue(&${FSLOT}, ${F});
+            ${SET_FIELD}
+        ]], {
+            F = f,
+            FSLOT = fslot.name,
+            FSLOT_DECL = c_declaration(fslot),
+            SET_FIELD = table_set_new_field(mt.name, key, typ, fslot.name, ctx),
+        })
+        return out
+    end
+
+    table.insert(cstats, set_function("__index", self:index()))
+    table.insert(cstats, set_function("__newindex", self:newindex()))
+
+    table.insert(cstats, table_set_new_field(mt.name, "__metatable",
+            types.T.Boolean(), c_boolean(false), ctx))
+
+    return table.concat(cstats, "\n"), mt.name
+end
+
+function RecordCoder:create_instance(typ, ctx)
+    local udata = ctx:new_tvar(typ)
+    local mt_slot = upvalues_slot(self.tl_node._upvalue_index, ctx)
+    local cstats = util.render([[
+        ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
+        ${UDATA}->metatable = ${GET_MT_SLOT};
+    ]], {
+        UDATA_DECL = c_declaration(udata),
+        MEM_SIZE = self:mem_size(),
+        UV_SIZE = self:gc_size(),
+        UDATA = udata.name,
+        GET_MT_SLOT = get_slot(metatable_type, mt_slot),
+    })
+    return cstats, udata.name
+end
 
 --
 -- code generation
@@ -982,8 +1204,8 @@ local function generate_upvalue_modvar(tl_node, ctx)
         cstats, cvalue = generate_exp(exp, ctx)
 
     elseif tag == ast.Toplevel.Record then
-        typ = rec_metatable_type()
-        cstats, cvalue = rec_create_metatable(ctx)
+        typ = metatable_type
+        cstats, cvalue = tl_node._rec:create_metatable(ctx)
 
     else
         error("impossible")
@@ -1254,8 +1476,8 @@ generate_program = function(prog, modname)
     local structs = {}
     for _, tl_node in ipairs(prog) do
         if tl_node._tag == ast.Toplevel.Record then
-            tl_node._layout = rec_compute_layout(tl_node)
-            table.insert(structs, rec_declare_struct(tl_node))
+            tl_node._rec = RecordCoder.new(tl_node)
+            table.insert(structs, tl_node._rec:make_declarations())
         end
     end
 
@@ -1543,14 +1765,12 @@ generate_var = function(var, ctx)
         return cstats, coder.Lvalue.ArraySlot(var, t_cvalue, k_cvalue)
 
     elseif tag == ast.Var.Dot then
-        local rec = var.exp._type.type_decl
-        local typ = rec._field_types[var.name]
+        local tl_node = var.exp._type.type_decl
         local cstats, udata = generate_exp(var.exp)
+        local slot, typ = tl_node._rec:field_slot(udata, var.name)
         if types.is_gc(typ) then
-            local slot = rec_gc_slot(rec, udata, var.name)
             return cstats, coder.Lvalue.RecGcSlot(var, slot, udata)
         else
-            local slot = rec_primitive_slot(rec, udata, var.name)
             return cstats, coder.Lvalue.CVar(var, slot)
         end
 
@@ -1999,14 +2219,14 @@ generate_exp = function(exp, ctx)
             local body = {}
             table.insert(body, gc_cond_gc(ctx))
 
-            local rec = exp._type.type_decl
-            local cstats, udata = rec_create_instance(rec, exp._type, ctx)
+            local tl_node = exp._type.type_decl
+            local cstats, udata = tl_node._rec:create_instance(exp._type, ctx)
             table.insert(body, cstats)
 
             for _, field in ipairs(exp.fields) do
                 local field_cstats, field_cvalue = generate_exp(field.exp, ctx)
-                local set_field = rec_set_field(
-                        rec, udata, field.name, field_cvalue)
+                local set_field = tl_node._rec:set_field(
+                        udata, field.name, field_cvalue)
                 table.insert(body, field_cstats)
                 table.insert(body, set_field)
             end
