@@ -1,63 +1,117 @@
-# Titan Language Reference
+# Pallene Language Reference
 
-## Types
+Welcome to the Pallene reference manual. This is a work in progress, so if you
+have any questions or suggestions, or if some point wasn't clear, please feel
+free to ask questions through a Github issue.
 
-### Basic Types
+## A brief overview of Pallene
+
+Pallene is a statically-typed companion langage to Lua. Pallene functions can
+be called from Lua and can call Lua functions. At a first glance, Pallene code
+looks similar to Lua, but with type annotations.
+
+Here is an example Pallene program for summing the elements in an array of
+floating-point numbers. Note that type anotations are required for function
+argument and return types but for local variable declarations Pallene can often
+infer the types.
+
+    function sum(xs:{float}): float
+        local r = 0.0
+        for i = 1, #xs do
+            r = r + xs[i]
+        end
+    end
+
+If we pass this `sum.pallene` file to the `pallenec` compiler, it will output a 
+`sum.so` Lua extension module:
+
+
+    $ ./pallenec sum.pallene
+
+
+The `sum.so` file can be loaded from within Lua with `require`, as usual:
+
+    $ ./lua/src/lua
+    > sum = require "sum"
+    > print(sum.sum({10.0, 20.0, 30.0}))
+
+## The Pallene Type System
+
+Pallene's type system includes the usual Lua primitive types (`nil`, `boolean`,
+`float` and `integer`), as well as strings, arrays, functions, and records.
+
+### Primitive types
+
+Pallene's primitive types are the same as Lua's:
 
 - `nil`
 - `boolean`
 - `integer`
 - `float`
-- `string`
-- `value`
+
+There is no automatic coercion between `integer` and `float`. For example,
+`local x:float = 0` is a type error. You should use `0.0` instead.
+
+### Strings
+
+Pallene also has a `string` type, for Lua strings. The syntax for string
+literals is the same as in Lua.
+
+At the moment, the only supported operations for Pallene strings is
+concatenation with the `..` operator and printing strings to stdout with
+`io_write`.
 
 ### Arrays
 
-Array types in Titan have the form `{ t }`, where `t` is any Titan type
+Array types in Pallene have the form `{ t }`, where `t` is any Pallene type
 (including other array types, so `{ { integer } }` is the type for an array of
 arrays of integers, for example.
 
-You can create an empty array with the `{}` expression: Titan will try to infer
-the type of this array from the context where you are creating it.
-For example, if you are assigning the new array to an array-typed variable, the
-array will have the same type of the variable.
-If you are passing the array as an argument to a function that expects an
-array-type parameter, the new array will have the same type as the parameter.
-If you are declaring a new variable with an explicit array type declaration,
-the new array will have the type you declared.
-The only time where no context is available is when you declaring a new
-variable and you have not given a type to it; in that case the array will have
-type `{ integer }`.
+Pallene arrays are implemented as Lua tables, and Pallene also uses the same
+syntax for array creation:
+
+    local xs:{integer} = {10, 20, 30}
+
+One important thing to know about array literals in Pallene is that they must be
+acompanied by a type annotation. Pallene cannot infer their type otherwise
+
+    -- This produces a compile-time error
+    -- "missing type hint for array or record initializer"
+    local xs = {10, 20, 30}
+
+Reading from an "out of bounds" index produces a run-time type error instead of
+returning `nil`.
 
 ### Functions
 
-Function types in Titan are created with the `->` type constructor. For
-example, `(a, b) -> (c)` is the function type for a function that receives one
-argument of type `a` and one of type `b` and returns a value of type `c`. For
-function types that only receive one input parameter or return a single value,
-the parentheses are optional. For example, `int -> string` is the type of
-functions that map `int` to `string`. The `->` type constructor is right
-associative. That is, `a -> b -> c` is equivalent to `a -> (b -> c)`, the type
-of functions that receive an `a` and return a function that receives a `b` and
-return a `c`.
+Function types in Pallene are created with the `->` type constructor. For
+example, `(a, b) -> (c)` is the function type for a function that receives two
+arguments (the first of type `a` and the second of type `b`) and returns a 
+single value of type `c`. For function types that only receive one input
+parameter or return a single value, the parentheses are optional. For example,
+the following are all valid function types:
 
-A titan variable of function type may refer to either statically-typed Titan
+    int -> float
+    (int, int) -> float
+    string -> ()
+
+The current Pallene implementation only supports functions with 0 or 1 return
+values. We plan to support functions with two or more return values in a future
+version.
+
+The arrow type constructor is right associative. That is, `a -> b -> c` means
+`a -> (b -> c)`.
+
+A Pallene variable of function type may refer to either statically-typed Pallene
 functions or to dynamically typed Lua functions. When calling a
-dynamically-typed Lua function from Titan, Titan will check whether the Lua
+dynamically-typed Lua function from Pallene, Pallene will check whether the Lua
 function returned the correct types and number of arguments and it will raise a
 run-time error if it does not receive what it expected.
 
-#### Limitations
-
-In the current version of Titan, Titan functions can only return a single return
-value and a run-time error is produced if a Lua function called from Titan returns
-more than one return value. A future of version of Titan will implement multiple
-return values for functions.
-
 ### Records
 
-Records types in Titan are nominal and should be declared in the top level.
-The following example declare a record `Point` with the fields `x` and `y`
+Record types in Pallene are nominal and should be declared in the top level.
+The following example declares a record `Point` with the fields `x` and `y`
 which are floats.
 
     record Point
@@ -65,231 +119,122 @@ which are floats.
         y: float
     end
 
-You can create records with initializer lists or using the `new` constructor.
-When using initializer lists, you must assign a value to each field of the
-record.
-The `Type.new()` constructor is automatically declared and receive a parameter
-for each field in the order they were declared.
-For instance, you could initialize an instance of the record `Point` with:
-`{ x = 3, y = 5 }`, `{ y = 5, x = 3 }` or `Point.new(3, 5)`.
-In all those cases, the field `x` will receive the value `3` and the field `y`,
-`5`.
-Like arrays constructors, Titan will try to locally infer the type of
-initializer lists.
+Pallene points are created and used with a similar syntax to Lua:
 
-You can read and write from fields of a record instance using the dot operator
-`instance.field`. For example, `local x = p.x` and `p.y = 7`.
+    local p:Point = {x=10.0, y=20.0}
+    local r2 = p.x*p.x + p.y*p.y
 
-### The `value` type
+Pallene records are implemented as userdata, and are *not* Lua tables. You
+cannot create a Lua table with an `x` and `y` field and pass it to a Pallene
+function expecting a Point. That said, Pallene objects do carry a metatable
+that allows you to still use the usual dot notation when acessing them from
+Lua.
 
-If you declare that something has type `value` than it can hold values of any
-Titan type, as well as any value that comes from Lua. In particular, `{ value }`
-is the type of arrays that can hold any value.
+## Structure of a Pallene module
 
-You can use an expression that evaluates to any type in a context that expects
-something with type `value`, and this is always safe (it will never throw a
-run-time error). For example, if variable `i` has type `integer` and variable
-`v` has type `value` then the assignment `v = i` always succeeds. Likewise,
-if `t` has type `{ value }` the assignment `t[1] = i` always succeeds.
+A Pallene module, consists of a sequence of type declarations, module-local
+constants, and function defitions. They must appear in this order.
 
-You can also use an expression that has type `value` in most contexts that
-expect something with another type, but this will generate a runtime check
-that might fail. In our previous examples with `v`, `i`, and `t` the assignments
-`i = v` and `i = t[1]` are also allowed, but are checked at runtime to see
-if the value being assigned is really an integer (or a floating-point value
-that can be safely converted to an integer).
+```
+<type and record declarations>
+<module-local variables>
+<function definitions>
+```
 
-Contexts where Titan lets you pretend a `value` has another type are right-hand
-sides of assignments and declarations, arguments to function calls, the index
-in array accesses, in the expressions that initialize the parameters of a numeric
-`for` loop, and in boolean `and`/`or` where the other side has type `boolean`.
+Module-local variables are currently restricted to primitive types and strings.
+They must also be constants (never assigned to). These restrictions may be
+lifted in a future version of Pallene.
 
-The automatic casts to and from `value` extend to coumpound types where parts of
-them are `value`: you can use a `{ value }` in a context that expects a `{ float }`,
-and vice-versa, and the same holds for function types such as `value -> integer`,
-`integer -> value`, `integer -> integer`, and `value -> value`. Notice this does
-**not** extend to record types, as they are nominal! The two following types
-are not compatible:
-
-    record PointF
-        x: float
-        y: float
-    end
-    
-    record PointV
-        x: value
-        y: value
-    end
-
-The only operations that you can do on things with type `value` are to cast them
-to some other type and to pass them along.
-
-## Modules
-
-A Titan source file (with a `.titan` extension) is a *Titan module*. A Titan module
-is made-up of *import statements*, *module variable declarations*, and *module function
-declarations*. These can appear in any order, but the Titan compiler reorders
-them so all import statements come first (in the order they appear), followed by
-variable declarations (again in the order they appear), and finally by function
-declarations, so an imported module can be used anywhere in a module,
-a module variable can be used in any function as well as variable declarations
-that follow it, and module functions can be used in any other function.
-
-### `import` statements
-
-An `import` statement references another module and lets the current
-module use its exported module variables and functions. Its syntax
-is:
-
-    local <localname> = import "<modname>"
-
-The module name `<modname>` is a name like `foo`, `foo.bar`, or `foo.bar.baz`.
-The Titan compiler translates a module name into a file name by converting
-all dots to path separators, and then appending `.so`, for binary modules, or
-`.titan`, for source modules, so the above three
-modules will correspond to `foo.{so|titan}`, `foo/bar.{so|titan}`, and `foo/bar/baz.{so|titan}`.
-The Titan compiler will recompile the module if its source is newer than its binary.
-
-Binary modules are looked up in the *runtime search path*, a semicolon-separated list
-of paths that defaults to `.;/usr/local/lib/titan/0.5`, but can be overriden with a
-`TITAN_PATH_0_5` or `TITAN_PATH` environment variable. Source modules are looked in
-the *source tree*, which defaults to the current working directory, but can be overriden
-with a command-line option to the Titan compiler. Generated binaries are always saved
-in the same path of the source.
-
-The `<localname>` can be any valid identifier, and will be the prefix for accessing
-module variables and functions.
-
-    -- in 'bar.titan'
-    x = 42
-    function bar(): integer
-      return x * x
-    end
-
-    -- in 'foo.titan'
-    local m = import "bar"
-    function foo(x: integer): integer
-      local y = m.bar()
-      bar.x = bar.x + x
-      return y
-    end
-
-In the above example, the module `foo.titan` imports `bar.titan` and
-gives it the local name `m`. Module `foo` can access the exported variable `x`, as well
-as call the exported function `bar`.
-
-### Module variables
-
-A variable declaration has the syntax:
-
-    [local] <name> [: <type>] = <value>
-
-A `local` variable is only visible inside the module it is defined. Variables that
-are not local are *exported*. An exported variable is visible in modules that import
-this module, and is also visible from Lua if you `require` the module.
-
-The `<name>` can be any valid identifier. You cannot have two module variables with
-the same name. The type is optional, and if not given will be inferred from the
-initial value. The initial value can be any valid Titan expression, as long as it
-only uses things that are visible (module variables declared prior to this one and
-members of imported modules).
+The syntax for function definitions is described in the following section.
 
 ### Functions
 
-A function declaration has the syntax:
+A function declaration has the following syntax:
 
     [local] function <name>([<params>])[: <rettypes>]
         <body>
     end
 
-A `local` function is only visible inside the module it is defined. Functions that
-are not local are exported, and visible in modules that import this one, as well
-as callable from Lua if you `require` the module.
+A `local` function is only visible inside the module it is defined. Functions
+that are not local are exported, and visible in modules that import this one,
+as well as callable from Lua if you `require` the module.
 
-As with variables, `<name>` can be any valid identifier, but it is an compile-time
-error to declare two functions with the same name, or a function with the same name as
-a module variable. The return types `<rettypes>` are optional, and if not given it
-is assumed that the function does not return anything or just returns `nil`. (Currently
-only functions with a single return type are implemented)
+As with variables, `<name>` can be any valid identifier, but it is a 
+compile-time error to declare two functions with the same name, or a function
+with the same name as a module variable. The return types `<rettypes>` are
+optional, and if not given it is assumed that the function does not return
+anything.
 
 Parameters are a comma-separated list of `<name>: <type>`. Two parameters cannot
 have the same name. The body is a sequence of statements.
 
-## Expressions
+Unlike Lua, Pallene function definitions are mutually recursive. A function
+at the start of the function definition block is allowed to call other functions
+further down the file. There is no need to provide a forward function
+declaration.
 
-### Explicit casts (`exp as type`)
+## Expressions and Statements
 
-You can use an explicit cast to convert between any two allowable types. For the
-current version of Titan, this means from `value` to any other type, from any
-other type to `value`, from `integer` to `float`, from `float` to `integer`, 
-from `integer` and `float` to `string`, and from any type to `boolean`.
-Most of these cannot fail (but you might lose precision when converting from
-`integer` to `float`). The exceptions are conversions from `value` to other
-types except `boolean`, and from `float` to `integer`.
+Pallene uses the same set of operators and control-flow statements as Lua. The
+only difference is that the type system is more restrictive:
 
-Casts from `float` to `integer` fail if it is not an integral value, and if
-this value is outside the allowable range for integers. Casts from `value`
-fail if the value does not have the target type, or cannot be converted to it.
+* Logic operators (`not`, `and`, `or`) only operate on booleans
+* The condition for `if`, `while` and `repeat` must be a boolean
+* Relational operators (`==`, `<`, etc) must receive two arguments of the same
+type.
+* The arithmetic and concatenation operators don't automatically coerce between
+numbers and strings.
 
-## The Complete Syntax of Titan
+## The Complete Syntax of Pallene
 
-Here is the complete syntax of Titan in extended BNF. As usual in extended BNF, {A} means 0 or more As, and \[A\] means an optional A.
+Here is the complete syntax of Pallene in extended BNF. As usual, {A} means 0 or
+more As, and \[A\] means an optional A.
 
-    program ::= {tlfunc | tlvar | tlrecord | tlimport}
+    program ::= {toplevelrecord} {toplevelvar} {toplevelfunc}
 
-    tlfunc ::= [local] function Name '(' [parlist] ')'  ':' type block end
+    toplevelrecord ::= record Name {recordfield} end
+    recordfield ::= NAME ':' type [';']
 
-    tlvar ::= [local] Name [':' type] '=' Numeral
+    toplevelvar ::= [local] NAME [':' type] '=' exp
 
-    tlrecord ::= record Name recordfields end
+    toplevelfunc ::= [local] function NAME '(' [paramlists] ')'  [':' type] block end
 
-    tlimport ::= local Name '=' import LiteralString
+    paramlist ::= NAME ':' type {',' NAME ':' type}
 
-    parlist ::= Name ':' type {',' Name ':' type}
+    type ::= nil | integer | float | boolean | string | '{' type '}' | NAME
 
-    type ::= value | integer | float | boolean | string | '{' type '}'
+    block ::= {statement} [returnstat]
 
-    recordfields ::= recordfield {recordfield}
-
-    recordfield ::= Name ':' type [';']
-
-    block ::= {stat} [retstat]
-
-    stat ::=  ';' |
+    statement ::=  ';' |
         var '=' exp |
-        functioncall |
+        function_call |
         do block end |
         while exp do block end |
         repeat block until exp |
         if exp then block {elseif exp then block} [else block] end |
-        for Name '=' exp ',' exp [',' exp] do block end |
+        for NAME [':' type] '=' exp ',' exp [',' exp] do block end |
         local name [':' type] '=' exp
 
-    retstat ::= return exp [';']
+    returnstat ::= return exp [';']
 
-    var ::=  Name | prefixexp '[' exp ']' | prefixexp '.' Name
+    var ::=  NAME | exp '[' exp ']' | exp '.' Name
 
+    exp ::= nil | false | true | NUMBER | STRING | initlist | exp as type |
+        unop exp | exp binop exp | funccall | '(' exp ')' | exp '.' NAME
+
+    funccall ::= exp funcargs
+
+    funcargs ::= '(' [explist] ')' | initlist | STRING
     explist ::= exp {',' exp}
 
-    exp ::= nil | false | true | Numeral | LiteralString |
-        prefixexp | tableconstructor | exp binop exp | unop exp |
-        exp as type
-
-    prefixexp ::= var | functioncall | '(' exp ')'
-
-    functioncall ::= prefixexp args
-
-    args ::= '(' [explist] ')' | tableconstructor | LiteralString
-
-    tableconstructor ::= '{' [fieldlist] '}'
-
-    fieldlist ::= exp {fieldsep exp} [fieldsep]
-
+    initlist ::= '{' fieldlist '}'
+    fieldlist ::= [ field {fieldsep field} [fieldsep] ]
+    field ::= exp | NAME '=' exp
     fieldsep ::= ',' | ';'
+
+    unop ::= '-' | not | '#' | '~'
 
     binop ::=  '+' | '-' | '*' | '/' | '//' | '^' | '%' |
         '&' | '~' | '|' | '>>' | '<<' | '..' |
         '<' | '<=' | '>' | '>=' | '==' | '~=' |
         and | or
-
-    unop ::= '-' | not | '#' | '~'
