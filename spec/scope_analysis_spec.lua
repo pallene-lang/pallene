@@ -16,7 +16,7 @@ describe("Scope analysis: ", function()
         os.remove("test.pallene")
     end)
 
-    it("global variables work", function()
+    it("functions can see global variables", function()
         local prog, errs = run_scope_analysis([[
             local x: integer = 10
             function fn(): integer
@@ -27,6 +27,19 @@ describe("Scope analysis: ", function()
         assert.are.equal(
             prog[1], -- x
             prog[2].block.stats[1].exps[1].var._decl)
+    end)
+
+    it("global variables can see functions", function()
+        local prog, errs = run_scope_analysis([[
+            local f: integer->integer = foo
+            local function foo(x:integer): integer
+                return 17
+            end
+        ]])
+        assert(prog, errs)
+        assert.are.equal(
+            prog[2], -- foo
+            prog[1].value.var._decl)
     end)
 
     it("function parameters work", function()
@@ -70,6 +83,23 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
     end)
 
+    it("allows type variables to be used before they are defined", function()
+        local prog, errs = run_scope_analysis([[
+            function fn(p: Point): integer
+                return p.x
+            end
+
+            record Point
+                x: integer
+                y: integer
+            end
+        ]])
+        assert(prog, errs)
+        assert.are.equal(
+            prog[2], --Point
+            prog[1].params[1].type._decl)
+    end)
+
     it("builtins work", function()
         local prog, errs = run_scope_analysis([[
             function fn(xs:{integer})
@@ -96,21 +126,6 @@ describe("Scope analysis: ", function()
         ]])
         assert.falsy(prog)
         assert.match("variable 'x' is not declared", errs)
-    end)
-
-    it("forbids type variables from being used before they are defined", function()
-        local prog, errs = run_scope_analysis([[
-            function fn(p: Point): integer
-                return p.x
-            end
-
-            record Point
-                x: integer
-                y: integer
-            end
-        ]])
-        assert.falsy(prog)
-        assert.match("type 'Point' is not declared", errs)
     end)
 
     it("do-end limits variable scope", function()
@@ -226,36 +241,6 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[2].block.stats[1].exps[1].var._decl)
     end)
 
-    it("allows recursive functions", function()
-        local prog, errs = run_scope_analysis([[
-            local function fat(n: integer): integer
-                if n == 0 then
-                    return 1
-                else
-                    return n * fat(n - 1)
-                end
-            end
-        ]])
-        assert(prog, errs)
-        assert.are.equal(
-            prog[1], -- fat
-            prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
-    end)
-
-    it("forbids mutually recursive definitions", function()
-        local prog, errs = run_scope_analysis([[
-            local function foo(): integer
-                return bar()
-            end
-
-            local function bar(): integer
-                return foo()
-            end
-        ]])
-        assert.falsy(prog)
-        assert.match("variable 'bar' is not declared", errs)
-    end)
-
     it("forbids multiple toplevel declarations with the same name", function()
         local prog, errs = run_scope_analysis([[
             local x: integer = 10
@@ -272,5 +257,59 @@ describe("Scope analysis: ", function()
         ]])
         assert.falsy(prog)
         assert.match("function 'fn' has multiple parameters named 'x'", errs)
+    end)
+
+    it("forbids recursive types", function()
+        local prog, errs = run_scope_analysis([[
+            record A
+                x: A
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("type 'A' is not declared", errs)
+    end)
+
+    it("forbids forward variable initializers", function()
+        local prog, errs = run_scope_analysis([[
+            local x = y
+            local y = 10
+        ]])
+        assert.falsy(prog)
+        assert.match("variable 'y' is not declared", errs)
+    end)
+
+    it("allows recursive functions", function()
+        local prog, errs = run_scope_analysis([[
+            local function fat(n: integer): integer
+                if n == 0 then
+                    return 1
+                else
+                    return n * fat(n - 1)
+                end
+            end
+        ]])
+        assert(prog, errs)
+        assert.are.equal(
+            prog[1], -- fat
+            prog[1].block.stats[1].else_.stats[1].exps[1].rhs.exp.var._decl)
+    end)
+
+    it("allows mutually recursive functions", function()
+        local prog, errs = run_scope_analysis([[
+            local function foo(): integer
+                return bar()
+            end
+
+            local function bar(): integer
+                return foo()
+            end
+        ]])
+        assert(prog, errs)
+        assert.are.equal(
+            prog[1], -- foo
+            prog[2].block.stats[1].exps[1].exp.var._decl)
+        assert.are.equal(
+            prog[2], -- bar
+            prog[1].block.stats[1].exps[1].exp.var._decl)
     end)
 end)

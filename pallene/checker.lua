@@ -9,7 +9,10 @@ local typecheck
 
 local check_program
 local check_type
-local check_toplevel
+local check_record
+local check_function_params
+local check_function_body
+local check_toplevel_var
 local check_decl
 local check_stat
 --local check_then
@@ -174,7 +177,32 @@ check_program = function(prog)
     end
 
     for _, tlnode in ipairs(prog) do
-        check_toplevel(tlnode)
+        if tlnode._tag == ast.Toplevel.Record then
+            check_record(tlnode)
+        end
+    end
+
+    for _, tlnode in ipairs(prog) do
+        if tlnode._tag == ast.Toplevel.Func then
+            check_function_params(tlnode)
+        end
+    end
+
+    for _, tlnode in ipairs(prog) do
+        if tlnode._tag == ast.Toplevel.Var then
+            check_toplevel_var(tlnode)
+        end
+    end
+
+    for _, tlnode in ipairs(prog) do
+        if tlnode._tag == ast.Toplevel.Func then
+            check_function_body(tlnode)
+        end
+    end
+
+    for _, tlnode in ipairs(prog) do
+        -- sanity check
+        assert(tlnode._type)
     end
 end
 
@@ -229,59 +257,59 @@ check_type = function(typ)
     end
 end
 
-check_toplevel = function(tl_node)
-    local tag = tl_node._tag
-    if     tag == ast.Toplevel.Import then
-        type_error(tl_node.loc, "modules are not implemented yet")
+check_record = function(tl_node)
+    assert(tl_node._tag == ast.Toplevel.Record)
+    tl_node._field_types = {}
+    for _, field_decl in ipairs(tl_node.field_decls) do
+        local typ = check_type(field_decl.type)
+        tl_node._field_types[field_decl.name] = typ
+    end
+    tl_node._type = types.T.Record(tl_node)
+end
 
-    elseif tag == ast.Toplevel.Var then
-        if tl_node.decl.type then
-            tl_node._type = check_type(tl_node.decl.type)
-            check_exp(tl_node.value, tl_node._type)
-            checkmatch(tl_node.loc,
-                tl_node._type, tl_node.value._type,
-                "declaration of module variable %s", tl_node.decl.name)
-        else
-            check_exp(tl_node.value, false)
-            tl_node._type = tl_node.value._type
-        end
+check_function_params = function(tl_node)
+    assert(tl_node._tag == ast.Toplevel.Func)
+    if #tl_node.rettypes >= 2 then
+        error("functions with 2+ return values are not yet implemented")
+    end
 
-    elseif tag == ast.Toplevel.Func then
-        if #tl_node.rettypes >= 2 then
-            error("functions with 2+ return values are not yet implemented")
-        end
+    local ptypes = {}
+    for _, param in ipairs(tl_node.params) do
+        param._type = check_type(param.type)
+        table.insert(ptypes, param._type)
+    end
 
-        local ptypes = {}
-        for _, param in ipairs(tl_node.params) do
-            param._type = check_type(param.type)
-            table.insert(ptypes, param._type)
-        end
+    local rettypes = {}
+    for _, rt in ipairs(tl_node.rettypes) do
+        table.insert(rettypes, check_type(rt))
+    end
+    tl_node._type = types.T.Function(ptypes, rettypes)
+end
 
-        local rettypes = {}
-        for _, rt in ipairs(tl_node.rettypes) do
-            table.insert(rettypes, check_type(rt))
-        end
-        tl_node._type = types.T.Function(ptypes, rettypes)
+check_function_body = function(tl_node)
+    assert(tl_node._tag == ast.Toplevel.Func)
 
-        check_stat(tl_node.block, rettypes)
+    check_stat(tl_node.block, tl_node._type.rettypes)
 
-        if #tl_node._type.rettypes > 0 and
-           not stat_always_returns(tl_node.block)
-        then
-            type_error(tl_node.loc,
-                "control reaches end of function with non-empty return type")
-        end
+    if #tl_node._type.rettypes > 0 and
+        not stat_always_returns(tl_node.block)
+    then
+        type_error(tl_node.loc,
+            "control reaches end of function with non-empty return type")
+    end
+end
 
-    elseif tag == ast.Toplevel.Record then
-        tl_node._field_types = {}
-        for _, field_decl in ipairs(tl_node.field_decls) do
-            local typ = check_type(field_decl.type)
-            tl_node._field_types[field_decl.name] = typ
-        end
-        tl_node._type = types.T.Record(tl_node)
-
+check_toplevel_var = function(tl_node)
+    assert(tl_node._tag == ast.Toplevel.Var)
+    if tl_node.decl.type then
+        tl_node._type = check_type(tl_node.decl.type)
+        check_exp(tl_node.value, tl_node._type)
+        checkmatch(tl_node.loc,
+            tl_node._type, tl_node.value._type,
+            "declaration of module variable %s", tl_node.decl.name)
     else
-        error("impossible")
+        check_exp(tl_node.value, false)
+        tl_node._type = tl_node.value._type
     end
 end
 

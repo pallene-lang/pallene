@@ -58,6 +58,8 @@ local whole_file_template = [[
 
 ${STRUCTS}
 
+${DECLARE_FUNCTIONS}
+
 ${DEFINE_FUNCTIONS}
 
 ${LUAOPEN_FUNCTION}
@@ -996,7 +998,7 @@ end
 -- code generation
 --
 
-local function generate_pallene_entry_point(tl_node, literals)
+local function generate_pallene_entry_point_prototype(tl_node, literals)
     local ctx = Context.new(literals)
 
     local ret_ctype
@@ -1013,6 +1015,22 @@ local function generate_pallene_entry_point(tl_node, literals)
         table.insert(params, c_declaration(param._cvar))
     end
 
+    local prototype = util.render(
+        [[static ${RET} ${NAME}(
+            ${PARAMS}
+        )]], {
+            RET = ret_ctype,
+            NAME = tl_node._pallene_entry_point,
+            PARAMS = table.concat(params, ",\n")
+        })
+
+    return prototype, ctx
+end
+
+local function generate_pallene_entry_point(tl_node, literals)
+    local prototype, ctx =
+        generate_pallene_entry_point_prototype(tl_node, literals)
+
     local body = {}
     table.insert(body, upvalues_init_local_cvars(ctx))
     table.insert(body, generate_stat(tl_node.block, ctx))
@@ -1020,20 +1038,22 @@ local function generate_pallene_entry_point(tl_node, literals)
     local reserve_stack = gc_reserve_stack(ctx)
 
     local out = util.render([[
-        static ${RET} ${NAME}(
-            ${PARAMS}
-        ){
+        ${PROTO}{
             ${RESERVE_STACK}
             ${BODY}
         }
     ]], {
-        RET = ret_ctype,
-        NAME = tl_node._pallene_entry_point,
+        PROTO = prototype,
         RESERVE_STACK = reserve_stack,
-        PARAMS = table.concat(params, ",\n"),
         BODY = table.concat(body, "\n"),
     })
     return out
+end
+
+local function generate_lua_entry_point_prototype(tl_node, literals)
+    return util.render([[static int ${LUA_ENTRY_POINT}(lua_State *L)]], {
+        LUA_ENTRY_POINT = tl_node._lua_entry_point
+    })
 end
 
 local function generate_lua_entry_point(tl_node, literals)
@@ -1138,7 +1158,7 @@ local function generate_lua_entry_point(tl_node, literals)
     local reserve_stack = gc_reserve_stack(ctx)
 
     local out = util.render([[
-        static int ${LUA_ENTRY_POINT}(lua_State *L)
+        ${PROTO}
         {
             ${RESERVE_STACK}
             ${INIT_UPVALUES}
@@ -1150,7 +1170,7 @@ local function generate_lua_entry_point(tl_node, literals)
             return ${NRET};
         }
     ]], {
-        LUA_ENTRY_POINT = tl_node._lua_entry_point,
+        PROTO = generate_lua_entry_point_prototype(tl_node, literals),
         RESERVE_STACK = reserve_stack,
         INIT_UPVALUES = init_upvalues,
         SET_BASE = set_base,
@@ -1492,6 +1512,23 @@ generate_program = function(prog, modname)
     end
 
     -- Create toplevel function declarations
+    local declare_functions
+    do
+        local function_declarations = {}
+        for _, tl_node in ipairs(prog) do
+            if tl_node._tag == ast.Toplevel.Func then
+                assert(#tl_node._type.rettypes <= 1)
+                table.insert(function_declarations,
+                    generate_pallene_entry_point_prototype(tl_node, prog._literals)..";")
+                table.insert(function_declarations,
+                    generate_lua_entry_point_prototype(tl_node, prog._literals)..";")
+            end
+        end
+        declare_functions = table.concat(function_declarations, "\n")
+    end
+
+
+    -- Create toplevel function definitions
     local define_functions
     do
         local function_definitions = {}
@@ -1511,6 +1548,7 @@ generate_program = function(prog, modname)
 
     local code = util.render(whole_file_template, {
         STRUCTS = table.concat(structs, "\n\n"),
+        DECLARE_FUNCTIONS = declare_functions,
         DEFINE_FUNCTIONS = define_functions,
         LUAOPEN_FUNCTION = luaopen_function,
     })

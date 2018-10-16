@@ -40,18 +40,61 @@ local function add_builtins_to_symbol_table(st)
 end
 
 local function process_toplevel(prog, st, errors)
-    st:with_block(function()
+
+    local records   = {}
+    local variables = {}
+    local functions = {}
+    for _, tlnode in ipairs(prog) do
+        local tag = tlnode._tag
+        if     tag == ast.Toplevel.Func   then
+            table.insert(functions, tlnode)
+        elseif tag == ast.Toplevel.Var    then
+            table.insert(variables, tlnode)
+        elseif tag == ast.Toplevel.Record then
+            table.insert(records, tlnode)
+        elseif tag == ast.Toplevel.Import then
+            error("not implemented")
+        else
+            error("impossible")
+        end
+    end
+
+    --
+    -- Check for duplicates
+    --
+    do
+        local names = {}
         for _, tlnode in ipairs(prog) do
             local name = ast.toplevel_name(tlnode)
-            local dup = st:find_dup(name)
+            local dup = names[name]
             if dup then
                 scope_error(errors, tlnode.loc,
                     "duplicate toplevel declaration for %s, previous one at line %d",
                     name, dup.loc.line)
             else
-                st:add_symbol(name, tlnode)
-                bind_names:Toplevel(tlnode, st, errors)
+                names[name] = tlnode
             end
+        end
+    end
+
+
+    st:with_block(function()
+        for _, tlnode in ipairs(records) do
+            bind_names:Toplevel(tlnode, st, errors)
+            st:add_symbol(ast.toplevel_name(tlnode), tlnode)
+        end
+
+        for _, tlnode in ipairs(functions) do
+            st:add_symbol(ast.toplevel_name(tlnode), tlnode)
+        end
+
+        for _, tlnode in ipairs(variables) do
+            st:add_symbol(ast.toplevel_name(tlnode), tlnode)
+            bind_names:Toplevel(tlnode, st, errors)
+        end
+
+        for _, tlnode in ipairs(functions) do
+            bind_names:Toplevel(tlnode, st, errors)
         end
     end)
 end
