@@ -226,6 +226,24 @@ describe("Scope analysis: ", function()
             prog[1].block.stats[2].block.stats[1].exps[1].var._decl)
     end)
 
+    it("forbids multiple toplevel declarations with the same name", function()
+        local prog, errs = run_scope_analysis([[
+            local x: integer = 10
+            local x: integer = 11
+        ]])
+        assert.falsy(prog)
+        assert.match("duplicate toplevel declaration", errs)
+    end)
+
+    it("forbids multiple function arguments with the same name", function()
+        local prog, errs = run_scope_analysis([[
+            function fn(x: integer, x:string)
+            end
+        ]])
+        assert.falsy(prog)
+        assert.match("function 'fn' has multiple parameters named 'x'", errs)
+    end)
+
     it("allows recursive functions", function()
         local prog, errs = run_scope_analysis([[
             local function fat(n: integer): integer
@@ -254,23 +272,5 @@ describe("Scope analysis: ", function()
         ]])
         assert.falsy(prog)
         assert.match("variable 'bar' is not declared", errs)
-    end)
-
-    it("forbids multiple toplevel declarations with the same name", function()
-        local prog, errs = run_scope_analysis([[
-            local x: integer = 10
-            local x: integer = 11
-        ]])
-        assert.falsy(prog)
-        assert.match("duplicate toplevel declaration", errs)
-    end)
-
-    it("forbids multiple function arguments with the same name", function()
-        local prog, errs = run_scope_analysis([[
-            function fn(x: integer, x:string)
-            end
-        ]])
-        assert.falsy(prog)
-        assert.match("function 'fn' has multiple parameters named 'x'", errs)
     end)
 end)
