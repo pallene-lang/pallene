@@ -133,19 +133,19 @@ Lua.
 ## Structure of a Pallene module
 
 A Pallene module, consists of a sequence of type declarations, module-local
-constants, and function defitions. They must appear in this order.
+variables, and function definitions. The lexical scoping rules for the Pallene
+toplevel are a bit different from Lua:
 
-```
-<type and record declarations>
-<module-local variables>
-<function definitions>
-```
+Type declarations must not be recursive. (This restriction should be lifted in
+the near future).
 
-Module-local variables are currently restricted to primitive types and strings.
-They must also be constants (never assigned to). These restrictions may be
-lifted in a future version of Pallene.
+Local variable initializers must not refer to variables that appear after them
+in the file. They may refer to functions declared in the "function section"
+of the file, but they must not perform any function calls. (These restrictions
+are to ensure that the module initialization subroutine won't attempt to read
+an un-initialized variable).
 
-The syntax for function definitions is described in the following section.
+Functions can be mutually recursive.
 
 ### Functions
 
