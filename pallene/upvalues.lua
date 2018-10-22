@@ -21,7 +21,9 @@ local analyze_upvalues
 --
 -- _upvalues:
 --     In Program node
---     List of Toplevel AST value nodes (Var, Func and Record).
+--     List of Upvalue.T:
+--      - string literals
+--      - Toplevel AST value nodes (Var, Func and Record).
 --
 -- _literals:
 --     In Program node
