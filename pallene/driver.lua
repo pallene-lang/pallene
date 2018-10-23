@@ -31,29 +31,29 @@ local function compile_pallene_to_ast(pallene_filename, stop_after)
     input, err = util.get_file_contents(pallene_filename)
     if not input then return false, {err} end
 
-    local ast
-    ast, errs = parser.parse(pallene_filename, input)
-    if stop_after == "parser" or not ast then return ast, errs end
+    local prog_ast
+    prog_ast, errs = parser.parse(pallene_filename, input)
+    if stop_after == "parser" or not prog_ast then return prog_ast, errs end
 
     local stop_i = step_index(ast_passes, stop_after)
 
     for i = 1, stop_i do
         local pass = ast_passes[i]
-        ast, errs = pass.f(ast)
-        if not ast then break end
+        prog_ast, errs = pass.f(prog_ast)
+        if not prog_ast then break end
     end
 
-    return ast, errs
+    return prog_ast, errs
 end
 
 --
 -- Emit C code, and save it to a file
 --
-local function compile_ast_to_c(ast, c_filename, modname)
+local function compile_ast_to_c(prog_ast, c_filename, modname)
     local ok, err, errs
 
     local c_code
-    c_code, errs = coder.generate(ast, modname)
+    c_code, errs = coder.generate(prog_ast, modname)
     if not c_code then return c_code, errs end
 
     ok, err = util.set_file_contents(c_filename, c_code)
@@ -65,11 +65,11 @@ end
 local function compile_pallene_to_c(pallene_filename, c_filename, modname)
     local ok, errs
 
-    local ast
-    ast, errs = compile_pallene_to_ast(pallene_filename, driver.last_ast_pass)
-    if not ast then return false, errs end
+    local prog_ast
+    prog_ast, errs = compile_pallene_to_ast(pallene_filename, driver.last_ast_pass)
+    if not prog_ast then return false, errs end
 
-    ok, errs = compile_ast_to_c(ast, c_filename, modname)
+    ok, errs = compile_ast_to_c(prog_ast, c_filename, modname)
     if not ok then return false, errs end
 
     return true, {}
