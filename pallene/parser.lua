@@ -477,19 +477,19 @@ function parser.parse(filename, input)
     assert(THIS_FILENAME == nil)
 
     THIS_FILENAME = filename
-    local prog, err, errpos = grammar:match(input)
+    local prog_ast, err, errpos = grammar:match(input)
     THIS_FILENAME = nil
 
     local errors = {}
-    if not prog then
+    if not prog_ast then
         local loc = location.from_pos(filename, input, errpos)
         table.insert(errors, parser_error(loc, err))
     end
-    return prog, errors
+    return prog_ast, errors
 end
 
-function parser.pretty_print_ast(prog)
-    return inspect(prog, {
+function parser.pretty_print_ast(prog_ast)
+    return inspect(prog_ast, {
         process = function(item, path)
             if path[#path] ~= inspect.METATABLE then
                 return item

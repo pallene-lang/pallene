@@ -21,7 +21,9 @@ local analyze_upvalues
 --
 -- _upvalues:
 --     In Program node
---     List of Toplevel AST value nodes (Var, Func and Record).
+--     List of Upvalue.T:
+--      - string literals
+--      - Toplevel AST value nodes (Var, Func and Record).
 --
 -- _literals:
 --     In Program node
@@ -30,9 +32,9 @@ local analyze_upvalues
 -- _upvalue_index:
 --     In Toplevel value nodes
 --     Integer. The index of this node in the _upvalues array.
-function upvalues.analyze(prog)
-    analyze_upvalues(prog)
-    return prog, {}
+function upvalues.analyze(prog_ast)
+    analyze_upvalues(prog_ast)
+    return prog_ast, {}
 end
 
 local function declare_type(typename, cons)
@@ -73,7 +75,7 @@ end
 
 local analyze = ast_iterator.new()
 
-analyze_upvalues = function(prog)
+analyze_upvalues = function(prog_ast)
     local upvs = {}
     local literals = {}
 
@@ -82,10 +84,10 @@ analyze_upvalues = function(prog)
     for _, lit in pairs(upvalues.internal_literals) do
         add_literal(upvs, literals, lit)
     end
-    
-    analyze:Program(prog, upvs, literals)
 
-    for _, tlnode in ipairs(prog) do
+    analyze:Program(prog_ast, upvs, literals)
+
+    for _, tlnode in ipairs(prog_ast) do
         if toplevel_is_value_declaration(tlnode) then
             local n = #upvs + 1
             tlnode._upvalue_index = n
@@ -93,8 +95,8 @@ analyze_upvalues = function(prog)
         end
     end
 
-    prog._upvalues = upvs
-    prog._literals = literals
+    prog_ast._upvalues = upvs
+    prog_ast._literals = literals
 end
 
 function analyze:Exp(exp, upvs, literals)

@@ -16,9 +16,9 @@ function ast_iterator.new()
     return setmetatable({}, ast_iterator)
 end
 
-function ast_iterator:Program(prog, ...)
-    for i = 1, #prog do
-        prog[i] = self:Toplevel(prog[i], ...) or prog[i]
+function ast_iterator:Program(prog_ast, ...)
+    for i = 1, #prog_ast do
+        prog_ast[i] = self:Toplevel(prog_ast[i], ...) or prog_ast[i]
     end
 end
 
