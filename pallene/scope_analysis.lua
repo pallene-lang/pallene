@@ -14,13 +14,13 @@ local bind_names = ast_iterator.new()
 -- This will need to be revised when we introduce modules, because then the "."
 -- will mean more than one thing (C++'s "." and "::")
 --
--- @param prog AST for the whole module
+-- @param prog_ast AST for the whole module
 -- @return true or false, followed by a list of compilation errors
-function scope_analysis.bind_names(prog)
+function scope_analysis.bind_names(prog_ast)
     local errors = {}
     local st = symtab.new()
-    bind_names:Program(prog, st, errors)
-    return (#errors == 0 and prog), errors
+    bind_names:Program(prog_ast, st, errors)
+    return (#errors == 0 and prog_ast), errors
 end
 
 
@@ -39,9 +39,9 @@ local function add_builtins_to_symbol_table(st)
     end
 end
 
-local function process_toplevel(prog, st, errors)
+local function process_toplevel(prog_ast, st, errors)
     st:with_block(function()
-        for _, tlnode in ipairs(prog) do
+        for _, tlnode in ipairs(prog_ast) do
             local name = ast.toplevel_name(tlnode)
             local dup = st:find_dup(name)
             if dup then
@@ -60,10 +60,10 @@ end
 -- bind_names
 --
 
-function bind_names:Program(prog, st, errors)
+function bind_names:Program(prog_ast, st, errors)
     st:with_block(function()
         add_builtins_to_symbol_table(st)
-        process_toplevel(prog, st, errors)
+        process_toplevel(prog_ast, st, errors)
     end)
 end
 

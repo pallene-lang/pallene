@@ -12,8 +12,8 @@ local generate_stat
 local generate_var
 local generate_exp
 
-function coder.generate(prog, modname)
-    local code = generate_program(prog, modname)
+function coder.generate(prog_ast, modname)
+    local code = generate_program(prog_ast, modname)
     return code, {}
 end
 
@@ -1226,10 +1226,10 @@ local function generate_upvalue(upv, ctx)
     end
 end
 
-local function generate_luaopen_upvalues(prog, ctx)
+local function generate_luaopen_upvalues(prog_ast, ctx)
     local parts = {}
 
-    for i, upv in ipairs(prog._upvalues) do
+    for i, upv in ipairs(prog_ast._upvalues) do
         ctx:begin_scope()
         local typ, cstats, cvalue = generate_upvalue(upv, ctx)
         local slot = upvalues_slot(i, ctx)
@@ -1243,9 +1243,9 @@ local function generate_luaopen_upvalues(prog, ctx)
     return table.concat(parts, "\n")
 end
 
-local function generate_luaopen_exports_table(prog, ctx)
+local function generate_luaopen_exports_table(prog_ast, ctx)
     local n_exported_functions = 0
-    for _, tl_node in ipairs(prog) do
+    for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
             n_exported_functions = n_exported_functions + 1
         end
@@ -1261,7 +1261,7 @@ local function generate_luaopen_exports_table(prog, ctx)
     ]], {
         N = c_integer(n_exported_functions),
     }))
-    for _, tl_node in ipairs(prog) do
+    for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
             table.insert(parts,
                 util.render([[
@@ -1284,22 +1284,22 @@ local function generate_luaopen_exports_table(prog, ctx)
     return table.concat(parts, "\n")
 end
 
-local function generate_luaopen(prog, modname)
-    local ctx = Context.new(prog._literals)
+local function generate_luaopen(prog_ast, modname)
+    local ctx = Context.new(prog_ast._literals)
 
     local body = {}
 
     table.insert(body, "/* Allocate upvalue table */")
     table.insert(body, "/* ---------------------- */")
-    table.insert(body, upvalues_create_table(#prog._upvalues, ctx))
+    table.insert(body, upvalues_create_table(#prog_ast._upvalues, ctx))
 
     table.insert(body, "/* Initialize upvalues */")
     table.insert(body, "/* ------------------- */")
-    table.insert(body, generate_luaopen_upvalues(prog, ctx))
+    table.insert(body, generate_luaopen_upvalues(prog_ast, ctx))
 
     table.insert(body, "/* Create exports table */")
     table.insert(body, "/* -------------------- */")
-    table.insert(body, generate_luaopen_exports_table(prog, ctx))
+    table.insert(body, generate_luaopen_exports_table(prog_ast, ctx))
 
     -- TODO: make this reserve_stack optional
     -- (see similar comment in lua entry point)
@@ -1468,13 +1468,13 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
 end
 
 
--- @param prog: (ast) Annotated AST for the whole module
+-- @param prog_ast: (ast) Annotated AST for the whole module
 -- @param modname: (string) Lua module name (for luaopen)
 -- @return (string) C code for the whole module
-generate_program = function(prog, modname)
+generate_program = function(prog_ast, modname)
     -- Records
     local structs = {}
-    for _, tl_node in ipairs(prog) do
+    for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == ast.Toplevel.Record then
             tl_node._rec = RecordCoder.new(tl_node)
             table.insert(structs, tl_node._rec:make_declarations())
@@ -1482,7 +1482,7 @@ generate_program = function(prog, modname)
     end
 
     -- Name all the function entry points
-    for _, tl_node in ipairs(prog) do
+    for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == ast.Toplevel.Func then
             tl_node._pallene_entry_point =
                 function_name(tl_node.name, "pallene")
@@ -1495,19 +1495,19 @@ generate_program = function(prog, modname)
     local define_functions
     do
         local function_definitions = {}
-        for _, tl_node in ipairs(prog) do
+        for _, tl_node in ipairs(prog_ast) do
             if tl_node._tag == ast.Toplevel.Func then
                 assert(#tl_node._type.rettypes <= 1)
                 table.insert(function_definitions,
-                    generate_pallene_entry_point(tl_node, prog._literals))
+                    generate_pallene_entry_point(tl_node, prog_ast._literals))
                 table.insert(function_definitions,
-                    generate_lua_entry_point(tl_node, prog._literals))
+                    generate_lua_entry_point(tl_node, prog_ast._literals))
             end
         end
         define_functions = table.concat(function_definitions, "\n")
     end
 
-    local luaopen_function = generate_luaopen(prog, modname)
+    local luaopen_function = generate_luaopen(prog_ast, modname)
 
     local code = util.render(whole_file_template, {
         STRUCTS = table.concat(structs, "\n\n"),

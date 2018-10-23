@@ -30,10 +30,10 @@ local check_exp
 -- Sets a _field_types field on ast.Toplevel.Record nodes, mapping field names
 -- to their types.
 --
--- @ param prog AST for the whole module
+-- @ param prog_ast AST for the whole module
 -- @ return true or false, followed by as list of compilation errors
-function checker.check(prog)
-    return typecheck(prog)
+function checker.check(prog_ast)
+    return typecheck(prog_ast)
 end
 
 --
@@ -145,10 +145,10 @@ end
 -- check
 --
 
-typecheck = function(prog)
-    local ok, err = xpcall(check_program, debug.traceback, prog)
+typecheck = function(prog_ast)
+    local ok, err = xpcall(check_program, debug.traceback, prog_ast)
     if ok then
-        return prog, {} -- TODO:  no {}
+        return prog_ast, {} -- TODO:  no {}
     else
         if getmetatable(err) == TypeError then
             return false, { err.msg } -- TODO  no {}
@@ -158,7 +158,7 @@ typecheck = function(prog)
     end
 end
 
-check_program = function(prog)
+check_program = function(prog_ast)
     -- Ugh!
     -- Here we mutate fields in "constant" variables from another module, which
     -- definitely smells bad. There are many ways we vould fix this but I don't
@@ -173,7 +173,7 @@ check_program = function(prog)
         decl._type = types.T.Builtin(decl)
     end
 
-    for _, tlnode in ipairs(prog) do
+    for _, tlnode in ipairs(prog_ast) do
         check_toplevel(tlnode)
     end
 end
