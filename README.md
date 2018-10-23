@@ -22,7 +22,7 @@ The easiest way to install the dependencies for the Pallene compiler is through
 the [LuaRocks](http://luarocks.org) package manager:
 
 ```sh
-$ luarocks install --local pallene-scm-1.rockspec
+$ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
 If you want to use Pallene on Linux we also recommend installing the `readline`
