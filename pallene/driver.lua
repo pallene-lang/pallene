@@ -22,7 +22,7 @@ local ast_passes = {
     { name = "checker",        f = checker.check },
     { name = "upvalues",       f = upvalues.analyze },
 }
-local last_ast_pass = ast_passes[#ast_passes].name
+driver.last_ast_pass = ast_passes[#ast_passes].name
 
 local function compile_pallene_to_ast(pallene_filename, stop_after)
     local err, errs
@@ -66,7 +66,7 @@ local function compile_pallene_to_c(pallene_filename, c_filename, modname)
     local ok, errs
 
     local ast
-    ast, errs = compile_pallene_to_ast(pallene_filename, last_ast_pass)
+    ast, errs = compile_pallene_to_ast(pallene_filename, driver.last_ast_pass)
     if not ast then return false, errs end
 
     ok, errs = compile_ast_to_c(ast, c_filename, modname)
