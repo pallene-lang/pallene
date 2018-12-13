@@ -1,27 +1,8 @@
 local util = {}
 
-function util.get_file_contents(filename)
-    local f, err = io.open(filename, "r")
-    if not f then
-        return false, err
-    end
-    local s = f:read("a")
-    f:close()
-    if not s then
-        return false, "unable to open file " .. filename
-    else
-        return s
-    end
-end
-
-function util.set_file_contents(filename, contents)
-    local f, err = io.open(filename, "w")
-    if not f then
-        return false, err
-    end
-    f:write(contents)
-    f:close()
-    return true
+function util.abort(msg)
+    io.stderr:write(msg, "\n")
+    os.exit(1)
 end
 
 -- Barebones string-based template function for generating C/Lua code. Replaces
@@ -53,6 +34,39 @@ function util.render(code, substs)
     return out
 end
 
+--
+-- Shell and filesystem stuff
+--
+
+function util.split_ext(filename)
+    local name, ext = string.match(filename, "(.*)%.(.*)")
+    return name, ext
+end
+
+function util.get_file_contents(filename)
+    local f, err = io.open(filename, "r")
+    if not f then
+        return false, err
+    end
+    local s = f:read("a")
+    f:close()
+    if not s then
+        return false, "unable to open file " .. filename
+    else
+        return s
+    end
+end
+
+function util.set_file_contents(filename, contents)
+    local f, err = io.open(filename, "w")
+    if not f then
+        return false, err
+    end
+    f:write(contents)
+    f:close()
+    return true
+end
+
 function util.shell(cmd)
     local p = io.popen(cmd)
     local out = p:read("*a")
@@ -61,16 +75,6 @@ function util.shell(cmd)
         return false, "command failed: " .. cmd
     end
     return out
-end
-
-function util.abort(msg)
-    io.stderr:write(msg, "\n")
-    os.exit(1)
-end
-
-function util.split_ext(filename)
-    local name, ext = string.match(filename, "(.*)%.(.*)")
-    return name, ext
 end
 
 return util
