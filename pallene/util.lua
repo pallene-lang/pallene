@@ -53,14 +53,6 @@ function util.render(code, substs)
     return out
 end
 
-function util.slice(t, a, b)
-    local out = {}
-    for i = a, b do
-        table.insert(out, t[i])
-    end
-    return out
-end
-
 function util.shell(cmd)
     local p = io.popen(cmd)
     local out = p:read("*a")
