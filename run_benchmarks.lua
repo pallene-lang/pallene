@@ -76,7 +76,7 @@ local function benchmark(test_dir)
         end
 
         local lua
-        if name == "luajit" then
+        if string.find(name, "luajit") then
             lua = "luajit"
         else
             lua = "lua/src/lua"
@@ -93,7 +93,7 @@ local function benchmark(test_dir)
     local lua_files = {}
     for _, file_name in ipairs(file_names) do
         local name, ext = util.split_ext(file_name)
-        if name == "luajit" then
+        if string.find(name, "luajit") then
             luajit_executed = true
         elseif ext == "lua" then
             table.insert(lua_files, name)
