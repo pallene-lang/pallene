@@ -35,8 +35,8 @@ local function compile_c(in_filename, out_filename, extra_flags)
         c_compiler.CFLAGS_WARN,
         c_compiler.CFLAGS_OPT,
         extra_flags,
-        "-o", out_filename,
-        in_filename,
+        "-o", util.shell_quote(out_filename),
+        util.shell_quote(in_filename),
     })
 end
 
@@ -44,8 +44,8 @@ local function link_obj(o_filename, so_filename)
     return run_cc({
         c_compiler.CC,
         c_compiler.CFLAGS_SHARED,
-        "-o", so_filename,
-        o_filename,
+        "-o", util.shell_quote(so_filename),
+        util.shell_quote(o_filename),
         "runtime/pallenelib.a"
     })
 end

@@ -67,6 +67,11 @@ function util.set_file_contents(filename, contents)
     return true
 end
 
+-- Quotes a command-line argument according to POSIX shell syntax.
+function util.shell_quote(str)
+    return "'" .. str:gsub("'", "'\\''") .. "'"
+end
+
 function util.shell(cmd)
     local p = io.popen(cmd)
     local out = p:read("*a")
