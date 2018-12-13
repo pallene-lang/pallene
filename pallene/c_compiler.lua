@@ -8,8 +8,13 @@ c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -pedantic"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
-local UNAME = util.shell("uname -s")
-if string.find(UNAME, "Darwin") then
+local function getuname()
+    local ok, err, uname = util.outputs_of_execute("uname -s")
+    assert(ok, err)
+    return uname
+end
+
+if string.find(getuname(), "Darwin") then
     c_compiler.CFLAGS_SHARED = "-shared -undefined dynamic_lookup"
 else
     c_compiler.CFLAGS_SHARED = "-shared"
@@ -17,7 +22,7 @@ end
 
 local function run_cc(args)
     local cmd = table.concat(args, " ")
-    local ok = os.execute(cmd)
+    local ok = util.execute(cmd)
     if not ok then
         return false, {
             "internal error: compiler failed",

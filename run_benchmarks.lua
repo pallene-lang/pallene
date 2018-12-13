@@ -15,7 +15,7 @@ local args = p:parse()
 -- run the command a single time and return the time elapsed
 local function time(cmd)
     local t = chronos.nanotime()
-    local result, err = util.shell(cmd .. " > /dev/null")
+    local result, err = util.execute(cmd .. " > /dev/null")
     local time_elapsed = chronos.nanotime() - t
     if not result then
         util.abort(err)
@@ -45,10 +45,10 @@ end
 
 local function compile(ext, file_name)
     if     ext == "pallene" then
-        return util.shell(string.format(
+        return util.execute(string.format(
             "./pallenec %s", util.shell_quote(file_name)))
     elseif ext == "c" then
-        return util.shell(string.format(
+        return util.execute(string.format(
             "./pallenec --compile-c %s", util.shell_quote(file_name)))
     elseif ext == "lua" then
         return true

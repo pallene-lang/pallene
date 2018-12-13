@@ -72,14 +72,30 @@ function util.shell_quote(str)
     return "'" .. str:gsub("'", "'\\''") .. "'"
 end
 
-function util.shell(cmd)
-    local p = io.popen(cmd)
-    local out = p:read("*a")
-    local ok, _ = p:close()
-    if not ok then
+function util.execute(cmd)
+    local ok = os.execute(cmd)
+    if ok then
+        return true
+    else
         return false, "command failed: " .. cmd
     end
-    return out
+end
+
+function util.outputs_of_execute(cmd)
+    local out_file = os.tmpname()
+    local err_file = os.tmpname()
+
+    local redirected =
+        cmd ..
+        " > "  .. util.shell_quote(out_file) ..
+        " 2> " .. util.shell_quote(err_file)
+
+    local ok, err = util.execute(redirected)
+    local out_content = util.get_file_contents(out_file) or ""
+    local err_content = util.get_file_contents(err_file) or ""
+    os.remove(out_file)
+    os.remove(err_file)
+    return ok, err, out_content, err_content
 end
 
 return util
