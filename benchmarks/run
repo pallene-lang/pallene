@@ -1,0 +1,22 @@
+#!/usr/bin/env lua
+
+local argparse = require "argparse"
+local benchlib = require "benchmarks.benchlib"
+
+local p = argparse(arg[0], "Pallene benchmark runner")
+p:argument("benchmark_path", "Path to benchmark implementation"):args(1)
+p:argument("extra_params", "Additional parameters passed to benchmark"):args("*")
+p:option("--lua", "Lua interpreter to use"):default(benchlib.DEFAULT_LUA)
+p:option("--mode", "time|chronos|perf"):default("time")
+local args = p:parse()
+
+local mode = benchlib.modes[args.mode]
+if not mode then
+    error(string.format("invalid mode %q", args.mode))
+end
+
+local bench_cmd = benchlib.prepare_benchmark(
+    args.lua, args.benchmark_path, args.extra_params)
+
+local res = mode.run(bench_cmd)
+print(res)
