@@ -91,8 +91,8 @@ function util.outputs_of_execute(cmd)
         " 2> " .. util.shell_quote(err_file)
 
     local ok, err = util.execute(redirected)
-    local out_content = util.get_file_contents(out_file) or ""
-    local err_content = util.get_file_contents(err_file) or ""
+    local out_content = assert(util.get_file_contents(out_file))
+    local err_content = assert(util.get_file_contents(err_file))
     os.remove(out_file)
     os.remove(err_file)
     return ok, err, out_content, err_content
