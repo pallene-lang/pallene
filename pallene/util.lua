@@ -1,27 +1,8 @@
 local util = {}
 
-function util.get_file_contents(filename)
-    local f, err = io.open(filename, "r")
-    if not f then
-        return false, err
-    end
-    local s = f:read("a")
-    f:close()
-    if not s then
-        return false, "unable to open file " .. filename
-    else
-        return s
-    end
-end
-
-function util.set_file_contents(filename, contents)
-    local f, err = io.open(filename, "w")
-    if not f then
-        return false, err
-    end
-    f:write(contents)
-    f:close()
-    return true
+function util.abort(msg)
+    io.stderr:write(msg, "\n")
+    os.exit(1)
 end
 
 -- Barebones string-based template function for generating C/Lua code. Replaces
@@ -53,32 +34,68 @@ function util.render(code, substs)
     return out
 end
 
-function util.slice(t, a, b)
-    local out = {}
-    for i = a, b do
-        table.insert(out, t[i])
-    end
-    return out
-end
-
-function util.shell(cmd)
-    local p = io.popen(cmd)
-    local out = p:read("*a")
-    local ok, _ = p:close()
-    if not ok then
-        return false, "command failed: " .. cmd
-    end
-    return out
-end
-
-function util.abort(msg)
-    io.stderr:write(msg, "\n")
-    os.exit(1)
-end
+--
+-- Shell and filesystem stuff
+--
 
 function util.split_ext(filename)
     local name, ext = string.match(filename, "(.*)%.(.*)")
     return name, ext
+end
+
+function util.get_file_contents(filename)
+    local f, err = io.open(filename, "r")
+    if not f then
+        return false, err
+    end
+    local s = f:read("a")
+    f:close()
+    if not s then
+        return false, "unable to open file " .. filename
+    else
+        return s
+    end
+end
+
+function util.set_file_contents(filename, contents)
+    local f, err = io.open(filename, "w")
+    if not f then
+        return false, err
+    end
+    f:write(contents)
+    f:close()
+    return true
+end
+
+-- Quotes a command-line argument according to POSIX shell syntax.
+function util.shell_quote(str)
+    return "'" .. str:gsub("'", "'\\''") .. "'"
+end
+
+function util.execute(cmd)
+    local ok = os.execute(cmd)
+    if ok then
+        return true
+    else
+        return false, "command failed: " .. cmd
+    end
+end
+
+function util.outputs_of_execute(cmd)
+    local out_file = os.tmpname()
+    local err_file = os.tmpname()
+
+    local redirected =
+        cmd ..
+        " > "  .. util.shell_quote(out_file) ..
+        " 2> " .. util.shell_quote(err_file)
+
+    local ok, err = util.execute(redirected)
+    local out_content = assert(util.get_file_contents(out_file))
+    local err_content = assert(util.get_file_contents(err_file))
+    os.remove(out_file)
+    os.remove(err_file)
+    return ok, err, out_content, err_content
 end
 
 return util

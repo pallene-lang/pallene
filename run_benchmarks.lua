@@ -15,7 +15,7 @@ local args = p:parse()
 -- run the command a single time and return the time elapsed
 local function time(cmd)
     local t = chronos.nanotime()
-    local result, err = util.shell(cmd .. " > /dev/null")
+    local result, err = util.execute(cmd .. " > /dev/null")
     local time_elapsed = chronos.nanotime() - t
     if not result then
         util.abort(err)
@@ -33,7 +33,8 @@ end
 
 local function measure(lua, test_dir, name)
     local test_name = string.gsub(test_dir, "/", ".") .. "." .. name
-    local cmd = string.format([[%s %s/main.lua %s]], lua, test_dir, test_name)
+    local cmd = string.format([[%s %s/main.lua %s]], lua,
+        util.shell_quote(test_dir), util.shell_quote(test_name))
     print("running", cmd)
     local results = {}
     for i = 1, 5 do
@@ -44,9 +45,11 @@ end
 
 local function compile(ext, file_name)
     if     ext == "pallene" then
-        return util.shell(string.format("./pallenec %s", file_name))
+        return util.execute(string.format(
+            "./pallenec %s", util.shell_quote(file_name)))
     elseif ext == "c" then
-        return util.shell(string.format("./pallenec --compile-c %s", file_name))
+        return util.execute(string.format(
+            "./pallenec --compile-c %s", util.shell_quote(file_name)))
     elseif ext == "lua" then
         return true
     else

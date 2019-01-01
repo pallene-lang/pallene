@@ -17,8 +17,7 @@ local function run_test(test_script)
     ]], {
         TEST_SCRIPT = test_script
     }))
-    local ok = os.execute("./lua/src/lua test_script.lua > test_output.txt")
-    assert.truthy(ok)
+    assert(util.execute("./lua/src/lua test_script.lua > test_output.txt"))
 end
 
 local function assert_test_output(expected)

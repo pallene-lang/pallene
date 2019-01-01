@@ -8,8 +8,13 @@ c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -pedantic"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
-local UNAME = util.shell("uname -s")
-if string.find(UNAME, "Darwin") then
+local function getuname()
+    local ok, err, uname = util.outputs_of_execute("uname -s")
+    assert(ok, err)
+    return uname
+end
+
+if string.find(getuname(), "Darwin") then
     c_compiler.CFLAGS_SHARED = "-shared -undefined dynamic_lookup"
 else
     c_compiler.CFLAGS_SHARED = "-shared"
@@ -17,7 +22,7 @@ end
 
 local function run_cc(args)
     local cmd = table.concat(args, " ")
-    local ok = os.execute(cmd)
+    local ok = util.execute(cmd)
     if not ok then
         return false, {
             "internal error: compiler failed",
@@ -35,8 +40,8 @@ local function compile_c(in_filename, out_filename, extra_flags)
         c_compiler.CFLAGS_WARN,
         c_compiler.CFLAGS_OPT,
         extra_flags,
-        "-o", out_filename,
-        in_filename,
+        "-o", util.shell_quote(out_filename),
+        util.shell_quote(in_filename),
     })
 end
 
@@ -44,8 +49,8 @@ local function link_obj(o_filename, so_filename)
     return run_cc({
         c_compiler.CC,
         c_compiler.CFLAGS_SHARED,
-        "-o", so_filename,
-        o_filename,
+        "-o", util.shell_quote(so_filename),
+        util.shell_quote(o_filename),
         "runtime/pallenelib.a"
     })
 end
