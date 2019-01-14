@@ -69,7 +69,7 @@ end
 
 -- Quotes a command-line argument according to POSIX shell syntax.
 function util.shell_quote(str)
-    return "'" .. str:gsub("'", "'\\''") .. "'"
+    return "'" .. string.gsub(str, "'", "'\\''") .. "'"
 end
 
 function util.execute(cmd)
