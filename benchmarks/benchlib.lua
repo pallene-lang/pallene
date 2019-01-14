@@ -46,7 +46,7 @@ function benchlib.prepare_benchmark(lua_path, benchmark_path, extra_params)
         util.shell_quote("benchmarks" .. "/" .. test_dir .. "/" .. "main.lua")
     local modname =
         util.shell_quote("benchmarks" .. "." .. test_dir .. "." .. basename)
-    
+
     local quoted_extra_params = {}
     for i = 1, #extra_params do
         quoted_extra_params[i] = util.shell_quote(extra_params[i])
@@ -58,6 +58,17 @@ function benchlib.prepare_benchmark(lua_path, benchmark_path, extra_params)
     return bench_cmd
 end
 
+--
+-- Different ways to measure the benchmark commands
+--
+-- run: (cmd -> str)
+--      Given the command line for the script to benchmark, returns the raw
+--      output of the measurement utility
+--
+-- parse: (str -> table)
+--      Extracts information from the raw measurement output into a table of
+--      key-value pairs
+--
 benchlib.modes = {}
 
 benchlib.modes.time = {
@@ -112,5 +123,66 @@ benchlib.modes.perf = {
         }
     end
 }
+
+benchlib.MODE_NAMES = {}
+for name, _ in pairs(benchlib.modes) do
+    table.insert(benchlib.MODE_NAMES, name)
+end
+table.sort(benchlib.MODE_NAMES)
+
+--
+-- For scripts that run lots of benchmarks from a same directoty
+--
+-- @param bench: benchmark directory name (ex.: matmul)
+-- @param impl:  benchmark name           (ex.: lua, luajit, pallene)
+-- @param modename: measurement type
+--
+
+local function find_benchmark(bench, impl)
+
+    local lua_path
+    local candidates
+
+    if impl == "lua" then
+        lua_path = benchlib.DEFAULT_LUA
+        candidates = {
+            "lua_puc.lua",
+            "lua.lua"
+        }
+    elseif impl == "luajit" then
+        lua_path = "luajit"
+        candidates = {
+            "lua_luajit.lua",
+            "lua.lua"
+        }
+    else
+        lua_path = benchlib.DEFAULT_LUA
+        candidates = {
+            impl..".lua",
+            impl..".pallene",
+            impl..".c"
+        }
+    end
+
+    for _, name in ipairs(candidates) do
+        local bench_path = "benchmarks".."/"..bench.."/"..name
+        local cmd = "test -e " .. util.shell_quote(bench_path)
+        if os.execute(cmd) then
+            print("found", lua_path, bench_path)
+            return lua_path, bench_path
+        end
+    end
+
+    error(string.format("failed to find %s/%s", bench, impl))
+end
+
+function benchlib.run_with_impl_name(modename, bench, impl, extra_params)
+    local mode = assert(benchlib.modes[modename])
+    local lua_path, bench_path = find_benchmark(bench, impl)
+    local cmd = benchlib.prepare_benchmark(lua_path, bench_path, extra_params)
+    local res  = mode.run(cmd)
+    local data = mode.parse(res)
+    return data
+end
 
 return benchlib

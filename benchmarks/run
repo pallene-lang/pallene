@@ -3,11 +3,13 @@
 local argparse = require "argparse"
 local benchlib = require "benchmarks.benchlib"
 
+local mode_names = table.concat(benchlib.MODE_NAMES, "|")
+
 local p = argparse(arg[0], "Pallene benchmark runner")
 p:argument("benchmark_path", "Path to benchmark implementation"):args(1)
 p:argument("extra_params", "Additional parameters passed to benchmark"):args("*")
 p:option("--lua", "Lua interpreter to use"):default(benchlib.DEFAULT_LUA)
-p:option("--mode", "time|chronos|perf"):default("time")
+p:option("--mode", mode_names):default("time")
 local args = p:parse()
 
 local mode = benchlib.modes[args.mode]
