@@ -71,6 +71,19 @@ end
 --
 benchlib.modes = {}
 
+benchlib.modes.none = {
+    run = function(bench_cmd)
+        -- Output directly to console, don't capture stdout
+        local ok, err = util.execute(bench_cmd)
+        assert(ok, err)
+        return ""
+    end,
+
+    parse = function(_res)
+        return {}
+    end,
+}
+
 benchlib.modes.time = {
     run = function(bench_cmd)
         local measure_cmd = string.format("env LC_ALL=C time -p -- %s", bench_cmd)
