@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 
     size_t nrep = 1000;
     if (argc > 2) {
-        int nread = sscanf(argv[2], "%zu", &N);
+        int nread = sscanf(argv[2], "%zu", &nrep);
         if (nread != 1) return 1;
     }
 
