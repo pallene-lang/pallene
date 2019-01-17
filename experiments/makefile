@@ -4,36 +4,38 @@
 #   make -f experiments/makefile
 #
 
-INPUTS:=experiments/matmul.csv experiments/binsearch.csv experiments/sieve.csv experiments/queen.csv \
+CSVS:=experiments/matmul.csv experiments/binsearch.csv experiments/sieve.csv experiments/queen.csv \
       experiments/conway.csv experiments/centroid.csv
 
 OUTPUTS:=experiments/all_times.csv experiments/matmulperf.csv
+
+N:=20
 
 .PHONY: all clean
 
 all: $(OUTPUTS)
 
-experiments/all_times.csv: $(INPUTS)
+experiments/all_times.csv: $(CSVS)
 	echo "benchmark,impl,time" > $@
 	cat $^ >> $@
 
 experiments/matmul.csv:
-	./experiments/collect_times.lua matmul | tee $@
+	./experiments/collect_times.lua matmul     $N 800 1 | tee $@
 
 experiments/binsearch.csv:
-	./experiments/collect_times.lua binsearch | tee $@
+	./experiments/collect_times.lua binsearch  $N 10000000 5000000| tee $@
 
 experiments/sieve.csv:
-	./experiments/collect_times.lua sieve | tee $@
+	./experiments/collect_times.lua sieve      $N 100000 1000 | tee $@
 
 experiments/queen.csv:
-	./experiments/collect_times.lua queen | tee $@
+	./experiments/collect_times.lua queen      $N 13 | tee $@
 
 experiments/conway.csv:
-	./experiments/collect_times.lua conway | tee $@
+	./experiments/collect_times.lua conway     $N 2000 | tee $@
 
 experiments/centroid.csv:
-	./experiments/collect_times.lua centroid | tee $@
+	./experiments/collect_times.lua centroid   $N 10000 50000| tee $@
 
 #
 
