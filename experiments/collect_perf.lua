@@ -3,8 +3,10 @@
 local benchlib = require "benchmarks.benchlib"
 local mode = benchlib.modes.perf
 
+local nrep = tonumber(arg[1]) or 1
+
 local bench = "matmul"
-for _nrep = 1, 5 do
+for __ = 1, nrep do
     for _, NM in ipairs({
         { 100, 1024 },
         { 200,  128 },

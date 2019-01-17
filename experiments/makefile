@@ -40,7 +40,7 @@ experiments/centroid.csv:
 #
 
 experiments/matmulperf.csv:
-	./experiments/collect_perf.lua | tee $@
+	./experiments/collect_perf.lua $N | tee $@
 
 #
 
