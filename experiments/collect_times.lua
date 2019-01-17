@@ -4,9 +4,10 @@ local util     = require "pallene.util"
 
 
 local bench = assert(arg[1])
+local nrep  = tonumber(arg[2]) or 1
 
 local params = {}
-for i = 2, #arg do
+for i = 3, #arg do
     table.insert(params, arg[i])
 end
 
@@ -17,7 +18,7 @@ for i = 1, #params do
 end
 
 
-for nrep = 1, 1 do
+for _ = 1, nrep do
     -- Lua/Pallene benchmarks
     for _, impl in ipairs({
         "pallene",
