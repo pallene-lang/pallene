@@ -181,7 +181,6 @@ local function find_benchmark(bench, impl)
         local bench_path = "benchmarks".."/"..bench.."/"..name
         local cmd = "test -e " .. util.shell_quote(bench_path)
         if os.execute(cmd) then
-            print("found", lua_path, bench_path)
             return lua_path, bench_path
         end
     end

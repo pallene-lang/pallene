@@ -8,7 +8,7 @@ typedef struct {
 
 Point *new_point(double x, double y)
 {
-    Point *p = malloc(sizeof(double));
+    Point *p = malloc(sizeof(Point));
     p->x = x;
     p->y = y;
     return p;
@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
     size_t nrep = 50000;
     if (argc > 2) {
-        int nread = sscanf(argv[2], "%zu", &N);
+        int nread = sscanf(argv[2], "%zu", &nrep);
         if (nread != 1) return 1;
     }
 
