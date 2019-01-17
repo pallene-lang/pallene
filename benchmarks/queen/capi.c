@@ -84,9 +84,10 @@ static void addqueen(lua_State *L, lua_Integer N, lua_Integer n)
 
 static int nqueens(lua_State *L)
 {
+    check_nargs(L, 1);
     lua_Integer N = getinteger(L, 1);
-    lua_newtable(L);
 
+    lua_newtable(L);
     addqueen(L, N, 1);
     return 0;
 }

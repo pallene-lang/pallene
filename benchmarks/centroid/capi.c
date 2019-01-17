@@ -51,9 +51,9 @@ static int centroid(lua_State *L)
 {
     check_nargs(L, 2);
     // 1 = points
-    // 2 = N
+    // 2 = nrep
 
-    lua_Integer N = getinteger(L, 2);
+    lua_Integer nrep = getinteger(L, 2);
 
     lua_Number x = 0.0;
     lua_Number y = 0.0;
@@ -62,7 +62,7 @@ static int centroid(lua_State *L)
     lua_Integer npoints = getinteger(L, -1);
     lua_pop(L, 1);
 
-    for (lua_Integer rep = 1; rep <= N; rep++) {
+    for (lua_Integer rep = 1; rep <= nrep; rep++) {
         x = 0.0;
         y = 0.0;
         for (lua_Integer i = 1; i <= npoints; i++) {
