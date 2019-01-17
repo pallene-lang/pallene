@@ -38,9 +38,16 @@ size_t test(int64_t *t, size_t N)
     return out;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     size_t N = 1000000;
+    if (argc > 1) {
+        int nread = sscanf(argv[1], "%zu", &N);
+        if (nread != 1) return 1;
+    }
+
+    //
+
     int64_t *xs = malloc((1+N)*sizeof(int64_t));
     for (size_t i = 1; i <= N; i++) {
         xs[i] = i;

@@ -1,4 +1,4 @@
-CFLAGS=-std=c11 -Wall -pedantic -O2
+CFLAGS=-std=c11 -Wall -pedantic -O2 -lm
 
 EXES:=binsearch centroid conway conway_quadratic matmul sieve queen
 

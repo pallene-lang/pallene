@@ -30,16 +30,29 @@ Point *centroid(Point **points, size_t N, size_t nrep)
     return new_point(x/N, y/N);
 }
 
-int main()
+int main(int argc, char **argv)
 {
     size_t N = 10000;
+    if (argc > 1) {
+        int nread = sscanf(argv[1], "%zu", &N);
+        if (nread != 1) return 1;
+    }
+
+    size_t nrep = 50000;
+    if (argc > 2) {
+        int nread = sscanf(argv[2], "%zu", &N);
+        if (nread != 1) return 1;
+    }
+
+    //
+
     Point **points = malloc(N * sizeof(Point*));
     for (size_t i = 0; i < N; i++) {
         double d = (i+1) * 3.1415;
         points[i] = new_point(d, d);
     }
 
-    Point *p = centroid(points, N, 50000);
+    Point *p = centroid(points, N, nrep);
     printf("%lf %lf\n", p->x, p->y);
 }
 

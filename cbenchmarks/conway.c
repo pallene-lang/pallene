@@ -167,9 +167,17 @@ void doit(int nsteps)
     draw(N, M, curr_cells);
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    doit(2000);
+    int nsteps = 2000;
+    if (argc > 1) {
+        int nread = sscanf(argv[1], "%d", &nsteps);
+        if (nread != 1) return 1;
+    }
+
+    //
+
+    doit(nsteps);
     return 0;
 }
 

@@ -54,8 +54,16 @@ void nqueens(size_t N)
     free(a);
 }
 
-int main()
+int main(int argc, char **argv)
 {
+    size_t N = 13;
+    if (argc > 1) {
+        int nread = sscanf(argv[1], "%zu", &N);
+        if (nread != 1) return 1;
+    }
+
+    //
+
     nqueens(13);
     return 0;
 }
