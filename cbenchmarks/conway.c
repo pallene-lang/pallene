@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
-#define ALIVE '*'
-#define DEAD  ' '
+#define ALIVE "*"
+#define DEAD  " "
 
 // Create a new grid for the simulation
 static bool **new_canvas(size_t N, size_t M)
@@ -28,52 +29,54 @@ static int wrap(int i, int N)
 }
 
 typedef struct{
-    size_t capacity;
     size_t length;
-    char *buff;
-} Buffer;
+    char buff[1];
+} String;
 
-static void buffer_init(Buffer *buf)
+static String *str_new(size_t length)
 {
-    buf->capacity = 1;
-    buf->length = 0;
-    buf->buff = malloc(1);
+    String *s = malloc(sizeof(String) + length);
+    s->length = length;
+    s->buff[length] = '\0';
+    return s;
 }
 
-static void buffer_append(Buffer *buf, char c)
+static String *str_append(String *s1, char *s2)
 {
-    if (buf->length >= buf->capacity) {
-        buf->capacity *= 2;
-        buf->buff = realloc(buf->buff, buf->capacity);
-    }
-    buf->buff[buf->length++] = c;
+    size_t len_s1 = s1->length;
+    size_t len_s2 = strlen(s2);
+    size_t len_s3 = len_s1 + len_s2;
+
+    String *s3 = str_new(len_s3);
+    memcpy(s3->buff + 0,      s1->buff, len_s1);
+    memcpy(s3->buff + len_s1, s2,       len_s2);
+
+    free(s1);
+    return s3;
 }
 
-static void buffer_free(Buffer *buf)
+static void str_free(String *s)
 {
-    free(buf->buff);
+    free(s);
 }
 
 // Print the grid to stdout
 void draw(size_t N, size_t M, bool **cells)
 {
-    Buffer buf;
-    buffer_init(&buf);
+    String *s = str_new(0);
     for (size_t i = 0; i < N; i++) {
-        buffer_append(&buf, '|');
+        s = str_append(s, "|");
         for (size_t j = 0; j < M; j++) {
             if (cells[i][j]) {
-                buffer_append(&buf, ALIVE);
+                s = str_append(s, ALIVE);
             } else {
-                buffer_append(&buf, DEAD);
+                s = str_append(s, DEAD);
             }
         }
-        buffer_append(&buf, '|');
-        buffer_append(&buf, '\n');
+        s = str_append(s, "|\n");
     }
-    buffer_append(&buf, '\0');
-    printf("%s", buf.buff);
-    buffer_free(&buf);
+    printf("%s", s->buff);
+    str_free(s);
 }
 
 // Place a shape in the grid
