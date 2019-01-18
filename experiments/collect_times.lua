@@ -25,6 +25,7 @@ for _ = 1, nrep do
         "lua",
         "luajit",
         "capi",
+        "nocheck",
     }) do
         local data = benchlib.run_with_impl_name("time", bench, impl, params)
         print(table.concat({bench, impl, data.time}, ","))
