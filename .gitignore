@@ -9,3 +9,7 @@ lua/src/luac
 cbenchmarks/*
 !cbenchmarks/*.c
 !cbenchmarks/makefile
+
+experiments/.Rhistory
+experiments/*.csv
+experiments/*.pdf
