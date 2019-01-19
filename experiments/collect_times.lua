@@ -17,7 +17,7 @@ for i = 1, #params do
     quoted_params[i] = util.shell_quote(params[i])
 end
 
-
+print("Benchmark,Implementation,Time")
 for _ = 1, nrep do
     -- Lua/Pallene benchmarks
     for _, impl in ipairs({

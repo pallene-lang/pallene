@@ -6,6 +6,8 @@ local mode = benchlib.modes.perf
 local nrep = tonumber(arg[1]) or 1
 
 local bench = "matmul"
+
+print("N,M,Implementation,Time,IPC,llc_miss_pct")
 for __ = 1, nrep do
     for _, NM in ipairs({
         { 100, 1024 },

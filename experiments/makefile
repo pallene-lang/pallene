@@ -5,19 +5,16 @@
 #
 
 CSVS:=experiments/matmul.csv experiments/binsearch.csv experiments/sieve.csv experiments/queen.csv \
-      experiments/conway.csv experiments/centroid.csv
-
-OUTPUTS:=experiments/all_times.csv experiments/matmulperf.csv
+      experiments/conway.csv experiments/centroid.csv\
+      experiments/matmulperf.csv
 
 N:=20
 
 .PHONY: all clean
 
-all: $(OUTPUTS)
+all: $(CSVS)
 
-experiments/all_times.csv: $(CSVS)
-	echo "benchmark,impl,time" > $@
-	cat $^ >> $@
+#
 
 experiments/matmul.csv:
 	./experiments/collect_times.lua matmul     $N 800 1 | tee $@
@@ -45,6 +42,6 @@ experiments/matmulperf.csv:
 #
 
 clean:
-	rm -- $(INPUTS) $(OUTPUTS)
+	rm -- $(CSVS)
 
 
