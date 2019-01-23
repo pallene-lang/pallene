@@ -8,7 +8,7 @@ CSVS:=experiments/matmul.csv experiments/binsearch.csv experiments/sieve.csv exp
       experiments/conway.csv experiments/centroid.csv\
       experiments/matmulperf.csv
 
-N:=20
+N:=22
 
 .PHONY: all clean
 
@@ -17,22 +17,22 @@ all: $(CSVS)
 #
 
 experiments/matmul.csv:
-	./experiments/collect_times.lua matmul     $N 800 1 | tee $@
+	./experiments/collect_times.lua matmul     $N 800 2 | tee $@
 
 experiments/binsearch.csv:
-	./experiments/collect_times.lua binsearch  $N 10000000 5000000| tee $@
+	./experiments/collect_times.lua binsearch  $N 10000000 10000000| tee $@
 
 experiments/sieve.csv:
-	./experiments/collect_times.lua sieve      $N 100000 1000 | tee $@
+	./experiments/collect_times.lua sieve      $N 100000 2000 | tee $@
 
 experiments/queen.csv:
 	./experiments/collect_times.lua queen      $N 13 | tee $@
 
 experiments/conway.csv:
-	./experiments/collect_times.lua conway     $N 2000 | tee $@
+	./experiments/collect_times.lua conway     $N 4000 | tee $@
 
 experiments/centroid.csv:
-	./experiments/collect_times.lua centroid   $N 10000 50000| tee $@
+	./experiments/collect_times.lua centroid   $N 10000 100000| tee $@
 
 #
 
