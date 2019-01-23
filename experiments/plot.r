@@ -2,6 +2,38 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(purrr)
+library(xtable)
+
+####################
+
+remove_outliers <- function(df) {
+  # Remove top 5% and bottom 5% times!!True
+  filter(df, between(ntile(Time, 20), 1, 18))
+}
+
+plot_bargraph <- function(df, impls) {
+  plot_data <- normalized_times %>%
+    filter(Implementation %in% impls) %>%
+    mutate(Implementation = factor(Implementation, levels=impls))
+  
+  dodge <- position_dodge(0.9)
+  
+  ggplot(plot_data, aes(x=Benchmark, y=mean_time, fill=Implementation)) +
+    geom_col(position=dodge) +
+    geom_linerange(aes(x=Benchmark, ymin=min_time, ymax=max_time), position=dodge) +
+    scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
+    scale_fill_brewer(palette="Paired") +
+    xlab("Benchmark") + 
+    ylab("Time (normalized)") +
+    theme_bw() +
+    theme(legend.position = "bottom")
+}
+
+if(!exists("plot_device")) { # Avoid memory leak when re-sourcing
+  plot_device <- cairo_pdf()
+}
+
+####################
 
 benchmarks <- c(
   "binsearch.csv",
@@ -12,22 +44,45 @@ benchmarks <- c(
   "sieve.csv"
 )
 
-data  <- bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
+data_all  <- bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
 
-# Remove outliers
-
-no_outliers <- data %>%
+data <- data_all %>%
   group_by(Benchmark, Implementation) %>%
-    mutate(qmin=quantile(Time, 0.1), qmax=quantile(Time, 0.9)) %>%
-    filter(qmin <= Time & Time <= qmax) %>%
-    mutate(qmin=NULL, qmax=NULL) %>%
+    remove_outliers() %>%
     ungroup()
 
-mean_times <- no_outliers %>%
+mean_times <- data %>%
   group_by(Benchmark,Implementation) %>%
   summarize(Time=mean(Time))
 
-# 1) Latex table for raw data
+# 1) Bar Graphs
+# =============
+
+# Normalize by Lua running time
+
+mean_lua <- mean_times %>%
+  filter(Implementation=="lua") %>%
+  select(Benchmark, mean_lua_time=Time)
+
+normalized_times <- data %>%
+  inner_join(mean_lua, by=c("Benchmark")) %>%
+  mutate(Time=Time/mean_lua_time) %>%
+  group_by(Benchmark,Implementation) %>%
+    mutate(
+      mean_time = mean(Time),
+      min_time = min(Time),
+      max_time = max(Time)) %>%
+    ungroup()
+
+# Plot everyone (except nocheck)
+plot1 <- plot_bargraph(normalized_times, c("lua", "capi", "luajit", "pallene", "purec"))
+ggsave("normalized_times.pdf", plot=plot1, device=plot_device)
+
+# Plot No Check 
+plot2 <- plot_bargraph(normalized_times, c("pallene", "nocheck"))
+ggsave("nocheck_normalized_times.pdf", plot=plot2, device=plot_device)
+
+# 2) Latex table for raw data
 # ===========================
 
 table_impls <- c(
@@ -43,93 +98,34 @@ mean_times_table <- mean_times %>%
   filter(Implementation %in% table_impls) %>%
   mutate(Implementation = factor(Implementation, levels=table_impls)) %>%
   spread(Implementation, Time)
-  
 
 print(xtable(mean_times_table),
-  file = "mean_times_table.tex",
-  floating = FALSE,
-  latex.environments = NULL,
-  include.rownames = FALSE,
-  include.colnames = TRUE,
-  booktabs = TRUE
+      file = "mean_times_table.tex",
+      floating = FALSE,
+      latex.environments = NULL,
+      include.rownames = FALSE,
+      include.colnames = TRUE,
+      booktabs = TRUE
 )
-
-# 2) Bar Graphs
-# =============
-
-# Normalize by Lua running time
-
-mean_lua <- mean_times %>%
-  filter(Implementation=="lua") %>%
-  select(Benchmark, mean_lua_time=Time)
-
-normalized_times <- no_outliers %>%
-  inner_join(mean_lua, by=c("Benchmark")) %>%
-  mutate(Time=Time/mean_lua_time) %>%
-  group_by(Benchmark,Implementation) %>%
-    mutate(
-      mean_time = mean(Time),
-      min_time = min(Time),
-      max_time = max(Time)) %>%
-    ungroup()
-
-# Plot everyone (except nocheck)
-
-plot1_impls <- c("lua", "capi", "luajit", "pallene", "purec")
-
-plot1_data <- normalized_times %>%
-  filter(Implementation %in% plot1_impls) %>%
-  mutate(Implementation = factor(Implementation, levels=plot1_impls))
-
-plot1 <- ggplot(plot1_data, aes(Benchmark, mean_time, fill=Implementation)) +
-  geom_col(position="dodge") +
-  geom_errorbar(aes(x=Benchmark, ymin=min_time, ymax=max_time), position="dodge") +
-  scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
-  theme_bw() +
-  xlab("Benchmark") + 
-  ylab("Time (normalized)") +
-  theme(legend.position = "bottom")
-ggsave("normalized_times.pdf", plot=plot1, device=cairo_pdf())
-
-# Plot No Check 
-
-plot2_impls <- c("pallene", "nocheck")
-
-plot2_data <- normalized_times %>%
-  filter(Implementation %in% plot2_impls) %>%
-  mutate(Implementation = factor(Implementation, levels=plot2_impls))
-
-plot2 <- ggplot(plot2_data, aes(Benchmark, mean_time, fill=Implementation)) +
-  geom_col(position="dodge") +
-  geom_errorbar(aes(x=Benchmark, ymin=min_time, ymax=max_time), position="dodge") +
-  scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
-  theme_bw() +
-  xlab("Benchmark") + 
-  ylab("Time (normalized)") +
-  theme(legend.position = "bottom")
-ggsave("nocheck_normalized_times.pdf", plot=plot2, device=cairo_pdf())
-
 
 # 3) Latex table for perf tests
 # =============================
 
-perf_data <- read.csv("matmulperf.csv", stringsAsFactors=FALSE)
+perf_data_all <- read.csv("matmulperf.csv", stringsAsFactors=FALSE)
 
-perf_no_outliers <- perf_data %>%
+perf_data <- perf_data_all %>%
   group_by(N,M,Implementation) %>%
-  mutate(qmin=quantile(Time, 0.1), qmax=quantile(Time, 0.9)) %>%
-  filter(qmin <= Time & Time <= qmax) %>%
-  mutate(qmin=NULL, qmax=NULL) %>%
-  ungroup()
+    remove_outliers() %>%
+    ungroup()
 
-perf_mean_times <- perf_no_outliers %>%
+perf_mean_times <- perf_data %>%
   group_by(N,M,Implementation) %>%
   summarize(
       Time=mean(Time),
       IPC=mean(IPC),
       llc_miss_pct=mean(llc_miss_pct))
 
-perf_mean_times_pallene <- perf_mean_times %>%
+perf_mean_times_pallene <- perf_data %>%
   filter(Implementation=="pallene") %>%
   select(
     N=N,
