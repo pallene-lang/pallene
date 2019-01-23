@@ -84,14 +84,24 @@ $ busted spec/parser_spec.lua  # Run just one of the test suite files
 ```
 ## Running the benchmarks suite
 
-Running all benchmarks in `benchmarks` directory:
+To run of the benchmarks in the benchmarks directory, tun the `benchmarks/run`
+script from the root project directory:
 
 ```sh
-$ ./run_benchmarks.lua
+./benchmarks/run benchmarks/sieve/pallene.pallene
 ```
 
-Running a single benchmark:
+By default, the benchmark runner just outputs the running time, as measured by
+`/usr/bin/time`, but it also supports other measurements. For example,
+`--mode=perf` shows perf output and `--mode=none` shows the stdout produced by
+the benchmark, withot measuring anything.
 
 ```sh
-$ ./run_benchmarks.lua benchmarks/<benchmark_name>
+./benchmarks/run benchmarks/sieve/pallene.pallene --mode=none
+```
+
+To run benchmarks with LuaJIT, use the `--lua` option:
+
+```sh
+./benchmarks/run benchmarks/sieve/lua.lua --lua=luajit
 ```
