@@ -6,11 +6,6 @@ library(xtable)
 
 ####################
 
-remove_outliers <- function(df) {
-  # Remove top 5% and bottom 5% times!!True
-  filter(df, between(ntile(Time, 20), 1, 18))
-}
-
 plot_bargraph <- function(df, impls) {
   plot_data <- normalized_times %>%
     filter(Implementation %in% impls) %>%
@@ -20,7 +15,7 @@ plot_bargraph <- function(df, impls) {
   
   ggplot(plot_data, aes(x=Benchmark, y=mean_time, fill=Implementation)) +
     geom_col(position=dodge) +
-    geom_linerange(aes(x=Benchmark, ymin=min_time, ymax=max_time), position=dodge) +
+    geom_linerange(aes(x=Benchmark,ymin=lo_quantile,max=hi_quantile), position=dodge) +
     scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
     scale_fill_brewer(palette="Paired") +
     xlab("Benchmark") + 
@@ -44,12 +39,7 @@ benchmarks <- c(
   "sieve.csv"
 )
 
-data_all  <- bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
-
-data <- data_all %>%
-  group_by(Benchmark, Implementation) %>%
-    remove_outliers() %>%
-    ungroup()
+data  <- bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
 
 mean_times <- data %>%
   group_by(Benchmark,Implementation) %>%
@@ -70,6 +60,9 @@ normalized_times <- data %>%
   group_by(Benchmark,Implementation) %>%
     mutate(
       mean_time = mean(Time),
+      sd_time  = sd(Time),
+      lo_quantile = quantile(Time, 0.5),
+      hi_quantile = quantile(Time, 0.95),
       min_time = min(Time),
       max_time = max(Time)) %>%
     ungroup()
@@ -111,12 +104,7 @@ print(xtable(mean_times_table),
 # 3) Latex table for perf tests
 # =============================
 
-perf_data_all <- read.csv("matmulperf.csv", stringsAsFactors=FALSE)
-
-perf_data <- perf_data_all %>%
-  group_by(N,M,Implementation) %>%
-    remove_outliers() %>%
-    ungroup()
+perf_data <- read.csv("matmulperf.csv", stringsAsFactors=FALSE)
 
 perf_mean_times <- perf_data %>%
   group_by(N,M,Implementation) %>%
