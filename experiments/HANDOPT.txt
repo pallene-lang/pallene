@@ -1,0 +1,4 @@
+- Optimize (A[i] = A[i] + x) to (A[i] += x)
+    - Access the slot only once
+    - Use chgXXXvalue instead of setXXXvalue
+- Lift "renormalize array" outside of loops, when applicable.

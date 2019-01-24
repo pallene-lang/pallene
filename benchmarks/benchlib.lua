@@ -153,11 +153,10 @@ table.sort(benchlib.MODE_NAMES)
 
 local function find_benchmark(bench, impl)
 
-    local lua_path
+    local lua_path = benchlib.DEFAULT_LUA
+    
     local candidates
-
     if impl == "lua" then
-        lua_path = benchlib.DEFAULT_LUA
         candidates = {
             "lua_puc.lua",
             "lua.lua"
@@ -168,12 +167,16 @@ local function find_benchmark(bench, impl)
             "lua_luajit.lua",
             "lua.lua"
         }
+    elseif impl == "pallene" then
+        candidates = {
+            "pallene_handopt.c",  -- Not-yet-implemented compiler opts
+            "pallene.pallene",
+        }
     else
-        lua_path = benchlib.DEFAULT_LUA
         candidates = {
             impl..".lua",
             impl..".pallene",
-            impl..".c"
+            impl..".c",
         }
     end
 
