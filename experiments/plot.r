@@ -1,3 +1,4 @@
+#install packages with install.packages(<name>)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -6,14 +7,30 @@ library(xtable)
 
 ####################
 
-plot_bargraph <- function(df, impls) {
-  plot_data <- normalized_times %>%
+filter_impls <- function(df, impls) {
+  df %>%
     filter(Implementation %in% impls) %>%
     mutate(Implementation = factor(Implementation, levels=impls))
-  
+}
+
+normalize_times <- function(df, normal_times) {
+  df %>%
+    inner_join(normal_times, by=c("Benchmark")) %>%
+    mutate(Time=Time/NormalTime) %>%
+    group_by(Benchmark,Implementation) %>%
+    summarize(
+      mean_time = mean(Time),
+      sd_time  = sd(Time),
+      lo_quantile = quantile(Time, 0.5),
+      hi_quantile = quantile(Time, 0.95),
+      min_time = min(Time),
+      max_time = max(Time))
+}
+
+plot_bargraph <- function(df) {
   dodge <- position_dodge(0.9)
   
-  ggplot(plot_data, aes(x=Benchmark, y=mean_time, fill=Implementation)) +
+  ggplot(df, aes(x=Benchmark, y=mean_time, fill=Implementation)) +
     geom_col(position=dodge) +
     geom_linerange(aes(x=Benchmark,ymin=lo_quantile,max=hi_quantile), position=dodge) +
     scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
@@ -50,29 +67,28 @@ mean_times <- data %>%
 
 # Normalize by Lua running time
 
-mean_lua <- mean_times %>%
+mean_times_lua     <- mean_times %>%
   filter(Implementation=="lua") %>%
-  select(Benchmark, mean_lua_time=Time)
+  select(Benchmark, NormalTime=Time)
 
-normalized_times <- data %>%
-  inner_join(mean_lua, by=c("Benchmark")) %>%
-  mutate(Time=Time/mean_lua_time) %>%
-  group_by(Benchmark,Implementation) %>%
-    mutate(
-      mean_time = mean(Time),
-      sd_time  = sd(Time),
-      lo_quantile = quantile(Time, 0.5),
-      hi_quantile = quantile(Time, 0.95),
-      min_time = min(Time),
-      max_time = max(Time)) %>%
-    ungroup()
+mean_times_nocheck <- mean_times %>% 
+  filter(Implementation=="nocheck") %>%
+  select(Benchmark, NormalTime=Time)
+
+normalized_times_by_lua <- data %>%
+  filter_impls(c("lua", "capi", "luajit", "pallene", "purec")) %>%
+  normalize_times(mean_times_lua)
+
+normalized_times_by_nocheck <- data %>%
+  filter_impls(c("pallene", "nocheck")) %>%
+  normalize_times(mean_times_nocheck)
 
 # Plot everyone (except nocheck)
-plot1 <- plot_bargraph(normalized_times, c("lua", "capi", "luajit", "pallene", "purec"))
+plot1 <- plot_bargraph(normalized_times_by_lua)
 ggsave("normalized_times.pdf", plot=plot1, device=plot_device)
 
 # Plot No Check 
-plot2 <- plot_bargraph(normalized_times, c("pallene", "nocheck"))
+plot2 <- plot_bargraph(normalized_times_by_nocheck)
 ggsave("nocheck_normalized_times.pdf", plot=plot2, device=plot_device)
 
 # 2) Latex table for raw data
@@ -113,7 +129,7 @@ perf_mean_times <- perf_data %>%
       IPC=mean(IPC),
       llc_miss_pct=mean(llc_miss_pct))
 
-perf_mean_times_pallene <- perf_data %>%
+perf_mean_times_pallene <- perf_mean_times %>%
   filter(Implementation=="pallene") %>%
   select(
     N=N,
