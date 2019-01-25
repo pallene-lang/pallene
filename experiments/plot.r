@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(xtable)
+library(RColorBrewer)
 
 ####################
 
@@ -27,14 +28,15 @@ normalize_times <- function(df, normal_times) {
       max_time = max(Time))
 }
 
-plot_bargraph <- function(df) {
+plot_bargraph <- function(df, colors) {
   dodge <- position_dodge(0.9)
   
   ggplot(df, aes(x=Benchmark, y=mean_time, fill=Implementation)) +
     geom_col(position=dodge) +
     geom_linerange(aes(x=Benchmark,ymin=lo_quantile,max=hi_quantile), position=dodge) +
     scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
-    scale_fill_brewer(palette="Paired") +
+    #scale_fill_brewer(palette="Paired") +
+    scale_fill_manual(values=colors) +
     xlab("Benchmark") + 
     ylab("Time (normalized)") +
     theme_bw() +
@@ -80,15 +82,19 @@ normalized_times_by_lua <- data %>%
   normalize_times(mean_times_lua)
 
 normalized_times_by_nocheck <- data %>%
-  filter_impls(c("pallene", "nocheck")) %>%
+  filter_impls(c("nocheck", "pallene")) %>%
   normalize_times(mean_times_nocheck)
 
+colors <- brewer.pal(10, "Paired")
+
 # Plot everyone (except nocheck)
-plot1 <- plot_bargraph(normalized_times_by_lua)
+p1col <- c(colors[1], colors[2], colors[7], colors[4], colors[5])
+plot1 <- plot_bargraph(normalized_times_by_lua, p1col)
 ggsave("normalized_times.pdf", plot=plot1, device=plot_device)
 
-# Plot No Check 
-plot2 <- plot_bargraph(normalized_times_by_nocheck)
+# Plot No Check
+p2col <- c(colors[3], colors[4])
+plot2 <- plot_bargraph(normalized_times_by_nocheck, p2col)
 ggsave("nocheck_normalized_times.pdf", plot=plot2, device=plot_device)
 
 # 2) Latex table for raw data
