@@ -1,6 +1,7 @@
 #!/usr/bin/env lua
 
 local benchlib = require "benchmarks.benchlib"
+local pretty = require "experiments.pretty_names.lua"
 local mode = benchlib.modes.perf
 
 local nrep = tonumber(arg[1]) or 1
@@ -23,7 +24,11 @@ for _, NM in ipairs({
             "luajit",
         }) do
             local data = benchlib.run_with_impl_name("perf", bench, impl, NM)
-            print(table.concat({N, M,  impl, data.time, data.IPC, data.llc_miss_pct, i}, ","))
+            local out = {
+                N, M, pretty.impl[impl], data.time,
+                data.IPC, data.llc_miss_pct, i
+            }
+            print(table.concat(out, ","))
         end
     end
 end

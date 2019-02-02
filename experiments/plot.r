@@ -14,28 +14,33 @@ filter_impls <- function(df, impls) {
     mutate(Implementation = factor(Implementation, levels=impls))
 }
 
+discard_outliers <- function(df) {
+  df %>%
+    mutate(rank = ntile(Time, 20)) %>%
+    filter(between(rank, 2, 19)) %>%
+    mutate(rank = NULL)
+}
+
 normalize_times <- function(df, normal_times) {
   df %>%
     inner_join(normal_times, by=c("Benchmark")) %>%
     mutate(Time=Time/NormalTime) %>%
     group_by(Benchmark,Implementation) %>%
     summarize(
-      mean_time = mean(Time),
+      median_time = median(Time),
       sd_time  = sd(Time),
-      lo_quantile = quantile(Time, 0.5),
-      hi_quantile = quantile(Time, 0.95),
       min_time = min(Time),
-      max_time = max(Time))
+      max_time = max(Time)) %>%
+    ungroup()
 }
 
 plot_bargraph <- function(df, colors) {
   dodge <- position_dodge(0.9)
   
-  ggplot(df, aes(x=Benchmark, y=mean_time, fill=Implementation)) +
+  ggplot(df, aes(x=Benchmark, y=median_time, fill=Implementation)) +
     geom_col(position=dodge) +
-    geom_linerange(aes(x=Benchmark,ymin=lo_quantile,max=hi_quantile), position=dodge) +
+    geom_linerange(aes(x=Benchmark,ymin=min_time,max=max_time), position=dodge) +
     scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
-    #scale_fill_brewer(palette="Paired") +
     scale_fill_manual(values=colors) +
     xlab("Benchmark") + 
     ylab("Time (normalized)") +
@@ -58,32 +63,41 @@ benchmarks <- c(
   "sieve.csv"
 )
 
-data  <- bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
+data  <-
+  bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
 
-mean_times <- data %>%
+# Discarding outliers here is OK because we only use medians, not means
+data <- data %>%
+  group_by(Benchmark, Implementation) %>%
+  filter(Seq >= 3) %>% #force N=20
+  discard_outliers() %>%
+  ungroup()
+
+median_times <- data %>%
   group_by(Benchmark,Implementation) %>%
-  summarize(Time=mean(Time))
+  summarize(Time=median(Time)) %>%
+  ungroup()
 
 # 1) Bar Graphs
 # =============
 
 # Normalize by Lua running time
 
-mean_times_lua     <- mean_times %>%
-  filter(Implementation=="lua") %>%
+median_times_lua     <- median_times %>%
+  filter(Implementation=="Lua 5.4") %>%
   select(Benchmark, NormalTime=Time)
 
-mean_times_nocheck <- mean_times %>% 
-  filter(Implementation=="nocheck") %>%
+median_times_nocheck <- median_times %>% 
+  filter(Implementation=="No Check") %>%
   select(Benchmark, NormalTime=Time)
 
 normalized_times_by_lua <- data %>%
-  filter_impls(c("lua", "capi", "luajit", "pallene", "purec")) %>%
-  normalize_times(mean_times_lua)
+  filter_impls(c("Lua 5.4", "Lua-C API", "LuaJIT 2.1", "Pallene", "C")) %>%
+  normalize_times(median_times_lua)
 
 normalized_times_by_nocheck <- data %>%
-  filter_impls(c("nocheck", "pallene")) %>%
-  normalize_times(mean_times_nocheck)
+  filter_impls(c("No Check", "Pallene")) %>%
+  normalize_times(median_times_nocheck)
 
 colors <- brewer.pal(10, "Paired")
 
@@ -109,13 +123,13 @@ table_impls <- c(
   "purec"
 )
 
-mean_times_table <- mean_times %>%
+median_times_table <- median_times %>%
   filter(Implementation %in% table_impls) %>%
   mutate(Implementation = factor(Implementation, levels=table_impls)) %>%
   spread(Implementation, Time)
 
-print(xtable(mean_times_table),
-      file = "mean_times_table.tex",
+print(xtable(median_times_table),
+      file = "median_times_table.tex",
       floating = FALSE,
       latex.environments = NULL,
       include.rownames = FALSE,
@@ -126,37 +140,39 @@ print(xtable(mean_times_table),
 # 3) Latex table for perf tests
 # =============================
 
-perf_data <- read.csv("matmulperf.csv", stringsAsFactors=FALSE)
+perf_data <-
+  read.csv("matmulperf.csv", stringsAsFactors=FALSE)
 
-perf_mean_times <- perf_data %>%
+perf_median_times <- perf_data %>%
   group_by(N,M,Implementation) %>%
   summarize(
-      Time=mean(Time),
-      IPC=mean(IPC),
-      llc_miss_pct=mean(llc_miss_pct))
+    Time=median(Time),
+    IPC=median(IPC),
+    llc_miss_pct=median(llc_miss_pct)) %>%
+  ungroup()
 
-perf_mean_times_pallene <- perf_mean_times %>%
-  filter(Implementation=="pallene") %>%
+perf_median_times_pallene <- perf_median_times %>%
+  filter(Implementation=="Pallene") %>%
   select(
     N=N,
     M=M,
     Pallene_Time=Time,
     Pallene_LLC=llc_miss_pct)
 
-perf_mean_times_luajit <- perf_mean_times %>%
-  filter(Implementation=="luajit") %>%
+perf_median_times_luajit <- perf_median_times %>%
+  filter(Implementation=="Luajit 2") %>%
   select(
     N=N,
     M=M,
     LuaJIT_Time=Time,
     LuaJIT_LLC=llc_miss_pct)
 
-perf_mean_times_table <-
-  inner_join(perf_mean_times_pallene, perf_mean_times_luajit, by=c("N","M")) %>%
+perf_median_times_table <-
+  inner_join(perf_median_times_pallene, perf_median_times_luajit, by=c("N","M")) %>%
   mutate(TimeRatio = Pallene_Time / LuaJIT_Time) %>%
   select(N,M,TimeRatio,Pallene_Time,LuaJIT_Time,Pallene_LLC,LuaJIT_LLC)
 
-print(xtable(perf_mean_times_table),
+print(xtable(perf_median_times_table),
       file = "perf_table.tex",
       floating = FALSE,
       latex.environments = NULL,

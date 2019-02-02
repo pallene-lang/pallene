@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
 local benchlib = require "benchmarks.benchlib"
+local pretty = require "experiments.pretty_names.lua"
 local util     = require "pallene.util"
 
 
@@ -26,7 +27,10 @@ for _, impl in ipairs({
         "nocheck",}) do
     for i = 1, nrep do
         local data = benchlib.run_with_impl_name("time", bench, impl, params)
-        print(table.concat({bench, impl, data.time, i}, ","))
+        local out = {
+            pretty.bench[bench], pretty.impl[impl], data.time, i
+        }
+        print(table.concat(out, ","))
     end
 end
 
