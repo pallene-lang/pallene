@@ -1,14 +1,14 @@
 #!/usr/bin/env lua
 
 local benchlib = require "benchmarks.benchlib"
-local pretty = require "experiments.pretty_names.lua"
+local pretty = require "experiments.pretty_names"
 local mode = benchlib.modes.perf
 
 local nrep = tonumber(arg[1]) or 1
 
 local bench = "matmul"
 
-print("N,M,Implementation,Time,IPC,llc_miss_pct,Seq")
+print("N,M,Implementation,Time,Cycles,Instructions,IPC,branch_miss_pct,llc_miss_pct,Seq")
 for _, NM in ipairs({
     { 100, 1024 },
     { 200,  128 },
@@ -22,11 +22,14 @@ for _, NM in ipairs({
         for _, impl in ipairs({
             "pallene",
             "luajit",
+            "nocheck",
         }) do
             local data = benchlib.run_with_impl_name("perf", bench, impl, NM)
             local out = {
-                N, M, pretty.impl[impl], data.time,
-                data.IPC, data.llc_miss_pct, i
+                N, M, pretty.impl[impl],
+                data.time, data.cycles, data.instructions,
+                data.IPC, data.branch_miss_pct, data.llc_miss_pct,
+                i
             }
             print(table.concat(out, ","))
         end

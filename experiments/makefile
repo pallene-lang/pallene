@@ -8,7 +8,7 @@ CSVS:=experiments/matmul.csv experiments/binsearch.csv experiments/sieve.csv exp
       experiments/conway.csv experiments/centroid.csv\
       experiments/matmulperf.csv
 
-N:=22
+N:=42
 
 .PHONY: all clean
 

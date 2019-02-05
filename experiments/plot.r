@@ -63,13 +63,13 @@ benchmarks <- c(
   "sieve.csv"
 )
 
-data  <-
+all_data  <-
   bind_rows(map(benchmarks, read.csv, stringsAsFactors=FALSE))
 
 # Discarding outliers here is OK because we only use medians, not means
-data <- data %>%
+data <- all_data %>%
   group_by(Benchmark, Implementation) %>%
-  filter(Seq >= 3) %>% #force N=20
+  filter(between(Seq, 3, 42)) %>% #force N=40
   discard_outliers() %>%
   ungroup()
 
@@ -115,12 +115,12 @@ ggsave("nocheck_normalized_times.pdf", plot=plot2, device=plot_device, width=10,
 # ===========================
 
 table_impls <- c(
-  "lua",
-  "capi",
-  "luajit",
-  "pallene",
-  "nocheck",
-  "purec"
+  "Lua",
+  "Lua-C API",
+  "LuaJIT 2.1",
+  "Pallene",
+  "No Check",
+  "C"
 )
 
 median_times_table <- median_times %>%
@@ -146,10 +146,14 @@ perf_data <-
 perf_median_times <- perf_data %>%
   group_by(N,M,Implementation) %>%
   summarize(
-    Time=median(Time),
-    IPC=median(IPC),
-    llc_miss_pct=median(llc_miss_pct)) %>%
+    Time = median(Time),
+    Cycles = median(Cycles),
+    Instructions = median(Instructions),
+    IPC = median(IPC),
+    branch_miss_pct = median(branch_miss_pct), 
+    llc_miss_pct = median(llc_miss_pct)) %>%
   ungroup()
+#N,M,Implementation,Time,Cycles,Instructions,IPC,branch_miss_pct,llc_miss_pct,Seq
 
 perf_median_times_pallene <- perf_median_times %>%
   filter(Implementation=="Pallene") %>%
@@ -160,7 +164,7 @@ perf_median_times_pallene <- perf_median_times %>%
     Pallene_LLC=llc_miss_pct)
 
 perf_median_times_luajit <- perf_median_times %>%
-  filter(Implementation=="Luajit 2") %>%
+  filter(Implementation=="LuaJIT 2.1") %>%
   select(
     N=N,
     M=M,
@@ -174,6 +178,21 @@ perf_median_times_table <-
 
 print(xtable(perf_median_times_table),
       file = "perf_table.tex",
+      floating = FALSE,
+      latex.environments = NULL,
+      include.rownames = FALSE,
+      include.colnames = TRUE,
+      booktabs = TRUE
+)
+
+# 4) Print a Latex table of matmul nocheck running times
+
+perf_matmul <- perf_median_times %>%
+  filter(N==800, M==2, Implementation %in% c("Pallene", "No Check")) %>%
+  select(Implementation, Time, Cycles, Instructions, IPC)
+
+print(xtable(perf_matmul),
+      file = "perf_matmul.tex",
       floating = FALSE,
       latex.environments = NULL,
       include.rownames = FALSE,

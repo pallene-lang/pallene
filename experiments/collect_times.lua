@@ -1,6 +1,6 @@
 #!/usr/bin/env lua
 local benchlib = require "benchmarks.benchlib"
-local pretty = require "experiments.pretty_names.lua"
+local pretty = require "experiments.pretty_names"
 local util     = require "pallene.util"
 
 
@@ -26,7 +26,7 @@ for _, impl in ipairs({
         "capi",
         "nocheck",}) do
     for i = 1, nrep do
-        local data = benchlib.run_with_impl_name("time", bench, impl, params)
+        local data = benchlib.run_with_impl_name("chronos", bench, impl, params)
         local out = {
             pretty.bench[bench], pretty.impl[impl], data.time, i
         }
@@ -45,6 +45,6 @@ for i = 1, nrep do
     local cmd = string.format("./cbenchmarks/%s %s",
         util.shell_quote(bench), table.concat(quoted_params, " "))
     local data = mode.parse(mode.run(cmd))
-    print(table.concat({bench, "purec", data.time, i}, ","))
+    print(table.concat({pretty.bench[bench], pretty.impl["purec"], data.time, i}, ","))
 
 end
