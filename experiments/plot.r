@@ -40,7 +40,7 @@ plot_bargraph <- function(df, colors) {
   ggplot(df, aes(x=Benchmark, y=median_time, fill=Implementation)) +
     geom_col(position=dodge) +
     geom_linerange(aes(x=Benchmark,ymin=min_time,max=max_time), position=dodge) +
-    scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2)) +
+    scale_y_continuous(breaks=seq(from=0.2,to=1.2,by=0.2), limits=c(0.0, 1.4)) +
     scale_fill_manual(values=colors) +
     xlab("Benchmark") + 
     ylab("Time (normalized)") +
@@ -104,12 +104,12 @@ colors <- brewer.pal(10, "Paired")
 # Plot everyone (except nocheck)
 p1col <- c(colors[1], colors[2], colors[7], colors[4], colors[5])
 plot1 <- plot_bargraph(normalized_times_by_lua, p1col)
-ggsave("normalized_times.pdf", plot=plot1, device=plot_device)
+ggsave("normalized_times.pdf", plot=plot1, device=plot_device, width=10, height=5)
 
 # Plot No Check
 p2col <- c(colors[3], colors[4])
 plot2 <- plot_bargraph(normalized_times_by_nocheck, p2col)
-ggsave("nocheck_normalized_times.pdf", plot=plot2, device=plot_device)
+ggsave("nocheck_normalized_times.pdf", plot=plot2, device=plot_device, width=10, height=5)
 
 # 2) Latex table for raw data
 # ===========================
