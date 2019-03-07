@@ -34,8 +34,10 @@ local function scope_error(errors, loc, fmt, ...)
 end
 
 local function add_builtins_to_symbol_table(st)
-    for name, decl in pairs(builtins) do
-        st:add_symbol(name, decl)
+    -- This order is not deterministic but it is OK because
+    -- the names never are the same.
+    for id, node in pairs(builtins) do
+        st:add_symbol(id, node)
     end
 end
 

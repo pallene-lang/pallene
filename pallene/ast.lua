@@ -84,6 +84,8 @@ function ast.toplevel_name(tlnode)
         return tlnode.name
     elseif tag == ast.Toplevel.Import then
         return tlnode.localname
+    elseif tag == ast.Toplevel.Builtin then
+        return tlnode.name
     else
         error("impossible")
     end
