@@ -35,13 +35,27 @@ void sieve(size_t N, int64_t **primes_out, size_t *nprimes_out)
     *nprimes_out = nprimes;
 }
 
-int main()
+int main(int argc, char **argv)
 {
+    size_t N = 100000;
+    if (argc > 1) {
+        int nread = sscanf(argv[1], "%zu", &N);
+        if (nread != 1) return 1;
+    }
+
+    size_t nrep = 1000;
+    if (argc > 2) {
+        int nread = sscanf(argv[2], "%zu", &nrep);
+        if (nread != 1) return 1;
+    }
+
+    //
+
     int64_t *primes = NULL;
     size_t nprimes;
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < nrep; i++) {
         free(primes);
-        sieve(100000, &primes, &nprimes);
+        sieve(N, &primes, &nprimes);
     }
     printf("%lu\n", nprimes);
 }

@@ -6,6 +6,6 @@
 lua/src/lua
 lua/src/luac
 
-cbenchmarks
-!cbenchmarks*.c
+cbenchmarks/*
+!cbenchmarks/*.c
 !cbenchmarks/makefile

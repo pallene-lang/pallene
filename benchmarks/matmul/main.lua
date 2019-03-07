@@ -1,33 +1,24 @@
 local matmul = require(arg[1])
+local N   = tonumber(arg[2]) or 800
+local REP = tonumber(arg[3]) or math.max(1.0, 2 * (800/N)^3)
 
---local function print_mat(A)
---    for i = 1, #A do
---        print(table.concat(A[i], " "))
---    end
---end
+-- Suggested values for N, REP:
+--  800,    2
+--  400,   16
+--  200,  128
+--  100, 1024
 
-local N = 800
---local N = 400
---local N = 200
---local N = 100
-
-local BIG1 = {}
+local A = {}
 for i = 1, N do
-    BIG1[i] = {}
+    A[i] = {}
     for j = 1, N do
-        BIG1[i][j] = (i + j) * 3.1415
+        A[i][j] = (i + j) * 3.1415
     end
 end
 
-local BIG2 = BIG1
-
 local C
-for _ = 1, 2 do
---for _ = 1, 16 do
---for _ = 1, 128 do
---for _ = 1, 1024 do
-    C = matmul.matmul(BIG1, BIG2)
+for _ = 1, REP do
+    C = matmul.matmul(A, A)
 end
 print("#C", #C, #C[1])
 print("C[1][1]", C[1][1])
---print_mat(C)

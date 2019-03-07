@@ -24,9 +24,9 @@ local function binsearch(t, x)
     return steps
 end
 
-local function test(t)
+local function test(t, nrep)
     local s = 0
-    for i = 1, 10000000 do
+    for i = 1, nrep do
         if binsearch(t, i) ~= 22 then
             s = s + 1
         end

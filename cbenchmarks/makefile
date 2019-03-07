@@ -1,8 +1,8 @@
-CFLAGS=-std=c11 -Wall -pedantic -O2
+CFLAGS=-std=c11 -Wall -pedantic -O2 -lm
 
-OBJS:=binsearch centroid conway matmul sieve queen
+EXES:=binsearch centroid conway matmul sieve queen
 
-all: $(OBJS)
+all: $(EXES)
 
 binsearch: binsearch.c
 centroid: centroid.c
@@ -13,4 +13,4 @@ queen: queen.c
 
 .PHONY: clean
 clean:
-	rm -f -- $(OBJS)
+	rm -f -- $(EXES)

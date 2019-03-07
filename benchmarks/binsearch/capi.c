@@ -70,24 +70,27 @@ end:
 
 static int test (lua_State *L)
 {
-    check_nargs(L, 1);
+    check_nargs(L, 2);
+
+    lua_Integer nrep = getinteger(L, 2);
 
     // 1 = t
-    // 2 = binsearch
+    // 2 = nrep
     // 3 = binsearch
-    // 4 = t
-    // 5 = x
+    // 4 = binsearch
+    // 5 = t
+    // 6 = x
 
     lua_pushcfunction(L, binsearch);
 
     lua_Integer s = 0;
-    for (lua_Integer i = 1; i <= 10000000; i++) {
-        lua_pushvalue(L, 2);
+    for (lua_Integer i = 1; i <= nrep; i++) {
+        lua_pushvalue(L, 3);
         lua_pushvalue(L, 1);
         lua_pushinteger(L, i);
         lua_call(L, 2, 1);
 
-        lua_Integer res = getinteger(L, 3);
+        lua_Integer res = getinteger(L, 4);
         lua_pop(L, 1);
 
         if (res != 22) {
