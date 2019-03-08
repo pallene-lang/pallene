@@ -18,7 +18,7 @@ builtins.io_write._type = types.T.Builtin(builtins.io_write)
 builtins.table_insert = ast.Toplevel.Builtin(loc, "table.insert")
 builtins.table_insert._type = types.T.Builtin(builtins.table_insert)
 
-builtins.table_remove = ast.Toplevel.Builtin(false, "table.remove")
+builtins.table_remove = ast.Toplevel.Builtin(loc, "table.remove")
 builtins.table_remove._type = types.T.Builtin(builtins.table_remove)
 
 return builtins
