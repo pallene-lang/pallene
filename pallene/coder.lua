@@ -1865,6 +1865,21 @@ local function generate_exp_builtin_table_remove(exp, ctx)
     return cstats, "VOID"
 end
 
+local function generate_exp_builtin_tofloat(exp, ctx)
+    local args = exp.args
+    assert(#args == 1)
+    local cstats_x, cvalue_x = generate_exp(args[1], ctx)
+    local v = ctx:new_tvar(types.T.Float())
+    local cstats = util.render([[
+        ${X_STATS}
+        ${V_DECL} = (lua_Number) ${X};
+    ]], {
+        X = cvalue_x,
+        X_STATS = cstats_x,
+        V_DECL = c_declaration(v),
+    })
+    return cstats, v.name
+end
 
 local function generate_unop(op, exp, ctx)
     local x_stats, x_var = generate_exp(exp.exp, ctx)
@@ -2249,6 +2264,8 @@ generate_exp = function(exp, ctx)
                 return generate_exp_builtin_table_insert(exp, ctx)
             elseif builtin_name == "table.remove" then
                 return generate_exp_builtin_table_remove(exp, ctx)
+            elseif builtin_name == "tofloat" then
+                return generate_exp_builtin_tofloat(exp, ctx)
             else
                 error("impossible")
             end
@@ -2657,22 +2674,6 @@ generate_exp = function(exp, ctx)
 
         if     src_typ._tag == dst_typ._tag then
             return exp_cstats, exp_cvalue
-
-        elseif src_typ._tag == types.T.Integer and dst_typ._tag == types.T.Float then
-            local v = ctx:new_tvar(dst_typ)
-            local cstats = util.render([[
-                ${X_STATS}
-                ${V_DECL} = (lua_Number) ${X};
-            ]], {
-                X = exp_cvalue,
-                X_STATS = exp_cstats,
-                V_DECL = c_declaration(v),
-            })
-            return cstats, v.name
-
-        elseif src_typ._tag == types.T.Float and dst_typ._tag == types.T.Integer then
-            error("not implemented yet")
-
         else
             error("impossible")
         end

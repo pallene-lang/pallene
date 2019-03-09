@@ -41,9 +41,7 @@ end
 -- not concerned with automatic coercion insertion.
 function types.coerceable(source, target)
     return
-        types.equals(source, target) or
-        (source._tag == types.T.Integer and target._tag == types.T.Float) or
-        (source._tag == types.T.Float   and target._tag == types.T.Integer)
+        types.equals(source, target)
 end
 
 function types.equals(t1, t2)

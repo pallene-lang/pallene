@@ -961,4 +961,23 @@ describe("Pallene coder /", function()
             assert_test_output("Hello:)World")
         end)
     end)
+
+    describe("tofloat builtin", function()
+        -- This builtin is also tested further up, in automatic
+        -- arithmetic conversions.
+        setup(compile([[
+            function itof(x:integer): float
+                return tofloat(x)
+            end
+        ]]))
+
+        it("works", function()
+            run_test([[
+                local x_i = 1
+                local x_f = test.itof(x_i)
+                assert("float" == math.type(x_f))
+                assert(1.0 == x_f)
+            ]])
+        end)
+    end)
 end)

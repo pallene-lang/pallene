@@ -4,7 +4,9 @@ local types = require "pallene.types"
 
 local builtins = {}
 
-for _, lua_name in ipairs({"io.write", "table.insert", "table.remove"}) do
+for _, lua_name in ipairs({
+    "io.write", "table.insert", "table.remove", "tofloat"
+}) do
     local pallene_name = string.gsub(lua_name, "%.", "_")
     local loc = location.new("(builtin)", 0,0) -- (never shown to user)
 

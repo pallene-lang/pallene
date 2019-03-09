@@ -60,32 +60,6 @@ describe("Pallene type checker", function()
         assert(prog_ast, errs)
     end)
 
-    it("coerces to integer", function()
-        local prog_ast, errs = run_checker([[
-            function fn(): integer
-                local f: float = 1.0
-                local i: integer = f as integer
-                return 1
-            end
-        ]])
-        assert(prog_ast, errs)
-        assert.same(ast.Exp.Cast, prog_ast[1].block.stats[2].exp._tag)
-        assert.same(types.T.Integer, prog_ast[1].block.stats[2].exp._type._tag)
-    end)
-
-    it("coerces to float", function()
-        local prog_ast, errs = run_checker([[
-            function fn(): integer
-                local i: integer = 12
-                local f: float = i as float
-                return 1
-            end
-        ]])
-        assert(prog_ast, errs)
-        assert.same(ast.Exp.Cast, prog_ast[1].block.stats[2].exp._tag)
-        assert.same(types.T.Float, prog_ast[1].block.stats[2].exp._type._tag)
-    end)
-
     it("allows constant variable initialization", function()
         assert_type_check([[ local x1 = nil ]])
         assert_type_check([[ local x2 = false ]])
@@ -1269,6 +1243,16 @@ describe("Pallene type checker", function()
         assert.match("expected integer but found string", errs, nil, true)
     end)
 
+    it("typechecks tofloat", function()
+        local prog_ast, errs = run_checker([[
+            function fn(): integer
+                local i: integer = 12
+                local f: float = tofloat(i)
+                return 1
+            end
+        ]])
+        assert.truthy(prog_ast, errs)
+    end)
 end)
 
 describe("Pallene typecheck of records", function()

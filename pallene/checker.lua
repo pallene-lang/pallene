@@ -1,6 +1,7 @@
 local checker = {}
 
 local ast = require "pallene.ast"
+local builtins = require "pallene.builtins"
 local location = require "pallene.location"
 local types = require "pallene.types"
 
@@ -94,9 +95,13 @@ end
 
 local function coerce_numeric_exp_to_float(exp)
     if exp._type._tag == types.T.Integer then
-        local n = ast.Exp.Cast(exp.loc, exp, nil)
-        n._type = types.T.Float()
-        return n
+
+        local name = ast.Var.Name(false, "tofloat")
+        name._decl = builtins.tofloat
+        local tofloat = ast.Exp.Var(false, name)
+        local call = ast.Exp.CallFunc(false, tofloat, {exp})
+        check_exp(call, types.T.Float())
+        return call
     elseif exp._type._tag == types.T.Float then
         return exp
     else
@@ -486,6 +491,13 @@ local function check_exp_call_func_builtin(exp, _type_hint)
         check_is_array(
             args[1].loc, args[1]._type, "table.insert first argument")
         exp._type = types.T.Void()
+    elseif builtin_name == "tofloat" then
+        check_arity(exp.loc, 1, #args, "tofloat arguments")
+        check_exp(args[1], false)
+        check_match(args[1].loc,
+            types.T.Integer(), args[1]._type,
+            "tofloat argument")
+        exp._type = types.T.Float()
     else
         error("impossible")
     end
