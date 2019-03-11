@@ -99,12 +99,12 @@ end
 -- Assertions for statements
 --
 
-local function assert_statements_ast(stats_str, expected_ast)
+local function assert_statement_ast(stats_str, expected_ast)
     local stats_ast = assert_parse(parser.parse_statement("test", stats_str))
     assert_is_subset(expected_ast, stats_ast)
 end
 
-local function assert_statements_syntax_error(stats_str, expected_error)
+local function assert_statement_syntax_error(stats_str, expected_error)
     local _, errors = parser.parse_statement("test", stats_str)
     assert_syntax_error(expected_error, errors)
 end
@@ -327,7 +327,7 @@ describe("Pallene parser", function()
     end)
 
     describe("can parse while statements", function()
-        assert_statements_ast("while true do end",
+        assert_statement_ast("while true do end",
             { _tag = ast.Stat.While,
               condition = { _tag = ast.Exp.Bool },
               block = { _tag = ast.Stat.Block } }
@@ -335,7 +335,7 @@ describe("Pallene parser", function()
     end)
 
     describe("can parse repeat-until statements", function()
-        assert_statements_ast("repeat until false",
+        assert_statement_ast("repeat until false",
             { _tag = ast.Stat.Repeat,
               block = { _tag = ast.Stat.Block },
               condition = { _tag = ast.Exp.Bool }, }
@@ -343,21 +343,21 @@ describe("Pallene parser", function()
     end)
 
     describe("can parse if statements", function()
-        assert_statements_ast("if 10 then end",
+        assert_statement_ast("if 10 then end",
             { _tag = ast.Stat.If,
                 condition = { value = 10 },
                 then_ = { _tag = ast.Stat.Block },
                 else_ = { _tag = ast.Stat.Block }, }
         )
 
-        assert_statements_ast("if 20 then else end",
+        assert_statement_ast("if 20 then else end",
             { _tag = ast.Stat.If,
                 condition = { value = 20 },
                 then_ = { _tag = ast.Stat.Block },
                 else_ = { _tag = ast.Stat.Block }, }
         )
 
-        assert_statements_ast("if 30 then elseif 40 then end",
+        assert_statement_ast("if 30 then elseif 40 then end",
             { _tag = ast.Stat.If,
                 condition = { value = 30 },
                 then_ = { _tag = ast.Stat.Block },
@@ -365,7 +365,7 @@ describe("Pallene parser", function()
                     condition = { value = 40 }, }, }
         )
 
-        assert_statements_ast("if 50 then elseif 60 then else end",
+        assert_statement_ast("if 50 then elseif 60 then else end",
             { _tag = ast.Stat.If,
                 condition = { value = 50 },
                 then_ = { _tag = ast.Stat.Block },
@@ -375,7 +375,7 @@ describe("Pallene parser", function()
     end)
 
     it("can parse do-while blocks", function()
-        assert_statements_ast([[
+        assert_statement_ast([[
             do
                 local x = 10; x = 11
                 print("Hello", "World")
@@ -395,7 +395,7 @@ describe("Pallene parser", function()
     end)
 
     it("can parse numeric for loops", function()
-        assert_statements_ast([[
+        assert_statement_ast([[
             for i = 1, 2, 3 do
                 x = i
             end
@@ -414,24 +414,24 @@ describe("Pallene parser", function()
     end)
 
     it("can parse return statements", function()
-        assert_statements_ast("do return end", { stats = {
+        assert_statement_ast("do return end", { stats = {
             { _tag = ast.Stat.Return, exps = {} }
         }})
 
-        assert_statements_ast("do return; end", { stats = {
+        assert_statement_ast("do return; end", { stats = {
             { _tag = ast.Stat.Return, exps = {} }
         }})
 
-        assert_statements_ast("do return x end", { stats = {
+        assert_statement_ast("do return x end", { stats = {
             { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } }
         }})
-        assert_statements_ast("do return x; end", { stats = {
+        assert_statement_ast("do return x; end", { stats = {
             { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } }
         }})
     end)
 
     it("requires that return statements be the last in the block", function()
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             do
                 return 10
                 return 11
@@ -440,7 +440,7 @@ describe("Pallene parser", function()
     end)
 
     it("does not allow extra semicolons after a return", function()
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             do
                 return;;
             end
@@ -582,11 +582,11 @@ describe("Pallene parser", function()
     it("only allows call expressions as statements", function()
         -- Currently the error messages mention something else
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             (f)
         ]], "Expected a statement but found an expression that is not a function call")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             1 + 1
         ]], "Expected a statement but found an expression that is not a function call")
     end)
@@ -598,7 +598,7 @@ describe("Pallene parser", function()
     end)
 
     it("can parse references to module members", function ()
-        assert_statements_ast([[
+        assert_statement_ast([[
             do
                 foo.bar = 50
                 print(foo.bar)
@@ -749,9 +749,9 @@ describe("Pallene parser", function()
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()
-        assert_statements_syntax_error([[ local (x) = 42 ]],
+        assert_statement_syntax_error([[ local (x) = 42 ]],
             "Expected variable declaration after 'local'.")
-        assert_statements_syntax_error([[ (x) = 42 ]],
+        assert_statement_syntax_error([[ (x) = 42 ]],
             "Expected a valid lvalue in the left side of assignment but found a regular expression")
     end)
 
@@ -769,7 +769,7 @@ describe("Pallene parser", function()
     end)
 
     it("doesn't allow using a primitive type as a record", function()
-        assert_statements_syntax_error("local x = integer.new(10)",
+        assert_statement_syntax_error("local x = integer.new(10)",
             "Expected an expression after '='.")
     end)
 
@@ -885,125 +885,125 @@ describe("Pallene parser", function()
                 return "42"
         ]], "Expected 'end' to close block.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             while do
                 x = x - 1
             end
         ]], "Expected an expression after 'while'.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             while x > 3
                 x = x - 1
             end
         ]], "Expected 'do' in while statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             while x > 3 do
                 x = x - 1
                 return 42
             return 41
         ]], "Expected 'end' to close the while statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             repeat
                 x = x - 1
             end
         ]], "Expected 'until' in repeat statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             repeat
                 x = x - 1
             until
         ]], "Expected an expression after 'until'.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             if then
                 x = x - 1
             end
         ]], "Expected an expression after 'if'.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             if x > 10
                 x = x - 1
             end
         ]], "Expected 'then' in if statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             if x > 10 then
                 x = x - 1
                 return 42
             return 41
         ]], "Expected 'end' to close the if statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for = 1, 10 do
             end
         ]], "Expected variable declaration in for statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x  1, 10 do
             end
         ]], "Expected '=' after variable declaration in for statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x = , 10 do
             end
         ]], "Expected an expression after '='.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x = 1 10 do
             end
         ]], "Expected ',' in for statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x = 1, do
             end
         ]], "Expected an expression after ','.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x = 1, 10, do
             end
         ]], "Expected an expression after ','.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x = 1, 10, 1
             end
         ]], "Expected 'do' in for statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             for x = 1, 10, 1 do
                 return 42
             return 41
         ]], "Expected 'end' to close the for statement.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             local = 3
         ]], "Expected variable declaration after 'local'.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             local x  3
         ]], "Expected '=' after variable declaration.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             local x =
         ]], "Expected an expression after '='.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             x
         ]], "Expected '=' after variable.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             x =
         ]], "Expected an expression after '='.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             if x > 1 then
                 x = x - 1
             elseif then
             end
         ]], "Expected an expression after 'elseif'.")
 
-        assert_statements_syntax_error([[
+        assert_statement_syntax_error([[
             if x > 1 then
                 x = x - 1
             elseif x > 0
