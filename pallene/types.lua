@@ -37,9 +37,24 @@ end
 
 function types.equals(t1, t2)
     local tag1, tag2 = t1._tag, t2._tag
-    if tag1 == types.T.Array and tag2 == types.T.Array then
+
+    if tag1 ~= tag2 then
+        return false
+    end
+
+    if     tag1 == types.T.Void or
+           tag1 == types.T.Nil or
+           tag1 == types.T.Boolean or
+           tag1 == types.T.Integer or
+           tag1 == types.T.Float or
+           tag1 == types.T.String
+    then
+        return true
+
+    elseif tag1 == types.T.Array then
         return types.equals(t1.elem, t2.elem)
-    elseif tag1 == types.T.Function and tag2 == types.T.Function then
+
+    elseif tag1 == types.T.Function then
         if #t1.params ~= #t2.params then
             return false
         end
@@ -61,10 +76,15 @@ function types.equals(t1, t2)
         end
 
         return true
-    elseif tag1 == tag2 then
-        return true
+
+    elseif tag1 == types.T.Record then
+        return t1.type_decl == t2.type_decl
+
+    elseif tag1 == types.T.Builtin then
+        return t1.builtin_decl == t2.builtin_decl
+
     else
-        return false
+        return error("impossible")
     end
 end
 
