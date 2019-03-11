@@ -1,5 +1,5 @@
 local ast = require 'pallene.ast'
-local driver = require 'pallene.driver'
+local parser = require 'pallene.parser'
 local util = require 'pallene.util'
 
 --
@@ -31,30 +31,20 @@ local function assert_is_subset(expected_ast, parsed_ast)
 end
 
 --
--- Assertions for full programs
+-- Assertion helpers
 --
 
-local function parse(program_str)
-    assert(util.set_file_contents("test.pallene", program_str))
-    return driver.test_ast("parser", "test.pallene")
-end
-
-local function assert_parses_successfuly(program_str)
-    local prog_ast, errors = parse(program_str)
-    if not prog_ast then
-        error(string.format("Unexpected Pallene syntax error: %s", errors[1]))
+local function assert_parse(ast_fragment, errors)
+    if not ast_fragment then
+        error(string.format(
+            "Unexpected Pallene syntax error: %s",
+            errors[1]))
     end
-    return prog_ast
+    return ast_fragment
 end
 
-local function assert_program_ast(program_str, expected_ast)
-    local prog_ast = assert_parses_successfuly(program_str)
-    assert_is_subset(expected_ast, prog_ast)
-end
-
-local function assert_program_syntax_error(program_str, expected_error)
-    local prog_ast, errors = parse(program_str)
-    if prog_ast then
+local function assert_syntax_error(expected_error, errors)
+    if #errors == 0 then
         error(string.format(
             "Expected Pallene syntax error %s but parsed successfuly",
             expected_error))
@@ -63,73 +53,60 @@ local function assert_program_syntax_error(program_str, expected_error)
 end
 
 --
+-- Assertions for full programs
+--
+
+local function assert_program_ast(program_str, expected_ast)
+    local prog_ast = assert_parse(parser.parse_program("test", program_str))
+    assert_is_subset(expected_ast, prog_ast)
+end
+
+local function assert_program_syntax_error(program_str, expected_error)
+    local _, errors = parser.parse_program("test", program_str)
+    assert_syntax_error(expected_error, errors)
+end
+
+
+--
 -- Assertions for types
 --
 
-local function type_test_program(s)
-    return util.render([[
-        local x: ${TYPE} = nil
-    ]], { TYPE = s } )
-end
-
-local function assert_type_ast(code, expected_ast)
-    local program_str = type_test_program(code)
-    local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast[1].decl.type
+local function assert_type_ast(type_str, expected_ast)
+    local type_ast = assert_parse(parser.parse_type("test", type_str))
     assert_is_subset(expected_ast, type_ast)
 end
 
-local function assert_type_syntax_error(code, expected_error)
-    local program_str = type_test_program(code)
-    assert_program_syntax_error(program_str, expected_error)
+local function assert_type_syntax_error(type_str, expected_error)
+    local _, errors = parser.parse_type("test", type_str)
+    assert_syntax_error(expected_error, errors)
 end
 
 --
 -- Assertions for expressions
 --
 
-local function expression_test_program(s)
-    return util.render([[
-        function foo(): nil
-            x = ${EXPR}
-        end
-    ]], { EXPR = s })
-end
-
-local function assert_expression_ast(code, expected_ast)
-    local program_str = expression_test_program(code)
-    local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast[1].block.stats[1].exp
+local function assert_expression_ast(exp_str, expected_ast)
+    local exp_ast = assert_parse(parser.parse_expression("test", exp_str))
     assert_is_subset(expected_ast, exp_ast)
 end
 
-local function assert_expression_syntax_error(code, expected_error)
-    local program_str = expression_test_program(code)
-    assert_program_syntax_error(program_str, expected_error)
+local function assert_expression_syntax_error(exp_str, expected_error)
+    local _, errors = parser.parse_expression("test", exp_str)
+    assert_syntax_error(expected_error, errors)
 end
 
 --
 -- Assertions for statements
 --
 
-local function statements_test_program(s)
-    return util.render([[
-        function foo(): nil
-            ${STATS}
-        end
-    ]], { STATS = s })
-end
-
-local function assert_statements_ast(code, expected_ast)
-    local program_str = statements_test_program(code)
-    local program_ast = assert_parses_successfuly(program_str)
-    local stats_ast = program_ast[1].block.stats
+local function assert_statements_ast(stats_str, expected_ast)
+    local stats_ast = assert_parse(parser.parse_statement("test", stats_str))
     assert_is_subset(expected_ast, stats_ast)
 end
 
-local function assert_statements_syntax_error(code, expected_error)
-    local program_str = statements_test_program(code)
-    assert_program_syntax_error(program_str, expected_error)
+local function assert_statements_syntax_error(stats_str, expected_error)
+    local _, errors = parser.parse_statement("test", stats_str)
+    assert_syntax_error(expected_error, errors)
 end
 
 --
@@ -155,7 +132,8 @@ describe("Pallene parser", function()
 
     it("can parse programs starting with whitespace or comments", function()
         -- This is easy to get wrong in hand-written LPeg grammars...
-        local prog_ast = assert_parses_successfuly("--hello\n--bla\n  ")
+        local program_str = "--hello\n--bla\n  "
+        local prog_ast = assert_parse(parser.parse_program("test", program_str))
         assert.are.same({}, prog_ast)
     end)
 
@@ -349,51 +327,51 @@ describe("Pallene parser", function()
     end)
 
     describe("can parse while statements", function()
-        assert_statements_ast("while true do end", {
+        assert_statements_ast("while true do end",
             { _tag = ast.Stat.While,
               condition = { _tag = ast.Exp.Bool },
               block = { _tag = ast.Stat.Block } }
-        })
+        )
     end)
 
     describe("can parse repeat-until statements", function()
-        assert_statements_ast("repeat until false", {
+        assert_statements_ast("repeat until false",
             { _tag = ast.Stat.Repeat,
               block = { _tag = ast.Stat.Block },
               condition = { _tag = ast.Exp.Bool }, }
-        })
+        )
     end)
 
     describe("can parse if statements", function()
-        assert_statements_ast("if 10 then end", {
+        assert_statements_ast("if 10 then end",
             { _tag = ast.Stat.If,
                 condition = { value = 10 },
                 then_ = { _tag = ast.Stat.Block },
                 else_ = { _tag = ast.Stat.Block }, }
-        })
+        )
 
-        assert_statements_ast("if 20 then else end", {
+        assert_statements_ast("if 20 then else end",
             { _tag = ast.Stat.If,
                 condition = { value = 20 },
                 then_ = { _tag = ast.Stat.Block },
                 else_ = { _tag = ast.Stat.Block }, }
-        })
+        )
 
-        assert_statements_ast("if 30 then elseif 40 then end", {
+        assert_statements_ast("if 30 then elseif 40 then end",
             { _tag = ast.Stat.If,
                 condition = { value = 30 },
                 then_ = { _tag = ast.Stat.Block },
                 else_ = { _tag = ast.Stat.If,
                     condition = { value = 40 }, }, }
-        })
+        )
 
-        assert_statements_ast("if 50 then elseif 60 then else end", {
+        assert_statements_ast("if 50 then elseif 60 then else end",
             { _tag = ast.Stat.If,
                 condition = { value = 50 },
                 then_ = { _tag = ast.Stat.Block },
                 else_ = { _tag = ast.Stat.If,
                     condition = { value = 60 }, }, }
-        })
+        )
     end)
 
     it("can parse do-while blocks", function()
@@ -402,7 +380,7 @@ describe("Pallene parser", function()
                 local x = 10; x = 11
                 print("Hello", "World")
             end
-        ]], {
+        ]],
             { _tag = ast.Stat.Block,
                 stats = {
                     { _tag = ast.Stat.Decl,
@@ -412,8 +390,8 @@ describe("Pallene parser", function()
                         var = { name = "x" },
                         exp = { value = 11 } },
                     { _tag = ast.Stat.Call,
-                        callexp = { _tag = ast.Exp.CallFunc } } } },
-        })
+                        callexp = { _tag = ast.Exp.CallFunc } } } }
+        )
     end)
 
     it("can parse numeric for loops", function()
@@ -421,7 +399,7 @@ describe("Pallene parser", function()
             for i = 1, 2, 3 do
                 x = i
             end
-        ]], {
+        ]],
             { _tag = ast.Stat.For,
               block = {
                 stats = {
@@ -431,36 +409,42 @@ describe("Pallene parser", function()
               decl = { _tag = ast.Decl.Decl, name = "i", type = false },
               start =  { _tag = ast.Exp.Integer, value = 1 },
               limit =  { _tag = ast.Exp.Integer, value = 2 },
-              step =   { _tag = ast.Exp.Integer, value = 3 }, },
-        })
+              step =   { _tag = ast.Exp.Integer, value = 3 }, }
+        )
     end)
 
     it("can parse return statements", function()
-        assert_statements_ast("return", {
-            { _tag = ast.Stat.Return, exps = {} }})
+        assert_statements_ast("do return end", { stats = {
+            { _tag = ast.Stat.Return, exps = {} }
+        }})
 
-        assert_statements_ast("return;", {
-            { _tag = ast.Stat.Return, exps = {} }})
+        assert_statements_ast("do return; end", { stats = {
+            { _tag = ast.Stat.Return, exps = {} }
+        }})
 
-        assert_statements_ast("return x", {
-            { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } },
-        })
-        assert_statements_ast("return x;", {
-            { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } },
-        })
+        assert_statements_ast("do return x end", { stats = {
+            { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } }
+        }})
+        assert_statements_ast("do return x; end", { stats = {
+            { _tag = ast.Stat.Return, exps = { { _tag = ast.Exp.Var } } }
+        }})
     end)
 
     it("requires that return statements be the last in the block", function()
         assert_statements_syntax_error([[
-            return 10
-            return 11
-        ]], "Expected 'end' to close the function body.")
+            do
+                return 10
+                return 11
+            end
+        ]], "Expected 'end' to close block.")
     end)
 
     it("does not allow extra semicolons after a return", function()
         assert_statements_syntax_error([[
-            return;;
-        ]], "Expected 'end' to close the function body.")
+            do
+                return;;
+            end
+        ]], "Expected 'end' to close block.")
     end)
 
     it("can parse binary and unary operators", function()
@@ -615,10 +599,12 @@ describe("Pallene parser", function()
 
     it("can parse references to module members", function ()
         assert_statements_ast([[
-            foo.bar = 50
-            print(foo.bar)
-            foo.write(a, b, c)
-        ]], {
+            do
+                foo.bar = 50
+                print(foo.bar)
+                foo.write(a, b, c)
+            end
+        ]], { stats = {
             { var = {
                 _tag = ast.Var.Dot,
                 exp = { _tag = ast.Exp.Var,
@@ -638,7 +624,7 @@ describe("Pallene parser", function()
                       var = { _tag = ast.Var.Name, name = "foo" }
                     },
                     name = "write" } } } }
-        })
+        }})
     end)
 
     it("can parse record declarations", function()
@@ -783,7 +769,7 @@ describe("Pallene parser", function()
     end)
 
     it("doesn't allow using a primitive type as a record", function()
-        assert_expression_syntax_error("integer.new(10)",
+        assert_statements_syntax_error("local x = integer.new(10)",
             "Expected an expression after '='.")
     end)
 
