@@ -19,15 +19,6 @@ declare_type("T", {
     Builtin  = {"builtin_decl"},
 })
 
-function types.is_basic(t)
-    local tag = t._tag
-    return tag == types.T.Nil or
-           tag == types.T.Boolean or
-           tag == types.T.Integer or
-           tag == types.T.Float or
-           tag == types.T.String
-end
-
 function types.is_gc(t)
     local tag = t._tag
     return tag == types.T.String or
