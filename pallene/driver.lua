@@ -32,7 +32,7 @@ local function compile_pallene_to_ast(pallene_filename, stop_after)
     if not input then return false, {err} end
 
     local prog_ast
-    prog_ast, errs = parser.parse(pallene_filename, input)
+    prog_ast, errs = parser.parse_program(pallene_filename, input)
     if stop_after == "parser" or not prog_ast then return prog_ast, errs end
 
     local stop_i = step_index(ast_passes, stop_after)

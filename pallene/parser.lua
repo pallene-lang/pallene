@@ -202,7 +202,7 @@ function defs.exp_is_call(_, pos, exp)
     end
 end
 
-local grammar = re.compile([[
+local all_grammar_rules = [[
 
     program         <-  SKIP*
                         {| ( toplevelfunc
@@ -464,14 +464,29 @@ local grammar = re.compile([[
     NEG             <- SUB
     BNEG            <- BXOR
 
-]], defs)
+]]
+
+--
+-- To simplify debugging it is useful to have multiple entry points...
+--
+
+local function make_grammar(start_terminal)
+    local start_rule = string.format("start <- %s\n", start_terminal)
+    local rules = start_rule .. all_grammar_rules
+    return re.compile(rules, defs)
+end
+
+local program_grammar    = make_grammar("program")
+local statement_grammar  = make_grammar("statement")
+local expression_grammar = make_grammar("exp")
+local type_grammar       = make_grammar("type")
 
 local function parser_error(loc, label)
     local errmsg = syntax_errors.errors[label]
     return location.format_error(loc, "syntax error: %s", errmsg)
 end
 
-function parser.parse(filename, input)
+local function parse(grammar, filename, input)
     -- Abort if someone calls this non-reentrant parser recursively
     assert(type(filename) == "string")
     assert(THIS_FILENAME == nil)
@@ -486,6 +501,22 @@ function parser.parse(filename, input)
         table.insert(errors, parser_error(loc, err))
     end
     return prog_ast, errors
+end
+
+function parser.parse_program(filename, input)
+    return parse(program_grammar, filename, input)
+end
+
+function parser.parse_statement(filename, input)
+    return parse(statement_grammar, filename, input)
+end
+
+function parser.parse_expression(filename, input)
+    return parse(expression_grammar, filename, input)
+end
+
+function parser.parse_type(filename, input)
+    return parse(type_grammar, filename, input)
 end
 
 function parser.pretty_print_ast(prog_ast)
