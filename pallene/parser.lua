@@ -485,7 +485,9 @@ local function parser_error(loc, label)
     return location.format_error(loc, "syntax error: %s", errmsg)
 end
 
-local function parse(grammar, filename, input)
+local function parse(grammar, input, filename)
+    filename = filename or "(none)"
+
     -- Abort if someone calls this non-reentrant parser recursively
     assert(type(filename) == "string")
     assert(THIS_FILENAME == nil)
@@ -496,26 +498,26 @@ local function parse(grammar, filename, input)
 
     local errors = {}
     if not prog_ast then
-        local loc = location.from_pos(filename, input, errpos)
+        local loc = location.from_pos(input, filename, errpos)
         table.insert(errors, parser_error(loc, err))
     end
     return prog_ast, errors
 end
 
-function parser.parse_program(filename, input)
-    return parse(program_grammar, filename, input)
+function parser.parse_program(input, filename)
+    return parse(program_grammar, input, filename)
 end
 
-function parser.parse_statement(filename, input)
-    return parse(statement_grammar, filename, input)
+function parser.parse_statement(input, filename)
+    return parse(statement_grammar, input, filename)
 end
 
-function parser.parse_expression(filename, input)
-    return parse(expression_grammar, filename, input)
+function parser.parse_expression(input, filename)
+    return parse(expression_grammar, input, filename)
 end
 
-function parser.parse_type(filename, input)
-    return parse(type_grammar, filename, input)
+function parser.parse_type(input, filename)
+    return parse(type_grammar, input, filename)
 end
 
 function parser.pretty_print_ast(prog_ast)

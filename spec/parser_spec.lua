@@ -57,12 +57,12 @@ end
 --
 
 local function assert_program_ast(program_str, expected_ast)
-    local prog_ast = assert_parse(parser.parse_program("test", program_str))
+    local prog_ast = assert_parse(parser.parse_program(program_str))
     assert_is_subset(expected_ast, prog_ast)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
-    local _, errors = parser.parse_program("test", program_str)
+    local _, errors = parser.parse_program(program_str)
     assert_syntax_error(expected_error, errors)
 end
 
@@ -72,12 +72,12 @@ end
 --
 
 local function assert_type_ast(type_str, expected_ast)
-    local type_ast = assert_parse(parser.parse_type("test", type_str))
+    local type_ast = assert_parse(parser.parse_type(type_str))
     assert_is_subset(expected_ast, type_ast)
 end
 
 local function assert_type_syntax_error(type_str, expected_error)
-    local _, errors = parser.parse_type("test", type_str)
+    local _, errors = parser.parse_type(type_str)
     assert_syntax_error(expected_error, errors)
 end
 
@@ -86,12 +86,12 @@ end
 --
 
 local function assert_expression_ast(exp_str, expected_ast)
-    local exp_ast = assert_parse(parser.parse_expression("test", exp_str))
+    local exp_ast = assert_parse(parser.parse_expression(exp_str))
     assert_is_subset(expected_ast, exp_ast)
 end
 
 local function assert_expression_syntax_error(exp_str, expected_error)
-    local _, errors = parser.parse_expression("test", exp_str)
+    local _, errors = parser.parse_expression(exp_str)
     assert_syntax_error(expected_error, errors)
 end
 
@@ -100,12 +100,12 @@ end
 --
 
 local function assert_statement_ast(stats_str, expected_ast)
-    local stats_ast = assert_parse(parser.parse_statement("test", stats_str))
+    local stats_ast = assert_parse(parser.parse_statement(stats_str))
     assert_is_subset(expected_ast, stats_ast)
 end
 
 local function assert_statement_syntax_error(stats_str, expected_error)
-    local _, errors = parser.parse_statement("test", stats_str)
+    local _, errors = parser.parse_statement(stats_str)
     assert_syntax_error(expected_error, errors)
 end
 
@@ -133,7 +133,7 @@ describe("Pallene parser", function()
     it("can parse programs starting with whitespace or comments", function()
         -- This is easy to get wrong in hand-written LPeg grammars...
         local program_str = "--hello\n--bla\n  "
-        local prog_ast = assert_parse(parser.parse_program("test", program_str))
+        local prog_ast = assert_parse(parser.parse_program(program_str))
         assert.are.same({}, prog_ast)
     end)
 
