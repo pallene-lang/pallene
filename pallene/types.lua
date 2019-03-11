@@ -21,10 +21,25 @@ declare_type("T", {
 
 function types.is_gc(t)
     local tag = t._tag
-    return tag == types.T.String or
+    if     tag == types.T.Void or
+           tag == types.T.Nil or
+           tag == types.T.Boolean or
+           tag == types.T.Integer or
+           tag == types.T.Float
+    then
+        return false
+
+    elseif tag == types.T.String or
            tag == types.T.Function or
            tag == types.T.Array or
-           tag == types.T.Record
+           tag == types.T.Record or
+           tag == types.T.Builtin
+    then
+        return true
+
+    else
+        error("impossible")
+    end
 end
 
 -- Can [source] be coerced to [target] via a cast?
