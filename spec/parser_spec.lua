@@ -374,7 +374,7 @@ describe("Pallene parser", function()
         )
     end)
 
-    it("can parse do-while blocks", function()
+    it("can parse do-end blocks", function()
         assert_statement_ast([[
             do
                 local x = 10; x = 11
