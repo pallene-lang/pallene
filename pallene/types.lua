@@ -90,12 +90,12 @@ end
 
 function types.tostring(t)
     local tag = t._tag
-    if     tag == types.T.Integer     then return "integer"
-    elseif tag == types.T.Boolean     then return "boolean"
-    elseif tag == types.T.String      then return "string"
+    if     tag == types.T.Void        then return "void"
     elseif tag == types.T.Nil         then return "nil"
+    elseif tag == types.T.Boolean     then return "boolean"
+    elseif tag == types.T.Integer     then return "integer"
     elseif tag == types.T.Float       then return "float"
-    elseif tag == types.T.Void        then return "void"
+    elseif tag == types.T.String      then return "string"
     elseif tag == types.T.Function then
         return "function" -- TODO implement
     elseif tag == types.T.Array then
