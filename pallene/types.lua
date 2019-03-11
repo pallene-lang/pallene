@@ -7,6 +7,7 @@ local function declare_type(type_name, cons)
 end
 
 declare_type("T", {
+    Value    = {},
     Void     = {}, -- For functions with 0 returns
     Nil      = {},
     Boolean  = {},
@@ -29,7 +30,8 @@ function types.is_gc(t)
     then
         return false
 
-    elseif tag == types.T.String or
+    elseif tag == types.T.Value or
+           tag == types.T.String or
            tag == types.T.Function or
            tag == types.T.Array or
            tag == types.T.Record or
@@ -42,22 +44,18 @@ function types.is_gc(t)
     end
 end
 
--- Can [source] be coerced to [target] via a cast?
--- Note: this function only is cares about whether a cast is possible. It is
--- not concerned with automatic coercion insertion.
-function types.coerceable(source, target)
-    return
-        types.equals(source, target)
-end
+local function equivalent(t1, t2, is_gradual)
+    local tag1 = t1._tag
+    local tag2 = t2._tag
 
-function types.equals(t1, t2)
-    local tag1, tag2 = t1._tag, t2._tag
+    if is_gradual and (tag1 == types.T.Value or tag2 == types.T.Value) then
+        return true
 
-    if tag1 ~= tag2 then
+    elseif tag1 ~= tag2 then
         return false
-    end
 
-    if     tag1 == types.T.Void or
+    elseif tag1 == types.T.Value or
+           tag1 == types.T.Void or
            tag1 == types.T.Nil or
            tag1 == types.T.Boolean or
            tag1 == types.T.Integer or
@@ -67,7 +65,7 @@ function types.equals(t1, t2)
         return true
 
     elseif tag1 == types.T.Array then
-        return types.equals(t1.elem, t2.elem)
+        return equivalent(t1.elem, t2.elem, is_gradual)
 
     elseif tag1 == types.T.Function then
         if #t1.params ~= #t2.params then
@@ -75,7 +73,7 @@ function types.equals(t1, t2)
         end
 
         for i = 1, #t1.params do
-            if not types.equals(t1.params[i], t2.params[i]) then
+            if not equivalent(t1.params[i], t2.params[i], is_gradual) then
                 return false
             end
         end
@@ -85,7 +83,7 @@ function types.equals(t1, t2)
         end
 
         for i = 1, #t1.ret_types do
-            if not types.equals(t1.ret_types[i], t2.ret_types[i]) then
+            if not equivalent(t1.ret_types[i], t2.ret_types[i], is_gradual) then
                 return false
             end
         end
@@ -103,9 +101,20 @@ function types.equals(t1, t2)
     end
 end
 
+function types.equals(t1, t2)
+    return equivalent(t1, t2, false)
+end
+
+-- The type-consistency relation from gradual typing.
+-- It is equality relaxed with (T ~ value) and (value ~ T)
+function types.consistent(t1, t2)
+    return equivalent(t1, t2, true)
+end
+
 function types.tostring(t)
     local tag = t._tag
-    if     tag == types.T.Void        then return "void"
+    if     tag == types.T.Value       then return "value"
+    elseif tag == types.T.Void        then return "void"
     elseif tag == types.T.Nil         then return "nil"
     elseif tag == types.T.Boolean     then return "boolean"
     elseif tag == types.T.Integer     then return "integer"

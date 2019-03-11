@@ -780,7 +780,7 @@ check_exp = function(exp, type_hint)
     elseif tag == ast.Exp.Cast then
         local target = check_type(exp.target)
         check_exp(exp.exp, target)
-        if not types.coerceable(exp.exp._type, target) then
+        if not types.consistent(exp.exp._type, target) then
             type_error(exp.loc,
                 "cannot cast '%s' to '%s'",
                 types.tostring(exp.exp._type), types.tostring(target))
