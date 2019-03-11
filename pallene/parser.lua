@@ -204,8 +204,7 @@ end
 
 local all_grammar_rules = [[
 
-    program         <-  SKIP*
-                        {| ( toplevelfunc
+    program         <-  {| ( toplevelfunc
                            / toplevelvar
                            / toplevelrecord
                            / import )* |} !.
@@ -471,7 +470,7 @@ local all_grammar_rules = [[
 --
 
 local function make_grammar(start_terminal)
-    local start_rule = string.format("start <- %s\n", start_terminal)
+    local start_rule = string.format("start <- SKIP* %s\n", start_terminal)
     local rules = start_rule .. all_grammar_rules
     return re.compile(rules, defs)
 end
