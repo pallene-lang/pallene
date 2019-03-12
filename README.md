@@ -68,7 +68,28 @@ $ ./lua/src/lua -l foo
 
 For more compiler options, see `./pallenec --help`
 
-## Running the test suite
+## Developing Pallene
+
+If you want to develop Pallene, it is helpful to know how to configure your
+editor to preserve our style standards, and to know how to run the test suite.
+
+### Configuring your editor
+
+The easiest way to make sure you are indenting things correctly is to install
+the [EditorConfig](https://editorconfig.org/) plugin in your favorite
+text editor.
+
+THis project uses 4 spaces for indentation, and tries to limit each line to at
+most 80 columns.
+
+### Using a linter.
+
+We use [Luacheck](https://github.com/mpeterv/luacheck) to lint our Lua source
+code. We recommend running it at least once before each pull-request or, even
+better, integrating it to your text editor. For instructions on how to install
+and use Luacheck, see our `.luacheckrc` file.
+
+### Running the test suite
 
 We use Busted to run our test suite. It can be installed using LuaRocks:
 
@@ -82,7 +103,7 @@ To run the test suite, just run busted on the root directory of this repository:
 $ busted                       # Run all tests
 $ busted spec/parser_spec.lua  # Run just one of the test suite files
 ```
-## Running the benchmarks suite
+### Running the benchmarks suite
 
 To run of the benchmarks in the benchmarks directory, tun the `benchmarks/run`
 script from the root project directory:
