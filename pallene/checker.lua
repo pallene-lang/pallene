@@ -185,6 +185,9 @@ check_type = function(typ)
     elseif tag == ast.Type.String then
         return types.T.String()
 
+    elseif tag == ast.Type.Value then
+        return types.T.Value()
+
     elseif tag == ast.Type.Name then
         local decl = typ._decl
         if decl._tag == ast.Toplevel.Record then
