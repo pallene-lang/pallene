@@ -2719,7 +2719,24 @@ generate_exp = function(exp, ctx)
             return cstats, out.name
 
         elseif src_typ._tag == types.T.Value then
-            error("not implemented")
+            local out = ctx:new_tvar(dst_typ)
+            local slot = "&"..exp_cvalue
+            local cstats = util.render([[
+                ${EXP_CSTATS}
+                if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                    pallene_runtime_downcast_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
+                }
+                ${OUT_DECL} = ${GET_SLOT};
+            ]], {
+                EXP_CSTATS = exp_cstats,
+                CHECK_TAG = check_tag(dst_typ, slot, ctx),
+                LINE = exp.loc.line,
+                EXPECTED_TAG = pallene_type_tag(dst_typ),
+                SLOT = slot,
+                OUT_DECL = c_declaration(out),
+                GET_SLOT = get_slot(dst_typ, slot),
+            })
+            return cstats, out.name
 
         else
             error("impossible")

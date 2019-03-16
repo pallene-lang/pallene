@@ -457,6 +457,9 @@ describe("Pallene coder /", function()
                 function from_${NAME}(x: ${T}): value
                     return (x as value)
                 end
+                function to_${NAME}(x: value): ${T}
+                    return (x as ${T})
+                end
             ]], {
                 NAME = name,
                 T = test.typ,
@@ -476,6 +479,16 @@ describe("Pallene coder /", function()
             }))
         end
 
+        local function from_value(name)
+            run_test(util.render([[
+                local x = ${VALUE}
+                assert(x == test.to_${NAME}(x))
+            ]],{
+                NAME = name,
+                VALUE = tests[name].value
+            }))
+        end
+
         it("boolean->value (as)",  function() to_value("boolean") end)
         it("integer->value (as)",  function() to_value("integer") end)
         it("float->value (as)",    function() to_value("float") end)
@@ -483,6 +496,23 @@ describe("Pallene coder /", function()
         it("function->value (as)", function() to_value("function") end)
         it("array->value (as)",    function() to_value("array") end)
         it("record->value (as)",   function() to_value("record") end)
+
+        it("value->boolean (as)",  function() from_value("boolean") end)
+        it("value->integer (as)",  function() from_value("integer") end)
+        it("value->float (as)",    function() from_value("float") end)
+        it("value->string (as)",   function() from_value("string") end)
+        it("value->function (as)", function() from_value("function") end)
+        it("value->array (as)",    function() from_value("array") end)
+        it("value->record (as)",   function() from_value("record") end)
+
+        it("detects downcast error", function()
+            run_test([[
+                local ok, err = pcall(test.to_integer, "hello")
+                assert(not ok)
+                assert(string.find(err, "downcast error", nil, true))
+            ]])
+        end)
+
     end)
 
     describe("Statements /", function()

@@ -1124,8 +1124,6 @@ describe("Pallene type checker", function()
         end
     end
 
-
-
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
             local prog_ast, errs = run_checker([[

@@ -46,6 +46,10 @@ int pallene_runtime_record_type_error(
     lua_State *L, const char *key, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 
+void pallene_runtime_downcast_error(
+    lua_State *L, int line, int expected_tag, int received_tag)
+    PALLENE_NORETURN;
+
 TString *pallene_string_concatN(
     lua_State *L, size_t n, TString **ss);
 
