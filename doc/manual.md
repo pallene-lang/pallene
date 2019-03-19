@@ -39,6 +39,8 @@ The `sum.so` file can be loaded from within Lua with `require`, as usual:
 
 Pallene's type system includes the usual Lua primitive types (`nil`, `boolean`,
 `float` and `integer`), as well as strings, arrays, functions, and records.
+There is also a catch-all type `value`, which can refer to any Lua or Pallene
+value.
 
 ### Primitive types
 
@@ -129,6 +131,75 @@ cannot create a Lua table with an `x` and `y` field and pass it to a Pallene
 function expecting a Point. That said, Pallene objects do carry a metatable
 that allows you to still use the usual dot notation when acessing them from
 Lua.
+
+### Value
+
+Variables of type `value` can store any Lua or Pallene value. This is a limited
+form of dynamic typing.
+
+    local x: value = 10
+    x = "hello"
+
+Similarly, arrays of values can store values of varied types
+
+    local xs: {value} = {}
+    xs[1] = 10
+    xs[2] = "hello"
+
+Pallene automatically coerces to and from the `value` type. In addition to 
+variable assignments, coercions also occurs in the parameters passed to
+functions and in the values returned from them. You can also use the `as`
+operator for explicit coercions. These coercions between value-compatible types
+are the only place where Pallene does type coercions.
+
+    function insert(xs:{value}, v:value)
+        xs[#xs+1] = v
+    end
+
+    function main()
+        -- Since {integer} can be coerced to {value} and 
+        -- integer can be coerced to value, this call to insert succeeds
+        local ns: {integer} = {10,20,30}
+        insert(ns, 40)
+
+        -- Insert can also be called on different types of arrays
+        local ss: {string} = {"hello", "world"}
+        insert(ss, "!")
+
+        -- The first argument of insert must be an array of some type, however
+        -- the type signature for insert does not require that the type of
+        -- the value match the type of the array. These insertions not only are
+        -- allowed but they succeed without errors at run-time. They will only
+        -- be detected when the offending values are read from the array.
+        insert(ns, "boom!")
+        insert(ss, 17)
+    end
+
+The upcasts to value always suceed but the downcasts may produce a run-time
+type error.
+
+    local v : value   = 17
+    local s : string  = v   -- run-time error: v is not a string
+
+The `value` type offers a limited form of dynamic typing. The main difference
+compared to Lua is that you are in Pallene does not allow you to perform any
+operations on a `value`. You may pass a `value` to a functions and youmay store
+it in an array but you cannot call, index or pass it to an arithmetic operator:
+
+
+    local v = (17 as value)
+    local w = (18 as value)
+    local z = v + w         -- compile-time type error: Cannot add two values
+
+
+You must first downcast the `value` to the appropriate type. The reason for this
+is that, for performance, Pallene must know at compile-time what version of the
+arithmetic operator to use at run-time.
+
+    local v = (17 as value)
+    local w = (18 as value)
+    local z = (x as integer) + (y as integer)
+
 
 ## Structure of a Pallene module
 
