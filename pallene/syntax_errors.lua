@@ -46,6 +46,12 @@ local errors = {
 
     NameRecord = "Expected a record name after 'record'.",
 
+    NameTypeAlias = "Expected a type name after 'type'.",
+
+    AssignTypeAlias = "Expected '=' after type name.",
+
+    TypeTypeAlias = "Expected a type after '='.",
+
     EndRecord = "Expected 'end' to close the record.",
 
     NameImport = "Expected a name after 'local'.",

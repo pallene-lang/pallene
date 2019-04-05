@@ -208,6 +208,7 @@ local grammar = re.compile([[
                         {| ( toplevelfunc
                            / toplevelvar
                            / toplevelrecord
+                           / typealias
                            / import )* |} !.
 
     toplevelfunc    <- (P  localopt FUNCTION NAME^NameFunc
@@ -219,6 +220,9 @@ local grammar = re.compile([[
 
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
+
+    typealias       <- (P  TYPE NAME^NameTypeAlias ASSIGN^AssignTypeAlias
+                            type^TypeTypeAlias)                  -> ToplevelType
 
     localopt        <- (LOCAL)?                                  -> boolopt
 
@@ -409,6 +413,7 @@ local grammar = re.compile([[
     RETURN          <- %RETURN SKIP*
     THEN            <- %THEN SKIP*
     TRUE            <- %TRUE SKIP*
+    TYPE            <- %TYPE SKIP*
     UNTIL           <- %UNTIL SKIP*
     WHILE           <- %WHILE SKIP*
     IMPORT          <- %IMPORT SKIP*

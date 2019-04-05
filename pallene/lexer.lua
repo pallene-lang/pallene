@@ -165,7 +165,7 @@ local possiblename = idstart * idrest^0
 local keywords = {
     "and", "break", "do", "else", "elseif", "end", "for", "false",
     "function", "goto", "if", "in", "local", "nil", "not", "or",
-    "repeat", "return", "then", "true", "until", "while", "import",
+    "repeat", "return", "then", "true", "type", "until", "while", "import",
     "record", "as",
 
     "boolean", "integer", "float", "string", "value"

@@ -641,6 +641,25 @@ describe("Pallene parser", function()
         })
     end)
 
+    it("can parse type alias", function()
+        assert_program_ast([[
+            type int = integer
+        ]], {
+            { _tag = ast.Toplevel.Type,
+              name = "int",
+              type = { _tag = ast.Type.Integer } },
+        })
+
+        assert_program_ast([[
+            type Points = {Point}
+        ]], {
+            { _tag = ast.Toplevel.Type,
+              name = "Points",
+              type = { _tag = ast.Type.Array, subtype =
+                { _tag = ast.Type.Name, name = "Point" } } }
+        })
+    end)
+
     it("can parse record declarations", function()
         assert_program_ast([[
             record Point
@@ -832,6 +851,18 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[
             record
         ]], "Expected a record name after 'record'.")
+
+        assert_program_syntax_error([[
+            type
+        ]], "Expected a type name after 'type'.")
+
+        assert_program_syntax_error([[
+            type t
+        ]], "Expected '=' after type name.")
+
+        assert_program_syntax_error([[
+            type t =
+        ]], "Expected a type after '='.")
 
         assert_program_syntax_error([[
             record A
