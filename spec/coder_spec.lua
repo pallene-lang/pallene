@@ -904,6 +904,25 @@ describe("Pallene coder /", function()
             ]])
         end)
 
+        it("checks if Lua tries to access a non-string field", function()
+            run_test([[
+                local msg = "attempt to access non-string field of type 'table'"
+                local foo = test.make_foo(123, {})
+                -- __index
+                local ok, err = pcall(function()
+                    local x = foo[{}]
+                end)
+                assert(not ok)
+                assert(string.find(err, msg, nil, true))
+                -- __newindex
+                local ok, err = pcall(function()
+                    foo[{}] = 10
+                end)
+                assert(not ok)
+                assert(string.find(err, msg, nil, true))
+            ]])
+        end)
+
         it("checks if Lua tries to access an nonexistent field", function()
             run_test([[
                 local msg = "attempt to access nonexistent field 'z'"

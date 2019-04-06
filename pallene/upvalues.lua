@@ -85,6 +85,14 @@ analyze_upvalues = function(prog_ast)
         add_literal(upvs, literals, lit)
     end
 
+    for _, tlnode in ipairs(prog_ast) do
+        if tlnode._tag == ast.Toplevel.Record then
+            for _, field in ipairs(tlnode.field_decls) do
+                add_literal(upvs, literals, field.name)
+            end
+        end
+    end
+
     analyze:Program(prog_ast, upvs, literals)
 
     for _, tlnode in ipairs(prog_ast) do

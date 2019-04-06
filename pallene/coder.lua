@@ -56,7 +56,7 @@ local whole_file_template = [[
 
 #include "math.h"
 
-${STRUCTS}
+${CRECORDS_DECLARATIONS}
 
 ${DEFINE_FUNCTIONS}
 
@@ -682,15 +682,15 @@ function RecordCoder.new(tl_node)
 end
 
 function RecordCoder:struct()
-    return string.format("struct record_%s", self.tl_node.name)
+    return string.format("struct crecord_%s", self.tl_node.name)
 end
 
-function RecordCoder:index()
-    return string.format("record_index_%s", self.tl_node.name)
+function RecordCoder:index(field)
+    return string.format("crecord_index_%s_%s", self.tl_node.name, field)
 end
 
-function RecordCoder:newindex()
-    return string.format("record_newindex_%s", self.tl_node.name)
+function RecordCoder:newindex(field)
+    return string.format("crecord_newindex_%s_%s", self.tl_node.name, field)
 end
 
 function RecordCoder:field(name)
@@ -785,160 +785,90 @@ function RecordCoder:set_field(udata, field_name, cvalue)
     end
 end
 
-function RecordCoder:dyn_dispatch_bin(i, j, args)
-    local n = j - i + 1
-    if n < 1 then
-        return string.format("goto %s;", args.errlabel)
-    end
-    local m = i + n // 2
-    local field_name = args.fields[m].name
-    local cmp = args.ctx:new_cvar("int")
-    local out = util.render([[
-        ${CMP_DECL} = strcmp(${KEY}, ${FIELD});
-        if (${CMP} == 0) {
-            ${ACTION}
-        }
-        else if (${CMP} < 0) {
-            ${LOWER}
-        }
-        else {
-            ${GREATER}
-        }
-    ]], {
-        CMP = cmp.name,
-        CMP_DECL = c_declaration(cmp),
-        KEY = args.key,
-        FIELD = c_string(field_name),
-        ACTION = args.action(field_name),
-        LOWER = self:dyn_dispatch_bin(i, m - 1, args),
-        GREATER = self:dyn_dispatch_bin(m + 1, j, args),
-    })
-    return out
-end
-
--- Call action (field_name -> c_decl) for each field
-function RecordCoder:dyn_dispatch(key, action, errlabel, ctx)
-    local sorted_fields = {}
-    for _, field in ipairs(self.tl_node.field_decls) do
-        table.insert(sorted_fields, field)
-    end
-    table.sort(sorted_fields, function(a, b) return a.name < b.name end)
-    return self:dyn_dispatch_bin(1, #sorted_fields, {
-        fields = sorted_fields,
-        key = key,
-        action = action,
-        errlabel = errlabel,
-        ctx = ctx,
-    })
-end
-
-function RecordCoder:declare_index()
+function RecordCoder:declare_index(field_name)
     local ctx = Context.new()
-
-    local cstats = {}
-
-    local rec_typ = types.T.Record(self.tl_node)
-    local udata = ctx:new_tvar(rec_typ)
-    local udata_init = get_slot(rec_typ, "s2v(L->ci->func + 1)")
-    table.insert(cstats, init_cvar(udata, udata_init))
-    table.insert(cstats, "(void)" .. udata.name .. ";")
-
-    local key = ctx:new_cvar("const char *")
-    table.insert(cstats, init_cvar(key, "svalue(s2v(L->ci->func + 2))"))
-
-    local action = function(field_name)
-        local src_slot, typ = self:field_slot(udata.name, field_name)
-        local dst_slot = "s2v(L->ci->func + 2)"
-        local value = ctx:new_tvar(typ)
-        local init = types.is_gc(typ) and get_slot(typ, src_slot) or src_slot
-        local stats = {}
-        table.insert(stats, init_cvar(value, init))
-        table.insert(stats, set_stack_slot(typ, dst_slot, value.name))
-        return table.concat(stats, "\n")
-    end
-    table.insert(cstats, self:dyn_dispatch(key.name, action, "err", ctx))
-
+    local src_slot, typ = self:field_slot('u', field_name)
+    local value = types.is_gc(typ) and get_slot(typ, src_slot) or src_slot
     local out = util.render([[
-        static int ${NAME}(lua_State *L)
+        static void ${NAME}(lua_State *L, Udata *u, TValue *out)
         {
-            ${CSTATS}
-            return 1;
-
-          err:
-            return pallene_runtime_record_index_error(L, ${KEY});
+            ${SET_STACK_SLOT}
         }
     ]], {
-        CSTATS = table.concat(cstats, "\n"),
-        NAME = self:index(),
-        KEY = key.name,
+        NAME = self:index(field_name),
+        SET_STACK_SLOT = set_stack_slot(typ, 'out', value),
     })
     return out
 end
 
-function RecordCoder:declare_newindex()
+function RecordCoder:declare_newindex(field_name)
     local ctx = Context.new()
-
-    local cstats = {}
-
-    table.insert(cstats, upvalues_init_local_cvars(ctx))
-
-    local rec_typ = types.T.Record(self.tl_node)
-    local udata = ctx:new_tvar(rec_typ)
-    local udata_init = get_slot(rec_typ, "s2v(L->ci->func + 1)")
-    table.insert(cstats, init_cvar(udata, udata_init))
-    table.insert(cstats, "(void)" .. udata.name .. ";")
-
-    local key = ctx:new_cvar("const char *")
-    table.insert(cstats, init_cvar(key, "svalue(s2v(L->ci->func + 2))"))
-
-    local src_slot = ctx:new_cvar("TValue *")
-    table.insert(cstats, init_cvar(src_slot, "s2v(L->ci->func + 3)"))
-    table.insert(cstats, "(void)" .. src_slot.name .. ";")
-
-    local action = function(field_name)
-        local typ = self:field_type(field_name)
-        local value = ctx:new_tvar(typ)
-        local stats = {}
-        table.insert(stats, util.render([[
+    local typ = self:field_type(field_name)
+    local init_upvalues = ''
+    if typ._tag == types.T.Record then
+        init_upvalues = upvalues_init_local_cvars(ctx)
+    end
+    local out = util.render([[
+        static void ${NAME}(lua_State *L, Udata *u, TValue *v)
+        {
+            ${INIT_UPVALUES}
             if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
                 pallene_runtime_record_type_error(L, ${KEY}, ${EXPECTED_TAG}, rawtt(${SRC_SLOT}));
             }
-        ]], {
-            CHECK_TAG = check_tag(typ, src_slot.name, ctx),
-            KEY = key.name,
-            EXPECTED_TAG = pallene_type_tag(typ),
-            SRC_SLOT = src_slot.name,
-        }))
-        table.insert(stats, init_cvar(value, get_slot(typ, src_slot.name)))
-        table.insert(stats, self:set_field(udata.name, field_name, value.name))
-        return table.concat(stats, "\n")
-    end
-    table.insert(cstats, self:dyn_dispatch(key.name, action, "err", ctx))
-
-    local out = util.render([[
-        static int ${NAME}(lua_State *L)
-        {
-            ${CSTATS}
-            return 0;
-
-          err:
-            return pallene_runtime_record_index_error(L, ${KEY});
+            ${SET_FIELD}
         }
     ]], {
-        CSTATS = table.concat(cstats, "\n"),
-        NAME = self:newindex(),
-        KEY = key.name,
+        INIT_UPVALUES = init_upvalues,
+        NAME = self:newindex(field_name),
+        CHECK_TAG = check_tag(typ, 'v', ctx),
+        KEY = c_string(field_name),
+        EXPECTED_TAG = pallene_type_tag(typ),
+        SRC_SLOT = 'v',
+        SET_FIELD = self:set_field('u', field_name, get_slot(typ, 'v'))
     })
     return out
 end
 
 function RecordCoder:make_declarations()
-    local decls = {
-        self:declare_struct(),
-        self:declare_index(),
-        self:declare_newindex(),
-    }
+    local decls = {}
+    table.insert(decls, self:declare_struct())
+    for _, field in ipairs(self.tl_node.field_decls) do
+        table.insert(decls, self:declare_index(field.name))
+        table.insert(decls, self:declare_newindex(field.name))
+    end
     return table.concat(decls, "\n")
+end
+
+function RecordCoder:create_dispatcher(type, ctx)
+    local cstats = {}
+
+    local d = ctx:new_tvar(metatable_type)
+    table.insert(cstats, util.render([[
+        ${D_DECL} = luaH_new(L);
+        luaH_resize(L, ${D}, 0, ${N});
+    ]], {
+        D_DECL = c_declaration(d),
+        D = d.name,
+        N = #self.tl_node.field_decls,
+    }))
+
+    for _, field in ipairs(self.tl_node.field_decls) do
+        local typ = types.T.Function({}, {})
+        local fslot = ctx:new_cvar(ctype(typ))
+        table.insert(cstats, util.render([[
+            ${FSLOT_DECL};
+            setfvalue(&${FSLOT}, (int(*)(lua_State *))${F});
+            ${SET_FIELD}
+        ]], {
+            FSLOT_DECL = c_declaration(fslot),
+            F = self[type](self, field.name),
+            FSLOT = fslot.name,
+            SET_FIELD = table_set_new_field(
+                d.name, field.name, typ, fslot.name, ctx),
+        }))
+    end
+
+    return table.concat(cstats), d.name
 end
 
 function RecordCoder:create_metatable(ctx)
@@ -947,28 +877,34 @@ function RecordCoder:create_metatable(ctx)
     local mt = ctx:new_tvar(metatable_type)
     table.insert(cstats, util.render([[
         ${MT_DECL} = luaH_new(L);
+        luaH_resize(L, ${MT}, 2, 3);
     ]], {
         MT_DECL = c_declaration(mt),
+        MT = mt.name,
     }))
 
-    local function set_function(key, f)
-        local typ = types.T.Function({}, {})
-        local fslot = ctx:new_cvar(ctype(typ))
-        local out = util.render([[
-            ${FSLOT_DECL};
-            setfvalue(&${FSLOT}, ${F});
-            ${SET_FIELD}
+    for i, type in ipairs{'index', 'newindex'} do
+        local dispatcher_cstats, dispatcher = self:create_dispatcher(type, ctx)
+        table.insert(cstats, dispatcher_cstats)
+        table.insert(cstats, util.render([[
+            sethvalue(L, &${MT_NAME}->array[${I}], ${DISPATCHER});
         ]], {
-            F = f,
-            FSLOT = fslot.name,
-            FSLOT_DECL = c_declaration(fslot),
-            SET_FIELD = table_set_new_field(mt.name, key, typ, fslot.name, ctx),
-        })
-        return out
+            MT_NAME = mt.name,
+            I = i - 1,
+            DISPATCHER = dispatcher,
+        }))
     end
 
-    table.insert(cstats, set_function("__index", self:index()))
-    table.insert(cstats, set_function("__newindex", self:newindex()))
+    for _, type in ipairs{'index', 'newindex'} do
+        local field_cstats, field = table_newkey(mt.name, "__" .. type, ctx)
+        table.insert(cstats, field_cstats)
+        table.insert(cstats, util.render([[
+            setfvalue(${SLOT}, (int(*)(lua_State *))${FNAME});
+        ]], {
+            SLOT = field,
+            FNAME = 'crecord_' .. type,
+        }))
+    end
 
     table.insert(cstats, table_set_new_field(mt.name, "__metatable",
             types.T.Boolean(), c_boolean(false), ctx))
@@ -991,6 +927,44 @@ function RecordCoder:create_instance(typ, ctx)
     })
     return cstats, udata.name
 end
+
+local crecord_metamethods = [[
+static int crecord_index(lua_State *L)
+{
+    Udata *u = uvalue(s2v(L->ci->func + 1));
+    TValue *v = s2v(L->ci->func + 2);
+    if (PALLENE_UNLIKELY(!ttisstring(v))) {
+        pallene_runtime_record_nonstr_error(L, rawtt(v));
+    }
+    Table *t = hvalue(u->metatable->array);
+    const TValue *f = luaH_getstr(t, tsvalue(v));
+    if (PALLENE_UNLIKELY(!ttisfunction(f))) {
+        pallene_runtime_record_index_error(L, svalue(v));
+    }
+    void (*getfield)(lua_State *, Udata *, TValue *) =
+        (void (*)(lua_State *, Udata *, TValue *))fvalue(f);
+    getfield(L, u, v);
+    return 1;
+}
+
+static int crecord_newindex(lua_State *L)
+{
+    Udata *u = uvalue(s2v(L->ci->func + 1));
+    TValue *v = s2v(L->ci->func + 2);
+    if (PALLENE_UNLIKELY(!ttisstring(v))) {
+        pallene_runtime_record_nonstr_error(L, rawtt(v));
+    }
+    Table *t = hvalue(u->metatable->array + 1);
+    const TValue *f = luaH_getstr(t, tsvalue(v));
+    if (PALLENE_UNLIKELY(!ttisfunction(f))) {
+        pallene_runtime_record_index_error(L, svalue(v));
+    }
+    void (*setfield)(lua_State *, Udata *, TValue *) =
+        (void (*)(lua_State *, Udata *, TValue *))fvalue(f);
+    setfield(L, u, s2v(L->ci->func + 3));
+    return 0;
+}
+]]
 
 --
 -- code generation
@@ -1473,12 +1447,16 @@ end
 -- @return (string) C code for the whole module
 generate_program = function(prog_ast, modname)
     -- Records
-    local structs = {}
+    local crecords = {}
     for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == ast.Toplevel.Record then
             tl_node._rec = RecordCoder.new(tl_node)
-            table.insert(structs, tl_node._rec:make_declarations())
+            table.insert(crecords, tl_node._rec:make_declarations())
         end
+    end
+
+    if #crecords > 0 then
+        table.insert(crecords, crecord_metamethods)
     end
 
     -- Name all the function entry points
@@ -1510,7 +1488,7 @@ generate_program = function(prog_ast, modname)
     local luaopen_function = generate_luaopen(prog_ast, modname)
 
     local code = util.render(whole_file_template, {
-        STRUCTS = table.concat(structs, "\n\n"),
+        CRECORDS_DECLARATIONS = table.concat(crecords, "\n\n"),
         DEFINE_FUNCTIONS = define_functions,
         LUAOPEN_FUNCTION = luaopen_function,
     })
