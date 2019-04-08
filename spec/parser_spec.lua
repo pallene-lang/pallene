@@ -239,6 +239,19 @@ describe("Pallene parser", function()
                     {_tag = ast.Type.Name, name = "int" } } } )
     end)
 
+    it("can parse lua record types", function()
+        assert_type_ast("{ x: float, y : float }",
+            { _tag = ast.Type.LuaRecord,
+              field_decls = {
+                { name = "x", type = { _tag = ast.Type.Float } },
+                { name = "y", type = { _tag = ast.Type.Float } } } })
+
+        assert_type_ast("{ a: {integer} }",
+            { _tag = ast.Type.LuaRecord,
+              field_decls = {
+                { name = "a", type = { _tag = ast.Type.Array } } } })
+    end)
+
     describe("can parse function types", function()
         it("with parameter lists of length = 0", function()
             assert_type_ast("() -> ()",

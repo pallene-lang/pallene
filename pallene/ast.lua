@@ -16,6 +16,7 @@ declare_type("Type", {
     Name     = {"loc", "name"},
     Array    = {"loc", "subtype"},
     Function = {"loc", "argtypes", "rettypes"},
+    LRecord  = {"loc", "field_decls"},
 })
 
 declare_type("Toplevel", {
