@@ -42,6 +42,11 @@ function ast_iterator:Type(typ, ...)
             self:Type(typ.rettypes[i], ...)
         end
 
+    elseif tag == ast.Type.LRecord then
+        for i = 1, #typ.field_decls do
+            self:Decl(typ.field_decls[i], ...)
+        end
+
     else
         error("impossible")
     end
