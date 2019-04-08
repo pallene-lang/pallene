@@ -15,6 +15,7 @@ declare_type("T", {
     String   = {},
     Function = {"params", "rettypes"},
     Array    = {"elem"},
+    LRecord  = {"fields"},
     Record   = {"type_decl"},
     Builtin  = {"builtin_decl"},
 })
@@ -33,6 +34,7 @@ function types.is_gc(t)
     return tag == types.T.String or
            tag == types.T.Function or
            tag == types.T.Array or
+           tag == types.T.LRecord or
            tag == types.T.Record
 end
 
@@ -72,10 +74,24 @@ function types.equals(t1, t2)
         end
 
         return true
-    elseif tag1 == tag2 then
+    elseif tag1 == types.T.LRecord and tag2 == types.T.LRecord then
+        local f1 = t1.fields
+        local f2 = t2.fields
+        for name in pairs(f1) do
+            if not f2[name] or not types.equals(f1[name], f2[name]) then
+                return false
+            end
+        end
+
+        for name in pairs(f2) do
+            if not f1[name] or not types.equals(f1[name], f2[name]) then
+                return false
+            end
+        end
+
         return true
     else
-        return false
+        return tag1 == tag2
     end
 end
 
@@ -91,6 +107,20 @@ function types.tostring(t)
         return "function" -- TODO implement
     elseif tag == types.T.Array then
         return "{ " .. types.tostring(t.elem) .. " }"
+    elseif tag == types.T.LRecord then
+        local sorted_fields = {}
+        for name, typ in pairs(t.fields) do
+            table.insert(sorted_fields, {name = name, typ = typ})
+        end
+        table.sort(sorted_fields, function(a, b) return a.name < b.name end)
+
+        local parts = {}
+        for _, field in ipairs(sorted_fields) do
+            local typ = types.tostring(field.typ)
+            table.insert(parts, string.format("%s: %s", field.name, typ))
+        end
+
+        return "{ " .. table.concat(parts, ", ") .. " }"
     elseif tag == types.T.Record then
         return t.type_decl.name
     elseif tag == types.T.Builtin then
