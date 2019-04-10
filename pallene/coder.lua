@@ -1339,10 +1339,13 @@ local function generate_lvalue_read(lvalue, ctx)
         local out = ctx:new_tvar(typ)
         local cstats = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
-            if (PALLENE_UNLIKELY(${UI} >= ${T}->sizearray)) {
-                pallene_renormalize_array(L, ${T}, ${UI}, ${LINE});
+            ${ARRSLOT_DECL};
+            if (PALLENE_LIKELY(${UI} < ${T}->sizearray)) {
+                ${ARRSLOT} = &${T}->array[${UI}];
             }
-            ${ARRSLOT_DECL} = &${T}->array[${UI}];
+            else {
+                ${ARRSLOT} = (TValue *)luaH_getint(${T}, ${I});
+            }
             if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
                 pallene_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
             }
@@ -1437,22 +1440,33 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         local typ = lvalue.var._type
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
         local slot = ctx:new_cvar("TValue *", "slot")
+        local keyslot = ctx:new_cvar("TValue", "keyslot")
         local out = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
-            if (PALLENE_UNLIKELY(${UI} >= ${T}->sizearray)) {
-                pallene_renormalize_array(L, ${T}, ${UI}, ${LINE});
+            ${SLOT_DECL};
+            if (PALLENE_LIKELY(${UI} < ${T}->sizearray)) {
+                ${SLOT} = &${T}->array[${UI}];
             }
-            ${SLOT_DECL} = &${T}->array[${UI}];
+            else {
+                ${SLOT} = (TValue *)luaH_getint(${T}, ${I});
+                if (PALLENE_UNLIKELY(${SLOT} == luaH_emptyobject)) {
+                    ${KEYSLOT_DECL};
+                    setivalue(&${KEYSLOT}, ${I});
+                    ${SLOT} = luaH_newkey(L, ${T}, &${KEYSLOT});
+                }
+            }
             ${SET_SLOT}
         ]], {
             T = lvalue.t_varname,
             I = lvalue.i_varname,
             UI = ui.name,
             UI_DECL = c_declaration(ui),
+            SLOT = slot.name,
             SLOT_DECL = c_declaration(slot),
+            KEYSLOT = keyslot.name,
+            KEYSLOT_DECL = c_declaration(keyslot),
             SET_SLOT = set_heap_slot(
                 typ, slot.name, exp_cvalue, lvalue.t_varname),
-            LINE = lvalue.var.loc.line,
         })
         return out
 
