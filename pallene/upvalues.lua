@@ -107,6 +107,18 @@ analyze_upvalues = function(prog_ast)
     prog_ast._literals = literals
 end
 
+function analyze:Type(typ, upvs, literals)
+    local tag = typ._tag
+    if     tag == ast.Type.LRecord then
+        for _, field in ipairs(typ.field_decls) do
+            add_literal(upvs, literals, field.name)
+        end
+
+    else
+        ast_iterator.Type(self, typ, upvs, literals)
+    end
+end
+
 function analyze:Exp(exp, upvs, literals)
     local tag = exp._tag
     if     tag == ast.Exp.String then
