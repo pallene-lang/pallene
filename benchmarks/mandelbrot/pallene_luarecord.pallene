@@ -1,0 +1,28 @@
+function new(x: float, y: float): {re: float, im: float}
+    return { re = x, im = y }
+end
+
+function clone(x: {re: float, im: float}): {re: float, im: float}
+    return new(x.re, x.im)
+end
+
+function conj(x: {re: float, im: float}): {re: float, im: float}
+    return new(x.re, -x.im)
+end
+
+function add(x: {re: float, im: float}, y: {re: float, im: float}): {re: float, im: float}
+    return new(x.re + y.re, x.im + y.im)
+end
+
+function mul(x: {re: float, im: float}, y: {re: float, im: float}): {re: float, im: float}
+    return new(x.re * y.re - x.im * y.im, x.re * y.im + x.im * y.re)
+end
+
+function norm2(x: {re: float, im: float}): float
+    return x.re * x.re + x.im * x.im
+end
+
+function abs(x: {re: float, im: float}): float
+--    return math.sqrt(norm2(x))
+    return norm2(x)
+end

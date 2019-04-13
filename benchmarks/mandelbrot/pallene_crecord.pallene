@@ -1,0 +1,33 @@
+record point
+    re: float
+    im: float
+end
+
+function new(x: float, y: float): point
+    return { re = x, im = y }
+end
+
+function clone(x: point): point
+    return new(x.re, x.im)
+end
+
+function conj(x: point): point
+    return new(x.re, -x.im)
+end
+
+function add(x: point, y: point): point
+    return new(x.re + y.re, x.im + y.im)
+end
+
+function mul(x: point, y: point): point
+    return new(x.re * y.re - x.im * y.im, x.re * y.im + x.im * y.re)
+end
+
+function norm2(x: point): float
+    return x.re * x.re + x.im * x.im
+end
+
+function abs(x: point): float
+--    return math.sqrt(norm2(x))
+    return norm2(x)
+end
