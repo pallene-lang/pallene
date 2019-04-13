@@ -1,0 +1,46 @@
+-- The Computer Language Benchmarks Game
+-- http://benchmarksgame.alioth.debian.org/
+-- contributed by Mike Pall
+-- modified by Geoff Leyland
+-- modified by Mario Pernici
+
+function makebody(x: float, y: float, z: float, vx: float, vy: float, vz: float, mass:float): {x: float, y:float, z: float, vx: float, vy: float, vz: float, mass:float}
+    return { x = x, y = y, z = z, vx = vx, vy = vy, vz = vz, mass = mass }
+end
+
+function advance(bodies: {{x: float, y:float, z: float, vx: float, vy: float, vz: float, mass:float}}, dt: float)
+  for i=1, #bodies do
+    local bi = bodies[i]
+    local bix = bi.x
+    local biy = bi.y
+    local biz = bi.z
+    local bimass = bi.mass
+    local bivx = bi.vx
+    local bivy = bi.vy
+    local bivz = bi.vz
+    for j=i+1, #bodies do
+      local bj = bodies[j]
+      local dx = bix-bj.x
+      local dy = biy-bj.y
+      local dz = biz-bj.z
+      local dist2 = dx*dx + dy*dy + dz*dz
+      --local mag = math.sqrt(dist2)
+      local mag = dist2
+      mag = dt / (mag * dist2)
+      local bm = bj.mass*mag
+      bivx = bivx - (dx * bm)
+      bivy = bivy - (dy * bm)
+      bivz = bivz - (dz * bm)
+      bm = bimass*mag
+      bj.vx = bj.vx + (dx * bm)
+      bj.vy = bj.vy + (dy * bm)
+      bj.vz = bj.vz + (dz * bm)
+    end
+    bi.vx = bivx
+    bi.vy = bivy
+    bi.vz = bivz
+    bi.x = bix + dt * bivx
+    bi.y = biy + dt * bivy
+    bi.z = biz + dt * bivz
+  end
+end
