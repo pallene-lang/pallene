@@ -1,8 +1,9 @@
-local function new(x, y)
+
+function new(x: float, y: float): {x:float, y:float}
     return { x = x, y = y }
 end
 
-local function centroid(points, nrep)
+function centroid(points: {{x:float, y:float}}, nrep: integer): {x:float, y:float}
     local x = 0.0
     local y = 0.0
     local npoints = #points
@@ -17,8 +18,3 @@ local function centroid(points, nrep)
     end
     return { x = x / npoints, y = y / npoints }
 end
-
-return {
-    new = new,
-    centroid = centroid
-}

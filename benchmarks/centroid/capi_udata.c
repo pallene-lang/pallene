@@ -29,6 +29,11 @@ static lua_Number getnumber(lua_State *L, int slot)
 }
 
 
+struct point {
+    lua_Number x;
+    lua_Number y;
+};
+
 static int new(lua_State *L)
 {
     check_nargs(L, 2);
@@ -36,13 +41,11 @@ static int new(lua_State *L)
     // 2 = y
     // 3 = out
 
-    lua_newtable(L);
+    struct point *p = lua_newuserdata(L, sizeof(struct point));
+    p->x = getnumber(L, 1);
+    p->y = getnumber(L, 2);
 
-    lua_pushvalue(L, 1);
-    lua_seti(L, 3, 1);
-
-    lua_pushvalue(L, 2);
-    lua_seti(L, 3, 2);
+    luaL_setmetatable(L, "point");
 
     return 1;
 }
@@ -71,16 +74,12 @@ static int centroid(lua_State *L)
             // 5 = p[2]
             lua_geti(L, 1, i);
 
-            lua_geti(L, 3, 1);
-            lua_Number dx = getnumber(L, -1);
+            struct point *p = luaL_checkudata(L, -1, "point");
 
-            lua_geti(L, 3, 2);
-            lua_Number dy = getnumber(L, -1);
+            x = x + p->x;
+            y = y + p->y;
 
-            x = x + dx;
-            y = y + dy;
-
-            lua_pop(L, 3);
+            lua_pop(L, 1);
         }
     }
 
@@ -88,10 +87,10 @@ static int centroid(lua_State *L)
     lua_newtable(L);
 
     lua_pushnumber(L, x/npoints);
-    lua_seti(L, 3, 1);
+    lua_setfield(L, 3, "x");
 
     lua_pushnumber(L, y/npoints);
-    lua_seti(L, 3, 2);
+    lua_setfield(L, 3, "y");
 
     return 1;
 }
@@ -102,8 +101,10 @@ static luaL_Reg capi_funcs[] = {
     { NULL, NULL}
 };
 
-int luaopen_benchmarks_centroid_capi(lua_State *L)
+int luaopen_benchmarks_centroid_capi_udata(lua_State *L)
 {
+    luaL_newmetatable(L, "point");
+    lua_pop(L, 1);
     luaL_newlib(L, capi_funcs);
     return 1;
 }
