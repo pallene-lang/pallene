@@ -21,4 +21,5 @@ local bench_cmd = benchlib.prepare_benchmark(
     args.lua, args.benchmark_path, args.extra_params)
 
 local res = mode.run(bench_cmd)
+print(bench_cmd)
 print(res)
