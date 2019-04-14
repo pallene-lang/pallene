@@ -106,7 +106,7 @@ benchlib.modes.chronos = {
         local ok, err, _, res = util.outputs_of_execute(measure_cmd)
         local t2 = chronos.nanotime()
         assert(ok, err)
-        return string.format("%.6f", t2 - t1)
+        return t2 - t1
     end,
 
     parse = function(delta)
