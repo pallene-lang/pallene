@@ -1,0 +1,81 @@
+#!/usr/bin/env lua
+
+local argparse = require "argparse"
+local benchlib = require "benchmarks.benchlib"
+local lfs = require "lfs"
+local util = require "pallene.util"
+
+local p = argparse(arg[0], "Pallene benchmark runner")
+p:argument("benchmark_path", "Path to benchmark implementation"):args(1)
+p:argument("n", "Number of runs"):args(1)
+p:argument("extra_params", "Additional parameters passed to benchmark"):args("*")
+local args = p:parse()
+
+local benchs = {}
+for file_name in lfs.dir(args.benchmark_path) do
+    local _, ext = util.split_ext(file_name)
+    local file = args.benchmark_path .. file_name
+    if ext == "pallene" or ext == "c" then
+        table.insert(benchs, {lua = benchlib.DEFAULT_LUA, file = file})
+    elseif file_name == "lua_puc.lua" then
+        table.insert(benchs, 1, {lua = benchlib.DEFAULT_LUA, file = file})
+    elseif file_name == "lua_luajit.lua" then
+        table.insert(benchs, {lua = "luajit", file = file})
+    elseif file_name == "lua.lua" then
+        table.insert(benchs, 1, {lua = benchlib.DEFAULT_LUA, file = file})
+        table.insert(benchs, {lua = "luajit", file = file})
+    end
+end
+
+local mode = benchlib.modes.chronos
+
+local function statistics(xs, avgbase)
+    local sum = 0.0
+    local min, max = math.huge, -math.huge
+    for _, x in ipairs(xs) do
+        min = math.min(min, x)
+        max = math.max(max, x)
+        sum = sum + x
+    end
+    local avg = sum / #xs
+    
+    local diffsqsum = 0.0
+    for _, x in ipairs(xs) do
+        diffsqsum = math.pow(x - avg, 2)
+    end
+    local stddev = math.sqrt(diffsqsum / #xs)
+
+    return {
+        avg = avg,
+        avgn = avg / (avgbase or avg),
+        stddev = stddev,
+        stddevn = stddev / avg,
+        min = min,
+        max = max,
+    }
+end
+
+local baseavg
+for _, bench in ipairs(benchs) do
+    local bench_cmd = benchlib.prepare_benchmark(bench.lua, bench.file,
+        args.extra_params)
+    io.write(bench_cmd)
+
+    results = {}
+    for i = 1, args.n do
+        local res = mode.run(bench_cmd)
+        table.insert(results, res)
+        io.write'.'
+        io.flush()
+    end
+
+    local st = statistics(results, baseavg)
+    if not baseavg then
+        baseavg = st.avg
+    end
+    io.write'\n'
+    print(string.format('%.6f & %.6f & %.6f & %.6f \\\\',
+        st.avg, st.avgn, st.stddev, st.stddevn))
+end
+
+os.exit(0)
