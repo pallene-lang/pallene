@@ -1,0 +1,19 @@
+-- The Computer Language Benchmarks Game
+-- http://benchmarksgame.alioth.debian.org/
+-- contributed by Mike Pall
+-- modified by Geoff Leyland
+-- modified by Mario Pernici
+
+record body
+    x: float
+    y: float
+    z: float
+    vx: float
+    vy: float
+    vz: float
+    mass: float
+end
+
+function makebody(x: float, y: float, z: float, vx: float, vy: float, vz: float, mass:float): body
+    return { x = x, y = y, z = z, vx = vx, vy = vy, vz = vz, mass = mass }
+end

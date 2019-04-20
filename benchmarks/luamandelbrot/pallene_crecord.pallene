@@ -1,0 +1,8 @@
+record point
+    re: float
+    im: float
+end
+
+function new(x: float, y: float): point
+    return { re = x, im = y }
+end
