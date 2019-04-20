@@ -29,7 +29,7 @@ If you want to use Pallene on Linux we also recommend installing the `readline`
 library:
 
 ```sh
-$ sudo apt install readline-dev   # for Ubuntu & Debian-based distros
+$ sudo apt install libreadline-dev   # for Ubuntu & Debian-based distros
 $ sudo dnf install readline-devel # for Fedora and OpenSUSE
 ```
 
