@@ -4,7 +4,7 @@ local nrep = tonumber(arg[3]) or N
 
 local t = {}
 for x = 1, N do
-    t[x] = x
+    t[x] = math.random(N)
 end
 
 local r = bs.test(t, nrep)
