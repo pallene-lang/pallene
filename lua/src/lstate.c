@@ -66,6 +66,7 @@ typedef struct LG {
 ** Compute an initial seed as random as possible. Rely on Address Space
 ** Layout Randomization (if present) to increase randomness..
 */
+#if 0
 #define addbuff(b,p,e) \
   { size_t t = cast_sizet(e); \
     memcpy(b + p, &t, sizeof(t)); p += sizeof(t); }
@@ -81,7 +82,12 @@ static unsigned int makeseed (lua_State *L) {
   lua_assert(p == sizeof(buff));
   return luaS_hash(buff, p, h);
 }
-
+#else
+static unsigned int makeseed (lua_State *L) {
+    (void)L;
+    return 0;
+}
+#endif
 
 /*
 ** set GCdebt to a new value keeping the value (totalbytes + GCdebt)
