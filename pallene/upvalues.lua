@@ -68,9 +68,11 @@ local function toplevel_is_value_declaration(tlnode)
 end
 
 local function add_literal(upvs, literals, lit)
-    local n = #upvs + 1
-    upvs[n] = upvalues.T.Literal(lit)
-    literals[lit] = n
+    if not literals[lit] then
+        local n = #upvs + 1
+        upvs[n] = upvalues.T.Literal(lit)
+        literals[lit] = n
+    end
 end
 
 local analyze = ast_iterator.new()
