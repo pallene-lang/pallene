@@ -39,8 +39,6 @@ local whole_file_template = [[
 
 #include <string.h>
 
-#include "pallene_core.h"
-
 #include "lua.h"
 #include "lauxlib.h"
 #include "lualib.h"
@@ -55,6 +53,8 @@ local whole_file_template = [[
 #include "lvm.h"
 
 #include "math.h"
+
+#include "pallene_core.h"
 
 ${CRECORDS_DECLARATIONS}
 
@@ -595,17 +595,21 @@ end
 
 local function table_getstr(tabl, lit, ctx)
     local key_cstats, key = literal_get(lit, ctx)
-    local field = ctx:new_cvar("TValue *")
+    local slot = ctx:new_cvar("TValue *")
+    local pos = ctx:new_cvar("static int")
     local cstats = util.render([[
         ${KEY_CSTATS}
-        ${SLOT_DECL} = (TValue *)luaH_getstr(${TABL}, ${KEY});
+        ${POS_DECL} = INT_MAX;
+        ${SLOT_DECL} = pallene_getstr(${T}, ${KEY}, &${POS});
     ]], {
         KEY_CSTATS = key_cstats,
         KEY = key,
-        SLOT_DECL = c_declaration(field),
-        TABL = tabl,
+        SLOT_DECL = c_declaration(slot),
+        POS_DECL = c_declaration(pos),
+        POS = pos.name,
+        T = tabl,
     })
-    return cstats, field.name
+    return cstats, slot.name
 end
 
 -- TODO: this should be types.T.LuaRecord()

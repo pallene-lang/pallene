@@ -60,4 +60,29 @@ TString *pallene_string_concatN(
 void pallene_renormalize_array(
     lua_State *L, Table *arr, unsigned int i, int line);
 
+static inline TValue *pallene_getstr(
+    Table *t, TString *key, int *pos)
+{
+    if (PALLENE_LIKELY(*pos < sizenode(t))) {
+       Node *n = gnode(t, *pos);
+       if (PALLENE_LIKELY(keyisshrstr(n) && eqshrstr(keystrval(n), key)))
+           return gval(n);
+    }
+    int currpos = lmod(key->hash, sizenode(t));
+    Node *n = gnode(t, currpos);
+    for (;;) {
+        if (keyisshrstr(n) && eqshrstr(keystrval(n), key)) {
+            *pos = currpos;
+            return gval(n);
+        }
+        else {
+            int nx = gnext(n);
+            if (nx == 0)
+                return (TValue *)luaH_emptyobject;  /* not found */
+            currpos += nx;
+            n += nx;
+        }
+    }
+}
+
 #endif

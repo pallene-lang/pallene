@@ -1,4 +1,4 @@
-#include "pallene_core.h"
+#include <string.h>
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -10,7 +10,7 @@
 #include "ltm.h"
 #include "ltable.h"
 
-#include <string.h>
+#include "pallene_core.h"
 
 const char *pallene_tag_name(int raw_tag)
 {
