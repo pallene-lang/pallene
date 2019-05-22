@@ -55,8 +55,8 @@ local errors = {
     AssignImport = "Expected '='.",
 
     --this label is not thrown in rule 'import' because rule 'toplevelvar'
-    --matches an input like "local bola = X", given that X is a valid expression,
-    --or throws a label when X is not a valid expression
+    --matches an input like "local bola = X", given that X is a valid
+    --expression, or throws a label when X is not a valid expression
     ImportImport = "Expected 'import' keyword.",
 
     StringLParImport = "Expected the name of a module after '('.",

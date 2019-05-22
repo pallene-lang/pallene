@@ -10,13 +10,13 @@ local names = setmetatable({}, {__mode = "k"})
 -- @param modname Name of the type's module (only used by tostring)
 -- @param typename Name of the type
 -- @param constructors Table describing the constructors of the ADT.
-function typedecl.declare(module, modname, typename, constructors)
-    module[typename] = {}
-    for consname, fields in pairs(constructors) do
+function typedecl.declare(module, mod_name, type_name, constructors)
+    module[type_name] = {}
+    for cons_name, fields in pairs(constructors) do
         local function cons(...)
             local args = table.pack(...)
             if args.n ~= #fields then
-                error("wrong number of arguments for " .. consname)
+                error("wrong number of arguments for " .. cons_name)
             end
             local node = { _tag = cons }
             for i, field in ipairs(fields) do
@@ -24,8 +24,8 @@ function typedecl.declare(module, modname, typename, constructors)
             end
             return node
         end
-        module[typename][consname] = cons
-        names[cons] = modname .. "." .. typename .. "." .. consname
+        module[type_name][cons_name] = cons
+        names[cons] = mod_name .. "." .. type_name .. "." .. cons_name
     end
 end
 

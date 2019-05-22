@@ -35,11 +35,11 @@ function ast_iterator:Type(typ, ...)
         self:Type(typ.subtype, ...)
 
     elseif tag == ast.Type.Function then
-        for i = 1, #typ.argtypes do
-            self:Type(typ.argtypes[i], ...)
+        for i = 1, #typ.arg_types do
+            self:Type(typ.arg_types[i], ...)
         end
-        for i = 1, #typ.rettypes do
-            self:Type(typ.rettypes[i], ...)
+        for i = 1, #typ.ret_types do
+            self:Type(typ.ret_types[i], ...)
         end
 
     else
@@ -47,24 +47,24 @@ function ast_iterator:Type(typ, ...)
     end
 end
 
-function ast_iterator:Toplevel(tlnode, ...)
-    local tag = tlnode._tag
+function ast_iterator:Toplevel(tl_node, ...)
+    local tag = tl_node._tag
     if     tag == ast.Toplevel.Func then
-        for i = 1, #tlnode.params do
-            self:Decl(tlnode.params[i], ...)
+        for i = 1, #tl_node.params do
+            self:Decl(tl_node.params[i], ...)
         end
-        for i = 1, #tlnode.rettypes do
-            self:Type(tlnode.rettypes[i], ...)
+        for i = 1, #tl_node.ret_types do
+            self:Type(tl_node.ret_types[i], ...)
         end
-        self:Stat(tlnode.block, ...)
+        self:Stat(tl_node.block, ...)
 
     elseif tag == ast.Toplevel.Var then
-        self:Decl(tlnode.decl, ...)
-        self:Exp(tlnode.value, ...)
+        self:Decl(tl_node.decl, ...)
+        self:Exp(tl_node.value, ...)
 
     elseif tag == ast.Toplevel.Record then
-        for i = 1, #tlnode.field_decls do
-            self:Decl(tlnode.field_decls[i], ...)
+        for i = 1, #tl_node.field_decls do
+            self:Decl(tl_node.field_decls[i], ...)
         end
 
     elseif tag == ast.Toplevel.Import then
@@ -127,7 +127,7 @@ function ast_iterator:Stat(stat, ...)
         self:Exp(stat.exp, ...)
 
     elseif tag == ast.Stat.Call then
-        self:Exp(stat.callexp, ...)
+        self:Exp(stat.call_exp, ...)
 
     elseif tag == ast.Stat.Return then
         for i = 1, #stat.exps do
@@ -145,8 +145,8 @@ function ast_iterator:Var(var, ...)
         -- Nothing to do
 
     elseif tag == ast.Var.Bracket then
-        self:Exp(var.exp1, ...)
-        self:Exp(var.exp2, ...)
+        self:Exp(var.t, ...)
+        self:Exp(var.k, ...)
 
     elseif tag == ast.Var.Dot then
         self:Exp(var.exp, ...)

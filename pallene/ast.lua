@@ -2,8 +2,8 @@ local typedecl = require "pallene.typedecl"
 
 local ast = {}
 
-local function declare_type(typename, cons)
-    typedecl.declare(ast, "ast", typename, cons)
+local function declare_type(type_name, cons)
+    typedecl.declare(ast, "ast", type_name, cons)
 end
 
 declare_type("Type", {
@@ -15,14 +15,14 @@ declare_type("Type", {
     Value    = {"loc"},
     Name     = {"loc", "name"},
     Array    = {"loc", "subtype"},
-    Function = {"loc", "argtypes", "rettypes"},
+    Function = {"loc", "arg_types", "ret_types"},
 })
 
 declare_type("Toplevel", {
-    Func    = {"loc", "islocal", "name", "params", "rettypes", "block"},
+    Func    = {"loc", "is_local", "name", "params", "ret_types", "block"},
     Var     = {"loc", "decl", "value"},
     Record  = {"loc", "name", "field_decls"},
-    Import  = {"loc", "localname", "modname"},
+    Import  = {"loc", "local_name", "mod_name"},
     Builtin = {"loc", "name"},
 })
 
@@ -38,13 +38,13 @@ declare_type("Stat", {
     For    = {"loc", "decl", "start", "limit", "step", "block"},
     Assign = {"loc", "var", "exp"},
     Decl   = {"loc", "decl", "exp"},
-    Call   = {"loc", "callexp"},
+    Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
 })
 
 declare_type("Var", {
     Name    = {"loc", "name"},
-    Bracket = {"loc", "exp1", "exp2"},
+    Bracket = {"loc", "t", "k"},
     Dot     = {"loc", "exp", "name"}
 })
 
@@ -74,16 +74,16 @@ declare_type("Field", {
 --
 
 -- Return the variable name declared by a given toplevel node
-function ast.toplevel_name(tlnode)
-    local tag = tlnode._tag
+function ast.toplevel_name(tl_node)
+    local tag = tl_node._tag
     if     tag == ast.Toplevel.Func then
-        return tlnode.name
+        return tl_node.name
     elseif tag == ast.Toplevel.Var then
-        return tlnode.decl.name
+        return tl_node.decl.name
     elseif tag == ast.Toplevel.Record then
-        return tlnode.name
+        return tl_node.name
     elseif tag == ast.Toplevel.Import then
-        return tlnode.localname
+        return tl_node.localname
     else
         error("impossible")
     end

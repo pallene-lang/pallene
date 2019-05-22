@@ -26,7 +26,7 @@ local function binary_search(xs, v)
     return lo
 end
 
-local newline_cache = setmetatable({}, { __mode = "k" })
+local new_line_cache = setmetatable({}, { __mode = "k" }) --new_line_cache?
 
 -- Converts an Lpeg file position into more familiar line and column numbers.
 --
@@ -34,37 +34,37 @@ local newline_cache = setmetatable({}, { __mode = "k" })
 -- @param pos A position in this file, as an absolute integer index
 -- @return The line and column number at the specified position.
 local function get_line_number(subject, pos)
-    local newlines
-    if newline_cache[subject] then
-        newlines = newline_cache[subject]
+    local new_lines
+    if new_line_cache[subject] then
+        new_lines = new_line_cache[subject]
     else
-        newlines = {}
+        new_lines = {}
         for n in subject:gmatch("()\n") do
-            table.insert(newlines, n)
+            table.insert(new_lines, n)
         end
-        newline_cache[subject] = newlines
+        new_line_cache[subject] = new_lines
     end
-    local line = binary_search(newlines, pos)
-    local col  = pos - (newlines[line - 1] or 0)
+    local line = binary_search(new_lines, pos)
+    local col  = pos - (new_lines[line - 1] or 0)
     return line, col
 end
 
-function location.new(filename, line, col)
+function location.new(file_name, line, col)
     return {
-        filename = filename,
+        file_name = file_name,
         line = line,
         col = col
     }
 end
 
-function location.from_pos(filename, source, pos)
+function location.from_pos(file_name, source, pos)
     local line, col = get_line_number(source, pos)
-    return location.new(filename, line, col)
+    return location.new(file_name, line, col)
 end
 
 function location.format_error(loc, fmt, ...)
     return string.format("%s:%d:%d: "..fmt,
-            loc.filename, loc.line, loc.col,
+            loc.file_name, loc.line, loc.col,
             ...)
 end
 

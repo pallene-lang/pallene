@@ -29,8 +29,8 @@ end
 --
 
 local function scope_error(errors, loc, fmt, ...)
-    local errmsg = location.format_error(loc, fmt, ...)
-    table.insert(errors, errmsg)
+    local err_msg = location.format_error(loc, fmt, ...)
+    table.insert(errors, err_msg)
 end
 
 local function add_builtins_to_symbol_table(st)
@@ -41,16 +41,16 @@ end
 
 local function process_toplevel(prog_ast, st, errors)
     st:with_block(function()
-        for _, tlnode in ipairs(prog_ast) do
-            local name = ast.toplevel_name(tlnode)
+        for _, tl_node in ipairs(prog_ast) do
+            local name = ast.toplevel_name(tl_node)
             local dup = st:find_dup(name)
             if dup then
-                scope_error(errors, tlnode.loc,
+                scope_error(errors, tl_node.loc,
                     "duplicate toplevel declaration for %s, previous one at line %d",
                     name, dup.loc.line)
             else
-                st:add_symbol(name, tlnode)
-                bind_names:Toplevel(tlnode, st, errors)
+                st:add_symbol(name, tl_node)
+                bind_names:Toplevel(tl_node, st, errors)
             end
         end
     end)
@@ -75,7 +75,8 @@ function bind_names:Type(type_node, st, errors)
         if decl then
             type_node._decl = decl
         else
-            scope_error(errors, type_node.loc, "type '%s' is not declared", name)
+            scope_error(errors, type_node.loc, "type '%s' is not declared",
+                name)
             type_node._decl = false
         end
 
@@ -84,31 +85,31 @@ function bind_names:Type(type_node, st, errors)
     end
 end
 
-function bind_names:Toplevel(tlnode, st, errors)
-    local tag = tlnode._tag
+function bind_names:Toplevel(tl_node, st, errors)
+    local tag = tl_node._tag
     if     tag == ast.Toplevel.Func then
-        for _, decl in ipairs(tlnode.params) do
+        for _, decl in ipairs(tl_node.params) do
             bind_names:Decl(decl, st, errors)
         end
-        for _, rettype in ipairs(tlnode.rettypes) do
+        for _, rettype in ipairs(tl_node.ret_types) do
             bind_names:Type(rettype, st, errors)
         end
 
         st:with_block(function()
-            for _, decl in ipairs(tlnode.params) do
+            for _, decl in ipairs(tl_node.params) do
                 if st:find_dup(decl.name) then
                     scope_error(errors, decl.loc,
                         "function '%s' has multiple parameters named '%s'",
-                        tlnode.name, decl.name)
+                        tl_node.name, decl.name)
                 else
                     st:add_symbol(decl.name, decl)
                 end
             end
-            bind_names:Stat(tlnode.block, st, errors)
+            bind_names:Stat(tl_node.block, st, errors)
         end)
 
     else
-        ast_iterator.Toplevel(self, tlnode, st, errors)
+        ast_iterator.Toplevel(self, tl_node, st, errors)
     end
 end
 

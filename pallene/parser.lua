@@ -19,14 +19,14 @@ local THIS_FILENAME = nil
 
 local defs = {}
 
-for tokname, tokpat in pairs(lexer) do
-    defs[tokname] = tokpat
+for token_name, token_pat in pairs(lexer) do
+    defs[token_name] = token_pat
 end
 
-for typename, conss in pairs(ast) do
+for type_name, conss in pairs(ast) do
     if type(conss) == "table" then
         for tag, cons in pairs(conss) do
-            local name = typename .. tag
+            local name = type_name .. tag
             assert(not defs[name])
             defs[name] = cons
         end
@@ -37,15 +37,15 @@ function defs.get_loc(s, pos)
     return true, location.from_pos(THIS_FILENAME, s, pos)
 end
 
-function defs.totrue()
+function defs.to_true()
     return true
 end
 
-function defs.tofalse()
+function defs.to_false()
     return false
 end
 
-function defs.rettypeopt(_pos, x)
+function defs.opt_ret_type(_pos, x)
     if not x then
         return { }
     else
@@ -60,7 +60,7 @@ function defs.opt(x)
         return x
     end
 end
-function defs.boolopt(x)
+function defs.opt_bool(x)
     return x ~= ""
 end
 
@@ -84,11 +84,11 @@ function defs.name_exp(pos, name)
     return ast.Exp.Var(pos, ast.Var.Name(pos, name))
 end
 
-function defs.ifstat(pos, exp, block, elseifs, elseopt)
-    local else_ = elseopt or ast.Stat.Block(pos, {})
+function defs.if_stat(pos, exp, block, else_ifs, else_opt)
+    local else_ = else_opt or ast.Stat.Block(pos, {})
 
-    for i = #elseifs, 1, -1 do
-        local e = elseifs[i]
+    for i = #else_ifs, 1, -1 do
+        local e = else_ifs[i]
         else_ = ast.Stat.If(e.pos, e.exp, e.block, else_)
     end
 
@@ -96,7 +96,7 @@ function defs.ifstat(pos, exp, block, elseifs, elseopt)
 end
 
 function defs.elseif_(pos, exp, block)
-    return { pos=pos, exp=exp, block=block }
+    return { pos = pos, exp = exp, block = block }
 end
 
 function defs.fold_binop_left(pos, matches)
@@ -149,13 +149,13 @@ end
 -- We represent the suffix of an expression by a function that receives the
 -- base expression and returns a full expression including the suffix.
 
-function defs.suffix_funccall(pos, args)
+function defs.suffix_func_call(pos, args)
     return function(exp)
         return ast.Exp.CallFunc(pos, exp,  args)
     end
 end
 
-function defs.suffix_methodcall(pos, name, args)
+function defs.suffix_method_call(pos, name, args)
     return function(exp)
         return ast.Exp.CallMethod(pos, exp, name, args)
     end
@@ -181,7 +181,7 @@ function defs.fold_suffixes(exp, suffixes)
     return exp
 end
 
-function defs.exp2var(exp)
+function defs.exp_to_var(exp)
     return exp.var
 end
 
@@ -220,14 +220,14 @@ local grammar = re.compile([[
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
 
-    localopt        <- (LOCAL)?                                  -> boolopt
+    localopt        <- (LOCAL)?                                  -> opt_bool
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
                            IMPORT^ImportImport
                           (LPAREN STRINGLIT^StringLParImport RPAREN^RParImport /
                           STRINGLIT^StringImport))               -> ToplevelImport
 
-    rettypeopt      <- (P  (COLON rettype^TypeFunc)?)            -> rettypeopt
+    rettypeopt      <- (P  (COLON rettype^TypeFunc)?)            -> opt_ret_type
 
     paramlist       <- {| (param (COMMA param^DeclParList)*)? |} -- produces {Decl}
 
@@ -277,7 +277,7 @@ local grammar = re.compile([[
                      / (P  REPEAT block UNTIL^UntilRepeat
                                       exp^ExpRepeat)             -> StatRepeat
                      / (P  IF exp^ExpIf THEN^ThenIf block
-                           elseifstats elseopt END^EndIf)        -> ifstat
+                           elseifstats elseopt END^EndIf)        -> if_stat
                      / (P  FOR decl^DeclFor
                            ASSIGN^AssignFor exp^Exp1For
                            COMMA^CommaFor exp^Exp2For
@@ -330,9 +330,9 @@ local grammar = re.compile([[
 
     suffixedexp     <- (prefixexp {| expsuffix+ |})              -> fold_suffixes
 
-    expsuffix       <- (P  funcargs)                             -> suffix_funccall
+    expsuffix       <- (P  funcargs)                             -> suffix_func_call
                      / (P  COLON NAME^NameColonExpSuf
-                                 funcargs^FuncArgsExpSuf)        -> suffix_methodcall
+                                 funcargs^FuncArgsExpSuf)        -> suffix_method_call
                      / (P  LBRACKET exp^ExpExpSuf
                                 RBRACKET^RBracketExpSuf)         -> suffix_bracket
                      / (P  DOT NAME^NameDotExpSuf)               -> suffix_dot
@@ -346,16 +346,16 @@ local grammar = re.compile([[
                      / simpleexp                                 -- produces Exp
 
     simpleexp       <- (P  NIL)                                  -> nil_exp
-                     / (P  FALSE -> tofalse)                     -> ExpBool
-                     / (P  TRUE -> totrue)                       -> ExpBool
+                     / (P  FALSE -> to_false)                     -> ExpBool
+                     / (P  TRUE -> to_true)                       -> ExpBool
                      / (P  NUMBER)                               -> number_exp
                      / (P  STRINGLIT)                            -> ExpString
                      / initlist                                  -- produces Exp
                      / suffixedexp                               -- produces Exp
                      / prefixexp                                 -- produces Exp
 
-    var             <- (suffixedexp => exp_is_var)               -> exp2var
-                     / (P  NAME !expsuffix)                      -> name_exp -> exp2var
+    var             <- (suffixedexp => exp_is_var)               -> exp_to_var
+                     / (P  NAME !expsuffix)                      -> name_exp -> exp_to_var
 
     funcargs        <- (LPAREN explist RPAREN^RParFuncArgs)      -- produces {Exp}
                      / {| initlist |}                            -- produces {Exp}
@@ -467,22 +467,22 @@ local grammar = re.compile([[
 ]], defs)
 
 local function parser_error(loc, label)
-    local errmsg = syntax_errors.errors[label]
-    return location.format_error(loc, "syntax error: %s", errmsg)
+    local err_msg = syntax_errors.errors[label]
+    return location.format_error(loc, "syntax error: %s", err_msg)
 end
 
-function parser.parse(filename, input)
+function parser.parse(file_name, input)
     -- Abort if someone calls this non-reentrant parser recursively
-    assert(type(filename) == "string")
+    assert(type(file_name) == "string")
     assert(THIS_FILENAME == nil)
 
-    THIS_FILENAME = filename
+    THIS_FILENAME = file_name
     local prog_ast, err, errpos = grammar:match(input)
     THIS_FILENAME = nil
 
     local errors = {}
     if not prog_ast then
-        local loc = location.from_pos(filename, input, errpos)
+        local loc = location.from_pos(file_name, input, errpos)
         table.insert(errors, parser_error(loc, err))
     end
     return prog_ast, errors

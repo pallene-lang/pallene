@@ -14,7 +14,7 @@ local function step_index(steps, name)
             return i
         end
     end
-    error("invalid step name "..name)
+    error("invalid step name " .. name)
 end
 
 local ast_passes = {
@@ -49,11 +49,11 @@ end
 --
 -- Emit C code, and save it to a file
 --
-local function compile_ast_to_c(prog_ast, c_filename, modname)
+local function compile_ast_to_c(prog_ast, c_filename, mod_name)
     local ok, err, errs
 
     local c_code
-    c_code, errs = coder.generate(prog_ast, modname)
+    c_code, errs = coder.generate(prog_ast, mod_name)
     if not c_code then return c_code, errs end
 
     ok, err = util.set_file_contents(c_filename, c_code)
@@ -62,14 +62,15 @@ local function compile_ast_to_c(prog_ast, c_filename, modname)
     return true, {}
 end
 
-local function compile_pallene_to_c(pallene_filename, c_filename, modname)
+local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
     local ok, errs
 
     local prog_ast
-    prog_ast, errs = compile_pallene_to_ast(pallene_filename, driver.last_ast_pass)
+    prog_ast, errs = compile_pallene_to_ast(pallene_filename,
+        driver.last_ast_pass)
     if not prog_ast then return false, errs end
 
-    ok, errs = compile_ast_to_c(prog_ast, c_filename, modname)
+    ok, errs = compile_ast_to_c(prog_ast, c_filename, mod_name)
     if not ok then return false, errs end
 
     return true, {}
@@ -83,16 +84,16 @@ local compiler_steps = {
     { name = "so",      f = false },
 }
 
-local function check_source_filename(argv0, filename, expected_ext)
-    local name, ext = util.split_ext(filename)
+local function check_source_filename(argv0, file_name, expected_ext)
+    local name, ext = util.split_ext(file_name)
     if ext ~= expected_ext then
         local msg = string.format("%s: %s does not have a .%s extension",
-            argv0, filename, expected_ext)
+            argv0, file_name, expected_ext)
         return false, msg
     end
     if not string.match(name, "^[a-zA-Z0-9_/]+$") then
         local msg = string.format("%s: filename %s is non-alphanumeric",
-            argv0, filename)
+            argv0, file_name)
         return false, msg
     end
     return name
@@ -107,11 +108,12 @@ end
 --    compile("pallene", "c", "foo.pallene")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)          --> outputs "foo.so"
 --
-function driver.compile(argv0, input_ext, output_ext, input_filename)
-    local basename, err = check_source_filename(argv0, input_filename, input_ext)
-    if not basename then return false, {err} end
+function driver.compile(argv0, input_ext, output_ext, input_file_name)
+    local base_name, err = check_source_filename(argv0, input_file_name,
+        input_ext)
+    if not base_name then return false, {err} end
 
-    local modname = string.gsub(basename, "/", "_")
+    local mod_name = string.gsub(base_name, "/", "_")
 
     local first_step = step_index(compiler_steps, input_ext)
     local last_step  = step_index(compiler_steps, output_ext)
@@ -119,7 +121,7 @@ function driver.compile(argv0, input_ext, output_ext, input_filename)
 
     local file_names = {}
     for i, step in ipairs(compiler_steps) do
-        file_names[i] = basename .. "." .. step.name
+        file_names[i] = base_name .. "." .. step.name
     end
 
     local ok, errs
@@ -127,7 +129,7 @@ function driver.compile(argv0, input_ext, output_ext, input_filename)
         local f = compiler_steps[i].f
         local src = file_names[i]
         local out = file_names[i+1]
-        ok, errs = f(src, out, modname)
+        ok, errs = f(src, out, mod_name)
         if not ok then break end
     end
 
@@ -143,8 +145,8 @@ end
 -- This is meant for unit tests.
 --
 function driver.test_ast(stop_after, input_filename)
-    local basename, err = check_source_filename("pallenec test", input_filename, "pallene")
-    if not basename then return false, {err} end
+    local base_name, err = check_source_filename("pallenec test", input_filename, "pallene")
+    if not base_name then return false, {err} end
 
     return compile_pallene_to_ast(input_filename, stop_after)
 end

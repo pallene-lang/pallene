@@ -5,11 +5,11 @@ local builtins = require "pallene.builtins"
 local location = require "pallene.location"
 local types = require "pallene.types"
 
-local typecheck
+local type_check -- typecheck turns type_check?
 
 local check_program
 local check_type
-local check_toplevel
+local check_top_level
 local check_decl
 local check_stat
 --local check_then
@@ -33,23 +33,23 @@ local check_exp
 -- @ param prog_ast AST for the whole module
 -- @ return true or false, followed by as list of compilation errors
 function checker.check(prog_ast)
-    return typecheck(prog_ast)
+    return type_check(prog_ast)
 end
 
 --
 -- local functions
 --
 
-local TypeError = {}
-TypeError.__index = TypeError
+local Type_Error = {} -- TypeError turns type_error?
+Type_Error.__index = Type_Error
 
-function TypeError.new(msg)
-    return setmetatable({ msg = msg }, TypeError)
+function Type_Error.new(msg)
+    return setmetatable({ msg = msg }, Type_Error)
 end
 
 local function type_error(loc, fmt, ...)
-    local errmsg = location.format_error(loc, "type error: "..fmt, ...)
-    error(TypeError.new(errmsg))
+    local err_msg = location.format_error(loc, "type error: "..fmt, ...)
+    error(Type_Error.new(err_msg))
 end
 
 -- Checks if two types are the same, and logs an error message otherwise
@@ -58,9 +58,9 @@ end
 --   found: type that was actually present
 --   termfmt: format string describing what is being compared
 --   ...: arguments to the "term" format string
-local function checkmatch(loc, expected, found, termfmt, ...)
+local function check_match(loc, expected, found, term_fmt, ...)
     if not types.equals(expected, found) then
-        local term = string.format(termfmt, ...)
+        local term = string.format(term_fmt, ...)
         local expected_str = types.tostring(expected)
         local found_str = types.tostring(found)
         local msg = string.format(
@@ -70,18 +70,18 @@ local function checkmatch(loc, expected, found, termfmt, ...)
     end
 end
 
-local function check_arity(loc, expected, found, termfmt, ...)
+local function check_arity(loc, expected, found, term_fmt, ...)
     if expected ~= found then
-        local term = string.format(termfmt, ...)
+        local term = string.format(term_fmt, ...)
         local msg = string.format("%s: expected %d value(s) but found %d",
             term, expected, found)
         type_error(loc, msg)
     end
 end
 
-local function check_is_array(loc, found, termfmt, ...)
+local function check_is_array(loc, found, term_fmt, ...)
     if found._tag ~= types.T.Array then
-        local term = string.format(termfmt, ...)
+        local term = string.format(term_fmt, ...)
         local found_str = types.tostring(found)
         local msg = string.format("%s: expected array but found %s",
             term, found_str)
@@ -145,12 +145,12 @@ end
 -- check
 --
 
-typecheck = function(prog_ast)
-    local ok, err = xpcall(check_program, debug.traceback, prog_ast)
+type_check = function(prog_ast)
+    local ok, err = xpcall(check_program, debug.traceback, prog_ast) --trace_back
     if ok then
         return prog_ast, {} -- TODO:  no {}
     else
-        if getmetatable(err) == TypeError then
+        if getmetatable(err) == Type_Error then
             return false, { err.msg } -- TODO  no {}
         else
             error(err)
@@ -173,8 +173,8 @@ check_program = function(prog_ast)
         decl._type = types.T.Builtin(decl)
     end
 
-    for _, tlnode in ipairs(prog_ast) do
-        check_toplevel(tlnode)
+    for _, tl_node in ipairs(prog_ast) do
+        check_top_level(tl_node)
     end
 end
 
@@ -211,25 +211,25 @@ check_type = function(typ)
         return types.T.Array(subtype)
 
     elseif tag == ast.Type.Function then
-        if #typ.rettypes >= 2 then
+        if #typ.ret_types >= 2 then
             error("functions with 2+ return values are not yet implemented")
         end
-        local ptypes = {}
-        for _, ptype in ipairs(typ.argtypes) do
-            table.insert(ptypes, check_type(ptype))
+        local p_types = {}
+        for _, p_type in ipairs(typ.arg_types) do
+            table.insert(p_types, check_type(p_type))
         end
-        local rettypes = {}
-        for _, rettype in ipairs(typ.rettypes) do
-            table.insert(rettypes, check_type(rettype))
+        local ret_types = {}
+        for _, ret_type in ipairs(typ.ret_types) do
+            table.insert(ret_types, check_type(ret_type))
         end
-        return types.T.Function(ptypes, rettypes)
+        return types.T.Function(p_types, ret_types)
 
     else
         error("impossible")
     end
 end
 
-check_toplevel = function(tl_node)
+check_top_level = function(tl_node)
     local tag = tl_node._tag
     if     tag == ast.Toplevel.Import then
         type_error(tl_node.loc, "modules are not implemented yet")
@@ -238,7 +238,7 @@ check_toplevel = function(tl_node)
         if tl_node.decl.type then
             tl_node._type = check_type(tl_node.decl.type)
             check_exp(tl_node.value, tl_node._type)
-            checkmatch(tl_node.loc,
+            check_match(tl_node.loc,
                 tl_node._type, tl_node.value._type,
                 "declaration of module variable %s", tl_node.decl.name)
         else
@@ -247,25 +247,25 @@ check_toplevel = function(tl_node)
         end
 
     elseif tag == ast.Toplevel.Func then
-        if #tl_node.rettypes >= 2 then
+        if #tl_node.ret_types >= 2 then
             error("functions with 2+ return values are not yet implemented")
         end
 
-        local ptypes = {}
+        local p_types = {}
         for _, param in ipairs(tl_node.params) do
             param._type = check_type(param.type)
-            table.insert(ptypes, param._type)
+            table.insert(p_types, param._type)
         end
 
-        local rettypes = {}
-        for _, rt in ipairs(tl_node.rettypes) do
-            table.insert(rettypes, check_type(rt))
+        local ret_types = {}
+        for _, rt in ipairs(tl_node.ret_types) do
+            table.insert(ret_types, check_type(rt))
         end
-        tl_node._type = types.T.Function(ptypes, rettypes)
+        tl_node._type = types.T.Function(p_types, ret_types)
 
-        check_stat(tl_node.block, rettypes)
+        check_stat(tl_node.block, ret_types)
 
-        if #tl_node._type.rettypes > 0 and
+        if #tl_node._type.ret_types > 0 and
            not stat_always_returns(tl_node.block)
         then
             type_error(tl_node.loc,
@@ -289,8 +289,8 @@ check_decl = function(decl)
     decl._type = decl._type or check_type(decl.type)
 end
 
--- @param rettypes Declared function return types (for return statements)
-check_stat = function(stat, rettypes)
+-- @param ret_types Declared function return types (for return statements)
+check_stat = function(stat, ret_types)
     local tag = stat._tag
     if     tag == ast.Stat.Decl then
         if stat.decl.type then
@@ -301,28 +301,28 @@ check_stat = function(stat, rettypes)
             stat.decl._type = stat.exp._type
             check_decl(stat.decl)
         end
-        checkmatch(stat.decl.loc,
+        check_match(stat.decl.loc,
             stat.decl._type, stat.exp._type,
             "declaration of local variable %s", stat.decl.name)
 
     elseif tag == ast.Stat.Block then
         for _, inner_stat in ipairs(stat.stats) do
-            check_stat(inner_stat, rettypes)
+            check_stat(inner_stat, ret_types)
         end
 
     elseif tag == ast.Stat.While then
         check_exp(stat.condition, false)
-        checkmatch(stat.condition.loc,
+        check_match(stat.condition.loc,
             types.T.Boolean(), stat.condition._type,
             "while statement condition")
-        check_stat(stat.block, rettypes)
+        check_stat(stat.block, ret_types)
 
     elseif tag == ast.Stat.Repeat then
         for _, inner_stat in ipairs(stat.block.stats) do
-            check_stat(inner_stat, rettypes)
+            check_stat(inner_stat, ret_types)
         end
         check_exp(stat.condition, false)
-        checkmatch(stat.condition.loc,
+        check_match(stat.condition.loc,
             types.T.Boolean(), stat.condition._type,
             "repeat statement condition")
 
@@ -358,24 +358,24 @@ check_stat = function(stat, rettypes)
                 stat.decl.name)
         end
 
-        checkmatch(stat.start.loc,
+        check_match(stat.start.loc,
             stat.decl._type, stat.start._type,
             "numeric for loop initializer")
 
-        checkmatch(stat.limit.loc,
+        check_match(stat.limit.loc,
             stat.decl._type, stat.limit._type,
             "numeric for loop limit")
 
-        checkmatch(stat.step.loc,
+        check_match(stat.step.loc,
             stat.decl._type, stat.step._type,
             "numeric for loop step")
 
-        check_stat(stat.block, rettypes)
+        check_stat(stat.block, ret_types)
 
     elseif tag == ast.Stat.Assign then
         check_var(stat.var)
         check_exp(stat.exp, stat.var._type)
-        checkmatch(stat.var.loc,
+        check_match(stat.var.loc,
             stat.var._type, stat.exp._type,
             "assignment")
         if stat.var._tag == ast.Var.Name and
@@ -387,34 +387,34 @@ check_stat = function(stat, rettypes)
         end
 
     elseif tag == ast.Stat.Call then
-        check_exp(stat.callexp, false)
+        check_exp(stat.call_exp, false)
 
     elseif tag == ast.Stat.Return then
-        assert(#rettypes <= 1)
-        if #stat.exps ~= #rettypes then
+        assert(#ret_types <= 1)
+        if #stat.exps ~= #ret_types then
             type_error(stat.loc,
                 "returning %d value(s) but function expects %s",
-                #stat.exps, #rettypes)
+                #stat.exps, #ret_types)
         end
 
         for i = 1, #stat.exps do
             local exp = stat.exps[i]
-            local rettype = rettypes[i]
-            check_exp(exp, rettype)
-            checkmatch(exp.loc,
-                rettype, exp._type,
+            local ret_type = ret_types[i]
+            check_exp(exp, ret_type)
+            check_match(exp.loc,
+                ret_type, exp._type,
                 "return statement")
         end
 
     elseif tag == ast.Stat.If then
         local cond = stat.condition
         check_exp(cond, false)
-        checkmatch(cond.loc,
+        check_match(cond.loc,
             types.T.Boolean(), cond._type,
             "if statement condition")
 
-        check_stat(stat.then_, rettypes)
-        check_stat(stat.else_, rettypes)
+        check_stat(stat.then_, ret_types)
+        check_stat(stat.else_, ret_types)
 
     else
         error("impossible")
@@ -437,33 +437,33 @@ check_var = function(var)
 
     elseif tag == ast.Var.Dot then
         check_exp(var.exp, false)
-        local exptype = var.exp._type
-        if exptype._tag == types.T.Record then
-            local field_type = exptype.type_decl._field_types[var.name]
+        local exp_type = var.exp._type
+        if exp_type._tag == types.T.Record then
+            local field_type = exp_type.type_decl._field_types[var.name]
             if field_type then
                 var._type = field_type
             else
                 type_error(var.loc,
                     "field '%s' not found in record '%s'",
-                    var.name, exptype.type_decl.name)
+                    var.name, exp_type.type_decl.name)
             end
         else
             type_error(var.loc,
                 "trying to access a member of value of type '%s'",
-                types.tostring(exptype))
+                types.tostring(exp_type))
         end
 
     elseif tag == ast.Var.Bracket then
-        check_exp(var.exp1, false)
-        if var.exp1._type._tag ~= types.T.Array then
-            type_error(var.exp1.loc,
+        check_exp(var.t, false)
+        if var.t._type._tag ~= types.T.Array then
+            type_error(var.t.loc,
                 "array expression in indexing is not an array but %s",
-                types.tostring(var.exp1._type))
+                types.tostring(var.t._type))
         end
-        var._type = var.exp1._type.elem
-        check_exp(var.exp2, false)
-        checkmatch(var.exp2.loc,
-            types.T.Integer(), var.exp2._type,
+        var._type = var.t._type.elem
+        check_exp(var.k, false)
+        check_match(var.k.loc,
+            types.T.Integer(), var.k._type,
             "array indexing")
 
     else
@@ -471,16 +471,16 @@ check_var = function(var)
     end
 end
 
-local function check_exp_callfunc_builtin(exp, _typehint)
-    assert(_typehint ~= nil)
+local function check_exp_call_func_builtin(exp, _type_hint)
+    assert(_type_hint ~= nil)
 
-    local fexp = exp.exp
+    local f_exp = exp.exp
     local args = exp.args
-    local builtin_name = fexp._type.builtin_decl.name
+    local builtin_name = f_exp._type.builtin_decl.name
     if builtin_name == "io.write" then
         check_arity(exp.loc, 1, #args, "io.write arguments")
         check_exp(args[1], false)
-        checkmatch(args[1].loc,
+        check_match(args[1].loc,
             types.T.String(), args[1]._type,
             "io.write argument")
         exp._type = types.T.Void()
@@ -491,7 +491,7 @@ local function check_exp_callfunc_builtin(exp, _typehint)
             args[1].loc, args[1]._type, "table.insert first argument")
         local elem_type = args[1]._type.elem
         check_exp(args[2], elem_type)
-        checkmatch(args[2].loc,
+        check_match(args[2].loc,
             elem_type, args[2]._type,
             "table.insert second argument")
         exp._type = types.T.Void()
@@ -506,9 +506,9 @@ local function check_exp_callfunc_builtin(exp, _typehint)
     end
 end
 
--- @param typehint Expected type; Used to infer polymorphic/record constructors.
-check_exp = function(exp, typehint)
-    assert(typehint ~= nil)
+-- @param type_hint Expected type; Used to infer polymorphic/record constructors.
+check_exp = function(exp, type_hint)
+    assert(type_hint ~= nil)
 
     local tag = exp._tag
     if     tag == ast.Exp.Nil then
@@ -532,26 +532,26 @@ check_exp = function(exp, typehint)
         -- non-empty arrays whose contents are inferrable, but I am not sure
         -- we should treat that case differently from the others...
         --
-        if not typehint then
+        if not type_hint then
             type_error(exp.loc,
                 "missing type hint for array or record initializer")
         end
 
-        if typehint._tag == types.T.Array then
+        if type_hint._tag == types.T.Array then -- type_hint
             for _, field in ipairs(exp.fields) do
                 if field.name then
                     type_error(field.loc,
                         "named field %s in array initializer",
                         field.name)
                 end
-                local field_type = typehint.elem
+                local field_type = type_hint.elem
                 check_exp(field.exp, field_type)
-                checkmatch(field.loc,
+                check_match(field.loc,
                     field_type, field.exp._type,
                     "array initializer")
             end
 
-        elseif typehint._tag == types.T.Record then
+        elseif type_hint._tag == types.T.Record then
             local initialized_fields = {}
             for _, field in ipairs(exp.fields) do
                 if not field.name then
@@ -566,20 +566,20 @@ check_exp = function(exp, typehint)
                 end
                 initialized_fields[field.name] = true
 
-                local field_type = typehint.type_decl._field_types[field.name]
+                local field_type = type_hint.type_decl._field_types[field.name]
                 if field_type then
                     check_exp(field.exp, field_type)
-                    checkmatch(field.loc,
+                    check_match(field.loc,
                         field_type, field.exp._type,
                         "record initializer")
                 else
                     type_error(field.loc,
                         "invalid field %s in record initializer for %s",
-                        field.name, typehint.type_decl.name)
+                        field.name, type_hint.type_decl.name)
                 end
             end
 
-            for field_name, _ in pairs(typehint.type_decl._field_types) do
+            for field_name, _ in pairs(type_hint.type_decl._field_types) do
                 if not initialized_fields[field_name] then
                     type_error(exp.loc,
                         "required field %s is missing from initializer",
@@ -590,7 +590,7 @@ check_exp = function(exp, typehint)
             type_error(exp.loc,
                 "type hint for array or record initializer is not an array or record type")
         end
-        exp._type = typehint
+        exp._type = type_hint
 
     elseif tag == ast.Exp.Var then
         check_var(exp.var)
@@ -635,10 +635,10 @@ check_exp = function(exp, typehint)
     elseif tag == ast.Exp.Concat then
         for _, inner_exp in ipairs(exp.exps) do
             check_exp(inner_exp, false)
-            local texp = inner_exp._type
-            if texp._tag ~= types.T.String then
+            local t_exp = inner_exp._type
+            if t_exp._tag ~= types.T.String then
                 type_error(inner_exp.loc,
-                    "cannot concatenate with %s value", types.tostring(texp))
+                    "cannot concatenate with %s value", types.tostring(t_exp))
             end
         end
         exp._type = types.T.String()
@@ -743,34 +743,34 @@ check_exp = function(exp, typehint)
         end
 
     elseif tag == ast.Exp.CallFunc then
-        local fexp = exp.exp
+        local f_exp = exp.exp
         local args = exp.args
 
-        check_exp(fexp, false)
-        local ftype = fexp._type
+        check_exp(f_exp, false)
+        local f_type = f_exp._type
 
-        if ftype._tag == types.T.Function then
-            if #ftype.params ~= #args then
+        if f_type._tag == types.T.Function then
+            if #f_type.params ~= #args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
-                    #ftype.params, #args)
+                    #f_type.params, #args)
             end
-            for i = 1, math.min(#ftype.params, #args) do
-                local ptype = ftype.params[i]
+            for i = 1, math.min(#f_type.params, #args) do
+                local p_type = f_type.params[i]
                 local arg = args[i]
-                check_exp(arg, ptype)
-                checkmatch(fexp.loc,
-                    ptype, arg._type,
+                check_exp(arg, p_type)
+                check_match(f_exp.loc,
+                    p_type, arg._type,
                     "argument %d of call to function", i)
             end
-            assert(#ftype.rettypes <= 1)
-            if #ftype.rettypes >= 1 then
-                exp._type = ftype.rettypes[1]
+            assert(#f_type.ret_types <= 1)
+            if #f_type.ret_types >= 1 then
+                exp._type = f_type.ret_types[1]
             else
                 exp._type = types.T.Void()
             end
-        elseif ftype._tag == types.T.Builtin then
-            check_exp_callfunc_builtin(exp, false)
+        elseif f_type._tag == types.T.Builtin then
+            check_exp_call_func_builtin(exp, false)
         else
             type_error(exp.loc,
                 "attempting to call a %s value",
