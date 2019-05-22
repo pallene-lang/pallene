@@ -107,6 +107,17 @@ To run the test suite, just run busted on the root directory of this repository:
 $ busted                       # Run all tests
 $ busted spec/parser_spec.lua  # Run just one of the test suite files
 ```
+
+If you are debugging an unhandled exception in a test case, there are some
+helpful flags that you can pass to the busted command:
+
+Flag             | Effect
+---------------- | --------------------------------------------------------
+busted -v        | Verbose output, including the stack trace
+busted --no-k    | Stop running tests after the first error
+busted -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
+```
+
 ### Running the benchmarks suite
 
 To run of the benchmarks in the benchmarks directory, tun the `benchmarks/run`
