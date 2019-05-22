@@ -25,12 +25,16 @@ the [LuaRocks](http://luarocks.org) package manager:
 $ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
+If you use the --local flag when installing packages from Luarocks, you may
+also need to configure the appropriate environment variables on your .bashrc.
+For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
+
 If you want to use Pallene on Linux we also recommend installing the `readline`
 library:
 
 ```sh
-$ sudo apt install libreadline-dev   # for Ubuntu & Debian-based distros
-$ sudo dnf install readline-devel # for Fedora and OpenSUSE
+$ sudo apt install libreadline-dev # for Ubuntu & Debian-based distros
+$ sudo dnf install readline-devel  # for Fedora
 ```
 
 ### Compiling the runtime libraries
@@ -79,7 +83,7 @@ The easiest way to make sure you are indenting things correctly is to install
 the [EditorConfig](https://editorconfig.org/) plugin in your favorite
 text editor.
 
-THis project uses 4 spaces for indentation, and tries to limit each line to at
+This project uses 4 spaces for indentation, and tries to limit each line to at
 most 80 columns.
 
 ### Using a linter.
