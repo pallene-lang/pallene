@@ -177,7 +177,7 @@ describe("Pallene parser", function()
             end
         ]], {
             { _tag = ast.Toplevel.Func,
-                islocal = true,
+                is_local = true,
                 name = "fA",
                 params = {},
                 block = { _tag = ast.Stat.Block, stats = {} } },
@@ -188,7 +188,7 @@ describe("Pallene parser", function()
             end
         ]], {
             { _tag = ast.Toplevel.Func,
-                islocal = true,
+                is_local = true,
                 name = "fB",
                 params = {
                     { _tag = ast.Decl.Decl, name = "x" },
@@ -201,7 +201,7 @@ describe("Pallene parser", function()
             end
         ]], {
             { _tag = ast.Toplevel.Func,
-                islocal = true,
+                is_local = true,
                 name = "fC",
                 params = {
                     { _tag = ast.Decl.Decl, name = "x" },
@@ -218,8 +218,8 @@ describe("Pallene parser", function()
             local function bar()
             end
         ]], {
-            { _tag = ast.Toplevel.Func, name = "foo", rettypes = { } },
-            { _tag = ast.Toplevel.Func, name = "bar", rettypes = { } },
+            { _tag = ast.Toplevel.Func, name = "foo", ret_types = { } },
+            { _tag = ast.Toplevel.Func, name = "bar", ret_types = { } },
         })
     end)
 
@@ -243,25 +243,25 @@ describe("Pallene parser", function()
         it("with parameter lists of length = 0", function()
             assert_type_ast("() -> ()",
                 { _tag = ast.Type.Function,
-                    argtypes = { },
-                    rettypes = { } } )
+                    arg_types = { },
+                    ret_types = { } } )
         end)
 
         it("with parameter lists of length = 1", function()
             assert_type_ast("(a) -> (b)",
                 { _tag = ast.Type.Function,
-                    argtypes = { { _tag = ast.Type.Name, name = "a" } },
-                    rettypes = { { _tag = ast.Type.Name, name = "b" } } } )
+                    arg_types = { { _tag = ast.Type.Name, name = "a" } },
+                    ret_types = { { _tag = ast.Type.Name, name = "b" } } } )
         end)
 
         it("with parameter lists of length >= 2 ", function()
             assert_type_ast("(a,b) -> (c,d,e)",
                 { _tag = ast.Type.Function,
-                    argtypes = {
+                    arg_types = {
                         { _tag = ast.Type.Name, name = "a" },
                         { _tag = ast.Type.Name, name = "b" },
                     },
-                    rettypes = {
+                    ret_types = {
                         { _tag = ast.Type.Name, name = "c" },
                         { _tag = ast.Type.Name, name = "d" },
                         { _tag = ast.Type.Name, name = "e" },
@@ -272,28 +272,28 @@ describe("Pallene parser", function()
         it("without the optional parenthesis", function()
             assert_type_ast("a -> b",
                 { _tag = ast.Type.Function,
-                    argtypes = { { _tag = ast.Type.Name, name = "a" } },
-                    rettypes = { { _tag = ast.Type.Name, name = "b" } } } )
+                    arg_types = { { _tag = ast.Type.Name, name = "a" } },
+                    ret_types = { { _tag = ast.Type.Name, name = "b" } } } )
         end)
 
 
         it("and -> is right associative", function()
             local ast1 = {
                 _tag = ast.Type.Function,
-                argtypes = {
+                arg_types = {
                     { _tag = ast.Type.Name, name = "a" } },
-                rettypes = {
+                ret_types = {
                     { _tag = ast.Type.Function,
-                        argtypes = { { _tag = ast.Type.Name, name = "b" } },
-                        rettypes = { { _tag = ast.Type.Name, name = "c" } } } } }
+                        arg_types = { { _tag = ast.Type.Name, name = "b" } },
+                        ret_types = { { _tag = ast.Type.Name, name = "c" } } } } }
 
             local ast2 = {
                 _tag = ast.Type.Function,
-                argtypes = {
+                arg_types = {
                     { _tag = ast.Type.Function,
-                        argtypes = { { _tag = ast.Type.Name, name = "a" } },
-                        rettypes = { { _tag = ast.Type.Name, name = "b" } } } },
-                rettypes = {
+                        arg_types = { { _tag = ast.Type.Name, name = "a" } },
+                        ret_types = { { _tag = ast.Type.Name, name = "b" } } } },
+                ret_types = {
                     { _tag = ast.Type.Name, name = "c" } } }
 
             assert_type_ast("a -> b -> c",   ast1)
@@ -304,13 +304,13 @@ describe("Pallene parser", function()
         it("and '->' has higher precedence than ','", function()
             assert_type_ast("(a, b -> c, d) -> e",
                 { _tag = ast.Type.Function,
-                    argtypes = {
+                    arg_types = {
                         { _tag = ast.Type.Name, name = "a" },
                         { _tag = ast.Type.Function,
-                          argtypes = { { _tag = ast.Type.Name, name = "b" } },
-                          rettypes = { { _tag = ast.Type.Name, name = "c" } } },
+                          arg_types = { { _tag = ast.Type.Name, name = "b" } },
+                          ret_types = { { _tag = ast.Type.Name, name = "c" } } },
                         { _tag = ast.Type.Name, name = "d" } },
-                    rettypes = { { _tag = ast.Type.Name, name = "e" } } } )
+                    ret_types = { { _tag = ast.Type.Name, name = "e" } } } )
         end)
     end)
 
@@ -412,7 +412,7 @@ describe("Pallene parser", function()
                         var = { name = "x" },
                         exp = { value = 11 } },
                     { _tag = ast.Stat.Call,
-                        callexp = { _tag = ast.Exp.CallFunc } } } },
+                        call_exp = { _tag = ast.Exp.CallFunc } } } },
         })
     end)
 
@@ -554,8 +554,8 @@ describe("Pallene parser", function()
                     rhs = { value = 3 },
                     lhs = { _tag = ast.Exp.Var, var = {
                         _tag = ast.Var.Bracket,
-                        exp2 = { value = 2 },
-                        exp1 = { _tag = ast.Exp.CallFunc,
+                        k = { value = 2 },
+                        t = { _tag = ast.Exp.CallFunc,
                             args = { },
                             exp = { _tag = ast.Exp.CallFunc,
                                 args = { },
@@ -609,7 +609,7 @@ describe("Pallene parser", function()
 
     it("can parse import", function ()
         assert_program_ast([[ local foo = import "module.foo" ]], {
-            { _tag = ast.Toplevel.Import, localname = "foo", modname = "module.foo" },
+            { _tag = ast.Toplevel.Import, local_name = "foo", mod_name = "module.foo" },
         })
     end)
 
@@ -625,13 +625,13 @@ describe("Pallene parser", function()
                   var = { _tag = ast.Var.Name, name = "foo" }
                 },
                 name = "bar" } },
-            { callexp = { args = { { var = {
+            { call_exp = { args = { { var = {
                 _tag = ast.Var.Dot,
                 exp = { _tag = ast.Exp.Var,
                   var = { _tag = ast.Var.Name, name = "foo" }
                 },
               name = "bar" } } } } },
-            { callexp = {
+            { call_exp = {
                 exp = { var = {
                     _tag = ast.Var.Dot,
                     exp = { _tag = ast.Exp.Var,
@@ -744,8 +744,8 @@ describe("Pallene parser", function()
             { _tag = ast.Exp.Var, var = { _tag = ast.Var.Dot,
                 name = "c",
                 exp = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Bracket,
-                    exp2 = { value = 1 },
-                    exp1 = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Dot,
+                    k = { value = 1 },
+                    t = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Dot,
                         name = "b",
                         exp = { _tag = ast.Exp.Var, var = { _tag = ast.Var.Name,
                             name = "a" } } } } } } } })

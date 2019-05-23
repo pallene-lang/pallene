@@ -2,8 +2,8 @@ local typedecl = require "pallene.typedecl"
 
 local types = {}
 
-local function declare_type(typename, cons)
-    typedecl.declare(types, "types", typename, cons)
+local function declare_type(type_name, cons)
+    typedecl.declare(types, "types", type_name, cons)
 end
 
 declare_type("T", {
@@ -13,7 +13,7 @@ declare_type("T", {
     Integer  = {},
     Float    = {},
     String   = {},
-    Function = {"params", "rettypes"},
+    Function = {"params", "ret_types"},
     Array    = {"elem"},
     Record   = {"type_decl"},
     Builtin  = {"builtin_decl"},
@@ -61,12 +61,12 @@ function types.equals(t1, t2)
             end
         end
 
-        if #t1.rettypes ~= #t2.rettypes then
+        if #t1.ret_types ~= #t2.ret_types then
             return false
         end
 
-        for i = 1, #t1.rettypes do
-            if not types.equals(t1.rettypes[i], t2.rettypes[i]) then
+        for i = 1, #t1.ret_types do
+            if not types.equals(t1.ret_types[i], t2.ret_types[i]) then
                 return false
             end
         end

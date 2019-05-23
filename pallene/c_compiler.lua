@@ -8,13 +8,13 @@ c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -pedantic"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
-local function getuname()
+local function get_uname()
     local ok, err, uname = util.outputs_of_execute("uname -s")
     assert(ok, err)
     return uname
 end
 
-if string.find(getuname(), "Darwin") then
+if string.find(get_uname(), "Darwin") then
     c_compiler.CFLAGS_SHARED = "-shared -undefined dynamic_lookup"
 else
     c_compiler.CFLAGS_SHARED = "-shared"
@@ -55,15 +55,15 @@ local function link_obj(o_filename, so_filename)
     })
 end
 
-function c_compiler.compile_c_to_s(src, dst, _modname)
+function c_compiler.compile_c_to_s(src, dst)
     return compile_c(src, dst, "-S -fverbose-asm")
 end
 
-function c_compiler.compile_s_to_o(src, dst, _modname)
+function c_compiler.compile_s_to_o(src, dst)
     return compile_c(src, dst, "-c")
 end
 
-function c_compiler.compile_o_to_so(src, dst, _modname)
+function c_compiler.compile_o_to_so(src, dst)
     return link_obj(src, dst)
 end
 

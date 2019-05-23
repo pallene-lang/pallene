@@ -77,7 +77,7 @@ describe("Scope analysis: ", function()
             end
         ]])
         assert(prog_ast, errs)
-        local exp = prog_ast[1].block.stats[1].callexp
+        local exp = prog_ast[1].block.stats[1].call_exp
         assert.are.equal(ast.Exp.CallFunc, exp._tag)
         local f_exp = exp.exp
         assert.are.equal(ast.Exp.Var, f_exp._tag)

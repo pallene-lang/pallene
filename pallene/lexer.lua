@@ -18,7 +18,8 @@ local lpeg = require "lpeglabel"
 lpeg.locale(lpeg)
 
 local P, R, S = lpeg.P, lpeg.R, lpeg.S
-local C, Cb, Cg, Ct, Cmt, Cc = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt, lpeg.Cc
+local C, Cb, Cg, Ct, Cmt, Cc = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt,
+    lpeg.Cc
 local T = lpeg.T
 
 local lexer = {}
@@ -50,16 +51,16 @@ lexer.NUMBER = #number_start * (good_number + T("MalformedNumber"))
 --
 
 -- Lua's definition of a linebreak (used when skipping them inside strings)
-local linebreak =
+local line_break =
     P("\n\r") +
     P("\r\n") +
     P("\n") +
     P("\r")
 
-local longstring
+local long_string
 do
     local equals = P("=")^0
-    local open  = P("[") * Cg(equals, "open")  * P("[") * linebreak^-1
+    local open  = P("[") * Cg(equals, "open")  * P("[") * line_break^-1
     local close = P("]") * Cg(equals, "close") * P("]")
 
     local matching_close =
@@ -70,15 +71,18 @@ do
 
     local contents = (-matching_close * P(1)) ^0
 
-    longstring = (
+    long_string = (
         open * (
             C(contents) * close +
             T("UnclosedLongString")
         )
-    ) / function(contents_str) return contents_str end -- hide the group captures
+    ) / function(contents_str)
+            -- hide the group captures
+            return contents_str
+        end
 end
 
-local shortstring
+local short_string
 do
 
     local delimiter = P('"') + P("'")
@@ -88,8 +92,8 @@ do
 
     local matching_close =
         close * Cmt( Cb("open")* Cb("close"),
-            function(_source, _i, openstr, closestr)
-                return openstr == closestr
+            function(_source, _i, open_str, close_str)
+                return open_str == close_str
             end)
 
     -- A sequence of up to 3 decimal digits
@@ -114,7 +118,7 @@ do
         (P("\\") / "\\") +
         (P("\'") / "\'") +
         (P("\"") / "\"") +
-        (linebreak / "\n") +
+        (line_break / "\n") +
         C(decimal_escape) / tonumber / string.char +
         (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) +
             T("MalformedEscape_u"))) / tonumber / utf8.char +
@@ -132,7 +136,7 @@ do
 
     local contents = (-matching_close * part)^0
 
-    shortstring = (
+    short_string = (
         open * (
             Ct(contents) * close +
             T("UnclosedShortString")
@@ -140,7 +144,7 @@ do
     ) / function(parts) return table.concat(parts) end
 end
 
-lexer.STRINGLIT = shortstring + longstring
+lexer.STRINGLIT = short_string + long_string
 
 --
 -- Spaces and Comments
@@ -150,7 +154,7 @@ lexer.SPACE = S(" \t\n\v\f\r")^1
 
 local comment_start = P("--")
 local short_comment = comment_start * (P(1) - P("\n"))^0 * P("\n")^-1
-local long_comment  = comment_start * longstring / function() end
+local long_comment  = comment_start * long_string / function() end
 
 lexer.COMMENT = long_comment + short_comment
 
@@ -158,9 +162,9 @@ lexer.COMMENT = long_comment + short_comment
 -- Keywords and names
 --
 
-local idstart = P("_") + R("AZ", "az")
-local idrest  = P("_") + R("AZ", "az", "09")
-local possiblename = idstart * idrest^0
+local id_start = P("_") + R("AZ", "az")
+local id_rest  = P("_") + R("AZ", "az", "09")
+local possible_name = id_start * id_rest^0
 
 local keywords = {
     "and", "break", "do", "else", "elseif", "end", "for", "false",
@@ -172,7 +176,7 @@ local keywords = {
 }
 
 for _, keyword in ipairs(keywords) do
-    lexer[keyword:upper()] = P(keyword) * -idrest
+    lexer[keyword:upper()] = P(keyword) * -id_rest
 end
 
 local is_keyword = {}
@@ -180,7 +184,7 @@ for _, keyword in ipairs(keywords) do
     is_keyword[keyword] = true
 end
 
-lexer.NAME = Cmt(C(possiblename), function(_, pos, s)
+lexer.NAME = Cmt(C(possible_name), function(_, pos, s)
     if not is_keyword[s] then
         return pos, s
     else
@@ -212,14 +216,14 @@ local symbols = {
 }
 
 -- Enforce the longest match rule among the symbolic tokens.
-for tokname, symbol in pairs(symbols) do
+for token_name, symbol in pairs(symbols) do -- token_name?
     local pat = P(symbol)
-    for _ , symbol2 in pairs(symbols) do
-        if #symbol < #symbol2 and symbol == string.sub(symbol2, 1, #symbol) then
-            pat = pat - P(symbol2)
+    for _ , symbol_2 in pairs(symbols) do
+        if #symbol < #symbol_2 and symbol == string.sub(symbol_2, 1, #symbol) then
+            pat = pat - P(symbol_2)
         end
     end
-    lexer[tokname] = pat
+    lexer[token_name] = pat
 end
 
 -- Enforce the longest match rule when a symbolic token is a prefix of a non-symbolic one.

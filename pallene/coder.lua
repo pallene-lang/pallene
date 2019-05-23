@@ -1000,10 +1000,10 @@ local function generate_pallene_entry_point(tl_node, literals)
     local ctx = Context.new(literals)
 
     local ret_ctype
-    if #tl_node._type.rettypes == 0 then
+    if #tl_node._type.ret_types == 0 then
         ret_ctype = "void"
     else
-        ret_ctype = ctype(tl_node._type.rettypes[1])
+        ret_ctype = ctype(tl_node._type.ret_types[1])
     end
 
     local params = {}
@@ -1111,14 +1111,14 @@ local function generate_lua_entry_point(tl_node, literals)
     })
 
     local set_return
-    if #tl_node._type.rettypes == 0 then
+    if #tl_node._type.ret_types == 0 then
         set_return = util.render([[
             ${PALLENE_CALL};
         ]], {
             PALLENE_CALL = pallene_call,
         })
-    elseif #tl_node._type.rettypes == 1 then
-        local ret_typ = tl_node._type.rettypes[1]
+    elseif #tl_node._type.ret_types == 1 then
+        local ret_typ = tl_node._type.ret_types[1]
         local ret = ctx:new_cvar(ctype(ret_typ), "ret")
         local push_ret = push_to_stack(ctx, ret_typ, ret.name)
         set_return = util.render([[
@@ -1158,7 +1158,7 @@ local function generate_lua_entry_point(tl_node, literals)
         CHECK_TYPES = table.concat(check_types, "\n"),
         GET_ARGS = table.concat(get_args, "\n"),
         SET_RETURN = set_return,
-        NRET = c_integer(#tl_node._type.rettypes),
+        NRET = c_integer(#tl_node._type.ret_types),
     })
     return out
 end
@@ -1246,7 +1246,7 @@ end
 local function generate_luaopen_exports_table(prog_ast, ctx)
     local n_exported_functions = 0
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
+        if tl_node._tag == ast.Toplevel.Func and not tl_node.is_local then
             n_exported_functions = n_exported_functions + 1
         end
     end
@@ -1262,7 +1262,7 @@ local function generate_luaopen_exports_table(prog_ast, ctx)
         N = c_integer(n_exported_functions),
     }))
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == ast.Toplevel.Func and not tl_node.islocal then
+        if tl_node._tag == ast.Toplevel.Func and not tl_node.is_local then
             table.insert(parts,
                 util.render([[
                     lua_pushstring(L, ${NAME});
@@ -1497,7 +1497,7 @@ generate_program = function(prog_ast, modname)
         local function_definitions = {}
         for _, tl_node in ipairs(prog_ast) do
             if tl_node._tag == ast.Toplevel.Func then
-                assert(#tl_node._type.rettypes <= 1)
+                assert(#tl_node._type.ret_types <= 1)
                 table.insert(function_definitions,
                     generate_pallene_entry_point(tl_node, prog_ast._literals))
                 table.insert(function_definitions,
@@ -1693,10 +1693,10 @@ generate_stat = function(stat, ctx)
 
     elseif tag == ast.Stat.Call then
         ctx:begin_scope()
-        local cstats, cvalue = generate_exp(stat.callexp, ctx)
+        local cstats, cvalue = generate_exp(stat.call_exp, ctx)
 
         local ignore_result
-        if stat.callexp._type._tag == types.T.Void then
+        if stat.call_exp._type._tag == types.T.Void then
             ignore_result = ""
         else
             ignore_result = "(void) " .. cvalue .. ";"
@@ -1759,8 +1759,8 @@ generate_var = function(var, ctx)
         end
 
     elseif tag == ast.Var.Bracket then
-        local t_cstats, t_cvalue = generate_exp(var.exp1, ctx)
-        local k_cstats, k_cvalue = generate_exp(var.exp2, ctx)
+        local t_cstats, t_cvalue = generate_exp(var.t, ctx)
+        local k_cstats, k_cvalue = generate_exp(var.k, ctx)
         local cstats = t_cstats .. "\n" .. k_cstats
         return cstats, coder.Lvalue.ArraySlot(var, t_cvalue, k_cvalue)
 
@@ -2271,11 +2271,11 @@ generate_exp = function(exp, ctx)
             local tl_node = fexp.var._decl
 
             local tmp_var, tmp_init
-            if #tl_node._type.rettypes == 0 then
+            if #tl_node._type.ret_types == 0 then
                 tmp_var = "VOID" -- gives C error if accidentaly used
                 tmp_init = ""
-            elseif #tl_node._type.rettypes == 1 then
-                local rettype = tl_node._type.rettypes[1]
+            elseif #tl_node._type.ret_types == 1 then
+                local rettype = tl_node._type.ret_types[1]
                 local tmp = ctx:new_tvar(rettype)
                 tmp_var = tmp.name
                 tmp_init = c_declaration(tmp) .. " ="
@@ -2303,7 +2303,7 @@ generate_exp = function(exp, ctx)
         else
             -- First-class functions and Lua function calls
             local nargs = #fexp._type.params
-            local nret = #fexp._type.rettypes
+            local nret = #fexp._type.ret_types
 
             local to_push = {}
             local function generate(exp_to_push)
@@ -2341,7 +2341,7 @@ generate_exp = function(exp, ctx)
                 retval = "VOID"
 
             elseif nret == 1 then
-                local ret_typ = fexp._type.rettypes[1]
+                local ret_typ = fexp._type.ret_types[1]
                 local slot = ctx:new_cvar("TValue*")
                 local ret = ctx:new_tvar(ret_typ)
                 retval = ret.name
