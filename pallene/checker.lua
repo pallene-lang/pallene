@@ -153,7 +153,7 @@ type_check = function(prog_ast)
     else
         -- Unhandled exception in Palene's type checker
         local stack_trace = debug.traceback(co)
-        error("typechecker " .. stack_trace)
+        error(err_msg .. "\n" .. stack_trace)
     end
 end
 
