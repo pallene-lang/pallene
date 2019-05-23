@@ -1,15 +1,20 @@
 -- vim: set filetype=lua : --
 
--- Luacheck configuration file[1]
+-- Luacheck configuration file [1]
 --
 -- How to use Luacheck:
 --    - luarocks install luacheck
 --    - luacheck ./pallene
+--    - luacheck ./spec
 --
--- For vim integration, I recommend ALE[2]. It supports luacheck out of the box
+--
+-- For vim integration, I recommend ALE [2]. It supports luacheck out of the box
+-- For other editors such as Sublime, Atom, Emacs, Brackets, and VS Code,
+-- consult the instructions in the Luacheck documentation [3].
 --
 -- [1] https://luacheck.readthedocs.io/en/stable/config.html
 -- [2] https://github.com/w0rp/ale
+-- [3] https://github.com/mpeterv/luacheck#editor-support
 
 ignore = {
     "212/_.*",  -- Unused argument, when name starts with "_"

@@ -25,12 +25,16 @@ the [LuaRocks](http://luarocks.org) package manager:
 $ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
+If you use the --local flag when installing packages from Luarocks, you may
+also need to configure the appropriate environment variables on your .bashrc.
+For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
+
 If you want to use Pallene on Linux we also recommend installing the `readline`
 library:
 
 ```sh
-$ sudo apt install libreadline-dev   # for Ubuntu & Debian-based distros
-$ sudo dnf install readline-devel # for Fedora and OpenSUSE
+$ sudo apt install libreadline-dev # for Ubuntu & Debian-based distros
+$ sudo dnf install readline-devel  # for Fedora
 ```
 
 ### Compiling the runtime libraries
@@ -68,7 +72,28 @@ $ ./lua/src/lua -l foo
 
 For more compiler options, see `./pallenec --help`
 
-## Running the test suite
+## Developing Pallene
+
+If you want to develop Pallene, it is helpful to know how to configure your
+editor to preserve our style standards, and to know how to run the test suite.
+
+### Configuring your editor
+
+The easiest way to make sure you are indenting things correctly is to install
+the [EditorConfig](https://editorconfig.org/) plugin in your favorite
+text editor.
+
+This project uses 4 spaces for indentation, and tries to limit each line to at
+most 80 columns.
+
+### Using a linter.
+
+We use [Luacheck](https://github.com/mpeterv/luacheck) to lint our Lua source
+code. We recommend running it at least once before each pull-request or, even
+better, integrating it to your text editor. For instructions on how to install
+and use Luacheck, see our `.luacheckrc` file.
+
+### Running the test suite
 
 We use Busted to run our test suite. It can be installed using LuaRocks:
 
@@ -82,7 +107,18 @@ To run the test suite, just run busted on the root directory of this repository:
 $ busted                       # Run all tests
 $ busted spec/parser_spec.lua  # Run just one of the test suite files
 ```
-## Running the benchmarks suite
+
+If you are debugging an unhandled exception in a test case, there are some
+helpful flags that you can pass to the busted command:
+
+Flag             | Effect
+---------------- | --------------------------------------------------------
+busted -v        | Verbose output, including the stack trace
+busted --no-k    | Stop running tests after the first error
+busted -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
+```
+
+### Running the benchmarks suite
 
 To run of the benchmarks in the benchmarks directory, tun the `benchmarks/run`
 script from the root project directory:
