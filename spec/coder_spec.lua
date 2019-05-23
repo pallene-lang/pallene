@@ -879,6 +879,8 @@ describe("Pallene coder /", function()
         end)
 
         it("check record tags", function()
+            -- TODO: change this message to mention the relevant record types
+            -- instead of only saying "userdata"
             run_test([[
                 local prim = test.make_prim(123)
                 local ok, err = pcall(test.get_x, prim)
@@ -886,7 +888,6 @@ describe("Pallene coder /", function()
                 assert(string.find(err, "expected userdata but found userdata",
                         nil, true))
             ]])
-            pending("fix error message")
         end)
 
         it("implements __index and __newindex", function()
