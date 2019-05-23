@@ -8,7 +8,7 @@ c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -pedantic"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
-local function get_uname() -- getuname turns get_uname?
+local function get_uname()
     local ok, err, uname = util.outputs_of_execute("uname -s")
     assert(ok, err)
     return uname

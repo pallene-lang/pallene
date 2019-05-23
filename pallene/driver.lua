@@ -145,7 +145,8 @@ end
 -- This is meant for unit tests.
 --
 function driver.test_ast(stop_after, input_filename)
-    local base_name, err = check_source_filename("pallenec test", input_filename, "pallene")
+    local base_name, err =
+        check_source_filename("pallenec test", input_filename, "pallene")
     if not base_name then return false, {err} end
 
     return compile_pallene_to_ast(input_filename, stop_after)

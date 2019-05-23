@@ -5,7 +5,7 @@ local builtins = require "pallene.builtins"
 local location = require "pallene.location"
 local types = require "pallene.types"
 
-local type_check -- typecheck turns type_check?
+local type_check
 
 local check_program
 local check_type
@@ -40,16 +40,16 @@ end
 -- local functions
 --
 
-local Type_Error = {} -- TypeError turns type_error?
-Type_Error.__index = Type_Error
+local TypeError = {}
+TypeError.__index = TypeError
 
-function Type_Error.new(msg)
-    return setmetatable({ msg = msg }, Type_Error)
+function TypeError.new(msg)
+    return setmetatable({ msg = msg }, TypeError)
 end
 
 local function type_error(loc, fmt, ...)
     local err_msg = location.format_error(loc, "type error: "..fmt, ...)
-    error(Type_Error.new(err_msg))
+    error(TypeError.new(err_msg))
 end
 
 -- Checks if two types are the same, and logs an error message otherwise
@@ -146,11 +146,11 @@ end
 --
 
 type_check = function(prog_ast)
-    local ok, err = xpcall(check_program, debug.traceback, prog_ast) --trace_back
+    local ok, err = xpcall(check_program, debug.traceback, prog_ast)
     if ok then
         return prog_ast, {} -- TODO:  no {}
     else
-        if getmetatable(err) == Type_Error then
+        if getmetatable(err) == TypeError then
             return false, { err.msg } -- TODO  no {}
         else
             error(err)
@@ -537,7 +537,7 @@ check_exp = function(exp, type_hint)
                 "missing type hint for array or record initializer")
         end
 
-        if type_hint._tag == types.T.Array then -- type_hint
+        if type_hint._tag == types.T.Array then
             for _, field in ipairs(exp.fields) do
                 if field.name then
                     type_error(field.loc,

@@ -76,7 +76,10 @@ do
             C(contents) * close +
             T("UnclosedLongString")
         )
-    ) / function(contents_str) return contents_str end --hide the group captures
+    ) / function(contents_str)
+            -- hide the group captures
+            return contents_str
+        end
 end
 
 local short_string

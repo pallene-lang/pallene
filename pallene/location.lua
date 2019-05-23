@@ -26,7 +26,7 @@ local function binary_search(xs, v)
     return lo
 end
 
-local new_line_cache = setmetatable({}, { __mode = "k" }) --new_line_cache?
+local newline_cache = setmetatable({}, { __mode = "k" })
 
 -- Converts an Lpeg file position into more familiar line and column numbers.
 --
@@ -35,14 +35,14 @@ local new_line_cache = setmetatable({}, { __mode = "k" }) --new_line_cache?
 -- @return The line and column number at the specified position.
 local function get_line_number(subject, pos)
     local new_lines
-    if new_line_cache[subject] then
-        new_lines = new_line_cache[subject]
+    if newline_cache[subject] then
+        new_lines = newline_cache[subject]
     else
         new_lines = {}
         for n in subject:gmatch("()\n") do
             table.insert(new_lines, n)
         end
-        new_line_cache[subject] = new_lines
+        newline_cache[subject] = new_lines
     end
     local line = binary_search(new_lines, pos)
     local col  = pos - (new_lines[line - 1] or 0)
