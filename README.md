@@ -2,8 +2,9 @@
 [![Build Status](https://travis-ci.org/pallene-lang/pallene.svg?branch=master)](https://travis-ci.org/pallene-lang/pallene)
 
 Pallene is a statically typed, ahead-of-time-compiled sister language to
-[Lua](https://www.lua.org), with a focus on performance. It is also a friendly
-fork of the [Titan](https://www.github.com/titan-lang/titan).
+[Lua](https://www.lua.org), with a focus on performance. It is also a 
+[friendly fork](http://lua-users.org/lists/lua-l/2018-09/msg00255.html) of the
+[Titan](https://www.github.com/titan-lang/titan) language.
 
 Pallene is intended for writing performance sensitive code that interacts with
 Lua, a space that is currently filled by C modules and by LuaJIT. Compared to
