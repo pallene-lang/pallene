@@ -432,16 +432,15 @@ describe("Pallene coder /", function()
     describe("Operators /", function()
         -- The `as` operator does not exist in Lua, so it must be tested
         -- separately.
-
         local tests = {
-            ["boolean"]  = { typ = "boolean",         value = "true" },
-            ["integer"]  = { typ = "integer",         value = "17" },
-            ["float"]    = { typ = "float",           value = "3.14" },
-            ["string"]   = { typ = "string",          value = "'hello'" },
-            ["function"] = { typ = "integer->string", value = "tostring" },
-            ["array"]    = { typ = "{integer}",       value = "{10,20}" },
-            ["record"]   = { typ = "Empty",           value = "test.new_empty()" },
-            ["value"]    = { typ = "value",           value = "17"},
+            ["boolean"]  = {typ = "boolean",         value = "true"},
+            ["integer"]  = {typ = "integer",         value = "17"},
+            ["float"]    = {typ = "float",           value = "3.14"},
+            ["string"]   = {typ = "string",          value = "'hello'"},
+            ["function"] = {typ = "integer->string", value = "tostring"},
+            ["array"]    = {typ = "{integer}",       value = "{10,20}"},
+            ["record"]   = {typ = "Empty",           value = "test.new_empty()"},
+            ["value"]    = {typ = "value",           value = "17"},
         }
 
         local program_parts = {}
@@ -466,14 +465,14 @@ describe("Pallene coder /", function()
             }))
         end
 
-        setup(compile( table.concat(program_parts, "\n") ))
+        setup(compile(table.concat(program_parts, "\n")))
 
 
         local function to_value(name)
             run_test(util.render([[
                 local x = ${VALUE}
                 assert(x == test.from_${NAME}(x))
-            ]],{
+            ]], {
                 NAME = name,
                 VALUE = tests[name].value
             }))
@@ -483,7 +482,7 @@ describe("Pallene coder /", function()
             run_test(util.render([[
                 local x = ${VALUE}
                 assert(x == test.to_${NAME}(x))
-            ]],{
+            ]], {
                 NAME = name,
                 VALUE = tests[name].value
             }))

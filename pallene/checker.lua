@@ -95,7 +95,6 @@ end
 
 local function coerce_numeric_exp_to_float(exp)
     if exp._type._tag == types.T.Integer then
-
         local name = ast.Var.Name(false, "tofloat")
         name._decl = builtins.tofloat
         local tofloat = ast.Exp.Var(false, name)
