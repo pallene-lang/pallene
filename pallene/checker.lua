@@ -138,17 +138,15 @@ end
 --
 
 type_check = function(prog_ast)
-    local co = coroutine.create(function()
-        check_program(prog_ast)
-    end)
-    local ok, err_msg = coroutine.resume(co)
+    local co = coroutine.create(check_program)
+    local ok, err_msg = coroutine.resume(co, prog_ast)
     if ok then
         if coroutine.status(co) == "dead" then
             -- User's program passed type checker
-            return prog_ast, {} -- TODO:  no {}
+            return prog_ast, {}
         else
             -- User's program has a type error
-            return false, { err_msg }
+            return false, {err_msg}
         end
     else
         -- Unhandled exception in Palene's type checker
