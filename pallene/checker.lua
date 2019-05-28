@@ -39,16 +39,9 @@ end
 -- local functions
 --
 
-local TypeError = {}
-TypeError.__index = TypeError
-
-function TypeError.new(msg)
-    return setmetatable({ msg = msg }, TypeError)
-end
-
 local function type_error(loc, fmt, ...)
     local err_msg = location.format_error(loc, "type error: "..fmt, ...)
-    error(TypeError.new(err_msg))
+    coroutine.yield(err_msg)
 end
 
 -- Checks if two types are the same, and logs an error message otherwise
@@ -145,15 +138,20 @@ end
 --
 
 type_check = function(prog_ast)
-    local ok, err = xpcall(check_program, debug.traceback, prog_ast)
+    local co = coroutine.create(check_program)
+    local ok, err_msg = coroutine.resume(co, prog_ast)
     if ok then
-        return prog_ast, {} -- TODO:  no {}
-    else
-        if getmetatable(err) == TypeError then
-            return false, { err.msg } -- TODO  no {}
+        if coroutine.status(co) == "dead" then
+            -- User's program passed type checker
+            return prog_ast, {}
         else
-            error(err)
+            -- User's program has a type error
+            return false, {err_msg}
         end
+    else
+        -- Unhandled exception in Palene's type checker
+        local stack_trace = debug.traceback(co)
+        error(err_msg .. "\n" .. stack_trace)
     end
 end
 
