@@ -15,7 +15,7 @@ const char *pallene_tag_name(int raw_tag);
 
 void pallene_runtime_tag_check_error(
     lua_State *L, int line, int expected_tag, int received_tag,
-    const char *description)
+    const char *description_fmt, ...)
     PALLENE_NORETURN;
 
 void pallene_runtime_arity_error(

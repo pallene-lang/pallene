@@ -11,6 +11,7 @@
 #include "ltable.h"
 
 #include <string.h>
+#include <stdarg.h>
 
 const char *pallene_tag_name(int raw_tag)
 {
@@ -28,15 +29,25 @@ void pallene_runtime_tag_check_error(
     int line,
     int expected_tag,
     int received_tag,
-    const char *description
+    const char *description_fmt,
+    ...
 ){
     const char *expected_type = pallene_tag_name(expected_tag);
     const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "line %d: wrong type for %s, expected %s but found %s",
-        line, description, expected_type, received_type
-    );
+
+    // Implementation inspired by luaL_error
+    luaL_where(L, 1);
+    lua_pushfstring(L, "line %d: wrong type for ", line);
+    {
+        va_list argp;
+        va_start(argp, description_fmt);
+        lua_pushvfstring(L, description_fmt, argp);
+        va_end(argp);
+    }
+    lua_pushfstring(L, ", expected %s but found %s",
+        expected_type, received_type);
+    lua_concat(L, 4);
+    lua_error(L);
     PALLENE_UNREACHABLE;
 }
 
