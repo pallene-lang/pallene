@@ -168,7 +168,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs)
+        assert.match("integer is not assignable to string", errs)
     end)
 
     it("function can call another function", function()
@@ -190,7 +190,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs)
+        assert.match("integer is not assignable to string", errs)
     end)
 
     it("can create empty array (with type annotation)", function()
@@ -517,7 +517,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs)
+        assert.match("integer is not assignable to string", errs)
     end)
 
     it("ensures numeric 'for' variable has number type (with annotation)", function()
@@ -636,7 +636,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("types in return statement do not match, expected integer but found string", errs)
+        assert.match("return statement: string is not assignable to intege", errs)
     end)
 
     it("detects missing return statements", function()
@@ -729,7 +729,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected integer but found float", errs,nil, true)
+        assert.match("float is not assignable to integer", errs,nil, true)
     end)
 
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
@@ -1301,9 +1301,9 @@ describe("Pallene typecheck of records", function()
     end)
 
     it("doesn't typecheck read/write with invalid types", function()
-        assert_type_error("expected float but found Point",
+        assert_type_error("Point is not assignable to float",
                           wrap_record[[ p.x = p ]])
-        assert_type_error("expected Point but found float",
+        assert_type_error("float is not assignable to Point",
                           wrap_record[[ local p: Point = p.x ]])
     end)
 end)

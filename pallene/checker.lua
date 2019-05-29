@@ -52,11 +52,11 @@ local function type_error(loc, fmt, ...)
     error(TypeError.new(err_msg))
 end
 
--- Checks if two types are the same, and logs an error message otherwise
+-- Checks if two types are the same, and raises an error message otherwise
 --   loc: location of the term that is being compared
 --   expected: type that is expected
 --   found: type that was actually present
---   termfmt: format string describing what is being compared
+--   term_fmt: format string describing what is being compared
 --   ...: arguments to the "term" format string
 local function check_match(loc, expected, found, term_fmt, ...)
     if not types.equals(expected, found) then
@@ -69,6 +69,8 @@ local function check_match(loc, expected, found, term_fmt, ...)
         type_error(loc, msg)
     end
 end
+
+
 
 local function check_arity(loc, expected, found, term_fmt, ...)
     if expected ~= found then
@@ -86,6 +88,25 @@ local function check_is_array(loc, found, term_fmt, ...)
         local msg = string.format("%s: expected array but found %s",
             term, found_str)
         type_error(loc, msg)
+    end
+end
+
+local function try_coerce(exp, expected, term_fmt, ...)
+    local found = exp._type
+    if types.equals(found, expected) then
+        return exp
+    elseif types.consistent(found, expected) then
+        local cast = ast.Exp.Cast(exp.loc, exp, false)
+        cast._type = expected
+        return cast
+    else
+        local term = string.format(term_fmt, ...)
+        local expected_str = types.tostring(expected)
+        local found_str = types.tostring(found)
+        local msg = string.format(
+            "%s: %s is not assignable to %s",
+            term, found_str, expected_str)
+        type_error(exp.loc, msg)
     end
 end
 
@@ -288,14 +309,13 @@ check_stat = function(stat, ret_types)
         if stat.decl.type then
             check_decl(stat.decl)
             check_exp(stat.exp, stat.decl._type)
+            stat.exp = try_coerce(stat.exp, stat.decl._type,
+                "declaration of local variable %s", stat.decl.name)
         else
             check_exp(stat.exp, false)
             stat.decl._type = stat.exp._type
             check_decl(stat.decl)
         end
-        check_match(stat.decl.loc,
-            stat.decl._type, stat.exp._type,
-            "declaration of local variable %s", stat.decl.name)
 
     elseif tag == ast.Stat.Block then
         for _, inner_stat in ipairs(stat.stats) do
@@ -367,9 +387,7 @@ check_stat = function(stat, ret_types)
     elseif tag == ast.Stat.Assign then
         check_var(stat.var)
         check_exp(stat.exp, stat.var._type)
-        check_match(stat.var.loc,
-            stat.var._type, stat.exp._type,
-            "assignment")
+        stat.exp = try_coerce(stat.exp, stat.var._type, "assignment")
         if stat.var._tag == ast.Var.Name and
             stat.var._decl._tag == ast.Toplevel.Func
         then
@@ -393,9 +411,7 @@ check_stat = function(stat, ret_types)
             local exp = stat.exps[i]
             local ret_type = ret_types[i]
             check_exp(exp, ret_type)
-            check_match(exp.loc,
-                ret_type, exp._type,
-                "return statement")
+            stat.exps[i] = try_coerce(exp, ret_type, "return statement")
         end
 
     elseif tag == ast.Stat.If then
@@ -758,8 +774,7 @@ check_exp = function(exp, type_hint)
                 local p_type = f_type.params[i]
                 local arg = args[i]
                 check_exp(arg, p_type)
-                check_match(f_exp.loc,
-                    p_type, arg._type,
+                args[i] = try_coerce(arg, p_type,
                     "argument %d of call to function", i)
             end
             assert(#f_type.ret_types <= 1)
