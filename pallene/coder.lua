@@ -2708,7 +2708,8 @@ generate_exp = function(exp, ctx)
             local out = ctx:new_tvar(dst_typ)
             local cstats = util.render([[
                 ${EXP_CSTATS}
-                ${OUT_DECL}; ${SET_SLOT}
+                ${OUT_DECL};
+                ${SET_SLOT}
             ]], {
                 OUT_DECL = c_declaration(out),
                 EXP_CSTATS = exp_cstats,
