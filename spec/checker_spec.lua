@@ -1184,6 +1184,61 @@ describe("Pallene type checker", function()
         end)
     end
 
+    for _, ts in ipairs({
+        {"downcast", "integer", "value"},
+        {"upcast",   "value", "integer"},
+    }) do
+        local description = ts[1]
+        local dst_typ     = ts[2]
+        local src_typ     = ts[3]
+
+        describe(
+            "can implicitly "..description..
+            " from "..src_typ..
+            " to "..dst_typ.."", function()
+
+                it("in variable declarations", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(y : ]]..src_typ..[[)
+                            local x : ]]..dst_typ..[[ = y
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+
+                it("in variable assignments", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(x : ]]..dst_typ..[[, y : ]]..src_typ..[[)
+                            x = y
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+
+                it("in function call arguments", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(x : ]]..dst_typ..[[)
+                        end
+
+                        function g(y : ]]..src_typ..[[)
+                            f(y)
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+
+                it("in function return statements", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(y : ]]..src_typ..[[) : ]]..dst_typ..[[
+                            return y
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+        end)
+    end
+
+
     it("catches assignment to function", function ()
         local prog_ast, errs = run_checker([[
             function f()
