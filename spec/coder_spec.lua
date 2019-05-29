@@ -508,7 +508,8 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.to_integer, "hello")
                 assert(not ok)
-                assert(string.find(err, "downcast error", nil, true))
+                assert(string.find(err,
+                    "wrong type for downcasted value", nil, true))
             ]])
         end)
 

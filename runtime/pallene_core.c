@@ -23,6 +23,24 @@ const char *pallene_tag_name(int raw_tag)
     }
 }
 
+void pallene_runtime_tag_check_error(
+    lua_State *L,
+    int line,
+    int expected_tag,
+    int received_tag,
+    const char *description
+){
+    const char *expected_type = pallene_tag_name(expected_tag);
+    const char *received_type = pallene_tag_name(received_tag);
+    luaL_error(
+        L,
+        "line %d: wrong type for %s, expected %s but found %s",
+        line, description, expected_type, received_type
+    );
+    PALLENE_UNREACHABLE;
+}
+
+
 void pallene_runtime_arity_error(
     lua_State *L,
     int expected,
@@ -49,38 +67,6 @@ void pallene_runtime_argument_type_error(
         L,
         "wrong type for argument %s at line %d, expected %s but found %s",
         param_name, line, expected_type, received_type
-    );
-    PALLENE_UNREACHABLE;
-}
-
-void pallene_runtime_array_type_error(
-   lua_State *L,
-   int line,
-   int expected_tag,
-   int received_tag
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "wrong type for array element at line %d, expected %s but found %s",
-        line, expected_type, received_type
-    );
-    PALLENE_UNREACHABLE;
-}
-
-void pallene_runtime_function_return_error(
-    lua_State *L,
-    int line,
-    int expected_tag,
-    int received_tag
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "wrong type for function result at line %d, expected %s but found %s",
-        line, expected_type, received_type
     );
     PALLENE_UNREACHABLE;
 }
@@ -124,23 +110,6 @@ int pallene_runtime_record_type_error(
     );
     PALLENE_UNREACHABLE;
 }
-
-void pallene_runtime_downcast_error(
-   lua_State *L,
-   int line,
-   int expected_tag,
-   int received_tag
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "downcast error at line %d. Expected %s but found %s",
-        line, expected_type, received_type
-    );
-    PALLENE_UNREACHABLE;
-}
-
 
 static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
 {

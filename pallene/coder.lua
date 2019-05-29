@@ -1354,7 +1354,9 @@ local function generate_lvalue_read(lvalue, ctx)
         else
             check_stats = util.render([[
                 if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                    pallene_runtime_array_type_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}));
+                    pallene_runtime_tag_check_error(L,
+                        ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}),
+                        "array element");
                 }
             ]], {
                 CHECK_TAG = check_tag(typ, arrslot.name, ctx),
@@ -2387,7 +2389,9 @@ generate_exp = function(exp, ctx)
                 else
                     check_stats = util.render([[
                         if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                            pallene_runtime_function_return_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
+                            pallene_runtime_tag_check_error(L,
+                                ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
+                                "function result");
                         }
                     ]], {
                         CHECK_TAG = check_tag(ret_typ, slot.name, ctx),
@@ -2725,7 +2729,9 @@ generate_exp = function(exp, ctx)
             local cstats = util.render([[
                 ${EXP_CSTATS}
                 if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                    pallene_runtime_downcast_error(L, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}));
+                    pallene_runtime_tag_check_error(L,
+                        ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
+                        "downcasted value");
                 }
                 ${OUT_DECL} = ${GET_SLOT};
             ]], {

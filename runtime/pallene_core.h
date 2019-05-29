@@ -13,21 +13,19 @@
 
 const char *pallene_tag_name(int raw_tag);
 
+void pallene_runtime_tag_check_error(
+    lua_State *L, int line, int expected_tag, int received_tag,
+    const char *description)
+    PALLENE_NORETURN;
+
 void pallene_runtime_arity_error(
     lua_State *L, int expected, int received)
     PALLENE_NORETURN;
 
+// TODO: deprecated
 void pallene_runtime_argument_type_error(
     lua_State *L, const char *param_name, int line, int expected_tag,
     int received_tag)
-    PALLENE_NORETURN;
-
-void pallene_runtime_array_type_error(
-    lua_State *L, int line, int expected_tag, int received_tag)
-    PALLENE_NORETURN;
-
-void pallene_runtime_function_return_error(
-    lua_State *L, int line, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 
 void pallene_runtime_divide_by_zero_error(
@@ -42,12 +40,9 @@ int pallene_runtime_record_index_error(
     lua_State *L, const char *key)
     PALLENE_NORETURN;
 
+// TODO: deprecated
 int pallene_runtime_record_type_error(
     lua_State *L, const char *key, int expected_tag, int received_tag)
-    PALLENE_NORETURN;
-
-void pallene_runtime_downcast_error(
-    lua_State *L, int line, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 
 TString *pallene_string_concatN(
