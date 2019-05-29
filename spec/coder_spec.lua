@@ -95,7 +95,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_float, "abc")
                 assert(string.find(err,
-                    "wrong type for argument x at line 5, " ..
+                    "wrong type for argument x, " ..
                     "expected float but found string",
                     nil, true))
             ]])
@@ -106,7 +106,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_float, 10)
                 assert(string.find(err,
-                    "wrong type for argument x at line 5, " ..
+                    "wrong type for argument x, " ..
                     "expected float but found integer",
                     nil, true))
             ]])
@@ -116,7 +116,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_int, 3.14)
                 assert(string.find(err,
-                    "wrong type for argument x at line 1, " ..
+                    "wrong type for argument x, " ..
                     "expected integer but found float",
                     nil, true))
             ]])

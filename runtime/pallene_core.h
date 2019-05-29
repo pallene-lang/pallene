@@ -22,12 +22,6 @@ void pallene_runtime_arity_error(
     lua_State *L, int expected, int received)
     PALLENE_NORETURN;
 
-// TODO: deprecated
-void pallene_runtime_argument_type_error(
-    lua_State *L, const char *param_name, int line, int expected_tag,
-    int received_tag)
-    PALLENE_NORETURN;
-
 void pallene_runtime_divide_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
@@ -38,11 +32,6 @@ void pallene_runtime_mod_by_zero_error(
 
 int pallene_runtime_record_index_error(
     lua_State *L, const char *key)
-    PALLENE_NORETURN;
-
-// TODO: deprecated
-int pallene_runtime_record_type_error(
-    lua_State *L, const char *key, int expected_tag, int received_tag)
     PALLENE_NORETURN;
 
 TString *pallene_string_concatN(

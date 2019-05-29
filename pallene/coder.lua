@@ -907,7 +907,9 @@ function RecordCoder:declare_newindex()
         if typ._tag ~= types.T.Value then
             table.insert(stats, util.render([[
                 if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                    pallene_runtime_record_type_error(L, ${KEY}, ${EXPECTED_TAG}, rawtt(${SRC_SLOT}));
+                    pallene_runtime_tag_check_error(L,
+                        0, ${EXPECTED_TAG}, rawtt(${SRC_SLOT}),
+                        "record field '%s'", ${KEY});
                 }
             ]], {
                 CHECK_TAG = check_tag(typ, src_slot.name, ctx),
@@ -1083,7 +1085,9 @@ local function generate_lua_entry_point(tl_node, literals)
             table.insert(check_types, util.render([[
                 ${SLOT_DECL} = ${SLOT_ADDRESS};
                 if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                    pallene_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT_NAME}));
+                    pallene_runtime_tag_check_error(L,
+                        ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT_NAME}),
+                        "argument %s", ${PARAM_NAME});
                 }
             ]], {
                 SLOT_NAME = slot.name,
