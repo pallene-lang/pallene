@@ -146,11 +146,11 @@ Similarly, arrays of values can store values of varied types
     xs[1] = 10
     xs[2] = "hello"
 
-Pallene automatically coerces to and from the `value` type. In addition to 
-variable assignments, coercions also occurs in the parameters passed to
-functions and in the values returned from them. You can also use the `as`
-operator for explicit coercions. These coercions between value-compatible types
-are the only place where Pallene does type coercions.
+Pallene automatically coerces to and from the `value` type in parts of the
+program that have type annotations. That is, variable assignments, explicit
+coercions with the `as` operator, and in the parameters and return values of
+functions. These coercions between value-compatible types are the only place
+where Pallene does type coercions.
 
     function insert(xs:{value}, v:value)
         xs[#xs+1] = v
@@ -183,7 +183,7 @@ type error.
 
 The `value` type offers a limited form of dynamic typing. The main difference
 compared to Lua is that you are in Pallene does not allow you to perform any
-operations on a `value`. You may pass a `value` to a functions and youmay store
+operations on a `value`. You may pass a `value` to a functions and you may store
 it in an array but you cannot call, index or pass it to an arithmetic operator:
 
 
