@@ -600,7 +600,22 @@ local metatable_type = types.T.Array(types.T.Integer())
 -- @tags
 --
 
-local function check_tag(typ, slot, ctx)
+local function pallene_type_tag(typ)
+    local tag = typ._tag
+    if     tag == types.T.Nil      then return "LUA_TNIL"
+    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
+    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
+    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
+    elseif tag == types.T.String   then return "LUA_TSTRING"
+    elseif tag == types.T.Function then return "LUA_TFUNCTION"
+    elseif tag == types.T.Array    then return "LUA_TTABLE"
+    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
+    elseif tag == types.T.Value    then error("impossible") -- Not sure...?
+    else error("impossible")
+    end
+end
+
+local function test_tag(typ, slot, ctx)
     local tmpl
     local tag = typ._tag
     if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
@@ -624,21 +639,6 @@ local function check_tag(typ, slot, ctx)
     else error("impossible")
     end
     return util.render(tmpl, {SLOT = slot})
-end
-
-local function pallene_type_tag(typ)
-    local tag = typ._tag
-    if     tag == types.T.Nil      then return "LUA_TNIL"
-    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
-    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
-    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
-    elseif tag == types.T.String   then return "LUA_TSTRING"
-    elseif tag == types.T.Function then return "LUA_TFUNCTION"
-    elseif tag == types.T.Array    then return "LUA_TTABLE"
-    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
-    elseif tag == types.T.Value    then error("impossible") -- Not sure...?
-    else error("impossible")
-    end
 end
 
 --
@@ -906,13 +906,13 @@ function RecordCoder:declare_newindex()
         local stats = {}
         if typ._tag ~= types.T.Value then
             table.insert(stats, util.render([[
-                if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
                     pallene_runtime_tag_check_error(L,
                         0, ${EXPECTED_TAG}, rawtt(${SRC_SLOT}),
                         "record field '%s'", ${KEY});
                 }
             ]], {
-                CHECK_TAG = check_tag(typ, src_slot.name, ctx),
+                TEST_TAG = test_tag(typ, src_slot.name, ctx),
                 KEY = key.name,
                 EXPECTED_TAG = pallene_type_tag(typ),
                 SRC_SLOT = src_slot.name,
@@ -1084,7 +1084,7 @@ local function generate_lua_entry_point(tl_node, literals)
             local slot = ctx:new_cvar("TValue*")
             table.insert(check_types, util.render([[
                 ${SLOT_DECL} = ${SLOT_ADDRESS};
-                if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
                     pallene_runtime_tag_check_error(L,
                         ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT_NAME}),
                         "argument %s", ${PARAM_NAME});
@@ -1093,7 +1093,7 @@ local function generate_lua_entry_point(tl_node, literals)
                 SLOT_NAME = slot.name,
                 SLOT_DECL = c_declaration(slot),
                 SLOT_ADDRESS = argslot(i),
-                CHECK_TAG = check_tag(param._type, slot.name, ctx),
+                TEST_TAG = test_tag(param._type, slot.name, ctx),
                 PARAM_NAME = c_string(param.name),
                 LINE = c_integer(param.loc.line),
                 EXPECTED_TAG = pallene_type_tag(param._type),
@@ -1357,13 +1357,13 @@ local function generate_lvalue_read(lvalue, ctx)
              check_stats = ""
         else
             check_stats = util.render([[
-                if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
                     pallene_runtime_tag_check_error(L,
                         ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}),
                         "array element");
                 }
             ]], {
-                CHECK_TAG = check_tag(typ, arrslot.name, ctx),
+                TEST_TAG = test_tag(typ, arrslot.name, ctx),
                 LINE = loc.line,
                 EXPECTED_TAG = pallene_type_tag(typ),
                 ARRSLOT = arrslot.name,
@@ -2392,13 +2392,13 @@ generate_exp = function(exp, ctx)
                     check_stats = ""
                 else
                     check_stats = util.render([[
-                        if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                        if (PALLENE_UNLIKELY(!${TEST_TAG})) {
                             pallene_runtime_tag_check_error(L,
                                 ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
                                 "function result");
                         }
                     ]], {
-                        CHECK_TAG = check_tag(ret_typ, slot.name, ctx),
+                        TEST_TAG = test_tag(ret_typ, slot.name, ctx),
                         LINE = c_integer(exp.loc.line),
                         EXPECTED_TAG = pallene_type_tag(ret_typ),
                         SLOT      = slot.name,
@@ -2732,7 +2732,7 @@ generate_exp = function(exp, ctx)
             local slot = "&"..exp_cvalue
             local cstats = util.render([[
                 ${EXP_CSTATS}
-                if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
+                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
                     pallene_runtime_tag_check_error(L,
                         ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
                         "downcasted value");
@@ -2740,7 +2740,7 @@ generate_exp = function(exp, ctx)
                 ${OUT_DECL} = ${GET_SLOT};
             ]], {
                 EXP_CSTATS = exp_cstats,
-                CHECK_TAG = check_tag(dst_typ, slot, ctx),
+                TEST_TAG = test_tag(dst_typ, slot, ctx),
                 LINE = exp.loc.line,
                 EXPECTED_TAG = pallene_type_tag(dst_typ),
                 SLOT = slot,
