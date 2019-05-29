@@ -41,10 +41,10 @@ void pallene_runtime_argument_type_error(
     const char *param_name,
     int line,
     int expected_tag,
-    TValue *slot
+    int received_tag
 ){
     const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(rawtt(slot));
+    const char *received_type = pallene_tag_name(received_tag);
     luaL_error(
         L,
         "wrong type for argument %s at line %d, expected %s but found %s",

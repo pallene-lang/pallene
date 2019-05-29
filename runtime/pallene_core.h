@@ -19,7 +19,7 @@ void pallene_runtime_arity_error(
 
 void pallene_runtime_argument_type_error(
     lua_State *L, const char *param_name, int line, int expected_tag,
-    TValue *slot)
+    int received_tag)
     PALLENE_NORETURN;
 
 void pallene_runtime_array_type_error(

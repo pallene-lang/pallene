@@ -1083,7 +1083,7 @@ local function generate_lua_entry_point(tl_node, literals)
             table.insert(check_types, util.render([[
                 ${SLOT_DECL} = ${SLOT_ADDRESS};
                 if (PALLENE_UNLIKELY(!${CHECK_TAG})) {
-                    pallene_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, ${SLOT_NAME});
+                    pallene_runtime_argument_type_error(L, ${PARAM_NAME}, ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT_NAME}));
                 }
             ]], {
                 SLOT_NAME = slot.name,
