@@ -641,6 +641,41 @@ local function test_tag(typ, slot, ctx)
     return util.render(tmpl, {SLOT = slot})
 end
 
+-- Perform a run-time tag check
+--
+-- typ: expected type
+-- slot: TValue* to be tested
+-- loc: source code location (for error reporting)
+-- description_fmt: Format string in lua_pushfstring format, which
+--                  describes what this tag check is for.
+--                  Received as a Lua string.
+-- ... (extra_args): Parameters to the format string.
+--                  Received as serialized C expressions.
+--
+local function check_tag(ctx, typ, slot, loc, description_fmt, ...)
+    if typ._tag == types.T.Value then
+        return ""
+    else
+        local extra_args = table.pack(...)
+        return util.render([[
+            if (PALLENE_UNLIKELY(!${TEST_TAG})) {
+                pallene_runtime_tag_check_error(L,
+                    ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
+                    ${DESCRIPTION_FMT}${EXTRA_ARGS});
+            }
+        ]], {
+            TEST_TAG = test_tag(typ, slot, ctx),
+            LINE = c_integer(loc and loc.line or 0),
+            EXPECTED_TAG = pallene_type_tag(typ),
+            SLOT = slot,
+            DESCRIPTION_FMT = c_string(description_fmt),
+            EXTRA_ARGS = ( #extra_args == 0
+                and ""
+                or ", " .. table.concat(extra_args, ", "))
+        })
+    end
+end
+
 --
 -- @records
 --
@@ -904,20 +939,8 @@ function RecordCoder:declare_newindex()
         local typ = self:field_type(field_name)
         local value = ctx:new_tvar(typ)
         local stats = {}
-        if typ._tag ~= types.T.Value then
-            table.insert(stats, util.render([[
-                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
-                    pallene_runtime_tag_check_error(L,
-                        0, ${EXPECTED_TAG}, rawtt(${SRC_SLOT}),
-                        "record field '%s'", ${KEY});
-                }
-            ]], {
-                TEST_TAG = test_tag(typ, src_slot.name, ctx),
-                KEY = key.name,
-                EXPECTED_TAG = pallene_type_tag(typ),
-                SRC_SLOT = src_slot.name,
-            }))
-        end
+        table.insert(stats, check_tag(ctx, typ, src_slot.name,
+            false, "record field '%s'", key.name))
         table.insert(stats, init_cvar(value, get_slot(typ, src_slot.name)))
         table.insert(stats, self:set_field(udata.name, field_name, value.name))
         return table.concat(stats, "\n")
@@ -1084,19 +1107,12 @@ local function generate_lua_entry_point(tl_node, literals)
             local slot = ctx:new_cvar("TValue*")
             table.insert(check_types, util.render([[
                 ${SLOT_DECL} = ${SLOT_ADDRESS};
-                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
-                    pallene_runtime_tag_check_error(L,
-                        ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT_NAME}),
-                        "argument %s", ${PARAM_NAME});
-                }
+                ${CHECK_TAG}
             ]], {
-                SLOT_NAME = slot.name,
                 SLOT_DECL = c_declaration(slot),
                 SLOT_ADDRESS = argslot(i),
-                TEST_TAG = test_tag(param._type, slot.name, ctx),
-                PARAM_NAME = c_string(param.name),
-                LINE = c_integer(param.loc.line),
-                EXPECTED_TAG = pallene_type_tag(param._type),
+                CHECK_TAG = check_tag(ctx, param._type, slot.name,
+                    param.loc, "argument %s", c_string(param.name)),
             }))
         end
     end
@@ -1352,24 +1368,8 @@ local function generate_lvalue_read(lvalue, ctx)
         local loc = lvalue.var.loc
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
         local arrslot = ctx:new_cvar("const TValue *", "arrslot")
-        local check_stats
-        if typ._tag == types.T.Value then
-             check_stats = ""
-        else
-            check_stats = util.render([[
-                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
-                    pallene_runtime_tag_check_error(L,
-                        ${LINE}, ${EXPECTED_TAG}, rawtt(${ARRSLOT}),
-                        "array element");
-                }
-            ]], {
-                TEST_TAG = test_tag(typ, arrslot.name, ctx),
-                LINE = loc.line,
-                EXPECTED_TAG = pallene_type_tag(typ),
-                ARRSLOT = arrslot.name,
-            })
-        end
-
+        local check_stats = check_tag(ctx, typ, arrslot.name,
+            loc, "array element")
         local out = ctx:new_tvar(typ)
         local cstats = util.render([[
             ${UI_DECL} = ((lua_Unsigned)${I}) - 1;
@@ -2387,23 +2387,8 @@ generate_exp = function(exp, ctx)
                 local ret_typ = fexp._type.ret_types[1]
                 local slot = ctx:new_cvar("TValue*")
                 local ret = ctx:new_tvar(ret_typ)
-                local check_stats
-                if ret_typ._tag == types.T.Value then
-                    check_stats = ""
-                else
-                    check_stats = util.render([[
-                        if (PALLENE_UNLIKELY(!${TEST_TAG})) {
-                            pallene_runtime_tag_check_error(L,
-                                ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
-                                "function result");
-                        }
-                    ]], {
-                        TEST_TAG = test_tag(ret_typ, slot.name, ctx),
-                        LINE = c_integer(exp.loc.line),
-                        EXPECTED_TAG = pallene_type_tag(ret_typ),
-                        SLOT      = slot.name,
-                    })
-                end
+                local check_stats = check_tag(ctx, ret_typ, slot.name,
+                    exp.loc, "function result")
                 retval = ret.name
                 table.insert(body, util.render([[
                     ${SLOT_DECL} = s2v(L->top - 1);
@@ -2732,18 +2717,12 @@ generate_exp = function(exp, ctx)
             local slot = "&"..exp_cvalue
             local cstats = util.render([[
                 ${EXP_CSTATS}
-                if (PALLENE_UNLIKELY(!${TEST_TAG})) {
-                    pallene_runtime_tag_check_error(L,
-                        ${LINE}, ${EXPECTED_TAG}, rawtt(${SLOT}),
-                        "downcasted value");
-                }
+                ${CHECK_TAG}
                 ${OUT_DECL} = ${GET_SLOT};
             ]], {
                 EXP_CSTATS = exp_cstats,
-                TEST_TAG = test_tag(dst_typ, slot, ctx),
-                LINE = exp.loc.line,
-                EXPECTED_TAG = pallene_type_tag(dst_typ),
-                SLOT = slot,
+                CHECK_TAG = check_tag(ctx, dst_typ, slot,
+                    exp.loc, "downcasted value"),
                 OUT_DECL = c_declaration(out),
                 GET_SLOT = get_slot(dst_typ, slot),
             })
