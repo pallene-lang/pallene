@@ -11,6 +11,7 @@
 #include "ltable.h"
 
 #include <string.h>
+#include <stdarg.h>
 
 const char *pallene_tag_name(int raw_tag)
 {
@@ -23,6 +24,38 @@ const char *pallene_tag_name(int raw_tag)
     }
 }
 
+void pallene_runtime_tag_check_error(
+    lua_State *L,
+    int line,
+    int expected_tag,
+    int received_tag,
+    const char *description_fmt,
+    ...
+){
+    const char *expected_type = pallene_tag_name(expected_tag);
+    const char *received_type = pallene_tag_name(received_tag);
+
+    /* This code is inspired by luaL_error */
+    luaL_where(L, 1);
+    if (line > 0) {
+        lua_pushfstring(L, "line %d: ", line);
+    } else {
+        lua_pushfstring(L, "");
+    }
+    lua_pushfstring(L, "wrong type for ");
+    {
+        va_list argp;
+        va_start(argp, description_fmt);
+        lua_pushvfstring(L, description_fmt, argp);
+        va_end(argp);
+    }
+    lua_pushfstring(L, ", expected %s but found %s",
+        expected_type, received_type);
+    lua_concat(L, 5);
+    lua_error(L);
+    PALLENE_UNREACHABLE;
+}
+
 void pallene_runtime_arity_error(
     lua_State *L,
     int expected,
@@ -32,55 +65,6 @@ void pallene_runtime_arity_error(
         L,
         "wrong number of arguments to function, expected %d but received %d",
         expected, received
-    );
-    PALLENE_UNREACHABLE;
-}
-
-void pallene_runtime_argument_type_error(
-    lua_State *L,
-    const char *param_name,
-    int line,
-    int expected_tag,
-    TValue *slot
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(rawtt(slot));
-    luaL_error(
-        L,
-        "wrong type for argument %s at line %d, expected %s but found %s",
-        param_name, line, expected_type, received_type
-    );
-    PALLENE_UNREACHABLE;
-}
-
-void pallene_runtime_array_type_error(
-   lua_State *L,
-   int line,
-   int expected_tag,
-   int received_tag
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "wrong type for array element at line %d, expected %s but found %s",
-        line, expected_type, received_type
-    );
-    PALLENE_UNREACHABLE;
-}
-
-void pallene_runtime_function_return_error(
-    lua_State *L,
-    int line,
-    int expected_tag,
-    int received_tag
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "wrong type for function result at line %d, expected %s but found %s",
-        line, expected_type, received_type
     );
     PALLENE_UNREACHABLE;
 }
@@ -106,22 +90,6 @@ int pallene_runtime_record_index_error(
     const char *key
 ){
     luaL_error(L, "attempt to access nonexistent field '%s'", key);
-    PALLENE_UNREACHABLE;
-}
-
-int pallene_runtime_record_type_error(
-    lua_State *L,
-    const char *key,
-    int expected_tag,
-    int received_tag
-){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-    luaL_error(
-        L,
-        "wrong type for record field '%s', expected %s but found %s",
-        key, expected_type, received_type
-    );
     PALLENE_UNREACHABLE;
 }
 

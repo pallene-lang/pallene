@@ -95,7 +95,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_float, "abc")
                 assert(string.find(err,
-                    "wrong type for argument x at line 5, " ..
+                    "wrong type for argument x, " ..
                     "expected float but found string",
                     nil, true))
             ]])
@@ -106,7 +106,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_float, 10)
                 assert(string.find(err,
-                    "wrong type for argument x at line 5, " ..
+                    "wrong type for argument x, " ..
                     "expected float but found integer",
                     nil, true))
             ]])
@@ -116,7 +116,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_int, 3.14)
                 assert(string.find(err,
-                    "wrong type for argument x at line 1, " ..
+                    "wrong type for argument x, " ..
                     "expected integer but found float",
                     nil, true))
             ]])
@@ -427,6 +427,92 @@ describe("Pallene coder /", function()
         it("boolean (and)",      function() optest("and_bool") end)
         it("boolean (or)",       function() optest("or_bool") end)
         it("concat (..)",        function() optest("concat_str") end)
+    end)
+
+    describe("Operators /", function()
+        -- The `as` operator does not exist in Lua, so it must be tested
+        -- separately.
+        local tests = {
+            ["boolean"]  = {typ = "boolean",         value = "true"},
+            ["integer"]  = {typ = "integer",         value = "17"},
+            ["float"]    = {typ = "float",           value = "3.14"},
+            ["string"]   = {typ = "string",          value = "'hello'"},
+            ["function"] = {typ = "integer->string", value = "tostring"},
+            ["array"]    = {typ = "{integer}",       value = "{10,20}"},
+            ["record"]   = {typ = "Empty",           value = "test.new_empty()"},
+            ["value"]    = {typ = "value",           value = "17"},
+        }
+
+        local program_parts = {}
+        table.insert(program_parts,[[
+            record Empty
+            end
+            function new_empty(): Empty
+                return {}
+            end
+        ]])
+        for name, test in pairs(tests) do
+            table.insert(program_parts, util.render([[
+                function from_${NAME}(x: ${T}): value
+                    return (x as value)
+                end
+                function to_${NAME}(x: value): ${T}
+                    return (x as ${T})
+                end
+            ]], {
+                NAME = name,
+                T = test.typ,
+            }))
+        end
+
+        setup(compile(table.concat(program_parts, "\n")))
+
+
+        local function to_value(name)
+            run_test(util.render([[
+                local x = ${VALUE}
+                assert(x == test.from_${NAME}(x))
+            ]], {
+                NAME = name,
+                VALUE = tests[name].value
+            }))
+        end
+
+        local function from_value(name)
+            run_test(util.render([[
+                local x = ${VALUE}
+                assert(x == test.to_${NAME}(x))
+            ]], {
+                NAME = name,
+                VALUE = tests[name].value
+            }))
+        end
+
+        it("boolean->value (as)",  function() to_value("boolean") end)
+        it("integer->value (as)",  function() to_value("integer") end)
+        it("float->value (as)",    function() to_value("float") end)
+        it("string->value (as)",   function() to_value("string") end)
+        it("function->value (as)", function() to_value("function") end)
+        it("array->value (as)",    function() to_value("array") end)
+        it("record->value (as)",   function() to_value("record") end)
+
+        it("value->boolean (as)",  function() from_value("boolean") end)
+        it("value->integer (as)",  function() from_value("integer") end)
+        it("value->float (as)",    function() from_value("float") end)
+        it("value->string (as)",   function() from_value("string") end)
+        it("value->function (as)", function() from_value("function") end)
+        it("value->array (as)",    function() from_value("array") end)
+        it("value->record (as)",   function() from_value("record") end)
+
+        it("detects downcast error", function()
+            run_test([[
+                local ok, err = pcall(test.to_integer, "hello")
+                assert(not ok)
+                assert(string.find(err,
+                    "wrong type for downcasted value", nil, true))
+            ]])
+        end)
+
     end)
 
     describe("Statements /", function()
@@ -960,5 +1046,90 @@ describe("Pallene coder /", function()
             ]])
             assert_test_output("Hello:)World")
         end)
+    end)
+
+    describe("tofloat builtin", function()
+        -- This builtin is also tested further up, in automatic
+        -- arithmetic conversions.
+        setup(compile([[
+            function itof(x:integer): float
+                return tofloat(x)
+            end
+        ]]))
+
+        it("works", function()
+            run_test([[
+                local x_i = 1
+                local x_f = test.itof(x_i)
+                assert("float" == math.type(x_f))
+                assert(1.0 == x_f)
+            ]])
+        end)
+    end)
+
+    describe("value", function()
+        setup(compile([[
+            function id(x:value): value
+                return x
+            end
+
+            function call(f:value->value, x:value): value
+                return f(x)
+            end
+
+            function read(xs:{value}, i:integer): value
+                return xs[i]
+            end
+
+            function write(xs:{value}, i:integer, x:value): ()
+                xs[i] = x
+            end
+
+            record Box
+                v: value
+            end
+            function new_box(v:value): Box
+                return {v = v}
+            end
+        ]]))
+
+        --
+        -- All of these have a separate branch for the Value and the non-Value
+        -- case. So we better stress them by testing the Value case...
+        --
+
+        it("can receive and return values", function()
+            run_test([[ assert(17 == test.id(17)) ]])
+            run_test([[ assert(true == test.id(true)) ]])
+            run_test([[ assert(true == test.call(test.id, true)) ]])
+        end)
+
+        it("can read from array of value", function()
+            run_test([[
+                local xs = {10, "hello"}
+                assert(10 == test.read(xs, 1))
+                assert("hello" == test.read(xs, 2))
+            ]])
+        end)
+
+        it("can write to array of value", function()
+            run_test([[
+                local xs = {}
+                test.write(xs, 1, 10)
+                test.write(xs, 2, "hello")
+                assert(10 == xs[1])
+                assert("hello" == xs[2])
+            ]])
+        end)
+
+        it("can read and write record via __newindex", function()
+            run_test([[
+                local b = test.new_box(10)
+                assert(10 == b.v)
+                b.v = "hello"
+                assert("hello" == b.v)
+            ]])
+        end)
+
     end)
 end)

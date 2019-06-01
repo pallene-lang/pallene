@@ -1,6 +1,7 @@
 local checker = {}
 
 local ast = require "pallene.ast"
+local builtins = require "pallene.builtins"
 local location = require "pallene.location"
 local types = require "pallene.types"
 
@@ -44,11 +45,11 @@ local function type_error(loc, fmt, ...)
     coroutine.yield(err_msg)
 end
 
--- Checks if two types are the same, and logs an error message otherwise
+-- Checks if two types are the same, and raises an error message otherwise
 --   loc: location of the term that is being compared
 --   expected: type that is expected
 --   found: type that was actually present
---   termfmt: format string describing what is being compared
+--   term_fmt: format string describing what is being compared
 --   ...: arguments to the "term" format string
 local function check_match(loc, expected, found, term_fmt, ...)
     if not types.equals(expected, found) then
@@ -81,15 +82,37 @@ local function check_is_array(loc, found, term_fmt, ...)
     end
 end
 
+local function try_coerce(exp, expected, term_fmt, ...)
+    local found = exp._type
+    if types.equals(found, expected) then
+        return exp
+    elseif types.consistent(found, expected) then
+        local cast = ast.Exp.Cast(exp.loc, exp, false)
+        cast._type = expected
+        return cast
+    else
+        local term = string.format(term_fmt, ...)
+        local expected_str = types.tostring(expected)
+        local found_str = types.tostring(found)
+        local msg = string.format(
+            "%s: %s is not assignable to %s",
+            term, found_str, expected_str)
+        type_error(exp.loc, msg)
+    end
+end
+
 local function is_numeric_type(typ)
     return typ._tag == types.T.Integer or typ._tag == types.T.Float
 end
 
 local function coerce_numeric_exp_to_float(exp)
     if exp._type._tag == types.T.Integer then
-        local n = ast.Exp.Cast(exp.loc, exp, nil)
-        n._type = types.T.Float()
-        return n
+        local name = ast.Var.Name(false, "tofloat")
+        name._decl = builtins.tofloat
+        local tofloat = ast.Exp.Var(false, name)
+        local call = ast.Exp.CallFunc(false, tofloat, {exp})
+        check_exp(call, types.T.Float())
+        return call
     elseif exp._type._tag == types.T.Float then
         return exp
     else
@@ -177,6 +200,9 @@ check_type = function(typ)
 
     elseif tag == ast.Type.String then
         return types.T.String()
+
+    elseif tag == ast.Type.Value then
+        return types.T.Value()
 
     elseif tag == ast.Type.Name then
         local decl = typ._decl
@@ -279,14 +305,13 @@ check_stat = function(stat, ret_types)
         if stat.decl.type then
             check_decl(stat.decl)
             check_exp(stat.exp, stat.decl._type)
+            stat.exp = try_coerce(stat.exp, stat.decl._type,
+                "declaration of local variable %s", stat.decl.name)
         else
             check_exp(stat.exp, false)
             stat.decl._type = stat.exp._type
             check_decl(stat.decl)
         end
-        check_match(stat.decl.loc,
-            stat.decl._type, stat.exp._type,
-            "declaration of local variable %s", stat.decl.name)
 
     elseif tag == ast.Stat.Block then
         for _, inner_stat in ipairs(stat.stats) do
@@ -358,9 +383,7 @@ check_stat = function(stat, ret_types)
     elseif tag == ast.Stat.Assign then
         check_var(stat.var)
         check_exp(stat.exp, stat.var._type)
-        check_match(stat.var.loc,
-            stat.var._type, stat.exp._type,
-            "assignment")
+        stat.exp = try_coerce(stat.exp, stat.var._type, "assignment")
         if stat.var._tag == ast.Var.Name and
             stat.var._decl._tag == ast.Toplevel.Func
         then
@@ -384,9 +407,7 @@ check_stat = function(stat, ret_types)
             local exp = stat.exps[i]
             local ret_type = ret_types[i]
             check_exp(exp, ret_type)
-            check_match(exp.loc,
-                ret_type, exp._type,
-                "return statement")
+            stat.exps[i] = try_coerce(exp, ret_type, "return statement")
         end
 
     elseif tag == ast.Stat.If then
@@ -484,6 +505,13 @@ local function check_exp_call_func_builtin(exp, _type_hint)
         check_is_array(
             args[1].loc, args[1]._type, "table.insert first argument")
         exp._type = types.T.Void()
+    elseif builtin_name == "tofloat" then
+        check_arity(exp.loc, 1, #args, "tofloat arguments")
+        check_exp(args[1], false)
+        check_match(args[1].loc,
+            types.T.Integer(), args[1]._type,
+            "tofloat argument")
+        exp._type = types.T.Float()
     else
         error("impossible")
     end
@@ -742,8 +770,7 @@ check_exp = function(exp, type_hint)
                 local p_type = f_type.params[i]
                 local arg = args[i]
                 check_exp(arg, p_type)
-                check_match(f_exp.loc,
-                    p_type, arg._type,
+                args[i] = try_coerce(arg, p_type,
                     "argument %d of call to function", i)
             end
             assert(#f_type.ret_types <= 1)
@@ -766,7 +793,7 @@ check_exp = function(exp, type_hint)
     elseif tag == ast.Exp.Cast then
         local target = check_type(exp.target)
         check_exp(exp.exp, target)
-        if not types.coerceable(exp.exp._type, target) then
+        if not types.consistent(exp.exp._type, target) then
             type_error(exp.loc,
                 "cannot cast '%s' to '%s'",
                 types.tostring(exp.exp._type), types.tostring(target))

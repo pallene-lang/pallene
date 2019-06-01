@@ -60,32 +60,6 @@ describe("Pallene type checker", function()
         assert(prog_ast, errs)
     end)
 
-    it("coerces to integer", function()
-        local prog_ast, errs = run_checker([[
-            function fn(): integer
-                local f: float = 1.0
-                local i: integer = f as integer
-                return 1
-            end
-        ]])
-        assert(prog_ast, errs)
-        assert.same(ast.Exp.Cast, prog_ast[1].block.stats[2].exp._tag)
-        assert.same(types.T.Integer, prog_ast[1].block.stats[2].exp._type._tag)
-    end)
-
-    it("coerces to float", function()
-        local prog_ast, errs = run_checker([[
-            function fn(): integer
-                local i: integer = 12
-                local f: float = i as float
-                return 1
-            end
-        ]])
-        assert(prog_ast, errs)
-        assert.same(ast.Exp.Cast, prog_ast[1].block.stats[2].exp._tag)
-        assert.same(types.T.Float, prog_ast[1].block.stats[2].exp._type._tag)
-    end)
-
     it("allows constant variable initialization", function()
         assert_type_check([[ local x1 = nil ]])
         assert_type_check([[ local x2 = false ]])
@@ -194,7 +168,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs)
+        assert.match("integer is not assignable to string", errs)
     end)
 
     it("function can call another function", function()
@@ -216,7 +190,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs)
+        assert.match("integer is not assignable to string", errs)
     end)
 
     it("can create empty array (with type annotation)", function()
@@ -543,7 +517,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs)
+        assert.match("integer is not assignable to string", errs)
     end)
 
     it("ensures numeric 'for' variable has number type (with annotation)", function()
@@ -662,7 +636,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("types in return statement do not match, expected integer but found string", errs)
+        assert.match("return statement: string is not assignable to intege", errs)
     end)
 
     it("detects missing return statements", function()
@@ -755,7 +729,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected integer but found float", errs,nil, true)
+        assert.match("float is not assignable to integer", errs,nil, true)
     end)
 
     for _, op in ipairs({"+", "-", "*", "%", "//"}) do
@@ -1150,8 +1124,6 @@ describe("Pallene type checker", function()
         end
     end
 
-
-
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
             local prog_ast, errs = run_checker([[
@@ -1212,6 +1184,61 @@ describe("Pallene type checker", function()
         end)
     end
 
+    for _, ts in ipairs({
+        {"downcast", "integer", "value"},
+        {"upcast",   "value", "integer"},
+    }) do
+        local description = ts[1]
+        local dst_typ     = ts[2]
+        local src_typ     = ts[3]
+
+        describe(
+            "can implicitly "..description..
+            " from "..src_typ..
+            " to "..dst_typ.."", function()
+
+                it("in variable declarations", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(y : ]]..src_typ..[[)
+                            local x : ]]..dst_typ..[[ = y
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+
+                it("in variable assignments", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(x : ]]..dst_typ..[[, y : ]]..src_typ..[[)
+                            x = y
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+
+                it("in function call arguments", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(x : ]]..dst_typ..[[)
+                        end
+
+                        function g(y : ]]..src_typ..[[)
+                            f(y)
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+
+                it("in function return statements", function()
+                    local prog_ast, errs = run_checker([[
+                        function f(y : ]]..src_typ..[[) : ]]..dst_typ..[[
+                            return y
+                        end
+                    ]])
+                    assert.truthy(prog_ast, errs)
+                end)
+        end)
+    end
+
+
     it("catches assignment to function", function ()
         local prog_ast, errs = run_checker([[
             function f()
@@ -1269,6 +1296,16 @@ describe("Pallene type checker", function()
         assert.match("expected integer but found string", errs, nil, true)
     end)
 
+    it("typechecks tofloat", function()
+        local prog_ast, errs = run_checker([[
+            function fn(): integer
+                local i: integer = 12
+                local f: float = tofloat(i)
+                return 1
+            end
+        ]])
+        assert.truthy(prog_ast, errs)
+    end)
 end)
 
 describe("Pallene typecheck of records", function()
@@ -1319,9 +1356,9 @@ describe("Pallene typecheck of records", function()
     end)
 
     it("doesn't typecheck read/write with invalid types", function()
-        assert_type_error("expected float but found Point",
+        assert_type_error("Point is not assignable to float",
                           wrap_record[[ p.x = p ]])
-        assert_type_error("expected Point but found float",
+        assert_type_error("float is not assignable to Point",
                           wrap_record[[ local p: Point = p.x ]])
     end)
 end)
