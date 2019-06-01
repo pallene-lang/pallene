@@ -70,8 +70,6 @@ local function check_match(loc, expected, found, term_fmt, ...)
     end
 end
 
-
-
 local function check_arity(loc, expected, found, term_fmt, ...)
     if expected ~= found then
         local term = string.format(term_fmt, ...)

@@ -610,7 +610,7 @@ local function pallene_type_tag(typ)
     elseif tag == types.T.Function then return "LUA_TFUNCTION"
     elseif tag == types.T.Array    then return "LUA_TTABLE"
     elseif tag == types.T.Record   then return "LUA_TUSERDATA"
-    elseif tag == types.T.Value    then error("impossible") -- Not sure...?
+    elseif tag == types.T.Value    then error("value is not a tag")
     else error("impossible")
     end
 end

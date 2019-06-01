@@ -35,7 +35,7 @@ void pallene_runtime_tag_check_error(
     const char *expected_type = pallene_tag_name(expected_tag);
     const char *received_type = pallene_tag_name(received_tag);
 
-    // This implementation is inspired by luaL_error
+    /* This code is inspired by luaL_error */
     luaL_where(L, 1);
     if (line > 0) {
         lua_pushfstring(L, "line %d: ", line);
