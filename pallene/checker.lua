@@ -475,48 +475,6 @@ check_var = function(var)
     end
 end
 
-local function check_exp_call_func_builtin(exp, _type_hint)
-    assert(_type_hint ~= nil)
-
-    local f_exp = exp.exp
-    local args = exp.args
-    local builtin_name = f_exp._type.builtin_decl.name
-    if builtin_name == "io.write" then
-        check_arity(exp.loc, 1, #args, "io.write arguments")
-        check_exp(args[1], false)
-        check_match(args[1].loc,
-            types.T.String(), args[1]._type,
-            "io.write argument")
-        exp._type = types.T.Void()
-    elseif builtin_name == "table.insert" then
-        check_arity(exp.loc, 2, #args, "table.insert arguments")
-        check_exp(args[1], false)
-        check_is_array(
-            args[1].loc, args[1]._type, "table.insert first argument")
-        local elem_type = args[1]._type.elem
-        check_exp(args[2], elem_type)
-        check_match(args[2].loc,
-            elem_type, args[2]._type,
-            "table.insert second argument")
-        exp._type = types.T.Void()
-    elseif builtin_name == "table.remove" then
-        check_arity(exp.loc, 1, #args, "table.insert arguments")
-        check_exp(args[1], false)
-        check_is_array(
-            args[1].loc, args[1]._type, "table.insert first argument")
-        exp._type = types.T.Void()
-    elseif builtin_name == "tofloat" then
-        check_arity(exp.loc, 1, #args, "tofloat arguments")
-        check_exp(args[1], false)
-        check_match(args[1].loc,
-            types.T.Integer(), args[1]._type,
-            "tofloat argument")
-        exp._type = types.T.Float()
-    else
-        error("impossible")
-    end
-end
-
 -- @param type_hint Expected type; Used to infer polymorphic/record constructors.
 check_exp = function(exp, type_hint)
     assert(type_hint ~= nil)
@@ -779,8 +737,6 @@ check_exp = function(exp, type_hint)
             else
                 exp._type = types.T.Void()
             end
-        elseif f_type._tag == types.T.Builtin then
-            check_exp_call_func_builtin(exp, false)
         else
             type_error(exp.loc,
                 "attempting to call a %s value",
