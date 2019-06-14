@@ -1,29 +1,29 @@
-function new(x, y)
+local function new(x, y)
     return { x, y }
 end
 
-function clone(x)
+local function clone(x)
     return new(x[1], x[2])
 end
 
-function conj(x)
+local function conj(x)
     return new(x[1], -x[2])
 end
 
-function add(x,y)
+local function add(x,y)
     return new(x[1] + y[1], x[2] + y[2])
 end
 
-function mul(x,y)
+local function mul(x,y)
     return new(x[1] * y[1] - x[2] * y[2], x[1] * y[2] + x[2] * y[1])
 end
 
-function norm2(x)
+local function norm2(x)
     local n = mul(x, conj(x))
     return n[1]
 end
 
-function abs(x)
+local function abs(x)
 --    return math.sqrt(norm2(x))
     return norm2(x)
 end
