@@ -4,7 +4,7 @@ function _M.sieve(N)
     local is_prime = {}
     is_prime[1] = false
     for n = 2, N do
-        is_prime[2] = true
+        is_prime[n] = true
     end
 
     local nprimes = 0
