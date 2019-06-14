@@ -22,8 +22,3 @@ function norm2(x: {float}): float
     local n = mul(x, conj(x))
     return n[1]
 end
-
-function abs(x: {float}): float
---    return math.sqrt(norm2(x))
-    return norm2(x)
-end

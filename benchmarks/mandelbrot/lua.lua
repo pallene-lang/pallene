@@ -23,11 +23,6 @@ local function norm2(x)
     return n[1]
 end
 
-local function abs(x)
---    return math.sqrt(norm2(x))
-    return norm2(x)
-end
-
 return {
     new = new,
     clone = clone,
@@ -35,5 +30,4 @@ return {
     add = add,
     mul = mul,
     norm2 = norm2,
-    abs = abs,
 }

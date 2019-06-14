@@ -8,7 +8,7 @@ local function level(x, y)
     repeat
         z = Complex.add(Complex.mul(z, z), c)
         l = l + 1
-    until Complex.abs(z) > 2.0 or l > 255
+    until Complex.norm2(z) > 4.0 or l > 255
     return l - 1
 end
 
