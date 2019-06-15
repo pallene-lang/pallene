@@ -76,15 +76,15 @@ declare_type("Field", {
 -- Return the variable name declared by a given toplevel node
 function ast.toplevel_name(tl_node)
     local tag = tl_node._tag
-    if     tag == ast.Toplevel.Func then
+    if     tag == "ast.Toplevel.Func" then
         return tl_node.name
-    elseif tag == ast.Toplevel.Var then
+    elseif tag == "ast.Toplevel.Var" then
         return tl_node.decl.name
-    elseif tag == ast.Toplevel.Record then
+    elseif tag == "ast.Toplevel.Record" then
         return tl_node.name
-    elseif tag == ast.Toplevel.Import then
+    elseif tag == "ast.Toplevel.Import" then
         return tl_node.localname
-    elseif tag == ast.Toplevel.Builtin then
+    elseif tag == "ast.Toplevel.Builtin" then
         return tl_node.name
     else
         error("impossible")

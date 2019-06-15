@@ -71,7 +71,7 @@ end
 
 function bind_names:Type(type_node, st, errors)
     local tag = type_node._tag
-    if tag == ast.Type.Name then
+    if tag == "ast.Type.Name" then
         local name = type_node.name
         local decl = st:find_symbol(name)
         if decl then
@@ -89,7 +89,7 @@ end
 
 function bind_names:Toplevel(tl_node, st, errors)
     local tag = tl_node._tag
-    if     tag == ast.Toplevel.Func then
+    if     tag == "ast.Toplevel.Func" then
         for _, decl in ipairs(tl_node.params) do
             bind_names:Decl(decl, st, errors)
         end
@@ -117,15 +117,15 @@ end
 
 function bind_names:Stat(stat, st, errors)
     local tag = stat._tag
-    if     tag == ast.Stat.Block then
+    if     tag == "ast.Stat.Block" then
         st:with_block(function()
             for _, inner_stat in ipairs(stat.stats) do
                 bind_names:Stat(inner_stat, st, errors)
             end
         end)
 
-    elseif tag == ast.Stat.Repeat then
-        assert(stat.block._tag == ast.Stat.Block)
+    elseif tag == "ast.Stat.Repeat" then
+        assert(stat.block._tag == "ast.Stat.Block")
         st:with_block(function()
             for _, inner_stat in ipairs(stat.block.stats) do
                 bind_names:Stat(inner_stat, st, errors)
@@ -133,7 +133,7 @@ function bind_names:Stat(stat, st, errors)
             bind_names:Exp(stat.condition, st, errors)
         end)
 
-    elseif tag == ast.Stat.For then
+    elseif tag == "ast.Stat.For" then
         bind_names:Decl(stat.decl, st, errors)
         bind_names:Exp(stat.start, st, errors)
         bind_names:Exp(stat.limit, st, errors)
@@ -145,7 +145,7 @@ function bind_names:Stat(stat, st, errors)
             bind_names:Stat(stat.block, st, errors)
         end)
 
-    elseif tag == ast.Stat.Decl then
+    elseif tag == "ast.Stat.Decl" then
         bind_names:Decl(stat.decl, st, errors)
         bind_names:Exp(stat.exp, st, errors)
         st:add_symbol(stat.decl.name, stat.decl)
@@ -157,7 +157,7 @@ end
 
 function bind_names:Var(var, st, errors)
     local tag = var._tag
-    if     tag == ast.Var.Name then
+    if     tag == "ast.Var.Name" then
         local name = var.name
         local decl = st:find_symbol(name)
         if decl then

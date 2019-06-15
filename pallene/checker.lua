@@ -73,7 +73,7 @@ local function check_arity(loc, expected, found, term_fmt, ...)
 end
 
 local function check_is_array(loc, found, term_fmt, ...)
-    if found._tag ~= types.T.Array then
+    if found._tag ~= "types.T.Array" then
         local term = string.format(term_fmt, ...)
         local found_str = types.tostring(found)
         local msg = string.format("%s: expected array but found %s",
@@ -102,18 +102,18 @@ local function try_coerce(exp, expected, term_fmt, ...)
 end
 
 local function is_numeric_type(typ)
-    return typ._tag == types.T.Integer or typ._tag == types.T.Float
+    return typ._tag == "types.T.Integer" or typ._tag == "types.T.Float"
 end
 
 local function coerce_numeric_exp_to_float(exp)
-    if exp._type._tag == types.T.Integer then
+    if exp._type._tag == "types.T.Integer" then
         local name = ast.Var.Name(false, "tofloat")
         name._decl = builtins.tofloat
         local tofloat = ast.Exp.Var(false, name)
         local call = ast.Exp.CallFunc(false, tofloat, {exp})
         check_exp(call, types.T.Float())
         return call
-    elseif exp._type._tag == types.T.Float then
+    elseif exp._type._tag == "types.T.Float" then
         return exp
     else
         error("not a numeric type")
@@ -127,28 +127,28 @@ end
 -- a missing return statement.)
 local function stat_always_returns(stat)
     local tag = stat._tag
-    if     tag  == ast.Stat.Decl then
+    if     tag == "ast.Stat.Decl" then
         return false
-    elseif tag == ast.Stat.Block then
+    elseif tag == "ast.Stat.Block" then
         for _, inner_stat in ipairs(stat.stats) do
             if stat_always_returns(inner_stat) then
                 return true
             end
         end
         return false
-    elseif tag == ast.Stat.While then
+    elseif tag == "ast.Stat.While" then
         return false
-    elseif tag == ast.Stat.Repeat then
+    elseif tag == "ast.Stat.Repeat" then
         return false
-    elseif tag == ast.Stat.For then
+    elseif tag == "ast.Stat.For" then
         return false
-    elseif tag == ast.Stat.Assign then
+    elseif tag == "ast.Stat.Assign" then
         return false
-    elseif tag == ast.Stat.Call  then
+    elseif tag == "ast.Stat.Call"  then
         return false
-    elseif tag == ast.Stat.Return then
+    elseif tag == "ast.Stat.Return" then
         return true
-    elseif tag == ast.Stat.If then
+    elseif tag == "ast.Stat.If" then
         return stat_always_returns(stat.then_) and
                 stat_always_returns(stat.else_)
     else
@@ -186,40 +186,40 @@ end
 
 check_type = function(typ)
     local tag = typ._tag
-    if     tag == ast.Type.Nil then
+    if     tag == "ast.Type.Nil" then
         return types.T.Nil()
 
-    elseif tag == ast.Type.Boolean then
+    elseif tag == "ast.Type.Boolean" then
         return types.T.Boolean()
 
-    elseif tag == ast.Type.Integer then
+    elseif tag == "ast.Type.Integer" then
         return types.T.Integer()
 
-    elseif tag == ast.Type.Float then
+    elseif tag == "ast.Type.Float" then
         return types.T.Float()
 
-    elseif tag == ast.Type.String then
+    elseif tag == "ast.Type.String" then
         return types.T.String()
 
-    elseif tag == ast.Type.Value then
+    elseif tag == "ast.Type.Value" then
         return types.T.Value()
 
-    elseif tag == ast.Type.Name then
+    elseif tag == "ast.Type.Name" then
         local decl = typ._decl
-        if decl._tag == ast.Toplevel.Record then
+        if decl._tag == "ast.Toplevel.Record" then
             return assert(decl._type)
         else
             type_error(typ.loc, "'%s' isn't a type", typ.name)
         end
 
-    elseif tag == ast.Type.Array then
+    elseif tag == "ast.Type.Array" then
         local subtype = check_type(typ.subtype)
-        if subtype._tag == types.T.Nil then
+        if subtype._tag == "types.T.Nil" then
             type_error(typ.loc, "array of nil is not allowed")
         end
         return types.T.Array(subtype)
 
-    elseif tag == ast.Type.Function then
+    elseif tag == "ast.Type.Function" then
         if #typ.ret_types >= 2 then
             error("functions with 2+ return values are not yet implemented")
         end
@@ -240,10 +240,10 @@ end
 
 check_top_level = function(tl_node)
     local tag = tl_node._tag
-    if     tag == ast.Toplevel.Import then
+    if     tag == "ast.Toplevel.Import" then
         type_error(tl_node.loc, "modules are not implemented yet")
 
-    elseif tag == ast.Toplevel.Var then
+    elseif tag == "ast.Toplevel.Var" then
         if tl_node.decl.type then
             tl_node._type = check_type(tl_node.decl.type)
             check_exp(tl_node.value, tl_node._type)
@@ -255,7 +255,7 @@ check_top_level = function(tl_node)
             tl_node._type = tl_node.value._type
         end
 
-    elseif tag == ast.Toplevel.Func then
+    elseif tag == "ast.Toplevel.Func" then
         if #tl_node.ret_types >= 2 then
             error("functions with 2+ return values are not yet implemented")
         end
@@ -281,7 +281,7 @@ check_top_level = function(tl_node)
                 "control reaches end of function with non-empty return type")
         end
 
-    elseif tag == ast.Toplevel.Record then
+    elseif tag == "ast.Toplevel.Record" then
         tl_node._field_types = {}
         for _, field_decl in ipairs(tl_node.field_decls) do
             local typ = check_type(field_decl.type)
@@ -301,7 +301,7 @@ end
 -- @param ret_types Declared function return types (for return statements)
 check_stat = function(stat, ret_types)
     local tag = stat._tag
-    if     tag == ast.Stat.Decl then
+    if     tag == "ast.Stat.Decl" then
         if stat.decl.type then
             check_decl(stat.decl)
             check_exp(stat.exp, stat.decl._type)
@@ -313,19 +313,19 @@ check_stat = function(stat, ret_types)
             check_decl(stat.decl)
         end
 
-    elseif tag == ast.Stat.Block then
+    elseif tag == "ast.Stat.Block" then
         for _, inner_stat in ipairs(stat.stats) do
             check_stat(inner_stat, ret_types)
         end
 
-    elseif tag == ast.Stat.While then
+    elseif tag == "ast.Stat.While" then
         check_exp(stat.condition, false)
         check_match(stat.condition.loc,
             types.T.Boolean(), stat.condition._type,
             "while statement condition")
         check_stat(stat.block, ret_types)
 
-    elseif tag == ast.Stat.Repeat then
+    elseif tag == "ast.Stat.Repeat" then
         for _, inner_stat in ipairs(stat.block.stats) do
             check_stat(inner_stat, ret_types)
         end
@@ -334,7 +334,7 @@ check_stat = function(stat, ret_types)
             types.T.Boolean(), stat.condition._type,
             "repeat statement condition")
 
-    elseif tag == ast.Stat.For then
+    elseif tag == "ast.Stat.For" then
         if stat.decl.type then
             check_decl(stat.decl)
         else
@@ -350,12 +350,12 @@ check_stat = function(stat, ret_types)
             stat.decl._type = stat.start._type
         end
 
-        if     stat.decl._type._tag == types.T.Integer then
+        if     stat.decl._type._tag == "types.T.Integer" then
             if not stat.step then
                 stat.step = ast.Exp.Integer(stat.limit.loc, 1)
                 stat.step._type = types.T.Integer()
             end
-        elseif stat.decl._type._tag == types.T.Float then
+        elseif stat.decl._type._tag == "types.T.Float" then
             if not stat.step then
                 stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
                 stat.step._type = types.T.Float()
@@ -380,22 +380,22 @@ check_stat = function(stat, ret_types)
 
         check_stat(stat.block, ret_types)
 
-    elseif tag == ast.Stat.Assign then
+    elseif tag == "ast.Stat.Assign" then
         check_var(stat.var)
         check_exp(stat.exp, stat.var._type)
         stat.exp = try_coerce(stat.exp, stat.var._type, "assignment")
-        if stat.var._tag == ast.Var.Name and
-            stat.var._decl._tag == ast.Toplevel.Func
+        if stat.var._tag == "ast.Var.Name" and
+            stat.var._decl._tag == "ast.Toplevel.Func"
         then
             type_error(stat.loc,
                 "attempting to assign to toplevel constant function %s",
                 stat.var.name)
         end
 
-    elseif tag == ast.Stat.Call then
+    elseif tag == "ast.Stat.Call" then
         check_exp(stat.call_exp, false)
 
-    elseif tag == ast.Stat.Return then
+    elseif tag == "ast.Stat.Return" then
         assert(#ret_types <= 1)
         if #stat.exps ~= #ret_types then
             type_error(stat.loc,
@@ -410,7 +410,7 @@ check_stat = function(stat, ret_types)
             stat.exps[i] = try_coerce(exp, ret_type, "return statement")
         end
 
-    elseif tag == ast.Stat.If then
+    elseif tag == "ast.Stat.If" then
         local cond = stat.condition
         check_exp(cond, false)
         check_match(cond.loc,
@@ -427,22 +427,22 @@ end
 
 check_var = function(var)
     local tag = var._tag
-    if     tag == ast.Var.Name then
+    if     tag == "ast.Var.Name" then
         local decl = var._decl
-        if decl._tag == ast.Toplevel.Var or
-            decl._tag == ast.Toplevel.Func or
-            decl._tag == ast.Toplevel.Builtin or
-            decl._tag == ast.Decl.Decl
+        if decl._tag == "ast.Toplevel.Var" or
+            decl._tag == "ast.Toplevel.Func" or
+            decl._tag == "ast.Toplevel.Builtin" or
+            decl._tag == "ast.Decl.Decl"
         then
             var._type = var._decl._type
         else
             type_error(var.loc, "'%s' isn't a value", var.name)
         end
 
-    elseif tag == ast.Var.Dot then
+    elseif tag == "ast.Var.Dot" then
         check_exp(var.exp, false)
         local exp_type = var.exp._type
-        if exp_type._tag == types.T.Record then
+        if exp_type._tag == "types.T.Record" then
             local field_type = exp_type.type_decl._field_types[var.name]
             if field_type then
                 var._type = field_type
@@ -457,9 +457,9 @@ check_var = function(var)
                 types.tostring(exp_type))
         end
 
-    elseif tag == ast.Var.Bracket then
+    elseif tag == "ast.Var.Bracket" then
         check_exp(var.t, false)
-        if var.t._type._tag ~= types.T.Array then
+        if var.t._type._tag ~= "types.T.Array" then
             type_error(var.t.loc,
                 "array expression in indexing is not an array but %s",
                 types.tostring(var.t._type))
@@ -480,22 +480,22 @@ check_exp = function(exp, type_hint)
     assert(type_hint ~= nil)
 
     local tag = exp._tag
-    if     tag == ast.Exp.Nil then
+    if     tag == "ast.Exp.Nil" then
         exp._type = types.T.Nil()
 
-    elseif tag == ast.Exp.Bool then
+    elseif tag == "ast.Exp.Bool" then
         exp._type = types.T.Boolean()
 
-    elseif tag == ast.Exp.Integer then
+    elseif tag == "ast.Exp.Integer" then
         exp._type = types.T.Integer()
 
-    elseif tag == ast.Exp.Float then
+    elseif tag == "ast.Exp.Float" then
         exp._type = types.T.Float()
 
-    elseif tag == ast.Exp.String then
+    elseif tag == "ast.Exp.String" then
         exp._type = types.T.String()
 
-    elseif tag == ast.Exp.Initlist then
+    elseif tag == "ast.Exp.Initlist" then
         -- Determining the type for a table initializer *requires* a type hint.
         -- In theory, we could try to infer the type without a type hint for
         -- non-empty arrays whose contents are inferrable, but I am not sure
@@ -506,7 +506,7 @@ check_exp = function(exp, type_hint)
                 "missing type hint for array or record initializer")
         end
 
-        if type_hint._tag == types.T.Array then
+        if type_hint._tag == "types.T.Array" then
             for _, field in ipairs(exp.fields) do
                 if field.name then
                     type_error(field.loc,
@@ -520,7 +520,7 @@ check_exp = function(exp, type_hint)
                     "array initializer")
             end
 
-        elseif type_hint._tag == types.T.Record then
+        elseif type_hint._tag == "types.T.Record" then
             local initialized_fields = {}
             for _, field in ipairs(exp.fields) do
                 if not field.name then
@@ -561,36 +561,36 @@ check_exp = function(exp, type_hint)
         end
         exp._type = type_hint
 
-    elseif tag == ast.Exp.Var then
+    elseif tag == "ast.Exp.Var" then
         check_var(exp.var)
         exp._type = exp.var._type
 
-    elseif tag == ast.Exp.Unop then
+    elseif tag == "ast.Exp.Unop" then
         check_exp(exp.exp, false)
         local op = exp.op
         if op == "#" then
-            if exp.exp._type._tag ~= types.T.Array and exp.exp._type._tag ~= types.T.String then
+            if exp.exp._type._tag ~= "types.T.Array" and exp.exp._type._tag ~= "types.T.String" then
                 type_error(exp.loc,
                     "trying to take the length of a %s instead of an array or string",
                     types.tostring(exp.exp._type))
             end
             exp._type = types.T.Integer()
         elseif op == "-" then
-            if exp.exp._type._tag ~= types.T.Integer and exp.exp._type._tag ~= types.T.Float then
+            if exp.exp._type._tag ~= "types.T.Integer" and exp.exp._type._tag ~= "types.T.Float" then
                 type_error(exp.loc,
                     "trying to negate a %s instead of a number",
                     types.tostring(exp.exp._type))
             end
             exp._type = exp.exp._type
         elseif op == "~" then
-            if exp.exp._type._tag ~= types.T.Integer then
+            if exp.exp._type._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "trying to bitwise negate a %s instead of an integer",
                     types.tostring(exp.exp._type))
             end
             exp._type = types.T.Integer()
         elseif op == "not" then
-            if exp.exp._type._tag ~= types.T.Boolean then
+            if exp.exp._type._tag ~= "types.T.Boolean" then
                 -- We are being intentionaly restrictive here w.r.t Lua
                 type_error(exp.loc,
                     "trying to boolean negate a %s instead of a boolean",
@@ -601,24 +601,24 @@ check_exp = function(exp, type_hint)
             error("impossible")
         end
 
-    elseif tag == ast.Exp.Concat then
+    elseif tag == "ast.Exp.Concat" then
         for _, inner_exp in ipairs(exp.exps) do
             check_exp(inner_exp, false)
             local t_exp = inner_exp._type
-            if t_exp._tag ~= types.T.String then
+            if t_exp._tag ~= "types.T.String" then
                 type_error(inner_exp.loc,
                     "cannot concatenate with %s value", types.tostring(t_exp))
             end
         end
         exp._type = types.T.String()
 
-    elseif tag == ast.Exp.Binop then
+    elseif tag == "ast.Exp.Binop" then
         check_exp(exp.lhs, false)
         check_exp(exp.rhs, false)
         local op = exp.op
         if op == "==" or op == "~=" then
-            if (exp.lhs._type._tag == types.T.Integer and exp.rhs._type._tag == types.T.Float) or
-               (exp.lhs._type._tag == types.T.Float   and exp.rhs._type._tag == types.T.Integer) then
+            if (exp.lhs._type._tag == "types.T.Integer" and exp.rhs._type._tag == "types.T.Float") or
+               (exp.lhs._type._tag == "types.T.Float"   and exp.rhs._type._tag == "types.T.Integer") then
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
@@ -630,12 +630,12 @@ check_exp = function(exp, type_hint)
             end
             exp._type = types.T.Boolean()
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            if (exp.lhs._type._tag == types.T.Integer and exp.rhs._type._tag == types.T.Integer) or
-               (exp.lhs._type._tag == types.T.Float   and exp.rhs._type._tag == types.T.Float) or
-               (exp.lhs._type._tag == types.T.String  and exp.rhs._type._tag == types.T.String) then
+            if (exp.lhs._type._tag == "types.T.Integer" and exp.rhs._type._tag == "types.T.Integer") or
+               (exp.lhs._type._tag == "types.T.Float"   and exp.rhs._type._tag == "types.T.Float") or
+               (exp.lhs._type._tag == "types.T.String"  and exp.rhs._type._tag == "types.T.String") then
                -- OK
-            elseif (exp.lhs._type._tag == types.T.Integer and exp.rhs._type._tag == types.T.Float) or
-                   (exp.lhs._type._tag == types.T.Float   and exp.rhs._type._tag == types.T.Integer) then
+            elseif (exp.lhs._type._tag == "types.T.Integer" and exp.rhs._type._tag == "types.T.Float") or
+                   (exp.lhs._type._tag == "types.T.Float"   and exp.rhs._type._tag == "types.T.Integer") then
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
@@ -658,8 +658,8 @@ check_exp = function(exp, type_hint)
                     types.tostring(exp.rhs._type))
             end
 
-            if exp.lhs._type._tag == types.T.Integer and
-               exp.rhs._type._tag == types.T.Integer then
+            if exp.lhs._type._tag == "types.T.Integer" and
+               exp.rhs._type._tag == "types.T.Integer" then
                 exp._type = types.T.Integer()
             else
                 exp.lhs = coerce_numeric_exp_to_float(exp.lhs)
@@ -684,24 +684,24 @@ check_exp = function(exp, type_hint)
             exp._type = types.T.Float()
 
         elseif op == "and" or op == "or" then
-            if exp.lhs._type._tag ~= types.T.Boolean then
+            if exp.lhs._type._tag ~= "types.T.Boolean" then
                 type_error(exp.loc,
                     "left hand side of logical expression is a %s instead of a boolean",
                     types.tostring(exp.lhs._type))
             end
-            if exp.rhs._type._tag ~= types.T.Boolean then
+            if exp.rhs._type._tag ~= "types.T.Boolean" then
                 type_error(exp.loc,
                     "right hand side of logical expression is a %s instead of a boolean",
                     types.tostring(exp.rhs._type))
             end
             exp._type = types.T.Boolean()
         elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
-            if exp.lhs._type._tag ~= types.T.Integer then
+            if exp.lhs._type._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "left hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(exp.lhs._type))
             end
-            if exp.rhs._type._tag ~= types.T.Integer then
+            if exp.rhs._type._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "right hand side of arithmetic expression is a %s instead of an integer",
                     types.tostring(exp.rhs._type))
@@ -711,14 +711,14 @@ check_exp = function(exp, type_hint)
             error("impossible")
         end
 
-    elseif tag == ast.Exp.CallFunc then
+    elseif tag == "ast.Exp.CallFunc" then
         local f_exp = exp.exp
         local args = exp.args
 
         check_exp(f_exp, false)
         local f_type = f_exp._type
 
-        if f_type._tag == types.T.Function then
+        if f_type._tag == "types.T.Function" then
             if #f_type.params ~= #args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
@@ -743,10 +743,10 @@ check_exp = function(exp, type_hint)
                 types.tostring(exp.exp._type))
         end
 
-    elseif tag == ast.Exp.CallMethod then
+    elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
 
-    elseif tag == ast.Exp.Cast then
+    elseif tag == "ast.Exp.Cast" then
         local target = check_type(exp.target)
         check_exp(exp.exp, target)
         if not types.consistent(exp.exp._type, target) then

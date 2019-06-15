@@ -1,7 +1,5 @@
 local typedecl = {}
 
-local names = setmetatable({}, {__mode = "k"})
-
 -- Unique tag names:
 --
 -- We keep track of all the type tags that we define, so that no two
@@ -14,7 +12,7 @@ local function is_valid_name_component(s)
     return string.match(s, "[A-Za-z_][A-Za-z_0-9]*")
 end
 
-local function make_name(mod_name, type_name, cons_name)
+local function make_tag(mod_name, type_name, cons_name)
     assert(is_valid_name_component(mod_name))
     assert(is_valid_name_component(type_name))
     assert(is_valid_name_component(cons_name))
@@ -27,37 +25,31 @@ local function make_name(mod_name, type_name, cons_name)
     return tag
 end
 
-
 -- Create a properly-namespaced algebraic datatype. Objects belonging to this
 -- type can be pattern matched by inspecting their _tag field. See ast.lua and
 -- types.lua for usage examples.
 --
 -- @param module Module table where the type is being defined
--- @param modname Name of the type's module (only used by tostring)
--- @param typename Name of the type
+-- @param mod_name Name of the type's module (only used by tostring)
+-- @param type_name Name of the type
 -- @param constructors Table describing the constructors of the ADT.
 function typedecl.declare(module, mod_name, type_name, constructors)
     module[type_name] = {}
     for cons_name, fields in pairs(constructors) do
+        local tag = make_tag(mod_name, type_name, cons_name)
         local function cons(...)
             local args = table.pack(...)
             if args.n ~= #fields then
                 error("wrong number of arguments for " .. cons_name)
             end
-            local node = { _tag = cons }
+            local node = { _tag = tag }
             for i, field in ipairs(fields) do
                 node[field] = args[i]
             end
             return node
         end
         module[type_name][cons_name] = cons
-        names[cons] = make_name(mod_name, type_name, cons_name)
     end
-end
-
--- Printable representation of a type tag, for printf debugging
-function typedecl.tostring(cons)
-    return names[cons]
 end
 
 return typedecl

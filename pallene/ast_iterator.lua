@@ -24,17 +24,17 @@ end
 
 function ast_iterator:Type(typ, ...)
     local tag = typ._tag
-    if     tag == ast.Type.Nil then  -- nothing to do
-    elseif tag == ast.Type.Boolean then -- nothing to do
-    elseif tag == ast.Type.Integer then -- nothing to do
-    elseif tag == ast.Type.Float then -- nothing to do
-    elseif tag == ast.Type.String then -- nothing to do
-    elseif tag == ast.Type.Value then -- nothing to do
-    elseif tag == ast.Type.Name then -- nothing to do
-    elseif tag == ast.Type.Array then
+    if     tag == "ast.Type.Nil" then  -- nothing to do
+    elseif tag == "ast.Type.Boolean" then -- nothing to do
+    elseif tag == "ast.Type.Integer" then -- nothing to do
+    elseif tag == "ast.Type.Float" then -- nothing to do
+    elseif tag == "ast.Type.String" then -- nothing to do
+    elseif tag == "ast.Type.Value" then -- nothing to do
+    elseif tag == "ast.Type.Name" then -- nothing to do
+    elseif tag == "ast.Type.Array" then
         self:Type(typ.subtype, ...)
 
-    elseif tag == ast.Type.Function then
+    elseif tag == "ast.Type.Function" then
         for i = 1, #typ.arg_types do
             self:Type(typ.arg_types[i], ...)
         end
@@ -49,7 +49,7 @@ end
 
 function ast_iterator:Toplevel(tl_node, ...)
     local tag = tl_node._tag
-    if     tag == ast.Toplevel.Func then
+    if     tag == "ast.Toplevel.Func" then
         for i = 1, #tl_node.params do
             self:Decl(tl_node.params[i], ...)
         end
@@ -58,19 +58,19 @@ function ast_iterator:Toplevel(tl_node, ...)
         end
         self:Stat(tl_node.block, ...)
 
-    elseif tag == ast.Toplevel.Var then
+    elseif tag == "ast.Toplevel.Var" then
         self:Decl(tl_node.decl, ...)
         self:Exp(tl_node.value, ...)
 
-    elseif tag == ast.Toplevel.Record then
+    elseif tag == "ast.Toplevel.Record" then
         for i = 1, #tl_node.field_decls do
             self:Decl(tl_node.field_decls[i], ...)
         end
 
-    elseif tag == ast.Toplevel.Import then
+    elseif tag == "ast.Toplevel.Import" then
         -- Nothing to do
 
-    elseif tag == ast.Toplevel.Builtin then
+    elseif tag == "ast.Toplevel.Builtin" then
         -- Nothing to do
 
     else
@@ -80,7 +80,7 @@ end
 
 function ast_iterator:Decl(decl, ...)
     local tag = decl._tag
-    if tag == ast.Decl.Decl then
+    if tag == "ast.Decl.Decl" then
         if decl.type then
             self:Type(decl.type, ...)
         end
@@ -91,25 +91,25 @@ end
 
 function ast_iterator:Stat(stat, ...)
     local tag = stat._tag
-    if     tag == ast.Stat.Block then
+    if     tag == "ast.Stat.Block" then
         for i = 1, #stat.stats do
             self:Stat(stat.stats[i], ...)
         end
 
-    elseif tag == ast.Stat.While then
+    elseif tag == "ast.Stat.While" then
         self:Exp(stat.condition, ...)
         self:Stat(stat.block, ...)
 
-    elseif tag == ast.Stat.Repeat then
+    elseif tag == "ast.Stat.Repeat" then
         self:Stat(stat.block, ...)
         self:Exp(stat.condition, ...)
 
-    elseif tag == ast.Stat.If then
+    elseif tag == "ast.Stat.If" then
         self:Exp(stat.condition, ...)
         self:Stat(stat.then_, ...)
         self:Stat(stat.else_, ...)
 
-    elseif tag == ast.Stat.For then
+    elseif tag == "ast.Stat.For" then
         self:Decl(stat.decl, ...)
         self:Exp(stat.start, ...)
         self:Exp(stat.limit, ...)
@@ -118,18 +118,18 @@ function ast_iterator:Stat(stat, ...)
         end
         self:Stat(stat.block, ...)
 
-    elseif tag == ast.Stat.Assign then
+    elseif tag == "ast.Stat.Assign" then
         self:Var(stat.var, ...)
         self:Exp(stat.exp, ...)
 
-    elseif tag == ast.Stat.Decl then
+    elseif tag == "ast.Stat.Decl" then
         self:Decl(stat.decl, ...)
         self:Exp(stat.exp, ...)
 
-    elseif tag == ast.Stat.Call then
+    elseif tag == "ast.Stat.Call" then
         self:Exp(stat.call_exp, ...)
 
-    elseif tag == ast.Stat.Return then
+    elseif tag == "ast.Stat.Return" then
         for i = 1, #stat.exps do
             self:Exp(stat.exps[i], ...)
         end
@@ -141,14 +141,14 @@ end
 
 function ast_iterator:Var(var, ...)
     local tag = var._tag
-    if     tag == ast.Var.Name then
+    if     tag == "ast.Var.Name" then
         -- Nothing to do
 
-    elseif tag == ast.Var.Bracket then
+    elseif tag == "ast.Var.Bracket" then
         self:Exp(var.t, ...)
         self:Exp(var.k, ...)
 
-    elseif tag == ast.Var.Dot then
+    elseif tag == "ast.Var.Dot" then
         self:Exp(var.exp, ...)
 
     else
@@ -158,44 +158,44 @@ end
 
 function ast_iterator:Exp(exp, ...)
     local tag = exp._tag
-    if     tag == ast.Exp.Nil then -- Nothing to do
-    elseif tag == ast.Exp.Bool then -- Nothing to do
-    elseif tag == ast.Exp.Integer then -- Nothing to do
-    elseif tag == ast.Exp.Float then -- Nothing to do
-    elseif tag == ast.Exp.String then -- Nothing to do
-    elseif tag == ast.Exp.Initlist then
+    if     tag == "ast.Exp.Nil" then -- Nothing to do
+    elseif tag == "ast.Exp.Bool" then -- Nothing to do
+    elseif tag == "ast.Exp.Integer" then -- Nothing to do
+    elseif tag == "ast.Exp.Float" then -- Nothing to do
+    elseif tag == "ast.Exp.String" then -- Nothing to do
+    elseif tag == "ast.Exp.Initlist" then
         for i = 1, #exp.fields do
             self:Field(exp.fields[i], ...)
         end
 
-    elseif tag == ast.Exp.CallFunc then
+    elseif tag == "ast.Exp.CallFunc" then
         self:Exp(exp.exp, ...)
         for i = 1, #exp.args do
             self:Exp(exp.args[i], ...)
         end
 
-    elseif tag == ast.Exp.CallMethod then
+    elseif tag == "ast.Exp.CallMethod" then
         self:Exp(exp.exp, ...)
         for i = 1, #exp.args do
             self:Exp(exp.args[i], ...)
         end
 
-    elseif tag == ast.Exp.Var then
+    elseif tag == "ast.Exp.Var" then
         self:Var(exp.var, ...)
 
-    elseif tag == ast.Exp.Unop then
+    elseif tag == "ast.Exp.Unop" then
         self:Exp(exp.exp, ...)
 
-    elseif tag == ast.Exp.Concat then
+    elseif tag == "ast.Exp.Concat" then
         for i = 1, #exp.exps do
             self:Exp(exp.exps[i], ...)
         end
 
-    elseif tag == ast.Exp.Binop then
+    elseif tag == "ast.Exp.Binop" then
         self:Exp(exp.lhs, ...)
         self:Exp(exp.rhs, ...)
 
-    elseif tag == ast.Exp.Cast then
+    elseif tag == "ast.Exp.Cast" then
         self:Exp(exp.exp, ...)
         if exp.target then
             self:Type(exp.target, ...)
@@ -208,7 +208,7 @@ end
 
 function ast_iterator:Field(field, ...)
     local tag = field._tag
-    if tag == ast.Field.Field then
+    if tag == "ast.Field.Field" then
         self:Exp(field.exp, ...)
     else
         error("impossible")
