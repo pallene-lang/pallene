@@ -13,6 +13,9 @@ local generate_var
 local generate_exp
 
 function coder.generate(prog_ast, modname)
+    local errs
+    prog_ast, errs = upvalues.analyze(prog_ast)
+    assert(#errs == 0)
     local code = generate_program(prog_ast, modname)
     return code, {}
 end

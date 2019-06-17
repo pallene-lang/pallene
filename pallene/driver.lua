@@ -3,7 +3,6 @@ local checker = require "pallene.checker"
 local coder = require "pallene.coder"
 local parser = require "pallene.parser"
 local scope_analysis = require "pallene.scope_analysis"
-local upvalues = require "pallene.upvalues"
 local util = require "pallene.util"
 
 local driver = {}
@@ -20,8 +19,8 @@ end
 local ast_passes = {
     { name = "scope_analysis", f = scope_analysis.bind_names },
     { name = "checker",        f = checker.check },
-    { name = "upvalues",       f = upvalues.analyze },
 }
+
 driver.last_ast_pass = ast_passes[#ast_passes].name
 
 local function compile_pallene_to_ast(pallene_filename, stop_after)
