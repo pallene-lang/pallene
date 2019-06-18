@@ -68,9 +68,11 @@ local function toplevel_is_value_declaration(tlnode)
 end
 
 local function add_literal(upvs, literals, lit)
-    local n = #upvs + 1
-    upvs[n] = upvalues.T.Literal(lit)
-    literals[lit] = n
+    if not literals[lit] then
+        local n = #upvs + 1
+        upvs[n] = upvalues.T.Literal(lit)
+        literals[lit] = n
+    end
 end
 
 local analyze = ast_iterator.new()
@@ -83,6 +85,14 @@ analyze_upvalues = function(prog_ast)
     -- initalization
     for _, lit in pairs(upvalues.internal_literals) do
         add_literal(upvs, literals, lit)
+    end
+
+    for _, tlnode in ipairs(prog_ast) do
+        if tlnode._tag == ast.Toplevel.Record then
+            for _, field in ipairs(tlnode.field_decls) do
+                add_literal(upvs, literals, field.name)
+            end
+        end
     end
 
     analyze:Program(prog_ast, upvs, literals)
