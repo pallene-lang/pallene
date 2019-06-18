@@ -85,6 +85,15 @@ void pallene_runtime_mod_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
+int pallene_runtime_record_nonstr_error(
+    lua_State *L,
+    int received_tag
+){
+    const char *type = pallene_tag_name(received_tag);
+    luaL_error(L, "attempt to access non-string field of type '%s'", type);
+    PALLENE_UNREACHABLE;
+}
+
 int pallene_runtime_record_index_error(
     lua_State *L,
     const char *key
