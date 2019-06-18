@@ -449,7 +449,7 @@ check_var = function(var)
             else
                 type_error(var.loc,
                     "field '%s' not found in record '%s'",
-                    var.name, exp_type.type_decl.name)
+                    var.name, types.tostring(exp_type))
             end
         else
             type_error(var.loc,
@@ -544,7 +544,7 @@ check_exp = function(exp, type_hint)
                 else
                     type_error(field.loc,
                         "invalid field %s in record initializer for %s",
-                        field.name, type_hint.type_decl.name)
+                        field.name, types.tostring(type_hint))
                 end
             end
 
