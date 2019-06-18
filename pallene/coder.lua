@@ -985,8 +985,9 @@ static int crecord_index(lua_State *L)
 
 static int crecord_newindex(lua_State *L)
 {
-    Udata *u = uvalue(s2v(L->ci->func + 1));
-    TValue *v = s2v(L->ci->func + 2);
+    StkId func = L->ci->func;
+    Udata *u = uvalue(s2v(func + 1));
+    TValue *v = s2v(func + 2);
     if (PALLENE_UNLIKELY(!ttisstring(v))) {
         pallene_runtime_record_nonstr_error(L, rawtt(v));
     }
@@ -997,7 +998,7 @@ static int crecord_newindex(lua_State *L)
     }
     void (*setfield)(lua_State *, Udata *, TValue *) =
         (void (*)(lua_State *, Udata *, TValue *))fvalue(f);
-    setfield(L, u, s2v(L->ci->func + 3));
+    setfield(L, u, s2v(func + 3));
     return 0;
 }
 ]]
