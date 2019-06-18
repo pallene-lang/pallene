@@ -42,7 +42,12 @@ function types.is_gc(t)
     end
 end
 
+-- This helper function implements both the type equality relation and the and
+-- the gradual type consistency relation from gradual typing.
+-- Gradual type consistency is a relaxed form of equality where the the "value"
+-- type is considered to be consistent with all other types.
 local function equivalent(t1, t2, is_gradual)
+    assert(is_gradual ~= nil)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
@@ -100,8 +105,6 @@ function types.equals(t1, t2)
     return equivalent(t1, t2, false)
 end
 
--- The type-consistency relation from gradual typing.
--- It is equality relaxed with (T ~ value) and (value ~ T)
 function types.consistent(t1, t2)
     return equivalent(t1, t2, true)
 end
