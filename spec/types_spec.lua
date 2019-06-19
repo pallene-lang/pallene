@@ -65,12 +65,12 @@ describe("Pallene types", function()
         end)
 
         it("is true for identical record types", function()
-            -- Gambiarra: using integers instead of ast nodes...
+            -- Gambiarra: using integers instead of real type declarations...
             assert.truthy(types.equals(types.T.Record(1), types.T.Record(1)))
         end)
 
         it("is false for different record types", function()
-            -- Gambiarra: using integers instead of ast nodes...
+            -- Gambiarra: using integers instead of real type declarations...
             assert.falsy(types.equals(types.T.Record(1), types.T.Record(2)))
         end)
     end)

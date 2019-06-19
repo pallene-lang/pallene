@@ -282,12 +282,22 @@ check_top_level = function(tl_node)
         end
 
     elseif tag == "ast.Toplevel.Record" then
-        tl_node._field_types = {}
+        local name = tl_node.name
+        local field_names = {}
+        local field_types = {}
+
         for _, field_decl in ipairs(tl_node.field_decls) do
+            local field_name = field_decl.name
             local typ = check_type(field_decl.type)
-            tl_node._field_types[field_decl.name] = typ
+            table.insert(field_names, field_name)
+            field_types[field_name] = typ
         end
-        tl_node._type = types.T.Record(tl_node)
+
+        tl_node._type = types.T.Record({
+            name = name,
+            field_names = field_names,
+            field_types = field_types,
+        })
 
     else
         error("impossible")
@@ -443,7 +453,7 @@ check_var = function(var)
         check_exp(var.exp, false)
         local exp_type = var.exp._type
         if exp_type._tag == "types.T.Record" then
-            local field_type = exp_type.type_decl._field_types[var.name]
+            local field_type = exp_type.record_decl.field_types[var.name]
             if field_type then
                 var._type = field_type
             else
@@ -535,7 +545,7 @@ check_exp = function(exp, type_hint)
                 end
                 initialized_fields[field.name] = true
 
-                local field_type = type_hint.type_decl._field_types[field.name]
+                local field_type = type_hint.record_decl.field_types[field.name]
                 if field_type then
                     check_exp(field.exp, field_type)
                     check_match(field.loc,
@@ -548,7 +558,7 @@ check_exp = function(exp, type_hint)
                 end
             end
 
-            for field_name, _ in pairs(type_hint.type_decl._field_types) do
+            for field_name, _ in pairs(type_hint.record_decl.field_types) do
                 if not initialized_fields[field_name] then
                     type_error(exp.loc,
                         "required field %s is missing from initializer",
