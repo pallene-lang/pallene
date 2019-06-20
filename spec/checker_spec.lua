@@ -1270,7 +1270,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected string but found integer", errs, nil, true)
+        assert.match("integer is not assignable to string", errs, nil, true)
     end)
 
     it("typechecks table.insert", function()
@@ -1289,11 +1289,11 @@ describe("Pallene type checker", function()
     it("typechecks table.insert (error)", function()
         local prog_ast, errs = run_checker([[
             function f(xs: {integer})
-                table_insert(xs, "asd")
+                table_insert("asd", xs)
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("expected integer but found string", errs, nil, true)
+        assert.match("string is not assignable to { value }", errs, nil, true)
     end)
 
     it("typechecks tofloat", function()

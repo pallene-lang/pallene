@@ -17,7 +17,6 @@ declare_type("T", {
     Function = {"params", "ret_types"},
     Array    = {"elem"},
     Record   = {"type_decl"},
-    Builtin  = {"builtin_decl"},
 })
 
 function types.is_gc(t)
@@ -34,8 +33,7 @@ function types.is_gc(t)
            tag == types.T.String or
            tag == types.T.Function or
            tag == types.T.Array or
-           tag == types.T.Record or
-           tag == types.T.Builtin
+           tag == types.T.Record
     then
         return true
 
@@ -44,7 +42,12 @@ function types.is_gc(t)
     end
 end
 
+-- This helper function implements both the type equality relation and the and
+-- the gradual type consistency relation from gradual typing.
+-- Gradual type consistency is a relaxed form of equality where the the "value"
+-- type is considered to be consistent with all other types.
 local function equivalent(t1, t2, is_gradual)
+    assert(is_gradual ~= nil)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
@@ -93,9 +96,6 @@ local function equivalent(t1, t2, is_gradual)
     elseif tag1 == types.T.Record then
         return t1.type_decl == t2.type_decl
 
-    elseif tag1 == types.T.Builtin then
-        return t1.builtin_decl == t2.builtin_decl
-
     else
         return error("impossible")
     end
@@ -105,8 +105,6 @@ function types.equals(t1, t2)
     return equivalent(t1, t2, false)
 end
 
--- The type-consistency relation from gradual typing.
--- It is equality relaxed with (T ~ value) and (value ~ T)
 function types.consistent(t1, t2)
     return equivalent(t1, t2, true)
 end
@@ -126,8 +124,6 @@ function types.tostring(t)
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == types.T.Record then
         return t.type_decl.name
-    elseif tag == types.T.Builtin then
-        return "builtin(".. t.builtin_decl.name ..")"
     else
         error("impossible")
     end

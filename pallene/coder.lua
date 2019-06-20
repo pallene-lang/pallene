@@ -2265,8 +2265,11 @@ generate_exp = function(exp, ctx)
         local fexp = exp.exp
         local fargs = exp.args
 
-        if fexp._type._tag == types.T.Builtin then
-            local builtin_name = fexp._type.builtin_decl.name
+        if fexp._tag == ast.Exp.Var and
+            fexp.var._tag == ast.Var.Name and
+            fexp.var._decl._tag == ast.Toplevel.Builtin
+        then
+            local builtin_name = fexp.var._decl.name
             if builtin_name == "io.write" then
                 return generate_exp_builtin_io_write(exp, ctx)
             elseif builtin_name == "table.insert" then

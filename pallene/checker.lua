@@ -449,7 +449,7 @@ check_var = function(var)
             else
                 type_error(var.loc,
                     "field '%s' not found in record '%s'",
-                    var.name, exp_type.type_decl.name)
+                    var.name, types.tostring(exp_type))
             end
         else
             type_error(var.loc,
@@ -470,48 +470,6 @@ check_var = function(var)
             types.T.Integer(), var.k._type,
             "array indexing")
 
-    else
-        error("impossible")
-    end
-end
-
-local function check_exp_call_func_builtin(exp, _type_hint)
-    assert(_type_hint ~= nil)
-
-    local f_exp = exp.exp
-    local args = exp.args
-    local builtin_name = f_exp._type.builtin_decl.name
-    if builtin_name == "io.write" then
-        check_arity(exp.loc, 1, #args, "io.write arguments")
-        check_exp(args[1], false)
-        check_match(args[1].loc,
-            types.T.String(), args[1]._type,
-            "io.write argument")
-        exp._type = types.T.Void()
-    elseif builtin_name == "table.insert" then
-        check_arity(exp.loc, 2, #args, "table.insert arguments")
-        check_exp(args[1], false)
-        check_is_array(
-            args[1].loc, args[1]._type, "table.insert first argument")
-        local elem_type = args[1]._type.elem
-        check_exp(args[2], elem_type)
-        check_match(args[2].loc,
-            elem_type, args[2]._type,
-            "table.insert second argument")
-        exp._type = types.T.Void()
-    elseif builtin_name == "table.remove" then
-        check_arity(exp.loc, 1, #args, "table.insert arguments")
-        check_exp(args[1], false)
-        check_is_array(
-            args[1].loc, args[1]._type, "table.insert first argument")
-        exp._type = types.T.Void()
-    elseif builtin_name == "tofloat" then
-        check_arity(exp.loc, 1, #args, "tofloat arguments")
-        check_exp(args[1], false)
-        check_match(args[1].loc,
-            types.T.Integer(), args[1]._type,
-            "tofloat argument")
-        exp._type = types.T.Float()
     else
         error("impossible")
     end
@@ -586,7 +544,7 @@ check_exp = function(exp, type_hint)
                 else
                     type_error(field.loc,
                         "invalid field %s in record initializer for %s",
-                        field.name, type_hint.type_decl.name)
+                        field.name, types.tostring(type_hint))
                 end
             end
 
@@ -779,8 +737,6 @@ check_exp = function(exp, type_hint)
             else
                 exp._type = types.T.Void()
             end
-        elseif f_type._tag == types.T.Builtin then
-            check_exp_call_func_builtin(exp, false)
         else
             type_error(exp.loc,
                 "attempting to call a %s value",
