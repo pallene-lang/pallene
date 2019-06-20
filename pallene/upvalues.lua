@@ -54,13 +54,13 @@ upvalues.internal_literals = {
 
 local function toplevel_is_value_declaration(tlnode)
     local tag = tlnode._tag
-    if     tag == ast.Toplevel.Func then
+    if     tag == "ast.Toplevel.Func" then
         return true
-    elseif tag == ast.Toplevel.Var then
+    elseif tag == "ast.Toplevel.Var" then
         return true
-    elseif tag == ast.Toplevel.Record then
+    elseif tag == "ast.Toplevel.Record" then
         return true -- metametable
-    elseif tag == ast.Toplevel.Import then
+    elseif tag == "ast.Toplevel.Import" then
         return false
     else
         error("impossible")
@@ -88,7 +88,7 @@ analyze_upvalues = function(prog_ast)
     end
 
     for _, tlnode in ipairs(prog_ast) do
-        if tlnode._tag == ast.Toplevel.Record then
+        if tlnode._tag == "ast.Toplevel.Record" then
             for _, field in ipairs(tlnode.field_decls) do
                 add_literal(upvs, literals, field.name)
             end
@@ -111,7 +111,7 @@ end
 
 function analyze:Exp(exp, upvs, literals)
     local tag = exp._tag
-    if     tag == ast.Exp.String then
+    if     tag == "ast.Exp.String" then
         add_literal(upvs, literals, exp.value)
 
     else

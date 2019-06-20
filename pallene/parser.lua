@@ -112,15 +112,15 @@ end
 -- Should this go on a separate constant propagation pass?
 function defs.binop_concat(pos, lhs, op, rhs)
     if op then
-        if rhs._tag == ast.Exp.Concat then
+        if rhs._tag == "ast.Exp.Concat" then
             table.insert(rhs.exps, 1, lhs)
             return rhs
-        elseif (lhs._tag == ast.Exp.String or
-            lhs._tag == ast.Exp.Integer or
-            lhs._tag == ast.Exp.Float) and
-            (rhs._tag == ast.Exp.String or
-            rhs._tag == ast.Exp.Integer or
-            rhs._tag == ast.Exp.Float) then
+        elseif (lhs._tag == "ast.Exp.String" or
+            lhs._tag == "ast.Exp.Integer" or
+            lhs._tag == "ast.Exp.Float") and
+            (rhs._tag == "ast.Exp.String" or
+            rhs._tag == "ast.Exp.Integer" or
+            rhs._tag == "ast.Exp.Float") then
             return ast.Exp.String(pos, lhs.value .. rhs.value)
         else
             return ast.Exp.Concat(pos, { lhs, rhs })
@@ -186,7 +186,7 @@ function defs.exp_to_var(exp)
 end
 
 function defs.exp_is_var(_, pos, exp)
-    if exp._tag == ast.Exp.Var then
+    if exp._tag == "ast.Exp.Var" then
         return pos, exp
     else
         return false
@@ -194,8 +194,8 @@ function defs.exp_is_var(_, pos, exp)
 end
 
 function defs.exp_is_call(_, pos, exp)
-    if exp._tag == ast.Exp.CallFunc or
-       exp._tag == ast.Exp.CallMethod then
+    if exp._tag == "ast.Exp.CallFunc" or
+       exp._tag == "ast.Exp.CallMethod" then
         return pos, exp
     else
         return false

@@ -121,15 +121,15 @@ end
 -- we decide to also support array and function pointer types.
 local function ctype(typ)
     local tag = typ._tag
-    if     tag == types.T.Nil      then return "int"
-    elseif tag == types.T.Boolean  then return "int"
-    elseif tag == types.T.Integer  then return "lua_Integer"
-    elseif tag == types.T.Float    then return "lua_Number"
-    elseif tag == types.T.String   then return "TString *"
-    elseif tag == types.T.Function then return "TValue"
-    elseif tag == types.T.Array    then return "Table *"
-    elseif tag == types.T.Record   then return "Udata *"
-    elseif tag == types.T.Value    then return "TValue"
+    if     tag == "types.T.Nil"      then return "int"
+    elseif tag == "types.T.Boolean"  then return "int"
+    elseif tag == "types.T.Integer"  then return "lua_Integer"
+    elseif tag == "types.T.Float"    then return "lua_Number"
+    elseif tag == "types.T.String"   then return "TString *"
+    elseif tag == "types.T.Function" then return "TValue"
+    elseif tag == "types.T.Array"    then return "Table *"
+    elseif tag == "types.T.Record"   then return "Udata *"
+    elseif tag == "types.T.Value"    then return "TValue"
     else error("impossible")
     end
 end
@@ -268,15 +268,15 @@ end
 local function get_slot(typ, src_slot_address)
     local tmpl
     local tag = typ._tag
-    if     tag == types.T.Nil      then tmpl = "0"
-    elseif tag == types.T.Boolean  then tmpl = "bvalue(${SRC})"
-    elseif tag == types.T.Integer  then tmpl = "ivalue(${SRC})"
-    elseif tag == types.T.Float    then tmpl = "fltvalue(${SRC})"
-    elseif tag == types.T.String   then tmpl = "tsvalue(${SRC})"
-    elseif tag == types.T.Function then tmpl = "*(${SRC})"
-    elseif tag == types.T.Array    then tmpl = "hvalue(${SRC})"
-    elseif tag == types.T.Record   then tmpl = "uvalue(${SRC})"
-    elseif tag == types.T.Value    then tmpl = "*(${SRC})"
+    if     tag == "types.T.Nil"      then tmpl = "0"
+    elseif tag == "types.T.Boolean"  then tmpl = "bvalue(${SRC})"
+    elseif tag == "types.T.Integer"  then tmpl = "ivalue(${SRC})"
+    elseif tag == "types.T.Float"    then tmpl = "fltvalue(${SRC})"
+    elseif tag == "types.T.String"   then tmpl = "tsvalue(${SRC})"
+    elseif tag == "types.T.Function" then tmpl = "*(${SRC})"
+    elseif tag == "types.T.Array"    then tmpl = "hvalue(${SRC})"
+    elseif tag == "types.T.Record"   then tmpl = "uvalue(${SRC})"
+    elseif tag == "types.T.Value"    then tmpl = "*(${SRC})"
     else error("impossible")
     end
     local out = util.render(tmpl, {SRC = src_slot_address})
@@ -289,15 +289,15 @@ end
 local function set_slot_(typ, dst_slot_address, value)
     local tmpl
     local tag = typ._tag
-    if     tag == types.T.Nil      then tmpl = "(void) ${SRC}; setnilvalue(${DST});"
-    elseif tag == types.T.Boolean  then tmpl = "setbvalue(${DST}, ${SRC});"
-    elseif tag == types.T.Integer  then tmpl = "setivalue(${DST}, ${SRC});"
-    elseif tag == types.T.Float    then tmpl = "setfltvalue(${DST}, ${SRC});"
-    elseif tag == types.T.String   then tmpl = "setsvalue(L, ${DST}, ${SRC});"
-    elseif tag == types.T.Function then tmpl = "setobj(L, ${DST}, &${SRC});"
-    elseif tag == types.T.Array    then tmpl = "sethvalue(L, ${DST}, ${SRC});"
-    elseif tag == types.T.Record   then tmpl = "setuvalue(L, ${DST}, ${SRC});"
-    elseif tag == types.T.Value    then tmpl = "setobj(L, ${DST}, &${SRC});"
+    if     tag == "types.T.Nil"      then tmpl = "(void) ${SRC}; setnilvalue(${DST});"
+    elseif tag == "types.T.Boolean"  then tmpl = "setbvalue(${DST}, ${SRC});"
+    elseif tag == "types.T.Integer"  then tmpl = "setivalue(${DST}, ${SRC});"
+    elseif tag == "types.T.Float"    then tmpl = "setfltvalue(${DST}, ${SRC});"
+    elseif tag == "types.T.String"   then tmpl = "setsvalue(L, ${DST}, ${SRC});"
+    elseif tag == "types.T.Function" then tmpl = "setobj(L, ${DST}, &${SRC});"
+    elseif tag == "types.T.Array"    then tmpl = "sethvalue(L, ${DST}, ${SRC});"
+    elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, ${DST}, ${SRC});"
+    elseif tag == "types.T.Value"    then tmpl = "setobj(L, ${DST}, &${SRC});"
     else error("impossible")
     end
     local out = util.render(tmpl, { DST = dst_slot_address, SRC = value })
@@ -319,7 +319,7 @@ end
 local function barrierback(typ, p, v)
     if not types.is_gc(typ) then
         return ""
-    elseif typ._tag == types.T.Value or typ._tag == types.T.Function then
+    elseif typ._tag == "types.T.Value" or typ._tag == "types.T.Function" then
         local out = util.render([[
             if (iscollectable(&${V}) && isblack(obj2gco(${P})) && iswhite(gcvalue(&${V}))) {
                 luaC_barrierback_(L, obj2gco(${P}));
@@ -602,15 +602,15 @@ local metatable_type = types.T.Array(types.T.Integer())
 
 local function pallene_type_tag(typ)
     local tag = typ._tag
-    if     tag == types.T.Nil      then return "LUA_TNIL"
-    elseif tag == types.T.Boolean  then return "LUA_TBOOLEAN"
-    elseif tag == types.T.Integer  then return "LUA_TNUMINT"
-    elseif tag == types.T.Float    then return "LUA_TNUMFLT"
-    elseif tag == types.T.String   then return "LUA_TSTRING"
-    elseif tag == types.T.Function then return "LUA_TFUNCTION"
-    elseif tag == types.T.Array    then return "LUA_TTABLE"
-    elseif tag == types.T.Record   then return "LUA_TUSERDATA"
-    elseif tag == types.T.Value    then error("value is not a tag")
+    if     tag == "types.T.Nil"      then return "LUA_TNIL"
+    elseif tag == "types.T.Boolean"  then return "LUA_TBOOLEAN"
+    elseif tag == "types.T.Integer"  then return "LUA_TNUMINT"
+    elseif tag == "types.T.Float"    then return "LUA_TNUMFLT"
+    elseif tag == "types.T.String"   then return "LUA_TSTRING"
+    elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
+    elseif tag == "types.T.Array"    then return "LUA_TTABLE"
+    elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
+    elseif tag == "types.T.Value"    then error("value is not a tag")
     else error("impossible")
     end
 end
@@ -618,15 +618,15 @@ end
 local function test_tag(typ, slot, ctx)
     local tmpl
     local tag = typ._tag
-    if     tag == types.T.Nil      then tmpl = "ttisnil(${SLOT})"
-    elseif tag == types.T.Boolean  then tmpl = "ttisboolean(${SLOT})"
-    elseif tag == types.T.Integer  then tmpl = "ttisinteger(${SLOT})"
-    elseif tag == types.T.Float    then tmpl = "ttisfloat(${SLOT})"
-    elseif tag == types.T.String   then tmpl = "ttisstring(${SLOT})"
-    elseif tag == types.T.Function then tmpl = "ttisfunction(${SLOT})"
-    elseif tag == types.T.Array    then tmpl = "ttistable(${SLOT})"
-    elseif tag == types.T.Value    then tmpl = "1"
-    elseif tag == types.T.Record   then
+    if     tag == "types.T.Nil"      then tmpl = "ttisnil(${SLOT})"
+    elseif tag == "types.T.Boolean"  then tmpl = "ttisboolean(${SLOT})"
+    elseif tag == "types.T.Integer"  then tmpl = "ttisinteger(${SLOT})"
+    elseif tag == "types.T.Float"    then tmpl = "ttisfloat(${SLOT})"
+    elseif tag == "types.T.String"   then tmpl = "ttisstring(${SLOT})"
+    elseif tag == "types.T.Function" then tmpl = "ttisfunction(${SLOT})"
+    elseif tag == "types.T.Array"    then tmpl = "ttistable(${SLOT})"
+    elseif tag == "types.T.Value"    then tmpl = "1"
+    elseif tag == "types.T.Record"   then
         local mt_index = typ.type_decl._upvalue_index
         local mt_slot = upvalues_slot(mt_index, ctx)
         return util.render(
@@ -653,7 +653,7 @@ end
 --                  Received as serialized C expressions.
 --
 local function check_tag(ctx, typ, slot, loc, description_fmt, ...)
-    if typ._tag == types.T.Value then
+    if typ._tag == "types.T.Value" then
         return ""
     else
         local extra_args = table.pack(...)
@@ -845,7 +845,7 @@ function RecordCoder:declare_newindex(field_name)
     local ctx = Context.new()
     local typ = self:field_type(field_name)
     local init_upvalues = ''
-    if typ._tag == types.T.Record then
+    if typ._tag == "types.T.Record" then
         init_upvalues = upvalues_init_local_cvars(ctx)
     end
     local out = util.render([[
@@ -1082,7 +1082,7 @@ local function generate_lua_entry_point(tl_node, literals)
     -- given type is float or integer (it prints "number")
     local check_types = {}
     for i, param in ipairs(tl_node.params) do
-        if param._type._tag ~= types.T.Value then
+        if param._type._tag ~= "types.T.Value" then
             local slot = ctx:new_cvar("TValue*")
             table.insert(check_types, util.render([[
                 ${SLOT_DECL} = ${SLOT_ADDRESS};
@@ -1187,7 +1187,7 @@ local function generate_upvalue_modvar(tl_node, ctx)
     local typ, cstats, cvalue
 
     local tag = tl_node._tag
-    if     tag == ast.Toplevel.Func then
+    if     tag == "ast.Toplevel.Func" then
         local closure = ctx:new_cvar("CClosure*")
         local func    = ctx:new_cvar("TValue")
         typ = tl_node._type
@@ -1206,12 +1206,12 @@ local function generate_upvalue_modvar(tl_node, ctx)
         })
         cvalue = func.name
 
-    elseif tag == ast.Toplevel.Var then
+    elseif tag == "ast.Toplevel.Var" then
         local exp = tl_node.value
         typ = exp._type
         cstats, cvalue = generate_exp(exp, ctx)
 
-    elseif tag == ast.Toplevel.Record then
+    elseif tag == "ast.Toplevel.Record" then
         typ = metatable_type
         cstats, cvalue = tl_node._rec:create_metatable(ctx)
 
@@ -1225,9 +1225,9 @@ end
 
 local function generate_upvalue(upv, ctx)
     local tag = upv._tag
-    if     tag == upvalues.T.Literal then
+    if     tag == "upvalues.T.Literal" then
         return generate_upvalue_literal(upv.lit, ctx)
-    elseif tag == upvalues.T.ModVar then
+    elseif tag == "upvalues.T.ModVar" then
         return generate_upvalue_modvar(upv.tl_node, ctx)
     else
         error("impossible")
@@ -1254,7 +1254,7 @@ end
 local function generate_luaopen_exports_table(prog_ast, ctx)
     local n_exported_functions = 0
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == ast.Toplevel.Func and not tl_node.is_local then
+        if tl_node._tag == "ast.Toplevel.Func" and not tl_node.is_local then
             n_exported_functions = n_exported_functions + 1
         end
     end
@@ -1270,7 +1270,7 @@ local function generate_luaopen_exports_table(prog_ast, ctx)
         N = c_integer(n_exported_functions),
     }))
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == ast.Toplevel.Func and not tl_node.is_local then
+        if tl_node._tag == "ast.Toplevel.Func" and not tl_node.is_local then
             table.insert(parts,
                 util.render([[
                     lua_pushstring(L, ${NAME});
@@ -1339,10 +1339,10 @@ declare_type("Lvalue", {
 -- (like generate_exp)
 local function generate_lvalue_read(lvalue, ctx)
     local tag = lvalue._tag
-    if     tag == coder.Lvalue.CVar then
+    if     tag == "coder.Lvalue.CVar" then
         return "", lvalue.varname
 
-    elseif tag == coder.Lvalue.ArraySlot then
+    elseif tag == "coder.Lvalue.ArraySlot" then
         local typ = lvalue.var._type
         local loc = lvalue.var.loc
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
@@ -1371,7 +1371,7 @@ local function generate_lvalue_read(lvalue, ctx)
         })
         return cstats, out.name
 
-    elseif tag == coder.Lvalue.GlobalVar then
+    elseif tag == "coder.Lvalue.GlobalVar" then
         local typ = lvalue.var._type
         local slot = ctx:new_cvar("TValue *")
         local out = ctx:new_tvar(typ)
@@ -1386,7 +1386,7 @@ local function generate_lvalue_read(lvalue, ctx)
         })
         return cstats, out.name
 
-    elseif tag == coder.Lvalue.RecGcSlot then
+    elseif tag == "coder.Lvalue.RecGcSlot" then
         local typ = lvalue.var._type
         local out = ctx:new_tvar(typ)
         local cstats = util.render([[
@@ -1406,7 +1406,7 @@ end
 -- (like generate_stat)
 local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
     local tag = lvalue._tag
-    if     tag == coder.Lvalue.CVar then
+    if     tag == "coder.Lvalue.CVar" then
         local out = util.render([[
             ${X} = ${VALUE};
         ]], {
@@ -1415,7 +1415,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         })
         return out
 
-    elseif tag == coder.Lvalue.ArraySlot then
+    elseif tag == "coder.Lvalue.ArraySlot" then
         -- TODO: GC
         local typ = lvalue.var._type
         local ui = ctx:new_cvar("lua_Unsigned", "ui")
@@ -1439,7 +1439,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         })
         return out
 
-    elseif tag == coder.Lvalue.GlobalVar then
+    elseif tag == "coder.Lvalue.GlobalVar" then
         local typ = lvalue.var._type
         local slot = ctx:new_cvar("TValue *")
         local out = util.render([[
@@ -1453,7 +1453,7 @@ local function generate_lvalue_write(lvalue, exp_cvalue, ctx)
         })
         return out
 
-    elseif tag == coder.Lvalue.RecGcSlot then
+    elseif tag == "coder.Lvalue.RecGcSlot" then
         local typ = lvalue.var._type
         local slot = ctx:new_cvar("TValue *")
         local out = util.render([[
@@ -1480,7 +1480,7 @@ generate_program = function(prog_ast, modname)
     -- Records
     local crecords = {}
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == ast.Toplevel.Record then
+        if tl_node._tag == "ast.Toplevel.Record" then
             tl_node._rec = RecordCoder.new(tl_node)
             table.insert(crecords, tl_node._rec:make_declarations())
         end
@@ -1492,7 +1492,7 @@ generate_program = function(prog_ast, modname)
 
     -- Name all the function entry points
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == ast.Toplevel.Func then
+        if tl_node._tag == "ast.Toplevel.Func" then
             tl_node._pallene_entry_point =
                 function_name(tl_node.name, "pallene")
             tl_node._lua_entry_point =
@@ -1505,7 +1505,7 @@ generate_program = function(prog_ast, modname)
     do
         local function_definitions = {}
         for _, tl_node in ipairs(prog_ast) do
-            if tl_node._tag == ast.Toplevel.Func then
+            if tl_node._tag == "ast.Toplevel.Func" then
                 assert(#tl_node._type.ret_types <= 1)
                 table.insert(function_definitions,
                     generate_pallene_entry_point(tl_node, prog_ast._literals))
@@ -1530,7 +1530,7 @@ end
 -- @return (string) C statements
 generate_stat = function(stat, ctx)
     local tag = stat._tag
-    if     tag == ast.Stat.Block then
+    if     tag == "ast.Stat.Block" then
         ctx:begin_scope()
         local cstatss = {}
         table.insert(cstatss, "{")
@@ -1541,7 +1541,7 @@ generate_stat = function(stat, ctx)
         ctx:end_scope()
         return table.concat(cstatss, "\n")
 
-    elseif tag == ast.Stat.While then
+    elseif tag == "ast.Stat.While" then
         ctx:begin_scope()
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
         local block_cstats = generate_stat(stat.block, ctx)
@@ -1559,7 +1559,7 @@ generate_stat = function(stat, ctx)
         })
         return out
 
-    elseif tag == ast.Stat.Repeat then
+    elseif tag == "ast.Stat.Repeat" then
         ctx:begin_scope()
         local block_cstats = generate_stat(stat.block, ctx)
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
@@ -1577,7 +1577,7 @@ generate_stat = function(stat, ctx)
         })
         return out
 
-    elseif tag == ast.Stat.If then
+    elseif tag == "ast.Stat.If" then
         ctx:begin_scope()
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
         local then_cstats = generate_stat(stat.then_, ctx)
@@ -1596,7 +1596,7 @@ generate_stat = function(stat, ctx)
         })
         return cstats
 
-    elseif tag == ast.Stat.For then
+    elseif tag == "ast.Stat.For" then
         ctx:begin_scope()
         local typ = stat.decl._type
 
@@ -1625,10 +1625,10 @@ generate_stat = function(stat, ctx)
             render_names)
 
         local loop_step
-        if typ._tag == types.T.Integer then
+        if typ._tag == "types.T.Integer" then
             loop_step = util.render([[${START} = intop(+, ${START}, ${STEP});]],
                 render_names)
-        elseif typ._tag == types.T.Float then
+        elseif typ._tag == "types.T.Float" then
             loop_step = util.render([[${START} = ${START} + ${STEP};]],
                 render_names)
         else
@@ -1668,7 +1668,7 @@ generate_stat = function(stat, ctx)
         })
         return out
 
-    elseif tag == ast.Stat.Assign then
+    elseif tag == "ast.Stat.Assign" then
         ctx:begin_scope()
         local var_cstats, lvalue = generate_var(stat.var, ctx)
         local exp_cstats, exp_cvalue = generate_exp(stat.exp, ctx)
@@ -1685,7 +1685,7 @@ generate_stat = function(stat, ctx)
         })
         return cstats
 
-    elseif tag == ast.Stat.Decl then
+    elseif tag == "ast.Stat.Decl" then
         ctx:begin_scope()
         local exp_cstats, exp_cvalue = generate_exp(stat.exp, ctx)
         ctx:end_scope() -- (don't put the tvar inside this scope!)
@@ -1700,12 +1700,12 @@ generate_stat = function(stat, ctx)
         })
         return out
 
-    elseif tag == ast.Stat.Call then
+    elseif tag == "ast.Stat.Call" then
         ctx:begin_scope()
         local cstats, cvalue = generate_exp(stat.call_exp, ctx)
 
         local ignore_result
-        if stat.call_exp._type._tag == types.T.Void then
+        if stat.call_exp._type._tag == "types.T.Void" then
             ignore_result = ""
         else
             ignore_result = "(void) " .. cvalue .. ";"
@@ -1721,7 +1721,7 @@ generate_stat = function(stat, ctx)
         })
         return out
 
-    elseif tag == ast.Stat.Return then
+    elseif tag == "ast.Stat.Return" then
         assert(#stat.exps <= 1)
         ctx:begin_scope()
         local cstats, cvalue
@@ -1753,13 +1753,13 @@ end
 -- about evaluation order should be returned as part of the first argument.
 generate_var = function(var, ctx)
     local tag = var._tag
-    if     tag == ast.Var.Name then
+    if     tag == "ast.Var.Name" then
         local decl = var._decl
-        if    decl._tag == ast.Decl.Decl then
+        if    decl._tag == "ast.Decl.Decl" then
             return "", coder.Lvalue.CVar(var, decl._cvar.name)
 
-        elseif decl._tag == ast.Toplevel.Var or
-                decl._tag == ast.Toplevel.Func
+        elseif decl._tag == "ast.Toplevel.Var" or
+                decl._tag == "ast.Toplevel.Func"
         then
             return "", coder.Lvalue.GlobalVar(var, decl._upvalue_index)
 
@@ -1767,13 +1767,13 @@ generate_var = function(var, ctx)
             error("impossible")
         end
 
-    elseif tag == ast.Var.Bracket then
+    elseif tag == "ast.Var.Bracket" then
         local t_cstats, t_cvalue = generate_exp(var.t, ctx)
         local k_cstats, k_cvalue = generate_exp(var.k, ctx)
         local cstats = t_cstats .. "\n" .. k_cstats
         return cstats, coder.Lvalue.ArraySlot(var, t_cvalue, k_cvalue)
 
-    elseif tag == ast.Var.Dot then
+    elseif tag == "ast.Var.Dot" then
         local tl_node = var.exp._type.type_decl
         local cstats, udata = generate_exp(var.exp)
         local slot, typ = tl_node._rec:field_slot(udata, var.name)
@@ -2178,23 +2178,23 @@ end
 -- about evaluation order should be returned as part of the first argument.
 generate_exp = function(exp, ctx)
     local tag = exp._tag
-    if     tag == ast.Exp.Nil then
+    if     tag == "ast.Exp.Nil" then
         return "", c_integer(0)
 
-    elseif tag == ast.Exp.Bool then
+    elseif tag == "ast.Exp.Bool" then
         return "", c_boolean(exp.value)
 
-    elseif tag == ast.Exp.Integer then
+    elseif tag == "ast.Exp.Integer" then
         return "", c_integer(exp.value)
 
-    elseif tag == ast.Exp.Float then
+    elseif tag == "ast.Exp.Float" then
         return "", c_float(exp.value)
 
-    elseif tag == ast.Exp.String then
+    elseif tag == "ast.Exp.String" then
         return literal_get(exp.value, ctx)
 
-    elseif tag == ast.Exp.Initlist then
-        if exp._type._tag == types.T.Array then
+    elseif tag == "ast.Exp.Initlist" then
+        if exp._type._tag == "types.T.Array" then
             local cond_gc = gc_cond_gc(ctx)
 
             local tbl = ctx:new_tvar(exp._type)
@@ -2239,7 +2239,7 @@ generate_exp = function(exp, ctx)
 
             return cstats, tbl.name
 
-        elseif exp._type._tag == types.T.Record then
+        elseif exp._type._tag == "types.T.Record" then
             local body = {}
             table.insert(body, gc_cond_gc(ctx))
 
@@ -2261,13 +2261,13 @@ generate_exp = function(exp, ctx)
             error("impossible")
         end
 
-    elseif tag == ast.Exp.CallFunc then
+    elseif tag == "ast.Exp.CallFunc" then
         local fexp = exp.exp
         local fargs = exp.args
 
-        if fexp._tag == ast.Exp.Var and
-            fexp.var._tag == ast.Var.Name and
-            fexp.var._decl._tag == ast.Toplevel.Builtin
+        if fexp._tag == "ast.Exp.Var" and
+            fexp.var._tag == "ast.Var.Name" and
+            fexp.var._decl._tag == "ast.Toplevel.Builtin"
         then
             local builtin_name = fexp.var._decl.name
             if builtin_name == "io.write" then
@@ -2281,9 +2281,9 @@ generate_exp = function(exp, ctx)
             else
                 error("impossible")
             end
-        elseif fexp._tag == ast.Exp.Var and
-            fexp.var._tag == ast.Var.Name and
-            fexp.var._decl._tag == ast.Toplevel.Func
+        elseif fexp._tag == "ast.Exp.Var" and
+            fexp.var._tag == "ast.Var.Name" and
+            fexp.var._decl._tag == "ast.Toplevel.Func"
         then
             -- Directly calling a toplevel function
 
@@ -2398,30 +2398,30 @@ generate_exp = function(exp, ctx)
             return cstats, retval
         end
 
-    elseif tag == ast.CallMethod then
+    elseif tag == "ast.CallMethod" then
         error("not implemented")
 
-    elseif tag == ast.Exp.Var then
+    elseif tag == "ast.Exp.Var" then
         local var_cstats, lvalue = generate_var(exp.var, ctx)
         local lvalue_cstats, out = generate_lvalue_read(lvalue, ctx)
         local cstats = var_cstats .. "\n" .. lvalue_cstats
         return cstats, out
 
-    elseif tag == ast.Exp.Unop then
+    elseif tag == "ast.Exp.Unop" then
         local op = exp.op
         if op == "#" then
-            if exp.exp._type._tag == types.T.Array then
+            if exp.exp._type._tag == "types.T.Array" then
                 return generate_unop_arraylen(exp, ctx)
-            elseif exp.exp._type._tag == types.T.String then
+            elseif exp.exp._type._tag == "types.T.String" then
                 return generate_unop_strlen(exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "-" then
-            if     exp._type._tag == types.T.Integer then
+            if     exp._type._tag == "types.T.Integer" then
                 return generate_unop_intneg(exp, ctx)
-            elseif exp._type._tag == types.T.Float then
+            elseif exp._type._tag == "types.T.Float" then
                 return generate_unop("-", exp, ctx)
             else
                 error("impossible")
@@ -2437,86 +2437,86 @@ generate_exp = function(exp, ctx)
             error("impossible")
         end
 
-    elseif tag == ast.Exp.Concat then
+    elseif tag == "ast.Exp.Concat" then
         return generate_concat(exp, ctx)
 
-    elseif tag == ast.Exp.Binop then
+    elseif tag == "ast.Exp.Binop" then
         local ltyp = exp.lhs._type._tag
         local rtyp = exp.rhs._type._tag
         local op = exp.op
         if     op == "+" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_intop("+", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("+", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "-" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_intop("-", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("-", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "*" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_intop("*", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("*", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "/" then
-            if     ltyp == types.T.Float and rtyp == types.T.Float then
+            if     ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("/", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "&" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_intop("&", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "|" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_intop("|", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "~" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_intop("^", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "<<" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop_shift("<<", ">>", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == ">>" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop_shift(">>", "<<", exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "%" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop_mod_int(exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 -- see luai_nummod
                 error("not implemented yet")
             else
@@ -2524,101 +2524,101 @@ generate_exp = function(exp, ctx)
             end
 
         elseif op == "//" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop_idiv_int(exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop_idiv_flt(exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "^" then
-            if     ltyp == types.T.Float and rtyp == types.T.Float then
+            if     ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop_pow(exp, ctx)
             else
                 error("impossible")
             end
 
         elseif op == "==" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop("==", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("==", exp, ctx)
             else
                 error("not implemented yet")
             end
 
         elseif op == "~=" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop("!=", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("!=", exp, ctx)
             else
                 error("not implemented yet")
             end
 
         elseif op == "<" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop("<", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("<", exp, ctx)
-            elseif ltyp == types.T.String and rtyp == types.T.String then
+            elseif ltyp == "types.T.String" and rtyp == "types.T.String" then
                 error("not implemented yet")
-            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Integer" and rtyp == "types.T.Float" then
                 error("not implemented yet") -- see LTnum
-            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Integer" then
                 error("not implemented yet") -- see LTnum
             else
                 error("impossible")
             end
 
         elseif op == ">" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop(">", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop(">", exp, ctx)
-            elseif ltyp == types.T.String and rtyp == types.T.String then
+            elseif ltyp == "types.T.String" and rtyp == "types.T.String" then
                 error("not implemented yet")
-            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Integer" and rtyp == "types.T.Float" then
                 error("not implemented yet") -- see LTnum
-            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Integer" then
                 error("not implemented yet") -- see LTnum
             else
                 error("impossible")
             end
 
         elseif op == "<=" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop("<=", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop("<=", exp, ctx)
-            elseif ltyp == types.T.String and rtyp == types.T.String then
+            elseif ltyp == "types.T.String" and rtyp == "types.T.String" then
                 error("not implemented yet")
-            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Integer" and rtyp == "types.T.Float" then
                 error("not implemented yet") -- see LTnum
-            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Integer" then
                 error("not implemented yet") -- see LTnum
             else
                 error("impossible")
             end
 
         elseif op == ">=" then
-            if     ltyp == types.T.Integer and rtyp == types.T.Integer then
+            if     ltyp == "types.T.Integer" and rtyp == "types.T.Integer" then
                 return generate_binop(">=", exp, ctx)
-            elseif ltyp == types.T.Float and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Float" then
                 return generate_binop(">=", exp, ctx)
-            elseif ltyp == types.T.String and rtyp == types.T.String then
+            elseif ltyp == "types.T.String" and rtyp == "types.T.String" then
                 error("not implemented yet")
-            elseif ltyp == types.T.Integer and rtyp == types.T.Float then
+            elseif ltyp == "types.T.Integer" and rtyp == "types.T.Float" then
                 error("not implemented yet") -- see LTnum
-            elseif ltyp == types.T.Float and rtyp == types.T.Integer then
+            elseif ltyp == "types.T.Float" and rtyp == "types.T.Integer" then
                 error("not implemented yet") -- see LTnum
             else
                 error("impossible")
             end
 
         elseif op == "and" then
-            if     ltyp == types.T.Boolean and rtyp == types.T.Boolean then
+            if     ltyp == "types.T.Boolean" and rtyp == "types.T.Boolean" then
                 local l_cstats, l_cvalue = generate_exp(exp.lhs, ctx)
                 local tmp = ctx:new_tvar(types.T.Boolean())
                 local r_cstats, r_cvalue = generate_exp(exp.rhs, ctx)
@@ -2644,7 +2644,7 @@ generate_exp = function(exp, ctx)
             end
 
         elseif op == "or" then
-            if     ltyp == types.T.Boolean and rtyp == types.T.Boolean then
+            if     ltyp == "types.T.Boolean" and rtyp == "types.T.Boolean" then
                 local l_cstats, l_cvalue = generate_exp(exp.lhs, ctx)
                 local tmp = ctx:new_tvar(types.T.Boolean())
                 local r_cstats, r_cvalue = generate_exp(exp.rhs, ctx)
@@ -2674,7 +2674,7 @@ generate_exp = function(exp, ctx)
             error("impossible")
         end
 
-    elseif tag == ast.Exp.Cast then
+    elseif tag == "ast.Exp.Cast" then
         local exp_cstats, exp_cvalue = generate_exp(exp.exp, ctx)
 
         local src_typ = exp.exp._type
@@ -2683,7 +2683,7 @@ generate_exp = function(exp, ctx)
         if     src_typ._tag == dst_typ._tag then
             return exp_cstats, exp_cvalue
 
-        elseif dst_typ._tag == types.T.Value then
+        elseif dst_typ._tag == "types.T.Value" then
             local out = ctx:new_tvar(dst_typ)
             local cstats = util.render([[
                 ${EXP_CSTATS}
@@ -2698,7 +2698,7 @@ generate_exp = function(exp, ctx)
             })
             return cstats, out.name
 
-        elseif src_typ._tag == types.T.Value then
+        elseif src_typ._tag == "types.T.Value" then
             local out = ctx:new_tvar(dst_typ)
             local slot = "&"..exp_cvalue
             local cstats = util.render([[

@@ -21,19 +21,19 @@ declare_type("T", {
 
 function types.is_gc(t)
     local tag = t._tag
-    if     tag == types.T.Void or
-           tag == types.T.Nil or
-           tag == types.T.Boolean or
-           tag == types.T.Integer or
-           tag == types.T.Float
+    if     tag == "types.T.Void" or
+           tag == "types.T.Nil" or
+           tag == "types.T.Boolean" or
+           tag == "types.T.Integer" or
+           tag == "types.T.Float"
     then
         return false
 
-    elseif tag == types.T.Value or
-           tag == types.T.String or
-           tag == types.T.Function or
-           tag == types.T.Array or
-           tag == types.T.Record
+    elseif tag == "types.T.Value" or
+           tag == "types.T.String" or
+           tag == "types.T.Function" or
+           tag == "types.T.Array" or
+           tag == "types.T.Record"
     then
         return true
 
@@ -51,26 +51,26 @@ local function equivalent(t1, t2, is_gradual)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
-    if is_gradual and (tag1 == types.T.Value or tag2 == types.T.Value) then
+    if is_gradual and (tag1 == "types.T.Value" or tag2 == "types.T.Value") then
         return true
 
     elseif tag1 ~= tag2 then
         return false
 
-    elseif tag1 == types.T.Value or
-           tag1 == types.T.Void or
-           tag1 == types.T.Nil or
-           tag1 == types.T.Boolean or
-           tag1 == types.T.Integer or
-           tag1 == types.T.Float or
-           tag1 == types.T.String
+    elseif tag1 == "types.T.Value" or
+           tag1 == "types.T.Void" or
+           tag1 == "types.T.Nil" or
+           tag1 == "types.T.Boolean" or
+           tag1 == "types.T.Integer" or
+           tag1 == "types.T.Float" or
+           tag1 == "types.T.String"
     then
         return true
 
-    elseif tag1 == types.T.Array then
+    elseif tag1 == "types.T.Array" then
         return equivalent(t1.elem, t2.elem, is_gradual)
 
-    elseif tag1 == types.T.Function then
+    elseif tag1 == "types.T.Function" then
         if #t1.params ~= #t2.params then
             return false
         end
@@ -93,7 +93,7 @@ local function equivalent(t1, t2, is_gradual)
 
         return true
 
-    elseif tag1 == types.T.Record then
+    elseif tag1 == "types.T.Record" then
         return t1.type_decl == t2.type_decl
 
     else
@@ -111,18 +111,18 @@ end
 
 function types.tostring(t)
     local tag = t._tag
-    if     tag == types.T.Value       then return "value"
-    elseif tag == types.T.Void        then return "void"
-    elseif tag == types.T.Nil         then return "nil"
-    elseif tag == types.T.Boolean     then return "boolean"
-    elseif tag == types.T.Integer     then return "integer"
-    elseif tag == types.T.Float       then return "float"
-    elseif tag == types.T.String      then return "string"
-    elseif tag == types.T.Function then
+    if     tag == "types.T.Value"       then return "value"
+    elseif tag == "types.T.Void"        then return "void"
+    elseif tag == "types.T.Nil"         then return "nil"
+    elseif tag == "types.T.Boolean"     then return "boolean"
+    elseif tag == "types.T.Integer"     then return "integer"
+    elseif tag == "types.T.Float"       then return "float"
+    elseif tag == "types.T.String"      then return "string"
+    elseif tag == "types.T.Function" then
         return "function" -- TODO implement
-    elseif tag == types.T.Array then
+    elseif tag == "types.T.Array" then
         return "{ " .. types.tostring(t.elem) .. " }"
-    elseif tag == types.T.Record then
+    elseif tag == "types.T.Record" then
         return t.type_decl.name
     else
         error("impossible")
