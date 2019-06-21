@@ -800,10 +800,12 @@ end
 
 function RecordCoder:primitive_slot(udata, field_name)
     local out = util.render(
-        [[((${STRUCT_NAME} *)getudatamem(${UDATA}))->${FIELD_NAME}]],
+        [[((${STRUCT_NAME} *)(cast_charp(${UDATA}) +
+            udatamemoffset(${NUVALUE})))->${FIELD_NAME}]],
     {
         STRUCT_NAME = self:struct(),
         UDATA = udata,
+        NUVALUE = self.layout.gc_size,
         FIELD_NAME = self:field(field_name),
     })
     return out
