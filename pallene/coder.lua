@@ -1061,14 +1061,13 @@ local function generate_lua_entry_point(tl_node, literals)
     local check_nargs = util.render([[
         ${NARGS_DECL} = cast_int(L->top - (${BASE} + 1));
         if (PALLENE_UNLIKELY(${NARGS} != ${EXPECTED})) {
-            pallene_runtime_arity_error(L, ${NAME}, ${LINE}, ${EXPECTED}, ${NARGS});
+            pallene_runtime_arity_error(L, ${NAME}, ${EXPECTED}, ${NARGS});
         }
     ]], {
         BASE = base.name,
         NARGS = nargs.name,
         NARGS_DECL = c_declaration(nargs),
         NAME = c_string(tl_node.name),
-        LINE = c_integer(tl_node.loc.line),
         EXPECTED = c_integer(#tl_node.params),
     })
 

@@ -59,15 +59,14 @@ void pallene_runtime_tag_check_error(
 void pallene_runtime_arity_error(
     lua_State *L,
     const char *name,
-    int line,
     int expected,
     int received
 ){
     luaL_error(
         L,
-        "wrong number of arguments to function '%s' at line %d,"
+        "wrong number of arguments to function '%s',"
         " expected %d but received %d",
-        name, line, expected, received
+        name, expected, received
     );
     PALLENE_UNREACHABLE;
 }
