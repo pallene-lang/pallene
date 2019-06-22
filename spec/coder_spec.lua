@@ -3,9 +3,9 @@ local util = require "pallene.util"
 
 local function compile(pallene_code)
     return function()
-        assert(util.set_file_contents("test.pallene", pallene_code))
+        assert(util.set_file_contents("test.pln", pallene_code))
         local ok, errors =
-            driver.compile("pallenec-tests", "pallene", "so", "test.pallene")
+            driver.compile("pallenec-tests", "pln", "so", "test.pln")
         assert(ok, errors[1])
     end
 end
@@ -26,7 +26,7 @@ local function assert_test_output(expected)
 end
 
 local function cleanup()
-    os.remove("test.pallene")
+    os.remove("test.pln")
     os.remove("test.so")
     os.remove("test_script.lua")
     os.remove("test_output.txt")

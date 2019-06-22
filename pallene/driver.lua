@@ -77,11 +77,11 @@ local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
 end
 
 local compiler_steps = {
-    { name = "pallene", f = compile_pallene_to_c },
-    { name = "c",       f = c_compiler.compile_c_to_s },
-    { name = "s",       f = c_compiler.compile_s_to_o },
-    { name = "o",       f = c_compiler.compile_o_to_so},
-    { name = "so",      f = false },
+    { name = "pln", f = compile_pallene_to_c },
+    { name = "c",   f = c_compiler.compile_c_to_s },
+    { name = "s",   f = c_compiler.compile_s_to_o },
+    { name = "o",   f = c_compiler.compile_o_to_so},
+    { name = "so",  f = false },
 }
 
 local function check_source_filename(argv0, file_name, expected_ext)
@@ -104,9 +104,9 @@ end
 -- [output_ext]. Erases any intermediate files that are produced along the way.
 --
 -- Example:
---    compile("pallene", "so", "foo.pallene") --> outputs "foo.so"
---    compile("pallene", "c", "foo.pallene")  --> outputs "foo.c"
---    compile("c", "so", "foo.c)          --> outputs "foo.so"
+--    compile("pln", "so", "foo.pln") --> outputs "foo.so"
+--    compile("pln", "c", "foo.pln")  --> outputs "foo.c"
+--    compile("c", "so", "foo.c)      --> outputs "foo.so"
 --
 function driver.compile(argv0, input_ext, output_ext, input_file_name)
     local base_name, err = check_source_filename(argv0, input_file_name,
@@ -146,7 +146,7 @@ end
 --
 function driver.test_ast(stop_after, input_filename)
     local base_name, err =
-        check_source_filename("pallenec test", input_filename, "pallene")
+        check_source_filename("pallenec test", input_filename, "pln")
     if not base_name then return false, {err} end
 
     return compile_pallene_to_ast(input_filename, stop_after)

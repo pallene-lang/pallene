@@ -35,10 +35,10 @@ if #flags >= 2 then
     pallenec_abort(msg)
 end
 
-if     #flags == 0    then compile("pallene", "so")
-elseif args.emit_c    then compile("pallene", "c")
-elseif args.emit_asm  then compile("c",       "s")
-elseif args.compile_c then compile("c" ,      "so")
+if     #flags == 0    then compile("pln", "so")
+elseif args.emit_c    then compile("pln", "c")
+elseif args.emit_asm  then compile("c",   "s")
+elseif args.compile_c then compile("c" ,  "so")
 else
     error("impossible")
 end

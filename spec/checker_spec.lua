@@ -4,8 +4,8 @@ local types = require 'pallene.types'
 local util = require 'pallene.util'
 
 local function run_checker(code)
-    assert(util.set_file_contents("test.pallene", code))
-    local prog_ast, errs = driver.test_ast("checker", "test.pallene")
+    assert(util.set_file_contents("test.pln", code))
+    local prog_ast, errs = driver.test_ast("checker", "test.pln")
     return prog_ast, table.concat(errs, "\n")
 end
 
@@ -23,7 +23,7 @@ end
 describe("Pallene type checker", function()
 
     teardown(function()
-        os.remove("test.pallene")
+        os.remove("test.pln")
     end)
 
     it("detects when a non-type is used in a type variable", function()
