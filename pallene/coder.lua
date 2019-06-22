@@ -797,6 +797,8 @@ end
 function RecordCoder:declare_getmem()
     if self.layout.prim_size == 0 then return "" end
 
+    -- This function is a specialization of the macro getudatamem that generates
+    -- a cleaner assembly because NUVALUE is a compile-time constant.
     local out = util.render([[
         static ${STRUCT} *${GETMEM}(Udata *u)
         {
