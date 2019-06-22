@@ -75,7 +75,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_int)
                 assert(string.find(err,
-                    "wrong number of arguments to function, " ..
+                    "wrong number of arguments to function 'id_int', " ..
                     "expected 1 but received 0",
                     nil, true))
             ]])
@@ -85,7 +85,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.id_int, 10, 20)
                 assert(string.find(err,
-                    "wrong number of arguments to function, " ..
+                    "wrong number of arguments to function 'id_int', " ..
                     "expected 1 but received 2",
                     nil, true))
             ]])

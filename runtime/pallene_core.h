@@ -19,7 +19,7 @@ void pallene_runtime_tag_check_error(
     PALLENE_NORETURN;
 
 void pallene_runtime_arity_error(
-    lua_State *L, int expected, int received)
+    lua_State *L, const char *name, int expected, int received)
     PALLENE_NORETURN;
 
 void pallene_runtime_divide_by_zero_error(
