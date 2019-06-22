@@ -1518,7 +1518,7 @@ generate_program = function(prog_ast, modname)
     for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == "ast.Toplevel.Func" then
             tl_node._pallene_entry_point =
-                function_name(tl_node.name, "pallene")
+                function_name(tl_node.name, "pln")
             tl_node._lua_entry_point =
                 function_name(tl_node.name, "lua")
         end

@@ -35,8 +35,8 @@ end
 --
 
 local function parse(program_str)
-    assert(util.set_file_contents("test.pallene", program_str))
-    return driver.test_ast("parser", "test.pallene")
+    assert(util.set_file_contents("test.pln", program_str))
+    return driver.test_ast("parser", "test.pln")
 end
 
 local function assert_parses_successfuly(program_str)
@@ -150,7 +150,7 @@ describe("Pallene parser", function()
 
     teardown(function()
         assert:set_parameter("TableFormatLevel", ORIGINAL_FORMAT_LEVEL)
-        os.remove("test.pallene")
+        os.remove("test.pln")
     end)
 
     it("can parse programs starting with whitespace or comments", function()

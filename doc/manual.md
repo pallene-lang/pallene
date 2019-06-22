@@ -19,10 +19,10 @@ Note that type anotations are required for function argument and return types bu
         end
     end
 
-If we pass this `sum.pallene` file to the `pallenec` compiler, it will output a `sum.so` Lua extension module:
+If we pass this `sum.pln` file to the `pallenec` compiler, it will output a `sum.so` Lua extension module:
 
 
-    $ ./pallenec sum.pallene
+    $ ./pallenec sum.pln
 
 
 The `sum.so` file can be loaded from within Lua with `require`, as usual:

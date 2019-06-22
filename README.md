@@ -54,14 +54,14 @@ make macosx         # for MacOS
 
 ## Usage
 
-To compile a `foo.pallene` file to a `foo.so` module call `pallenec` as follows.
+To compile a `foo.pln` file to a `foo.so` module call `pallenec` as follows.
 
 Note: Your current working directory must be the root of this repository, due to 
 [Bug #16](https://github.com/pallene-lang/pallene/issues/16).
 
 
 ```sh
-$ ./pallenec foo.pallene
+$ ./pallenec foo.pln
 ```
 
 To run Pallene, you must currently use the bundled version of the Lua
@@ -125,7 +125,7 @@ To run of the benchmarks in the benchmarks directory, tun the `benchmarks/run`
 script from the root project directory:
 
 ```sh
-./benchmarks/run benchmarks/sieve/pallene.pallene
+./benchmarks/run benchmarks/sieve/pallene.pln
 ```
 
 By default, the benchmark runner just outputs the running time, as measured by
@@ -134,7 +134,7 @@ By default, the benchmark runner just outputs the running time, as measured by
 the benchmark, withot measuring anything.
 
 ```sh
-./benchmarks/run benchmarks/sieve/pallene.pallene --mode=none
+./benchmarks/run benchmarks/sieve/pallene.pln --mode=none
 ```
 
 To run benchmarks with LuaJIT, use the `--lua` option:

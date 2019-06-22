@@ -4,7 +4,7 @@ notarget:
 	@echo "This makefile must receive a target"
 	@echo "example: make benchmarks/matmul/pallene.so"
 
-%.so: %.pallene
+%.so: %.pln
 	./pallenec $<
 
 %.so: %.c

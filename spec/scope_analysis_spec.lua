@@ -5,15 +5,15 @@ local ast = require "pallene.ast"
 local builtins = require "pallene.builtins"
 
 local function run_scope_analysis(code)
-    assert(util.set_file_contents("test.pallene", code))
-    local prog_ast, errs = driver.test_ast("scope_analysis", "test.pallene")
+    assert(util.set_file_contents("test.pln", code))
+    local prog_ast, errs = driver.test_ast("scope_analysis", "test.pln")
     return prog_ast, table.concat(errs, "\n")
 end
 
 describe("Scope analysis: ", function()
 
     teardown(function()
-        os.remove("test.pallene")
+        os.remove("test.pln")
     end)
 
     it("global variables work", function()

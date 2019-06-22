@@ -29,7 +29,7 @@ function benchlib.prepare_benchmark(lua_path, benchmark_path, extra_params)
 
     -- Compile
 
-    if ext == "pallene" or ext == "c" then
+    if ext == "pln" or ext == "c" then
         local so_name = "benchmarks/" .. test_dir .. "/" .. basename .. ".so"
         assert(util.execute(string.format(
             "make --quiet -f benchmarks/makefile %s",
@@ -172,7 +172,7 @@ local function find_benchmark(bench, impl)
         lua_path = benchlib.DEFAULT_LUA
         candidates = {
             impl..".lua",
-            impl..".pallene",
+            impl..".pln",
             impl..".c"
         }
     end
