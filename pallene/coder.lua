@@ -725,6 +725,10 @@ function RecordCoder:struct()
     return string.format("struct crecord_%s", self.tl_node.name)
 end
 
+function RecordCoder:getmem()
+    return string.format("crecord_%s_getmem", self.tl_node.name)
+end
+
 function RecordCoder:index(field)
     return string.format("crecord_index_%s_%s", self.tl_node.name, field)
 end
@@ -790,6 +794,22 @@ function RecordCoder:declare_struct()
     return out
 end
 
+function RecordCoder:declare_getmem()
+    if self.layout.prim_size == 0 then return "" end
+
+    local out = util.render([[
+        static ${STRUCT} *${GETMEM}(Udata *u)
+        {
+            return (${STRUCT} *)(cast_charp(u) + udatamemoffset(${NUVALUE}));
+        }
+    ]], {
+        STRUCT = self:struct(),
+        GETMEM = self:getmem(),
+        NUVALUE = self.layout.gc_size,
+    })
+    return out
+end
+
 function RecordCoder:gc_slot(udata, field_name)
     local out = util.render([[&${UDATA}->uv[${I}].uv]], {
         UDATA = udata,
@@ -800,12 +820,10 @@ end
 
 function RecordCoder:primitive_slot(udata, field_name)
     local out = util.render(
-        [[((${STRUCT_NAME} *)(cast_charp(${UDATA}) +
-            udatamemoffset(${NUVALUE})))->${FIELD_NAME}]],
+        [[${GETMEM}(${UDATA})->${FIELD_NAME}]],
     {
-        STRUCT_NAME = self:struct(),
+        GETMEM = self:getmem(),
         UDATA = udata,
-        NUVALUE = self.layout.gc_size,
         FIELD_NAME = self:field(field_name),
     })
     return out
@@ -870,6 +888,7 @@ end
 function RecordCoder:make_declarations()
     local decls = {}
     table.insert(decls, self:declare_struct())
+    table.insert(decls, self:declare_getmem())
     for _, field in ipairs(self.tl_node.field_decls) do
         table.insert(decls, self:declare_index(field.name))
         table.insert(decls, self:declare_newindex(field.name))
