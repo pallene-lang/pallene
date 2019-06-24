@@ -293,11 +293,7 @@ check_top_level = function(tl_node)
             field_types[field_name] = typ
         end
 
-        tl_node._type = types.T.Record({
-            name = name,
-            field_names = field_names,
-            field_types = field_types,
-        })
+        tl_node._type = types.T.Record(name, field_names, field_types)
 
     else
         error("impossible")
@@ -453,7 +449,7 @@ check_var = function(var)
         check_exp(var.exp, false)
         local exp_type = var.exp._type
         if exp_type._tag == "types.T.Record" then
-            local field_type = exp_type.record_decl.field_types[var.name]
+            local field_type = exp_type.field_types[var.name]
             if field_type then
                 var._type = field_type
             else
@@ -545,7 +541,7 @@ check_exp = function(exp, type_hint)
                 end
                 initialized_fields[field.name] = true
 
-                local field_type = type_hint.record_decl.field_types[field.name]
+                local field_type = type_hint.field_types[field.name]
                 if field_type then
                     check_exp(field.exp, field_type)
                     check_match(field.loc,
@@ -558,7 +554,7 @@ check_exp = function(exp, type_hint)
                 end
             end
 
-            for field_name, _ in pairs(type_hint.record_decl.field_types) do
+            for field_name, _ in pairs(type_hint.field_types) do
                 if not initialized_fields[field_name] then
                     type_error(exp.loc,
                         "required field %s is missing from initializer",

@@ -479,7 +479,7 @@ local function upvalues_create_table(n, ctx)
     --
     -- We might be able to do this away after the IR refactor, which will
     -- change how the garbage collection and variable-saving works.
-    local typ = types.T.Record(false)
+    local typ = types.T.Record(false, false, false)
 
     ctx.upv = {}
     ctx.upv.table = ctx:new_tvar(typ) -- tvar: Don't GC this!
@@ -690,13 +690,13 @@ end
 -- __newindex methametods for each record type.
 --
 
-local function compute_layout(record_decl)
+local function compute_layout(record_typ)
     local gc_pos = {}
     local gc_index = 1
     local prim_pos = {}
     local prim_index = 1
-    for _, field_name in ipairs(record_decl.field_names) do
-        local typ = record_decl.field_types[field_name]
+    for _, field_name in ipairs(record_typ.field_names) do
+        local typ = record_typ.field_types[field_name]
         if types.is_gc(typ) then
             gc_pos[field_name] = gc_index
             gc_index = gc_index + 1
@@ -718,27 +718,27 @@ RecordCoder.__index = RecordCoder
 
 function RecordCoder.new(record_typ)
     local o = {
-        record_decl = record_typ.record_decl,
+        record_typ = record_typ,
         upvalue_index = record_typ._upvalue_index,
-        layout = compute_layout(record_typ.record_decl),
+        layout = compute_layout(record_typ),
     }
     return setmetatable(o, RecordCoder)
 end
 
 function RecordCoder:struct()
-    return string.format("struct crecord_%s", self.record_decl.name)
+    return string.format("struct crecord_%s", self.record_typ.name)
 end
 
 function RecordCoder:getmem()
-    return string.format("crecord_%s_getmem", self.record_decl.name)
+    return string.format("crecord_%s_getmem", self.record_typ.name)
 end
 
 function RecordCoder:index(field)
-    return string.format("crecord_index_%s_%s", self.record_decl.name, field)
+    return string.format("crecord_index_%s_%s", self.record_typ.name, field)
 end
 
 function RecordCoder:newindex(field)
-    return string.format("crecord_newindex_%s_%s", self.record_decl.name, field)
+    return string.format("crecord_newindex_%s_%s", self.record_typ.name, field)
 end
 
 function RecordCoder:field(name)
@@ -746,7 +746,7 @@ function RecordCoder:field(name)
 end
 
 function RecordCoder:field_type(name)
-    return self.record_decl.field_types[name]
+    return self.record_typ.field_types[name]
 end
 
 function RecordCoder:field_slot(udata, name)
@@ -777,7 +777,7 @@ function RecordCoder:declare_struct()
     if self.layout.prim_size == 0 then return "" end
 
     local fields = {}
-    for _, field_name in ipairs(self.record_decl.field_names) do
+    for _, field_name in ipairs(self.record_typ.field_names) do
         local typ = self:field_type(field_name)
         if not types.is_gc(typ) then
             local name = self:field(field_name)
@@ -836,7 +836,7 @@ function RecordCoder:primitive_slot(udata, field_name)
 end
 
 function RecordCoder:set_field(udata, field_name, cvalue)
-    local typ = self.record_decl.field_types[field_name]
+    local typ = self.record_typ.field_types[field_name]
     if types.is_gc(typ) then
         local slot = self:gc_slot(udata, field_name)
         return set_heap_slot(typ, slot, cvalue, udata)
@@ -895,7 +895,7 @@ function RecordCoder:make_declarations()
     local decls = {}
     table.insert(decls, self:declare_struct())
     table.insert(decls, self:declare_getmem())
-    for _, field_name in ipairs(self.record_decl.field_names) do
+    for _, field_name in ipairs(self.record_typ.field_names) do
         table.insert(decls, self:declare_index(field_name))
         table.insert(decls, self:declare_newindex(field_name))
     end
@@ -912,10 +912,10 @@ function RecordCoder:create_dispatcher(type, ctx)
     ]], {
         D_DECL = c_declaration(d),
         D = d.name,
-        N = #self.record_decl.field_names,
+        N = #self.record_typ.field_names,
     }))
 
-    for _, field_name in ipairs(self.record_decl.field_names) do
+    for _, field_name in ipairs(self.record_typ.field_names) do
         local typ = types.T.Function({}, {})
         local fslot = ctx:new_cvar(ctype(typ))
         table.insert(cstats, util.render([[
