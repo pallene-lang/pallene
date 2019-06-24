@@ -13,6 +13,9 @@ local generate_var
 local generate_exp
 
 function coder.generate(prog_ast, modname)
+    local errs
+    prog_ast, errs = upvalues.analyze(prog_ast)
+    assert(#errs == 0)
     local code = generate_program(prog_ast, modname)
     return code, {}
 end
@@ -476,7 +479,7 @@ local function upvalues_create_table(n, ctx)
     --
     -- We might be able to do this away after the IR refactor, which will
     -- change how the garbage collection and variable-saving works.
-    local typ = types.T.Record(false)
+    local typ = types.T.Record(false, false, false)
 
     ctx.upv = {}
     ctx.upv.table = ctx:new_tvar(typ) -- tvar: Don't GC this!
@@ -627,7 +630,7 @@ local function test_tag(typ, slot, ctx)
     elseif tag == "types.T.Array"    then tmpl = "ttistable(${SLOT})"
     elseif tag == "types.T.Value"    then tmpl = "1"
     elseif tag == "types.T.Record"   then
-        local mt_index = typ.type_decl._upvalue_index
+        local mt_index = typ._upvalue_index
         local mt_slot = upvalues_slot(mt_index, ctx)
         return util.render(
             [[(ttisfulluserdata(${SLOT}) && ${UDATA}->metatable == ${MT})]],
@@ -687,18 +690,18 @@ end
 -- __newindex methametods for each record type.
 --
 
-local function compute_layout(tl_node)
+local function compute_layout(record_typ)
     local gc_pos = {}
     local gc_index = 1
     local prim_pos = {}
     local prim_index = 1
-    for _, field in ipairs(tl_node.field_decls) do
-        local typ = tl_node._field_types[field.name]
+    for _, field_name in ipairs(record_typ.field_names) do
+        local typ = record_typ.field_types[field_name]
         if types.is_gc(typ) then
-            gc_pos[field.name] = gc_index
+            gc_pos[field_name] = gc_index
             gc_index = gc_index + 1
         else
-            prim_pos[field.name] = prim_index
+            prim_pos[field_name] = prim_index
             prim_index = prim_index + 1
         end
     end
@@ -713,28 +716,29 @@ end
 local RecordCoder = {}
 RecordCoder.__index = RecordCoder
 
-function RecordCoder.new(tl_node)
+function RecordCoder.new(record_typ)
     local o = {
-        tl_node = tl_node,
-        layout = compute_layout(tl_node),
+        record_typ = record_typ,
+        upvalue_index = record_typ._upvalue_index,
+        layout = compute_layout(record_typ),
     }
     return setmetatable(o, RecordCoder)
 end
 
 function RecordCoder:struct()
-    return string.format("struct crecord_%s", self.tl_node.name)
+    return string.format("struct crecord_%s", self.record_typ.name)
 end
 
 function RecordCoder:getmem()
-    return string.format("crecord_%s_getmem", self.tl_node.name)
+    return string.format("crecord_%s_getmem", self.record_typ.name)
 end
 
 function RecordCoder:index(field)
-    return string.format("crecord_index_%s_%s", self.tl_node.name, field)
+    return string.format("crecord_index_%s_%s", self.record_typ.name, field)
 end
 
 function RecordCoder:newindex(field)
-    return string.format("crecord_newindex_%s_%s", self.tl_node.name, field)
+    return string.format("crecord_newindex_%s_%s", self.record_typ.name, field)
 end
 
 function RecordCoder:field(name)
@@ -742,7 +746,7 @@ function RecordCoder:field(name)
 end
 
 function RecordCoder:field_type(name)
-    return self.tl_node._field_types[name]
+    return self.record_typ.field_types[name]
 end
 
 function RecordCoder:field_slot(udata, name)
@@ -773,11 +777,11 @@ function RecordCoder:declare_struct()
     if self.layout.prim_size == 0 then return "" end
 
     local fields = {}
-    for _, field in ipairs(self.tl_node.field_decls) do
-        local typ = self:field_type(field.name)
+    for _, field_name in ipairs(self.record_typ.field_names) do
+        local typ = self:field_type(field_name)
         if not types.is_gc(typ) then
-            local name = self:field(field.name)
-            local cvar = new_cvar(name, ctype(typ), field.name)
+            local name = self:field(field_name)
+            local cvar = new_cvar(name, ctype(typ), name)
             local decl = c_declaration(cvar) .. ";"
             table.insert(fields, decl)
         end
@@ -832,7 +836,7 @@ function RecordCoder:primitive_slot(udata, field_name)
 end
 
 function RecordCoder:set_field(udata, field_name, cvalue)
-    local typ = self.tl_node._field_types[field_name]
+    local typ = self.record_typ.field_types[field_name]
     if types.is_gc(typ) then
         local slot = self:gc_slot(udata, field_name)
         return set_heap_slot(typ, slot, cvalue, udata)
@@ -891,9 +895,9 @@ function RecordCoder:make_declarations()
     local decls = {}
     table.insert(decls, self:declare_struct())
     table.insert(decls, self:declare_getmem())
-    for _, field in ipairs(self.tl_node.field_decls) do
-        table.insert(decls, self:declare_index(field.name))
-        table.insert(decls, self:declare_newindex(field.name))
+    for _, field_name in ipairs(self.record_typ.field_names) do
+        table.insert(decls, self:declare_index(field_name))
+        table.insert(decls, self:declare_newindex(field_name))
     end
     return table.concat(decls, "\n")
 end
@@ -908,10 +912,10 @@ function RecordCoder:create_dispatcher(type, ctx)
     ]], {
         D_DECL = c_declaration(d),
         D = d.name,
-        N = #self.tl_node.field_decls,
+        N = #self.record_typ.field_names,
     }))
 
-    for _, field in ipairs(self.tl_node.field_decls) do
+    for _, field_name in ipairs(self.record_typ.field_names) do
         local typ = types.T.Function({}, {})
         local fslot = ctx:new_cvar(ctype(typ))
         table.insert(cstats, util.render([[
@@ -920,10 +924,10 @@ function RecordCoder:create_dispatcher(type, ctx)
             ${SET_FIELD}
         ]], {
             FSLOT_DECL = c_declaration(fslot),
-            F = self[type](self, field.name),
+            F = self[type](self, field_name),
             FSLOT = fslot.name,
             SET_FIELD = table_set_new_field(
-                d.name, field.name, typ, fslot.name, ctx),
+                d.name, field_name, typ, fslot.name, ctx),
         }))
     end
 
@@ -973,7 +977,7 @@ end
 
 function RecordCoder:create_instance(typ, ctx)
     local udata = ctx:new_tvar(typ)
-    local mt_slot = upvalues_slot(self.tl_node._upvalue_index, ctx)
+    local mt_slot = upvalues_slot(self.upvalue_index, ctx)
     local cstats = util.render([[
         ${UDATA_DECL} = luaS_newudata(L, ${MEM_SIZE}, ${UV_SIZE});
         ${UDATA}->metatable = ${GET_MT_SLOT};
@@ -1209,7 +1213,6 @@ end
 
 local function generate_upvalue_modvar(tl_node, ctx)
     local typ, cstats, cvalue
-
     local tag = tl_node._tag
     if     tag == "ast.Toplevel.Func" then
         local closure = ctx:new_cvar("CClosure*")
@@ -1235,10 +1238,6 @@ local function generate_upvalue_modvar(tl_node, ctx)
         typ = exp._type
         cstats, cvalue = generate_exp(exp, ctx)
 
-    elseif tag == "ast.Toplevel.Record" then
-        typ = metatable_type
-        cstats, cvalue = tl_node._rec:create_metatable(ctx)
-
     else
         error("impossible")
     end
@@ -1247,12 +1246,20 @@ local function generate_upvalue_modvar(tl_node, ctx)
     return typ, upvname .. cstats, cvalue
 end
 
+local function generate_upvalue_metatable(typ, ctx)
+    local cstats, cvalue = typ._rec:create_metatable(ctx)
+    local upvname = string.format("/* %s metatable */\n", types.tostring(typ))
+    return metatable_type, upvname .. cstats, cvalue
+end
+
 local function generate_upvalue(upv, ctx)
     local tag = upv._tag
     if     tag == "upvalues.T.Literal" then
         return generate_upvalue_literal(upv.lit, ctx)
     elseif tag == "upvalues.T.ModVar" then
         return generate_upvalue_modvar(upv.tl_node, ctx)
+    elseif tag == "upvalues.T.Metatable" then
+        return generate_upvalue_metatable(upv.typ, ctx)
     else
         error("impossible")
     end
@@ -1505,8 +1512,8 @@ generate_program = function(prog_ast, modname)
     local crecords = {}
     for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == "ast.Toplevel.Record" then
-            tl_node._rec = RecordCoder.new(tl_node)
-            table.insert(crecords, tl_node._rec:make_declarations())
+            tl_node._type._rec = RecordCoder.new(tl_node._type)
+            table.insert(crecords, tl_node._type._rec:make_declarations())
         end
     end
 
@@ -1798,9 +1805,9 @@ generate_var = function(var, ctx)
         return cstats, coder.Lvalue.ArraySlot(var, t_cvalue, k_cvalue)
 
     elseif tag == "ast.Var.Dot" then
-        local tl_node = var.exp._type.type_decl
+        local record_typ = var.exp._type
         local cstats, udata = generate_exp(var.exp)
-        local slot, typ = tl_node._rec:field_slot(udata, var.name)
+        local slot, typ = record_typ._rec:field_slot(udata, var.name)
         if types.is_gc(typ) then
             return cstats, coder.Lvalue.RecGcSlot(var, slot, udata)
         else
@@ -2267,13 +2274,13 @@ generate_exp = function(exp, ctx)
             local body = {}
             table.insert(body, gc_cond_gc(ctx))
 
-            local tl_node = exp._type.type_decl
-            local cstats, udata = tl_node._rec:create_instance(exp._type, ctx)
+            local record_typ = exp._type
+            local cstats, udata = record_typ._rec:create_instance(exp._type, ctx)
             table.insert(body, cstats)
 
             for _, field in ipairs(exp.fields) do
                 local field_cstats, field_cvalue = generate_exp(field.exp, ctx)
-                local set_field = tl_node._rec:set_field(
+                local set_field = record_typ._rec:set_field(
                         udata, field.name, field_cvalue)
                 table.insert(body, field_cstats)
                 table.insert(body, set_field)

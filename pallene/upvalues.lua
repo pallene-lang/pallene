@@ -30,7 +30,7 @@ local analyze_upvalues
 --     Map a literal to an upvalue.
 --
 -- _upvalue_index:
---     In Toplevel value nodes
+--     In types.T.record nodes
 --     Integer. The index of this node in the _upvalues array.
 function upvalues.analyze(prog_ast)
     analyze_upvalues(prog_ast)
@@ -44,6 +44,7 @@ end
 declare_type("T", {
     Literal = {"lit"},
     ModVar  = {"tl_node"},
+    Metatable = {"typ"},
 })
 
 upvalues.internal_literals = {
@@ -51,21 +52,6 @@ upvalues.internal_literals = {
     "__newindex",
     "__metatable",
 }
-
-local function toplevel_is_value_declaration(tlnode)
-    local tag = tlnode._tag
-    if     tag == "ast.Toplevel.Func" then
-        return true
-    elseif tag == "ast.Toplevel.Var" then
-        return true
-    elseif tag == "ast.Toplevel.Record" then
-        return true -- metametable
-    elseif tag == "ast.Toplevel.Import" then
-        return false
-    else
-        error("impossible")
-    end
-end
 
 local function add_literal(upvs, literals, lit)
     if not literals[lit] then
@@ -98,10 +84,15 @@ analyze_upvalues = function(prog_ast)
     analyze:Program(prog_ast, upvs, literals)
 
     for _, tlnode in ipairs(prog_ast) do
-        if toplevel_is_value_declaration(tlnode) then
+        local tag = tlnode._tag
+        if tag == "ast.Toplevel.Var" or tag == "ast.Toplevel.Func" then
             local n = #upvs + 1
             tlnode._upvalue_index = n
             upvs[n] = upvalues.T.ModVar(tlnode)
+        elseif tag == "ast.Toplevel.Record" then
+            local n = #upvs + 1
+            tlnode._type._upvalue_index = n
+            upvs[n] = upvalues.T.Metatable(tlnode._type)
         end
     end
 

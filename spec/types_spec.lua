@@ -65,13 +65,14 @@ describe("Pallene types", function()
         end)
 
         it("is true for identical record types", function()
-            -- Gambiarra: using integers instead of ast nodes...
-            assert.truthy(types.equals(types.T.Record(1), types.T.Record(1)))
+            local t = types.T.Record("P", {}, {})
+            assert.truthy(types.equals(t, t))
         end)
 
         it("is false for different record types", function()
-            -- Gambiarra: using integers instead of ast nodes...
-            assert.falsy(types.equals(types.T.Record(1), types.T.Record(2)))
+            local t1 = types.T.Record("P", {}, {})
+            local t2 = types.T.Record("P", {}, {})
+            assert.falsy(types.equals(t1, t2))
         end)
     end)
 

@@ -16,7 +16,11 @@ declare_type("T", {
     String   = {},
     Function = {"params", "ret_types"},
     Array    = {"elem"},
-    Record   = {"type_decl"},
+    Record   = {
+        "name",        -- for tostring only
+        "field_names", -- same order as the source type declaration
+        "field_types", -- map { string => types.T }
+    },
 })
 
 function types.is_gc(t)
@@ -94,7 +98,8 @@ local function equivalent(t1, t2, is_gradual)
         return true
 
     elseif tag1 == "types.T.Record" then
-        return t1.type_decl == t2.type_decl
+        -- Record types are nominal
+        return t1 == t2
 
     else
         return error("impossible")
@@ -123,7 +128,7 @@ function types.tostring(t)
     elseif tag == "types.T.Array" then
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == "types.T.Record" then
-        return t.type_decl.name
+        return t.name
     else
         error("impossible")
     end
