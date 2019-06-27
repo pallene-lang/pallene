@@ -1,4 +1,48 @@
-local pretty = {}
+local C = {}
+--
+-- This module contains some helper functions for generating C code.
+--
+
+--
+-- Conversions from Lua values to C literals
+--
+
+local some_c_escape_sequences = {
+    -- Strictly speaking, we only need to escape quotes and backslashes.
+    -- However, escaping some extra characters helps readability.
+    ["\\"] = "\\\\",
+    ["\""] = "\\\"",
+    ["\a"] = "\\a",
+    ["\b"] = "\\b",
+    ["\f"] = "\\f",
+    ["\n"] = "\\n",
+    ["\r"] = "\\r",
+    ["\t"] = "\\t",
+    ["\v"] = "\\v",
+}
+
+function C.string(s)
+    return '"' .. (s:gsub('.', some_c_escape_sequences)) .. '"'
+end
+
+function C.integer(n)
+    return string.format("%i", n)
+end
+
+function C.boolean(b)
+    return (b and "1" or "0")
+end
+
+function C.float(n)
+    -- We use hexadecimal float literals (%a) to avoid losing any precision.
+    -- This feature is part of the C99 and C++17 standards.
+    return string.format("%a /*%f*/", n, n)
+end
+
+
+--
+-- Pretty printing
+--
 
 -- This function reformats a string corresponding to a C source file. It allows
 -- us to produce readable C output without having to worry about indentation
@@ -11,7 +55,7 @@ local pretty = {}
 --   * /**/-style comments must not span multiple lines
 --   * Be careful about special characters inside strings and comments
 --
-function pretty.reindent_c(input)
+function C.reformat(input)
     local out = {}
     local indent = 0
     local previous_is_blank = true
@@ -63,4 +107,4 @@ function pretty.reindent_c(input)
     return table.concat(out)
 end
 
-return pretty
+return C
