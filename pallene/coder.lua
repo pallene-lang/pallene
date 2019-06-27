@@ -1004,8 +1004,8 @@ static int crecord_index(lua_State *L)
     if (PALLENE_UNLIKELY(!ttisfunction(f))) {
         pallene_runtime_record_index_error(L, svalue(v));
     }
-    void (*getfield)(lua_State *, Udata *, TValue *) =
-        (void (*)(lua_State *, Udata *, TValue *))fvalue(f);
+    void (*getfield)(lua_State *, Udata *, TValue *) = (
+        (void (*)(lua_State *, Udata *, TValue *))fvalue(f));
     getfield(L, u, v);
     return 1;
 }
@@ -1023,8 +1023,8 @@ static int crecord_newindex(lua_State *L)
     if (PALLENE_UNLIKELY(!ttisfunction(f))) {
         pallene_runtime_record_index_error(L, svalue(v));
     }
-    void (*setfield)(lua_State *, Udata *, TValue *) =
-        (void (*)(lua_State *, Udata *, TValue *))fvalue(f);
+    void (*setfield)(lua_State *, Udata *, TValue *) = (
+        (void (*)(lua_State *, Udata *, TValue *))fvalue(f));
     setfield(L, u, s2v(func + 3));
     return 0;
 }
