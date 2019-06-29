@@ -416,9 +416,8 @@ describe("Pallene coder /", function()
         it("concat (..)",        function() optest("concat_str") end)
     end)
 
-    describe("Operators /", function()
-        -- The `as` operator does not exist in Lua, so it must be tested
-        -- separately.
+    describe("Coercions with dynamic type /", function()
+
         local tests = {
             ["boolean"]  = {typ = "boolean",         value = "true"},
             ["integer"]  = {typ = "integer",         value = "17"},
@@ -455,7 +454,7 @@ describe("Pallene coder /", function()
         setup(compile(table.concat(program_parts, "\n")))
 
 
-        local function to_value(name)
+        local function test_to_value(name)
             run_test(util.render([[
                 local x = ${VALUE}
                 assert(x == test.from_${NAME}(x))
@@ -465,7 +464,7 @@ describe("Pallene coder /", function()
             }))
         end
 
-        local function from_value(name)
+        local function test_from_value(name)
             run_test(util.render([[
                 local x = ${VALUE}
                 assert(x == test.to_${NAME}(x))
@@ -475,21 +474,21 @@ describe("Pallene coder /", function()
             }))
         end
 
-        it("boolean->value (as)",  function() to_value("boolean") end)
-        it("integer->value (as)",  function() to_value("integer") end)
-        it("float->value (as)",    function() to_value("float") end)
-        it("string->value (as)",   function() to_value("string") end)
-        it("function->value (as)", function() to_value("function") end)
-        it("array->value (as)",    function() to_value("array") end)
-        it("record->value (as)",   function() to_value("record") end)
+        it("boolean->value (as)",  function() test_to_value("boolean") end)
+        it("integer->value (as)",  function() test_to_value("integer") end)
+        it("float->value (as)",    function() test_to_value("float") end)
+        it("string->value (as)",   function() test_to_value("string") end)
+        it("function->value (as)", function() test_to_value("function") end)
+        it("array->value (as)",    function() test_to_value("array") end)
+        it("record->value (as)",   function() test_to_value("record") end)
 
-        it("value->boolean (as)",  function() from_value("boolean") end)
-        it("value->integer (as)",  function() from_value("integer") end)
-        it("value->float (as)",    function() from_value("float") end)
-        it("value->string (as)",   function() from_value("string") end)
-        it("value->function (as)", function() from_value("function") end)
-        it("value->array (as)",    function() from_value("array") end)
-        it("value->record (as)",   function() from_value("record") end)
+        it("value->boolean (as)",  function() test_from_value("boolean") end)
+        it("value->integer (as)",  function() test_from_value("integer") end)
+        it("value->float (as)",    function() test_from_value("float") end)
+        it("value->string (as)",   function() test_from_value("string") end)
+        it("value->function (as)", function() test_from_value("function") end)
+        it("value->array (as)",    function() test_from_value("array") end)
+        it("value->record (as)",   function() test_from_value("record") end)
 
         it("detects downcast error", function()
             run_test([[
