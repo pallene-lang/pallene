@@ -320,6 +320,28 @@ describe("Pallene coder /", function()
             })
         end
 
+        local function optest(name)
+            run_test(lua_tests[name])
+        end
+
+        setup_unop("neg_int" , "-",   "integer", "integer")
+        setup_unop("bnot"    , "~",   "integer", "integer")
+        setup_unop("not_bool", "not", "boolean", "boolean")
+
+        setup(compile(table.concat(pallene_program_parts, "\n")))
+
+        it("integer unary (-)",  function() optest("neg_int") end)
+        it("integer unary (~)",  function() optest("bnot") end)
+        it("boolean (not)",      function() optest("not_bool") end)
+
+
+
+    end)
+
+    describe("Operators /", function()
+        local pallene_program_parts = {}
+        local lua_tests = {}
+
         local function setup_binop(name, op, typ1, typ2, rtyp)
             table.insert(pallene_program_parts, util.render([[
                 function $name (x: $typ1, y:$typ2): $rtyp
@@ -351,10 +373,6 @@ describe("Pallene coder /", function()
             run_test(lua_tests[name])
         end
 
-        setup_unop("neg_int" , "-",   "integer", "integer")
-        setup_unop("bnot"    , "~",   "integer", "integer")
-        setup_unop("not_bool", "not", "boolean", "boolean")
-
         setup_binop("add_int"       , "+",   "integer", "integer", "integer")
         setup_binop("add_float"     , "+",   "float",   "float",   "float")
         setup_binop("sub_int"       , "-",   "integer", "integer", "integer")
@@ -383,10 +401,6 @@ describe("Pallene coder /", function()
         setup_binop("concat_str"    , "..",  "string",  "string",  "string")
 
         setup(compile(table.concat(pallene_program_parts, "\n")))
-
-        it("integer unary (-)",  function() optest("neg_int") end)
-        it("integer unary (~)",  function() optest("bnot") end)
-        it("boolean (not)",      function() optest("not_bool") end)
 
         it("integer (+)",        function() optest("add_int") end)
         it("float (+)",          function() optest("add_float") end)
