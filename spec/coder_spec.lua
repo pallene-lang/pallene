@@ -974,8 +974,6 @@ describe("Pallene coder /", function()
     end)
 
     describe("tofloat builtin", function()
-        -- This builtin is also tested further up, in automatic
-        -- arithmetic conversions.
         setup(compile([[
             function itof(x:integer): float
                 return tofloat(x)
