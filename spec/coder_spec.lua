@@ -562,6 +562,15 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
+
+            function repeat_until(): integer
+                local x = 0
+                repeat
+                    x = x + 1
+                    local limit = x * 10
+                until limit >= 100
+                return x
+            end
         ]]))
 
         it("Block, Assign, Decl", function()
@@ -598,6 +607,10 @@ describe("Pallene coder /", function()
 
         it("For loop (float) (going down)", function()
             run_test([[ assert(720.0 == test.factorial_float_for_dec(6.0)) ]])
+        end)
+
+        it("Repeat until", function()
+            run_test([[ assert(10 == test.repeat_until()) ]])
         end)
     end)
 
