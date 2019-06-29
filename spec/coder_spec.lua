@@ -172,16 +172,8 @@ describe("Pallene coder /", function()
 
             -----------
 
-            local x = 10
-
-            function incr_x(): ()
-                x = x + 1
-            end
-
-            function next_x(): integer
-                incr_x()
-                return x
-            end
+            function skip_a() end
+            function skip_b() skip_a(); skip_a() end
         ]]))
 
         it("no parameters", function()
@@ -201,7 +193,7 @@ describe("Pallene coder /", function()
         end)
 
         it("void functions", function()
-            run_test([[ assert(11 == test.next_x()) ]])
+            run_test([[ assert(0 == select("#", test.skip_b())) ]])
         end)
 
         -- Errors
