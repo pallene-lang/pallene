@@ -1046,4 +1046,53 @@ describe("Pallene coder /", function()
         end)
 
     end)
+
+    describe("Corner cases of scoping", function()
+
+        setup(compile([[
+            record Point
+                x: integer
+                y: integer
+            end
+
+            local x = 10
+
+            ------
+
+            function local_type(): integer
+                local Point: Point = { x=1, y=2 }
+                return Point.x
+            end
+
+            function local_initializer(): integer
+                local x = x + 1
+                return x
+            end
+
+            function for_initializer(): integer
+                local res = 0
+                for x = x + 1, x + 100, x-7 do
+                    res = res + 1
+                end
+                return res
+            end
+        ]]))
+
+
+        it("local variable doesn't shadow its type annotation", function()
+            run_test([[ assert( 1 == test.local_type() ) ]])
+        end)
+
+        it("local variable scope doesn't shadow its initializer", function()
+            run_test([[ assert( 11 == test.local_initializer() ) ]])
+        end)
+
+        it("for loop variable scope doesn't shadow its type annotation", function()
+            pending("requires type aliases")
+        end)
+
+        it("for loop variable scope doesn't shadow its initializers", function()
+            run_test([[ assert( 34 == test.for_initializer() ) ]])
+        end)
+    end)
 end)
