@@ -125,39 +125,14 @@ describe("Pallene coder /", function()
 
     describe("Literals /", function()
         setup(compile([[
-            function f_nil(): nil
-                return nil
-            end
-
-            function f_true(): boolean
-                return true
-            end
-
-            function f_false(): boolean
-                return false
-            end
-
-            function f_integer(): integer
-                return 17
-            end
-
-            function f_float(): float
-                return 3.14
-            end
-
-            function f_string(): string
-                return "Hello World"
-            end
-
-            ------------
-
-            function pi(): float
-                return 3.141592653589793
-            end
-
-            function e(): float
-                return 2.718281828459045
-            end
+            function f_nil(): nil          return nil  end
+            function f_true(): boolean     return true end
+            function f_false(): boolean    return false end
+            function f_integer(): integer  return 17 end
+            function f_float(): float      return 3.14 end
+            function f_string(): string    return "Hello World" end
+            function pi(): float           return 3.141592653589793 end
+            function e(): float            return 2.718281828459045 end
         ]]))
 
         it("nil", function()
