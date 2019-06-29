@@ -102,6 +102,34 @@ describe("Pallene coder /", function()
         end)
     end)
 
+    describe("Variables /", function()
+        setup(compile([[
+            function fst(x:integer, y:integer): integer return x end
+            function snd(x:integer, y:integer): integer return y end
+
+            local n = 0
+            function next_n(): integer
+                n = n + 1
+                return n
+            end
+        ]]))
+
+        it("local variables", function()
+            run_test([[
+                assert(10 == test.fst(10, 20))
+                assert(20 == test.snd(10, 20))
+            ]])
+        end)
+
+        it("global variables", function()
+            run_test([[
+                assert(1 == test.next_n())
+                assert(2 == test.next_n())
+                assert(3 == test.next_n())
+            ]])
+        end)
+    end)
+
     describe("Function calls /", function()
         setup(compile([[
             function f0(): integer
@@ -207,39 +235,6 @@ describe("Pallene coder /", function()
                     "wrong type for argument x, " ..
                     "expected integer but found float",
                     nil, true))
-            ]])
-        end)
-    end)
-
-    describe("Variables /", function()
-        setup(compile([[
-            function f_locals(): integer
-                local a = 1
-                local b = 1
-                do
-                    local a = 0
-                    b = a
-                end
-                local c = a
-                return 100*a + 10*b + c
-             end
-
-            local n = 0
-            function f_globals(): integer
-                n = n + 1
-                return n
-            end
-        ]]))
-
-        it("local variables", function()
-            run_test([[ assert(101 == test.f_locals()) ]])
-        end)
-
-        it("global variables", function()
-            run_test([[
-                assert(1 == test.f_globals())
-                assert(2 == test.f_globals())
-                assert(3 == test.f_globals())
             ]])
         end)
     end)
