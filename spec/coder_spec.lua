@@ -43,13 +43,8 @@ describe("Pallene coder /", function()
 
     describe("Exported functions /", function()
         setup(compile([[
-            function f(): integer
-                return 10
-            end
-
-            local function g(): integer
-                return 11
-            end
+                  function f(): integer return 10 end
+            local function g(): integer return 11 end
         ]]))
 
         it("does not export local functions", function()
