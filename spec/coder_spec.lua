@@ -231,6 +231,67 @@ describe("Pallene coder /", function()
         end)
     end)
 
+    describe("First class functions /", function()
+        setup(compile([[
+            function inc(x:integer): integer   return x + 1   end
+            function dec(x:integer): integer   return x - 1   end
+
+            --------
+
+            function call(
+                f : integer -> integer,
+                x : integer
+            ) :  integer
+                return f(x)
+            end
+
+            --------
+
+            local f: integer->integer = inc
+
+            function setf(g:integer->integer): ()
+                f = g
+            end
+
+            function getf(): integer->integer
+                return f
+            end
+
+            function callf(x:integer): integer
+                return f(x)
+            end
+        ]]))
+
+        it("Object identity", function()
+            run_test([[
+                assert(test.getf() == test.getf())
+            ]])
+        end)
+
+        it("Can call non-static functions", function()
+            run_test([[
+                local f = function(x) return x * 20 end
+                assert(200 == test.call(f, 10))
+                assert(201 == test.call(test.inc, 200))
+            ]])
+        end)
+
+        it("Can call global function vars", function()
+            run_test([[
+                assert(11 == test.callf(10))
+            ]])
+        end)
+
+        it("Can get, set, and call global function vars", function()
+            run_test([[
+                assert(11 == test.getf()(10))
+                test.setf(test.dec)
+                assert( 9 == test.getf()(10))
+            ]])
+        end)
+    end)
+
+
     describe("Operators /", function()
         local pallene_program_parts = {}
         local lua_tests = {}
@@ -690,68 +751,6 @@ describe("Pallene coder /", function()
                         assert(10*j == arr[j])
                     end
                 end
-            ]])
-        end)
-    end)
-
-    describe("First class functions /", function()
-        setup(compile([[
-            function inc(x:integer): integer
-                return x + 1
-            end
-
-            function dec(x:integer): integer
-                return x - 1
-            end
-
-            local f: integer->integer = inc
-
-            function setf(g:integer->integer): ()
-                f = g
-            end
-
-            function getf(): integer->integer
-                return f
-            end
-
-            function callf(x:integer): integer
-                return f(x)
-            end
-
-            --------
-
-            function call(
-                f : integer -> integer,
-                x : integer
-            ) :  integer
-                return f(x)
-            end
-        ]]))
-
-        it("Object identity", function()
-            run_test([[
-                assert(test.getf() == test.getf())
-            ]])
-        end)
-
-        it("Can get and set global function vars", function()
-            run_test([[
-                assert(11 == test.getf()(10))
-                test.setf(test.dec)
-                assert( 9 == test.getf()(10))
-            ]])
-        end)
-
-        it("Can call global function vars", function()
-            run_test([[
-                assert(11 == test.callf(10))
-            ]])
-        end)
-
-        it("Can call Lua functions", function()
-            run_test([[
-                local f = function(x) return x * 20 end
-                assert(200 == test.call(f, 10))
             ]])
         end)
     end)
