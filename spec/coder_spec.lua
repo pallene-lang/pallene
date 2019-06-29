@@ -291,20 +291,29 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("Operators /", function()
-        local pallene_program_parts = {}
-        local lua_tests = {}
+    describe("Unary Operators /", function()
 
-        local function setup_unop(name, op, typ, rtyp)
-            table.insert(pallene_program_parts, util.render([[
+        local tests = {
+            { "neg_i", "-",   "integer", "integer" },
+            { "bnot",  "~",   "integer", "integer" },
+            { "not_b", "not", "boolean", "boolean" },
+        }
+
+        local pallene_code = {}
+        local test_scripts = {}
+
+        for i, test in ipairs(tests) do
+            local name, op, typ, rtyp = test[1], test[2], test[3], test[4]
+
+            pallene_code[i] = util.render([[
                 function $name (x: $typ): $rtyp
                     return $op x
                 end
             ]], {
                 name = name, typ = typ, rtyp = rtyp, op = op,
-            }))
+            })
 
-            lua_tests[name] = util.render([[
+            test_scripts[name] = util.render([[
                 local test_op = require "spec.coder_test_operators"
                 test_op.check_unop(
                     $op_str,
@@ -320,38 +329,61 @@ describe("Pallene coder /", function()
             })
         end
 
-        local function optest(name)
-            run_test(lua_tests[name])
+        setup(compile(table.concat(pallene_code, "\n")))
+
+        for _, test in ipairs(tests) do
+            local name = test[1]
+            it(name, function() run_test(test_scripts[name]) end)
         end
-
-        setup_unop("neg_int" , "-",   "integer", "integer")
-        setup_unop("bnot"    , "~",   "integer", "integer")
-        setup_unop("not_bool", "not", "boolean", "boolean")
-
-        setup(compile(table.concat(pallene_program_parts, "\n")))
-
-        it("integer unary (-)",  function() optest("neg_int") end)
-        it("integer unary (~)",  function() optest("bnot") end)
-        it("boolean (not)",      function() optest("not_bool") end)
-
-
-
     end)
 
-    describe("Operators /", function()
-        local pallene_program_parts = {}
-        local lua_tests = {}
+    describe("Binary Operators /", function()
 
-        local function setup_binop(name, op, typ1, typ2, rtyp)
-            table.insert(pallene_program_parts, util.render([[
+        local tests = {
+            { "add_ii",    "+",   "integer", "integer", "integer" },
+            { "add_ff",    "+",   "float",   "float",   "float" },
+            { "sub_ii",    "-",   "integer", "integer", "integer" },
+            { "sub_ff",    "-",   "float",   "float",   "float" },
+            { "mul_ii",    "*",   "integer", "integer", "integer" },
+            { "mul_ff",    "*",   "float",   "float",   "float" },
+            { "fltdiv_ii", "/",   "integer", "integer", "float" },
+            { "fltdiv_ff", "/",   "float",   "float",   "float" },
+            { "band",      "&",   "integer", "integer", "integer" },
+            { "bor",       "|",   "integer", "integer", "integer" },
+            { "bxor",      "~",   "integer", "integer", "integer" },
+            { "lshift",    "<<",  "integer", "integer", "integer" },
+            { "rshift",    ">>",  "integer", "integer", "integer" },
+            { "mod_ii",    "%",   "integer", "integer", "integer" },
+            { "intdiv_ii", "//",  "integer", "integer", "integer" },
+            { "intdiv_ff", "//",  "float",   "float",   "float" },
+            { "pow_ff",    "^",   "float",   "float",   "float" },
+            { "eq_ii",     "==",  "integer", "integer", "boolean" },
+            { "ne_ii",     "~=",  "integer", "integer", "boolean" },
+            { "lt_ii",     "<",   "integer", "integer", "boolean" },
+            { "gt_ii",     ">",   "integer", "integer", "boolean" },
+            { "le_ii",     "<=",  "integer", "integer", "boolean" },
+            { "ge_ii",     ">=",  "integer", "integer", "boolean" },
+            { "and_bb",    "and", "boolean", "boolean", "boolean" },
+            { "or_bb",     "or",  "boolean", "boolean", "boolean" },
+            { "concat_ss", "..",  "string",  "string",  "string" },
+        }
+
+        local pallene_code = {}
+        local test_scripts = {}
+
+        for i, test in ipairs(tests) do
+            local name, op, typ1, typ2, rtyp =
+                test[1], test[2], test[3], test[4], test[5]
+
+            pallene_code[i] = util.render([[
                 function $name (x: $typ1, y:$typ2): $rtyp
                     return x ${op} y
                 end
             ]], {
                 name = name, typ1 = typ1, typ2=typ2, rtyp = rtyp, op = op,
-            }))
+            })
 
-            lua_tests[name] = util.render([[
+            test_scripts[name] = util.render([[
                 local test_op = require "spec.coder_test_operators"
                 test_op.check_binop(
                     $op_str,
@@ -369,140 +401,85 @@ describe("Pallene coder /", function()
             })
         end
 
-        local function optest(name)
-            run_test(lua_tests[name])
+        setup(compile(table.concat(pallene_code, "\n")))
+
+        for _, test in ipairs(tests) do
+            local name = test[1]
+            it(name, function() run_test(test_scripts[name]) end)
         end
-
-        setup_binop("add_int"       , "+",   "integer", "integer", "integer")
-        setup_binop("add_float"     , "+",   "float",   "float",   "float")
-        setup_binop("sub_int"       , "-",   "integer", "integer", "integer")
-        setup_binop("sub_float"     , "-",   "float",   "float",   "float")
-        setup_binop("mul_int"       , "*",   "integer", "integer", "integer")
-        setup_binop("mul_float"     , "*",   "float",   "float",   "float")
-        setup_binop("floatdiv_int"  , "/",   "integer", "integer", "float")
-        setup_binop("floatdiv_float", "/",   "float",   "float",   "float")
-        setup_binop("band"          , "&",   "integer", "integer", "integer")
-        setup_binop("bor"           , "|",   "integer", "integer", "integer")
-        setup_binop("bxor"          , "~",   "integer", "integer", "integer")
-        setup_binop("lshift"        , "<<",  "integer", "integer", "integer")
-        setup_binop("rshift"        , ">>",  "integer", "integer", "integer")
-        setup_binop("mod_int"       , "%",   "integer", "integer", "integer")
-        setup_binop("intdiv_int"    , "//",  "integer", "integer", "integer")
-        setup_binop("intdiv_float"  , "//",  "float",   "float",   "float")
-        setup_binop("pow_float"     , "^",   "float",   "float",   "float")
-        setup_binop("eq_int"        , "==",  "integer", "integer", "boolean")
-        setup_binop("neq_int"       , "~=",  "integer", "integer", "boolean")
-        setup_binop("lt_int"        , "<",   "integer", "integer", "boolean")
-        setup_binop("gt_int"        , ">",   "integer", "integer", "boolean")
-        setup_binop("le_int"        , "<=",  "integer", "integer", "boolean")
-        setup_binop("ge_int"        , ">=",  "integer", "integer", "boolean")
-        setup_binop("and_bool"      , "and", "boolean", "boolean", "boolean")
-        setup_binop("or_bool"       , "or",  "boolean", "boolean", "boolean")
-        setup_binop("concat_str"    , "..",  "string",  "string",  "string")
-
-        setup(compile(table.concat(pallene_program_parts, "\n")))
-
-        it("integer (+)",        function() optest("add_int") end)
-        it("float (+)",          function() optest("add_float") end)
-        it("integer (-)",        function() optest("sub_int")  end)
-        it("float (-)",          function() optest("sub_float")  end)
-        it("integer (*)",        function() optest("mul_int")  end)
-        it("float (*)",          function() optest("mul_float") end)
-        it("integer (/)",        function() optest("floatdiv_int") end)
-        it("float (/)",          function() optest("floatdiv_float") end)
-        it("binary and (&)",     function() optest("band") end)
-        it("binary or (|)",      function() optest("bor") end)
-        it("binary xor (~)",     function() optest("bxor") end)
-        it("left shift (<<)",    function() optest("lshift")  end)
-        it("right shift (>>)",   function() optest("rshift") end)
-        it("integer (%)",        function() optest("mod_int") end)
-        it("integer (//)",       function() optest("intdiv_int") end)
-        it("float (//)",         function() optest("intdiv_float") end)
-        it("float (^)",          function() optest("pow_float") end)
-        it("integer (==)",       function() optest("eq_int") end)
-        it("integer (~=)",       function() optest("neq_int") end)
-        it("integer (<)",        function() optest("lt_int") end)
-        it("integer (>)",        function() optest("gt_int") end)
-        it("integer (<=)",       function() optest("le_int") end)
-        it("integer (>=)",       function() optest("ge_int") end)
-        it("boolean (and)",      function() optest("and_bool") end)
-        it("boolean (or)",       function() optest("or_bool") end)
-        it("concat (..)",        function() optest("concat_str") end)
     end)
 
     describe("Coercions with dynamic type /", function()
 
         local tests = {
-            ["boolean"]  = {typ = "boolean",         value = "true"},
-            ["integer"]  = {typ = "integer",         value = "17"},
-            ["float"]    = {typ = "float",           value = "3.14"},
-            ["string"]   = {typ = "string",          value = "'hello'"},
-            ["function"] = {typ = "integer->string", value = "tostring"},
-            ["array"]    = {typ = "{integer}",       value = "{10,20}"},
-            ["record"]   = {typ = "Empty",           value = "test.new_empty()"},
-            ["value"]    = {typ = "value",           value = "17"},
+            { "boolean"  , "boolean",         "true"},
+            { "integer"  , "integer",         "17"},
+            { "float"    , "float",           "3.14"},
+            { "string"   , "string",          "'hello'"},
+            { "function" , "integer->string", "tostring"},
+            { "array"    , "{integer}",       "{10,20}"},
+            { "record"   , "Empty",           "test.new_empty()"},
+            { "value"    , "value",           "17"},
         }
 
-        local program_parts = {}
-        table.insert(program_parts,[[
+        local record_decls = [[
             record Empty
             end
             function new_empty(): Empty
                 return {}
             end
-        ]])
-        for name, test in pairs(tests) do
-            table.insert(program_parts, util.render([[
-                function from_${NAME}(x: ${T}): value
+        ]]
+
+        local pallene_code = {}
+        local test_to      = {}
+        local test_from    = {}
+
+        for i, test in pairs(tests) do
+            local name, typ, value = test[1], test[2], test[3]
+
+            pallene_code[i] = util.render([[
+                function from_${name}(x: ${typ}): value
                     return (x as value)
                 end
-                function to_${NAME}(x: value): ${T}
-                    return (x as ${T})
+                function to_${name}(x: value): ${typ}
+                    return (x as ${typ})
                 end
             ]], {
-                NAME = name,
-                T = test.typ,
-            }))
-        end
+                name = name,
+                typ = typ,
+            })
 
-        setup(compile(table.concat(program_parts, "\n")))
-
-
-        local function test_to_value(name)
-            run_test(util.render([[
-                local x = ${VALUE}
-                assert(x == test.from_${NAME}(x))
+            test_to[name] = util.render([[
+                local x = ${value}
+                assert(x == test.from_${name}(x))
             ]], {
-                NAME = name,
-                VALUE = tests[name].value
-            }))
-        end
+                name = name,
+                value = value
+            })
 
-        local function test_from_value(name)
-            run_test(util.render([[
-                local x = ${VALUE}
-                assert(x == test.to_${NAME}(x))
+            test_from[name] = util.render([[
+                local x = ${value}
+                assert(x == test.from_${name}(x))
             ]], {
-                NAME = name,
-                VALUE = tests[name].value
-            }))
+                name = name,
+                value = value
+            })
         end
 
-        it("boolean->value (as)",  function() test_to_value("boolean") end)
-        it("integer->value (as)",  function() test_to_value("integer") end)
-        it("float->value (as)",    function() test_to_value("float") end)
-        it("string->value (as)",   function() test_to_value("string") end)
-        it("function->value (as)", function() test_to_value("function") end)
-        it("array->value (as)",    function() test_to_value("array") end)
-        it("record->value (as)",   function() test_to_value("record") end)
+        setup(compile(
+            record_decls .. "\n" ..
+            table.concat(pallene_code, "\n")
+        ))
 
-        it("value->boolean (as)",  function() test_from_value("boolean") end)
-        it("value->integer (as)",  function() test_from_value("integer") end)
-        it("value->float (as)",    function() test_from_value("float") end)
-        it("value->string (as)",   function() test_from_value("string") end)
-        it("value->function (as)", function() test_from_value("function") end)
-        it("value->array (as)",    function() test_from_value("array") end)
-        it("value->record (as)",   function() test_from_value("record") end)
+        for _, test in ipairs(tests) do
+            local name = test[1]
+            it(name .. "->value", function() run_test(test_to[name]) end)
+        end
+
+        for _, test in ipairs(tests) do
+            local name = test[1]
+            it("value->" .. name, function() run_test(test_from[name]) end)
+        end
 
         it("detects downcast error", function()
             run_test([[
