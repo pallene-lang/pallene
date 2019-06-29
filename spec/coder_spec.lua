@@ -60,69 +60,6 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("Function arguments /", function()
-        setup(compile([[
-            function id_int(x: integer): integer
-                return x
-            end
-
-            function id_float(x: float): float
-                return x
-            end
-        ]]))
-
-        it("missing arguments", function()
-            run_test([[
-                local ok, err = pcall(test.id_int)
-                assert(string.find(err,
-                    "wrong number of arguments to function 'id_int', " ..
-                    "expected 1 but received 0",
-                    nil, true))
-            ]])
-        end)
-
-        it("too many arguments", function()
-            run_test([[
-                local ok, err = pcall(test.id_int, 10, 20)
-                assert(string.find(err,
-                    "wrong number of arguments to function 'id_int', " ..
-                    "expected 1 but received 2",
-                    nil, true))
-            ]])
-        end)
-
-        it("type of argument", function()
-            run_test([[
-                local ok, err = pcall(test.id_float, "abc")
-                assert(string.find(err,
-                    "wrong type for argument x, " ..
-                    "expected float but found string",
-                    nil, true))
-            ]])
-        end)
-
-        -- See if error messages show float/integer instead of "number":
-        it("expected float but found integer", function()
-            run_test([[
-                local ok, err = pcall(test.id_float, 10)
-                assert(string.find(err,
-                    "wrong type for argument x, " ..
-                    "expected float but found integer",
-                    nil, true))
-            ]])
-        end)
-
-        it("expected float but found integer", function()
-            run_test([[
-                local ok, err = pcall(test.id_int, 3.14)
-                assert(string.find(err,
-                    "wrong type for argument x, " ..
-                    "expected integer but found float",
-                    nil, true))
-            ]])
-        end)
-    end)
-
     describe("Literals /", function()
         setup(compile([[
             function f_nil(): nil          return nil  end
@@ -243,8 +180,41 @@ describe("Pallene coder /", function()
         it("void functions", function()
             run_test([[ assert(11 == test.next_x()) ]])
         end)
-    end)
 
+        -- Errors
+
+        it("missing arguments", function()
+            run_test([[
+                local ok, err = pcall(test.g1)
+                assert(string.find(err,
+                    "wrong number of arguments to function 'g1', " ..
+                    "expected 1 but received 0",
+                    nil, true))
+            ]])
+        end)
+
+        it("too many arguments", function()
+            run_test([[
+                local ok, err = pcall(test.g1, 10, 20)
+                assert(string.find(err,
+                    "wrong number of arguments to function 'g1', " ..
+                    "expected 1 but received 2",
+                    nil, true))
+            ]])
+        end)
+
+        it("type of argument", function()
+            -- Also sees if error messages say "float" and "integer"
+            -- instead of "number"
+            run_test([[
+                local ok, err = pcall(test.g1, 3.14)
+                assert(string.find(err,
+                    "wrong type for argument x, " ..
+                    "expected integer but found float",
+                    nil, true))
+            ]])
+        end)
+    end)
 
     describe("Variables /", function()
         setup(compile([[
