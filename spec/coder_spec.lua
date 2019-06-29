@@ -291,7 +291,6 @@ describe("Pallene coder /", function()
         end)
     end)
 
-
     describe("Operators /", function()
         local pallene_program_parts = {}
         local lua_tests = {}
@@ -573,20 +572,6 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
-
-            --------------------
-
-            local i = 0
-
-            function next(): integer
-                i = i + 1
-                return i
-            end
-
-            function stat_call(): integer
-                next()
-                return next()
-            end
         ]]))
 
         it("Block, Assign, Decl", function()
@@ -623,10 +608,6 @@ describe("Pallene coder /", function()
 
         it("For loop (float) (going down)", function()
             run_test([[ assert(720.0 == test.factorial_float_for_dec(6.0)) ]])
-        end)
-
-        it("Call", function()
-            run_test([[ assert(2 == test.stat_call()) ]])
         end)
     end)
 
