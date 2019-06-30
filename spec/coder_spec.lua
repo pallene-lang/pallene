@@ -402,9 +402,6 @@ describe("Pallene coder /", function()
             -- NYI { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
             -- NYI { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
 
-            -- NYI { "eq_fsfs",   "==",  "{boolean}", "{boolean}", "boolean" },
-            -- NYI { "ne_fsfs",   "~=",  "{boolean}", "{boolean}", "boolean" },
-
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
 
