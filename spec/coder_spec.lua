@@ -341,30 +341,73 @@ describe("Pallene coder /", function()
 
         local tests = {
             { "add_ii",    "+",   "integer", "integer", "integer" },
+            { "add_if",    "+",   "integer", "float",   "float" },
+            { "add_fi",    "+",   "float",   "integer", "float" },
             { "add_ff",    "+",   "float",   "float",   "float" },
+
             { "sub_ii",    "-",   "integer", "integer", "integer" },
+            { "sub_if",    "-",   "integer", "float",   "float" },
+            { "sub_fi",    "-",   "float",   "integer", "float" },
             { "sub_ff",    "-",   "float",   "float",   "float" },
+
             { "mul_ii",    "*",   "integer", "integer", "integer" },
+            { "mul_if",    "*",   "integer", "float",   "float" },
+            { "mul_fi",    "*",   "float",   "integer", "float" },
             { "mul_ff",    "*",   "float",   "float",   "float" },
+
+            { "mod_ii",    "%",   "integer", "integer", "integer" },
+            -- NYI { "mod_if",    "%",   "integer", "float",   "float" },
+            -- NYI { "mod_fi",    "%",   "float",   "integer", "float" },
+            -- NYI { "mod_ff",    "%",   "float",   "float",   "float" },
+
             { "fltdiv_ii", "/",   "integer", "integer", "float" },
             { "fltdiv_ff", "/",   "float",   "float",   "float" },
+
             { "band",      "&",   "integer", "integer", "integer" },
             { "bor",       "|",   "integer", "integer", "integer" },
             { "bxor",      "~",   "integer", "integer", "integer" },
+
             { "lshift",    "<<",  "integer", "integer", "integer" },
             { "rshift",    ">>",  "integer", "integer", "integer" },
-            { "mod_ii",    "%",   "integer", "integer", "integer" },
+
             { "intdiv_ii", "//",  "integer", "integer", "integer" },
+            { "intdiv_if", "//",  "integer", "float",   "float" },
+            { "intdiv_fi", "//",  "float",   "integer", "float" },
             { "intdiv_ff", "//",  "float",   "float",   "float" },
+
+            { "pow_ii",    "^",   "integer", "integer", "float" },
             { "pow_ff",    "^",   "float",   "float",   "float" },
+
             { "eq_ii",     "==",  "integer", "integer", "boolean" },
             { "ne_ii",     "~=",  "integer", "integer", "boolean" },
             { "lt_ii",     "<",   "integer", "integer", "boolean" },
             { "gt_ii",     ">",   "integer", "integer", "boolean" },
             { "le_ii",     "<=",  "integer", "integer", "boolean" },
             { "ge_ii",     ">=",  "integer", "integer", "boolean" },
+
+            { "eq_ff",     "==",  "float",   "float",   "boolean" },
+            { "ne_ff",     "~=",  "float",   "float",   "boolean" },
+            { "lt_ff",     "<",   "float",   "float",   "boolean" },
+            { "gt_ff",     ">",   "float",   "float",   "boolean" },
+            { "le_ff",     "<=",  "float",   "float",   "boolean" },
+            { "ge_ff",     ">=",  "float",   "float",   "boolean" },
+
+            -- NYI { "eq_ss",     "==",  "string",  "string",  "boolean" },
+            -- NYI { "ne_ss",     "~=",  "string",  "string",  "boolean" },
+            -- NYI { "lt_ss",     "<",   "string",  "string",  "boolean" },
+            -- NYI { "gt_ss",     ">",   "string",  "string",  "boolean" },
+            -- NYI { "le_ss",     "<=",  "string",  "string",  "boolean" },
+            -- NYI { "ge_ss",     ">=",  "string",  "string",  "boolean" },
+
+            -- NYI { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
+            -- NYI { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
+
+            -- NYI { "eq_fsfs",   "==",  "{boolean}", "{boolean}", "boolean" },
+            -- NYI { "ne_fsfs",   "~=",  "{boolean}", "{boolean}", "boolean" },
+
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
+
             { "concat_ss", "..",  "string",  "string",  "string" },
         }
 

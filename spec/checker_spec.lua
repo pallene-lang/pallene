@@ -1,5 +1,4 @@
 local driver = require 'pallene.driver'
-local types = require 'pallene.types'
 local util = require 'pallene.util'
 
 local function run_checker(code)
@@ -513,70 +512,6 @@ describe("Pallene type checker", function()
         assert.match("float is not assignable to integer", errs,nil, true)
     end)
 
-    for _, op in ipairs({"+", "-", "*", "%", "//"}) do
-        it("coerces "..op.." to float if any side is a float", function()
-            local prog_ast, errs = run_checker([[
-                function fn()
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]])
-            assert(prog_ast, errs)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp._type)
-
-            assert.same(types.T.Integer(), prog_ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.T.Integer(), prog_ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.T.Integer(), prog_ast[1].block.stats[6].exp._type)
-        end)
-    end
-
-    for _, op in ipairs({"/", "^"}) do
-        it("always coerces "..op.." to float", function()
-            local prog_ast, errs = run_checker([[
-                function fn()
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]])
-            assert(prog_ast, errs)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[6].exp._type)
-        end)
-    end
-
     it("cannot concatenate with boolean", function()
         local prog_ast, errs = run_checker([[
             function fn()
@@ -607,70 +542,6 @@ describe("Pallene type checker", function()
         assert.falsy(prog_ast)
         assert.match("cannot concatenate with { integer } value", errs)
     end)
-
-    it("can concatenate with integer and float", function()
-        local prog_ast, errs = run_checker([[
-            function fn()
-                local s = 1 .. 2.5
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    for _, op in ipairs({"==", "~="}) do
-        it("can compare arrays of same type using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(a1: {integer}, a2: {integer}): boolean
-                    return a1 ]] .. op .. [[ a2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~="}) do
-        it("can compare booleans using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(b1: string, b2: string): boolean
-                    return b1 ]] .. op .. [[ b2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare floats using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(f1: string, f2: string): boolean
-                    return f1 ]] .. op .. [[ f2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare integers using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(i1: string, i2: string): boolean
-                    return i1 ]] .. op .. [[ i2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare strings using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(s1: string, s2: string): boolean
-                    return s1 ]] .. op .. [[ s2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
 
     for _, op in ipairs({"==", "~="}) do
         it("cannot compare arrays of different types using " .. op, function()
@@ -824,17 +695,6 @@ describe("Pallene type checker", function()
             end)
 
         end
-    end
-
-    for _, op in ipairs({"|", "&", "<<", ">>"}) do
-        it("can use bitwise operators with integers using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(i1: integer, i2: integer): integer
-                    return i1 ]] .. op .. [[ i2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
     end
 
     for _, op in ipairs({"|", "&", "<<", ">>"}) do

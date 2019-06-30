@@ -17,6 +17,10 @@ local values = {
         "c\0d",
         "ABCDEFGHIJKLMNOPQRSTabcdefghilklmnopqrst", -- long string >= 40 chars
     },
+    ["{float}"] = {
+        {1.0},
+        {2.0},
+    }
 }
 
 local function isnan(x)
