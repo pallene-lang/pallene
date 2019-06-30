@@ -7,11 +7,6 @@ local function run_checker(code)
     return prog_ast, table.concat(errs, "\n")
 end
 
-local function assert_type_check(code)
-    local prog_ast, errs = run_checker(code)
-    assert.truthy(prog_ast, errs)
-end
-
 local function assert_type_error(expected, code)
     local prog_ast, errs = run_checker(code)
     assert.falsy(prog_ast)
@@ -43,46 +38,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.match("'Point' isn't a value", errs)
-    end)
-
-    it("allows constant variable initialization", function()
-        assert_type_check([[ local x1 = nil ]])
-        assert_type_check([[ local x2 = false ]])
-        assert_type_check([[ local x3 = 11 ]])
-        assert_type_check([[ local x4 = 1.1 ]])
-        assert_type_check([[ local x5 = "11" ]])
-        assert_type_check([[ local x6: {integer} = {} ]])
-        assert_type_check([[ local x7: {integer} = {1, 2} ]])
-        assert_type_check([[ local x8 = "a" .. 10 ]])
-        assert_type_check([[ local x9 = 1 + 2 ]])
-        assert_type_check([[ local x10 = not false ]])
-        assert_type_check([[ local x11 = 10.1 ]])
-    end)
-
-    it("allows non constant variable initialization", function()
-        assert_type_check([[
-            function f(): integer
-                return 10
-            end
-            local x = f() ]])
-        assert_type_check([[
-            local x = 10
-            local y = x ]])
-        assert_type_check([[
-            local x = 10
-            local y = -x ]])
-        assert_type_check([[
-            local x = 10
-            local y = 10 + x ]])
-        assert_type_check([[
-            local x = "b"
-            local y = "a" .. x ]])
-        assert_type_check([[
-            local x = 10
-            local y: integer = x ]])
-        assert_type_check([[
-            local x = 10
-            local y: {integer} = {x} ]])
     end)
 
     it("catches array expression in indexing is not an array", function()

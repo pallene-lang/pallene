@@ -1151,4 +1151,44 @@ describe("Pallene coder /", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
         end)
     end)
+
+    describe("Non-constant toplevel initializers", function()
+        setup(compile([[
+            function f(): integer
+                return 10
+            end
+
+            local x1 = f()
+            local x2 = x1
+            local x3 = -x2
+            local x4 : {integer} = { x1 }
+
+            function get_x1(): integer
+                return x1
+            end
+
+            function get_x2(): integer
+                return x2
+            end
+
+            function get_x3(): integer
+                return x3
+            end
+
+            function get_x4(): {integer}
+                return x4
+            end
+        ]]))
+
+        it("", function()
+            run_test([[
+                assert(  10 == test.get_x1() )
+                assert(  10 == test.get_x2() )
+                assert( -10 == test.get_x3() )
+                local x4 = test.get_x4()
+                assert ( 1 == #x4 )
+                assert ( 10 == x4[1] )
+            ]])
+        end)
+    end)
 end)
