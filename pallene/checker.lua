@@ -63,25 +63,6 @@ local function check_match(loc, expected, found, term_fmt, ...)
     end
 end
 
-local function check_arity(loc, expected, found, term_fmt, ...)
-    if expected ~= found then
-        local term = string.format(term_fmt, ...)
-        local msg = string.format("%s: expected %d value(s) but found %d",
-            term, expected, found)
-        type_error(loc, msg)
-    end
-end
-
-local function check_is_array(loc, found, term_fmt, ...)
-    if found._tag ~= "types.T.Array" then
-        local term = string.format(term_fmt, ...)
-        local found_str = types.tostring(found)
-        local msg = string.format("%s: expected array but found %s",
-            term, found_str)
-        type_error(loc, msg)
-    end
-end
-
 local function try_coerce(exp, expected, term_fmt, ...)
     local found = exp._type
     if types.equals(found, expected) then
