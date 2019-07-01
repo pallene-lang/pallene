@@ -49,21 +49,21 @@ end
 --   loc: location of the term that is being compared
 --   expected: type that is expected
 --   found: type that was actually present
---   term_fmt: format string describing what is being compared
---   ...: arguments to the "term" format string
-local function check_match(loc, expected, found, term_fmt, ...)
+--   errmsg_fmt: format string describing what part of the program is
+--               responsible for this type check
+--   ...: arguments to the "errmsg_fmt" format string
+local function check_match(loc, expected, found, errmsg_fmt, ...)
     if not types.equals(expected, found) then
-        local term = string.format(term_fmt, ...)
-        local expected_str = types.tostring(expected)
-        local found_str = types.tostring(found)
         local msg = string.format(
             "types in %s do not match, expected %s but found %s",
-            term, expected_str, found_str)
+            string.format(errmsg_fmt, ...),
+            types.tostring(expected),
+            types.tostring(found))
         type_error(loc, msg)
     end
 end
 
-local function try_coerce(exp, expected, term_fmt, ...)
+local function try_coerce(exp, expected, errmsg_fmt, ...)
     local found = exp._type
     if types.equals(found, expected) then
         return exp
@@ -72,12 +72,11 @@ local function try_coerce(exp, expected, term_fmt, ...)
         cast._type = expected
         return cast
     else
-        local term = string.format(term_fmt, ...)
-        local expected_str = types.tostring(expected)
-        local found_str = types.tostring(found)
         local msg = string.format(
             "%s: %s is not assignable to %s",
-            term, found_str, expected_str)
+            string.format(errmsg_fmt, ...),
+            types.tostring(found),
+            types.tostring(expected))
         type_error(exp.loc, msg)
     end
 end
