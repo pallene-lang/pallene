@@ -7,10 +7,10 @@ local function run_checker(code)
     return prog_ast, table.concat(errs, "\n")
 end
 
-local function assert_type_error(expected, code)
+local function assert_type_error(code, expected_err, use_patterns)
     local prog_ast, errs = run_checker(code)
     assert.falsy(prog_ast)
-    assert.match(expected, errs)
+    assert.match(expected_err, errs, 1, not use_patterns)
 end
 
 describe("Pallene type checker", function()
@@ -20,247 +20,222 @@ describe("Pallene type checker", function()
     end)
 
     it("detects when a non-type is used in a type variable", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local foo: integer = 10
             local bar: foo = 11
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("'foo' isn't a type", errs)
+        ]],
+            "'foo' isn't a type")
     end)
 
     it("detects when a non-value is used in a value variable", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: integer
                 y: integer
             end
             local bar: integer = Point
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("'Point' isn't a value", errs)
+        ]],
+            "'Point' isn't a value")
     end)
 
     it("catches array expression in indexing is not an array", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: integer)
                 x[1] = 2
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected array but found integer in array indexing", errs)
+        ]],
+            "expected array but found integer in array indexing")
     end)
 
     it("catches wrong use of length operator", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: integer): integer
                 return #x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("trying to take the length", errs)
+        ]],
+            "trying to take the length")
     end)
 
     it("catches wrong use of unary minus", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: boolean): boolean
                 return -x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("trying to negate a", errs)
+        ]],
+            "trying to negate a")
     end)
 
     it("catches wrong use of bitwise not", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: boolean): boolean
                 return ~x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("trying to bitwise negate a", errs)
+        ]],
+            "trying to bitwise negate a")
     end)
 
     it("catches wrong use of boolean not", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(): boolean
                 return not nil
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("trying to boolean negate a nil", errs)
+        ]],
+            "trying to boolean negate a nil")
     end)
 
     it("catches mismatching types in locals", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn()
                 local i: integer = 1
                 local s: string = "foo"
                 s = i
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected string but found integer in assignment", errs)
+        ]],
+            "expected string but found integer in assignment")
     end)
 
     it("catches mismatching types in arguments", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(i: integer, s: string): integer
                 s = i
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected string but found integer in assignment", errs)
+        ]],
+            "expected string but found integer in assignment")
     end)
 
     it("forbids empty array (without type annotation)", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local xs = {}
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("missing type hint for array or record initializer", errs)
+        ]],
+            "missing type hint for array or record initializer")
     end)
 
     it("forbids non-empty array (without type annotation)", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local xs = {10, 20, 30}
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("missing type hint for array or record initializer", errs)
+        ]],
+            "missing type hint for array or record initializer")
     end)
 
     it("forbids array initializers with a table part", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local xs: {integer} = {10, 20, 30, x=17}
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("named field x in array initializer", errs)
+        ]],
+            "named field x in array initializer")
     end)
 
     it("forbids wrong type in array initializer", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local xs: {integer} = {10, "hello"}
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("expected integer but found string in array initializer", errs)
+        ]],
+            "expected integer but found string in array initializer")
     end)
 
     it("forbids record creation (without type annotation)", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: float
                 y: float
             end
             local p = { x = 10.0, y = 20.0 }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("missing type hint for array or record initializer", errs)
+        ]],
+            "missing type hint for array or record initializer")
     end)
 
     it("forbids wrong type in record initializer", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: float
                 y: float
             end
             local p: Point = { x = 10.0, y = "hello" }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("expected float but found string in record initializer", errs)
+        ]],
+            "expected float but found string in record initializer")
     end)
 
     it("forbids wrong field name in record initializer", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: float
                 y: float
             end
             local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("invalid field z in record initializer for Point", errs)
+        ]],
+            "invalid field z in record initializer for Point")
     end)
 
     it("forbids array part in record initializer", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: float
                 y: float
             end
             local p: Point = { x = 10.0, y = 20.0, 30.0 }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("record initializer has array part", errs)
+        ]],
+            "record initializer has array part")
     end)
 
     it("forbids initializing a record field twice", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: float
                 y: float
             end
             local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("duplicate field x in record initializer", errs)
+        ]],
+            "duplicate field x in record initializer")
     end)
 
     it("forbids missing fields in record initializer", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             record Point
                 x: float
             end
             local p: Point = { }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("required field x is missing", errs)
+        ]],
+            "required field x is missing")
     end)
 
     it("forbids type hints that are not array or records", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local p: string = { 10, 20, 30 }
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("type hint for array or record initializer is not an array or record type", errs)
+        ]],
+            "type hint for array or record initializer is not an array or record type")
     end)
 
     it("forbids array of nil", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local xs: {nil} = {}
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches(
-            "array of nil is not allowed",
-            errs, nil, true)
+        ]],
+            "array of nil is not allowed")
     end)
 
     it("requires while statement conditions to be boolean", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x:integer): integer
                 while x do
                     return 10
                 end
                 return 20
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("expected boolean but found integer in while loop condition", errs)
+        ]],
+            "expected boolean but found integer in while loop condition")
     end)
 
     it("requires repeat statement conditions to be boolean", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x:integer): integer
                 repeat
                     return 10
                 until x
                 return 20
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("expected boolean but found integer in repeat%-until loop condition", errs)
+        ]],
+            "expected boolean but found integer in repeat-until loop condition")
     end)
 
     it("requires if statement conditions to be boolean", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x:integer): integer
                 if x then
                     return 10
@@ -268,95 +243,83 @@ describe("Pallene type checker", function()
                     return 20
                 end
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.matches("expected boolean but found integer in if statement condition", errs)
+        ]],
+            "expected boolean but found integer in if statement condition")
     end)
 
     it("ensures numeric 'for' variable has number type", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: integer, s: string): integer
                 for i: string = 1, 10, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected integer or float but found string in for%-loop control variable 'i'", errs)
+        ]],
+            "expected integer or float but found string in for-loop control variable 'i'")
     end)
 
     it("catches 'for' errors in the start expression", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: integer, s: string): integer
                 for i:integer = s, 10, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected integer but found string in numeric for%-loop initializer", errs)
+        ]],
+            "expected integer but found string in numeric for-loop initializer")
     end)
 
     it("catches 'for' errors in the limit expression", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: integer, s: string): integer
                 for i = 1, s, 2 do
                     x = x + i
                 end
                 return x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected integer but found string in numeric for%-loop limit", errs)
+        ]],
+            "expected integer but found string in numeric for-loop limit")
     end)
 
     it("catches 'for' errors in the step expression", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(x: integer, s: string): integer
                 for i = 1, 10, s do
                     x = x + i
                 end
                 return x
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected integer but found string in numeric for%-loop step", errs)
+        ]],
+            "expected integer but found string in numeric for-loop step")
     end)
 
     it("detects too many return values", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f(): ()
                 return 1
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match(
-            "returning 1 value(s) but function expects 0", errs,
-            nil, true)
+        ]],
+            "returning 1 value(s) but function expects 0")
     end)
 
     it("detects too few return values", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f(): integer
                 return
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match(
-            "returning 0 value(s) but function expects 1", errs,
-            nil, true)
+        ]],
+            "returning 0 value(s) but function expects 1")
     end)
 
     it("detects when a function returns the wrong type", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(): integer
                 return "hello"
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected integer but found string in return statement", errs)
+        ]],
+            "expected integer but found string in return statement")
     end)
 
     it("detects missing return statements", function()
@@ -393,38 +356,34 @@ describe("Pallene type checker", function()
         ]],
         }
         for _, c in ipairs(code) do
-            local prog_ast, errs = run_checker(c)
-            assert.falsy(prog_ast)
-            assert.match("control reaches end of function with non%-empty return type", errs)
+            assert_type_error(c,"control reaches end of function with non-empty return type")
         end
     end)
 
     it("rejects void functions in expression contexts", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             local function f(): ()
             end
 
             local function g(): integer
                 return 1 + f()
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("void instead of a number", errs)
+        ]],
+            "void instead of a number")
     end)
 
     it("detects attempts to call non-functions", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn(): integer
                 local i: integer = 0
                 i()
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("attempting to call a integer value" , errs)
+        ]],
+            "attempting to call a integer value")
     end)
 
     it("detects wrong number of arguments to functions", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f(x: integer, y: integer): integer
                 return x + y
             end
@@ -432,14 +391,12 @@ describe("Pallene type checker", function()
             function g(): integer
                 return f(1)
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("function expects 2 argument(s) but received 1", errs,
-            nil, true)
+        ]],
+            "function expects 2 argument(s) but received 1")
     end)
 
     it("detects wrong types of arguments to functions", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f(x: integer, y: integer): integer
                 return x + y
             end
@@ -447,51 +404,46 @@ describe("Pallene type checker", function()
             function g(): integer
                 return f(1.0, 2.0)
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected integer but found float in argument 1 of call to function", errs)
+        ]],
+            "expected integer but found float in argument 1 of call to function")
     end)
 
     it("cannot concatenate with boolean", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn()
                 local s = "foo" .. true
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("cannot concatenate with boolean value", errs)
+        ]],
+            "cannot concatenate with boolean value")
     end)
 
     it("cannot concatenate with nil", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn()
                 local s = "foo" .. nil
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("cannot concatenate with nil value", errs)
+        ]],
+            "cannot concatenate with nil value")
     end)
 
     it("cannot concatenate with array", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function fn()
                 local xs: {integer} = {}
                 local s = "foo" .. xs
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("cannot concatenate with { integer } value", errs)
+        ]],
+            "cannot concatenate with { integer } value")
     end)
 
     for _, op in ipairs({"==", "~="}) do
         it("cannot compare arrays of different types using " .. op, function()
-            local prog_ast, errs = run_checker([[
+            assert_type_error([[
                 function fn(a1: {integer}, a2: {float}): boolean
                     return a1 ]] .. op .. [[ a2
                 end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("cannot compare .* and .* using .*", errs)
+            ]],
+                "cannot compare .* and .* using .*", true)
         end)
     end
 
@@ -500,13 +452,12 @@ describe("Pallene type checker", function()
             for _, t2 in ipairs({"{integer}", "boolean", "float", "string"}) do
                 if t1 ~= t2 then
                     it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                        local prog_ast, errs = run_checker([[
+                        assert_type_error([[
                             function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
                                 return a ]] .. op .. [[ b
                             end
-                        ]])
-                        assert.falsy(prog_ast)
-                        assert.match("cannot compare .* and .* using .*", errs)
+                        ]],
+                            "cannot compare .* and .* using .*", true)
                     end)
                 end
             end
@@ -516,13 +467,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare " .. t .. " and float using " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: ]] .. t .. [[, b: float): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* using .*", errs)
+                ]],
+                    "cannot compare .* and .* using .*", true)
             end)
         end
     end
@@ -530,13 +480,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare float and " .. t .. " using " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: float, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* using .*", errs)
+                ]],
+                    "cannot compare .* and .* using .*", true)
             end)
         end
     end
@@ -544,13 +493,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare " .. t .. " and integer using " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: ]] .. t .. [[, b: integer): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* using .*", errs)
+                ]],
+                    "cannot compare .* and .* using .*", true)
             end)
         end
     end
@@ -558,13 +506,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot compare integer and " .. t .. " using " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: integer, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* using .*", errs)
+                ]],
+                    "cannot compare .* and .* using .*", true)
             end)
         end
     end
@@ -572,13 +519,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean"}) do
             it("cannot compare " .. t .. " and string using " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: ]] .. t .. [[, b: string): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* using .*", errs)
+                ]],
+                    "cannot compare .* and .* using .*", true)
             end)
         end
     end
@@ -586,13 +532,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"<", ">", "<=", ">="}) do
         for _, t in ipairs({"{integer}", "boolean"}) do
             it("cannot compare string and " .. t .. " using " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: string, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* using .*", errs)
+                ]],
+                    "cannot compare .* and .* using .*", true)
             end)
         end
     end
@@ -601,13 +546,12 @@ describe("Pallene type checker", function()
         for _, t1 in ipairs({"{integer}", "boolean"}) do
             for _, t2 in ipairs({"{integer}", "boolean"}) do
                 it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                    local prog_ast, errs = run_checker([[
+                    assert_type_error([[
                         function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
                             return a ]] .. op .. [[ b
                         end
-                    ]])
-                    assert.falsy(prog_ast)
-                    assert.match("cannot compare .* and .* using .*", errs)
+                    ]],
+                        "cannot compare .* and .* using .*", true)
                 end)
             end
         end
@@ -616,22 +560,20 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"and", "or"}) do
         for _, t1 in ipairs({"{integer}", "integer", "string"}) do
             it("cannot have " .. t1 .. " as left operand of " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(x: ]] .. t1 .. [[): boolean
                         return x ]] .. op .. [[ true
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("left hand side of logical expression is a", errs)
+                ]],
+                    "left hand side of logical expression is a")
             end)
             it("cannot have " .. t1 .. " as right operand of " .. op, function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(x: ]] .. t1 .. [[): boolean
                         return true ]] .. op .. [[ x
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("right hand side of logical expression is a", errs)
+                ]],
+                    "right hand side of logical expression is a")
             end)
 
         end
@@ -640,13 +582,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use bitwise operator " .. op .. " when left hand side is not integer", function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: ]] .. t .. [[, b: integer): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("left hand side of arithmetic expression is a", errs)
+                ]],
+                    "left hand side of arithmetic expression is a")
             end)
         end
     end
@@ -654,13 +595,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use bitwise operator " .. op .. " when right hand side is not integer", function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: integer, b: ]] .. t .. [[): boolean
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("right hand side of arithmetic expression is a", errs)
+                ]],
+                    "right hand side of arithmetic expression is a")
             end)
         end
     end
@@ -668,13 +608,12 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use arithmetic operator " .. op .. " when left hand side is not a  number", function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: ]] .. t .. [[, b: float): float
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("left hand side of arithmetic expression is a", errs)
+                ]],
+                    "left hand side of arithmetic expression is a")
             end)
         end
     end
@@ -682,110 +621,99 @@ describe("Pallene type checker", function()
     for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use arithmetic operator " .. op .. " when right hand side is not integer", function()
-                local prog_ast, errs = run_checker([[
+                assert_type_error([[
                     function fn(a: float, b: ]] .. t .. [[): float
                         return a ]] .. op .. [[ b
                     end
-                ]])
-                assert.falsy(prog_ast)
-                assert.match("right hand side of arithmetic expression is a", errs)
+                ]],
+                    "right hand side of arithmetic expression is a")
             end)
         end
     end
 
     for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to {integer}", function()
-            local prog_ast, errs = run_checker([[
+            assert_type_error([[
                 function fn(a: ]] .. t .. [[): {integer}
                     return a as {integer}
                 end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("cannot cast", errs)
+            ]],
+                "cannot cast")
         end)
     end
 
     for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to float", function()
-            local prog_ast, errs = run_checker([[
+            assert_type_error([[
                 function fn(a: ]] .. t .. [[): float
                     return a as float
                 end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("cannot cast", errs)
+            ]],
+                "cannot cast")
         end)
     end
 
     for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
         it("cannot explicitly cast from " .. t .. " to integer", function()
-            local prog_ast, errs = run_checker([[
+            assert_type_error([[
                 function fn(a: ]] .. t .. [[): integer
                     return a as integer
                 end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("cannot cast", errs)
+            ]],
+                "cannot cast")
         end)
     end
 
     for _, t in ipairs({"{integer}", "boolean", "float", "integer", "string"}) do
         it("cannot explicitly cast from " .. t .. " to nil", function()
-            local prog_ast, errs = run_checker([[
+            assert_type_error([[
                 function fn(a: ]] .. t .. [[): nil
                     return a as nil
                 end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("cannot cast", errs)
+            ]],
+                "cannot cast")
         end)
     end
 
     for _, t in ipairs({"{integer}", "boolean", "nil"}) do
         it("cannot explicitly cast from " .. t .. " to string", function()
-            local prog_ast, errs = run_checker([[
+            assert_type_error([[
                 function fn(a: ]] .. t .. [[): string
                     return a as string
                 end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("cannot cast", errs)
+            ]],
+                "cannot cast")
         end)
     end
 
     it("catches assignment to function", function ()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f()
             end
 
             function g()
                 f = g
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match(
-            "attempting to assign to toplevel constant function f",
-            errs, nil, true)
+        ]],
+            "attempting to assign to toplevel constant function f")
     end)
 
     it("typechecks io.write (error)", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f()
                 io_write(17)
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected string but found integer in argument 1", errs, nil, true)
+        ]],
+            "expected string but found integer in argument 1")
     end)
 
     it("typechecks table.insert (error)", function()
-        local prog_ast, errs = run_checker([[
+        assert_type_error([[
             function f(xs: {integer})
                 table_insert("asd", xs)
             end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("expected { value } but found string in argument 1", errs, nil, true)
+        ]],
+            "expected { value } but found string in argument 1")
     end)
 end)
 
@@ -802,17 +730,17 @@ describe("Pallene typecheck of records", function()
 
     it("doesn't typecheck read/write to non existent fields", function()
         local function assert_non_existent(code)
-            assert_type_error("field 'nope' not found in record 'Point'",
-                              wrap_record(code))
+            assert_type_error(wrap_record(code),
+                "field 'nope' not found in record 'Point'")
         end
         assert_non_existent([[ p.nope = 10 ]])
         assert_non_existent([[ return p.nope ]])
     end)
 
     it("doesn't typecheck read/write with invalid types", function()
-        assert_type_error("expected float but found Point in assignment",
-                          wrap_record[[ p.x = p ]])
-        assert_type_error("expected Point but found float in declaration",
-                          wrap_record[[ local p: Point = p.x ]])
+        assert_type_error(wrap_record[[ p.x = p ]],
+            "expected float but found Point in assignment")
+        assert_type_error(wrap_record[[ local p: Point = p.x ]],
+            "expected Point but found float in declaration")
     end)
 end)
