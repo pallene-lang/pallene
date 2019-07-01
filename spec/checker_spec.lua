@@ -7,10 +7,10 @@ local function run_checker(code)
     return prog_ast, table.concat(errs, "\n")
 end
 
-local function assert_type_error(code, expected_err, use_patterns)
+local function assert_type_error(code, expected_err)
     local prog_ast, errs = run_checker(code)
     assert.falsy(prog_ast)
-    assert.match(expected_err, errs, 1, not use_patterns)
+    assert.match(expected_err, errs, 1, true)
 end
 
 describe("Pallene type checker", function()
@@ -408,283 +408,130 @@ describe("Pallene type checker", function()
             "expected integer but found float in argument 1 of call to function")
     end)
 
-    it("cannot concatenate with boolean", function()
-        assert_type_error([[
-            function fn()
-                local s = "foo" .. true
-            end
-        ]],
-            "cannot concatenate with boolean value")
-    end)
-
-    it("cannot concatenate with nil", function()
-        assert_type_error([[
-            function fn()
-                local s = "foo" .. nil
-            end
-        ]],
-            "cannot concatenate with nil value")
-    end)
-
-    it("cannot concatenate with array", function()
-        assert_type_error([[
-            function fn()
-                local xs: {integer} = {}
-                local s = "foo" .. xs
-            end
-        ]],
-            "cannot concatenate with { integer } value")
-    end)
-
-    for _, op in ipairs({"==", "~="}) do
-        it("cannot compare arrays of different types using " .. op, function()
-            assert_type_error([[
-                function fn(a1: {integer}, a2: {float}): boolean
-                    return a1 ]] .. op .. [[ a2
+    describe("concatenation", function()
+        for _, typ in ipairs({"boolean", "nil", "{ integer }"}) do
+            local err_msg = string.format(
+                "cannot concatenate with %s value", typ)
+            local test_program = util.render([[
+                function fn(x : $typ) : string
+                    return "hello " .. x
                 end
-            ]],
-                "cannot compare .* and .* using .*", true)
+            ]], { typ = typ })
+
+            it(err_msg, function()
+                assert_type_error(test_program, err_msg)
+            end)
+        end
+    end)
+
+
+    local function optest(err_template, program_template, opts)
+        local err_msg = util.render(err_template, opts)
+        local test_program = util.render(program_template, opts)
+        it(err_msg, function()
+            assert_type_error(test_program, err_msg)
         end)
     end
 
-    for _, op in ipairs({"==", "~="}) do
-        for _, t1 in ipairs({"{integer}", "boolean", "float", "string"}) do
-            for _, t2 in ipairs({"{integer}", "boolean", "float", "string"}) do
-                if t1 ~= t2 then
-                    it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                        assert_type_error([[
-                            function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
-                                return a ]] .. op .. [[ b
-                            end
-                        ]],
-                            "cannot compare .* and .* using .*", true)
-                    end)
+    describe("equality:", function()
+        local ops = { "==", "~=" }
+        local typs = {
+            "integer", "boolean", "float", "string", "{ integer }", "{ float }"
+        }
+        for _, op in ipairs(ops) do
+            for _, t1 in ipairs(typs) do
+                for _, t2 in ipairs(typs) do
+                    if not (t1 == t2) and
+                        not (t1 == "integer" and t2 == "float") and
+                        not (t1 == "float" and t2 == "integer")
+                    then
+                        optest("cannot compare $t1 and $t2 using $op", [[
+                            function fn(a: $t1, b: $t2): boolean
+                                return a $op b
+                             end
+                        ]], {
+                            op = op, t1 = t1, t2 = t2
+                        })
+                    end
                 end
             end
         end
-    end
+    end)
 
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot compare " .. t .. " and float using " .. op, function()
-                assert_type_error([[
-                    function fn(a: ]] .. t .. [[, b: float): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "cannot compare .* and .* using .*", true)
-            end)
-        end
-    end
-
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot compare float and " .. t .. " using " .. op, function()
-                assert_type_error([[
-                    function fn(a: float, b: ]] .. t .. [[): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "cannot compare .* and .* using .*", true)
-            end)
-        end
-    end
-
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot compare " .. t .. " and integer using " .. op, function()
-                assert_type_error([[
-                    function fn(a: ]] .. t .. [[, b: integer): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "cannot compare .* and .* using .*", true)
-            end)
-        end
-    end
-
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot compare integer and " .. t .. " using " .. op, function()
-                assert_type_error([[
-                    function fn(a: integer, b: ]] .. t .. [[): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "cannot compare .* and .* using .*", true)
-            end)
-        end
-    end
-
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t in ipairs({"{integer}", "boolean"}) do
-            it("cannot compare " .. t .. " and string using " .. op, function()
-                assert_type_error([[
-                    function fn(a: ]] .. t .. [[, b: string): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "cannot compare .* and .* using .*", true)
-            end)
-        end
-    end
-
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t in ipairs({"{integer}", "boolean"}) do
-            it("cannot compare string and " .. t .. " using " .. op, function()
-                assert_type_error([[
-                    function fn(a: string, b: ]] .. t .. [[): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "cannot compare .* and .* using .*", true)
-            end)
-        end
-    end
-
-    for _, op in ipairs({"<", ">", "<=", ">="}) do
-        for _, t1 in ipairs({"{integer}", "boolean"}) do
-            for _, t2 in ipairs({"{integer}", "boolean"}) do
-                it("cannot compare " .. t1 .. " and " .. t2 .. " using " .. op, function()
-                    assert_type_error([[
-                        function fn(a: ]] .. t1 .. [[, b: ]] .. t2 .. [[): boolean
-                            return a ]] .. op .. [[ b
+    describe("and/or:", function()
+        for _, op in ipairs({"and", "or"}) do
+            for _, t in ipairs({"{ integer }", "integer", "string"}) do
+                for _, test in ipairs({
+                    { "left", t, "boolean" },
+                    { "right", "boolean", t },
+                }) do
+                    local dir, t1, t2 = test[1], test[2], test[3]
+                    optest(
+       "$dir hand side of logical expression is a $t instead of a boolean", [[
+                        function fn(x: $t1, y: $t2) : boolean
+                            return x $op y
                         end
-                    ]],
-                        "cannot compare .* and .* using .*", true)
-                end)
+                    ]], { op = op, t = t, dir = dir, t1 = t1, t2=t2 })
+                end
             end
         end
-    end
+    end)
 
-    for _, op in ipairs({"and", "or"}) do
-        for _, t1 in ipairs({"{integer}", "integer", "string"}) do
-            it("cannot have " .. t1 .. " as left operand of " .. op, function()
-                assert_type_error([[
-                    function fn(x: ]] .. t1 .. [[): boolean
-                        return x ]] .. op .. [[ true
-                    end
-                ]],
-                    "left hand side of logical expression is a")
-            end)
-            it("cannot have " .. t1 .. " as right operand of " .. op, function()
-                assert_type_error([[
-                    function fn(x: ]] .. t1 .. [[): boolean
-                        return true ]] .. op .. [[ x
-                    end
-                ]],
-                    "right hand side of logical expression is a")
-            end)
-
-        end
-    end
-
-    for _, op in ipairs({"|", "&", "<<", ">>"}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot use bitwise operator " .. op .. " when left hand side is not integer", function()
-                assert_type_error([[
-                    function fn(a: ]] .. t .. [[, b: integer): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "left hand side of arithmetic expression is a")
-            end)
-        end
-    end
-
-    for _, op in ipairs({"|", "&", "<<", ">>"}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot use bitwise operator " .. op .. " when right hand side is not integer", function()
-                assert_type_error([[
-                    function fn(a: integer, b: ]] .. t .. [[): boolean
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "right hand side of arithmetic expression is a")
-            end)
-        end
-    end
-
-    for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot use arithmetic operator " .. op .. " when left hand side is not a  number", function()
-                assert_type_error([[
-                    function fn(a: ]] .. t .. [[, b: float): float
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "left hand side of arithmetic expression is a")
-            end)
-        end
-    end
-
-    for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
-        for _, t in ipairs({"{integer}", "boolean", "string"}) do
-            it("cannot use arithmetic operator " .. op .. " when right hand side is not integer", function()
-                assert_type_error([[
-                    function fn(a: float, b: ]] .. t .. [[): float
-                        return a ]] .. op .. [[ b
-                    end
-                ]],
-                    "right hand side of arithmetic expression is a")
-            end)
-        end
-    end
-
-    for _, t in ipairs({"boolean", "float", "integer", "nil", "string"}) do
-        it("cannot explicitly cast from " .. t .. " to {integer}", function()
-            assert_type_error([[
-                function fn(a: ]] .. t .. [[): {integer}
-                    return a as {integer}
+    describe("bitwise:", function()
+        for _, op in ipairs({"|", "&", "<<", ">>"}) do
+            for _, t in ipairs({"{ integer }", "boolean", "string"}) do
+                for _, test in ipairs({
+                    { "left", t, "integer" },
+                    { "right", "integer", t },
+                }) do
+                    local dir, t1, t2 = test[1], test[2], test[3]
+                    optest(
+        "$dir hand side of bitwise expression is a $t instead of an integer", [[
+                        function fn(a: $t1, b: $t2): integer
+                            return a $op b
+                        end
+                    ]], { op = op, t = t, dir = dir, t1 = t1, t2 = t2 })
                 end
-            ]],
-                "cannot cast")
-        end)
-    end
+            end
+        end
+    end)
 
-    for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
-        it("cannot explicitly cast from " .. t .. " to float", function()
-            assert_type_error([[
-                function fn(a: ]] .. t .. [[): float
-                    return a as float
+    describe("arithmetic:", function()
+        for _, op in ipairs({"+", "-", "*", "//", "/", "^"}) do
+            for _, t in ipairs({"{ integer }", "boolean", "string"}) do
+                for _, test in ipairs({
+                    { "left", t, "float" },
+                    { "right", "float", t },
+                }) do
+                    local dir, t1, t2 = test[1], test[2], test[3]
+                    optest(
+        "$dir hand side of arithmetic expression is a $t instead of a number", [[
+                        function fn(a: $t1, b: $t2) : float
+                            return a $op b
+                        end
+                    ]], { op = op, t = t, dir = dir, t1 = t1, t2 = t2} )
                 end
-            ]],
-                "cannot cast")
-        end)
-    end
+            end
+        end
+    end)
 
-    for _, t in ipairs({"{integer}", "boolean", "nil", "string"}) do
-        it("cannot explicitly cast from " .. t .. " to integer", function()
-            assert_type_error([[
-                function fn(a: ]] .. t .. [[): integer
-                    return a as integer
+    describe("casting:", function()
+        local typs = {
+            "boolean", "float", "integer", "nil", "string",
+            "{ integer }", "{ float }",
+        }
+        for _, t1 in ipairs(typs) do
+            for _, t2 in ipairs(typs) do
+                if t1 ~= t2 then
+                    optest("cannot cast $t1 to $t2", [[
+                        function fn(a: $t1) : $t2
+                            return a as $t2
+                        end
+                    ]], { t1 = t1, t2 = t2 })
                 end
-            ]],
-                "cannot cast")
-        end)
-    end
-
-    for _, t in ipairs({"{integer}", "boolean", "float", "integer", "string"}) do
-        it("cannot explicitly cast from " .. t .. " to nil", function()
-            assert_type_error([[
-                function fn(a: ]] .. t .. [[): nil
-                    return a as nil
-                end
-            ]],
-                "cannot cast")
-        end)
-    end
-
-    for _, t in ipairs({"{integer}", "boolean", "nil"}) do
-        it("cannot explicitly cast from " .. t .. " to string", function()
-            assert_type_error([[
-                function fn(a: ]] .. t .. [[): string
-                    return a as string
-                end
-            ]],
-                "cannot cast")
-        end)
-    end
+            end
+        end
+    end)
 
     it("catches assignment to function", function ()
         assert_type_error([[

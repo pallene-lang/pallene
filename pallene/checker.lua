@@ -685,12 +685,12 @@ check_exp = function(exp, type_hint)
         elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
             if exp.lhs._type._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
-                    "left hand side of arithmetic expression is a %s instead of an integer",
+                    "left hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(exp.lhs._type))
             end
             if exp.rhs._type._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
-                    "right hand side of arithmetic expression is a %s instead of an integer",
+                    "right hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(exp.rhs._type))
             end
             exp._type = types.T.Integer()
@@ -738,7 +738,7 @@ check_exp = function(exp, type_hint)
         check_exp(exp.exp, target)
         if not types.consistent(exp.exp._type, target) then
             type_error(exp.loc,
-                "cannot cast '%s' to '%s'",
+                "cannot cast %s to %s",
                 types.tostring(exp.exp._type), types.tostring(target))
         end
         exp._type = target
