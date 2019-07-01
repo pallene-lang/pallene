@@ -12,10 +12,9 @@ local check_type
 local check_top_level
 local check_decl
 local check_stat
---local check_then
 local check_var
-local check_exp
---local check_field
+local check_exp_synthesize
+local check_exp_verify
 
 -- Type-check a Pallene module
 --
@@ -45,42 +44,6 @@ local function type_error(loc, fmt, ...)
     coroutine.yield(err_msg)
 end
 
--- Checks if two types are the same, and raises an error message otherwise
---   loc: location of the term that is being compared
---   expected: type that is expected
---   found: type that was actually present
---   errmsg_fmt: format string describing what part of the program is
---               responsible for this type check
---   ...: arguments to the "errmsg_fmt" format string
-local function check_match(loc, expected, found, errmsg_fmt, ...)
-    if not types.equals(expected, found) then
-        local msg = string.format(
-            "expected %s but found %s in %s",
-            types.tostring(expected),
-            types.tostring(found),
-            string.format(errmsg_fmt, ...))
-        type_error(loc, msg)
-    end
-end
-
-local function try_coerce(exp, expected, errmsg_fmt, ...)
-    local found = exp._type
-    if types.equals(found, expected) then
-        return exp
-    elseif types.consistent(found, expected) then
-        local cast = ast.Exp.Cast(exp.loc, exp, false)
-        cast._type = expected
-        return cast
-    else
-        local msg = string.format(
-            "expected %s but found %s in %s",
-            types.tostring(expected),
-            types.tostring(found),
-            string.format(errmsg_fmt, ...))
-        type_error(exp.loc, msg)
-    end
-end
-
 local function is_numeric_type(typ)
     return typ._tag == "types.T.Integer" or typ._tag == "types.T.Float"
 end
@@ -91,7 +54,7 @@ local function coerce_numeric_exp_to_float(exp)
         name._decl = builtins.tofloat
         local tofloat = ast.Exp.Var(false, name)
         local call = ast.Exp.CallFunc(false, tofloat, {exp})
-        check_exp(call, types.T.Float())
+        check_exp_synthesize(call)
         return call
     elseif exp._type._tag == "types.T.Float" then
         return exp
@@ -226,14 +189,12 @@ check_top_level = function(tl_node)
     elseif tag == "ast.Toplevel.Var" then
         if tl_node.decl.type then
             tl_node._type = check_type(tl_node.decl.type)
-            check_exp(tl_node.value, tl_node._type)
-            check_match(tl_node.loc,
-                tl_node._type, tl_node.value._type,
+            tl_node.value = check_exp_verify(tl_node.value, tl_node._type,
                 "declaration of module variable %s", tl_node.decl.name)
         else
-            check_exp(tl_node.value, false)
-            tl_node._type = tl_node.value._type
+            check_exp_synthesize(tl_node.value)
         end
+        tl_node._type = tl_node.value._type
 
     elseif tag == "ast.Toplevel.Func" then
         if #tl_node.ret_types >= 2 then
@@ -290,11 +251,10 @@ check_stat = function(stat, ret_types)
     if     tag == "ast.Stat.Decl" then
         if stat.decl.type then
             check_decl(stat.decl)
-            check_exp(stat.exp, stat.decl._type)
-            stat.exp = try_coerce(stat.exp, stat.decl._type,
+            stat.exp = check_exp_verify(stat.exp, stat.decl._type,
                 "declaration of local variable %s", stat.decl.name)
         else
-            check_exp(stat.exp, false)
+            check_exp_synthesize(stat.exp)
             stat.decl._type = stat.exp._type
             check_decl(stat.decl)
         end
@@ -305,9 +265,8 @@ check_stat = function(stat, ret_types)
         end
 
     elseif tag == "ast.Stat.While" then
-        check_exp(stat.condition, false)
-        check_match(stat.condition.loc,
-            types.T.Boolean(), stat.condition._type,
+        stat.condition = check_exp_verify(
+            stat.condition, types.T.Boolean(),
             "while loop condition")
         check_stat(stat.block, ret_types)
 
@@ -315,62 +274,53 @@ check_stat = function(stat, ret_types)
         for _, inner_stat in ipairs(stat.block.stats) do
             check_stat(inner_stat, ret_types)
         end
-        check_exp(stat.condition, false)
-        check_match(stat.condition.loc,
-            types.T.Boolean(), stat.condition._type,
+        stat.condition = check_exp_verify(
+            stat.condition, types.T.Boolean(),
             "repeat-until loop condition")
 
     elseif tag == "ast.Stat.For" then
+
         if stat.decl.type then
             check_decl(stat.decl)
+            stat.start = check_exp_verify(stat.start, stat.decl._type,
+                "numeric for-loop initializer")
         else
-            stat.decl._type = false
-        end
-
-        check_exp(stat.start, stat.decl._type)
-        check_exp(stat.limit, stat.decl._type)
-        if stat.step then
-            check_exp(stat.step, stat.decl._type)
-        end
-        if not stat.decl.type then
+            check_exp_synthesize(stat.start)
             stat.decl._type = stat.start._type
         end
+        local loop_type = stat.decl._type
 
-        if     stat.decl._type._tag == "types.T.Integer" then
-            if not stat.step then
-                stat.step = ast.Exp.Integer(stat.limit.loc, 1)
-                stat.step._type = types.T.Integer()
-            end
-        elseif stat.decl._type._tag == "types.T.Float" then
-            if not stat.step then
-                stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
-                stat.step._type = types.T.Float()
-            end
-        else
+        if  loop_type._tag ~= "types.T.Integer" and
+            loop_type._tag ~= "types.T.Float"
+        then
             type_error(stat.decl.loc,
                 "expected integer or float but found %s in for-loop control variable '%s'",
-                types.tostring(stat.decl._type),
+                types.tostring(loop_type),
                 stat.decl.name)
         end
 
-        check_match(stat.start.loc,
-            stat.decl._type, stat.start._type,
-            "numeric for-loop initializer")
-
-        check_match(stat.limit.loc,
-            stat.decl._type, stat.limit._type,
+        stat.limit = check_exp_verify(stat.limit, loop_type,
             "numeric for-loop limit")
 
-        check_match(stat.step.loc,
-            stat.decl._type, stat.step._type,
-            "numeric for-loop step")
+        if stat.step then
+            stat.step = check_exp_verify(stat.step, loop_type,
+                "numeric for-loop step")
+        else
+            if  loop_type._tag == "types.T.Integer" then
+                stat.step = ast.Exp.Integer(stat.limit.loc, 1)
+            elseif loop_type._tag == "types.T.Float" then
+                stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
+            else
+                error("impossible")
+            end
+            check_exp_synthesize(stat.step)
+        end
 
         check_stat(stat.block, ret_types)
 
     elseif tag == "ast.Stat.Assign" then
         check_var(stat.var)
-        check_exp(stat.exp, stat.var._type)
-        stat.exp = try_coerce(stat.exp, stat.var._type, "assignment")
+        stat.exp = check_exp_verify(stat.exp, stat.var._type, "assignment")
         if stat.var._tag == "ast.Var.Name" and
             stat.var._decl._tag == "ast.Toplevel.Func"
         then
@@ -380,7 +330,7 @@ check_stat = function(stat, ret_types)
         end
 
     elseif tag == "ast.Stat.Call" then
-        check_exp(stat.call_exp, false)
+        check_exp_synthesize(stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
         assert(#ret_types <= 1)
@@ -391,19 +341,15 @@ check_stat = function(stat, ret_types)
         end
 
         for i = 1, #stat.exps do
-            local exp = stat.exps[i]
-            local ret_type = ret_types[i]
-            check_exp(exp, ret_type)
-            stat.exps[i] = try_coerce(exp, ret_type, "return statement")
+            stat.exps[i] = check_exp_verify(
+                stat.exps[i], ret_types[i],
+                "return statement")
         end
 
     elseif tag == "ast.Stat.If" then
-        local cond = stat.condition
-        check_exp(cond, false)
-        check_match(cond.loc,
-            types.T.Boolean(), cond._type,
+        stat.condition = check_exp_verify(
+            stat.condition, types.T.Boolean(),
             "if statement condition")
-
         check_stat(stat.then_, ret_types)
         check_stat(stat.else_, ret_types)
 
@@ -427,7 +373,7 @@ check_var = function(var)
         end
 
     elseif tag == "ast.Var.Dot" then
-        check_exp(var.exp, false)
+        check_exp_synthesize(var.exp)
         local exp_type = var.exp._type
         if exp_type._tag == "types.T.Record" then
             local field_type = exp_type.field_types[var.name]
@@ -445,28 +391,28 @@ check_var = function(var)
         end
 
     elseif tag == "ast.Var.Bracket" then
-        check_exp(var.t, false)
-        if var.t._type._tag ~= "types.T.Array" then
+        check_exp_synthesize(var.t)
+        local arr_type = var.t._type
+        if arr_type._tag ~= "types.T.Array" then
             type_error(var.t.loc,
                 "expected array but found %s in array indexing",
-                types.tostring(var.t._type))
+                types.tostring(arr_type))
         end
-        var._type = var.t._type.elem
-        check_exp(var.k, false)
-        check_match(var.k.loc,
-            types.T.Integer(), var.k._type,
+        var.k = check_exp_verify(
+            var.k, types.T.Integer(),
             "array indexing")
+        var._type = var.t._type.elem
 
     else
         error("impossible")
     end
 end
 
--- @param type_hint Expected type; Used to infer polymorphic/record constructors.
-check_exp = function(exp, type_hint)
-    assert(type_hint ~= nil)
-
+-- Infers the type of expression @exp
+-- Returns nothing
+check_exp_synthesize = function(exp)
     local tag = exp._tag
+
     if     tag == "ast.Exp.Nil" then
         exp._type = types.T.Nil()
 
@@ -483,105 +429,44 @@ check_exp = function(exp, type_hint)
         exp._type = types.T.String()
 
     elseif tag == "ast.Exp.Initlist" then
-        -- Determining the type for a table initializer *requires* a type hint.
-        -- In theory, we could try to infer the type without a type hint for
-        -- non-empty arrays whose contents are inferrable, but I am not sure
-        -- we should treat that case differently from the others...
-        --
-        if not type_hint then
-            type_error(exp.loc,
-                "missing type hint for array or record initializer")
-        end
-
-        if type_hint._tag == "types.T.Array" then
-            for _, field in ipairs(exp.fields) do
-                if field.name then
-                    type_error(field.loc,
-                        "named field %s in array initializer",
-                        field.name)
-                end
-                local field_type = type_hint.elem
-                check_exp(field.exp, field_type)
-                check_match(field.loc,
-                    field_type, field.exp._type,
-                    "array initializer")
-            end
-
-        elseif type_hint._tag == "types.T.Record" then
-            local initialized_fields = {}
-            for _, field in ipairs(exp.fields) do
-                if not field.name then
-                    type_error(field.loc,
-                        "record initializer has array part")
-                end
-
-                if initialized_fields[field.name] then
-                    type_error(field.loc,
-                        "duplicate field %s in record initializer",
-                        field.name)
-                end
-                initialized_fields[field.name] = true
-
-                local field_type = type_hint.field_types[field.name]
-                if field_type then
-                    check_exp(field.exp, field_type)
-                    check_match(field.loc,
-                        field_type, field.exp._type,
-                        "record initializer")
-                else
-                    type_error(field.loc,
-                        "invalid field %s in record initializer for %s",
-                        field.name, types.tostring(type_hint))
-                end
-            end
-
-            for field_name, _ in pairs(type_hint.field_types) do
-                if not initialized_fields[field_name] then
-                    type_error(exp.loc,
-                        "required field %s is missing from initializer",
-                        field_name)
-                end
-            end
-        else
-            type_error(exp.loc,
-                "type hint for array or record initializer is not an array or record type")
-        end
-        exp._type = type_hint
+        type_error(exp.loc,
+            "missing type hint for array or record initializer")
 
     elseif tag == "ast.Exp.Var" then
         check_var(exp.var)
         exp._type = exp.var._type
 
     elseif tag == "ast.Exp.Unop" then
-        check_exp(exp.exp, false)
+        check_exp_synthesize(exp.exp)
+        local t = exp.exp._type
         local op = exp.op
         if op == "#" then
-            if exp.exp._type._tag ~= "types.T.Array" and exp.exp._type._tag ~= "types.T.String" then
+            if t._tag ~= "types.T.Array" and t._tag ~= "types.T.String" then
                 type_error(exp.loc,
                     "trying to take the length of a %s instead of an array or string",
-                    types.tostring(exp.exp._type))
+                    types.tostring(t))
             end
             exp._type = types.T.Integer()
         elseif op == "-" then
-            if exp.exp._type._tag ~= "types.T.Integer" and exp.exp._type._tag ~= "types.T.Float" then
+            if t._tag ~= "types.T.Integer" and t._tag ~= "types.T.Float" then
                 type_error(exp.loc,
                     "trying to negate a %s instead of a number",
-                    types.tostring(exp.exp._type))
+                    types.tostring(t))
             end
-            exp._type = exp.exp._type
+            exp._type = t
         elseif op == "~" then
-            if exp.exp._type._tag ~= "types.T.Integer" then
+            if t._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "trying to bitwise negate a %s instead of an integer",
-                    types.tostring(exp.exp._type))
+                    types.tostring(t))
             end
             exp._type = types.T.Integer()
         elseif op == "not" then
-            if exp.exp._type._tag ~= "types.T.Boolean" then
+            if t._tag ~= "types.T.Boolean" then
                 -- We are being intentionaly restrictive here w.r.t Lua
                 type_error(exp.loc,
                     "trying to boolean negate a %s instead of a boolean",
-                    types.tostring(exp.exp._type))
+                    types.tostring(t))
             end
             exp._type = types.T.Boolean()
         else
@@ -590,63 +475,65 @@ check_exp = function(exp, type_hint)
 
     elseif tag == "ast.Exp.Concat" then
         for _, inner_exp in ipairs(exp.exps) do
-            check_exp(inner_exp, false)
-            local t_exp = inner_exp._type
-            if t_exp._tag ~= "types.T.String" then
+            check_exp_synthesize(inner_exp)
+            local t = inner_exp._type
+            if t._tag ~= "types.T.String" then
                 type_error(inner_exp.loc,
-                    "cannot concatenate with %s value", types.tostring(t_exp))
+                    "cannot concatenate with %s value", types.tostring(t))
             end
         end
         exp._type = types.T.String()
 
     elseif tag == "ast.Exp.Binop" then
-        check_exp(exp.lhs, false)
-        check_exp(exp.rhs, false)
+        check_exp_synthesize(exp.lhs); local t1 = exp.lhs._type
+        check_exp_synthesize(exp.rhs); local t2 = exp.rhs._type
         local op = exp.op
         if op == "==" or op == "~=" then
-            if (exp.lhs._type._tag == "types.T.Integer" and exp.rhs._type._tag == "types.T.Float") or
-               (exp.lhs._type._tag == "types.T.Float"   and exp.rhs._type._tag == "types.T.Integer") then
+            if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
+               (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
                 -- note: use Lua's implementation of comparison, don't just cast to float
             end
-            if not types.equals(exp.lhs._type, exp.rhs._type) then
+            if not types.equals(t1, t2) then
                 type_error(exp.loc,
                     "cannot compare %s and %s using %s",
-                    types.tostring(exp.lhs._type), types.tostring(exp.rhs._type), op)
+                    types.tostring(t1), types.tostring(t2), op)
             end
             exp._type = types.T.Boolean()
+
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            if (exp.lhs._type._tag == "types.T.Integer" and exp.rhs._type._tag == "types.T.Integer") or
-               (exp.lhs._type._tag == "types.T.Float"   and exp.rhs._type._tag == "types.T.Float") or
-               (exp.lhs._type._tag == "types.T.String"  and exp.rhs._type._tag == "types.T.String") then
+            if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Integer") or
+               (t1._tag == "types.T.Float"   and t2._tag == "types.T.Float") or
+               (t1._tag == "types.T.String"  and t2._tag == "types.T.String") then
                -- OK
-            elseif (exp.lhs._type._tag == "types.T.Integer" and exp.rhs._type._tag == "types.T.Float") or
-                   (exp.lhs._type._tag == "types.T.Float"   and exp.rhs._type._tag == "types.T.Integer") then
+            elseif (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
+                   (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
+                -- note: use Lua's implementation of comparison, don't just cast to float
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
-                -- note: use Lua's implementation of comparison, don't just cast to float
             else
                 type_error(exp.loc,
                     "cannot compare %s and %s using %s",
-                    types.tostring(exp.lhs._type), types.tostring(exp.rhs._type), op)
+                    types.tostring(t1), types.tostring(t2), op)
             end
             exp._type = types.T.Boolean()
 
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
-            if not is_numeric_type(exp.lhs._type) then
+            if not is_numeric_type(t1) then
                 type_error(exp.loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(exp.lhs._type))
+                    types.tostring(t1))
             end
-            if not is_numeric_type(exp.rhs._type) then
+            if not is_numeric_type(t2) then
                 type_error(exp.loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(exp.rhs._type))
+                    types.tostring(t2))
             end
 
-            if exp.lhs._type._tag == "types.T.Integer" and
-               exp.rhs._type._tag == "types.T.Integer" then
+            if t1._tag == "types.T.Integer" and
+               t2._tag == "types.T.Integer"
+            then
                 exp._type = types.T.Integer()
             else
                 exp.lhs = coerce_numeric_exp_to_float(exp.lhs)
@@ -655,15 +542,15 @@ check_exp = function(exp, type_hint)
             end
 
         elseif op == "/" or op == "^" then
-            if not is_numeric_type(exp.lhs._type) then
+            if not is_numeric_type(t1) then
                 type_error(exp.loc,
                     "left hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(exp.lhs._type))
+                    types.tostring(t1))
             end
-            if not is_numeric_type(exp.rhs._type) then
+            if not is_numeric_type(t2) then
                 type_error(exp.loc,
                     "right hand side of arithmetic expression is a %s instead of a number",
-                    types.tostring(exp.rhs._type))
+                    types.tostring(t2))
             end
 
             exp.lhs = coerce_numeric_exp_to_float(exp.lhs)
@@ -671,29 +558,31 @@ check_exp = function(exp, type_hint)
             exp._type = types.T.Float()
 
         elseif op == "and" or op == "or" then
-            if exp.lhs._type._tag ~= "types.T.Boolean" then
+            if t1._tag ~= "types.T.Boolean" then
                 type_error(exp.loc,
                     "left hand side of logical expression is a %s instead of a boolean",
-                    types.tostring(exp.lhs._type))
+                    types.tostring(t1))
             end
-            if exp.rhs._type._tag ~= "types.T.Boolean" then
+            if t2._tag ~= "types.T.Boolean" then
                 type_error(exp.loc,
                     "right hand side of logical expression is a %s instead of a boolean",
-                    types.tostring(exp.rhs._type))
+                    types.tostring(t2))
             end
             exp._type = types.T.Boolean()
+
         elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
-            if exp.lhs._type._tag ~= "types.T.Integer" then
+            if t1._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "left hand side of bitwise expression is a %s instead of an integer",
-                    types.tostring(exp.lhs._type))
+                    types.tostring(t1))
             end
-            if exp.rhs._type._tag ~= "types.T.Integer" then
+            if t2._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "right hand side of bitwise expression is a %s instead of an integer",
-                    types.tostring(exp.rhs._type))
+                    types.tostring(t2))
             end
             exp._type = types.T.Integer()
+
         else
             error("impossible")
         end
@@ -702,7 +591,7 @@ check_exp = function(exp, type_hint)
         local f_exp = exp.exp
         local args = exp.args
 
-        check_exp(f_exp, false)
+        check_exp_synthesize(f_exp)
         local f_type = f_exp._type
 
         if f_type._tag == "types.T.Function" then
@@ -712,10 +601,7 @@ check_exp = function(exp, type_hint)
                     #f_type.params, #args)
             end
             for i = 1, math.min(#f_type.params, #args) do
-                local p_type = f_type.params[i]
-                local arg = args[i]
-                check_exp(arg, p_type)
-                args[i] = try_coerce(arg, p_type,
+                args[i] = check_exp_verify(args[i], f_type.params[i],
                     "argument %d of call to function", i)
             end
             assert(#f_type.ret_types <= 1)
@@ -734,17 +620,106 @@ check_exp = function(exp, type_hint)
         error("not implemented")
 
     elseif tag == "ast.Exp.Cast" then
-        local target = check_type(exp.target)
-        check_exp(exp.exp, target)
-        if not types.consistent(exp.exp._type, target) then
+        local dst_t = check_type(exp.target)
+        check_exp_synthesize(exp.exp)
+        local src_t = exp.exp._type
+        if not types.consistent(src_t, dst_t) then
             type_error(exp.loc,
                 "cannot cast %s to %s",
-                types.tostring(exp.exp._type), types.tostring(target))
+                types.tostring(src_t), types.tostring(dst_t))
         end
-        exp._type = target
+        exp._type = dst_t
 
     else
         error("impossible")
+    end
+end
+
+-- Verifies that expression @exp has type expected_type.
+-- Returnsthe typechecked expression. This may be either be the original
+-- expression, or a coersion node from the original expression to the expected
+-- type.
+--
+-- errmsg_fmt: format string describing what part of the program is
+--             responsible for this type check
+-- ...: arguments to the "errmsg_fmt" format string
+check_exp_verify = function(exp, expected_type, errmsg_fmt, ...)
+    local tag = exp._tag
+
+    if tag == "ast.Exp.Initlist" then
+
+        if expected_type._tag == "types.T.Array" then
+            for _, field in ipairs(exp.fields) do
+                if field.name then
+                    type_error(field.loc,
+                        "named field %s in array initializer",
+                        field.name)
+                end
+                field.exp = check_exp_verify(
+                    field.exp, expected_type.elem,
+                    "array initializer")
+            end
+
+        elseif expected_type._tag == "types.T.Record" then
+            local initialized_fields = {}
+            for _, field in ipairs(exp.fields) do
+                if not field.name then
+                    type_error(field.loc,
+                        "record initializer has array part")
+                end
+
+                if initialized_fields[field.name] then
+                    type_error(field.loc,
+                        "duplicate field %s in record initializer",
+                        field.name)
+                end
+                initialized_fields[field.name] = true
+
+                local field_type = expected_type.field_types[field.name]
+                if not field_type then
+                    type_error(field.loc,
+                        "invalid field %s in record initializer for %s",
+                        field.name, types.tostring(expected_type))
+                end
+
+                field.exp = check_exp_verify(
+                    field.exp, field_type,
+                    "record initializer")
+            end
+
+            for field_name, _ in pairs(expected_type.field_types) do
+                if not initialized_fields[field_name] then
+                    type_error(exp.loc,
+                        "required field %s is missing from initializer",
+                        field_name)
+                end
+            end
+        else
+            type_error(exp.loc,
+                "type hint for array or record initializer is not an array or record type")
+        end
+
+        exp._type = expected_type
+        return exp
+
+    else
+
+        check_exp_synthesize(exp)
+        local found_type = exp._type
+
+        if types.equals(found_type, expected_type) then
+            return exp
+        elseif types.consistent(found_type, expected_type) then
+            local cast = ast.Exp.Cast(exp.loc, exp, false)
+            cast._type = expected_type
+            return cast
+        else
+            type_error(exp.loc, string.format(
+                "expected %s but found %s in %s",
+                types.tostring(expected_type),
+                types.tostring(found_type),
+                string.format(errmsg_fmt, ...)))
+        end
     end
 end
 

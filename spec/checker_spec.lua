@@ -250,7 +250,7 @@ describe("Pallene type checker", function()
     it("ensures numeric 'for' variable has number type", function()
         assert_type_error([[
             function fn(x: integer, s: string): integer
-                for i: string = 1, 10, 2 do
+                for i: string = "hello", 10, 2 do
                     x = x + i
                 end
                 return x
