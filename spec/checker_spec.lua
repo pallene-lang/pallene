@@ -47,7 +47,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("array expression in indexing is not an array", errs)
+        assert.match("expected array but found integer in array indexing", errs)
     end)
 
     it("catches wrong use of length operator", function()
@@ -99,7 +99,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("integer is not assignable to string", errs)
+        assert.match("expected string but found integer in assignment", errs)
     end)
 
     it("catches mismatching types in arguments", function()
@@ -109,7 +109,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("integer is not assignable to string", errs)
+        assert.match("expected string but found integer in assignment", errs)
     end)
 
     it("forbids empty array (without type annotation)", function()
@@ -141,7 +141,7 @@ describe("Pallene type checker", function()
             local xs: {integer} = {10, "hello"}
         ]])
         assert.falsy(prog_ast)
-        assert.matches("expected integer but found string", errs)
+        assert.matches("expected integer but found string in array initializer", errs)
     end)
 
     it("forbids record creation (without type annotation)", function()
@@ -165,7 +165,7 @@ describe("Pallene type checker", function()
             local p: Point = { x = 10.0, y = "hello" }
         ]])
         assert.falsy(prog_ast)
-        assert.matches("expected float but found string", errs)
+        assert.matches("expected float but found string in record initializer", errs)
     end)
 
     it("forbids wrong field name in record initializer", function()
@@ -243,7 +243,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.matches("types in while statement condition do not match, expected boolean but found integer", errs)
+        assert.matches("expected boolean but found integer in while loop condition", errs)
     end)
 
     it("requires repeat statement conditions to be boolean", function()
@@ -256,7 +256,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.matches("types in repeat statement condition do not match, expected boolean but found integer", errs)
+        assert.matches("expected boolean but found integer in repeat%-until loop condition", errs)
     end)
 
     it("requires if statement conditions to be boolean", function()
@@ -270,10 +270,10 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.matches("types in if statement condition do not match, expected boolean but found integer", errs)
+        assert.matches("expected boolean but found integer in if statement condition", errs)
     end)
 
-    it("ensures numeric 'for' variable has number type (with annotation)", function()
+    it("ensures numeric 'for' variable has number type", function()
         local prog_ast, errs = run_checker([[
             function fn(x: integer, s: string): integer
                 for i: string = 1, 10, 2 do
@@ -283,22 +283,8 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("control variable", errs)
+        assert.match("expected integer or float but found string in for%-loop control variable 'i'", errs)
     end)
-
-    it("ensures numeric 'for' variable has number type (without annotation)", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer, s: string): integer
-                for i = s, 10, 2 do
-                    x = x + i
-                end
-                return x
-            end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("control variable", errs)
-    end)
-
 
     it("catches 'for' errors in the start expression", function()
         local prog_ast, errs = run_checker([[
@@ -310,9 +296,8 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("numeric for loop initializer", errs)
+        assert.match("expected integer but found string in numeric for%-loop initializer", errs)
     end)
-
 
     it("catches 'for' errors in the limit expression", function()
         local prog_ast, errs = run_checker([[
@@ -324,7 +309,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("numeric for loop limit", errs)
+        assert.match("expected integer but found string in numeric for%-loop limit", errs)
     end)
 
     it("catches 'for' errors in the step expression", function()
@@ -337,7 +322,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("numeric for loop step", errs)
+        assert.match("expected integer but found string in numeric for%-loop step", errs)
     end)
 
     it("detects too many return values", function()
@@ -371,7 +356,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("return statement: string is not assignable to intege", errs)
+        assert.match("expected integer but found string in return statement", errs)
     end)
 
     it("detects missing return statements", function()
@@ -464,7 +449,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("float is not assignable to integer", errs,nil, true)
+        assert.match("expected integer but found float in argument 1 of call to function", errs)
     end)
 
     it("cannot concatenate with boolean", function()
@@ -506,7 +491,7 @@ describe("Pallene type checker", function()
                 end
             ]])
             assert.falsy(prog_ast)
-            assert.match("cannot compare .* and .* with .*", errs)
+            assert.match("cannot compare .* and .* using .*", errs)
         end)
     end
 
@@ -521,7 +506,7 @@ describe("Pallene type checker", function()
                             end
                         ]])
                         assert.falsy(prog_ast)
-                        assert.match("cannot compare .* and .* with .*", errs)
+                        assert.match("cannot compare .* and .* using .*", errs)
                     end)
                 end
             end
@@ -537,7 +522,7 @@ describe("Pallene type checker", function()
                     end
                 ]])
                 assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* with .*", errs)
+                assert.match("cannot compare .* and .* using .*", errs)
             end)
         end
     end
@@ -551,7 +536,7 @@ describe("Pallene type checker", function()
                     end
                 ]])
                 assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* with .*", errs)
+                assert.match("cannot compare .* and .* using .*", errs)
             end)
         end
     end
@@ -565,7 +550,7 @@ describe("Pallene type checker", function()
                     end
                 ]])
                 assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* with .*", errs)
+                assert.match("cannot compare .* and .* using .*", errs)
             end)
         end
     end
@@ -579,7 +564,7 @@ describe("Pallene type checker", function()
                     end
                 ]])
                 assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* with .*", errs)
+                assert.match("cannot compare .* and .* using .*", errs)
             end)
         end
     end
@@ -593,7 +578,7 @@ describe("Pallene type checker", function()
                     end
                 ]])
                 assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* with .*", errs)
+                assert.match("cannot compare .* and .* using .*", errs)
             end)
         end
     end
@@ -607,7 +592,7 @@ describe("Pallene type checker", function()
                     end
                 ]])
                 assert.falsy(prog_ast)
-                assert.match("cannot compare .* and .* with .*", errs)
+                assert.match("cannot compare .* and .* using .*", errs)
             end)
         end
     end
@@ -622,7 +607,7 @@ describe("Pallene type checker", function()
                         end
                     ]])
                     assert.falsy(prog_ast)
-                    assert.match("cannot compare .* and .* with .*", errs)
+                    assert.match("cannot compare .* and .* using .*", errs)
                 end)
             end
         end
@@ -790,7 +775,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("integer is not assignable to string", errs, nil, true)
+        assert.match("expected string but found integer in argument 1", errs, nil, true)
     end)
 
     it("typechecks table.insert (error)", function()
@@ -800,7 +785,7 @@ describe("Pallene type checker", function()
             end
         ]])
         assert.falsy(prog_ast)
-        assert.match("string is not assignable to { value }", errs, nil, true)
+        assert.match("expected { value } but found string in argument 1", errs, nil, true)
     end)
 end)
 
@@ -825,9 +810,9 @@ describe("Pallene typecheck of records", function()
     end)
 
     it("doesn't typecheck read/write with invalid types", function()
-        assert_type_error("Point is not assignable to float",
+        assert_type_error("expected float but found Point in assignment",
                           wrap_record[[ p.x = p ]])
-        assert_type_error("float is not assignable to Point",
+        assert_type_error("expected Point but found float in declaration",
                           wrap_record[[ local p: Point = p.x ]])
     end)
 end)

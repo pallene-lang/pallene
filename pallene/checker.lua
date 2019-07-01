@@ -55,10 +55,10 @@ end
 local function check_match(loc, expected, found, errmsg_fmt, ...)
     if not types.equals(expected, found) then
         local msg = string.format(
-            "types in %s do not match, expected %s but found %s",
-            string.format(errmsg_fmt, ...),
+            "expected %s but found %s in %s",
             types.tostring(expected),
-            types.tostring(found))
+            types.tostring(found),
+            string.format(errmsg_fmt, ...))
         type_error(loc, msg)
     end
 end
@@ -73,10 +73,10 @@ local function try_coerce(exp, expected, errmsg_fmt, ...)
         return cast
     else
         local msg = string.format(
-            "%s: %s is not assignable to %s",
-            string.format(errmsg_fmt, ...),
+            "expected %s but found %s in %s",
+            types.tostring(expected),
             types.tostring(found),
-            types.tostring(expected))
+            string.format(errmsg_fmt, ...))
         type_error(exp.loc, msg)
     end
 end
@@ -308,7 +308,7 @@ check_stat = function(stat, ret_types)
         check_exp(stat.condition, false)
         check_match(stat.condition.loc,
             types.T.Boolean(), stat.condition._type,
-            "while statement condition")
+            "while loop condition")
         check_stat(stat.block, ret_types)
 
     elseif tag == "ast.Stat.Repeat" then
@@ -318,7 +318,7 @@ check_stat = function(stat, ret_types)
         check_exp(stat.condition, false)
         check_match(stat.condition.loc,
             types.T.Boolean(), stat.condition._type,
-            "repeat statement condition")
+            "repeat-until loop condition")
 
     elseif tag == "ast.Stat.For" then
         if stat.decl.type then
@@ -348,21 +348,22 @@ check_stat = function(stat, ret_types)
             end
         else
             type_error(stat.decl.loc,
-                "type of for control variable %s must be integer or float",
+                "expected integer or float but found %s in for-loop control variable '%s'",
+                types.tostring(stat.decl._type),
                 stat.decl.name)
         end
 
         check_match(stat.start.loc,
             stat.decl._type, stat.start._type,
-            "numeric for loop initializer")
+            "numeric for-loop initializer")
 
         check_match(stat.limit.loc,
             stat.decl._type, stat.limit._type,
-            "numeric for loop limit")
+            "numeric for-loop limit")
 
         check_match(stat.step.loc,
             stat.decl._type, stat.step._type,
-            "numeric for loop step")
+            "numeric for-loop step")
 
         check_stat(stat.block, ret_types)
 
@@ -447,7 +448,7 @@ check_var = function(var)
         check_exp(var.t, false)
         if var.t._type._tag ~= "types.T.Array" then
             type_error(var.t.loc,
-                "array expression in indexing is not an array but %s",
+                "expected array but found %s in array indexing",
                 types.tostring(var.t._type))
         end
         var._type = var.t._type.elem
@@ -611,7 +612,7 @@ check_exp = function(exp, type_hint)
             end
             if not types.equals(exp.lhs._type, exp.rhs._type) then
                 type_error(exp.loc,
-                    "cannot compare %s and %s with %s",
+                    "cannot compare %s and %s using %s",
                     types.tostring(exp.lhs._type), types.tostring(exp.rhs._type), op)
             end
             exp._type = types.T.Boolean()
@@ -627,7 +628,7 @@ check_exp = function(exp, type_hint)
                 -- note: use Lua's implementation of comparison, don't just cast to float
             else
                 type_error(exp.loc,
-                    "cannot compare %s and %s with %s",
+                    "cannot compare %s and %s using %s",
                     types.tostring(exp.lhs._type), types.tostring(exp.rhs._type), op)
             end
             exp._type = types.T.Boolean()
