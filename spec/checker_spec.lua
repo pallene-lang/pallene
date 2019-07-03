@@ -523,7 +523,7 @@ describe("Pallene type checker", function()
         for _, t1 in ipairs(typs) do
             for _, t2 in ipairs(typs) do
                 if t1 ~= t2 then
-                    optest("cannot cast $t1 to $t2", [[
+                    optest("expected $t2 but found $t1 in cast expression", [[
                         function fn(a: $t1) : $t2
                             return a as $t2
                         end

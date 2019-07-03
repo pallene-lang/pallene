@@ -621,14 +621,15 @@ check_exp_synthesize = function(exp)
 
     elseif tag == "ast.Exp.Cast" then
         local dst_t = check_type(exp.target)
-        check_exp_synthesize(exp.exp)
-        local src_t = exp.exp._type
-        if not types.consistent(src_t, dst_t) then
-            type_error(exp.loc,
-                "cannot cast %s to %s",
-                types.tostring(src_t), types.tostring(dst_t))
-        end
+        exp.exp = check_exp_verify(exp.exp, dst_t, "cast expression")
         exp._type = dst_t
+
+        -- Remove redundant cast node if there is one
+        while exp.exp._tag == "ast.Exp.Cast" and
+            types.equals(exp.exp._type, dst_t)
+        do
+            exp.exp = exp.exp.exp
+        end
 
     else
         error("impossible")
