@@ -5,22 +5,24 @@ This is a work in progress, so if you have any questions or suggestions, or if s
 
 ## A brief overview of Pallene
 
-Pallene is a statically-typed companion langage to Lua.
+Pallene is a statically-typed companion language to Lua.
 Pallene functions can be called from Lua and can call Lua functions. 
 At a first glance, Pallene code looks similar to Lua, but with type annotations.
 
 Here is an example Pallene program for summing the elements in an array of floating-point numbers.
-Note that type anotations are required for function argument and return types but for local variable declarations Pallene can often infer the types.
+Note that type annotations are required for function argument and return types but for local variable declarations Pallene can often infer the types.
 
-    function sum(xs:{float}): float
-        local r = 0.0
-        for i = 1, #xs do
-            r = r + xs[i]
-        end
+```
+function sum_floats(xs:{float}): float
+    local r = 0.0
+    for i = 1, #xs do
+        r = r + xs[i]
     end
+    return r
+end
+```
 
 If we pass this `sum.pln` file to the `pallenec` compiler, it will output a `sum.so` Lua extension module:
-
 
     $ ./pallenec sum.pln
 
@@ -62,16 +64,20 @@ Array types in Pallene have the form `{ t }`, where `t` is any Pallene type (inc
 
 Pallene arrays are implemented as Lua tables, and Pallene also uses the same syntax for array creation:
 
-    local xs:{integer} = {10, 20, 30}
+    local xs:{float} = {1.0, 2.0, 3.0}
 
-One important thing to know about array literals in Pallene is that they must be acompanied by a type annotation.
-Pallene cannot infer their type otherwise
+Unlike Lua, reading from an "out of bounds" index produces a run-time type error instead of returning `nil`.
+
+One important thing to know about array literals in Pallene is that they must be accompanied by a type annotation.
+Pallene cannot infer their type otherwise because expressions like the empty list `{}` don't have an obvious best type.
 
     -- This produces a compile-time error
     -- "missing type hint for array or record initializer"
-    local xs = {10, 20, 30}
+    local xs = {1.0, 2.0, 3.0}
 
-Reading from an "out of bounds" index produces a run-time type error instead of returning `nil`.
+Nevertheless, Pallene is still able to infer then type of an  array literal if they appear as an argument to a function, or in another position in the program that has a known expected type.
+
+    local result = sum_floats({1.0, 2.0, 3.0})
 
 ### Functions
 
@@ -115,70 +121,50 @@ That said, Pallene objects do carry a metatable that allows you to still use the
 ### Value
 
 Variables of type `value` can store any Lua or Pallene value.
-This is a limited form of dynamic typing.
 
-    local x: value = 10
-    x = "hello"
+```
+local x: value = 10
+x = "hello"
+```
 
-Similarly, arrays of values can store values of varied types
+Similarly, arrays of `value` can store values of varied types
 
-    local xs: {value} = {}
-    xs[1] = 10
-    xs[2] = "hello"
+```
+local xs: {value} = {10, "hello", 3.14}
+```
 
-Pallene automatically coerces to and from the `value` type in parts of the program that have type annotations.
-That is, variable assignments, explicit coercions with the `as` operator, and in the parameters and return values of functions.
-These coercions between value-compatible types are the only place where Pallene does type coercions.
+Upcasting a Pallene value to the `value` type always succeeds.
+Pallene also allows you to downcast from `value` to other types.
+This is checked at run-time, and may result in a run-time type error.
 
-    function insert(xs:{value}, v:value)
-        xs[#xs+1] = v
-    end
+```
+local v = (17 as value)
+local s = (v as string)  -- run-time error: v is not a string
+```
 
-    function main()
-        -- Since {integer} can be coerced to {value} and 
-        -- integer can be coerced to value, this call to insert succeeds
-        local ns: {integer} = {10,20,30}
-        insert(ns, 40)
+The `value` type allows allows for a limited form of dynamic typing.
+The main difference compared to Lua is that Pallene does not allow you to perform any operations on a `value`.
+You may pass a `value` to a functions and you may store it in an array but you cannot call it, index it, or use it in an arithmetic operation:
 
-        -- Insert can also be called on different types of arrays
-        local ss: {string} = {"hello", "world"}
-        insert(ss, "!")
-
-        -- The first argument of insert must be an array of some type, however
-        -- the type signature for insert does not require that the type of
-        -- the value match the type of the array. These insertions not only are
-        -- allowed but they succeed without errors at run-time. They will only
-        -- be detected when the offending values are read from the array.
-        insert(ns, "boom!")
-        insert(ss, 17)
-    end
-
-The upcasts to value always suceed but the downcasts may produce a run-time type error.
-
-    local v : value   = 17
-    local s : string  = v   -- run-time error: v is not a string
-
-The `value` type offers a limited form of dynamic typing.
-The main difference compared to Lua is that you are in Pallene does not allow you to perform any operations on a `value`.
-You may pass a `value` to a functions and you may store it in an array but you cannot call, index or pass it to an arithmetic operator:
-
-
-    local v = (17 as value)
-    local w = (18 as value)
-    local z = v + w         -- compile-time type error: Cannot add two values
-
+```
+function f(x: value, y: value) : value
+    return x + y        -- compile-time type error: Cannot add two values
+end
+```
 
 You must first downcast the `value` to the appropriate type.
+Sometimes the Pallene compiler can do this automatically for you but in other situations you may need to use an explicit type annotation.
 The reason for this is that, for performance, Pallene must know at compile-time what version of the arithmetic operator to use at run-time.
 
-    local v = (17 as value)
-    local w = (18 as value)
-    local z = (x as integer) + (y as integer)
-
+```
+function f(x: value, y: value) : integer
+    return (x as integer) + (y as integer)
+end
+```
 
 ## Structure of a Pallene module
 
-A Pallene module, consists of a sequence of type declarations, module-local constants, and function defitions.
+A Pallene module consists of a sequence of type declarations, module-local constants, and function definitions.
 They must appear in this order.
 
 ```
@@ -224,6 +210,78 @@ The only difference is that the type system is more restrictive:
 * The condition for `if`, `while` and `repeat` must be a boolean
 * Relational operators (`==`, `<`, etc) must receive two arguments of the same type.
 * The arithmetic and concatenation operators don't automatically coerce between numbers and strings.
+
+## Type annotations and type inference
+
+Pallene is a statically-typed language, which means that every variable and expression has a known type, determined at compilation time.
+Sometimes this may be the catch-all type `value`, but it is still known at compilation time.
+Similarly to most other statically-typed languages, Pallene allows you to add type annotations to variables, functions, and expressions.
+(This is one of the few syntactical differences between Lua and Pallene.)
+Pallene type annotations for variables and functions are written using semicolons.
+For expressions the semicolon is already used for method calls, so Pallene uses the `as` operator instead.
+
+```
+function foo(x : value) : integer
+   local y : integer = (x as integer)
+   return y + y
+end
+```
+
+Unlike languages like C or Java, Pallene does not require type annotations on every variable.
+It uses a bidirectional type-checking system that is able to infer the types of almost all variables and expressions.
+Roughly speaking, you must include type annotations for the parameters and return types of toplevel functions, and almost everything else can be inferred from that.
+For example, notice how the `sum_floats` from the Brief Overview section does not include a type annotation for the `result` and `i` variables.
+
+### Automatic type coercions
+
+In some places in a Pallene program there is a natural "expected type".
+For example, the type of the condition of an if-statement is expected to be a boolean,
+and the type of a parameter being passed to a function is expected to be the type described by the corresponding function type.
+Similarly, there is also an expected type for expressions surrounded by a type annotation, or values being assigned to a variable of known type.
+
+If the expected type of an expression is `value` but the inferred type is something else, Pallene will automatically insert an upcast to `value`.
+Similarly, if the inferred type is `value` but the expected type is something else, Pallene will insert a downcast from `value`.
+For instance, one of the code examples from the Value section of this manual can be rewritten to use automatic coercions as follows:
+
+```
+local v : value  = 17
+local s : string = v
+```
+
+In addition to allowing conversions to and from `value`, Pallene also makes implicit conversions to and from types that contain value in compatible ways.
+For example, `{ value }` and `{ integer }` are considered to be compatible, and one may be used where the other is expected.
+Similar, for function types `integer -> integer`, `value -> integer`, `integer -> value`, and `value -> value` are all compatible with each other.
+These automatic coercions between array and function types never fail at run-time.
+
+To illustrate this, consider the following function for inserting an element in a list.
+
+
+```
+function insert(xs:{value}, v:value)
+    xs[#xs+1] = v
+end
+```
+
+Since the parameter to the insert function is an array of `value`, we can use it to add elements to lists of any type:
+
+```
+local ns: {integer} = {10,20,30}
+insert(ns, 40)
+
+local ss: {string} = {"hello"}
+insert(ss, "world")
+```
+
+However, the insert function only guarantees that its first parameter is an array.
+If the input is an homogeneous array, the insert function does not ensure that the value being inserted has the same type.
+If a value of the "wrong" type is inserted, this will only be noticed when attempting to read from the array.
+
+```
+local ns: {integer} = {10, 20, 30}
+insert(ns, "boom!")
+local x1 : integer = ns[1]
+local x2 : integer = ns[4] -- run-time error
+```
 
 ## The Complete Syntax of Pallene
 
