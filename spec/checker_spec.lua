@@ -1,17 +1,10 @@
-local ast = require 'pallene.ast'
 local driver = require 'pallene.driver'
-local types = require 'pallene.types'
 local util = require 'pallene.util'
 
 local function run_checker(code)
     assert(util.set_file_contents("test.pln", code))
     local prog_ast, errs = driver.test_ast("checker", "test.pln")
     return prog_ast, table.concat(errs, "\n")
-end
-
-local function assert_type_check(code)
-    local prog_ast, errs = run_checker(code)
-    assert.truthy(prog_ast, errs)
 end
 
 local function assert_type_error(expected, code)
@@ -47,59 +40,6 @@ describe("Pallene type checker", function()
         assert.match("'Point' isn't a value", errs)
     end)
 
-    it("for loop iteration variables don't shadow var limit and step", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                local i: string = "asdfg"
-                for i = 1, #i do
-                    x = x + i
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("allows constant variable initialization", function()
-        assert_type_check([[ local x1 = nil ]])
-        assert_type_check([[ local x2 = false ]])
-        assert_type_check([[ local x3 = 11 ]])
-        assert_type_check([[ local x4 = 1.1 ]])
-        assert_type_check([[ local x5 = "11" ]])
-        assert_type_check([[ local x6: {integer} = {} ]])
-        assert_type_check([[ local x7: {integer} = {1, 2} ]])
-        assert_type_check([[ local x8 = "a" .. 10 ]])
-        assert_type_check([[ local x9 = 1 + 2 ]])
-        assert_type_check([[ local x10 = not false ]])
-        assert_type_check([[ local x11 = 10.1 ]])
-    end)
-
-    it("allows non constant variable initialization", function()
-        assert_type_check([[
-            function f(): integer
-                return 10
-            end
-            local x = f() ]])
-        assert_type_check([[
-            local x = 10
-            local y = x ]])
-        assert_type_check([[
-            local x = 10
-            local y = -x ]])
-        assert_type_check([[
-            local x = 10
-            local y = 10 + x ]])
-        assert_type_check([[
-            local x = "b"
-            local y = "a" .. x ]])
-        assert_type_check([[
-            local x = 10
-            local y: integer = x ]])
-        assert_type_check([[
-            local x = 10
-            local y: {integer} = {x} ]])
-    end)
-
     it("catches array expression in indexing is not an array", function()
         local prog_ast, errs = run_checker([[
             function fn(x: integer)
@@ -108,15 +48,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.match("array expression in indexing is not an array", errs)
-    end)
-
-    it("accepts correct use of length operator", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: {integer}): integer
-                return #x
-            end
-        ]])
-        assert(prog_ast, errs)
     end)
 
     it("catches wrong use of length operator", function()
@@ -171,18 +102,6 @@ describe("Pallene type checker", function()
         assert.match("integer is not assignable to string", errs)
     end)
 
-    it("function can call another function", function()
-        local prog_ast, errs = run_checker([[
-            function fn1()
-            end
-
-            function fn2()
-              fn1()
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
     it("catches mismatching types in arguments", function()
         local prog_ast, errs = run_checker([[
             function fn(i: integer, s: string): integer
@@ -191,27 +110,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.match("integer is not assignable to string", errs)
-    end)
-
-    it("can create empty array (with type annotation)", function()
-        local prog_ast, errs = run_checker([[
-            local xs: {integer} = {}
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("can create non-empty array (with type annotation)", function()
-        local prog_ast, errs = run_checker([[
-            local xs: {integer} = {10, 20, 30}
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("can create array of array (with type annotation)", function()
-        local prog_ast, errs = run_checker([[
-            local xs: {{integer}} = {{10,20}, {30,40}}
-        ]])
-        assert(prog_ast, errs)
     end)
 
     it("forbids empty array (without type annotation)", function()
@@ -244,46 +142,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.matches("expected integer but found string", errs)
-    end)
-
-    it("can create record (with type annotation)", function()
-        local prog_ast, errs = run_checker([[
-            record Point
-                x: float
-                y: float
-            end
-            local p: Point = { x = 10.0, y = 20.0 }
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("can create array of record (with type annotation)", function()
-        local prog_ast, errs = run_checker([[
-            record Point
-                x: float
-                y: float
-            end
-            local ps: {Point} = {
-                { x = 10.0, y = 20.0 },
-                { x = 30.0, y = 40.0 },
-            }
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("can create record of record (with type annotation)", function()
-        local prog_ast, errs = run_checker([[
-            record Point
-                x: float
-                y: float
-            end
-            record Circle
-                center: Point
-                radius: float
-            end
-            local c: Circle = { center = { x = 10.0, y = 20.0 }, radius = 5.0 }
-        ]])
-        assert(prog_ast, errs)
     end)
 
     it("forbids record creation (without type annotation)", function()
@@ -375,67 +233,6 @@ describe("Pallene type checker", function()
             errs, nil, true)
     end)
 
-    it("type-checks numeric 'for' (integer, implicit step)", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                for i:integer = 1, 10 do
-                    x = x + 1
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("type-checks numeric 'for' (integer, explicit step)", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                for i:integer = 1, 10, 2 do
-                    x = x + i
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("type-checks numeric 'for' (float, implicit step)", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: float): float
-                for i:float = 1.0, 10.0 do
-                    x = x + i
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("type-checks numeric 'for' (float, explicit step)", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: float): float
-                for i:float = 1.0, 10.0, 2.0 do
-                    x = x + i
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("type-checks 'while'", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                local i: integer = 15
-                while x < 100 do
-                    x = x + i
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
     it("requires while statement conditions to be boolean", function()
         local prog_ast, errs = run_checker([[
             function fn(x:integer): integer
@@ -449,20 +246,7 @@ describe("Pallene type checker", function()
         assert.matches("types in while statement condition do not match, expected boolean but found integer", errs)
     end)
 
-    it("type-checks 'repeat'", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                local i: integer = 15
-                repeat
-                    x = x + i
-                until x >= 100
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-     it("requires repeat statement conditions to be boolean", function()
+    it("requires repeat statement conditions to be boolean", function()
         local prog_ast, errs = run_checker([[
             function fn(x:integer): integer
                 repeat
@@ -473,23 +257,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.matches("types in repeat statement condition do not match, expected boolean but found integer", errs)
-    end)
-
-    it("type-checks 'if'", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                local i: integer = 15
-                if x < 100 then
-                    x = x + i
-                elseif x > 100 then
-                    x = x - i
-                else
-                    x = 100
-                end
-                return x
-            end
-        ]])
-        assert(prog_ast, errs)
     end)
 
     it("requires if statement conditions to be boolean", function()
@@ -504,20 +271,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.matches("types in if statement condition do not match, expected boolean but found integer", errs)
-    end)
-
-    it("checks code inside the 'while' block", function()
-        local prog_ast, errs = run_checker([[
-            function fn(x: integer): integer
-                local i: integer = 15
-                while i > 0 do
-                    local s: string = i
-                end
-                return x
-            end
-        ]])
-        assert.falsy(prog_ast)
-        assert.match("integer is not assignable to string", errs)
     end)
 
     it("ensures numeric 'for' variable has number type (with annotation)", function()
@@ -609,24 +362,6 @@ describe("Pallene type checker", function()
         assert.match(
             "returning 0 value(s) but function expects 1", errs,
             nil, true)
-    end)
-
-    it("accepts functions that return 0 values", function()
-        local prog_ast, errs = run_checker([[
-            function f(): ()
-                return
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    it("accepts functions that return 1 value", function()
-        local prog_ast, errs = run_checker([[
-            function f(): integer
-                return 17
-            end
-        ]])
-        assert(prog_ast, errs)
     end)
 
     it("detects when a function returns the wrong type", function()
@@ -732,70 +467,6 @@ describe("Pallene type checker", function()
         assert.match("float is not assignable to integer", errs,nil, true)
     end)
 
-    for _, op in ipairs({"+", "-", "*", "%", "//"}) do
-        it("coerces "..op.." to float if any side is a float", function()
-            local prog_ast, errs = run_checker([[
-                function fn()
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]])
-            assert(prog_ast, errs)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp._type)
-
-            assert.same(types.T.Integer(), prog_ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.T.Integer(), prog_ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.T.Integer(), prog_ast[1].block.stats[6].exp._type)
-        end)
-    end
-
-    for _, op in ipairs({"/", "^"}) do
-        it("always coerces "..op.." to float", function()
-            local prog_ast, errs = run_checker([[
-                function fn()
-                    local i: integer = 1
-                    local f: float = 1.5
-                    local i_f = i ]] .. op .. [[ f
-                    local f_i = f ]] .. op .. [[ i
-                    local f_f = f ]] .. op .. [[ f
-                    local i_i = i ]] .. op .. [[ i
-                end
-            ]])
-            assert(prog_ast, errs)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[3].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[4].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[5].exp._type)
-
-            assert.same(types.T.Float(), prog_ast[1].block.stats[6].exp.lhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[6].exp.rhs._type)
-            assert.same(types.T.Float(), prog_ast[1].block.stats[6].exp._type)
-        end)
-    end
-
     it("cannot concatenate with boolean", function()
         local prog_ast, errs = run_checker([[
             function fn()
@@ -826,82 +497,6 @@ describe("Pallene type checker", function()
         assert.falsy(prog_ast)
         assert.match("cannot concatenate with { integer } value", errs)
     end)
-
-    it("can concatenate with integer and float", function()
-        local prog_ast, errs = run_checker([[
-            function fn()
-                local s = 1 .. 2.5
-            end
-        ]])
-        assert(prog_ast, errs)
-    end)
-
-    for _, op in ipairs({"==", "~="}) do
-        it("can compare arrays of same type using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(a1: {integer}, a2: {integer}): boolean
-                    return a1 ]] .. op .. [[ a2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~="}) do
-        it("can compare booleans using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(b1: string, b2: string): boolean
-                    return b1 ]] .. op .. [[ b2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare floats using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(f1: string, f2: string): boolean
-                    return f1 ]] .. op .. [[ f2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare integers using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(i1: string, i2: string): boolean
-                    return i1 ]] .. op .. [[ i2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare integers and floats using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(i: integer, f: float): boolean
-                    return i ]] .. op .. [[ f
-                end
-            ]])
-            assert.falsy(prog_ast)
-            assert.match("comparisons between float and integers are not yet implemented", errs)
-        end)
-    end
-
-    for _, op in ipairs({"==", "~=", "<", ">", "<=", ">="}) do
-        it("can compare strings using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(s1: string, s2: string): boolean
-                    return s1 ]] .. op .. [[ s2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
 
     for _, op in ipairs({"==", "~="}) do
         it("cannot compare arrays of different types using " .. op, function()
@@ -1058,17 +653,6 @@ describe("Pallene type checker", function()
     end
 
     for _, op in ipairs({"|", "&", "<<", ">>"}) do
-        it("can use bitwise operators with integers using " .. op, function()
-            local prog_ast, errs = run_checker([[
-                function fn(i1: integer, i2: integer): integer
-                    return i1 ]] .. op .. [[ i2
-                end
-            ]])
-            assert(prog_ast, errs)
-        end)
-    end
-
-    for _, op in ipairs({"|", "&", "<<", ">>"}) do
         for _, t in ipairs({"{integer}", "boolean", "string"}) do
             it("cannot use bitwise operator " .. op .. " when left hand side is not integer", function()
                 local prog_ast, errs = run_checker([[
@@ -1184,61 +768,6 @@ describe("Pallene type checker", function()
         end)
     end
 
-    for _, ts in ipairs({
-        {"downcast", "integer", "value"},
-        {"upcast",   "value", "integer"},
-    }) do
-        local description = ts[1]
-        local dst_typ     = ts[2]
-        local src_typ     = ts[3]
-
-        describe(
-            "can implicitly "..description..
-            " from "..src_typ..
-            " to "..dst_typ.."", function()
-
-                it("in variable declarations", function()
-                    local prog_ast, errs = run_checker([[
-                        function f(y : ]]..src_typ..[[)
-                            local x : ]]..dst_typ..[[ = y
-                        end
-                    ]])
-                    assert.truthy(prog_ast, errs)
-                end)
-
-                it("in variable assignments", function()
-                    local prog_ast, errs = run_checker([[
-                        function f(x : ]]..dst_typ..[[, y : ]]..src_typ..[[)
-                            x = y
-                        end
-                    ]])
-                    assert.truthy(prog_ast, errs)
-                end)
-
-                it("in function call arguments", function()
-                    local prog_ast, errs = run_checker([[
-                        function f(x : ]]..dst_typ..[[)
-                        end
-
-                        function g(y : ]]..src_typ..[[)
-                            f(y)
-                        end
-                    ]])
-                    assert.truthy(prog_ast, errs)
-                end)
-
-                it("in function return statements", function()
-                    local prog_ast, errs = run_checker([[
-                        function f(y : ]]..src_typ..[[) : ]]..dst_typ..[[
-                            return y
-                        end
-                    ]])
-                    assert.truthy(prog_ast, errs)
-                end)
-        end)
-    end
-
-
     it("catches assignment to function", function ()
         local prog_ast, errs = run_checker([[
             function f()
@@ -1254,15 +783,6 @@ describe("Pallene type checker", function()
             errs, nil, true)
     end)
 
-    it("typechecks io.write", function()
-        local prog_ast, errs = run_checker([[
-            function f()
-                io_write("Hello World\n")
-            end
-        ]])
-        assert.truthy(prog_ast, errs)
-    end)
-
     it("typechecks io.write (error)", function()
         local prog_ast, errs = run_checker([[
             function f()
@@ -1271,19 +791,6 @@ describe("Pallene type checker", function()
         ]])
         assert.falsy(prog_ast)
         assert.match("integer is not assignable to string", errs, nil, true)
-    end)
-
-    it("typechecks table.insert", function()
-        local prog_ast, errs = run_checker([[
-            function f(xs: {integer})
-                table_insert(xs, 10)
-            end
-
-            function g(xs: {float})
-                table_insert(xs, 3.14)
-            end
-        ]])
-        assert.truthy(prog_ast, errs)
     end)
 
     it("typechecks table.insert (error)", function()
@@ -1295,39 +802,9 @@ describe("Pallene type checker", function()
         assert.falsy(prog_ast)
         assert.match("string is not assignable to { value }", errs, nil, true)
     end)
-
-    it("typechecks tofloat", function()
-        local prog_ast, errs = run_checker([[
-            function fn(): integer
-                local i: integer = 12
-                local f: float = tofloat(i)
-                return 1
-            end
-        ]])
-        assert.truthy(prog_ast, errs)
-    end)
 end)
 
 describe("Pallene typecheck of records", function()
-    it("typechecks record declarations", function()
-        assert_type_check([[
-            record Point
-                x: float
-                y: float
-            end
-        ]])
-    end)
-
-    it("typechecks record as argument/return", function()
-        assert_type_check([[
-            record Point x: float; y:float end
-
-            function f(p: Point): Point
-                return p
-            end
-        ]])
-    end)
-
     local function wrap_record(code)
         return [[
             record Point x: float; y:float end
@@ -1337,14 +814,6 @@ describe("Pallene typecheck of records", function()
             end
         ]]
     end
-
-    it("typechecks record read/write", function()
-        assert_type_check(wrap_record[[
-            local x: float = 10.0
-            p.x = x
-            return p.y
-        ]])
-    end)
 
     it("doesn't typecheck read/write to non existent fields", function()
         local function assert_non_existent(code)
@@ -1362,4 +831,3 @@ describe("Pallene typecheck of records", function()
                           wrap_record[[ local p: Point = p.x ]])
     end)
 end)
-

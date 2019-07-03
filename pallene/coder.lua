@@ -1555,7 +1555,14 @@ generate_stat = function(stat, ctx)
 
     elseif tag == "ast.Stat.Repeat" then
         ctx:begin_scope()
-        local block_cstats = generate_stat(stat.block, ctx)
+
+        -- We cannot simply call generate_stat(stat.block) because then it
+        -- would create an extra scope without the condition expression
+        local block_cstatss = {}
+        for _, inner_stat in ipairs(stat.block.stats) do
+            table.insert(block_cstatss, generate_stat(inner_stat, ctx))
+        end
+
         local cond_cstats, cond_cvalue = generate_exp(stat.condition, ctx)
         ctx:end_scope()
         local out = util.render([[
@@ -1567,7 +1574,7 @@ generate_stat = function(stat, ctx)
         ]], {
             COND_STATS = cond_cstats,
             COND = cond_cvalue,
-            BLOCK = block_cstats,
+            BLOCK = table.concat(block_cstatss, "\n"),
         })
         return out
 

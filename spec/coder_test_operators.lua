@@ -1,4 +1,5 @@
--- Used in checker_spec
+-- Used by the test scripts in coder_spec, to check that Pallene operations
+-- compute the same results as their Lua analogues.
 
 local coder_test_operators = {}
 
@@ -27,11 +28,11 @@ local function are_same(a, b)
 end
 
 local function check(f_lua, f_pallene, ...)
-    local ok_lua,   r_lua   = pcall(f_lua, ...)
+    local ok_lua,     r_lua     = pcall(f_lua, ...)
     local ok_pallene, r_pallene = pcall(f_pallene, ...)
     if ok_lua ~= ok_pallene then
         return false, string.format("lua %s but pallene %s",
-            (ok_lua   and "didn't crash" or "crashed"),
+            (ok_lua     and "didn't crash" or "crashed"),
             (ok_pallene and "didn't crash" or "crashed"))
     end
     if ok_lua and ok_pallene and not are_same(r_lua, r_pallene) then
