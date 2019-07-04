@@ -53,9 +53,8 @@ local function coerce_numeric_exp_to_float(exp)
         local name = ast.Var.Name(false, "tofloat")
         name._decl = builtins.tofloat
         local tofloat = ast.Exp.Var(false, name)
-        local call = ast.Exp.CallFunc(false, tofloat, {exp})
-        check_exp_synthesize(call)
-        return call
+        return check_exp_synthesize(
+            ast.Exp.CallFunc(false, tofloat, {exp}) )
     elseif exp._type._tag == "types.T.Float" then
         return exp
     else
@@ -188,11 +187,11 @@ check_top_level = function(tl_node)
 
     elseif tag == "ast.Toplevel.Var" then
         if tl_node.decl.type then
-            tl_node._type = check_type(tl_node.decl.type)
-            tl_node.value = check_exp_verify(tl_node.value, tl_node._type,
+            local typ = check_type(tl_node.decl.type)
+            tl_node.value = check_exp_verify(tl_node.value, typ,
                 "declaration of module variable %s", tl_node.decl.name)
         else
-            check_exp_synthesize(tl_node.value)
+            tl_node.value = check_exp_synthesize(tl_node.value)
         end
         tl_node._type = tl_node.value._type
 
@@ -254,7 +253,7 @@ check_stat = function(stat, ret_types)
             stat.exp = check_exp_verify(stat.exp, stat.decl._type,
                 "declaration of local variable %s", stat.decl.name)
         else
-            check_exp_synthesize(stat.exp)
+            stat.exp = check_exp_synthesize(stat.exp)
             stat.decl._type = stat.exp._type
             check_decl(stat.decl)
         end
@@ -285,7 +284,7 @@ check_stat = function(stat, ret_types)
             stat.start = check_exp_verify(stat.start, stat.decl._type,
                 "numeric for-loop initializer")
         else
-            check_exp_synthesize(stat.start)
+            stat.start = check_exp_synthesize(stat.start)
             stat.decl._type = stat.start._type
         end
         local loop_type = stat.decl._type
@@ -313,7 +312,7 @@ check_stat = function(stat, ret_types)
             else
                 error("impossible")
             end
-            check_exp_synthesize(stat.step)
+            stat.step = check_exp_synthesize(stat.step)
         end
 
         check_stat(stat.block, ret_types)
@@ -330,7 +329,7 @@ check_stat = function(stat, ret_types)
         end
 
     elseif tag == "ast.Stat.Call" then
-        check_exp_synthesize(stat.call_exp)
+        stat.call_exp = check_exp_synthesize(stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
         assert(#ret_types <= 1)
@@ -373,7 +372,7 @@ check_var = function(var)
         end
 
     elseif tag == "ast.Var.Dot" then
-        check_exp_synthesize(var.exp)
+        var.exp = check_exp_synthesize(var.exp)
         local exp_type = var.exp._type
         if exp_type._tag == "types.T.Record" then
             local field_type = exp_type.field_types[var.name]
@@ -391,7 +390,7 @@ check_var = function(var)
         end
 
     elseif tag == "ast.Var.Bracket" then
-        check_exp_synthesize(var.t)
+        var.t = check_exp_synthesize(var.t)
         local arr_type = var.t._type
         if arr_type._tag ~= "types.T.Array" then
             type_error(var.t.loc,
@@ -409,6 +408,10 @@ check_var = function(var)
 end
 
 -- Infers the type of expression @exp
+-- Returns the typechecked expression. This may be either be the original
+-- expression, or an inner expression if we are dropping a redundant
+-- type conversion.
+--
 -- Returns nothing
 check_exp_synthesize = function(exp)
     local tag = exp._tag
@@ -437,7 +440,7 @@ check_exp_synthesize = function(exp)
         exp._type = exp.var._type
 
     elseif tag == "ast.Exp.Unop" then
-        check_exp_synthesize(exp.exp)
+        exp.exp = check_exp_synthesize(exp.exp)
         local t = exp.exp._type
         local op = exp.op
         if op == "#" then
@@ -475,7 +478,7 @@ check_exp_synthesize = function(exp)
 
     elseif tag == "ast.Exp.Concat" then
         for _, inner_exp in ipairs(exp.exps) do
-            check_exp_synthesize(inner_exp)
+            inner_exp = check_exp_synthesize(inner_exp)
             local t = inner_exp._type
             if t._tag ~= "types.T.String" then
                 type_error(inner_exp.loc,
@@ -485,8 +488,8 @@ check_exp_synthesize = function(exp)
         exp._type = types.T.String()
 
     elseif tag == "ast.Exp.Binop" then
-        check_exp_synthesize(exp.lhs); local t1 = exp.lhs._type
-        check_exp_synthesize(exp.rhs); local t2 = exp.rhs._type
+        exp.lhs = check_exp_synthesize(exp.lhs); local t1 = exp.lhs._type
+        exp.rhs = check_exp_synthesize(exp.rhs); local t2 = exp.rhs._type
         local op = exp.op
         if op == "==" or op == "~=" then
             if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
@@ -591,7 +594,7 @@ check_exp_synthesize = function(exp)
         local f_exp = exp.exp
         local args = exp.args
 
-        check_exp_synthesize(f_exp)
+        f_exp = check_exp_synthesize(f_exp)
         local f_type = f_exp._type
 
         if f_type._tag == "types.T.Function" then
@@ -613,7 +616,7 @@ check_exp_synthesize = function(exp)
         else
             type_error(exp.loc,
                 "attempting to call a %s value",
-                types.tostring(exp.exp._type))
+                types.tostring(f_exp._type))
         end
 
     elseif tag == "ast.Exp.CallMethod" then
@@ -621,24 +624,18 @@ check_exp_synthesize = function(exp)
 
     elseif tag == "ast.Exp.Cast" then
         local dst_t = check_type(exp.target)
-        exp.exp = check_exp_verify(exp.exp, dst_t, "cast expression")
-        exp._type = dst_t
-
-        -- Remove redundant cast node if there is one
-        while exp.exp._tag == "ast.Exp.Cast" and
-            types.equals(exp.exp._type, dst_t)
-        do
-            exp.exp = exp.exp.exp
-        end
+        return check_exp_verify(exp.exp, dst_t, "cast expression")
 
     else
         error("impossible")
     end
+
+    return exp
 end
 
 -- Verifies that expression @exp has type expected_type.
--- Returnsthe typechecked expression. This may be either be the original
--- expression, or a coersion node from the original expression to the expected
+-- Returns the typechecked expression. This may be either be the original
+-- expression, or a coercion node from the original expression to the expected
 -- type.
 --
 -- errmsg_fmt: format string describing what part of the program is
@@ -705,7 +702,7 @@ check_exp_verify = function(exp, expected_type, errmsg_fmt, ...)
 
     else
 
-        check_exp_synthesize(exp)
+        exp = check_exp_synthesize(exp)
         local found_type = exp._type
 
         if types.equals(found_type, expected_type) then
