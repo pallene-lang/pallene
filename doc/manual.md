@@ -6,14 +6,14 @@ This is a work in progress, so if you have any questions or suggestions, or if s
 ## A brief overview of Pallene
 
 Pallene is a statically-typed companion language to Lua.
-Pallene functions can be called from Lua and can call Lua functions. 
+Pallene functions can be called from Lua and Pallene can call Lua functions as well.
 At a first glance, Pallene code looks similar to Lua, but with type annotations.
 
 Here is an example Pallene program for summing the elements in an array of floating-point numbers.
 Note that type annotations are required for function argument and return types but for local variable declarations Pallene can often infer the types.
 
 ```
-function sum_floats(xs:{float}): float
+function sum_floats(xs: {float}): float
     local r = 0.0
     for i = 1, #xs do
         r = r + xs[i]
@@ -24,14 +24,20 @@ end
 
 If we pass this `sum.pln` file to the `pallenec` compiler, it will output a `sum.so` Lua extension module:
 
-    $ ./pallenec sum.pln
-
+```
+$ ./pallenec sum.pln
+```
 
 The `sum.so` file can be loaded from within Lua with `require`, as usual:
 
-    $ ./lua/src/lua
-    > sum = require "sum"
-    > print(sum.sum({10.0, 20.0, 30.0}))
+```
+$ ./lua/src/lua
+> sum = require "sum"
+> print(sum.sum({10.0, 20.0, 30.0}))
+```
+
+In this example, we invoke the Lua interpreter from the repository because Pallene requires a particular release of the interpreter.
+The Lua interpreter release installed in the system might not be compatible with Pallene.
 
 ## The Pallene Type System
 
@@ -47,9 +53,9 @@ Pallene's primitive types are the same as Lua's:
 - `integer`
 - `float`
 
-There is no automatic coercion between `integer` and `float`.
-For example, `local x:float = 0` is a type error.
-You should use `0.0` instead.
+There is no type `number`, the Lua subtypes `integer` and `float` are separate types in Pallene.
+Also, there is no automatic coercion between them.
+For example, `local x: float = 0` is a type error; you should use `0.0` instead.
 
 ### Strings
 
@@ -64,20 +70,27 @@ Array types in Pallene have the form `{ t }`, where `t` is any Pallene type (inc
 
 Pallene arrays are implemented as Lua tables, and Pallene also uses the same syntax for array creation:
 
-    local xs:{float} = {1.0, 2.0, 3.0}
+```
+local xs: {integer} = {10, 20, 30}
+```
 
-Unlike Lua, reading from an "out of bounds" index produces a run-time type error instead of returning `nil`.
+Like Lua, reading from an "out of bounds" index produces `nil`, which results in a runtime type error unless the type of the array elements is value.
+Notice that Pallene doesn't accept arrays of nil.
 
 One important thing to know about array literals in Pallene is that they must be accompanied by a type annotation.
 Pallene cannot infer their type otherwise because expressions like the empty list `{}` don't have an obvious best type.
 
-    -- This produces a compile-time error
-    -- "missing type hint for array or record initializer"
-    local xs = {1.0, 2.0, 3.0}
+```
+-- This produces a compile-time error
+-- "missing type hint for array or record initializer"
+local xs = {1.0, 2.0, 3.0}
+```
 
-Nevertheless, Pallene is still able to infer then type of an  array literal if they appear as an argument to a function, or in another position in the program that has a known expected type.
+Nevertheless, Pallene is still able to infer then type of an array literal if they appear as an argument to a function, or in another position in the program that has a known expected type.
 
-    local result = sum_floats({1.0, 2.0, 3.0})
+```
+local result = sum_floats({1.0, 2.0, 3.0})
+```
 
 ### Functions
 
@@ -86,9 +99,11 @@ For example, `(a, b) -> (c)` is the function type for a function that receives t
 For function types that only receive one input parameter or return a single value, the parentheses are optional. 
 For example, the following are all valid function types:
 
-    int -> float
-    (int, int) -> float
-    string -> ()
+```
+int -> float
+(int, int) -> float
+string -> ()
+```
 
 The current Pallene implementation only supports functions with 0 or 1 return values.
 We plan to support functions with two or more return values in a future version.
@@ -104,15 +119,19 @@ When calling a dynamically-typed Lua function from Pallene, Pallene will check w
 Record types in Pallene are nominal and should be declared in the top level.
 The following example declares a record `Point` with the fields `x` and `y` which are floats.
 
-    record Point
-        x: float
-        y: float
-    end
+```
+record Point
+    x: float
+    y: float
+end
+```
 
 Pallene points are created and used with a similar syntax to Lua:
 
-    local p:Point = {x=10.0, y=20.0}
-    local r2 = p.x*p.x + p.y*p.y
+```
+local p: Point = {x = 10.0, y = 20.0}
+local r2 = p.x * p.x + p.y * p.y
+```
 
 Pallene records are implemented as userdata, and are *not* Lua tables.
 You cannot create a Lua table with an `x` and `y` field and pass it to a Pallene function expecting a Point.
@@ -147,7 +166,7 @@ The main difference compared to Lua is that Pallene does not allow you to perfor
 You may pass a `value` to a functions and you may store it in an array but you cannot call it, index it, or use it in an arithmetic operation:
 
 ```
-function f(x: value, y: value) : value
+function f(x: value, y: value): value
     return x + y        -- compile-time type error: Cannot add two values
 end
 ```
@@ -157,45 +176,46 @@ Sometimes the Pallene compiler can do this automatically for you but in other si
 The reason for this is that, for performance, Pallene must know at compile-time what version of the arithmetic operator to use at run-time.
 
 ```
-function f(x: value, y: value) : integer
+function f(x: value, y: value): integer
     return (x as integer) + (y as integer)
 end
 ```
 
 ## Structure of a Pallene module
 
-A Pallene module consists of a sequence of type declarations, module-local constants, and function definitions.
-They must appear in this order.
+A Pallene module consists of a sequence of type declarations, module-local variables, and function definitions.
+
+### Type declarations
+
+Currently, type declarations consist solely of record declarations.
+
+### Module-local variables
+
+A module-local variables has the following syntax:
 
 ```
-<type and record declarations>
-<module-local variables>
-<function definitions>
+local <name> [: type] = <exp>
 ```
-
-Module-local variables are currently restricted to primitive types and strings.
-They must also be constants (never assigned to).
-These restrictions may be lifted in a future version of Pallene.
-
-The syntax for function definitions is described in the following section.
 
 ### Functions
 
 A function declaration has the following syntax:
 
-    [local] function <name>([<params>])[: <rettypes>]
-        <body>
-    end
+```
+[local] function <name>([<params>])[: <rettypes>]
+    <body>
+end
+```
 
 A `local` function is only visible inside the module it is defined.
-Functions that are not local are exported, and visible in modules that import this one, as well as callable from Lua if you `require` the module.
+Functions that are not local are exported, which means that they are callable from Lua if you `require` the module.
 
 As with variables, `<name>` can be any valid identifier, but it is a compile-time error to declare two functions with the same name, or a function with the same name as a module variable.
 The return types `<rettypes>` are optional, and if not given it is assumed that the function does not return anything.
 
 Parameters are a comma-separated list of `<name>: <type>`.
 Two parameters cannot have the same name.
-The body is a sequence of statements.
+The function body is a sequence of statements.
 
 Unlike Lua, Pallene function definitions are mutually recursive.
 A function at the start of the function definition block is allowed to call other functions further down the file.
@@ -222,7 +242,7 @@ For expressions the semicolon is already used for method calls, so Pallene uses 
 
 ```
 function foo(x : value) : integer
-   local y : integer = (x as integer)
+   local y: integer = (x as integer)
    return y + y
 end
 ```
@@ -244,8 +264,8 @@ Similarly, if the inferred type is `value` but the expected type is something el
 For instance, one of the code examples from the Value section of this manual can be rewritten to use automatic coercions as follows:
 
 ```
-local v : value  = 17
-local s : string = v
+local v: value  = 17
+local s: string = v
 ```
 
 In addition to allowing conversions to and from `value`, Pallene also makes implicit conversions to and from types that contain value in compatible ways.
@@ -255,17 +275,16 @@ These automatic coercions between array and function types never fail at run-tim
 
 To illustrate this, consider the following function for inserting an element in a list.
 
-
 ```
-function insert(xs:{value}, v:value)
-    xs[#xs+1] = v
+function insert(xs: {value}, v:value)
+    xs[#xs + 1] = v
 end
 ```
 
 Since the parameter to the insert function is an array of `value`, we can use it to add elements to lists of any type:
 
 ```
-local ns: {integer} = {10,20,30}
+local ns: {integer} = {10, 20, 30}
 insert(ns, 40)
 
 local ss: {string} = {"hello"}
@@ -293,13 +312,13 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
     toplevelrecord ::= record Name {recordfield} end
     recordfield ::= NAME ':' type [';']
 
-    toplevelvar ::= [local] NAME [':' type] '=' exp
+    toplevelvar ::= local NAME [':' type] '=' exp
 
     toplevelfunc ::= [local] function NAME '(' [paramlists] ')'  [':' type] block end
 
     paramlist ::= NAME ':' type {',' NAME ':' type}
 
-    type ::= nil | integer | float | boolean | string | '{' type '}' | NAME
+    type ::= nil | integer | float | boolean | string | value | '{' type '}' | NAME
 
     block ::= {statement} [returnstat]
 
