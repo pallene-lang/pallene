@@ -16,6 +16,10 @@ local args = p:parse()
 -- Inspired by gcc, eg. "gcc: fatal error: no input files".
 local compiler_name = arg[0]
 
+local function pallenec_abort(fmt, ...)
+    return util.abort(compiler_name .. ":" .. string.format(fmt, ...))
+end
+
 local function compile(in_ext, out_ext)
     local ok, errs = driver.compile(
         compiler_name, in_ext, out_ext, args.source_file)
@@ -31,8 +35,7 @@ if args.compile_c then table.insert(flags, "--compile-c") end
 
 if #flags >= 2 then
     local conflicting = table.concat(flags, " and ")
-    local msg = string.format("flags %s are mutually exclusive", conflicting)
-    pallenec_abort(msg)
+    pallenec_abort("flags %s are mutually exclusive", conflicting)
 end
 
 if     #flags == 0    then compile("pln", "so")
