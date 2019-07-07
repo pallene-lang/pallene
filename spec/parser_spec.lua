@@ -36,7 +36,7 @@ end
 
 local function parse(program_str)
     assert(util.set_file_contents("test.pln", program_str))
-    return driver.test_ast("parser", "test.pln")
+    return driver.compile_internal("test.pln", "parser")
 end
 
 local function assert_parses_successfuly(program_str)

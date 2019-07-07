@@ -2,7 +2,7 @@ local ast = require "pallene.ast"
 local C = require "pallene.C"
 local typedecl = require "pallene.typedecl"
 local types = require "pallene.types"
-local upvalues = require "pallene.upvalues"
+--local upvalues = require "pallene.upvalues"
 local util = require "pallene.util"
 
 local coder = {}
@@ -13,11 +13,12 @@ local generate_var
 local generate_exp
 
 function coder.generate(prog_ast, modname)
-    local errs
-    prog_ast, errs = upvalues.analyze(prog_ast)
-    assert(#errs == 0)
-    local code = generate_program(prog_ast, modname)
-    return code, {}
+    error("not implemented")
+    --local errs
+    --prog_ast, errs = upvalues.analyze(prog_ast)
+    --assert(#errs == 0)
+    --local code = generate_program(prog_ast, modname)
+    --return code, {}
 end
 
 
