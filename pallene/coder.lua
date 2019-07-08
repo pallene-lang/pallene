@@ -2333,7 +2333,7 @@ generate_exp = function(exp, ctx)
 
         else
             -- First-class functions and Lua function calls
-            local nargs = #fexp._type.params
+            local nargs = #fexp._type.arg_types
             local nret = #fexp._type.ret_types
 
             local to_push = {}

@@ -19,7 +19,7 @@ declare_type("Type", {
 })
 
 declare_type("Toplevel", {
-    Func    = {"loc", "is_local", "name", "params", "ret_types", "block"},
+    Func    = {"loc", "is_local", "decl", "value"},
     Var     = {"loc", "decl", "value"},
     Record  = {"loc", "name", "field_decls"},
     Import  = {"loc", "local_name", "mod_name"},
@@ -55,6 +55,7 @@ declare_type("Exp", {
     Float      = {"loc", "value"},
     String     = {"loc", "value"},
     Initlist   = {"loc", "fields"},
+    Lambda     = {"loc", "arg_names", "body"},
     CallFunc   = {"loc", "exp", "args"},
     CallMethod = {"loc", "exp", "method", "args"},
     Var        = {"loc", "var"},
@@ -62,6 +63,7 @@ declare_type("Exp", {
     Concat     = {"loc", "exps"},
     Binop      = {"loc", "lhs", "op", "rhs"},
     Cast       = {"loc", "exp", "target"}
+
 })
 
 declare_type("Field", {
@@ -77,7 +79,7 @@ declare_type("Field", {
 function ast.toplevel_name(tl_node)
     local tag = tl_node._tag
     if     tag == "ast.Toplevel.Func" then
-        return tl_node.name
+        return tl_node.decl.name
     elseif tag == "ast.Toplevel.Var" then
         return tl_node.decl.name
     elseif tag == "ast.Toplevel.Record" then

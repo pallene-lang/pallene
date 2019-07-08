@@ -14,7 +14,7 @@ declare_type("T", {
     Integer  = {},
     Float    = {},
     String   = {},
-    Function = {"params", "ret_types"},
+    Function = {"arg_types", "ret_types"},
     Array    = {"elem"},
     Record   = {
         "name",        -- for tostring only
@@ -75,12 +75,12 @@ local function equivalent(t1, t2, is_gradual)
         return equivalent(t1.elem, t2.elem, is_gradual)
 
     elseif tag1 == "types.T.Function" then
-        if #t1.params ~= #t2.params then
+        if #t1.arg_types ~= #t2.arg_types then
             return false
         end
 
-        for i = 1, #t1.params do
-            if not equivalent(t1.params[i], t2.params[i], is_gradual) then
+        for i = 1, #t1.arg_types do
+            if not equivalent(t1.arg_types[i], t2.arg_types[i], is_gradual) then
                 return false
             end
         end

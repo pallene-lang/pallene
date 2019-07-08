@@ -99,7 +99,7 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast[1].block.stats[1].exp
+    local exp_ast = program_ast[1].value.body.stats[1].exp
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -123,7 +123,7 @@ end
 local function assert_statements_ast(code, expected_ast)
     local program_str = statements_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local stats_ast = program_ast[1].block.stats
+    local stats_ast = program_ast[1].value.body.stats
     assert_is_subset(expected_ast, stats_ast)
 end
 
@@ -173,41 +173,66 @@ describe("Pallene parser", function()
 
     it("can parse toplevel function declarations", function()
         assert_program_ast([[
-            local function fA(): nil
+            local function fA() : float
             end
         ]], {
             { _tag = "ast.Toplevel.Func",
                 is_local = true,
-                name = "fA",
-                params = {},
-                block = { _tag = "ast.Stat.Block", stats = {} } },
+                decl = {
+                    name = "fA",
+                    type = {
+                        arg_types = {},
+                        ret_types = {
+                            { _tag = "ast.Type.Float" }, }, } },
+                value = {
+                    _tag = "ast.Exp.Lambda",
+                    arg_names  = {},
+                    body = {
+                        _tag = "ast.Stat.Block",
+                        stats = {} } } },
         })
 
         assert_program_ast([[
-            local function fB(x:int): nil
+            local function fB(x:integer) : float
             end
         ]], {
             { _tag = "ast.Toplevel.Func",
                 is_local = true,
-                name = "fB",
-                params = {
-                    { _tag = "ast.Decl.Decl", name = "x" },
-                },
-                block = { _tag = "ast.Stat.Block", stats = {} } },
+                decl = {
+                    name = "fB",
+                    type = {
+                        arg_types = {
+                            { _tag = "ast.Type.Integer" }, },
+                        ret_types = {
+                            { _tag = "ast.Type.Float" }, }, } },
+                value = {
+                    _tag = "ast.Exp.Lambda",
+                    arg_names = { "x" },
+                    body = {
+                        _tag = "ast.Stat.Block",
+                        stats = {} } } },
         })
 
         assert_program_ast([[
-            local function fC(x:int, y:int): nil
+            local function fC(x:integer, y:integer) : float
             end
         ]], {
             { _tag = "ast.Toplevel.Func",
                 is_local = true,
-                name = "fC",
-                params = {
-                    { _tag = "ast.Decl.Decl", name = "x" },
-                    { _tag = "ast.Decl.Decl", name = "y" },
-                },
-                block = { _tag = "ast.Stat.Block", stats = {} } },
+                decl = {
+                    name = "fC",
+                    type = {
+                        arg_types = {
+                            { _tag = "ast.Type.Integer" },
+                            { _tag = "ast.Type.Integer" }, },
+                        ret_types = {
+                            { _tag = "ast.Type.Float" }, }, } },
+                value = {
+                    _tag = "ast.Exp.Lambda",
+                    arg_names = { "x", "y" },
+                    body = {
+                        _tag = "ast.Stat.Block",
+                        stats = {} } } },
         })
     end)
 
@@ -218,8 +243,16 @@ describe("Pallene parser", function()
             local function bar()
             end
         ]], {
-            { _tag = "ast.Toplevel.Func", name = "foo", ret_types = { } },
-            { _tag = "ast.Toplevel.Func", name = "bar", ret_types = { } },
+            { _tag = "ast.Toplevel.Func",
+                is_local = false,
+                decl = {
+                    name = "foo",
+                    type = { arg_types = {}, ret_types = {} } }, },
+            { _tag = "ast.Toplevel.Func",
+                is_local = true,
+                decl = {
+                    name = "bar",
+                    type = { arg_types = {}, ret_types = {} } }, },
         })
     end)
 

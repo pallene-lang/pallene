@@ -81,7 +81,7 @@ describe("Scope analysis: ", function()
             function fn(x: integer, x:string)
             end
         ]],
-            "function 'fn' has multiple parameters named 'x'")
+            "function has multiple parameters named 'x'")
     end)
 end)
 

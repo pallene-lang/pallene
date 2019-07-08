@@ -28,6 +28,7 @@ declare_type("Name", {
 --
 
 local check_program
+local check_function
 local check_stat
 local check_var
 local check_exp_synthesize
@@ -270,60 +271,16 @@ check_program = function(prog_ast)
                 type_error(tl_node.loc, "toplevel variables are not implemented")
 
             elseif tag == "ast.Toplevel.Func" then
-                local n_arg = #tl_node.params
-                local n_ret = #tl_node.ret_types
+                local func_name = tl_node.decl.name
+                local func_typ  = from_ast_type(ctx, tl_node.decl.type)
+                local func_lambda = tl_node.value
 
-                local param_names = {}
-                local param_types = {}
-                for i = 1, n_arg do
-                    local decl = tl_node.params[i]
-                    param_names[i] = decl.name
-                    param_types[i] = from_ast_type(ctx, decl.type)
-                end
-
-                local ret_types = {}
-                for i = 1, n_ret do
-                    ret_types[i] = from_ast_type(ctx, tl_node.ret_types[i])
-                end
-                local func_typ = types.T.Function(param_types, ret_types)
-
-                if #ret_types >= 2 then
-                    error("functions with 2+ return values are not yet implemented")
-                end
-
-                do
-                    local names = {}
-                    for _, name in ipairs(param_names) do
-                        if names[name] then
-                            scope_error(tl_node.loc,
-                                "function '%s' has multiple parameters named '%s'",
-                                tl_node.name, name)
-                        end
-                        names[name] = true
-                    end
-                end
-
-                -- Generate function body
-
-                local f_id = add_function(ctx, tl_node.name, func_typ)
-                local func = module.functions[f_id]
-                local func_ctx = Context(module, func, symbol_table)
-
+                local f_id = add_function(ctx, func_name, func_typ)
                 if tl_node.is_local then
                     ir.add_export(module, f_id)
                 end
 
-                symbol_table:with_block(function()
-                    for i = 1, #param_types do
-                        add_local(func_ctx, param_names[i], param_types[i])
-                    end
-                    func.body = check_stat(func_ctx, tl_node.block, ret_types)
-                end)
-
-                if #ret_types > 0 and not stat_always_returns(func.body) then
-                    type_error(tl_node.loc,
-                        "control reaches end of function with non-empty return type")
-                end
+                check_function(ctx, f_id, func_lambda, func_typ)
 
             elseif tag == "ast.Toplevel.Record" then
                 local name = tl_node.name
@@ -347,6 +304,37 @@ check_program = function(prog_ast)
     end)
 
     return module
+end
+
+check_function = function(ctx, f_id, lambda, func_typ)
+    assert(lambda._tag == "ast.Exp.Lambda")
+
+    do
+        local names = {}
+        for _, name in ipairs(lambda.arg_names) do
+            if names[name] then
+                scope_error(lambda.loc,
+                    "function has multiple parameters named '%s'", name)
+            end
+            names[name] = true
+        end
+    end
+
+    local func = ctx.module.functions[f_id]
+    local func_ctx = Context(ctx.module, func, ctx.symbol_table)
+    func_ctx.symbol_table:with_block(function()
+        for i, typ in ipairs(func_typ.arg_types) do
+            local name = lambda.arg_names[i]
+            add_local(func_ctx, name, typ)
+        end
+        func.body = lambda.body
+        check_stat(func_ctx, func.body, func_typ.ret_types)
+
+        if #func_typ.ret_types > 0 and not stat_always_returns(func.body) then
+            type_error(lambda.loc,
+                "control reaches end of function with non-empty return type")
+        end
+    end)
 end
 
 check_stat = function(ctx, stat, ret_types)
@@ -548,6 +536,10 @@ check_exp_synthesize = function(ctx, exp)
         type_error(exp.loc,
             "missing type hint for array or record initializer")
 
+    elseif tag == "ast.Exp.Lambda" then
+        type_error(exp.loc,
+            "missing type hint for lambda")
+
     elseif tag == "ast.Exp.Var" then
         check_var(ctx, exp.var)
         exp._type = exp.var._type
@@ -708,14 +700,14 @@ check_exp_synthesize = function(ctx, exp)
         local f_type = exp.exp._type
 
         if f_type._tag == "types.T.Function" then
-            if #f_type.params ~= #exp.args then
+            if #f_type.arg_types ~= #exp.args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
-                    #f_type.params, #exp.args)
+                    #f_type.arg_types, #exp.args)
             end
-            for i = 1, math.min(#f_type.params, #exp.args) do
+            for i = 1, math.min(#f_type.arg_types, #exp.args) do
                 exp.args[i] = check_exp_verify(ctx,
-                    exp.args[i], f_type.params[i],
+                    exp.args[i], f_type.arg_types[i],
                     "argument %d of call to function", i)
             end
             assert(#f_type.ret_types <= 1)
@@ -809,6 +801,11 @@ check_exp_verify = function(ctx, exp, expected_type, errmsg_fmt, ...)
 
         exp._type = expected_type
         return exp
+
+    elseif tag == "ast.Exp.Lambda" then
+        error("not implemented yet")
+        -- local f_id = ir.add_function(module, "$anonymous", expected_type)
+        -- check_function(ctx, f_id, exp, expected_type)
 
     else
 
