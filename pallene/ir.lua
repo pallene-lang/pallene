@@ -40,8 +40,9 @@ function ir.VarDecl(typ, comment)
     }
 end
 
-function ir.Function(name, typ)
+function ir.Function(loc, name, typ)
     return {
+        loc = loc,           -- Location
         name = name,         -- string
         typ = typ,           -- Type
         vars = {},           -- list of ir.VarDecl
@@ -58,8 +59,8 @@ function ir.add_record_type(module, typ)
     return #module.record_types
 end
 
-function ir.add_function(module, name, typ)
-    table.insert(module.functions, ir.Function(name, typ))
+function ir.add_function(module, loc, name, typ)
+    table.insert(module.functions, ir.Function(loc, name, typ))
     return #module.functions
 end
 
@@ -108,22 +109,26 @@ declare_type("Cmd", {
     -- Records
     NewRecord  = {"loc", "typ", "dst", "srcs"},
 
-    GetField   = {"loc", "typ", "field", "dst", "src_rec"},
-    SetField   = {"loc", "typ", "field",        "src_rec", "src_v"},
+    GetField   = {"loc", "dst", "src_rec", "field", },
+    SetField   = {"loc",        "src_rec", "field", "src_v"},
 
     -- Functions
     -- (in void functions, dst is false)
-    CallStatic = {"loc", "dst", "func_id", "srcs"},
-    CallDyn    = {"loc", "dst", "src_f", "srcs"},
+    CallStatic  = {"loc", "dst", "func_id", "srcs"},
+    CallDyn     = {"loc", "dst", "src_f", "srcs"},
+    CallBuiltin = {"loc", "dst", "builtin_name", "srcs"},
+
+    -- Coercions
+    Cast       = {"loc", "dst", "src"},
 
     --
     -- Control flow
     --
-    Return = {"values"},
-    If     = {"condition", "then_", "else_"},
-    While  = {"condition", "body"},
-    Repeat = {"body", "condition"},
-    For    = {"loop_var", "start", "limit", "step", "body"},
+    Return  = {"values"},
+    BreakIf = {"v"},
+    If      = {"condition", "then_", "else_"},
+    Loop    = {"cmds"},
+    For     = {"loop_var", "start", "limit", "step", "body"},
 })
 
 return ir

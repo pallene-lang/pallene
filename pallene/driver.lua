@@ -2,6 +2,7 @@ local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
 local coder = require "pallene.coder"
 local parser = require "pallene.parser"
+local to_ir = require "pallene.to_ir"
 local util = require "pallene.util"
 
 local driver = {}
@@ -26,7 +27,7 @@ end
 -- This is meant for unit tests.
 --
 function driver.compile_internal(filename, stop_after)
-    stop_after = stop_after or "checker"
+    stop_after = stop_after or "to_ir"
     local err, errs
 
     local base_name
@@ -53,10 +54,10 @@ function driver.compile_internal(filename, stop_after)
         return module, errs
     end
 
-    -- module, errs = toir.convert(module)
-    -- if stop_after == "to_ir" or not module then
-    --     return module, errs
-    -- end
+    module, errs = to_ir.convert(module)
+    if stop_after == "to_ir" or not module then
+        return module, errs
+    end
 
     error("impossible")
 end

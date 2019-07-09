@@ -88,8 +88,8 @@ function Checker:add_record_type(name, typ)
     return typ
 end
 
-function Checker:add_function(name, typ)
-    local f_id = ir.add_function(self.module, name, typ)
+function Checker:add_function(loc, name, typ)
+    local f_id = ir.add_function(self.module, loc, name, typ)
     self.symbol_table:add_symbol(name, checker.Name.Function(f_id))
     return f_id
 end
@@ -235,11 +235,12 @@ function Checker:check_program(prog_ast)
                 type_error(tl_node.loc, "toplevel variables are not implemented")
 
             elseif tag == "ast.Toplevel.Func" then
+                local loc = tl_node.loc
                 local func_name = tl_node.decl.name
                 local func_typ  = self:from_ast_type(tl_node.decl.type)
                 local func_lambda = tl_node.value
 
-                local f_id = self:add_function(func_name, func_typ)
+                local f_id = self:add_function(loc, func_name, func_typ)
                 if not tl_node.is_local then
                     ir.add_export(self.module, f_id)
                 end
