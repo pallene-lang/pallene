@@ -62,7 +62,7 @@ describe("Pallene coder /", function()
             function f_false(): boolean    return false end
             function f_integer(): integer  return 17 end
             function f_float(): float      return 3.14 end
-            function f_string(): string    return "Hello World" end
+            -- function f_string(): string    return "Hello World" end
             function pi(): float           return 3.141592653589793 end
             function e(): float            return 2.718281828459045 end
         ]]))
@@ -88,6 +88,7 @@ describe("Pallene coder /", function()
         end)
 
         it("strings", function()
+            pending("todo (strings)")
             run_test([[ assert("Hello World" == test.f_string()) ]])
         end)
 
@@ -107,11 +108,11 @@ describe("Pallene coder /", function()
             function fst(x:integer, y:integer): integer return x end
             function snd(x:integer, y:integer): integer return y end
 
-            local n = 0
-            function next_n(): integer
-                n = n + 1
-                return n
-            end
+            --local n = 0
+            --function next_n(): integer
+            --    n = n + 1
+            --    return n
+            --end
         ]]))
 
         it("local variables", function()
@@ -122,6 +123,7 @@ describe("Pallene coder /", function()
         end)
 
         it("global variables", function()
+            pending("todo (global vars)")
             run_test([[
                 assert(1 == test.next_n())
                 assert(2 == test.next_n())
@@ -132,6 +134,7 @@ describe("Pallene coder /", function()
 
     describe("Function calls /", function()
         setup(compile([[
+        --[=[
             function f0(): integer
                 return 17
             end
@@ -174,31 +177,38 @@ describe("Pallene coder /", function()
 
             function skip_a() end
             function skip_b() skip_a(); skip_a() end
+        --]=]
         ]]))
 
+        --[=[
         it("no parameters", function()
             run_test([[ assert(17 == test.g0()) ]])
         end)
 
         it("one parameter", function()
+            pending("todo (function calls)")
             run_test([[ assert(17 == test.g1(17)) ]])
         end)
 
         it("multiple parameters", function()
+            pending("todo (function calls)")
             run_test([[ assert(17 == test.g2(16, 1)) ]])
         end)
 
         it("recursive calls", function()
+            pending("todo (function calls)")
             run_test([[ assert(3*5 == test.gcd(2*3*5, 3*5*7)) ]])
         end)
 
         it("void functions", function()
+            pending("todo (function calls)")
             run_test([[ assert(0 == select("#", test.skip_b())) ]])
         end)
 
         -- Errors
 
         it("missing arguments", function()
+            pending("todo (function calls)")
             run_test([[
                 local ok, err = pcall(test.g1)
                 assert(string.find(err,
@@ -209,6 +219,7 @@ describe("Pallene coder /", function()
         end)
 
         it("too many arguments", function()
+            pending("todo (function calls)")
             run_test([[
                 local ok, err = pcall(test.g1, 10, 20)
                 assert(string.find(err,
@@ -219,6 +230,7 @@ describe("Pallene coder /", function()
         end)
 
         it("type of argument", function()
+            pending("todo (function calls)")
             -- Also sees if error messages say "float" and "integer"
             -- instead of "number"
             run_test([[
@@ -229,10 +241,15 @@ describe("Pallene coder /", function()
                     nil, true))
             ]])
         end)
+        --]=]
+        it("", function()
+            pending("todo (function calls)")
+        end)
     end)
 
     describe("First class functions /", function()
         setup(compile([[
+        --[=[
             function inc(x:integer): integer   return x + 1   end
             function dec(x:integer): integer   return x - 1   end
 
@@ -260,8 +277,10 @@ describe("Pallene coder /", function()
             function callf(x:integer): integer
                 return f(x)
             end
+        --]=]
         ]]))
 
+        --[=[
         it("Object identity", function()
             run_test([[
                 assert(test.getf() == test.getf())
@@ -289,6 +308,11 @@ describe("Pallene coder /", function()
                 assert( 9 == test.getf()(10))
             ]])
         end)
+        --]=]
+        it("", function()
+            pending("todo (closures)")
+        end)
+
     end)
 
     describe("Unary Operators /", function()
@@ -441,12 +465,16 @@ describe("Pallene coder /", function()
             })
         end
 
-        setup(compile(table.concat(pallene_code, "\n")))
+        --setup(compile(table.concat(pallene_code, "\n")))
+        --
+        -- for _, test in ipairs(tests) do
+        --     local name = test[1]
+        --     it(name, function() run_test(test_scripts[name]) end)
+        --end
 
-        for _, test in ipairs(tests) do
-            local name = test[1]
-            it(name, function() run_test(test_scripts[name]) end)
-        end
+        it("", function()
+            pending("todo (tofloat)")
+        end)
     end)
 
     describe("Coercions with dynamic type /", function()
@@ -506,28 +534,31 @@ describe("Pallene coder /", function()
             })
         end
 
-        setup(compile(
-            record_decls .. "\n" ..
-            table.concat(pallene_code, "\n")
-        ))
-
-        for _, test in ipairs(tests) do
-            local name = test[1]
-            it(name .. "->value", function() run_test(test_to[name]) end)
-        end
-
-        for _, test in ipairs(tests) do
-            local name = test[1]
-            it("value->" .. name, function() run_test(test_from[name]) end)
-        end
-
-        it("detects downcast error", function()
-            run_test([[
-                local ok, err = pcall(test.to_integer, "hello")
-                assert(not ok)
-                assert(string.find(err,
-                    "wrong type for downcasted value", nil, true))
-            ]])
+--        setup(compile(
+--            record_decls .. "\n" ..
+--            table.concat(pallene_code, "\n")
+--        ))
+--
+--        for _, test in ipairs(tests) do
+--            local name = test[1]
+--            it(name .. "->value", function() run_test(test_to[name]) end)
+--        end
+--
+--        for _, test in ipairs(tests) do
+--            local name = test[1]
+--            it("value->" .. name, function() run_test(test_from[name]) end)
+--        end
+--
+--        it("detects downcast error", function()
+--            run_test([[
+--                local ok, err = pcall(test.to_integer, "hello")
+--                assert(not ok)
+--                assert(string.find(err,
+--                    "wrong type for downcasted value", nil, true))
+--            ]])
+--        end)
+        it("", function()
+            pending("todo (coercions)")
         end)
 
     end)
@@ -570,7 +601,7 @@ describe("Pallene coder /", function()
                 end
                 return r
             end
-
+        --[=[
             function factorial_int_for_inc(n: integer): integer
                 local res = 1
                 for i = 1, n do
@@ -602,7 +633,7 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
-
+        --]=]
             function repeat_until(): integer
                 local x = 0
                 repeat
@@ -633,6 +664,7 @@ describe("Pallene coder /", function()
             run_test([[ assert(720 == test.factorial_while(6)) ]])
         end)
 
+        --[=[
         it("For loop (integer) (going up)", function()
             run_test([[ assert(720 == test.factorial_int_for_inc(6)) ]])
         end)
@@ -648,6 +680,10 @@ describe("Pallene coder /", function()
         it("For loop (float) (going down)", function()
             run_test([[ assert(720.0 == test.factorial_float_for_dec(6.0)) ]])
         end)
+        --]=]
+        it("", function()
+            pending("todo (for loop)")
+        end)
 
         it("Repeat until", function()
             run_test([[ assert(10 == test.repeat_until()) ]])
@@ -656,6 +692,7 @@ describe("Pallene coder /", function()
 
     describe("Arrays /", function()
         setup(compile([[
+        --[=[
             function newarr(): {integer}
                 return {10,20,30}
             end
@@ -679,9 +716,12 @@ describe("Pallene coder /", function()
             function remove(xs: {integer}): ()
                 table_remove(xs)
             end
+        --]=]
         ]]))
 
+        --[=[
         it("literals", function()
+            pending("todo (arrays)")
             run_test([[
                 local t = test.newarr()
                 assert(type(t) == "table")
@@ -693,6 +733,7 @@ describe("Pallene coder /", function()
         end)
 
         it("length operator (#)", function()
+            pending("todo (arrays)")
             run_test([[
                 assert(0 == test.len({}))
                 assert(1 == test.len({10}))
@@ -701,6 +742,7 @@ describe("Pallene coder /", function()
         end)
 
         it("get", function()
+            pending("todo (arrays)")
             run_test([[
                 local arr = {10, 20, 30}
                 assert(10 == test.get(arr, 1))
@@ -710,6 +752,7 @@ describe("Pallene coder /", function()
         end)
 
         it("set", function()
+            pending("todo (arrays)")
             run_test( [[
                 local arr = {10, 20, 30}
                 test.set(arr, 2, 123)
@@ -720,6 +763,7 @@ describe("Pallene coder /", function()
         end)
 
         it("check out of bounds errors in get", function()
+            pending("todo (arrays)")
             run_test([[
                 local arr = {10, 20, 30}
 
@@ -739,6 +783,7 @@ describe("Pallene coder /", function()
         end)
 
         it("checks type tags in get", function()
+            pending("todo (arrays)")
             run_test([[
                 local arr = {10, 20, "hello"}
 
@@ -750,6 +795,7 @@ describe("Pallene coder /", function()
         end)
 
         it("insert", function()
+            pending("todo (arrays)")
             run_test([[
                 local arr = {}
                 for i = 1, 50 do
@@ -763,6 +809,7 @@ describe("Pallene coder /", function()
         end)
 
         it("remove", function()
+            pending("todo (arrays)")
             run_test([[
                 local arr = {}
                 for i = 1, 100 do
@@ -777,16 +824,23 @@ describe("Pallene coder /", function()
                 end
             ]])
         end)
+        --]=]
+        it("", function()
+            pending("todo (arrays)")
+        end)
     end)
 
     describe("Strings", function()
         setup(compile([[
+        --[=[
             function len(s:string): integer
                 return #s
             end
+        --]=]
         ]]))
 
         it("length operator (#)", function()
+            pending("todo (strings)")
             run_test([[ assert( 0 == test.len("")) ]])
             run_test([[ assert( 1 == test.len("H")) ]])
             run_test([[ assert(11 == test.len("Hello World")) ]])
@@ -795,6 +849,7 @@ describe("Pallene coder /", function()
 
     describe("Records", function()
         setup(compile([[
+        --[=[
             record Foo
                 x: integer
                 y: {integer}
@@ -857,8 +912,10 @@ describe("Pallene coder /", function()
                         f4 = f4, f5 = f5, f6 = f6,
                         f7 = f7, f8 = f8, f9 = f9}
             end
+        --]=]
         ]]))
 
+        --[=[
         it("create records", function()
             run_test([[
                 local foo = test.make_foo(123, {})
@@ -1000,16 +1057,23 @@ describe("Pallene coder /", function()
                 end
             ]])
         end)
+        --]=]
+        it("", function()
+            pending("todo (records)")
+        end)
     end)
 
     describe("I/O", function()
         setup(compile([[
+        --[=[
             function write(s:string)
                 io_write(s)
             end
+        --]=]
         ]]))
 
         it("Can run io.write without crashing", function()
+            pending("todo (io.write)")
             run_test([[
                 test.write("Hello:)World")
             ]])
@@ -1019,12 +1083,15 @@ describe("Pallene coder /", function()
 
     describe("tofloat builtin", function()
         setup(compile([[
+        --[=[
             function itof(x:integer): float
                 return tofloat(x)
             end
+        --]=]
         ]]))
 
         it("works", function()
+            pending("todo (tofloat)")
             run_test([[
                 local x_i = 1
                 local x_f = test.itof(x_i)
@@ -1036,6 +1103,7 @@ describe("Pallene coder /", function()
 
     describe("value", function()
         setup(compile([[
+        --[=[
             function id(x:value): value
                 return x
             end
@@ -1058,6 +1126,7 @@ describe("Pallene coder /", function()
             function new_box(v:value): Box
                 return {v = v}
             end
+        --]=]
         ]]))
 
         --
@@ -1065,6 +1134,7 @@ describe("Pallene coder /", function()
         -- case. So we better stress them by testing the Value case...
         --
 
+        --[=[
         it("can receive and return values", function()
             run_test([[ assert(17 == test.id(17)) ]])
             run_test([[ assert(true == test.id(true)) ]])
@@ -1097,12 +1167,16 @@ describe("Pallene coder /", function()
                 assert("hello" == b.v)
             ]])
         end)
-
+        --]=]
+        it("", function()
+            pending("todo, (value)")
+        end)
     end)
 
     describe("Corner cases of scoping", function()
 
         setup(compile([[
+        --[=[
             record Point
                 x: integer
                 y: integer
@@ -1129,9 +1203,10 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
+        --]=]
         ]]))
 
-
+        --[=[
         it("local variable doesn't shadow its type annotation", function()
             run_test([[ assert( 1 == test.local_type() ) ]])
         end)
@@ -1147,10 +1222,15 @@ describe("Pallene coder /", function()
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
         end)
+        --]=]
+        it("", function()
+            pending("todo (globals, records)")
+        end)
     end)
 
     describe("Non-constant toplevel initializers", function()
         setup(compile([[
+        --[=[
             function f(): integer
                 return 10
             end
@@ -1175,9 +1255,11 @@ describe("Pallene coder /", function()
             function get_x4(): {integer}
                 return x4
             end
+        --]=]
         ]]))
 
         it("", function()
+            pending("todo (toplevel expressions)")
             run_test([[
                 assert(  10 == test.get_x1() )
                 assert(  10 == test.get_x2() )

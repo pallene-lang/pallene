@@ -4,7 +4,7 @@ local c_compiler = {}
 
 c_compiler.CPPFLAGS = "-I./lua/src -I./runtime"
 c_compiler.CFLAGS_BASE = "--std=c99 -g -fPIC"
-c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -pedantic"
+c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -pedantic -Wno-unused"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.CC = "cc"
 
