@@ -114,7 +114,7 @@ declare_type("Cmd", {
 
     -- Functions
     -- (in void functions, dst is false)
-    CallStatic  = {"loc", "dst", "func_id", "srcs"},
+    CallStatic  = {"loc", "dst", "f_id", "srcs"},
     CallDyn     = {"loc", "dst", "src_f", "srcs"},
     CallBuiltin = {"loc", "dst", "builtin_name", "srcs"},
 

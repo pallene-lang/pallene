@@ -134,7 +134,6 @@ describe("Pallene coder /", function()
 
     describe("Function calls /", function()
         setup(compile([[
-        --[=[
             function f0(): integer
                 return 17
             end
@@ -177,38 +176,31 @@ describe("Pallene coder /", function()
 
             function skip_a() end
             function skip_b() skip_a(); skip_a() end
-        --]=]
         ]]))
 
-        --[=[
         it("no parameters", function()
             run_test([[ assert(17 == test.g0()) ]])
         end)
 
         it("one parameter", function()
-            pending("todo (function calls)")
             run_test([[ assert(17 == test.g1(17)) ]])
         end)
 
         it("multiple parameters", function()
-            pending("todo (function calls)")
             run_test([[ assert(17 == test.g2(16, 1)) ]])
         end)
 
         it("recursive calls", function()
-            pending("todo (function calls)")
             run_test([[ assert(3*5 == test.gcd(2*3*5, 3*5*7)) ]])
         end)
 
         it("void functions", function()
-            pending("todo (function calls)")
             run_test([[ assert(0 == select("#", test.skip_b())) ]])
         end)
 
         -- Errors
 
         it("missing arguments", function()
-            pending("todo (function calls)")
             run_test([[
                 local ok, err = pcall(test.g1)
                 assert(string.find(err,
@@ -219,7 +211,6 @@ describe("Pallene coder /", function()
         end)
 
         it("too many arguments", function()
-            pending("todo (function calls)")
             run_test([[
                 local ok, err = pcall(test.g1, 10, 20)
                 assert(string.find(err,
@@ -230,7 +221,6 @@ describe("Pallene coder /", function()
         end)
 
         it("type of argument", function()
-            pending("todo (function calls)")
             -- Also sees if error messages say "float" and "integer"
             -- instead of "number"
             run_test([[
@@ -240,10 +230,6 @@ describe("Pallene coder /", function()
                     "expected integer but found float",
                     nil, true))
             ]])
-        end)
-        --]=]
-        it("", function()
-            pending("todo (function calls)")
         end)
     end)
 

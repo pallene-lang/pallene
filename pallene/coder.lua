@@ -285,7 +285,10 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local prologue = {}
     table.insert(prologue, [[done: ]])
-    if nret > 0 then
+    if nret == 0 then
+        table.insert(prologue, "return;")
+    else
+        assert(nret == 1)
         table.insert(prologue, "return ret;")
     end
 
@@ -307,6 +310,33 @@ function Coder:pallene_entry_point_definition(f_id)
         body = body,
         prologue = table.concat(prologue, "\n"),
     })
+end
+
+function Coder:call_pallene_function(dst, f_id, xs)
+    local func = self.module.functions[f_id]
+    local nret = #func.typ.ret_types
+
+    local args = {}
+    table.insert(args, "L")
+    for _, x in ipairs(xs) do
+        table.insert(args, x)
+    end
+
+    local call = util.render([[$name($args);]], {
+        name = self:pallene_entry_point_name(f_id),
+        args = table.concat(args, ", "),
+    })
+
+    if nret == 0 then
+        assert(dst == false)
+        return call
+    else
+        assert(dst)
+        return util.render([[$dst = $call]], {
+            dst = dst,
+            call = call,
+        })
+    end
 end
 
 --
@@ -368,31 +398,19 @@ function Coder:lua_entry_point_definition(f_id)
         }))
     end
 
-    local call_args = {}
-    table.insert(call_args, "L")
-    --table.insert(call_args, "G")
-    for _, v in ipairs(arg_vars) do
-        table.insert(call_args, v)
-    end
-
-    local pallene_call = util.render([[$name($args)]], {
-        name = self:pallene_entry_point_name(f_id),
-        args = table.concat(call_args, ", ")
-    })
-
     local call_and_push
     if nret == 0 then
-        call_and_push = pallene_call .. ";"
+        call_and_push = self:call_pallene_function(false, f_id, arg_vars)
     else
         assert(nret == 1)
         local typ = func.typ.ret_types[1]
+        local ret = c_declaration(ctype(typ), "ret")
         call_and_push = util.render([[
-            $ret_decl = $call;
-            ${push_ret} ]], {
-                ret_decl = c_declaration(ctype(typ), "ret"),
-                call = pallene_call,
-                push_ret = self:push_to_stack(typ, "ret"),
-        })
+            ${call}
+            ${push} ]], {
+                call = self:call_pallene_function(ret, f_id, arg_vars),
+                push = self:push_to_stack(typ, "ret")
+            })
     end
 
     return util.render([[
@@ -549,7 +567,7 @@ gen_cmd["Binop"] = function(self, cmd)
         return util.render([[
             if (l_castS2U($n) + 1u <= 1u) {
                 if ($n == 0){
-                    pallene_runtime_mod_by_zero_error(L, ${LINE});
+                    pallene_runtime_mod_by_zero_error(L, ${line});
                 } else {
                     $dst = 0;
                 }
@@ -680,8 +698,13 @@ gen_cmd["SetField"] = function(self, _cmd)
     error("not implemented (set field)")
 end
 
-gen_cmd["CallStatic"] = function(self, _cmd)
-    error("not implemented (call function)")
+gen_cmd["CallStatic"] = function(self, cmd)
+    local dst = cmd.dst and self:c_var(cmd.dst)
+    local xs = {}
+    for _, x in ipairs(cmd.srcs) do
+        table.insert(xs, self:c_var(x))
+    end
+    return self:call_pallene_function(dst, cmd.f_id, xs)
 end
 
 gen_cmd["CallDyn"] = function(self, _cmd)
@@ -832,8 +855,6 @@ function Coder:generate_module()
     for f_id = 1, #self.module.functions do
         table.insert(out, self:pallene_entry_point_definition(f_id))
     end
-
-
 
     table.insert(out, section_comment("Exports"))
     for f_id = 1, #self.module.functions do
