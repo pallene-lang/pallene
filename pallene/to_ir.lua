@@ -48,7 +48,7 @@ function ToIR:convert_stat(cmds, stat)
         not_cond._type = types.T.Boolean()
 
         local body = {}
-        local condition = self:convert_exp(body, not_cond)
+        local condition = self:exp_to_value(body, not_cond)
         table.insert(body, ir.Cmd.BreakIf(condition))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(body))
@@ -56,20 +56,20 @@ function ToIR:convert_stat(cmds, stat)
     elseif tag == "ast.Stat.Repeat" then
         local body = {}
         self:convert_stat(body, stat.block)
-        local condition = self:convert_exp(body, stat.condition)
+        local condition = self:exp_to_value(body, stat.condition)
         table.insert(body, ir.Cmd.BreakIf(condition))
         table.insert(cmds, ir.Cmd.Loop(body))
 
     elseif tag == "ast.Stat.If" then
-        local condition = self:convert_exp(cmds, stat.condition)
+        local condition = self:exp_to_value(cmds, stat.condition)
         local then_ = {}; self:convert_stat(then_, stat.then_)
         local else_ = {}; self:convert_stat(else_, stat.else_)
         table.insert(cmds, ir.Cmd.If(condition, then_, else_))
 
     elseif tag == "ast.Stat.For" then
-        local start = self:convert_exp(cmds, stat.start)
-        local limit = self:convert_exp(cmds, stat.limit)
-        local step  = self:convert_exp(cmds, stat.step)
+        local start = self:exp_to_value(cmds, stat.start)
+        local limit = self:exp_to_value(cmds, stat.limit)
+        local step  = self:exp_to_value(cmds, stat.step)
 
         local cname = stat.decl._name
         assert(cname._tag == "checker.Name.Local")
@@ -86,18 +86,18 @@ function ToIR:convert_stat(cmds, stat)
         if     var._tag == "ast.Var.Name" then
             local cname = var._name
             assert(cname._tag == "checker.Name.Local")
-            self:convert_exp(cmds, exp, cname.id)
+            self:exp_to_assignment(cmds, cname.id, exp)
 
         elseif var._tag == "ast.Var.Bracket" then
-            local arr = self:convert_exp(cmds, var.t)
-            local i   = self:convert_exp(cmds, var.k)
-            local v   = self:convert_exp(cmds, exp)
+            local arr = self:exp_to_value(cmds, var.t)
+            local i   = self:exp_to_value(cmds, var.k)
+            local v   = self:exp_to_value(cmds, exp)
             table.insert(cmds, ir.Cmd.SetArr(stat.loc, arr, i, v))
 
         elseif var._tag == "ast.Var.Dot" then
             local field = var.name
-            local rec = self:convert_exp(cmds, var.exp)
-            local v   = self:convert_exp(cmds, exp)
+            local rec = self:exp_to_value(cmds, var.exp)
+            local v   = self:exp_to_value(cmds, exp)
             table.insert(cmds, ir.Cmd.SetField(stat.loc, rec, field, v))
 
         else
@@ -108,15 +108,15 @@ function ToIR:convert_stat(cmds, stat)
         local cname = stat.decl._name
         assert(cname._tag == "checker.Name.Local")
         local v = cname.id
-        self:convert_exp(cmds, stat.exp, v)
+        self:exp_to_assignment(cmds, v, stat.exp)
 
     elseif tag == "ast.Stat.Call" then
-        self:convert_exp(cmds, stat.call_exp)
+        self:exp_to_assignment(cmds, false, stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
         local rets = {}
         for i, exp in ipairs(stat.exps) do
-            rets[i] = self:convert_exp(cmds, exp)
+            rets[i] = self:exp_to_value(cmds, exp)
         end
         table.insert(cmds, ir.Cmd.Return(rets))
 
@@ -198,42 +198,72 @@ local function type_specific_binop(op, typ1, typ2)
     error("impossible")
 end
 
--- Converts a typecheced ast.Exp into a list of ir.Cmd
--- The converted ir.Cmd nodes are appended to the @cmds list
---
--- The optional parameter @dst is the variable name the expression's result
--- should be written to. If this parameter is missing, convert_exp will write to
--- a fresh-ly created variable instead.
---
--- Returns @dst (or the freshly-created variable)
-function ToIR:convert_exp(cmds, exp, dst_opt)
-    local loc = exp.loc
-    local dst = dst_opt or ir.add_local(self.func, exp._type)
-
-    local function reset_dst(new_dst)
-        assert(not dst_opt)
-        assert(dst == #self.func.vars)
-        self.func.vars[dst] = nil
-        dst = new_dst
-    end
-
+-- Converts a typecheced ast.Exp to a ir.Value. If necessary, will create a
+-- fresh variable, and add intermediate computations to the @cmds list.
+function ToIR:exp_to_value(cmds, exp, _recursive)
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
-        table.insert(cmds, ir.Cmd.Nil(loc, dst))
+        return ir.Value.Nil()
 
     elseif tag == "ast.Exp.Bool" then
-        table.insert(cmds, ir.Cmd.Bool(loc, dst, exp.value))
+        return ir.Value.Bool(exp.value)
 
     elseif tag == "ast.Exp.Integer" then
-        table.insert(cmds, ir.Cmd.Integer(loc, dst, exp.value))
+        return ir.Value.Integer(exp.value)
 
     elseif tag == "ast.Exp.Float" then
-        table.insert(cmds, ir.Cmd.Float(loc, dst, exp.value))
+        return ir.Value.Float(exp.value)
 
     elseif tag == "ast.Exp.String" then
-        table.insert(cmds, ir.Cmd.String(loc, dst, exp.value))
+        return ir.Value.String(exp.value)
 
-    elseif tag == "ast.Exp.Initlist" then
+    elseif tag == "ast.Exp.Var" then
+        local var = exp.var
+        if     var._tag == "ast.Var.Name" then
+            local cname = var._name
+            if     cname._tag == "checker.Name.Local" then
+                return ir.Value.LocalVar(cname.id)
+
+            elseif cname._tag == "checker.Name.Function" then
+                error("not implemented")
+
+            elseif cname._tag == "checker.Name.Builtin" then
+                error("not implemented")
+
+            else
+                error("impossible")
+            end
+        else
+            -- Fallthrough to default
+        end
+    end
+
+    if _recursive then
+        -- Avoid infinite loop due to type error
+        error(string.format(
+            "Neither exp_to_value or exp_to_assignment handled tag %q)",
+            exp._tag))
+    end
+
+    -- Otherwise we need to create a temporary variable
+    local v = ir.add_local(self.func, exp._type)
+    self:exp_to_assignment(cmds, v, exp)
+    return ir.Value.LocalVar(v)
+end
+
+-- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added
+-- to the @cmds list. (If this is a function call, then dst may be false)
+function ToIR:exp_to_assignment(cmds, dst, exp)
+    local loc = exp.loc
+    local tag = exp._tag
+
+    local old_len = #cmds
+
+    if not dst then
+        assert(tag == "ast.Exp.CallFunc" or tag == "ast.Exp.CallMethod")
+    end
+
+    if     tag == "ast.Exp.Initlist" then
         error("not implemented")
 
     elseif tag == "ast.Exp.Lambda" then
@@ -241,14 +271,11 @@ function ToIR:convert_exp(cmds, exp, dst_opt)
 
     elseif tag == "ast.Exp.CallFunc" then
 
-        if exp._type._tag == "types.T.Void" then
-            reset_dst(false)
-        end
-
         local function get_xs()
+            -- "xs" should be evaluated after "f"
             local xs = {}
             for i, arg_exp in ipairs(exp.args) do
-                xs[i] = self:convert_exp(cmds, arg_exp)
+                xs[i] = self:exp_to_value(cmds, arg_exp)
             end
             return xs
         end
@@ -267,7 +294,7 @@ function ToIR:convert_exp(cmds, exp, dst_opt)
             table.insert(cmds, ir.Cmd.CallBuiltin(loc, dst, cname.name, xs))
 
         else
-            local f = self:convert_exp(cmds, exp.exp)
+            local f = self:exp_to_value(cmds, exp.exp)
             local xs = get_xs()
             table.insert(cmds, ir.Cmd.CallDyn(loc, dst, f, xs))
         end
@@ -278,34 +305,16 @@ function ToIR:convert_exp(cmds, exp, dst_opt)
     elseif tag == "ast.Exp.Var" then
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
-            local cname = var._name
-            if     cname._tag == "checker.Name.Local" then
-                local v = cname.id
-                if dst_opt then
-                    table.insert(cmds, ir.Cmd.Move(loc, dst, v))
-                else
-                    -- Move propagation optimization
-                    reset_dst(v)
-                end
-
-            elseif cname._tag == "checker.Name.Function" then
-                error("not implemented")
-
-            elseif cname._tag == "checker.Name.Builtin" then
-                error("not implemented")
-
-            else
-                error("impossible")
-            end
+            -- Falthrough to default
 
         elseif var._tag == "ast.Var.Bracket" then
-            local arr = self:convert_exp(cmds, var.t)
-            local i   = self:convert_exp(cmds, var.k)
+            local arr = self:exp_to_value(cmds, var.t)
+            local i   = self:exp_to_value(cmds, var.k)
             table.insert(cmds, ir.Cmd.GetArr(loc, dst, arr, i))
 
         elseif var._tag == "ast.Var.Dot" then
             local field = var.name
-            local rec = self:convert_exp(cmds, var.exp)
+            local rec = self:exp_to_value(cmds, var.exp)
             table.insert(cmds, ir.Cmd.SetField(loc, dst, rec, field))
 
         else
@@ -314,47 +323,48 @@ function ToIR:convert_exp(cmds, exp, dst_opt)
 
     elseif tag == "ast.Exp.Unop" then
         local irop = type_specific_unop(exp.op, exp.exp._type)
-        local v = self:convert_exp(cmds, exp.exp)
+        local v = self:exp_to_value(cmds, exp.exp)
         table.insert(cmds, ir.Cmd.Unop(loc, dst, irop, v))
 
     elseif tag == "ast.Exp.Concat" then
         local xs = {}
         for i, x_exp in ipairs(exp.exps) do
-            xs[i] = self:convert_exp(cmds, x_exp)
+            xs[i] = self:exp_to_value(cmds, x_exp)
         end
         table.insert(cmds, ir.Cmd.Concat(loc, dst, xs))
 
     elseif tag == "ast.Exp.Binop" then
         local op = exp.op
         if     op == "and" then
-            self:convert_exp(cmds, exp.lhs, dst)
+            self:exp_to_assignment(cmds, dst, exp.lhs)
             local rhs_cmds = {}
-            self:convert_exp(rhs_cmds, exp.rhs, dst)
+            self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
             table.insert(cmds, ir.Cmd.If(dst, rhs_cmds, {}))
 
         elseif op == "or" then
-            self:convert_exp(cmds, exp.lhs, dst)
+            self:exp_to_assignment(cmds, dst, exp.lhs)
             local rhs_cmds = {}
-            self:convert_exp(rhs_cmds, exp.rhs, dst)
+            self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
             table.insert(cmds, ir.Cmd.If(dst, {}, rhs_cmds))
 
         else
             local irop =
                 type_specific_binop(op, exp.lhs._type, exp.rhs._type)
-            local v1 = self:convert_exp(cmds, exp.lhs)
-            local v2 = self:convert_exp(cmds, exp.rhs)
+            local v1 = self:exp_to_value(cmds, exp.lhs)
+            local v2 = self:exp_to_value(cmds, exp.rhs)
             table.insert(cmds, ir.Cmd.Binop(loc, dst, irop, v1, v2))
         end
 
     elseif tag == "ast.Exp.Cast" then
-        local v = self:convert_exp(cmds, exp.exp)
+        local v = self:exp_to_value(cmds, exp.exp)
         table.insert(cmds, ir.Cmd.Cast(loc, dst, v))
-
-    else
-        error("impossible")
     end
 
-    return dst
+    if old_len == #cmds then
+        -- Otherwise we have a value, when means we need a Move instruction
+        local value = self:exp_to_value(cmds, exp, true)
+        table.insert(cmds, ir.Cmd.Move(loc, dst, value))
+    end
 end
 
 return to_ir

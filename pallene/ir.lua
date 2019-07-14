@@ -15,8 +15,8 @@ local typedecl = require "pallene.typedecl"
 -- The next step after this is converting function bodies to a lower-level
 -- Pallene intermediate representation.
 --  * Function bodies are now represented as a list of Cmd nodes.
---  * Sub-expressions are lifted out into temporary variables. The order of
---    evaluation is made explicit.
+--  * The order of evaluation is explicit. Sub-expressions (except for contant
+--    values) are lifted out into temporary variables.
 --  * Control-flow operations are still represented as nested nodes.
 
 local ir = {}
@@ -81,17 +81,20 @@ end
 -- Pallene IR
 --
 
+declare_type("Value", {
+    Nil        = {},
+    Bool       = {"value"},
+    Integer    = {"value"},
+    Float      = {"value"},
+    String     = {"value"},
+    LocalVar   = {"id"},
+})
+
 declare_type("Cmd", {
     -- Variables
     Move       = {"loc", "dst", "src"},
 
     -- Primitive Values
-    Nil        = {"loc", "dst"},
-    Bool       = {"loc", "dst", "value"},
-    Integer    = {"loc", "dst", "value"},
-    Float      = {"loc", "dst", "value"},
-    String     = {"loc", "dst", "value"},
-
     Unop       = {"loc", "dst", "op", "src"},
     Binop      = {"loc", "dst", "op", "src1", "src2"},
     Concat     = {"loc", "dst", "srcs"},
@@ -113,7 +116,7 @@ declare_type("Cmd", {
     SetField   = {"loc",        "src_rec", "field", "src_v"},
 
     -- Functions
-    -- (in void functions, dst is false)
+    -- (dst is false if the return value is void, or unused)
     CallStatic  = {"loc", "dst", "f_id", "srcs"},
     CallDyn     = {"loc", "dst", "src_f", "srcs"},
     CallBuiltin = {"loc", "dst", "builtin_name", "srcs"},
@@ -125,7 +128,7 @@ declare_type("Cmd", {
     -- Control flow
     --
     Return  = {"values"},
-    BreakIf = {"v"},
+    BreakIf = {"condition"},
     If      = {"condition", "then_", "else_"},
     Loop    = {"cmds"},
     For     = {"loop_var", "start", "limit", "step", "body"},

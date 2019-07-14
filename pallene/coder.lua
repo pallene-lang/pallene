@@ -42,7 +42,6 @@ local function c_declaration(ctyp, name)
     return string.format("%s %s", ctyp, name)
 end
 
-
 --
 --
 --
@@ -213,9 +212,29 @@ end
 --  # Local variables
 --
 
--- @returns the C variable name for the variable v_id from function f_id
+-- @returns the C variable name for the variable v_id
 function Coder:c_var(v_id)
     return "x" .. v_id
+end
+
+-- @returns the C expression for an ir.Value
+function Coder:c_value(value)
+    local tag = value._tag
+    if     tag == "ir.Value.Nil" then
+        return "0"
+    elseif tag == "ir.Value.Bool" then
+        return C.boolean(value.value)
+    elseif tag == "ir.Value.Integer" then
+        return C.integer(value.value)
+    elseif tag == "ir.Value.Float" then
+        return C.float(value.value)
+    elseif tag == "ir.Value.String" then
+        error("not implemented")
+    elseif tag == "ir.Value.LocalVar" then
+        return self:c_var(value.id)
+    else
+        error("impossible")
+    end
 end
 
 -- @returns A syntactically valid function argument or variable declaration
@@ -448,40 +467,13 @@ local gen_cmd = {}
 
 gen_cmd["Move"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
-    local src = self:c_var(cmd.src)
+    local src = self:c_value(cmd.src)
     return util.render([[ $dst = $src; ]], { dst = dst, src = src })
-end
-
-gen_cmd["Nil"] = function(self, cmd)
-    local dst = self:c_var(cmd.dst)
-    return util.render([[ $dst = 0; ]], { dst = dst })
-end
-
-gen_cmd["Bool"] = function(self, cmd)
-    local dst = self:c_var(cmd.dst)
-    local value = C.boolean(cmd.value)
-    return util.render([[ $dst = $value; ]], { dst = dst, value = value })
-end
-
-gen_cmd["Integer"] = function(self, cmd)
-    local dst = self:c_var(cmd.dst)
-    local value = C.integer(cmd.value)
-    return util.render([[ $dst = $value; ]], { dst = dst, value = value })
-end
-
-gen_cmd["Float"] = function(self, cmd)
-    local dst = self:c_var(cmd.dst)
-    local value = C.float(cmd.value)
-    return util.render([[ $dst = $value; ]], { dst = dst, value = value })
-end
-
-gen_cmd["String"] = function(self, _cmd)
-    error("not implemented (string literals)")
 end
 
 gen_cmd["Unop"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
-    local x = self:c_var(cmd.src)
+    local x = self:c_value(cmd.src)
 
     local function unop(op)
         -- Some unary operations can be directly translated to a C operator
@@ -517,8 +509,8 @@ end
 
 gen_cmd["Binop"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
-    local x = self:c_var(cmd.src1)
-    local y = self:c_var(cmd.src2)
+    local x = self:c_value(cmd.src1)
+    local y = self:c_value(cmd.src2)
 
     local function binop(op)
         -- Some binary operations can be directly translated to a C operator
@@ -704,7 +696,7 @@ gen_cmd["CallStatic"] = function(self, cmd)
     local dst = cmd.dst and self:c_var(cmd.dst)
     local xs = {}
     for _, x in ipairs(cmd.srcs) do
-        table.insert(xs, self:c_var(x))
+        table.insert(xs, self:c_value(x))
     end
     return self:call_pallene_function(dst, cmd.f_id, xs)
 end
@@ -730,7 +722,7 @@ gen_cmd["Return"] = function(self, cmd)
     local lines = {}
     if #values > 0 then
         assert(#values == 1, "not implemented")
-        local v = self:c_var(values[1])
+        local v = self:c_value(values[1])
         table.insert(lines, util.render([[ ret = $v; ]], { v = v }))
     end
     table.insert(lines, [[ goto done; ]])
@@ -738,12 +730,12 @@ gen_cmd["Return"] = function(self, cmd)
 end
 
 gen_cmd["BreakIf"] = function(self, cmd)
-    local v = self:c_var(cmd.v)
-    return util.render([[ if ($v) break; ]], { v = v })
+    local x = self:c_value(cmd.condition)
+    return util.render([[ if ($x) break; ]], { x = x })
 end
 
 gen_cmd["If"] = function(self, cmd)
-    local condition = self:c_var(cmd.condition)
+    local condition = self:c_value(cmd.condition)
     local then_ = self:generate_cmds(cmd.then_)
     local else_ = self:generate_cmds(cmd.else_)
     return util.render([[
@@ -783,9 +775,9 @@ gen_cmd["For"] = function(self, cmd)
     end
 
     return util.render([[
-        $start_decl = $start_init;
-        $limit_decl = $limit_init;
-        $step_decl  = $step_init;
+        $start_decl = $start_val;
+        $limit_decl = $limit_val;
+        $step_decl  = $step_val;
         while (step >= 0 ? start <= limit : start >= limit) {
             $loopvar = start;
             ${body}
@@ -795,9 +787,9 @@ gen_cmd["For"] = function(self, cmd)
             limit_decl = c_declaration(ctype(typ), "limit"),
             step_decl  = c_declaration(ctype(typ), "step"),
             loopvar    = self:c_var(cmd.loop_var),
-            start_init = self:c_var(cmd.start),
-            limit_init = self:c_var(cmd.limit),
-            step_init  = self:c_var(cmd.step),
+            start_val = self:c_value(cmd.start),
+            limit_val = self:c_value(cmd.limit),
+            step_val  = self:c_value(cmd.step),
             body = body,
             update = update,
         })
