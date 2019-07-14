@@ -238,23 +238,18 @@ function Coder:c_value(value)
 end
 
 -- @returns A syntactically valid function argument or variable declaration
---      for variable v_id from function f_id. @semicolon is true if this is a
---      regular variable declaration, and false if it is a function argument.
-function Coder:c_declaration(f_id, v_id, semicolon)
+--      for variable v_id from function f_id, and a correspong C comment, if
+--      applicable. Since this may be used for either
+--      a local variable or a function argument, there is no semicolon.
+function Coder:c_declaration(f_id, v_id)
     local func = self.module.functions[f_id]
     local decl = func.vars[v_id]
 
     local ctyp = ctype(decl.typ)
     local name = self:c_var(v_id)
+    local comment = decl.comment and C.comment(decl.comment) or ""
 
-    local ret = c_declaration(ctyp, name)
-    if semicolon then
-        ret = ret .. ";"
-    end
-    if decl.comment then
-        ret = ret .. string.format(" /* %s */", decl.comment)
-    end
-    return ret
+    return c_declaration(ctyp, name), comment
 end
 
 --
@@ -274,15 +269,24 @@ function Coder:pallene_entry_point_declaration(f_id)
     local ret = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
 
     local args = {}
-    table.insert(args, "lua_State *L")
+    table.insert(args, {"lua_State *L", ""})
     for i = 1, #arg_types do
-        table.insert(args, self:c_declaration(f_id, i, false))
+        table.insert(args, {self:c_declaration(f_id, i)})
     end
 
-    return util.render([[static ${ret} ${name}(${args})]], {
+    local arg_lines = {}
+    for i, arg in ipairs(args) do
+        local comma = (i < #args) and "," or " "
+        table.insert(arg_lines, string.format("%s%s %s", arg[1], comma, arg[2]))
+    end
+
+    return util.render([[
+        static ${ret} ${name}(
+            ${args}
+        )]], {
             ret = ret,
             name = self:pallene_entry_point_name(f_id),
-            args = table.concat(args, ", "),
+            args = table.concat(arg_lines, "\n"),
         })
 end
 
@@ -293,7 +297,8 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local var_decls = {}
     for v_id = narg + 1, #func.vars do
-        table.insert(var_decls, self:c_declaration(f_id, v_id, true))
+        local decl, comment = self:c_declaration(f_id, v_id)
+        table.insert(var_decls, string.format("%s; %s", decl, comment))
     end
     if nret > 0 then
         local typ = func.typ.ret_types[1]
@@ -313,10 +318,12 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, "return ret;")
     end
 
+    local name_comment = C.comment(string.format(
+        "%s %s", func.name, location.show_line(func.loc)))
+
     return util.render([[
-        /* ${name} ($loc) */
-        ${fun_decl}
-        {
+        ${name_comment}
+        ${fun_decl} {
             ${var_decls}
 
             ${body}
@@ -324,8 +331,7 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
         }
     ]], {
-        name = func.name,
-        loc = location.show_line(func.loc),
+        name_comment = name_comment,
         fun_decl = self:pallene_entry_point_declaration(f_id),
         var_decls = table.concat(var_decls, "\n"),
         body = body,

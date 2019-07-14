@@ -39,6 +39,15 @@ function C.float(n)
     return string.format("%a /*%f*/", n, n)
 end
 
+--
+-- Comments
+-- (The reformater assumes that they are single-line)
+
+function C.comment(str)
+    str = str:gsub("\n", " ")
+    str = str:gsub("%*%/", "")
+    return string.format("/* %s */", str)
+end
 
 --
 -- Pretty printing
