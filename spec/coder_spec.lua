@@ -1251,4 +1251,26 @@ describe("Pallene coder /", function()
             ]])
         end)
     end)
+
+    describe("Nested for loops", function()
+        setup(compile([[
+            function mul(n: integer, m:integer) : integer
+                local ret = 0
+                for i = 1, n do
+                    for j = 1, m do
+                        ret = ret + 1
+                    end
+                end
+                return ret
+            end
+        ]]))
+
+        it("", function()
+            run_test([[
+                assert( 0 == test.mul(0, 2))
+                assert( 0 == test.mul(2, 0))
+                assert(15 == test.mul(3, 5))
+            ]])
+        end)
+    end)
 end)

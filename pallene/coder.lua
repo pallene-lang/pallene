@@ -760,38 +760,60 @@ gen_cmd["Loop"] = function(self, cmd)
         })
 end
 
+local for_counter = 0
 gen_cmd["For"] = function(self, cmd)
     local typ = self.func.vars[cmd.loop_var].typ
 
-    local body = self:generate_cmds(cmd.body)
+    -- Use a unique name for the loop variables, to avoid Wshaadow warning
+    for_counter = for_counter + 1
+    local start = string.format("start%02d", for_counter)
+    local limit = string.format("limit%02d", for_counter)
+    local step  = string.format("step%02d", for_counter)
 
-    local update
+    local initialize = util.render(
+        [[$ctyp $start = $startv, $limit = $limitv, $step = $stepv]], {
+            ctyp = ctype(typ),
+            start = start, limit = limit, step = step,
+            startv = self:c_value(cmd.start),
+            limitv = self:c_value(cmd.limit),
+            stepv  = self:c_value(cmd.step),
+        })
+
+    local condition = util.render(
+        [[($step >= 0 ? $start <= $limit : $start >= $limit)]], {
+            start = start, limit = limit, step = step
+        })
+
+    local update_tmpl
     if     typ._tag == "types.T.Integer" then
-        update = [[ start = intop(+, start, step); ]]
+        update_tmpl = [[ $start = intop(+, $start, $step) ]]
     elseif typ._tag == "types.T.Float" then
-        update = [[ start = start + step; ]]
+        update_tmpl = [[ $start = $start + $step ]]
     else
         error("impossible")
     end
 
+    local update = util.render(update_tmpl, {
+        start = start, limit = limit, step = step
+    })
+
+    local body = self:generate_cmds(cmd.body)
+
     return util.render([[
-        $start_decl = $start_val;
-        $limit_decl = $limit_val;
-        $step_decl  = $step_val;
-        while (step >= 0 ? start <= limit : start >= limit) {
-            $loopvar = start;
-            ${body}
+        for(
+            ${initialize};
+            ${condition};
             ${update}
+        ){
+            $loopvar = $start;
+            ${body}
         } ]], {
-            start_decl = c_declaration(ctype(typ), "start"),
-            limit_decl = c_declaration(ctype(typ), "limit"),
-            step_decl  = c_declaration(ctype(typ), "step"),
-            loopvar    = self:c_var(cmd.loop_var),
-            start_val = self:c_value(cmd.start),
-            limit_val = self:c_value(cmd.limit),
-            step_val  = self:c_value(cmd.step),
-            body = body,
+            loopvar = self:c_var(cmd.loop_var),
+            start = start,
+            initialize = initialize,
+            condition = condition,
             update = update,
+            body = body,
         })
 end
 
