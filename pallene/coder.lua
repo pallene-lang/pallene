@@ -281,7 +281,9 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(var_decls, c_declaration(ctype(typ), "ret")..";")
     end
 
+    self.func = func
     local body = self:generate_cmds(func.body)
+    self.func = nil
 
     local prologue = {}
     table.insert(prologue, [[done: ]])
@@ -766,8 +768,39 @@ gen_cmd["Loop"] = function(self, cmd)
         })
 end
 
-gen_cmd["For"] = function(self, _cmd)
-    error("not implemented (for loop)")
+gen_cmd["For"] = function(self, cmd)
+    local typ = self.func.vars[cmd.loop_var].typ
+
+    local body = self:generate_cmds(cmd.body)
+
+    local update
+    if     typ._tag == "types.T.Integer" then
+        update = [[ start = intop(+, start, step); ]]
+    elseif typ._tag == "types.T.Float" then
+        update = [[ start = start + step; ]]
+    else
+        error("impossible")
+    end
+
+    return util.render([[
+        $start_decl = $start_init;
+        $limit_decl = $limit_init;
+        $step_decl  = $step_init;
+        while (step >= 0 ? start <= limit : start >= limit) {
+            $loopvar = start;
+            ${body}
+            ${update}
+        } ]], {
+            start_decl = c_declaration(ctype(typ), "start"),
+            limit_decl = c_declaration(ctype(typ), "limit"),
+            step_decl  = c_declaration(ctype(typ), "step"),
+            loopvar    = self:c_var(cmd.loop_var),
+            start_init = self:c_var(cmd.start),
+            limit_init = self:c_var(cmd.limit),
+            step_init  = self:c_var(cmd.step),
+            body = body,
+            update = update,
+        })
 end
 
 function Coder:generate_cmds(cmds)

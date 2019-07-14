@@ -587,7 +587,7 @@ describe("Pallene coder /", function()
                 end
                 return r
             end
-        --[=[
+
             function factorial_int_for_inc(n: integer): integer
                 local res = 1
                 for i = 1, n do
@@ -619,7 +619,7 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
-        --]=]
+
             function repeat_until(): integer
                 local x = 0
                 repeat
@@ -650,7 +650,6 @@ describe("Pallene coder /", function()
             run_test([[ assert(720 == test.factorial_while(6)) ]])
         end)
 
-        --[=[
         it("For loop (integer) (going up)", function()
             run_test([[ assert(720 == test.factorial_int_for_inc(6)) ]])
         end)
@@ -665,10 +664,6 @@ describe("Pallene coder /", function()
 
         it("For loop (float) (going down)", function()
             run_test([[ assert(720.0 == test.factorial_float_for_dec(6.0)) ]])
-        end)
-        --]=]
-        it("", function()
-            pending("todo (for loop)")
         end)
 
         it("Repeat until", function()
