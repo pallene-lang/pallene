@@ -67,9 +67,9 @@ end
 --
 
 local function type_test_program(s)
-    return util.render([[
+    return (util.render([[
         local x: ${TYPE} = nil
-    ]], { TYPE = s } )
+    ]], { TYPE = s } ))
 end
 
 local function assert_type_ast(code, expected_ast)
@@ -89,11 +89,11 @@ end
 --
 
 local function expression_test_program(s)
-    return util.render([[
+    return (util.render([[
         function foo(): nil
             x = ${EXPR}
         end
-    ]], { EXPR = s })
+    ]], { EXPR = s }))
 end
 
 local function assert_expression_ast(code, expected_ast)
@@ -113,11 +113,11 @@ end
 --
 
 local function statements_test_program(s)
-    return util.render([[
+    return (util.render([[
         function foo(): nil
             ${STATS}
         end
-    ]], { STATS = s })
+    ]], { STATS = s }))
 end
 
 local function assert_statements_ast(code, expected_ast)

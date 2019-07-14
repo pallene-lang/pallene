@@ -76,7 +76,7 @@ function Coder:get_slot(typ, src_slot)
     elseif tag == "types.T.Value"    then tmpl = "*($src)"
     else error("impossible")
     end
-    return util.render(tmpl, {src = src_slot})
+    return (util.render(tmpl, {src = src_slot}))
 end
 
 -- Don't call this function directly. Use set_stack_slot or set_heap_slot
@@ -95,7 +95,7 @@ local function set_slot_(typ, dst_slot, value)
     elseif tag == "types.T.Value"    then tmpl = "setobj(L, $dst, &$src);"
     else error("impossible")
     end
-    return util.render(tmpl, { dst = dst_slot, src = value })
+    return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
 function Coder:set_stack_slot(typ, dst_slot, value)
@@ -107,11 +107,11 @@ end
 --end
 
 function Coder:push_to_stack(typ, value)
-    return util.render([[
+    return (util.render([[
         ${set_slot}
         api_incr_top(L); ]],{
             set_slot = self:set_stack_slot(typ, "s2v(L->top)", value),
-    })
+    }))
 end
 
 --
@@ -148,7 +148,7 @@ function Coder:test_tag(typ, slot)
         error("not implemented (record tag test)")
     else error("impossible")
     end
-    return util.render(tmpl, {slot = slot})
+    return (util.render(tmpl, {slot = slot}))
 end
 
 -- Perform a run-time tag check
@@ -166,7 +166,7 @@ function Coder:check_tag(typ, slot, loc, description_fmt, ...)
         return ""
     else
         local extra_args = table.pack(...)
-        return util.render([[
+        return (util.render([[
             if (PALLENE_UNLIKELY(!$test)) {
                 pallene_runtime_tag_check_error(L,
                     $line, $expected_tag, rawtt($slot),
@@ -179,7 +179,7 @@ function Coder:check_tag(typ, slot, loc, description_fmt, ...)
                 description_fmt = C.string(description_fmt),
                 opt_comma = (#extra_args == 0 and "" or ", "),
                 extra_args = table.concat(extra_args, ", "),
-        })
+        }))
     end
 end
 
@@ -280,14 +280,14 @@ function Coder:pallene_entry_point_declaration(f_id)
         table.insert(arg_lines, string.format("%s%s %s", arg[1], comma, arg[2]))
     end
 
-    return util.render([[
+    return (util.render([[
         static ${ret} ${name}(
             ${args}
         )]], {
             ret = ret,
             name = self:pallene_entry_point_name(f_id),
             args = table.concat(arg_lines, "\n"),
-        })
+        }))
 end
 
 function Coder:pallene_entry_point_definition(f_id)
@@ -321,7 +321,7 @@ function Coder:pallene_entry_point_definition(f_id)
     local name_comment = C.comment(string.format(
         "%s %s", func.name, location.show_line(func.loc)))
 
-    return util.render([[
+    return (util.render([[
         ${name_comment}
         ${fun_decl} {
             ${var_decls}
@@ -336,7 +336,7 @@ function Coder:pallene_entry_point_definition(f_id)
         var_decls = table.concat(var_decls, "\n"),
         body = body,
         prologue = table.concat(prologue, "\n"),
-    })
+    }))
 end
 
 function Coder:call_pallene_function(dst, f_id, xs)
@@ -359,10 +359,10 @@ function Coder:call_pallene_function(dst, f_id, xs)
         return call
     else
         assert(dst)
-        return util.render([[$dst = $call]], {
+        return (util.render([[$dst = $call]], {
             dst = dst,
             call = call,
-        })
+        }))
     end
 end
 
@@ -375,9 +375,9 @@ function Coder:lua_entry_point_name(f_id)
 end
 
 function Coder:lua_entry_point_declaration(f_id)
-    return util.render([[static int ${name}(lua_State *L)]], {
+    return (util.render([[static int ${name}(lua_State *L)]], {
         name = self:lua_entry_point_name(f_id)
-    })
+    }))
 end
 
 function Coder:lua_entry_point_definition(f_id)
@@ -440,7 +440,7 @@ function Coder:lua_entry_point_definition(f_id)
             })
     end
 
-    return util.render([[
+    return (util.render([[
         ${fun_decl}
         {
             StackValue *base = L->ci->func;
@@ -461,7 +461,7 @@ function Coder:lua_entry_point_definition(f_id)
         get_args = table.concat(get_args, "\n"),
         call_and_push = call_and_push,
         nret = #func.typ.ret_types,
-    })
+    }))
 end
 
 --
@@ -474,7 +474,7 @@ local gen_cmd = {}
 gen_cmd["Move"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
-    return util.render([[ $dst = $src; ]], { dst = dst, src = src })
+    return (util.render([[ $dst = $src; ]], { dst = dst, src = src }))
 end
 
 gen_cmd["Unop"] = function(self, cmd)
@@ -483,14 +483,14 @@ gen_cmd["Unop"] = function(self, cmd)
 
     local function unop(op)
         -- Some unary operations can be directly translated to a C operator
-        return util.render([[ $dst = ${op}$x; ]], {
-            op = op , dst = dst, x = x })
+        return (util.render([[ $dst = ${op}$x; ]], {
+            op = op , dst = dst, x = x }))
     end
 
     local function int_neg()
         -- Lua and Pallene mandate two's-complement wraparound on integer arith
-        return util.render([[ $dst = intop(-, 0, $x); ]], {
-            dst = dst, x = x })
+        return (util.render([[ $dst = intop(-, 0, $x); ]], {
+            dst = dst, x = x }))
     end
 
     local function arr_len()
@@ -520,20 +520,20 @@ gen_cmd["Binop"] = function(self, cmd)
 
     local function binop(op)
         -- Some binary operations can be directly translated to a C operator
-        return util.render([[ $dst = $x $op $y; ]], {
-            op = op, dst = dst, x = x, y = y })
+        return (util.render([[ $dst = $x $op $y; ]], {
+            op = op, dst = dst, x = x, y = y }))
     end
 
     local function binop_paren(op)
         -- Improved readability for relational operationss
-        return util.render([[ $dst = ($x $op $y); ]], {
-            op = op, dst = dst, x = x, y = y })
+        return (util.render([[ $dst = ($x $op $y); ]], {
+            op = op, dst = dst, x = x, y = y }))
     end
 
     local function int_binop(op)
         -- Lua and Pallene mandate two's-complement wraparound on integer arith
-        return util.render([[ $dst = intop($op, $x, $y); ]], {
-            op = op, dst = dst, x = x, y = y })
+        return (util.render([[ $dst = intop($op, $x, $y); ]], {
+            op = op, dst = dst, x = x, y = y }))
     end
 
     local function int_divi()
@@ -541,7 +541,7 @@ gen_cmd["Binop"] = function(self, cmd)
         -- while C rounds towards zero. Here we inline luaV_div, to allow the C
         -- compiler to constant-propagate. For an explanation of the algorithm,
         -- see the comments for luaV_div.
-        return util.render([[
+        return (util.render([[
             if (l_castS2U($n) + 1u <= 1u) {
                 if ($n == 0){
                     pallene_runtime_divide_by_zero_error(L, $line);
@@ -558,13 +558,13 @@ gen_cmd["Binop"] = function(self, cmd)
                 m = x,
                 n = y,
                 line = C.integer(cmd.loc.line),
-            })
+            }))
     end
 
     local function int_mod()
         -- Lua and Pallene guarantee that (m == n*(m//n) + (m%n))
         -- For details, see gen_int_div, luaV_div, and luaV_mod.
-        return util.render([[
+        return (util.render([[
             if (l_castS2U($n) + 1u <= 1u) {
                 if ($n == 0){
                     pallene_runtime_mod_by_zero_error(L, ${line});
@@ -581,12 +581,12 @@ gen_cmd["Binop"] = function(self, cmd)
                 m = x,
                 n = y,
                 line = C.integer(cmd.loc.line),
-            })
+            }))
     end
 
     local function flt_divi()
-        return util.render([[ $dst = floor($x / $y); ]], {
-            dst = dst, x = x, y = y })
+        return (util.render([[ $dst = floor($x / $y); ]], {
+            dst = dst, x = x, y = y }))
     end
 
     local function flt_mod()
@@ -606,7 +606,7 @@ gen_cmd["Binop"] = function(self, cmd)
         -- In the dynamic case with unknown "y" this implementation is a little
         -- bit faster Lua because we put the most common case under a single
         -- level of branching. (~20% speedup)
-        return util.render([[
+        return (util.render([[
             if (PALLENE_LIKELY(l_castS2U($y) < PALLENE_LUAINTEGER_NBITS)) {
                 $dst = intop($shift_pos, $x, $y);
             } else {
@@ -621,13 +621,13 @@ gen_cmd["Binop"] = function(self, cmd)
                 dst = dst,
                 x = x,
                 y = y,
-            })
+            }))
 
     end
 
     local function pow()
-       return util.render([[ $dst = pow($x, $y); ]], {
-            dst = dst, x = x, y = y })
+       return (util.render([[ $dst = pow($x, $y); ]], {
+            dst = dst, x = x, y = y }))
     end
 
     local op = cmd.op
@@ -737,14 +737,14 @@ end
 
 gen_cmd["BreakIf"] = function(self, cmd)
     local x = self:c_value(cmd.condition)
-    return util.render([[ if ($x) break; ]], { x = x })
+    return (util.render([[ if ($x) break; ]], { x = x }))
 end
 
 gen_cmd["If"] = function(self, cmd)
     local condition = self:c_value(cmd.condition)
     local then_ = self:generate_cmds(cmd.then_)
     local else_ = self:generate_cmds(cmd.else_)
-    return util.render([[
+    return (util.render([[
         if ($condition) {
             ${then_}
         } else {
@@ -753,17 +753,17 @@ gen_cmd["If"] = function(self, cmd)
             condition = condition,
             then_ = then_,
             else_ = else_,
-        })
+        }))
 end
 
 gen_cmd["Loop"] = function(self, cmd)
     local body = self:generate_cmds(cmd.cmds)
-    return util.render([[
+    return (util.render([[
         while (1) {
             ${body}
         } ]], {
             body = body
-        })
+        }))
 end
 
 local for_counter = 0
@@ -805,7 +805,7 @@ gen_cmd["For"] = function(self, cmd)
 
     local body = self:generate_cmds(cmd.body)
 
-    return util.render([[
+    return (util.render([[
         for(
             ${initialize};
             ${condition};
@@ -820,7 +820,7 @@ gen_cmd["For"] = function(self, cmd)
             condition = condition,
             update = update,
             body = body,
-        })
+        }))
 end
 
 function Coder:generate_cmds(cmds)
@@ -854,7 +854,7 @@ function Coder:generate_luaopen_function()
         }))
     end
 
-    return util.render([[
+    return (util.render([[
         int ${name}(lua_State *L)
         {
             lua_createtable(L, 0, ${n_func});
@@ -869,7 +869,7 @@ function Coder:generate_luaopen_function()
         name = "luaopen_" .. self.modname,
         n_func = C.integer(n_func),
         body = table.concat(body, "\n"),
-    })
+    }))
 end
 
 -- Done
