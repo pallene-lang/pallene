@@ -470,6 +470,7 @@ end
 
 
 local gen_cmd = {}
+local gen_builtin = {}
 
 gen_cmd["Move"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
@@ -550,7 +551,7 @@ gen_cmd["Binop"] = function(self, cmd)
                 }
             } else {
                 $dst = $m / $n;
-                if ($m ^ $n) < 0 && ($m % $n) != 0) {
+                if (($m ^ $n) < 0 && ($m % $n) != 0) {
                     $dst -= 1;
                 }
             } ]], {
@@ -610,7 +611,7 @@ gen_cmd["Binop"] = function(self, cmd)
             if (PALLENE_LIKELY(l_castS2U($y) < PALLENE_LUAINTEGER_NBITS)) {
                 $dst = intop($shift_pos, $x, $y);
             } else {
-                if (l_castS2U(-$Y) < PALLENE_LUAINTEGER_NBITS) {
+                if (l_castS2U(-$y) < PALLENE_LUAINTEGER_NBITS) {
                     $dst = intop($shift_neg, $x, -$y);
                 } else {
                     $dst = 0;
@@ -641,6 +642,7 @@ gen_cmd["Binop"] = function(self, cmd)
     elseif op == "FltMul"    then return binop("*")
     elseif op == "FltDivi"   then return flt_divi()
     elseif op == "FltMod"    then return flt_mod()
+    elseif op == "FltDiv"    then return binop("/")
     elseif op == "BitAnd"    then return int_binop("&")
     elseif op == "BitOr"     then return int_binop("|")
     elseif op == "BitXor"    then return int_binop("^")
@@ -651,13 +653,16 @@ gen_cmd["Binop"] = function(self, cmd)
     elseif op == "IntNeq"    then return binop_paren("!=")
     elseif op == "IntLt"     then return binop_paren("<")
     elseif op == "IntGt"     then return binop_paren(">")
+    elseif op == "IntLeq"    then return binop_paren("<=")
     elseif op == "IntGeq"    then return binop_paren(">=")
     elseif op == "FltEq"     then return binop_paren("==")
     elseif op == "FltNeq"    then return binop_paren("!=")
     elseif op == "FltLt"     then return binop_paren("<")
     elseif op == "FltGt"     then return binop_paren(">")
+    elseif op == "FltLeq"    then return binop_paren("<=")
     elseif op == "FltGeq"    then return binop_paren(">=")
     else
+        print("OP=", op)
         error("impossible")
     end
 end
@@ -711,12 +716,21 @@ gen_cmd["CallDyn"] = function(self, _cmd)
     error("not implemented (call dyn)")
 end
 
-gen_cmd["CallBuiltin"] = function(self, _cmd)
-    error("not implemented (call builtin)")
+gen_cmd["CallBuiltin"] = function(self, cmd)
+    local f = assert(gen_builtin[cmd.builtin_name])
+    return f(self, cmd)
 end
 
 gen_cmd["Cast"] = function(self, _cmd)
     error("not implemented (cast)")
+end
+
+gen_builtin["tofloat"] = function(self, cmd)
+    local dst = self:c_var(cmd.dst)
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[
+        $dst = (lua_Number) $v; ]], {
+            dst = dst, v = v })
 end
 
 --

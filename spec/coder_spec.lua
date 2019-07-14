@@ -415,7 +415,7 @@ describe("Pallene coder /", function()
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
 
-            { "concat_ss", "..",  "string",  "string",  "string" },
+            -- NYI { "concat_ss", "..",  "string",  "string",  "string" },
         }
 
         local pallene_code = {}
@@ -451,15 +451,15 @@ describe("Pallene coder /", function()
             })
         end
 
-        --setup(compile(table.concat(pallene_code, "\n")))
-        --
-        -- for _, test in ipairs(tests) do
-        --     local name = test[1]
-        --     it(name, function() run_test(test_scripts[name]) end)
-        --end
+        setup(compile(table.concat(pallene_code, "\n")))
+
+        for _, test in ipairs(tests) do
+             local name = test[1]
+             it(name, function() run_test(test_scripts[name]) end)
+        end
 
         it("", function()
-            pending("todo (tofloat)")
+            pending("todo (string concat, string compare)")
         end)
     end)
 

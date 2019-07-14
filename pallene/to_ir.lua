@@ -339,13 +339,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             self:exp_to_assignment(cmds, dst, exp.lhs)
             local rhs_cmds = {}
             self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
-            table.insert(cmds, ir.Cmd.If(dst, rhs_cmds, {}))
+            table.insert(cmds, ir.Cmd.If(ir.Value.LocalVar(dst), rhs_cmds, {}))
 
         elseif op == "or" then
             self:exp_to_assignment(cmds, dst, exp.lhs)
             local rhs_cmds = {}
             self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
-            table.insert(cmds, ir.Cmd.If(dst, {}, rhs_cmds))
+            table.insert(cmds, ir.Cmd.If(ir.Value.LocalVar(dst), {}, rhs_cmds))
 
         else
             local irop =
