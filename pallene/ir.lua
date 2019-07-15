@@ -121,9 +121,6 @@ declare_type("Cmd", {
     CallDyn     = {"loc", "dst", "src_f", "srcs"},
     CallBuiltin = {"loc", "dst", "builtin_name", "srcs"},
 
-    -- Coercions
-    Cast       = {"loc", "dst", "src"},
-
     --
     -- Control flow
     --

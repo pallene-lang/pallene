@@ -356,12 +356,26 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         end
 
     elseif tag == "ast.Exp.Cast" then
-        local v = self:exp_to_value(cmds, exp.exp)
-        table.insert(cmds, ir.Cmd.Cast(loc, dst, v))
+        local dst_typ = exp._type
+        local src_typ = exp.exp._type
+        if src_typ._tag == dst_typ._tag then
+            -- Do-nothing cast
+            self:exp_to_assignment(cmds, dst, exp.exp)
+        else
+            local v = self:exp_to_value(cmds, exp.exp)
+            if     dst_typ._tag == "types.T.Value" then
+                table.insert(cmds, ir.Cmd.ToDyn(loc, dst, v))
+            elseif src_typ._tag == "types.T.Value" then
+                table.insert(cmds, ir.Cmd.FromDyn(loc, dst, v))
+            else
+                error("impossible")
+            end
+        end
     end
 
     if old_len == #cmds then
-        -- Otherwise we have a value, when means we need a Move instruction
+        -- If we haven't added any new Cmds by now it means that we fell
+        -- through to the default case.
         local value = self:exp_to_value(cmds, exp, true)
         table.insert(cmds, ir.Cmd.Move(loc, dst, value))
     end

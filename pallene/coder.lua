@@ -671,12 +671,26 @@ gen_cmd["Concat"] = function(self, _cmd)
     error("not implemented (concat)")
 end
 
-gen_cmd["ToDyn"] = function(self, _cmd)
-    error("not implemented (to dyn)")
+gen_cmd["ToDyn"] = function(self, cmd)
+    local dst = self:c_var(cmd.dst)
+    local src = self:c_value(cmd.src)
+    local src_typ = self.func.vars[cmd.src].typ
+    return (self:set_stack_slot(src_typ, "&"..dst, src))
 end
 
-gen_cmd["FromDym"] = function(self, _cmd)
-    error("not implemented (from dyn)")
+gen_cmd["FromDym"] = function(self, cmd)
+    local dst = self:c_var(cmd.dst)
+    local src = self:c_value(cmd.src)
+    local dst_typ = self.func.vars[cmd.dst].typ
+    local src_typ = self.func.vars[cmd.src].typ
+    return (util.render([[
+        ${check_tag}
+        $dst = $get_slot; ]], {
+            dst = dst,
+            check_tag = self:check_tag(dst_typ, "&"..src,
+                    cmd.loc, "downcasted value"),
+            get_slot = self:get_slot(src_typ, "&"..src),
+        }))
 end
 
 gen_cmd["NewArr"] = function(self, _cmd)
@@ -719,10 +733,6 @@ end
 gen_cmd["CallBuiltin"] = function(self, cmd)
     local f = assert(gen_builtin[cmd.builtin_name])
     return f(self, cmd)
-end
-
-gen_cmd["Cast"] = function(self, _cmd)
-    error("not implemented (cast)")
 end
 
 gen_builtin["tofloat"] = function(self, cmd)

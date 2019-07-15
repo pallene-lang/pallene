@@ -1084,11 +1084,11 @@ describe("Pallene coder /", function()
 
     describe("value", function()
         setup(compile([[
-        --[=[
             function id(x:value): value
                 return x
             end
 
+        --[=[
             function call(f:value->value, x:value): value
                 return f(x)
             end
@@ -1115,13 +1115,15 @@ describe("Pallene coder /", function()
         -- case. So we better stress them by testing the Value case...
         --
 
-        --[=[
         it("can receive and return values", function()
             run_test([[ assert(17 == test.id(17)) ]])
             run_test([[ assert(true == test.id(true)) ]])
+        --[=[
             run_test([[ assert(true == test.call(test.id, true)) ]])
+        --]=]
         end)
 
+        --[=[
         it("can read from array of value", function()
             run_test([[
                 local xs = {10, "hello"}
@@ -1150,7 +1152,7 @@ describe("Pallene coder /", function()
         end)
         --]=]
         it("", function()
-            pending("todo, (value)")
+            pending("todo, (arrays, records)")
         end)
     end)
 
