@@ -1,3 +1,4 @@
+local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 
 -- This IR is produced as a result of typechecking the parser's AST. The main
@@ -104,7 +105,7 @@ declare_type("Cmd", {
     FromDyn    = {"loc", "dst", "src"},
 
     -- Arrays
-    NewArr     = {"loc", "dst"},
+    NewArr     = {"loc", "dst", "size_hint"},
 
     GetArr     = {"loc", "dst", "src_arr", "src_i"},
     SetArr     = {"loc",        "src_arr", "src_i", "src_v"},
@@ -130,5 +131,24 @@ declare_type("Cmd", {
     Loop    = {"cmds"},
     For     = {"loop_var", "start", "limit", "step", "body"},
 })
+
+function ir.value_type(func, value)
+    local tag = value._tag
+    if     tag == "ir.Value.Nil" then
+        return types.T.Nil()
+    elseif tag == "ir.Value.Bool" then
+        return types.T.Boolean()
+    elseif tag == "ir.Value.Integer" then
+        return types.T.Integer()
+    elseif tag == "ir.Value.Float" then
+        return types.T.Float()
+    elseif tag == "ir.Value.String" then
+        return types.T.String()
+    elseif tag == "ir.Value.LocalVar" then
+        return func.vars[value.id].typ
+    else
+        error("impossible")
+    end
+end
 
 return ir

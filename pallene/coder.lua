@@ -1,7 +1,6 @@
-local ast = require "pallene.ast"
 local C = require "pallene.C"
+local ir = require "pallene.ir"
 local location = require "pallene.location"
-local typedecl = require "pallene.typedecl"
 local types = require "pallene.types"
 local util = require "pallene.util"
 
@@ -62,7 +61,7 @@ end
 --
 
 -- @param src_slot: The TValue* to read from
-function Coder:get_slot(typ, src_slot)
+local function get_slot(typ, src_slot)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
@@ -79,12 +78,12 @@ function Coder:get_slot(typ, src_slot)
     return (util.render(tmpl, {src = src_slot}))
 end
 
--- Don't call this function directly. Use set_stack_slot or set_heap_slot
+-- Don't forget to call barrierback if this slot belongs to a heap object!
 -- @param dst_slot: The TValue* to write to
-local function set_slot_(typ, dst_slot, value)
+local function set_slot(typ, dst_slot, value)
     local tmpl
     local tag = typ._tag
-    if     tag == "types.T.Nil"      then tmpl = "(void) $src; setnilvalue($dst);"
+    if     tag == "types.T.Nil"      then tmpl = "setnilvalue($dst);"
     elseif tag == "types.T.Boolean"  then tmpl = "setbvalue($dst, $src);"
     elseif tag == "types.T.Integer"  then tmpl = "setivalue($dst, $src);"
     elseif tag == "types.T.Float"    then tmpl = "setfltvalue($dst, $src);"
@@ -98,20 +97,36 @@ local function set_slot_(typ, dst_slot, value)
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
-function Coder:set_stack_slot(typ, dst_slot, value)
-    return set_slot_(typ, dst_slot, value)
-end
-
---function Coder:set_heap_slot(typ, dst_slow, value, parent)
---  error("not implemented")
---end
-
 function Coder:push_to_stack(typ, value)
     return (util.render([[
         ${set_slot}
         api_incr_top(L); ]],{
-            set_slot = self:set_stack_slot(typ, "s2v(L->top)", value),
+            set_slot = set_slot(typ, "s2v(L->top)", value),
     }))
+end
+
+-- This function should be called when setting "v" as an element of "p", to
+-- preserve the color invariants of the incremental GC.
+--
+-- The implementation is a specialization of luaC_barrierback that checks at
+-- compile time if the child object is collectible, if possible. Additionally,
+-- our version of the macros use "internal poiters" (as described by ctype())
+-- instead of TValue*.
+--
+-- @param typ: Type of child object
+-- @param p: Internal pointer to parent object
+-- @param v: Internal pointer to child object
+-- @returns C statementS
+local function barrierback(typ, p, v)
+    local tmpl
+    if not types.is_gc(typ) then
+        tmpl = ""
+    elseif typ._tag == "types.T.Value" or typ._tag == "types.T.Function" then
+        tmpl = [[pallene_barrierback_unknown_child(L, $p, &$v);]]
+    else
+        tmpl = [[pallene_barrierback_collectable_child(L, $p, $v);]]
+    end
+    return (util.render(tmpl, { p = p, v = v }))
 end
 
 --
@@ -421,7 +436,7 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(get_args, util.render([[
             $decl = $get_slot; ]], {
                 decl = c_declaration(ctype(typ), name),
-                get_slot = self:get_slot(typ, slot),
+                get_slot = get_slot(typ, slot),
         }))
     end
 
@@ -495,7 +510,8 @@ gen_cmd["Unop"] = function(self, cmd)
     end
 
     local function arr_len()
-        error("not implemented (array length)")
+        return (util.render([[ $dst = luaH_getn($x); ]], {
+            dst = dst, x = x }))
     end
 
     local function str_len()
@@ -674,35 +690,91 @@ end
 gen_cmd["ToDyn"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
-    local src_typ = self.func.vars[cmd.src].typ
-    return (self:set_stack_slot(src_typ, "&"..dst, src))
+    local src_typ = ir.value_type(self.func, cmd.src)
+    return (set_slot(src_typ, "&"..dst, src))
 end
 
 gen_cmd["FromDym"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
+
+    assert(src._tag == "ir.Value.LocalVar") -- no "value" literals
+    local src_var = src.id
+
     local dst_typ = self.func.vars[cmd.dst].typ
-    local src_typ = self.func.vars[cmd.src].typ
+    local src_typ = self.func.vars[src_var].typ
+
     return (util.render([[
         ${check_tag}
         $dst = $get_slot; ]], {
             dst = dst,
-            check_tag = self:check_tag(dst_typ, "&"..src,
+            check_tag = self:check_tag(dst_typ, "&"..src_var,
                     cmd.loc, "downcasted value"),
-            get_slot = self:get_slot(src_typ, "&"..src),
+            get_slot = get_slot(src_typ, "&"..src_var),
         }))
 end
 
-gen_cmd["NewArr"] = function(self, _cmd)
-    error("not implemented (new arr)")
+gen_cmd["NewArr"] = function(self, cmd)
+    local dst = self:c_var(cmd.dst)
+    local n = C.integer(cmd.size_hint)
+    return (util.render([[
+        $dst = luaH_new(L);
+        if ($n > 0) {
+            luaH_resizearray(L, $dst, $n);
+        } ]], {
+            dst = dst,
+            n = n,
+        }))
 end
 
-gen_cmd["GetArr"] = function(self, _cmd)
-    error("not implemented (get arr)")
+gen_cmd["GetArr"] = function(self, cmd)
+    local typ = ir.value_type(self.func, cmd.src_arr).elem
+    local dst = self:c_var(cmd.dst)
+    local arr = self:c_value(cmd.src_arr)
+    local i   = self:c_value(cmd.src_i)
+    local line = C.integer(cmd.loc.line)
+    return (util.render([[
+        {
+            lua_Unsigned ui = ((lua_Unsigned) $i) - 1;
+            if (PALLENE_UNLIKELY(ui >= $arr->sizearray)) {
+                pallene_renormalize_array(L, $arr, ui, $line);
+            }
+            TValue *slot = &$arr->array[ui];
+            ${check_tag}
+            $dst = $get_slot;
+        } ]], {
+            dst = dst,
+            arr = arr,
+            i = i,
+            line = line,
+            check_tag = self:check_tag(typ, "slot", cmd.loc, "array element"),
+            get_slot = get_slot(typ, "slot"),
+        }))
 end
 
-gen_cmd["SetArr"] = function(self, _cmd)
-    error("not implemented (set arr)")
+gen_cmd["SetArr"] = function(self, cmd)
+    local typ = ir.value_type(self.func, cmd.src_v)
+    local arr = self:c_value(cmd.src_arr)
+    local i   = self:c_value(cmd.src_i)
+    local v   = self:c_value(cmd.src_v)
+    local line = C.integer(cmd.loc.line)
+    return (util.render([[
+        {
+            lua_Unsigned ui = ((lua_Unsigned) $i) - 1;
+            if (PALLENE_UNLIKELY(ui >= $arr->sizearray)) {
+                pallene_renormalize_array(L, $arr, ui, $line);
+            }
+            TValue *slot = &$arr->array[ui];
+            ${set_slot} ${barrierback}
+        } ]], {
+            arr = arr,
+            i = i,
+            v = v,
+            line = line,
+            set_slot = set_slot(typ, "slot", v),
+            barrierback = barrierback(typ, arr, v),
+
+        }))
 end
 
 gen_cmd["NewRecord"] = function(self, _cmd)

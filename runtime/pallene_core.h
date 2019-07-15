@@ -11,6 +11,17 @@
 
 #define PALLENE_LUAINTEGER_NBITS  cast_int(sizeof(lua_Integer) * CHAR_BIT)
 
+
+// Specialized "barrierback" macros. See coder.lua for explanation.
+#define pallene_barrierback_unknown_child(L, p, v) \
+    if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v))) { \
+        luaC_barrierback_(L, obj2gco(p));                                  \
+    }
+#define pallene_barrierback_collectable_child(L, p, v) \
+    if (isblack(obj2gco(p)) && iswhite(obj2gco(v))) { \
+        luaC_barrierback_(L, obj2gco(p));             \
+    }
+
 const char *pallene_tag_name(int raw_tag);
 
 void pallene_runtime_tag_check_error(

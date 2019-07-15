@@ -673,7 +673,6 @@ describe("Pallene coder /", function()
 
     describe("Arrays /", function()
         setup(compile([[
-        --[=[
             function newarr(): {integer}
                 return {10,20,30}
             end
@@ -689,7 +688,7 @@ describe("Pallene coder /", function()
             function set(arr: {integer}, i: integer, v: integer)
                 arr[i] = v
             end
-
+        --[=[
             function insert(xs: {integer}, v:integer): ()
                 table_insert(xs, v)
             end
@@ -700,9 +699,7 @@ describe("Pallene coder /", function()
         --]=]
         ]]))
 
-        --[=[
         it("literals", function()
-            pending("todo (arrays)")
             run_test([[
                 local t = test.newarr()
                 assert(type(t) == "table")
@@ -714,7 +711,6 @@ describe("Pallene coder /", function()
         end)
 
         it("length operator (#)", function()
-            pending("todo (arrays)")
             run_test([[
                 assert(0 == test.len({}))
                 assert(1 == test.len({10}))
@@ -723,7 +719,6 @@ describe("Pallene coder /", function()
         end)
 
         it("get", function()
-            pending("todo (arrays)")
             run_test([[
                 local arr = {10, 20, 30}
                 assert(10 == test.get(arr, 1))
@@ -733,7 +728,6 @@ describe("Pallene coder /", function()
         end)
 
         it("set", function()
-            pending("todo (arrays)")
             run_test( [[
                 local arr = {10, 20, 30}
                 test.set(arr, 2, 123)
@@ -744,7 +738,6 @@ describe("Pallene coder /", function()
         end)
 
         it("check out of bounds errors in get", function()
-            pending("todo (arrays)")
             run_test([[
                 local arr = {10, 20, 30}
 
@@ -764,7 +757,6 @@ describe("Pallene coder /", function()
         end)
 
         it("checks type tags in get", function()
-            pending("todo (arrays)")
             run_test([[
                 local arr = {10, 20, "hello"}
 
@@ -775,8 +767,8 @@ describe("Pallene coder /", function()
             ]])
         end)
 
+        --[=[
         it("insert", function()
-            pending("todo (arrays)")
             run_test([[
                 local arr = {}
                 for i = 1, 50 do
@@ -790,7 +782,6 @@ describe("Pallene coder /", function()
         end)
 
         it("remove", function()
-            pending("todo (arrays)")
             run_test([[
                 local arr = {}
                 for i = 1, 100 do
@@ -807,7 +798,7 @@ describe("Pallene coder /", function()
         end)
         --]=]
         it("", function()
-            pending("todo (arrays)")
+            pending("todo (table.insert / table.remove)")
         end)
     end)
 
@@ -1087,12 +1078,11 @@ describe("Pallene coder /", function()
             function id(x:value): value
                 return x
             end
-
         --[=[
             function call(f:value->value, x:value): value
                 return f(x)
             end
-
+        --]=]
             function read(xs:{value}, i:integer): value
                 return xs[i]
             end
@@ -1100,7 +1090,7 @@ describe("Pallene coder /", function()
             function write(xs:{value}, i:integer, x:value): ()
                 xs[i] = x
             end
-
+        --[=[
             record Box
                 v: value
             end
@@ -1123,7 +1113,6 @@ describe("Pallene coder /", function()
         --]=]
         end)
 
-        --[=[
         it("can read from array of value", function()
             run_test([[
                 local xs = {10, "hello"}
@@ -1142,6 +1131,7 @@ describe("Pallene coder /", function()
             ]])
         end)
 
+        --[=[
         it("can read and write record via __newindex", function()
             run_test([[
                 local b = test.new_box(10)
@@ -1152,7 +1142,7 @@ describe("Pallene coder /", function()
         end)
         --]=]
         it("", function()
-            pending("todo, (arrays, records)")
+            pending("todo, (functions, records)")
         end)
     end)
 

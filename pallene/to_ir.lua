@@ -264,7 +264,22 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     end
 
     if     tag == "ast.Exp.Initlist" then
-        error("not implemented")
+        local typ = exp._type
+        if     typ._tag == "types.T.Array" then
+            local n = #exp.fields
+            table.insert(cmds, ir.Cmd.NewArr(loc, dst, n))
+            for i, field in ipairs(exp.fields) do
+                local av = ir.Value.LocalVar(dst)
+                local iv = ir.Value.Integer(i)
+                local vv = self:exp_to_value(cmds, field.exp)
+                table.insert(cmds, ir.Cmd.SetArr(loc, av, iv, vv))
+            end
+
+        elseif typ._tag == "types.T.Record" then
+            error("not implemented")
+        else
+            error("impossible")
+        end
 
     elseif tag == "ast.Exp.Lambda" then
         error("not implemented")
