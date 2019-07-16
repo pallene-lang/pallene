@@ -1055,15 +1055,12 @@ describe("Pallene coder /", function()
 
     describe("tofloat builtin", function()
         setup(compile([[
-        --[=[
             function itof(x:integer): float
                 return tofloat(x)
             end
-        --]=]
         ]]))
 
         it("works", function()
-            pending("todo (tofloat)")
             run_test([[
                 local x_i = 1
                 local x_f = test.itof(x_i)
