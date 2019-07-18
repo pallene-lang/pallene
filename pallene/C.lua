@@ -63,6 +63,7 @@ end
 --   * Use braces on if statements, while loops, and for loops.
 --   * /**/-style comments must not span multiple lines
 --   * Be careful about special characters inside strings and comments
+--   * goto labels must appear on a line by themselves
 --
 function C.reformat(input)
     local out = {}
@@ -86,12 +87,11 @@ function C.reformat(input)
 
             else
                 -- Otherwise, count braces and parens
-                local without_strings = line:gsub('\\\"', "")
-                                            :gsub('".-"', "")
+                local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
                 local without_comments = without_strings:gsub("/%*.-%*/", "")
                                                         :gsub("//.*", "")
-                local n_open  = #string.gsub(without_comments, "[^{(]", "")
-                local n_close = #string.gsub(without_comments, "[^})]", "")
+                local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
+                local _, n_close = string.gsub(without_comments, "[})]", "%1")
                 local unindent_this_line = string.match(line, "^[})]")
 
                 nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
