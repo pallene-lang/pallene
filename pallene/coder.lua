@@ -55,6 +55,7 @@ function Coder.new(module, modname)
     self.modname = modname
     self.func = false
 
+    self.g_string_literals = {}  -- {string}
     self.g_string_field    = {}  -- str  => field name
     self.g_metatable_field = {}  -- typ  => field name
     self.g_function_field  = {}  -- f_id => field name
@@ -261,7 +262,9 @@ function Coder:c_value(value)
     elseif tag == "ir.Value.Float" then
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
-        error("not implemented")
+        return (util.render([[tsvalue($str_slot)]], {
+            str_slot = self:string_slot(value.value)
+        }))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
     else
@@ -521,9 +524,56 @@ function Coder:init_globals()
     end
 
     -- String Literals
-    -- TODO
+
+    local string_count = 0
+    local find_strings_cmds
+    local find_strings_cmd
+    local find_strings_value
+
+    find_strings_cmds = function(cmds)
+        for _, cmd in ipairs(cmds) do
+            find_strings_cmd(cmd)
+        end
+    end
+
+    find_strings_cmd = function(cmd)
+        for _, v in ipairs(ir.get_srcs(cmd)) do
+            find_strings_value(v)
+        end
+
+        local tag = cmd._tag
+        if tag == "ir.Cmd.If" then
+            find_strings_cmds(cmd.then_)
+            find_strings_cmds(cmd.else_)
+        elseif tag == "ir.Cmd.Loop" then
+            find_strings_cmds(cmd.cmds)
+        elseif tag == "ir.Cmd.For" then
+            find_strings_cmds(cmd.body)
+        else
+            -- no recursion needed
+        end
+    end
+
+    find_strings_value = function(v)
+        local tag = v._tag
+        if     tag == "ir.Value.String" then
+            local str = v.value
+            string_count = string_count + 1
+            local fname = string.format("string_%02d", string_count)
+            add_field(fname, types.T.String())
+            table.insert(self.g_string_literals, str)
+            self.g_string_field[str] = fname
+        else
+            -- skip
+        end
+    end
+
+    for _, func in ipairs(self.module.functions) do
+        find_strings_cmds(func.body)
+    end
 
     -- Metatables
+
     local mt_count = 0
     local table_typ = types.T.Array(types.T.Value())
     for _, typ in ipairs(self.module.record_types) do
@@ -542,9 +592,14 @@ function Coder:init_globals()
     ir.add_record_type(self.module, self.g_record_typ)
 end
 
+function Coder:string_slot(str)
+    local name = assert(self.g_string_field[str])
+    local rc = self.record_coders[self.g_record_typ]
+    return (rc:get_gc_slot("G", name))
+end
+
 function Coder:metatable_slot(record_typ)
     local name = assert(self.g_metatable_field[record_typ])
-
     local rc = self.record_coders[self.g_record_typ]
     return (rc:get_gc_slot("G", name))
 end
@@ -1204,6 +1259,19 @@ function Coder:generate_luaopen_function()
 
     local g_coder = self.record_coders[self.g_record_typ]
 
+    local init_strings = {}
+    for _, str in ipairs(self.g_string_literals) do
+        local fname = self.g_string_field[str]
+        local uv = g_coder.gc_index[fname]
+        table.insert(init_strings, util.render([[
+            lua_pushstring(L, $str);
+            lua_setiuservalue(L, global_userdata_index, $uv);
+        ]], {
+            str = C.string(str),
+            uv = uv,
+        }))
+    end
+
     local init_metatables = {}
     for _, typ in ipairs(self.module.record_types) do
         if typ ~= self.g_record_typ then
@@ -1242,6 +1310,10 @@ function Coder:generate_luaopen_function()
             lua_newuserdatauv(L, $g_prims_sizeof, $g_gc_count);
             int global_userdata_index = lua_gettop(L);
 
+            /* Strings */
+
+            ${init_strings}
+
             /* Metatables */
 
             ${init_metatables}
@@ -1258,6 +1330,8 @@ function Coder:generate_luaopen_function()
         }
     ]], {
         name = "luaopen_" .. self.modname,
+
+        init_strings = table.concat(init_strings, "\n"),
 
         g_prims_sizeof = g_coder:prims_sizeof(),
         g_gc_count = g_coder.gc_count,

@@ -62,7 +62,7 @@ describe("Pallene coder /", function()
             function f_false(): boolean    return false end
             function f_integer(): integer  return 17 end
             function f_float(): float      return 3.14 end
-            -- function f_string(): string    return "Hello World" end
+            function f_string(): string    return "Hello World" end
             function pi(): float           return 3.141592653589793 end
             function e(): float            return 2.718281828459045 end
         ]]))
@@ -88,7 +88,6 @@ describe("Pallene coder /", function()
         end)
 
         it("strings", function()
-            pending("todo (strings)")
             run_test([[ assert("Hello World" == test.f_string()) ]])
         end)
 
@@ -806,7 +805,7 @@ describe("Pallene coder /", function()
         ]]))
 
         it("length operator (#)", function()
-            pending("todo (strings)")
+            pending("todo (strings length)")
             run_test([[ assert( 0 == test.len("")) ]])
             run_test([[ assert( 1 == test.len("H")) ]])
             run_test([[ assert(11 == test.len("Hello World")) ]])

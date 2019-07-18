@@ -151,4 +151,40 @@ function ir.value_type(func, value)
     end
 end
 
+function ir.get_srcs(cmd)
+    local tag = cmd._tag
+
+    if tag == "ir.Cmd.Return" then
+        return cmd.values
+    elseif tag == "ir.Cmd.BreakIf" then
+        return { cmd.condition }
+    elseif tag == "ir.Cmd.If" then
+        return { cmd.condition }
+    elseif tag == "ir.Cmd.Loop" then
+        return {}
+    elseif tag == "ir.Cmd.For" then
+        return { cmd.start, cmd.limit, cmd.step }
+    else
+        local srcs = {}
+
+        for k in ipairs({
+            "src", "src1", "src2",
+            "src_arr", "src_rec", "src_i", "src_v",
+            "f_id",
+        }) do
+            if cmd[k] then
+                table.insert(srcs, cmd[k])
+            end
+        end
+
+        if cmd.srcs then
+            for _, src in ipairs(cmd.srcs) do
+                table.insert(srcs, src)
+            end
+        end
+
+        return srcs
+    end
+end
+
 return ir
