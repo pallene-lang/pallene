@@ -95,10 +95,11 @@ function ToIR:convert_stat(cmds, stat)
             table.insert(cmds, ir.Cmd.SetArr(stat.loc, arr, i, v))
 
         elseif var._tag == "ast.Var.Dot" then
+            local typ = assert(var.exp._type)
             local field = var.name
             local rec = self:exp_to_value(cmds, var.exp)
             local v   = self:exp_to_value(cmds, exp)
-            table.insert(cmds, ir.Cmd.SetField(stat.loc, rec, field, v))
+            table.insert(cmds, ir.Cmd.SetField(stat.loc, typ, rec, field, v))
 
         else
             error("impossible")
@@ -276,7 +277,19 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif typ._tag == "types.T.Record" then
-            error("not implemented")
+            local field_exps = {}
+            for _, field in ipairs(exp.fields) do
+                field_exps[field.name] = field.exp
+            end
+
+            table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
+            for _, field_name in ipairs(typ.field_names) do
+                local f_exp = assert(field_exps[field_name])
+                local dv = ir.Value.LocalVar(dst)
+                local vv = self:exp_to_value(cmds, f_exp)
+                table.insert(cmds,
+                    ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
+            end
         else
             error("impossible")
         end
@@ -328,9 +341,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             table.insert(cmds, ir.Cmd.GetArr(loc, dst, arr, i))
 
         elseif var._tag == "ast.Var.Dot" then
+            local typ = assert(var.exp._type)
             local field = var.name
             local rec = self:exp_to_value(cmds, var.exp)
-            table.insert(cmds, ir.Cmd.SetField(loc, dst, rec, field))
+            table.insert(cmds, ir.Cmd.GetField(loc, typ, dst, rec, field))
 
         else
             error("impossible")

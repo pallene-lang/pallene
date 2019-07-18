@@ -821,7 +821,6 @@ describe("Pallene coder /", function()
 
     describe("Records", function()
         setup(compile([[
-        --[=[
             record Foo
                 x: integer
                 y: {integer}
@@ -869,7 +868,7 @@ describe("Pallene coder /", function()
             function make_empty(): Empty
                 return {}
             end
-
+            --[=[
             record Big
                 f1: integer; f2: integer; f3: integer
                 f4: integer; f5: integer; f6: integer
@@ -884,10 +883,9 @@ describe("Pallene coder /", function()
                         f4 = f4, f5 = f5, f6 = f6,
                         f7 = f7, f8 = f8, f9 = f9}
             end
-        --]=]
+            --]=]
         ]]))
 
-        --[=[
         it("create records", function()
             run_test([[
                 local foo = test.make_foo(123, {})
@@ -955,6 +953,7 @@ describe("Pallene coder /", function()
             ]])
         end)
 
+        --[=[
         it("implements __index and __newindex", function()
             run_test([[
                 local a, b = {}, {}
@@ -1031,7 +1030,7 @@ describe("Pallene coder /", function()
         end)
         --]=]
         it("", function()
-            pending("todo (records)")
+            pending("todo (records __index __newindex)")
         end)
     end)
 
@@ -1087,14 +1086,6 @@ describe("Pallene coder /", function()
             function write(xs:{value}, i:integer, x:value): ()
                 xs[i] = x
             end
-        --[=[
-            record Box
-                v: value
-            end
-            function new_box(v:value): Box
-                return {v = v}
-            end
-        --]=]
         ]]))
 
         --
@@ -1128,18 +1119,8 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        --[=[
-        it("can read and write record via __newindex", function()
-            run_test([[
-                local b = test.new_box(10)
-                assert(10 == b.v)
-                b.v = "hello"
-                assert("hello" == b.v)
-            ]])
-        end)
-        --]=]
         it("", function()
-            pending("todo, (functions, records)")
+            pending("todo, (functions)")
         end)
     end)
 

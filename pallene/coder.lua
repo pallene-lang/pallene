@@ -7,6 +7,7 @@ local util = require "pallene.util"
 local coder = {}
 
 local Coder
+local RecordCoder
 
 function coder.generate(module, modname)
     local c = Coder.new(module, modname)
@@ -53,6 +54,20 @@ function Coder.new(module, modname)
     self.module = module
     self.modname = modname
     self.func = false
+
+    self.g_string_field    = {}  -- str  => field name
+    self.g_metatable_field = {}  -- typ  => field name
+    self.g_function_field  = {}  -- f_id => field name
+    self.g_record_typ = false    -- types.T.Record
+    self:init_globals()
+
+    self.record_ids    = {}      -- types.T.Record => integer
+    self.record_coders = {}      -- types.T.Record => RecordCoder
+    for i, typ in ipairs(self.module.record_types) do
+        self.record_ids[typ] = i
+        self.record_coders[typ] = RecordCoder.new(self, typ)
+    end
+
     return self
 end
 
@@ -122,9 +137,9 @@ local function barrierback(typ, p, v)
     if not types.is_gc(typ) then
         tmpl = ""
     elseif typ._tag == "types.T.Value" or typ._tag == "types.T.Function" then
-        tmpl = [[pallene_barrierback_unknown_child(L, $p, &$v);]]
+        tmpl = "\npallene_barrierback_unknown_child(L, $p, &$v);"
     else
-        tmpl = [[pallene_barrierback_collectable_child(L, $p, $v);]]
+        tmpl = "\npallene_barrierback_collectable_child(L, $p, $v);"
     end
     return (util.render(tmpl, { p = p, v = v }))
 end
@@ -160,8 +175,10 @@ function Coder:test_tag(typ, slot)
     elseif tag == "types.T.Array"    then tmpl = "ttistable($slot)"
     elseif tag == "types.T.Value"    then tmpl = "1"
     elseif tag == "types.T.Record"   then
-        error("not implemented (record tag test)")
-    else error("impossible")
+        return (util.render([[(ttisfulluserdata($slot) && uvalue($slot)->metatable == hvalue($mt_slot))]], {
+            slot = slot,
+            mt_slot = self:metatable_slot(typ),
+        }))
     end
     return (util.render(tmpl, {slot = slot}))
 end
@@ -285,6 +302,7 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local args = {}
     table.insert(args, {"lua_State *L", ""})
+    table.insert(args, {"Udata *G", ""})
     for i = 1, #arg_types do
         table.insert(args, {self:c_declaration(f_id, i)})
     end
@@ -360,6 +378,7 @@ function Coder:call_pallene_function(dst, f_id, xs)
 
     local args = {}
     table.insert(args, "L")
+    table.insert(args, "G")
     for _, x in ipairs(xs) do
         table.insert(args, x)
     end
@@ -461,6 +480,10 @@ function Coder:lua_entry_point_definition(f_id)
             StackValue *base = L->ci->func;
             TValue *slot;
 
+            // Get first upvalue
+            CClosure *func = clCvalue(s2v(base));
+            Udata *G = uvalue(&func->upvalue[0]);
+
             ${arity_check}
 
             ${type_checks}
@@ -476,6 +499,208 @@ function Coder:lua_entry_point_definition(f_id)
         get_args = table.concat(get_args, "\n"),
         call_and_push = call_and_push,
         nret = #func.typ.ret_types,
+    }))
+end
+
+--
+-- # Global coder
+--
+-- This section of the program is responsible for keeping track of the
+-- "global" values in the module that need to be seen from every function.
+-- We store that value in a userdata record.
+
+function Coder:init_globals()
+
+    local field_names = {}
+    local field_types = {}
+
+    local function add_field(name, typ)
+        assert(not field_types[name])
+        table.insert(field_names, name)
+        field_types[name] = typ
+    end
+
+    -- String Literals
+    -- TODO
+
+    -- Metatables
+    local mt_count = 0
+    local table_typ = types.T.Array(types.T.Value())
+    for _, typ in ipairs(self.module.record_types) do
+        mt_count = mt_count + 1
+        local fname = string.format("metatable_%02d", mt_count)
+        add_field(fname, table_typ)
+        self.g_metatable_field[typ] = fname
+    end
+
+    -- Functions
+    -- TODO
+
+    ---
+
+    self.g_record_typ = types.T.Record("$G", field_names, field_types)
+    ir.add_record_type(self.module, self.g_record_typ)
+end
+
+function Coder:metatable_slot(record_typ)
+    local name = assert(self.g_metatable_field[record_typ])
+
+    local rc = self.record_coders[self.g_record_typ]
+    return (rc:get_gc_slot("G", name))
+end
+
+--
+-- # Records
+--
+-- Records are implemented as full userdata.
+--
+-- The primitive-typed fields are represented as raw C values, and stored in a
+-- struct in the block of raw memory of the userdata.
+--
+-- The GC-typed fields are represented as tagged TValues, and stored as
+-- uservalues. (We need the tags because function values need the tag variants)
+
+RecordCoder = {}
+RecordCoder.__index = RecordCoder
+
+function RecordCoder.new(owner, record_typ)
+    local self = setmetatable({}, RecordCoder)
+
+    local gc_count = 0
+    local gc_index = {}
+    local prim_count = 0
+    local prim_index = {}
+    for _, field_name in ipairs(record_typ.field_names) do
+        local typ = record_typ.field_types[field_name]
+        if types.is_gc(typ) then
+            gc_count = gc_count + 1
+            gc_index[field_name] = gc_count
+        else
+            prim_count = prim_count + 1
+            prim_index[field_name] = prim_count
+        end
+    end
+
+    self.owner = owner            -- Coder
+    self.record_typ = record_typ  -- types.T.Record
+    self.gc_count = gc_count      -- integer
+    self.gc_index = gc_index      -- map string => integer
+    self.prim_count = prim_count  -- integer
+    self.prim_index = prim_index  -- map string => integer
+
+    return self
+end
+
+function RecordCoder:struct_name()
+    assert(self.prim_count > 0)
+    local r_id = self.owner.record_ids[self.record_typ]
+    return string.format("crecord_%02d", r_id)
+end
+
+function RecordCoder:get_prims_name()
+    assert(self.prim_count > 0)
+    local r_id = self.owner.record_ids[self.record_typ]
+    return string.format("crecord_%02d_prims", r_id)
+end
+
+function RecordCoder:field_name(name)
+    local i = assert(self.prim_index[name])
+    return string.format("f%02d", i)
+end
+
+function RecordCoder:prims_sizeof()
+    if self.prim_count > 0 then
+        return string.format("sizeof(%s)", self:struct_name())
+    else
+        return C.integer(0)
+    end
+end
+
+function RecordCoder:constructor_name()
+    local r_id = self.owner.record_ids[self.record_typ]
+    return string.format("crecord_%02d_new", r_id)
+end
+
+function RecordCoder:declarations()
+    local declarations = {}
+
+    -- Comment
+    table.insert(declarations, C.comment(self.record_typ.name) .. "\n")
+
+    -- Struct for the primitive fields.
+    -- (C does not allow empty structs so we skip in that case)
+    if self.prim_count > 0 then
+
+        local struct_name = self:struct_name()
+
+        local field_lines = {}
+        for _, field_name in ipairs(self.record_typ.field_names) do
+            local typ = self.record_typ.field_types[field_name]
+            if not types.is_gc(typ) then
+                local name = self:field_name(field_name)
+                local decl = c_declaration(ctype(typ), name)
+                local cmt = C.comment(field_name)
+                table.insert(field_lines, string.format("%s; %s", decl, cmt))
+            end
+        end
+
+        table.insert(declarations, util.render([[
+            typedef struct {
+                ${field_lines}
+            } $struct_name;
+        ]], {
+            struct_name = struct_name,
+            field_lines = table.concat(field_lines, "\n"),
+        }))
+
+        table.insert(declarations, util.render([[
+            inline
+            static ${struct_name} *${get_prims}(Udata *u)
+            {
+                char *p = cast_charp(u) + udatamemoffset($gc_count);
+                return (${struct_name} *) p;
+            }
+        ]], {
+            struct_name = struct_name,
+            get_prims = self:get_prims_name(),
+            gc_count = self.gc_count,
+        }))
+    end
+
+    -- Constructor
+
+    if self.record_typ ~= self.owner.g_record_typ then
+        table.insert(declarations, util.render([[
+            static Udata *${constructor_name}(lua_State *L, Udata *G)
+            {
+                Udata *rec = luaS_newudata(L, $prims_sizeof, $nvalues);
+                rec->metatable = hvalue($mt_slot);
+                return rec;
+            } ]], {
+                constructor_name = self:constructor_name(),
+                prims_sizeof = self:prims_sizeof(),
+                nvalues = self.gc_count,
+                mt_slot = self.owner:metatable_slot(self.record_typ),
+            }))
+    end
+
+    return table.concat(declarations, "\n")
+end
+
+function RecordCoder:get_prim_lvalue(rec_cvar, field_name)
+    local _ = assert(self.prim_index[field_name])
+    return (util.render([[$get_prims($udata)->$f]], {
+        get_prims = self:get_prims_name(),
+        udata = rec_cvar,
+        f = self:field_name(field_name),
+    }))
+end
+
+function RecordCoder:get_gc_slot(rec_cvar, field_name)
+    local ix = assert(self.gc_index[field_name])
+    return (util.render([[&$udata->uv[$i].uv]], {
+        udata = rec_cvar,
+        i = C.integer(ix - 1),
     }))
 end
 
@@ -694,7 +919,7 @@ gen_cmd["ToDyn"] = function(self, cmd)
     return (set_slot(src_typ, "&"..dst, src))
 end
 
-gen_cmd["FromDym"] = function(self, cmd)
+gen_cmd["FromDyn"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
 
@@ -777,16 +1002,59 @@ gen_cmd["SetArr"] = function(self, cmd)
         }))
 end
 
-gen_cmd["NewRecord"] = function(self, _cmd)
-    error("not implemented (new record)")
+gen_cmd["NewRecord"] = function(self, cmd)
+    local typ = cmd.typ
+    local rc = self.record_coders[typ]
+
+    local rec = self:c_var(cmd.dst)
+    return (util.render([[$rec = $constructor(L, G);]] , {
+            rec = rec,
+            constructor = rc:constructor_name(),
+        }))
 end
 
-gen_cmd["GetField"] = function(self, _cmd)
-    error("not implemented (get field)")
+gen_cmd["GetField"] = function(self, cmd)
+    local rec_typ = cmd.typ
+    local rc = self.record_coders[rec_typ]
+
+    local dst = self:c_var(cmd.dst)
+    local rec = self:c_value(cmd.src_rec)
+    local field_name = cmd.field_name
+
+    local f_typ = rec_typ.field_types[field_name]
+    local result
+    if types.is_gc(f_typ) then
+        local slot = rc:get_gc_slot(rec, field_name)
+        result = get_slot(f_typ, slot)
+    else
+        result = rc:get_prim_lvalue(rec, field_name)
+    end
+
+    return (util.render([[$dst = $result;]], { dst = dst, result = result }))
 end
 
-gen_cmd["SetField"] = function(self, _cmd)
-    error("not implemented (set field)")
+gen_cmd["SetField"] = function(self, cmd)
+    local rec_typ = cmd.typ
+    local rc = self.record_coders[rec_typ]
+
+    local rec = self:c_value(cmd.src_rec)
+    local v   = self:c_value(cmd.src_v)
+    local field_name = cmd.field_name
+
+    local f_typ = rec_typ.field_types[field_name]
+    if types.is_gc(f_typ) then
+        local slot = rc:get_gc_slot(rec, field_name)
+        return (util.render([[${set_slot} ${barrierback}]], {
+            set_slot = set_slot(f_typ, slot, v),
+            barrierback = barrierback(f_typ, rec, v),
+        }))
+    else
+        local lval = rc:get_prim_lvalue(rec, field_name)
+        return (util.render([[$lval = $v;]], {
+            lval = lval,
+            v = v,
+        }))
+    end
 end
 
 gen_cmd["CallStatic"] = function(self, cmd)
@@ -935,36 +1203,69 @@ end
 
 function Coder:generate_luaopen_function()
 
+    local g_coder = self.record_coders[self.g_record_typ]
+
+    local init_metatables = {}
+    for _, typ in ipairs(self.module.record_types) do
+        if typ ~= self.g_record_typ then
+            local fname = self.g_metatable_field[typ]
+            local uv = g_coder.gc_index[fname]
+            table.insert(init_metatables, util.render([[
+                lua_createtable(L, 0, 0);
+                lua_pushstring(L, "__metatable");
+                lua_pushboolean(L, 0);
+                lua_settable(L, -3);
+                lua_setiuservalue(L, global_userdata_index, $uv);
+            ]], {
+                uv = uv,
+            }))
+        end
+    end
+
     local n_func = 0
-    local body = {}
+    local init_exports = {}
     for _, f_id in ipairs(self.module.exports) do
         local func = self.module.functions[f_id]
-        table.insert(body, util.render([[
+        table.insert(init_exports, util.render([[
             lua_pushstring(L, ${name});
-            lua_pushcclosure(L, ${lua_entry_point}, ${nupv});
+            lua_pushvalue(L, global_userdata_index);
+            lua_pushcclosure(L, ${lua_entry_point}, 1);
             lua_settable(L, export_table_index);
         ]], {
             name = C.string(func.name),
             lua_entry_point = self:lua_entry_point_name(f_id),
-            nupv = C.integer(0),
         }))
     end
 
     return (util.render([[
         int ${name}(lua_State *L)
         {
+            lua_newuserdatauv(L, $g_prims_sizeof, $g_gc_count);
+            int global_userdata_index = lua_gettop(L);
+
+            /* Metatables */
+
+            ${init_metatables}
+
+            /* Exports */
+
             lua_createtable(L, 0, ${n_func});
             int export_table_index = lua_gettop(L);
 
-            ${body}
+            ${init_exports}
 
             lua_pushvalue(L, export_table_index);
             return 1;
         }
     ]], {
         name = "luaopen_" .. self.modname,
+
+        g_prims_sizeof = g_coder:prims_sizeof(),
+        g_gc_count = g_coder.gc_count,
+        init_metatables = table.concat(init_metatables, "\n"),
+
         n_func = C.integer(n_func),
-        body = table.concat(body, "\n"),
+        init_exports = table.concat(init_exports, "\n"),
     }))
 end
 
@@ -994,6 +1295,11 @@ function Coder:generate_module()
     table.insert(out, section_comment("C Headers"))
     table.insert(out, self:generate_headers())
 
+    table.insert(out, section_comment("Records"))
+    for _, typ in ipairs(self.module.record_types) do
+        local rc = self.record_coders[typ]
+        table.insert(out, rc:declarations())
+    end
 
     table.insert(out, section_comment("Function Prototypes"))
     for f_id = 1, #self.module.functions do

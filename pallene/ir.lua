@@ -111,10 +111,10 @@ declare_type("Cmd", {
     SetArr     = {"loc",        "src_arr", "src_i", "src_v"},
 
     -- Records
-    NewRecord  = {"loc", "typ", "dst", "srcs"},
+    NewRecord  = {"loc", "typ", "dst"},
 
-    GetField   = {"loc", "dst", "src_rec", "field", },
-    SetField   = {"loc",        "src_rec", "field", "src_v"},
+    GetField   = {"loc", "typ", "dst", "src_rec", "field_name", },
+    SetField   = {"loc", "typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
     -- (dst is false if the return value is void, or unused)
