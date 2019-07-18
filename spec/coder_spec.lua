@@ -688,15 +688,14 @@ describe("Pallene coder /", function()
             function set(arr: {integer}, i: integer, v: integer)
                 arr[i] = v
             end
-        --[=[
-            function insert(xs: {integer}, v:integer): ()
-                table_insert(xs, v)
+
+            function insert(xs: {value}, v:value): ()
+                xs[#xs + 1] = v
             end
 
-            function remove(xs: {integer}): ()
-                table_remove(xs)
+            function remove(xs: {value}): ()
+                xs[#xs] = nil
             end
-        --]=]
         ]]))
 
         it("literals", function()
@@ -767,7 +766,6 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        --[=[
         it("insert", function()
             run_test([[
                 local arr = {}
@@ -795,10 +793,6 @@ describe("Pallene coder /", function()
                     end
                 end
             ]])
-        end)
-        --]=]
-        it("", function()
-            pending("todo (table.insert / table.remove)")
         end)
     end)
 

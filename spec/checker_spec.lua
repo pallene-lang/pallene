@@ -653,15 +653,6 @@ describe("Pallene type checker", function()
         ]],
             "expected string but found integer in argument 1")
     end)
-
-    it("typechecks table.insert (error)", function()
-        assert_error([[
-            function f(xs: {integer})
-                table_insert("asd", xs)
-            end
-        ]],
-            "expected { value } but found string in argument 1")
-    end)
 end)
 
 describe("Pallene typecheck of records", function()

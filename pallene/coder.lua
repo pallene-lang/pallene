@@ -998,7 +998,6 @@ gen_cmd["SetArr"] = function(self, cmd)
             line = line,
             set_slot = set_slot(typ, "slot", v),
             barrierback = barrierback(typ, arr, v),
-
         }))
 end
 
