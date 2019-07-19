@@ -61,6 +61,7 @@ end
 declare_type("Name", {
     Type     = {"typ"},
     Local    = {"id"},
+    Global   = {"id"},
     Function = {"id"},
     Builtin  = {"name"},
 })
@@ -92,6 +93,12 @@ function Checker:add_function(loc, name, typ)
     local f_id = ir.add_function(self.module, loc, name, typ)
     self.symbol_table:add_symbol(name, checker.Name.Function(f_id))
     return f_id
+end
+
+function Checker:add_global(name, typ)
+    local g_id = ir.add_global(self.module, name, typ)
+    self.symbol_table:add_symbol(name, checker.Name.Global(g_id))
+    return g_id
 end
 
 function Checker:add_local(name, typ)
@@ -225,6 +232,13 @@ function Checker:check_program(prog_ast)
         self.symbol_table:add_symbol("$tofloat",
             checker.Name.Builtin("tofloat"))
 
+        local toplevel_stats = {}
+        local toplevel_f_id = ir.add_function(
+            self.module, false, "$init", types.T.Function({}, {}))
+        assert(toplevel_f_id == 1) -- coder currently assumes this
+        local toplevel_func = self.module.functions[toplevel_f_id]
+        toplevel_func.body = ast.Stat.Block(false, toplevel_stats)
+
         -- Check toplevel
         for _, tl_node in ipairs(prog_ast) do
             local tag = tl_node._tag
@@ -232,7 +246,20 @@ function Checker:check_program(prog_ast)
                 type_error(tl_node.loc, "modules are not implemented yet")
 
             elseif tag == "ast.Toplevel.Var" then
-                type_error(tl_node.loc, "toplevel variables are not implemented")
+                local loc = tl_node.loc
+                local value = tl_node.value
+                local name = tl_node.decl.name
+
+                self.func = toplevel_func
+                value = self:check_initializer_exp(value, tl_node.decl.type,
+                    "declaration of module variable %s", name)
+                self.func = false
+
+                local _ = self:add_global(name, value._type)
+                local var = ast.Var.Name(loc, name)
+                self:check_var(var)
+                table.insert(toplevel_stats,
+                    ast.Stat.Assign(loc, var, value))
 
             elseif tag == "ast.Toplevel.Func" then
                 local loc = tl_node.loc
@@ -433,15 +460,17 @@ function Checker:check_var(var)
         end
         var._name = cname
 
-        if     cname._tag == "checker.Name.Local" then
+        if     cname._tag == "checker.Name.Type" then
+            type_error(var.loc, "'%s' isn't a value", var.name)
+        elseif cname._tag == "checker.Name.Local" then
             var._type = self.func.vars[cname.id].typ
+        elseif cname._tag == "checker.Name.Global" then
+            var._type = self.module.globals[cname.id].typ
         elseif cname._tag == "checker.Name.Function" then
             var._type = self.module.functions[cname.id].typ
         elseif cname._tag == "checker.Name.Builtin" then
             var._type = builtins[cname.name].typ
-        elseif cname._tag == "checker.Name.Type" then
-            type_error(var.loc, "'%s' isn't a value", var.name)
-        else
+               else
             error("impossible")
         end
 

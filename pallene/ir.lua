@@ -30,6 +30,7 @@ function ir.Module()
     return {
         record_types = {}, -- list of Type
         functions    = {}, -- list of ir.Function
+        globals      = {}, -- list of ir.VarDecl
         exports      = {}, -- list of function ids
     }
 end
@@ -65,6 +66,11 @@ function ir.add_function(module, loc, name, typ)
     return #module.functions
 end
 
+function ir.add_global(module, name, typ)
+    table.insert(module.globals, ir.VarDecl(typ, name))
+    return #module.globals
+end
+
 function ir.add_export(module, f_id)
     table.insert(module.exports, f_id)
 end
@@ -95,6 +101,8 @@ declare_type("Value", {
 declare_type("Cmd", {
     -- Variables
     Move       = {"loc", "dst", "src"},
+    GetGlobal  = {"loc", "dst", "global_id"},
+    SetGlobal  = {"loc",        "global_id", "src"},
 
     -- Primitive Values
     Unop       = {"loc", "dst", "op", "src"},

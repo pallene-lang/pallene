@@ -85,8 +85,14 @@ function ToIR:convert_stat(cmds, stat)
         local exp = stat.exp
         if     var._tag == "ast.Var.Name" then
             local cname = var._name
-            assert(cname._tag == "checker.Name.Local")
-            self:exp_to_assignment(cmds, cname.id, exp)
+            if     cname._tag == "checker.Name.Local" then
+                self:exp_to_assignment(cmds, cname.id, exp)
+            elseif cname._tag == "checker.Name.Global" then
+                local v = self:exp_to_value(cmds, exp)
+                table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, cname.id, v))
+            else
+                error("impossible")
+            end
 
         elseif var._tag == "ast.Var.Bracket" then
             local arr = self:exp_to_value(cmds, var.t)
@@ -229,6 +235,9 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
             if     cname._tag == "checker.Name.Local" then
                 return ir.Value.LocalVar(cname.id)
 
+            elseif cname._tag == "checker.Name.Global" then
+                -- Fallthrough to default
+
             elseif cname._tag == "checker.Name.Function" then
                 return ir.Value.Function(cname.id)
 
@@ -338,7 +347,12 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     elseif tag == "ast.Exp.Var" then
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
-            -- Falthrough to default
+            local cname = var._name
+            if cname._tag == "checker.Name.Global" then
+                table.insert(cmds, ir.Cmd.GetGlobal(loc, dst, cname.id))
+            else
+                -- Falthrough to default
+            end
 
         elseif var._tag == "ast.Var.Bracket" then
             local arr = self:exp_to_value(cmds, var.t)

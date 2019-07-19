@@ -64,6 +64,7 @@ function Coder.new(module, modname)
     self.upvalue_of_metatable = {} -- typ  => integer
     self.upvalue_of_string    = {} -- str  => integer
     self.upvalue_of_function  = {} -- f_id => integer
+    self.upvalue_of_global    = {} -- g_id => integer
     self:init_upvalues()
 
     self.record_ids    = {}      -- types.T.Record => integer
@@ -364,8 +365,10 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, "return ret;")
     end
 
-    local name_comment = C.comment(string.format(
-        "%s %s", func.name, location.show_line(func.loc)))
+    local name_comment = func.name
+    if func.loc then
+        name_comment = name_comment .. " " .. location.show_line(func.loc)
+    end
 
     return (util.render([[
         ${name_comment}
@@ -377,7 +380,7 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
         }
     ]], {
-        name_comment = name_comment,
+        name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         var_decls = table.concat(var_decls, "\n"),
         body = body,
@@ -526,6 +529,7 @@ typedecl.declare(coder, "coder", "Upvalue", {
     Metatable = {"typ"},
     String = {"str"},
     Function = {"f_id"},
+    Global = {"g_id"},
 })
 
 function Coder:init_upvalues()
@@ -564,6 +568,12 @@ function Coder:init_upvalues()
             end
         end
     end
+
+    -- Globals
+    for g_id = 1, #self.module.globals do
+        table.insert(self.upvalues, coder.Upvalue.Global(g_id))
+        self.upvalue_of_global[g_id] = #self.upvalues
+    end
 end
 
 local function upvalue_slot(ix)
@@ -585,6 +595,10 @@ function Coder:function_upvalue_slot(f_id)
     return upvalue_slot(ix)
 end
 
+function Coder:global_upvalue_slot(g_id)
+    local ix = assert(self.upvalue_of_global[g_id])
+    return upvalue_slot(ix)
+end
 
 --
 -- # Records
@@ -751,6 +765,23 @@ gen_cmd["Move"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
     return (util.render([[ $dst = $src; ]], { dst = dst, src = src }))
+end
+
+gen_cmd["GetGlobal"] = function(self, cmd)
+    local dst = self:c_var(cmd.dst)
+    local g_id = cmd.global_id
+    local typ = self.module.globals[g_id].typ
+    return (util.render([[ $dst = $get_slot; ]], {
+        dst = dst,
+        get_slot = get_slot(typ, self:global_upvalue_slot(g_id)),
+    }))
+end
+
+gen_cmd["SetGlobal"] = function(self, cmd)
+    local src = self:c_value(cmd.src)
+    local g_id = cmd.global_id
+    local typ = self.module.globals[g_id].typ
+    return (set_slot(typ, self:global_upvalue_slot(g_id), src))
 end
 
 gen_cmd["Unop"] = function(self, cmd)
@@ -1286,6 +1317,7 @@ end
 function Coder:generate_luaopen_function()
 
     local f_ids = {}
+    table.insert(f_ids, 1) -- $init function
     for f_id in pairs(self.upvalue_of_function) do
         table.insert(f_ids, f_id)
     end
@@ -1320,30 +1352,39 @@ function Coder:generate_luaopen_function()
     local init_upvalues = {}
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
-        if     tag == "coder.Upvalue.Metatable" then
-            table.insert(init_upvalues, [[
-                lua_newtable(L);
-                lua_pushstring(L, "__metatable");
-                lua_pushboolean(L, 0);
-                lua_settable(L, -3); ]])
-        elseif tag == "coder.Upvalue.String" then
-            table.insert(init_upvalues, util.render([[
-                lua_pushstring(L, $str);]], {
-                    str = C.string(upv.str)
-                }))
-        else
-            table.insert(init_upvalues, util.render([[
-                lua_geti(L, closures, $ix); ]], {
-                    ix = closure_index[upv.f_id]
-                }))
-        end
+        if tag ~= "coder.Upvalue.Global" then
+            if     tag == "coder.Upvalue.Metatable" then
+                table.insert(init_upvalues, [[
+                    lua_newtable(L);
+                    lua_pushstring(L, "__metatable");
+                    lua_pushboolean(L, 0);
+                    lua_settable(L, -3); ]])
+            elseif tag == "coder.Upvalue.String" then
+                table.insert(init_upvalues, util.render([[
+                    lua_pushstring(L, $str);]], {
+                        str = C.string(upv.str)
+                    }))
+            elseif tag == "coder.Upvalue.Function" then
+                table.insert(init_upvalues, util.render([[
+                    lua_geti(L, closures, $ix); ]], {
+                        ix = closure_index[upv.f_id]
+                    }))
+            else
+                error("impossible")
+            end
 
-        table.insert(init_upvalues, util.render([[
-            lua_setiuservalue(L, globals, $ix);
-        ]], {
-            ix = C.integer(ix),
-        }))
+            table.insert(init_upvalues, util.render([[
+                lua_setiuservalue(L, globals, $ix);
+            ]], {
+                ix = C.integer(ix),
+            }))
+        end
     end
+    table.insert(init_upvalues, [[
+        // Run toplevel statements & initialize globals
+        lua_geti(L, closures, 1);
+        lua_call(L, 0, 0);
+    ]])
 
 
     local init_exports = {}

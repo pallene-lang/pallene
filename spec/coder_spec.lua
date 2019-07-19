@@ -107,11 +107,11 @@ describe("Pallene coder /", function()
             function fst(x:integer, y:integer): integer return x end
             function snd(x:integer, y:integer): integer return y end
 
-            --local n = 0
-            --function next_n(): integer
-            --    n = n + 1
-            --    return n
-            --end
+            local n = 0
+            function next_n(): integer
+                n = n + 1
+                return n
+            end
         ]]))
 
         it("local variables", function()
@@ -122,7 +122,6 @@ describe("Pallene coder /", function()
         end)
 
         it("global variables", function()
-            pending("todo (globals)")
             run_test([[
                 assert(1 == test.next_n())
                 assert(2 == test.next_n())
@@ -1014,7 +1013,6 @@ describe("Pallene coder /", function()
     describe("Corner cases of scoping", function()
 
         setup(compile([[
-        --[=[
             record Point
                 x: integer
                 y: integer
@@ -1041,10 +1039,8 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
-        --]=]
         ]]))
 
-        --[=[
         it("local variable doesn't shadow its type annotation", function()
             run_test([[ assert( 1 == test.local_type() ) ]])
         end)
@@ -1054,21 +1050,16 @@ describe("Pallene coder /", function()
         end)
 
         it("for loop variable scope doesn't shadow its type annotation", function()
-            pending("requires type aliases")
+            pending("todo (type aliases)")
         end)
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
         end)
-        --]=]
-        it("", function()
-            pending("todo (globals)")
-        end)
     end)
 
     describe("Non-constant toplevel initializers", function()
         setup(compile([[
-        --[=[
             function f(): integer
                 return 10
             end
@@ -1093,11 +1084,9 @@ describe("Pallene coder /", function()
             function get_x4(): {integer}
                 return x4
             end
-        --]=]
         ]]))
 
         it("", function()
-            pending("todo (globals)")
             run_test([[
                 assert(  10 == test.get_x1() )
                 assert(  10 == test.get_x2() )
