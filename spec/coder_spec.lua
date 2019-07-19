@@ -414,7 +414,7 @@ describe("Pallene coder /", function()
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
 
-            -- NYI { "concat_ss", "..",  "string",  "string",  "string" },
+            { "concat_ss", "..",  "string",  "string",  "string" },
         }
 
         local pallene_code = {}
@@ -456,10 +456,6 @@ describe("Pallene coder /", function()
              local name = test[1]
              it(name, function() run_test(test_scripts[name]) end)
         end
-
-        it("", function()
-            pending("todo (string concat, string compare)")
-        end)
     end)
 
     describe("Coercions with dynamic type /", function()
@@ -797,15 +793,12 @@ describe("Pallene coder /", function()
 
     describe("Strings", function()
         setup(compile([[
-        --[=[
             function len(s:string): integer
                 return #s
             end
-        --]=]
         ]]))
 
         it("length operator (#)", function()
-            pending("todo (strings length)")
             run_test([[ assert( 0 == test.len("")) ]])
             run_test([[ assert( 1 == test.len("H")) ]])
             run_test([[ assert(11 == test.len("Hello World")) ]])

@@ -795,7 +795,8 @@ gen_cmd["Unop"] = function(self, cmd)
     end
 
     local function str_len()
-        error("not implemented (string length)")
+        return (util.render([[ $dst = tsslen($x); ]], {
+            dst = dst, x = x }))
     end
 
     local op = cmd.op
@@ -963,8 +964,29 @@ gen_cmd["Binop"] = function(self, cmd)
     end
 end
 
-gen_cmd["Concat"] = function(self, _cmd)
-    error("not implemented (concat)")
+gen_cmd["Concat"] = function(self, cmd)
+    local dst = self:c_var(cmd.dst)
+
+    local init_input_array = {}
+    for ix, srcv in ipairs(cmd.srcs) do
+        local src = self:c_value(srcv)
+        table.insert(init_input_array, util.render([[
+            ss[$i] = $src; ]], {
+                i = C.integer(ix - 1),
+                src = src,
+            }))
+    end
+
+    return (util.render([[
+        {
+            TString *ss[$N];
+            ${init_input_array};
+            $dst = pallene_string_concatN(L, $N, ss);
+        } ]], {
+            dst = dst,
+            N = C.integer(#cmd.srcs),
+            init_input_array = table.concat(init_input_array, "\n"),
+        }))
 end
 
 gen_cmd["ToDyn"] = function(self, cmd)
