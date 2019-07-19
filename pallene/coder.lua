@@ -2,6 +2,7 @@ local C = require "pallene.C"
 local ir = require "pallene.ir"
 local location = require "pallene.location"
 local types = require "pallene.types"
+local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
 local coder = {}
@@ -55,12 +56,11 @@ function Coder.new(module, modname)
     self.modname = modname
     self.func = false
 
-    self.g_string_literals = {}  -- {string}
-    self.g_string_field    = {}  -- str  => field name
-    self.g_metatable_field = {}  -- typ  => field name
-    self.g_function_field  = {}  -- f_id => field name
-    self.g_record_typ = false    -- types.T.Record
-    self:init_globals()
+    self.upvalues = {} -- { coder.Upvalue }
+    self.upvalue_of_string    = {} -- str  => integer
+    self.upvalue_of_metatable = {} -- typ  => integer
+    self.upvalue_of_function  = {} -- f_id => integer
+    self:init_upvalues()
 
     self.record_ids    = {}      -- types.T.Record => integer
     self.record_coders = {}      -- types.T.Record => RecordCoder
@@ -178,7 +178,7 @@ function Coder:test_tag(typ, slot)
     elseif tag == "types.T.Record"   then
         return (util.render([[(ttisfulluserdata($slot) && uvalue($slot)->metatable == hvalue($mt_slot))]], {
             slot = slot,
-            mt_slot = self:metatable_slot(typ),
+            mt_slot = self:metatable_upvalue_slot(typ),
         }))
     end
     return (util.render(tmpl, {slot = slot}))
@@ -263,7 +263,7 @@ function Coder:c_value(value)
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
         return (util.render([[tsvalue($str_slot)]], {
-            str_slot = self:string_slot(value.value)
+            str_slot = self:string_upvalue_slot(value.value)
         }))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
@@ -510,22 +510,17 @@ end
 --
 -- This section of the program is responsible for keeping track of the
 -- "global" values in the module that need to be seen from every function.
--- We store that value in a userdata record.
+-- We store them in the uservalues of an userdata object.
 
-function Coder:init_globals()
+typedecl.declare(coder, "coder", "Upvalue", {
+    String = {"str"},
+    Metatable = {"typ"},
+})
 
-    local field_names = {}
-    local field_types = {}
-
-    local function add_field(name, typ)
-        assert(not field_types[name])
-        table.insert(field_names, name)
-        field_types[name] = typ
-    end
+function Coder:init_upvalues()
 
     -- String Literals
 
-    local string_count = 0
     local find_strings_cmds
     local find_strings_cmd
     local find_strings_value
@@ -558,11 +553,8 @@ function Coder:init_globals()
         local tag = v._tag
         if     tag == "ir.Value.String" then
             local str = v.value
-            string_count = string_count + 1
-            local fname = string.format("string_%02d", string_count)
-            add_field(fname, types.T.String())
-            table.insert(self.g_string_literals, str)
-            self.g_string_field[str] = fname
+            table.insert(self.upvalues, coder.Upvalue.String(str))
+            self.upvalue_of_string[str] = #self.upvalues
         else
             -- skip
         end
@@ -574,34 +566,27 @@ function Coder:init_globals()
 
     -- Metatables
 
-    local mt_count = 0
-    local table_typ = types.T.Array(types.T.Value())
     for _, typ in ipairs(self.module.record_types) do
-        mt_count = mt_count + 1
-        local fname = string.format("metatable_%02d", mt_count)
-        add_field(fname, table_typ)
-        self.g_metatable_field[typ] = fname
+        table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
+        self.upvalue_of_metatable[typ] = #self.upvalues
     end
 
     -- Functions
     -- TODO
-
-    ---
-
-    self.g_record_typ = types.T.Record("$G", field_names, field_types)
-    ir.add_record_type(self.module, self.g_record_typ)
 end
 
-function Coder:string_slot(str)
-    local name = assert(self.g_string_field[str])
-    local rc = self.record_coders[self.g_record_typ]
-    return (rc:get_gc_slot("G", name))
+local function upvalue_slot(ix)
+    return (util.render("&G->uv[$i].uv", { i = C.integer(ix - 1) }))
 end
 
-function Coder:metatable_slot(record_typ)
-    local name = assert(self.g_metatable_field[record_typ])
-    local rc = self.record_coders[self.g_record_typ]
-    return (rc:get_gc_slot("G", name))
+function Coder:string_upvalue_slot(str)
+    local ix = assert(self.upvalue_of_string[str])
+    return upvalue_slot(ix)
+end
+
+function Coder:metatable_upvalue_slot(typ)
+    local ix = assert(self.upvalue_of_metatable[typ])
+    return upvalue_slot(ix)
 end
 
 --
@@ -724,20 +709,18 @@ function RecordCoder:declarations()
 
     -- Constructor
 
-    if self.record_typ ~= self.owner.g_record_typ then
-        table.insert(declarations, util.render([[
-            static Udata *${constructor_name}(lua_State *L, Udata *G)
-            {
-                Udata *rec = luaS_newudata(L, $prims_sizeof, $nvalues);
-                rec->metatable = hvalue($mt_slot);
-                return rec;
-            } ]], {
-                constructor_name = self:constructor_name(),
-                prims_sizeof = self:prims_sizeof(),
-                nvalues = self.gc_count,
-                mt_slot = self.owner:metatable_slot(self.record_typ),
-            }))
-    end
+    table.insert(declarations, util.render([[
+        static Udata *${constructor_name}(lua_State *L, Udata *G)
+        {
+            Udata *rec = luaS_newudata(L, $prims_sizeof, $nvalues);
+            rec->metatable = hvalue($mt_slot);
+            return rec;
+        } ]], {
+            constructor_name = self:constructor_name(),
+            prims_sizeof = self:prims_sizeof(),
+            nvalues = self.gc_count,
+            mt_slot = self.owner:metatable_upvalue_slot(self.record_typ),
+        }))
 
     return table.concat(declarations, "\n")
 end
@@ -1307,85 +1290,72 @@ end
 
 function Coder:generate_luaopen_function()
 
-    local g_coder = self.record_coders[self.g_record_typ]
-
-    local init_strings = {}
-    for _, str in ipairs(self.g_string_literals) do
-        local fname = self.g_string_field[str]
-        local uv = g_coder.gc_index[fname]
-        table.insert(init_strings, util.render([[
-            lua_pushstring(L, $str);
-            lua_setiuservalue(L, global_userdata_index, $uv);
-        ]], {
-            str = C.string(str),
-            uv = uv,
-        }))
-    end
-
-    local init_metatables = {}
-    for _, typ in ipairs(self.module.record_types) do
-        if typ ~= self.g_record_typ then
-            local fname = self.g_metatable_field[typ]
-            local uv = g_coder.gc_index[fname]
-            table.insert(init_metatables, util.render([[
+    local init_upvalues = {}
+    table.insert(init_upvalues, util.render([[
+        lua_newuserdatauv(L, 0, $n_upvalues);
+        int globals = lua_gettop(L);
+    ]], {
+        n_upvalues = C.integer(#self.upvalues),
+    }))
+    for ix, upv in ipairs(self.upvalues) do
+        local tag = upv._tag
+        if     tag == "coder.Upvalue.String" then
+            table.insert(init_upvalues, util.render([[
+                lua_pushstring(L, $str);]], {
+                    str = C.string(upv.str)
+                }))
+        elseif tag == "coder.Upvalue.Metatable" then
+            table.insert(init_upvalues, [[
                 lua_newtable(L);
                 lua_pushstring(L, "__metatable");
                 lua_pushboolean(L, 0);
-                lua_settable(L, -3);
-                lua_setiuservalue(L, global_userdata_index, $uv);
-            ]], {
-                uv = uv,
-            }))
+                lua_settable(L, -3); ]])
         end
+
+        table.insert(init_upvalues, util.render([[
+            lua_setiuservalue(L, globals, $ix);
+        ]], {
+            ix = C.integer(ix),
+        }))
     end
 
+
     local init_exports = {}
+    table.insert(init_exports, [[
+       lua_newtable(L);
+       int export_table = lua_gettop(L);
+    ]])
     for _, f_id in ipairs(self.module.exports) do
-        local func = self.module.functions[f_id]
+        local name = self.module.functions[f_id].name
+        local entry_point = self:lua_entry_point_name(f_id)
         table.insert(init_exports, util.render([[
             lua_pushstring(L, ${name});
-            lua_pushvalue(L, global_userdata_index);
-            lua_pushcclosure(L, ${lua_entry_point}, 1);
-            lua_settable(L, export_table_index);
+            lua_pushvalue(L, globals);
+            lua_pushcclosure(L, ${entry_point}, 1);
+            lua_settable(L, export_table);
         ]], {
-            name = C.string(func.name),
-            lua_entry_point = self:lua_entry_point_name(f_id),
+            name = C.string(name),
+            entry_point = entry_point,
         }))
     end
 
     return (util.render([[
         int ${name}(lua_State *L)
         {
-            lua_newuserdatauv(L, $g_prims_sizeof, $g_gc_count);
-            int global_userdata_index = lua_gettop(L);
+            /* Global values */
 
-            /* Strings */
-
-            ${init_strings}
-
-            /* Metatables */
-
-            ${init_metatables}
+            ${init_upvalues}
 
             /* Exports */
 
-            lua_newtable(L);
-            int export_table_index = lua_gettop(L);
-
             ${init_exports}
 
-            lua_pushvalue(L, export_table_index);
+            lua_pushvalue(L, export_table);
             return 1;
         }
     ]], {
         name = "luaopen_" .. self.modname,
-
-        init_strings = table.concat(init_strings, "\n"),
-
-        g_prims_sizeof = g_coder:prims_sizeof(),
-        g_gc_count = g_coder.gc_count,
-        init_metatables = table.concat(init_metatables, "\n"),
-
+        init_upvalues = table.concat(init_upvalues, "\n"),
         init_exports = table.concat(init_exports, "\n"),
     }))
 end
