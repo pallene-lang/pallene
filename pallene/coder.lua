@@ -977,14 +977,14 @@ end
 gen_cmd["ToDyn"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
-    local src_typ = ir.value_type(self.func, cmd.src)
+    local src_typ = cmd.src_typ
     return (set_slot(src_typ, "&"..dst, src))
 end
 
 gen_cmd["FromDyn"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
-    local dst_typ = self.func.vars[cmd.dst].typ
+    local dst_typ = cmd.dst_typ
     return (util.render([[
         ${check_tag}
         $dst = $get_slot; ]], {
@@ -1009,10 +1009,10 @@ gen_cmd["NewArr"] = function(self, cmd)
 end
 
 gen_cmd["GetArr"] = function(self, cmd)
-    local typ = ir.value_type(self.func, cmd.src_arr).elem
     local dst = self:c_var(cmd.dst)
     local arr = self:c_value(cmd.src_arr)
     local i   = self:c_value(cmd.src_i)
+    local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
     return (util.render([[
         {
@@ -1028,16 +1028,16 @@ gen_cmd["GetArr"] = function(self, cmd)
             arr = arr,
             i = i,
             line = line,
-            check_tag = self:check_tag(typ, "slot", cmd.loc, "array element"),
-            get_slot = get_slot(typ, "slot"),
+            check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element"),
+            get_slot = get_slot(dst_typ, "slot"),
         }))
 end
 
 gen_cmd["SetArr"] = function(self, cmd)
-    local typ = ir.value_type(self.func, cmd.src_v)
     local arr = self:c_value(cmd.src_arr)
     local i   = self:c_value(cmd.src_i)
     local v   = self:c_value(cmd.src_v)
+    local src_typ = cmd.src_typ
     local line = C.integer(cmd.loc.line)
     return (util.render([[
         {
@@ -1052,15 +1052,13 @@ gen_cmd["SetArr"] = function(self, cmd)
             i = i,
             v = v,
             line = line,
-            set_slot = set_slot(typ, "slot", v),
-            barrierback = barrierback(typ, arr, v),
+            set_slot = set_slot(src_typ, "slot", v),
+            barrierback = barrierback(src_typ, arr, v),
         }))
 end
 
 gen_cmd["NewRecord"] = function(self, cmd)
-    local typ = cmd.typ
-    local rc = self.record_coders[typ]
-
+    local rc = self.record_coders[cmd.rec_typ]
     local rec = self:c_var(cmd.dst)
     return (util.render([[$rec = $constructor(L, G);]] , {
             rec = rec,
@@ -1069,7 +1067,7 @@ gen_cmd["NewRecord"] = function(self, cmd)
 end
 
 gen_cmd["GetField"] = function(self, cmd)
-    local rec_typ = cmd.typ
+    local rec_typ = cmd.rec_typ
     local rc = self.record_coders[rec_typ]
 
     local dst = self:c_var(cmd.dst)
@@ -1089,7 +1087,7 @@ gen_cmd["GetField"] = function(self, cmd)
 end
 
 gen_cmd["SetField"] = function(self, cmd)
-    local rec_typ = cmd.typ
+    local rec_typ = cmd.rec_typ
     local rc = self.record_coders[rec_typ]
 
     local rec = self:c_value(cmd.src_rec)

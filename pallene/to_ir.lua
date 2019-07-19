@@ -92,7 +92,8 @@ function ToIR:convert_stat(cmds, stat)
             local arr = self:exp_to_value(cmds, var.t)
             local i   = self:exp_to_value(cmds, var.k)
             local v   = self:exp_to_value(cmds, exp)
-            table.insert(cmds, ir.Cmd.SetArr(stat.loc, arr, i, v))
+            local src_typ = exp._type
+            table.insert(cmds, ir.Cmd.SetArr(stat.loc, src_typ, arr, i, v))
 
         elseif var._tag == "ast.Var.Dot" then
             local typ = assert(var.exp._type)
@@ -276,7 +277,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 local av = ir.Value.LocalVar(dst)
                 local iv = ir.Value.Integer(i)
                 local vv = self:exp_to_value(cmds, field.exp)
-                table.insert(cmds, ir.Cmd.SetArr(loc, av, iv, vv))
+                local src_typ = field.exp._type
+                table.insert(cmds, ir.Cmd.SetArr(loc, src_typ, av, iv, vv))
             end
 
         elseif typ._tag == "types.T.Record" then
@@ -341,7 +343,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         elseif var._tag == "ast.Var.Bracket" then
             local arr = self:exp_to_value(cmds, var.t)
             local i   = self:exp_to_value(cmds, var.k)
-            table.insert(cmds, ir.Cmd.GetArr(loc, dst, arr, i))
+            local dst_typ = var._type
+            table.insert(cmds, ir.Cmd.GetArr(loc, dst_typ, dst, arr, i))
 
         elseif var._tag == "ast.Var.Dot" then
             local typ = assert(var.exp._type)
@@ -396,9 +399,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         else
             local v = self:exp_to_value(cmds, exp.exp)
             if     dst_typ._tag == "types.T.Value" then
-                table.insert(cmds, ir.Cmd.ToDyn(loc, dst, v))
+                table.insert(cmds, ir.Cmd.ToDyn(loc, src_typ, dst, v))
             elseif src_typ._tag == "types.T.Value" then
-                table.insert(cmds, ir.Cmd.FromDyn(loc, dst, v))
+                table.insert(cmds, ir.Cmd.FromDyn(loc, dst_typ, dst, v))
             else
                 error("impossible")
             end

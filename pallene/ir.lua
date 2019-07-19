@@ -101,20 +101,20 @@ declare_type("Cmd", {
     Concat     = {"loc", "dst", "srcs"},
 
     --- Dynamic Value
-    ToDyn      = {"loc", "dst", "src"},
-    FromDyn    = {"loc", "dst", "src"},
+    ToDyn      = {"loc", "src_typ", "dst", "src"},
+    FromDyn    = {"loc", "dst_typ", "dst", "src"},
 
     -- Arrays
     NewArr     = {"loc", "dst", "size_hint"},
 
-    GetArr     = {"loc", "dst", "src_arr", "src_i"},
-    SetArr     = {"loc",        "src_arr", "src_i", "src_v"},
+    GetArr     = {"loc", "dst_typ", "dst", "src_arr", "src_i"},
+    SetArr     = {"loc", "src_typ",        "src_arr", "src_i", "src_v"},
 
     -- Records
-    NewRecord  = {"loc", "typ", "dst"},
+    NewRecord  = {"loc", "rec_typ", "dst"},
 
-    GetField   = {"loc", "typ", "dst", "src_rec", "field_name", },
-    SetField   = {"loc", "typ",        "src_rec", "field_name", "src_v"},
+    GetField   = {"loc", "rec_typ", "dst", "src_rec", "field_name", },
+    SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
     -- (dst is false if the return value is void, or unused)
@@ -131,25 +131,6 @@ declare_type("Cmd", {
     Loop    = {"cmds"},
     For     = {"loop_var", "start", "limit", "step", "body"},
 })
-
-function ir.value_type(func, value)
-    local tag = value._tag
-    if     tag == "ir.Value.Nil" then
-        return types.T.Nil()
-    elseif tag == "ir.Value.Bool" then
-        return types.T.Boolean()
-    elseif tag == "ir.Value.Integer" then
-        return types.T.Integer()
-    elseif tag == "ir.Value.Float" then
-        return types.T.Float()
-    elseif tag == "ir.Value.String" then
-        return types.T.String()
-    elseif tag == "ir.Value.LocalVar" then
-        return func.vars[value.id].typ
-    else
-        error("impossible")
-    end
-end
 
 function ir.get_srcs(cmd)
     local tag = cmd._tag
