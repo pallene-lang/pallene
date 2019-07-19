@@ -56,9 +56,13 @@ function Coder.new(module, modname)
     self.modname = modname
     self.func = false
 
+    for _, func in ipairs(self.module.functions) do
+        func.flattened_body = ir.flatten_cmds(func.body)
+    end
+
     self.upvalues = {} -- { coder.Upvalue }
-    self.upvalue_of_string    = {} -- str  => integer
     self.upvalue_of_metatable = {} -- typ  => integer
+    self.upvalue_of_string    = {} -- str  => integer
     self.upvalue_of_function  = {} -- f_id => integer
     self:init_upvalues()
 
@@ -262,11 +266,17 @@ function Coder:c_value(value)
     elseif tag == "ir.Value.Float" then
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
-        return (util.render([[tsvalue($str_slot)]], {
-            str_slot = self:string_upvalue_slot(value.value)
-        }))
+        local str = value.value
+        return get_slot(
+            types.T.String(),
+            self:string_upvalue_slot(str))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
+    elseif tag == "ir.Value.Function" then
+        local f_id = value.id
+        return get_slot(
+            self.module.functions[f_id].typ,
+            self:function_upvalue_slot(f_id))
     else
         error("impossible")
     end
@@ -513,56 +523,12 @@ end
 -- We store them in the uservalues of an userdata object.
 
 typedecl.declare(coder, "coder", "Upvalue", {
-    String = {"str"},
     Metatable = {"typ"},
+    String = {"str"},
+    Function = {"f_id"},
 })
 
 function Coder:init_upvalues()
-
-    -- String Literals
-
-    local find_strings_cmds
-    local find_strings_cmd
-    local find_strings_value
-
-    find_strings_cmds = function(cmds)
-        for _, cmd in ipairs(cmds) do
-            find_strings_cmd(cmd)
-        end
-    end
-
-    find_strings_cmd = function(cmd)
-        for _, v in ipairs(ir.get_srcs(cmd)) do
-            find_strings_value(v)
-        end
-
-        local tag = cmd._tag
-        if tag == "ir.Cmd.If" then
-            find_strings_cmds(cmd.then_)
-            find_strings_cmds(cmd.else_)
-        elseif tag == "ir.Cmd.Loop" then
-            find_strings_cmds(cmd.cmds)
-        elseif tag == "ir.Cmd.For" then
-            find_strings_cmds(cmd.body)
-        else
-            -- no recursion needed
-        end
-    end
-
-    find_strings_value = function(v)
-        local tag = v._tag
-        if     tag == "ir.Value.String" then
-            local str = v.value
-            table.insert(self.upvalues, coder.Upvalue.String(str))
-            self.upvalue_of_string[str] = #self.upvalues
-        else
-            -- skip
-        end
-    end
-
-    for _, func in ipairs(self.module.functions) do
-        find_strings_cmds(func.body)
-    end
 
     -- Metatables
 
@@ -571,12 +537,42 @@ function Coder:init_upvalues()
         self.upvalue_of_metatable[typ] = #self.upvalues
     end
 
+    -- String Literals
+
+    for _, func in ipairs(self.module.functions) do
+        for _, cmd in ipairs(func.flattened_body) do
+            for _, v in ipairs(ir.get_srcs(cmd)) do
+                if v._tag == "ir.Value.String" then
+                    local str = v.value
+                    table.insert(self.upvalues, coder.Upvalue.String(str))
+                    self.upvalue_of_string[str] = #self.upvalues
+                end
+            end
+        end
+    end
+
     -- Functions
-    -- TODO
+
+    for _, func in ipairs(self.module.functions) do
+        for _, cmd in ipairs(func.flattened_body) do
+            for _, v in ipairs(ir.get_srcs(cmd)) do
+                if v._tag == "ir.Value.Function" then
+                    local f_id = v.id
+                    table.insert(self.upvalues, coder.Upvalue.Function(f_id))
+                    self.upvalue_of_function[f_id] = #self.upvalues
+                end
+            end
+        end
+    end
 end
 
 local function upvalue_slot(ix)
     return (util.render("&G->uv[$i].uv", { i = C.integer(ix - 1) }))
+end
+
+function Coder:metatable_upvalue_slot(typ)
+    local ix = assert(self.upvalue_of_metatable[typ])
+    return upvalue_slot(ix)
 end
 
 function Coder:string_upvalue_slot(str)
@@ -584,10 +580,11 @@ function Coder:string_upvalue_slot(str)
     return upvalue_slot(ix)
 end
 
-function Coder:metatable_upvalue_slot(typ)
-    local ix = assert(self.upvalue_of_metatable[typ])
+function Coder:function_upvalue_slot(f_id)
+    local ix = assert(self.upvalue_of_function[f_id])
     return upvalue_slot(ix)
 end
+
 
 --
 -- # Records
@@ -1288,26 +1285,57 @@ end
 
 function Coder:generate_luaopen_function()
 
+    local f_ids = {}
+    for f_id in pairs(self.upvalue_of_function) do
+        table.insert(f_ids, f_id)
+    end
+    for _, f_id in ipairs(self.module.exports) do
+        table.insert(f_ids, f_id)
+    end
+    table.sort(f_ids) -- for determinism, (may still contain duplicates)
+
+    local closures      = {} -- { f_id }
+    local closure_index = {} -- f_id => integer
+    for _, f_id in ipairs(f_ids) do
+        if not closure_index[f_id] then
+            table.insert(closures, f_id)
+            closure_index[f_id] = #closures
+        end
+    end
+
+    local init_closures = {}
+    for ix, f_id in ipairs(closures) do
+        local entry_point = self:lua_entry_point_name(f_id)
+        table.insert(init_closures, util.render([[
+            lua_pushvalue(L, globals);
+            lua_pushcclosure(L, ${entry_point}, 1);
+            lua_seti(L, closures, $ix);
+        ]], {
+            entry_point = entry_point,
+            ix = ix,
+        }))
+    end
+
+
     local init_upvalues = {}
-    table.insert(init_upvalues, util.render([[
-        lua_newuserdatauv(L, 0, $n_upvalues);
-        int globals = lua_gettop(L);
-    ]], {
-        n_upvalues = C.integer(#self.upvalues),
-    }))
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
-        if     tag == "coder.Upvalue.String" then
-            table.insert(init_upvalues, util.render([[
-                lua_pushstring(L, $str);]], {
-                    str = C.string(upv.str)
-                }))
-        elseif tag == "coder.Upvalue.Metatable" then
+        if     tag == "coder.Upvalue.Metatable" then
             table.insert(init_upvalues, [[
                 lua_newtable(L);
                 lua_pushstring(L, "__metatable");
                 lua_pushboolean(L, 0);
                 lua_settable(L, -3); ]])
+        elseif tag == "coder.Upvalue.String" then
+            table.insert(init_upvalues, util.render([[
+                lua_pushstring(L, $str);]], {
+                    str = C.string(upv.str)
+                }))
+        else
+            table.insert(init_upvalues, util.render([[
+                lua_geti(L, closures, $ix); ]], {
+                    ix = closure_index[upv.f_id]
+                }))
         end
 
         table.insert(init_upvalues, util.render([[
@@ -1319,27 +1347,34 @@ function Coder:generate_luaopen_function()
 
 
     local init_exports = {}
-    table.insert(init_exports, [[
-       lua_newtable(L);
-       int export_table = lua_gettop(L);
-    ]])
     for _, f_id in ipairs(self.module.exports) do
         local name = self.module.functions[f_id].name
-        local entry_point = self:lua_entry_point_name(f_id)
         table.insert(init_exports, util.render([[
             lua_pushstring(L, ${name});
-            lua_pushvalue(L, globals);
-            lua_pushcclosure(L, ${entry_point}, 1);
+            lua_geti(L, closures, $ix);
             lua_settable(L, export_table);
         ]], {
             name = C.string(name),
-            entry_point = entry_point,
+            ix = closure_index[f_id],
         }))
     end
 
     return (util.render([[
         int ${name}(lua_State *L)
         {
+            lua_newuserdatauv(L, 0, $n_upvalues);
+            int globals = lua_gettop(L);
+
+            lua_createtable(L, $n_closures, 0);
+            int closures = lua_gettop(L);
+
+            lua_newtable(L);
+            int export_table = lua_gettop(L);
+
+            /* Closures */
+
+            ${init_closures}
+
             /* Global values */
 
             ${init_upvalues}
@@ -1348,11 +1383,16 @@ function Coder:generate_luaopen_function()
 
             ${init_exports}
 
+            /**/
+
             lua_pushvalue(L, export_table);
             return 1;
         }
     ]], {
         name = "luaopen_" .. self.modname,
+        n_closures = C.integer(#closures),
+        n_upvalues = C.integer(#self.upvalues),
+        init_closures = table.concat(init_closures, "\n"),
         init_upvalues = table.concat(init_upvalues, "\n"),
         init_exports = table.concat(init_exports, "\n"),
     }))

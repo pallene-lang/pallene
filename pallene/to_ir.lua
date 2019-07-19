@@ -230,7 +230,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
                 return ir.Value.LocalVar(cname.id)
 
             elseif cname._tag == "checker.Name.Function" then
-                error("not implemented")
+                return ir.Value.Function(cname.id)
 
             elseif cname._tag == "checker.Name.Builtin" then
                 error("not implemented")

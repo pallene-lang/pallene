@@ -89,6 +89,7 @@ declare_type("Value", {
     Float      = {"value"},
     String     = {"value"},
     LocalVar   = {"id"},
+    Function   = {"id"},
 })
 
 declare_type("Cmd", {
@@ -167,5 +168,40 @@ function ir.get_srcs(cmd)
         return srcs
     end
 end
+
+-- Linearize the commands in a pre-order traversal. Makes it easier to iterate
+-- over all commands, and is also helpful for register allocation.
+function ir.flatten_cmds(root_cmds)
+    local res = {}
+
+    local do_cmds
+    local do_cmd
+
+    do_cmds = function(cmds)
+        for _, cmd in ipairs(cmds) do
+            do_cmd(cmd)
+        end
+    end
+
+    do_cmd = function(cmd)
+        table.insert(res, cmd)
+
+        local tag = cmd._tag
+        if tag == "ir.Cmd.If" then
+            do_cmds(cmd.then_)
+            do_cmds(cmd.else_)
+        elseif tag == "ir.Cmd.Loop" then
+            do_cmds(cmd.cmds)
+        elseif tag == "ir.Cmd.For" then
+            do_cmds(cmd.body)
+        else
+            -- no recursion needed
+        end
+    end
+
+    do_cmds(root_cmds)
+    return res
+end
+
 
 return ir

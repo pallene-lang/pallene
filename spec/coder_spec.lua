@@ -122,7 +122,7 @@ describe("Pallene coder /", function()
         end)
 
         it("global variables", function()
-            pending("todo (global vars)")
+            pending("todo (globals)")
             run_test([[
                 assert(1 == test.next_n())
                 assert(2 == test.next_n())
@@ -234,10 +234,14 @@ describe("Pallene coder /", function()
 
     describe("First class functions /", function()
         setup(compile([[
-        --[=[
             function inc(x:integer): integer   return x + 1   end
             function dec(x:integer): integer   return x - 1   end
 
+            function get_inc(): integer->integer
+                return inc
+            end
+
+        --[=[
             --------
 
             function call(
@@ -265,13 +269,13 @@ describe("Pallene coder /", function()
         --]=]
         ]]))
 
-        --[=[
         it("Object identity", function()
             run_test([[
-                assert(test.getf() == test.getf())
+                assert(test.inc == test.get_inc())
             ]])
         end)
 
+        --[=[
         it("Can call non-static functions", function()
             run_test([[
                 local f = function(x) return x * 20 end
@@ -295,7 +299,7 @@ describe("Pallene coder /", function()
         end)
         --]=]
         it("", function()
-            pending("todo (closures)")
+            pending("todo (globals, Lua calls)")
         end)
 
     end)
@@ -465,7 +469,7 @@ describe("Pallene coder /", function()
             { "integer"  , "integer",         "17"},
             { "float"    , "float",           "3.14"},
             { "string"   , "string",          "'hello'"},
---            { "function" , "integer->string", "tostring"},
+            { "function" , "integer->string", "tostring"},
             { "array"    , "{integer}",       "{10,20}"},
             { "record"   , "Empty",           "test.new_empty()"},
             { "value"    , "value",           "17"},
@@ -538,10 +542,6 @@ describe("Pallene coder /", function()
                     "wrong type for downcasted value", nil, true))
             ]])
         end)
-        it("", function()
-            pending("todo (closures)")
-        end)
-
     end)
 
     describe("Statements /", function()
@@ -1007,7 +1007,7 @@ describe("Pallene coder /", function()
         end)
 
         it("", function()
-            pending("todo, (functions)")
+            pending("todo (Lua calls)")
         end)
     end)
 
@@ -1062,7 +1062,7 @@ describe("Pallene coder /", function()
         end)
         --]=]
         it("", function()
-            pending("todo (globals, records)")
+            pending("todo (globals)")
         end)
     end)
 
@@ -1097,7 +1097,7 @@ describe("Pallene coder /", function()
         ]]))
 
         it("", function()
-            pending("todo (toplevel expressions)")
+            pending("todo (globals)")
             run_test([[
                 assert(  10 == test.get_x1() )
                 assert(  10 == test.get_x2() )
