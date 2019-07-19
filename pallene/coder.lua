@@ -39,8 +39,8 @@ end
 
 -- @returns A syntactically valid function argument or variable declaration
 --          without the comma or semicolon
-local function c_declaration(ctyp, name)
-    return string.format("%s %s", ctyp, name)
+local function c_declaration(typ, name)
+    return string.format("%s %s", ctype(typ), name)
 end
 
 --
@@ -266,11 +266,10 @@ function Coder:c_declaration(f_id, v_id)
     local func = self.module.functions[f_id]
     local decl = func.vars[v_id]
 
-    local ctyp = ctype(decl.typ)
     local name = self:c_var(v_id)
     local comment = decl.comment and C.comment(decl.comment) or ""
 
-    return c_declaration(ctyp, name), comment
+    return c_declaration(decl.typ, name), comment
 end
 
 --
@@ -324,7 +323,7 @@ function Coder:pallene_entry_point_definition(f_id)
     end
     if nret > 0 then
         local typ = func.typ.ret_types[1]
-        table.insert(var_decls, c_declaration(ctype(typ), "ret")..";")
+        table.insert(var_decls, c_declaration(typ, "ret")..";")
     end
 
     self.func = func
@@ -445,7 +444,7 @@ function Coder:lua_entry_point_definition(f_id)
         arg_vars[i] = name
         table.insert(get_args, util.render([[
             $decl = $get_slot; ]], {
-                decl = c_declaration(ctype(typ), name),
+                decl = c_declaration(typ, name),
                 get_slot = get_slot(typ, slot),
         }))
     end
@@ -456,7 +455,7 @@ function Coder:lua_entry_point_definition(f_id)
     else
         assert(nret == 1)
         local typ = func.typ.ret_types[1]
-        local ret = c_declaration(ctype(typ), "ret")
+        local ret = c_declaration(typ, "ret")
         call_and_push = util.render([[
             ${call}
             ${push} ]], {
@@ -664,7 +663,7 @@ function RecordCoder:declarations()
             local typ = self.record_typ.field_types[field_name]
             if not types.is_gc(typ) then
                 local name = self:field_name(field_name)
-                local decl = c_declaration(ctype(typ), name)
+                local decl = c_declaration(typ, name)
                 local cmt = C.comment(field_name)
                 table.insert(field_lines, string.format("%s; %s", decl, cmt))
             end
