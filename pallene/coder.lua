@@ -1001,20 +1001,14 @@ end
 gen_cmd["FromDyn"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
-
-    assert(src._tag == "ir.Value.LocalVar") -- no "value" literals
-    local src_var = src.id
-
     local dst_typ = self.func.vars[cmd.dst].typ
-    local src_typ = self.func.vars[src_var].typ
-
     return (util.render([[
         ${check_tag}
         $dst = $get_slot; ]], {
             dst = dst,
-            check_tag = self:check_tag(dst_typ, "&"..src_var,
+            check_tag = self:check_tag(dst_typ, "&"..src,
                     cmd.loc, "downcasted value"),
-            get_slot = get_slot(src_typ, "&"..src_var),
+            get_slot = get_slot(dst_typ, "&"..src),
         }))
 end
 

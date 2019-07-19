@@ -465,7 +465,7 @@ describe("Pallene coder /", function()
             { "integer"  , "integer",         "17"},
             { "float"    , "float",           "3.14"},
             { "string"   , "string",          "'hello'"},
-            { "function" , "integer->string", "tostring"},
+--            { "function" , "integer->string", "tostring"},
             { "array"    , "{integer}",       "{10,20}"},
             { "record"   , "Empty",           "test.new_empty()"},
             { "value"    , "value",           "17"},
@@ -515,31 +515,31 @@ describe("Pallene coder /", function()
             })
         end
 
---        setup(compile(
---            record_decls .. "\n" ..
---            table.concat(pallene_code, "\n")
---        ))
---
---        for _, test in ipairs(tests) do
---            local name = test[1]
---            it(name .. "->value", function() run_test(test_to[name]) end)
---        end
---
---        for _, test in ipairs(tests) do
---            local name = test[1]
---            it("value->" .. name, function() run_test(test_from[name]) end)
---        end
---
---        it("detects downcast error", function()
---            run_test([[
---                local ok, err = pcall(test.to_integer, "hello")
---                assert(not ok)
---                assert(string.find(err,
---                    "wrong type for downcasted value", nil, true))
---            ]])
---        end)
+        setup(compile(
+            record_decls .. "\n" ..
+            table.concat(pallene_code, "\n")
+        ))
+
+        for _, test in ipairs(tests) do
+            local name = test[1]
+            it(name .. "->value", function() run_test(test_to[name]) end)
+        end
+
+        for _, test in ipairs(tests) do
+            local name = test[1]
+            it("value->" .. name, function() run_test(test_from[name]) end)
+        end
+
+        it("detects downcast error", function()
+            run_test([[
+                local ok, err = pcall(test.to_integer, "hello")
+                assert(not ok)
+                assert(string.find(err,
+                    "wrong type for downcasted value", nil, true))
+            ]])
+        end)
         it("", function()
-            pending("todo (coercions)")
+            pending("todo (closures)")
         end)
 
     end)
