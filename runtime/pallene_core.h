@@ -55,4 +55,7 @@ TString *pallene_string_concatN(
 void pallene_renormalize_array(
     lua_State *L, Table *arr, unsigned int i, int line);
 
+void pallene_io_write(
+    lua_State *L, TString *str);
+
 #endif

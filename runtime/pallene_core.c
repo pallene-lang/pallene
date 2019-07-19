@@ -158,3 +158,10 @@ void pallene_renormalize_array(lua_State *L, Table *arr, unsigned int i, int lin
 
     luaH_resizearray(L, arr, new_size);
 }
+
+void pallene_io_write(lua_State *L, TString *str)
+{
+    const char *s = getstr(str);
+    size_t len = tsslen(str);
+    fwrite(s, 1, len, stdout);
+}

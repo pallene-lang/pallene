@@ -1154,11 +1154,16 @@ gen_cmd["CallBuiltin"] = function(self, cmd)
 end
 
 gen_builtin["tofloat"] = function(self, cmd)
+    assert(#cmd.srcs == 1)
     local dst = self:c_var(cmd.dst)
     local v = self:c_value(cmd.srcs[1])
-    return util.render([[
-        $dst = (lua_Number) $v; ]], {
-            dst = dst, v = v })
+    return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
+end
+
+gen_builtin["io_write"] = function(self, cmd)
+    assert(#cmd.srcs == 1)
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 
 --

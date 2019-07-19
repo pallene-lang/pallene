@@ -1022,15 +1022,12 @@ describe("Pallene coder /", function()
 
     describe("I/O", function()
         setup(compile([[
-        --[=[
             function write(s:string)
                 io_write(s)
             end
-        --]=]
         ]]))
 
-        it("Can run io.write without crashing", function()
-            pending("todo (io.write)")
+        it("io.write works", function()
             run_test([[
                 test.write("Hello:)World")
             ]])
