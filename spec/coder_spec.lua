@@ -854,22 +854,6 @@ describe("Pallene coder /", function()
             function make_empty(): Empty
                 return {}
             end
-            --[=[
-            record Big
-                f1: integer; f2: integer; f3: integer
-                f4: integer; f5: integer; f6: integer
-                f7: integer; f8: integer; f9: integer
-            end
-
-            function make_big(
-                    f1: integer, f2: integer, f3: integer,
-                    f4: integer, f5: integer, f6: integer,
-                    f7: integer, f8: integer, f9: integer): Big
-                return {f1 = f1, f2 = f2, f3 = f3,
-                        f4 = f4, f5 = f5, f6 = f6,
-                        f7 = f7, f8 = f8, f9 = f9}
-            end
-            --]=]
         ]]))
 
         it("create records", function()
@@ -937,86 +921,6 @@ describe("Pallene coder /", function()
                 assert(string.find(err, "expected userdata but found userdata",
                         nil, true))
             ]])
-        end)
-
-        --[=[
-        it("implements __index and __newindex", function()
-            run_test([[
-                local a, b = {}, {}
-                local foo = test.make_foo(123, a)
-                -- x
-                assert(123 == foo.x)
-                foo.x = 10
-                assert(10 == foo.x)
-                -- y
-                assert(a == foo.y)
-                foo.y = b
-                assert(b == foo.y)
-            ]])
-        end)
-
-        it("checks if Lua tries to access a non-string field", function()
-            run_test([[
-                local msg = "attempt to access non-string field of type 'table'"
-                local foo = test.make_foo(123, {})
-                -- __index
-                local ok, err = pcall(function()
-                    local x = foo[{}]
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-                -- __newindex
-                local ok, err = pcall(function()
-                    foo[{}] = 10
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-            ]])
-        end)
-
-        it("checks if Lua tries to access an nonexistent field", function()
-            run_test([[
-                local msg = "attempt to access nonexistent field 'z'"
-                local foo = test.make_foo(123, {})
-                -- __index
-                local ok, err = pcall(function()
-                    local x = foo.z
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-                -- __newindex
-                local ok, err = pcall(function()
-                    foo.z = 10
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-            ]])
-        end)
-
-        it("checks the field type before assignment", function()
-            run_test([[
-                local foo = test.make_foo(123, {})
-                local ok, err = pcall(function()
-                    foo.x = {}
-                end)
-                assert(not ok)
-                assert(string.find(err,
-                    "wrong type for record field 'x'",
-                    nil, true))
-            ]])
-        end)
-
-        it("(__index) works for records with a lot of fields", function()
-            run_test([[
-                local big = test.make_big(10, 20, 30, 40, 50, 60, 70, 80, 90)
-                for i = 1, 9 do
-                    assert(i * 10 == big['f' .. i])
-                end
-            ]])
-        end)
-        --]=]
-        it("", function()
-            pending("todo (records __index __newindex)")
         end)
     end)
 
