@@ -170,6 +170,9 @@ local binops = {
     { ">" , "Float",   "Float",   "FltGt"  },
     { "<=", "Float",   "Float",   "FltLeq" },
     { ">=", "Float",   "Float",   "FltGeq" },
+
+    { "==", "Boolean", "Boolean", "BoolEq" },
+    { "~=", "Boolean", "Boolean", "BoolNeq" },
 }
 
 local function type_specific_unop(op, typ)

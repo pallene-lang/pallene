@@ -958,6 +958,8 @@ gen_cmd["Binop"] = function(self, cmd)
     elseif op == "FltGt"     then return binop_paren(">")
     elseif op == "FltLeq"    then return binop_paren("<=")
     elseif op == "FltGeq"    then return binop_paren(">=")
+    elseif op == "BoolEq"    then return binop_paren("==")
+    elseif op == "BoolNeq"   then return binop_paren("!=")
     else
         print("OP=", op)
         error("impossible")

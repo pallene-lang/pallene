@@ -408,8 +408,8 @@ describe("Pallene coder /", function()
             -- NYI { "le_ss",     "<=",  "string",  "string",  "boolean" },
             -- NYI { "ge_ss",     ">=",  "string",  "string",  "boolean" },
 
-            -- NYI { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
-            -- NYI { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
+            { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
+            { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
 
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
