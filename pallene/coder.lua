@@ -1184,16 +1184,43 @@ gen_cmd["If"] = function(self, cmd)
     local condition = self:c_value(cmd.condition)
     local then_ = self:generate_cmds(cmd.then_)
     local else_ = self:generate_cmds(cmd.else_)
-    return (util.render([[
-        if ($condition) {
-            ${then_}
-        } else {
-            ${else_}
-        } ]], {
-            condition = condition,
-            then_ = then_,
-            else_ = else_,
-        }))
+
+    local A = (#cmd.then_ > 0)
+    local B = (#cmd.else_ > 0)
+
+    if  A and B then
+        return (util.render([[
+            if ($condition) {
+                ${then_}
+            } else {
+                ${else_}
+            } ]], {
+                condition = condition,
+                then_ = then_,
+                else_ = else_,
+            }))
+
+    elseif A and (not B) then
+        return (util.render([[
+            if ($condition) {
+                ${then_}
+            } ]], {
+                condition = condition,
+                then_ = then_,
+            }))
+
+    elseif (not A) and B then
+        return (util.render([[
+            if (!$condition) {
+                ${else_}
+            } ]], {
+                condition = condition,
+                else_ = else_,
+            }))
+
+    else -- (not A) and (not B)
+        return ""
+    end
 end
 
 gen_cmd["Loop"] = function(self, cmd)
