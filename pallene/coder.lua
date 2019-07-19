@@ -1328,7 +1328,7 @@ function Coder:generate_luaopen_function()
             local fname = self.g_metatable_field[typ]
             local uv = g_coder.gc_index[fname]
             table.insert(init_metatables, util.render([[
-                lua_createtable(L, 0, 0);
+                lua_newtable(L);
                 lua_pushstring(L, "__metatable");
                 lua_pushboolean(L, 0);
                 lua_settable(L, -3);
@@ -1339,7 +1339,6 @@ function Coder:generate_luaopen_function()
         end
     end
 
-    local n_func = 0
     local init_exports = {}
     for _, f_id in ipairs(self.module.exports) do
         local func = self.module.functions[f_id]
@@ -1370,7 +1369,7 @@ function Coder:generate_luaopen_function()
 
             /* Exports */
 
-            lua_createtable(L, 0, ${n_func});
+            lua_newtable(L);
             int export_table_index = lua_gettop(L);
 
             ${init_exports}
@@ -1387,7 +1386,6 @@ function Coder:generate_luaopen_function()
         g_gc_count = g_coder.gc_count,
         init_metatables = table.concat(init_metatables, "\n"),
 
-        n_func = C.integer(n_func),
         init_exports = table.concat(init_exports, "\n"),
     }))
 end
