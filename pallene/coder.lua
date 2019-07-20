@@ -357,6 +357,7 @@ function Coder:pallene_entry_point_definition(f_id)
             ${var_decls}
 
             ${body}
+
           done:
             ${return_}
         }
@@ -833,52 +834,11 @@ gen_cmd["Binop"] = function(self, cmd)
             op = op, dst = dst, x = x, y = y }))
     end
 
-    local function int_divi()
-        -- Lua and Pallene round integer division towards negative infinity,
-        -- while C rounds towards zero. Here we inline luaV_div, to allow the C
-        -- compiler to constant-propagate. For an explanation of the algorithm,
-        -- see the comments for luaV_div.
-        return (util.render([[
-            if (l_castS2U($n) + 1u <= 1u) {
-                if ($n == 0){
-                    pallene_runtime_divide_by_zero_error(L, $line);
-                } else {
-                    $dst = intop(-, 0, $m);
-                }
-            } else {
-                $dst = $m / $n;
-                if (($m ^ $n) < 0 && ($m % $n) != 0) {
-                    $dst -= 1;
-                }
-            } ]], {
-                dst = dst,
-                m = x,
-                n = y,
-                line = C.integer(cmd.loc.line),
-            }))
-    end
-
-    local function int_mod()
-        -- Lua and Pallene guarantee that (m == n*(m//n) + (m%n))
-        -- For details, see gen_int_div, luaV_div, and luaV_mod.
-        return (util.render([[
-            if (l_castS2U($n) + 1u <= 1u) {
-                if ($n == 0){
-                    pallene_runtime_mod_by_zero_error(L, ${line});
-                } else {
-                    $dst = 0;
-                }
-            } else {
-                $dst = $m % $n;
-                if ($dst != 0 && ($m ^ $n) < 0) {
-                    $dst += $n;
-                }
-            } ]], {
-                dst = dst,
-                m = x,
-                n = y,
-                line = C.integer(cmd.loc.line),
-            }))
+    -- For integer division and modulus:
+    local function int_division(fname)
+        local line = cmd.loc.line
+        return (util.render([[ $dst = $fname(L, $x, $y, $line); ]], {
+            fname = fname, dst = dst, x = x, y = y, line = C.integer(line) }))
     end
 
     local function flt_divi()
@@ -891,36 +851,10 @@ gen_cmd["Binop"] = function(self, cmd)
         error("not implemented (float mod)")
     end
 
-    local function shift(shift_pos, shift_neg)
-        -- In C, there is undefined behavior if the shift ammount is negative or
-        -- is larger than the integer width. On the other hand, Lua and Pallene
-        -- specify the behavior in these cases (negative means shift in the
-        -- opposite direction, and large shifts saturate at zero).
-        --
-        -- Most of the time, the shift amount is a compile-time constant, in
-        -- which case the C compiler should be able to simplify this down to
-        -- a single shift instruction.
-        --
-        -- In the dynamic case with unknown "y" this implementation is a little
-        -- bit faster Lua because we put the most common case under a single
-        -- level of branching. (~20% speedup)
-        return (util.render([[
-            if (PALLENE_LIKELY(l_castS2U($y) < PALLENE_LUAINTEGER_NBITS)) {
-                $dst = intop($shift_pos, $x, $y);
-            } else {
-                if (l_castS2U(-$y) < PALLENE_LUAINTEGER_NBITS) {
-                    $dst = intop($shift_neg, $x, -$y);
-                } else {
-                    $dst = 0;
-                }
-            } ]], {
-                shift_pos = shift_pos,
-                shift_neg = shift_neg,
-                dst = dst,
-                x = x,
-                y = y,
-            }))
-
+    -- For integer shift:
+    local function shift(fname)
+        return (util.render([[ $dst = $fname($x, $y); ]], {
+            fname = fname, dst = dst, x = x, y = y }))
     end
 
     local function pow()
@@ -932,8 +866,8 @@ gen_cmd["Binop"] = function(self, cmd)
     if     op == "IntAdd"    then return int_binop("+")
     elseif op == "IntSub"    then return int_binop("-")
     elseif op == "IntMul"    then return int_binop("*")
-    elseif op == "IntDivi"   then return int_divi()
-    elseif op == "IntMod"    then return int_mod()
+    elseif op == "IntDivi"   then return int_division("pallene_int_divi")
+    elseif op == "IntMod"    then return int_division("pallene_int_modi")
     elseif op == "FltAdd"    then return binop("+")
     elseif op == "FltSub"    then return binop("-")
     elseif op == "FltMul"    then return binop("*")
@@ -943,8 +877,8 @@ gen_cmd["Binop"] = function(self, cmd)
     elseif op == "BitAnd"    then return int_binop("&")
     elseif op == "BitOr"     then return int_binop("|")
     elseif op == "BitXor"    then return int_binop("^")
-    elseif op == "BitLShift" then return shift("<<", ">>")
-    elseif op == "BitRShift" then return shift(">>", "<<")
+    elseif op == "BitLShift" then return shift("pallene_shiftL")
+    elseif op == "BitRShift" then return shift("pallene_shiftR")
     elseif op == "FltPow"    then return pow()
     elseif op == "IntEq"     then return binop_paren("==")
     elseif op == "IntNeq"    then return binop_paren("!=")
@@ -1314,27 +1248,6 @@ local function section_comment(msg)
     return table.concat(lines, "\n")
 end
 
-function Coder:generate_headers()
-    return [[
-        #include "pallene_core.h"
-
-        #include "lua.h"
-        #include "lauxlib.h"
-        #include "lualib.h"
-
-        #include "lapi.h"
-        #include "lfunc.h"
-        #include "lgc.h"
-        #include "lobject.h"
-        #include "lstate.h"
-        #include "lstring.h"
-        #include "ltable.h"
-        #include "lvm.h"
-
-        #include <math.h>
-    ]]
-end
-
 function Coder:generate_module()
 
     local out = {}
@@ -1342,10 +1255,9 @@ function Coder:generate_module()
     table.insert(out, [[
         /* This file was generated by the Pallene compiler. Do not edit by hand" */
         /* Indentation and formatting courtesy of pallene/C.lua */
-    ]])
 
-    table.insert(out, section_comment("C Headers"))
-    table.insert(out, self:generate_headers())
+        #include "pallene_core.h"
+    ]])
 
     table.insert(out, section_comment("Records"))
     for _, typ in ipairs(self.module.record_types) do
