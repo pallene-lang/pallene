@@ -1039,6 +1039,11 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
+
+            function tofloat_shadowing(x:integer) : float
+                local tofloat = 1.0
+                return (x + tofloat)
+            end
         ]]))
 
         it("local variable doesn't shadow its type annotation", function()
@@ -1055,6 +1060,10 @@ describe("Pallene coder /", function()
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
+        end)
+
+        it("tofloat in coercions doesn't get shadowed", function()
+            run_test([[ assert( 21.0 == test.tofloat_shadowing(20) ) ]])
         end)
     end)
 
