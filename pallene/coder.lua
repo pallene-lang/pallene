@@ -701,7 +701,7 @@ function RecordCoder:declarations()
         ]], {
             struct_name = struct_name,
             get_prims = self:get_prims_name(),
-            gc_count = self.gc_count,
+            gc_count = C.integer(self.gc_count),
         }))
     end
 
@@ -715,7 +715,7 @@ function RecordCoder:declarations()
         } ]], {
             constructor_name = self:constructor_name(),
             prims_sizeof = self:prims_sizeof(),
-            nvalues = self.gc_count,
+            nvalues = C.integer(self.gc_count),
             mt_slot = self.owner:metatable_upvalue_slot(self.record_typ),
         }))
 
@@ -1303,7 +1303,7 @@ function Coder:generate_luaopen_function()
             lua_seti(L, closures, $ix);
         ]], {
             entry_point = entry_point,
-            ix = ix,
+            ix = C.integer(ix),
         }))
     end
 
@@ -1326,7 +1326,7 @@ function Coder:generate_luaopen_function()
             elseif tag == "coder.Upvalue.Function" then
                 table.insert(init_upvalues, util.render([[
                     lua_geti(L, closures, $ix); ]], {
-                        ix = closure_index[upv.f_id]
+                        ix = C.integer(closure_index[upv.f_id])
                     }))
             else
                 error("impossible")
@@ -1355,7 +1355,7 @@ function Coder:generate_luaopen_function()
             lua_settable(L, export_table);
         ]], {
             name = C.string(name),
-            ix = closure_index[f_id],
+            ix = C.integer(closure_index[f_id]),
         }))
     end
 

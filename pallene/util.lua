@@ -8,6 +8,10 @@ end
 -- Barebones string-based template function for generating C/Lua code. Replaces
 -- $VAR and ${VAR} placeholders in the `code` template by the corresponding
 -- strings in the `substs` table.
+--
+-- Don't call this function in tail-call position, wrap the call in parens if
+-- necessary. This way if there is an error you will get an accurate line
+-- number in the stack trace instead of just "(...tail calls...)"
 function util.render(code, substs)
     local err
     local out = string.gsub(code, "%$({?)([A-Za-z_][A-Za-z_0-9]*)(}?)",
@@ -20,8 +24,8 @@ function util.render(code, substs)
             if not v then
                 err = "missing template variable " .. k
                 return ""
-            elseif type(v) ~= "string" and type(v) ~= "number" then
-                err = "template variable is not a string/number " .. k
+            elseif type(v) ~= "string" then
+                err = "template variable is not a string " .. k
                 return ""
             end
             if a == "" and b == "}" then
