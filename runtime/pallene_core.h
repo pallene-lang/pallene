@@ -68,7 +68,13 @@ void pallene_io_write(
 /* --------------------------- */
 
 
-/* Specialized "barrierback" macros. See coder.lua for explanation. */
+/* We must call these write barriers whenever we set "v" as an element of "p",
+ * in order to preserve the color invariants of the incremental GC.
+ *
+ * These implementations are specializations of luaC_barrierback tha check at
+ * compile time if the child object is collectible. Additionally, the in this
+ * version of the macro "p" and "v" receive internal object pointers (the ones
+ * described by ctype()). */
 #define pallene_barrierback_unknown_child(L, p, v) \
     if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v))) { \
         luaC_barrierback_(L, obj2gco(p));                                  \

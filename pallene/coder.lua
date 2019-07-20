@@ -99,9 +99,9 @@ local function get_slot(typ, src_slot)
     return (util.render(tmpl, {src = src_slot}))
 end
 
--- Don't forget to call barrierback if this slot belongs to a heap object!
--- @param dst_slot: The TValue* to write to
-local function set_slot(typ, dst_slot, value)
+-- Set a TValue* slot that is in the Lua or C stack.
+-- @param typ: type of source value
+local function set_stack_slot(typ, dst_slot, value)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "setnilvalue($dst);"
@@ -118,36 +118,32 @@ local function set_slot(typ, dst_slot, value)
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
-function Coder:push_to_stack(typ, value)
-    return (util.render([[
-        ${set_slot}
-        api_incr_top(L); ]],{
-            set_slot = set_slot(typ, "s2v(L->top)", value),
-    }))
+-- Set a TValue* slot that belongs to some heap object (array, record, etc)
+-- Needs to receive a pointer to the parent object, because of the GC write
+-- barrier. See comments in pallene_core.h.
+local function set_heap_slot(typ, dst_slot, value, parent)
+    local lines = {}
+    table.insert(lines, set_stack_slot(typ, dst_slot, value))
+
+    if types.is_gc(typ) then
+        local tmpl
+        if typ._tag == "types.T.Value" or typ._tag == "types.T.Function" then
+            tmpl = [[pallene_barrierback_unknown_child(L, $p, &$v); ]]
+        else
+            tmpl = [[pallene_barrierback_collectable_child(L, $p, $v); ]]
+        end
+        table.insert(lines, util.render(tmpl, { p = parent, v = value }))
+    end
+
+    return table.concat(lines, "\n")
 end
 
--- This function should be called when setting "v" as an element of "p", to
--- preserve the color invariants of the incremental GC.
---
--- The implementation is a specialization of luaC_barrierback that checks at
--- compile time if the child object is collectible, if possible. Additionally,
--- our version of the macros use "internal poiters" (as described by ctype())
--- instead of TValue*.
---
--- @param typ: Type of child object
--- @param p: Internal pointer to parent object
--- @param v: Internal pointer to child object
--- @returns C statementS
-local function barrierback(typ, p, v)
-    local tmpl
-    if not types.is_gc(typ) then
-        tmpl = ""
-    elseif typ._tag == "types.T.Value" or typ._tag == "types.T.Function" then
-        tmpl = "\npallene_barrierback_unknown_child(L, $p, &$v);"
-    else
-        tmpl = "\npallene_barrierback_collectable_child(L, $p, $v);"
-    end
-    return (util.render(tmpl, { p = p, v = v }))
+function Coder:push_to_stack(typ, value)
+    return (util.render([[
+        ${set_stack_slot}
+        api_incr_top(L); ]],{
+            set_stack_slot = set_stack_slot(typ, "s2v(L->top)", value),
+    }))
 end
 
 --
@@ -771,7 +767,7 @@ gen_cmd["SetGlobal"] = function(self, cmd)
     local src = self:c_value(cmd.src)
     local g_id = cmd.global_id
     local typ = self.module.globals[g_id].typ
-    return (set_slot(typ, self:global_upvalue_slot(g_id), src))
+    return (set_heap_slot(typ, self:global_upvalue_slot(g_id), src, "G"))
 end
 
 gen_cmd["Unop"] = function(self, cmd)
@@ -929,7 +925,7 @@ gen_cmd["ToDyn"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
     local src_typ = cmd.src_typ
-    return (set_slot(src_typ, "&"..dst, src))
+    return (set_stack_slot(src_typ, "&"..dst, src))
 end
 
 gen_cmd["FromDyn"] = function(self, cmd)
@@ -997,14 +993,13 @@ gen_cmd["SetArr"] = function(self, cmd)
                 pallene_renormalize_array(L, $arr, ui, $line);
             }
             TValue *slot = &$arr->array[ui];
-            ${set_slot} ${barrierback}
+            ${set_heap_slot}
         } ]], {
             arr = arr,
             i = i,
             v = v,
             line = line,
-            set_slot = set_slot(src_typ, "slot", v),
-            barrierback = barrierback(src_typ, arr, v),
+            set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
         }))
 end
 
@@ -1048,16 +1043,10 @@ gen_cmd["SetField"] = function(self, cmd)
     local f_typ = rec_typ.field_types[field_name]
     if types.is_gc(f_typ) then
         local slot = rc:get_gc_slot(rec, field_name)
-        return (util.render([[${set_slot} ${barrierback}]], {
-            set_slot = set_slot(f_typ, slot, v),
-            barrierback = barrierback(f_typ, rec, v),
-        }))
+        return (set_heap_slot(f_typ, slot, v, rec))
     else
         local lval = rc:get_prim_lvalue(rec, field_name)
-        return (util.render([[$lval = $v;]], {
-            lval = lval,
-            v = v,
-        }))
+        return (util.render([[$lval = $v;]], { lval = lval, v = v }))
     end
 end
 
