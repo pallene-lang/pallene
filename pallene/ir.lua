@@ -1,4 +1,3 @@
-local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 
 -- This IR is produced as a result of typechecking the parser's AST. The main

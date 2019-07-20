@@ -1,4 +1,3 @@
-local ast = require 'pallene.ast'
 local driver = require 'pallene.driver'
 local util = require 'pallene.util'
 
