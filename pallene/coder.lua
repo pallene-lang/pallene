@@ -275,6 +275,15 @@ end
 --
 -- # Pallene entry point
 --
+-- Pallene functions receive as parameters:
+--  - Lua state (L)
+--  - Global upvalues table (G)
+--  - Regular parameters (x1, x2, x3...)
+--
+-- If the function returns no results, it returns void.
+-- Otherwhise it returns its return value. Multiple returns are not implemented
+--
+-- It is assumed that the all arguments are saved in the Lua stack by the caller
 
 function Coder:pallene_entry_point_name(f_id)
     return string.format("function_%02d", f_id)
@@ -288,7 +297,7 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local ret = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
 
-    local args = {}
+    local args = {} -- { {name , comment} }
     table.insert(args, {"lua_State *L", ""})
     table.insert(args, {"Udata *G", ""})
     for i = 1, #arg_types do
@@ -313,16 +322,21 @@ end
 
 function Coder:pallene_entry_point_definition(f_id)
     local func = self.module.functions[f_id]
-    local narg = #func.typ.arg_types
-    local nret = #func.typ.ret_types
+    local arg_types = func.typ.arg_types
+    local ret_types = func.typ.ret_types
+
+    local name_comment = func.name
+    if func.loc then
+        name_comment = name_comment .. " " .. location.show_line(func.loc)
+    end
 
     local var_decls = {}
-    for v_id = narg + 1, #func.vars do
+    for v_id = #arg_types + 1, #func.vars do
         local decl, comment = self:c_declaration(f_id, v_id)
         table.insert(var_decls, string.format("%s; %s", decl, comment))
     end
-    if nret > 0 then
-        local typ = func.typ.ret_types[1]
+    if #ret_types > 0 then
+        local typ = ret_types[1]
         table.insert(var_decls, c_declaration(typ, "ret")..";")
     end
 
@@ -330,18 +344,11 @@ function Coder:pallene_entry_point_definition(f_id)
     local body = self:generate_cmds(func.body)
     self.func = nil
 
-    local prologue = {}
-    table.insert(prologue, [[done: ]])
-    if nret == 0 then
-        table.insert(prologue, "return;")
+    local return_
+    if #ret_types == 0 then
+        return_ = "return;"
     else
-        assert(nret == 1)
-        table.insert(prologue, "return ret;")
-    end
-
-    local name_comment = func.name
-    if func.loc then
-        name_comment = name_comment .. " " .. location.show_line(func.loc)
+        return_ = "return ret;"
     end
 
     return (util.render([[
@@ -350,21 +357,21 @@ function Coder:pallene_entry_point_definition(f_id)
             ${var_decls}
 
             ${body}
-
-            ${prologue}
+          done:
+            ${return_}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         var_decls = table.concat(var_decls, "\n"),
         body = body,
-        prologue = table.concat(prologue, "\n"),
+        return_ = return_,
     }))
 end
 
 function Coder:call_pallene_function(dst, f_id, xs)
     local func = self.module.functions[f_id]
-    local nret = #func.typ.ret_types
+    local ret_types = func.typ.ret_types
 
     local args = {}
     table.insert(args, "L")
@@ -378,7 +385,7 @@ function Coder:call_pallene_function(dst, f_id, xs)
         args = table.concat(args, ", "),
     })
 
-    if nret == 0 then
+    if #ret_types == 0 then
         assert(dst == false)
         return call
     else
@@ -393,6 +400,10 @@ end
 --
 -- # Lua entry point
 --
+-- Lua interface to a pallene function. Used when Lua is calling pallene
+-- functions, or when Pallene is calling a variable of function type.
+--
+-- The first upvalue should be the module's global userdata object.
 
 function Coder:lua_entry_point_name(f_id)
     return string.format("function_%02d_lua", f_id)
@@ -407,8 +418,8 @@ end
 function Coder:lua_entry_point_definition(f_id)
     local func = self.module.functions[f_id]
     local fname = func.name
-    local nargs = #func.typ.arg_types
-    local nret  = #func.typ.ret_types
+    local arg_types = func.typ.arg_types
+    local ret_types = func.typ.ret_types
 
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
@@ -416,13 +427,12 @@ function Coder:lua_entry_point_definition(f_id)
             pallene_runtime_arity_error(L, $fname, $nargs, nargs);
         }
     ]], {
-        nargs = nargs,
+        nargs = C.integer(#arg_types),
         fname = C.string(fname),
     })
 
     local type_checks = {}
-    for i = 1, nargs do
-        local typ = func.typ.arg_types[i]
+    for i, typ in ipairs(arg_types) do
         local name = func.vars[i].comment
         table.insert(type_checks, util.render([[
             slot = s2v(base + $i);
@@ -431,38 +441,46 @@ function Coder:lua_entry_point_definition(f_id)
             i = C.integer(i),
             check_tag = self:check_tag(
                 typ, "slot", func.loc, "argument %s", C.string(name)),
-
         }))
     end
 
     local arg_vars = {}
-    local get_args = {}
-    for i = 1, nargs do
-        local typ = func.typ.arg_types[i]
+    local init_args = {}
+    for i, typ in ipairs(arg_types) do
         local slot = string.format("s2v(base + %s)", C.integer(i))
         local name = "x"..i
         arg_vars[i] = name
-        table.insert(get_args, util.render([[
+        table.insert(init_args, util.render([[
             $decl = $get_slot; ]], {
                 decl = c_declaration(typ, name),
                 get_slot = get_slot(typ, slot),
         }))
     end
 
-    local call_and_push
-    if nret == 0 then
-        call_and_push = self:call_pallene_function(false, f_id, arg_vars)
-    else
-        assert(nret == 1)
-        local typ = func.typ.ret_types[1]
-        local ret = c_declaration(typ, "ret")
-        call_and_push = util.render([[
-            ${call}
-            ${push} ]], {
-                call = self:call_pallene_function(ret, f_id, arg_vars),
-                push = self:push_to_stack(typ, "ret")
-            })
+    local ret_vars = {}
+    local ret_decls = {}
+    for i, typ in ipairs(ret_types) do
+        if i == 1 then
+            table.insert(ret_vars, "ret")
+            table.insert(ret_decls, c_declaration(typ, "ret")..";")
+        else
+            error("not implemented")
+        end
     end
+
+    local call_pallene
+    if #ret_types == 0 then
+        call_pallene = self:call_pallene_function(false, f_id, arg_vars)
+    else
+        call_pallene = self:call_pallene_function("ret", f_id, arg_vars)
+    end
+
+    local return_results = {}
+    for i, typ in ipairs(ret_types) do
+        table.insert(return_results, self:push_to_stack(typ, ret_vars[i]))
+    end
+    table.insert(return_results,
+        string.format("return %s;", C.integer(#ret_types)))
 
     return (util.render([[
         ${fun_decl}
@@ -470,7 +488,6 @@ function Coder:lua_entry_point_definition(f_id)
             StackValue *base = L->ci->func;
             TValue *slot;
 
-            // Get first upvalue
             CClosure *func = clCvalue(s2v(base));
             Udata *G = uvalue(&func->upvalue[0]);
 
@@ -478,17 +495,19 @@ function Coder:lua_entry_point_definition(f_id)
 
             ${type_checks}
 
-            ${get_args}
-            ${call_and_push}
-            return $nret;
+            ${init_args}
+            ${ret_decls}
+            ${call_pallene}
+            ${return_results}
         }
     ]], {
         fun_decl = self:lua_entry_point_declaration(f_id),
         arity_check = arity_check,
         type_checks = table.concat(type_checks, "\n"),
-        get_args = table.concat(get_args, "\n"),
-        call_and_push = call_and_push,
-        nret = #func.typ.ret_types,
+        init_args = table.concat(init_args, "\n"),
+        ret_decls = table.concat(ret_decls, "\n"),
+        call_pallene = call_pallene,
+        return_results = table.concat(return_results, "\n"),
     }))
 end
 
@@ -509,14 +528,12 @@ typedecl.declare(coder, "coder", "Upvalue", {
 function Coder:init_upvalues()
 
     -- Metatables
-
     for _, typ in ipairs(self.module.record_types) do
         table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
         self.upvalue_of_metatable[typ] = #self.upvalues
     end
 
     -- String Literals
-
     for _, func in ipairs(self.module.functions) do
         for _, cmd in ipairs(func.flattened_body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
@@ -530,7 +547,6 @@ function Coder:init_upvalues()
     end
 
     -- Functions
-
     for _, func in ipairs(self.module.functions) do
         for _, cmd in ipairs(func.flattened_body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
@@ -551,7 +567,7 @@ function Coder:init_upvalues()
 end
 
 local function upvalue_slot(ix)
-    return (util.render("&G->uv[$i].uv", { i = C.integer(ix - 1) }))
+    return string.format("&G->uv[%s].uv", C.integer(ix - 1))
 end
 
 function Coder:metatable_upvalue_slot(typ)
@@ -693,7 +709,6 @@ function RecordCoder:declarations()
     end
 
     -- Constructor
-
     table.insert(declarations, util.render([[
         static Udata *${constructor_name}(lua_State *L, Udata *G)
         {
@@ -762,14 +777,13 @@ gen_cmd["Unop"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local x = self:c_value(cmd.src)
 
+    -- For when we can be directly translate to a C operator:
     local function unop(op)
-        -- Some unary operations can be directly translated to a C operator
         return (util.render([[ $dst = ${op}$x; ]], {
             op = op , dst = dst, x = x }))
     end
 
     local function int_neg()
-        -- Lua and Pallene mandate two's-complement wraparound on integer arith
         return (util.render([[ $dst = intop(-, 0, $x); ]], {
             dst = dst, x = x }))
     end
@@ -801,20 +815,20 @@ gen_cmd["Binop"] = function(self, cmd)
     local x = self:c_value(cmd.src1)
     local y = self:c_value(cmd.src2)
 
+    -- For when we can be directly translate to a C operator:
     local function binop(op)
-        -- Some binary operations can be directly translated to a C operator
         return (util.render([[ $dst = $x $op $y; ]], {
             op = op, dst = dst, x = x, y = y }))
     end
 
+    -- For relational ops, which look better with extra parens:
     local function binop_paren(op)
-        -- Improved readability for relational operationss
         return (util.render([[ $dst = ($x $op $y); ]], {
             op = op, dst = dst, x = x, y = y }))
     end
 
+    -- For integer ops with two's-complement wraparound:
     local function int_binop(op)
-        -- Lua and Pallene mandate two's-complement wraparound on integer arith
         return (util.render([[ $dst = intop($op, $x, $y); ]], {
             op = op, dst = dst, x = x, y = y }))
     end
@@ -878,12 +892,13 @@ gen_cmd["Binop"] = function(self, cmd)
     end
 
     local function shift(shift_pos, shift_neg)
-        -- In Lua and Pallene, the shift ammount in a bitshift can be any
-        -- integer and the behavior is not the same as large bitshifts and
-        -- negative bitshifts.
+        -- In C, there is undefined behavior if the shift ammount is negative or
+        -- is larger than the integer width. On the other hand, Lua and Pallene
+        -- specify the behavior in these cases (negative means shift in the
+        -- opposite direction, and large shifts saturate at zero).
         --
-        -- Most of the time, the shift amount should be a compile-time constant,
-        -- in which case the C compiler should be able to simplify this down to
+        -- Most of the time, the shift amount is a compile-time constant, in
+        -- which case the C compiler should be able to simplify this down to
         -- a single shift instruction.
         --
         -- In the dynamic case with unknown "y" this implementation is a little
