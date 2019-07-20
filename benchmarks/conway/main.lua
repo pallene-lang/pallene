@@ -21,7 +21,7 @@ for i = 1, 8 do
     end
 end
 
-for gen = 1, nsteps do
+for _ = 1, nsteps do
     life.draw(N, M, curr_cells)
     io.write("\n")
 
