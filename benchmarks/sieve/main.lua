@@ -3,7 +3,7 @@ local N     = tonumber(arg[2]) or 100000
 local nrep  = tonumber(arg[3]) or 1000
 
 local ps
-for i = 1, nrep do
+for _ = 1, nrep do
     ps = sieve.sieve(N)
 end
 print(#ps)

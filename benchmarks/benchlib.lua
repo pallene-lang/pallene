@@ -103,7 +103,7 @@ benchlib.modes.chronos = {
     run = function(bench_cmd)
         local measure_cmd = bench_cmd
         local t1 = chronos.nanotime()
-        local ok, err, _, res = util.outputs_of_execute(measure_cmd)
+        local ok, err, _, _res = util.outputs_of_execute(measure_cmd)
         local t2 = chronos.nanotime()
         assert(ok, err)
         return string.format("%.6f", t2 - t1)

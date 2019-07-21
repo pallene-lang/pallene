@@ -10,7 +10,7 @@ for i = 1, N do
     end
 end
 
-BIG2 = BIG1
+local BIG2 = BIG1
 
 local s = matmul.matmul(BIG1, BIG2)
 print(s)

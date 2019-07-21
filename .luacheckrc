@@ -17,6 +17,8 @@
 -- [3] https://github.com/mpeterv/luacheck#editor-support
 
 ignore = {
+    "211/_.*",  -- Unused local variable, when name starts with "_"
+
     "212/_.*",  -- Unused argument, when name starts with "_"
     "212/self", -- Unused argument "self"
 
