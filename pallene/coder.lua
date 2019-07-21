@@ -742,7 +742,6 @@ end
 
 
 local gen_cmd = {}
-local gen_builtin = {}
 
 gen_cmd["Move"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
@@ -1056,21 +1055,14 @@ gen_cmd["CallDyn"] = function(self, _cmd)
     error("not implemented (call dyn)")
 end
 
-gen_cmd["CallBuiltin"] = function(self, cmd)
-    local f = assert(gen_builtin[cmd.builtin_name])
-    return f(self, cmd)
-end
-
-gen_builtin["tofloat"] = function(self, cmd)
-    assert(#cmd.srcs == 1)
+gen_cmd["ToFloat"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
-    local v = self:c_value(cmd.srcs[1])
+    local v = self:c_value(cmd.src)
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
-gen_builtin["io_write"] = function(self, cmd)
-    assert(#cmd.srcs == 1)
-    local v = self:c_value(cmd.srcs[1])
+gen_cmd["IoWrite"] = function(self, cmd)
+    local v = self:c_value(cmd.src)
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 

@@ -334,7 +334,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallBuiltin(loc, dst, cname.name, xs))
+
+            local bname = cname.name
+            if     bname == "tofloat" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.ToFloat(loc, dst, xs[1]))
+            elseif bname == "io_write" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.IoWrite(loc, xs[1]))
+            else
+                error("impossible")
+            end
 
         else
             local f = self:exp_to_value(cmds, exp.exp)

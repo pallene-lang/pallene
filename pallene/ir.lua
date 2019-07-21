@@ -128,7 +128,10 @@ declare_type("Cmd", {
     -- (dst is false if the return value is void, or unused)
     CallStatic  = {"loc", "dst", "f_id", "srcs"},
     CallDyn     = {"loc", "dst", "src_f", "srcs"},
-    CallBuiltin = {"loc", "dst", "builtin_name", "srcs"},
+
+    -- Builtin operations
+    ToFloat    = {"loc", "dst", "src"},
+    IoWrite    = {"loc",        "src"},
 
     --
     -- Control flow
