@@ -139,40 +139,30 @@ declare_type("Cmd", {
     Loop    = {"cmds"},
     For     = {"loop_var", "start", "limit", "step", "body"},
 })
+-- Keep these lists updated!
+--local  dst_fields = { "dst" }
+--local dsts_fields = { "dsts"}
+local  src_fields = {
+    "src", "src1", "src2",
+    "src_arr", "src_rec", "src_i", "src_v",
+    "condition", "start", "limit", "step" }
+local srcs_fields = { "srcs" }
 
 function ir.get_srcs(cmd)
-    local tag = cmd._tag
-
-    if tag == "ir.Cmd.Return" then
-        return { }
-    elseif tag == "ir.Cmd.BreakIf" then
-        return { cmd.condition }
-    elseif tag == "ir.Cmd.If" then
-        return { cmd.condition }
-    elseif tag == "ir.Cmd.Loop" then
-        return {}
-    elseif tag == "ir.Cmd.For" then
-        return { cmd.start, cmd.limit, cmd.step }
-    else
-        local srcs = {}
-
-        for _, k in ipairs({
-            "src", "src1", "src2",
-            "src_arr", "src_rec", "src_i", "src_v",
-        }) do
-            if cmd[k] then
-                table.insert(srcs, cmd[k])
-            end
+    local srcs = {}
+    for _, k in ipairs(src_fields) do
+        if cmd[k] then
+            table.insert(srcs, cmd[k])
         end
-
-        if cmd.srcs then
-            for _, src in ipairs(cmd.srcs) do
+    end
+    for _, k in ipairs(srcs_fields) do
+        if cmd[k] then
+            for _, src in ipairs(cmd[k]) do
                 table.insert(srcs, src)
             end
         end
-
-        return srcs
     end
+    return srcs
 end
 
 -- Linearize the commands in a pre-order traversal. Makes it easier to iterate
