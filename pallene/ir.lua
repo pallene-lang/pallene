@@ -139,7 +139,7 @@ declare_type("Cmd", {
     Return  = {},
     BreakIf = {"condition"},
     If      = {"condition", "then_", "else_"},
-    Loop    = {"cmds"},
+    Loop    = {"body"},
     For     = {"loop_var", "start", "limit", "step", "body"},
 })
 -- Keep these lists updated!
@@ -190,7 +190,7 @@ function ir.flatten_cmds(root_cmds)
             do_cmds(cmd.then_)
             do_cmds(cmd.else_)
         elseif tag == "ir.Cmd.Loop" then
-            do_cmds(cmd.cmds)
+            do_cmds(cmd.body)
         elseif tag == "ir.Cmd.For" then
             do_cmds(cmd.body)
         else

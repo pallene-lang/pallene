@@ -1123,7 +1123,7 @@ gen_cmd["If"] = function(self, cmd)
 end
 
 gen_cmd["Loop"] = function(self, cmd)
-    local body = self:generate_cmds(cmd.cmds)
+    local body = self:generate_cmds(cmd.body)
     return (util.render([[
         while (1) {
             ${body}
