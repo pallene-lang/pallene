@@ -156,10 +156,9 @@ function ir.get_srcs(cmd)
     else
         local srcs = {}
 
-        for k in ipairs({
+        for _, k in ipairs({
             "src", "src1", "src2",
             "src_arr", "src_rec", "src_i", "src_v",
-            "f_id",
         }) do
             if cmd[k] then
                 table.insert(srcs, cmd[k])
