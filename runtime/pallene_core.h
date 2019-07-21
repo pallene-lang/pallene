@@ -169,4 +169,16 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
     }
 }
 
+
+/* Similar to lua_createtable*/
+static inline
+Table *pallene_new_array(lua_State *L, lua_Integer n)
+{
+    Table *t = luaH_new(L);
+    if (n > 0) {
+        luaH_resizearray(L, t, n);
+    }
+    return t;
+}
+
 #endif

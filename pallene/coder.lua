@@ -945,14 +945,10 @@ end
 gen_cmd["NewArr"] = function(self, cmd)
     local dst = self:c_var(cmd.dst)
     local n = C.integer(cmd.size_hint)
-    return (util.render([[
-        $dst = luaH_new(L);
-        if ($n > 0) {
-            luaH_resizearray(L, $dst, $n);
-        } ]], {
-            dst = dst,
-            n = n,
-        }))
+    return (util.render([[ $dst = pallene_new_array(L, $n); ]], {
+        dst = dst,
+        n = n,
+    }))
 end
 
 gen_cmd["GetArr"] = function(self, cmd)
