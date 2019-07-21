@@ -318,6 +318,10 @@ function Checker:check_function(f_id, lambda, func_typ)
             local name = lambda.arg_names[i]
             self:add_local(name, typ)
         end
+        for i, typ in ipairs(func_typ.ret_types) do
+            local name = "ret"..i
+            self:add_local(name, typ)
+        end
         self.func.body = lambda.body
         self:check_stat(self.func.body)
 

@@ -291,7 +291,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     local ret_types = func.typ.ret_types
     assert(#ret_types <= 1)
 
-    local ret = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
+    local ret_type = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
 
     local args = {} -- { {name , comment} }
     table.insert(args, {"lua_State *L", ""})
@@ -307,10 +307,10 @@ function Coder:pallene_entry_point_declaration(f_id)
     end
 
     return (util.render([[
-        static ${ret} ${name}(
+        static ${ret_type} ${name}(
             ${args}
         )]], {
-            ret = ret,
+            ret_type = ret_type,
             name = self:pallene_entry_point_name(f_id),
             args = table.concat(arg_lines, "\n"),
         }))
@@ -331,10 +331,6 @@ function Coder:pallene_entry_point_definition(f_id)
         local decl, comment = self:c_declaration(f_id, v_id)
         table.insert(var_decls, string.format("%s; %s", decl, comment))
     end
-    if #ret_types > 0 then
-        local typ = ret_types[1]
-        table.insert(var_decls, c_declaration(typ, "ret")..";")
-    end
 
     self.func = func
     local body = self:generate_cmds(func.body)
@@ -344,7 +340,8 @@ function Coder:pallene_entry_point_definition(f_id)
     if #ret_types == 0 then
         return_ = "return;"
     else
-        return_ = "return ret;"
+        local v = self:c_var(#arg_types + 1)
+        return_ = string.format("return %s;", v)
     end
 
     return (util.render([[
@@ -457,19 +454,16 @@ function Coder:lua_entry_point_definition(f_id)
     local ret_vars = {}
     local ret_decls = {}
     for i, typ in ipairs(ret_types) do
-        if i == 1 then
-            table.insert(ret_vars, "ret")
-            table.insert(ret_decls, c_declaration(typ, "ret")..";")
-        else
-            error("not implemented")
-        end
+        local ret = string.format("ret%d", i)
+        table.insert(ret_vars, ret)
+        table.insert(ret_decls, c_declaration(typ, ret)..";")
     end
 
     local call_pallene
     if #ret_types == 0 then
         call_pallene = self:call_pallene_function(false, f_id, arg_vars)
     else
-        call_pallene = self:call_pallene_function("ret", f_id, arg_vars)
+        call_pallene = self:call_pallene_function(ret_vars[1], f_id, arg_vars)
     end
 
     local return_results = {}
@@ -1081,16 +1075,8 @@ end
 -- Control flow
 --
 
-gen_cmd["Return"] = function(self, cmd)
-    local values = cmd.values
-    local lines = {}
-    if #values > 0 then
-        assert(#values == 1, "not implemented")
-        local v = self:c_value(values[1])
-        table.insert(lines, util.render([[ ret = $v; ]], { v = v }))
-    end
-    table.insert(lines, [[ goto done; ]])
-    return table.concat(lines, "\n")
+gen_cmd["Return"] = function(self, _cmd)
+    return [[ goto done; ]]
 end
 
 gen_cmd["BreakIf"] = function(self, cmd)

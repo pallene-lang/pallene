@@ -133,7 +133,7 @@ declare_type("Cmd", {
     --
     -- Control flow
     --
-    Return  = {"values"},
+    Return  = {},
     BreakIf = {"condition"},
     If      = {"condition", "then_", "else_"},
     Loop    = {"cmds"},
@@ -144,7 +144,7 @@ function ir.get_srcs(cmd)
     local tag = cmd._tag
 
     if tag == "ir.Cmd.Return" then
-        return cmd.values
+        return { }
     elseif tag == "ir.Cmd.BreakIf" then
         return { cmd.condition }
     elseif tag == "ir.Cmd.If" then
