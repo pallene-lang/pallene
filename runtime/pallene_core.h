@@ -56,8 +56,8 @@ int pallene_runtime_record_index_error(
 TString *pallene_string_concatN(
     lua_State *L, size_t n, TString **ss);
 
-void pallene_renormalize_array(
-    lua_State *L, Table *arr, unsigned int i, int line);
+void pallene_grow_array(
+    lua_State *L, Table *arr, unsigned int ui, int line);
 
 void pallene_io_write(
     lua_State *L, TString *str);
@@ -180,5 +180,22 @@ Table *pallene_new_array(lua_State *L, lua_Integer n)
     }
     return t;
 }
+
+/* When reading and writing to a Pallene array, we force everything to fit
+ * inside the array part of the table. The optimizer and branch predictor prefer
+ * when it is this way. */
+static inline
+void pallene_renormalize_array(
+    lua_State *L,
+    Table *arr,
+    lua_Integer i,
+    int line
+){
+    lua_Unsigned ui = (lua_Unsigned) i - 1;
+    if (PALLENE_UNLIKELY(ui >= arr->sizearray)) {
+        pallene_grow_array(L, arr, ui, line);
+    }
+}
+
 
 #endif

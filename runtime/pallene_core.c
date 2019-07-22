@@ -143,16 +143,16 @@ TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
 
 /* Grows the table so that it can fit index "i"
  * Our strategy is to grow to the next available power of 2. */
-void pallene_renormalize_array(lua_State *L, Table *arr, unsigned int i, int line)
+void pallene_grow_array(lua_State *L, Table *arr, unsigned int ui, int line)
 {
-    if (i >= MAXASIZE) {
+    if (ui >= MAXASIZE) {
         luaL_error(L, "invalid index for Pallene array at line %d", line);
     }
 
     /* This loop doesn't overflow because i < MAXASIZE and
      * MAXASIZE is a power of two */
     size_t new_size = 1;
-    while (i >= new_size) {
+    while (ui >= new_size) {
         new_size *= 2;
     }
 

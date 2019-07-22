@@ -955,11 +955,8 @@ gen_cmd["GetArr"] = function(self, cmd)
     local line = C.integer(cmd.loc.line)
     return (util.render([[
         {
-            lua_Unsigned ui = ((lua_Unsigned) $i) - 1;
-            if (PALLENE_UNLIKELY(ui >= $arr->sizearray)) {
-                pallene_renormalize_array(L, $arr, ui, $line);
-            }
-            TValue *slot = &$arr->array[ui];
+            pallene_renormalize_array(L, $arr, $i, $line);
+            TValue *slot = &$arr->array[$i - 1];
             ${check_tag}
             $dst = $get_slot;
         } ]], {
@@ -980,11 +977,8 @@ gen_cmd["SetArr"] = function(self, cmd)
     local line = C.integer(cmd.loc.line)
     return (util.render([[
         {
-            lua_Unsigned ui = ((lua_Unsigned) $i) - 1;
-            if (PALLENE_UNLIKELY(ui >= $arr->sizearray)) {
-                pallene_renormalize_array(L, $arr, ui, $line);
-            }
-            TValue *slot = &$arr->array[ui];
+            pallene_renormalize_array(L, $arr, $i, $line);
+            TValue *slot = &$arr->array[$i - 1];
             ${set_heap_slot}
         } ]], {
             arr = arr,
