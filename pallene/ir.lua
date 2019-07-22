@@ -97,6 +97,9 @@ declare_type("Value", {
     Function   = {"id"},
 })
 
+-- [IMPORTANT!] After any changes to this data type, update the get_srcs and
+-- get_dsts functions accordingly
+--
 declare_type("Cmd", {
     -- Variables
     Move       = {"loc", "dst", "src"},
@@ -142,9 +145,7 @@ declare_type("Cmd", {
     Loop    = {"body"},
     For     = {"loop_var", "start", "limit", "step", "body"},
 })
--- Keep these lists updated!
---local  dst_fields = { "dst" }
---local dsts_fields = { "dsts"}
+
 local  src_fields = {
     "src", "src1", "src2",
     "src_arr", "src_rec", "src_i", "src_v",
@@ -167,6 +168,27 @@ function ir.get_srcs(cmd)
     end
     return srcs
 end
+
+local  dst_fields = { "dst" }
+local dsts_fields = { "dsts"}
+
+function ir.get_dsts(cmd)
+    local dsts = {}
+    for _, k in ipairs(dst_fields) do
+        if cmd[k] then
+            table.insert(dsts, cmd[k])
+        end
+    end
+    for _, k in ipairs(dsts_fields) do
+        if cmd[k] then
+            for _, dst in ipairs(cmd[k]) do
+                table.insert(dsts, dst)
+            end
+        end
+    end
+    return dsts
+end
+
 
 -- Linearize the commands in a pre-order traversal. Makes it easier to iterate
 -- over all commands, and is also helpful for register allocation.
