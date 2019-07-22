@@ -283,6 +283,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         if     typ._tag == "types.T.Array" then
             local n = #exp.fields
             table.insert(cmds, ir.Cmd.NewArr(loc, dst, n))
+            table.insert(cmds, ir.Cmd.CheckGC())
             for i, field in ipairs(exp.fields) do
                 local av = ir.Value.LocalVar(dst)
                 local iv = ir.Value.Integer(i)
@@ -298,6 +299,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
             table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
+            table.insert(cmds, ir.Cmd.CheckGC())
             for _, field_name in ipairs(typ.field_names) do
                 local f_exp = assert(field_exps[field_name])
                 local dv = ir.Value.LocalVar(dst)
@@ -392,6 +394,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             xs[i] = self:exp_to_value(cmds, x_exp)
         end
         table.insert(cmds, ir.Cmd.Concat(loc, dst, xs))
+        table.insert(cmds, ir.Cmd.CheckGC())
 
     elseif tag == "ast.Exp.Binop" then
         local op = exp.op

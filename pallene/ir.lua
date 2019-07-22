@@ -144,6 +144,9 @@ declare_type("Cmd", {
     If      = {"condition", "then_", "else_"},
     Loop    = {"body"},
     For     = {"loop_var", "start", "limit", "step", "body"},
+
+    -- Garbage Collection (appears after memory allocations)
+    CheckGC = {},
 })
 
 local  src_fields = {

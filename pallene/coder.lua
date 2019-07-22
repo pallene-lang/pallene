@@ -1183,6 +1183,10 @@ gen_cmd["For"] = function(self, cmd)
         }))
 end
 
+gen_cmd["CheckGC"] = function(self, _cmd)
+    return [[ /* checkGC() */ ]]
+end
+
 function Coder:generate_cmds(cmds)
     local out = {}
     for _, cmd in ipairs(cmds) do
