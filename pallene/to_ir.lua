@@ -122,9 +122,8 @@ function ToIR:convert_stat(cmds, stat)
         self:exp_to_assignment(cmds, false, stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
-        local n_arg = #self.func.typ.arg_types
         for i, exp in ipairs(stat.exps) do
-            local dst = n_arg + i
+            local dst = ir.ret_var(self.func, i)
             self:exp_to_assignment(cmds, dst, exp)
         end
         table.insert(cmds, ir.Cmd.Return())

@@ -56,10 +56,6 @@ function Coder.new(module, modname)
     self.modname = modname
     self.func = false
 
-    for _, func in ipairs(self.module.functions) do
-        func.flattened_body = ir.flatten_cmds(func.body)
-    end
-
     self.upvalues = {} -- { coder.Upvalue }
     self.upvalue_of_metatable = {} -- typ  => integer
     self.upvalue_of_string    = {} -- str  => integer
@@ -297,7 +293,8 @@ function Coder:pallene_entry_point_declaration(f_id)
     table.insert(args, {"lua_State *L", ""})
     table.insert(args, {"Udata *G", ""})
     for i = 1, #arg_types do
-        table.insert(args, {self:c_declaration(f_id, i)})
+        local v_id = ir.arg_var(func, i)
+        table.insert(args, {self:c_declaration(f_id, v_id)})
     end
 
     local arg_lines = {}
@@ -340,7 +337,7 @@ function Coder:pallene_entry_point_definition(f_id)
     if #ret_types == 0 then
         return_ = "return;"
     else
-        local v = self:c_var(#arg_types + 1)
+        local v = self:c_var(ir.ret_var(func, 1))
         return_ = string.format("return %s;", v)
     end
 
@@ -521,6 +518,11 @@ typedecl.declare(coder, "coder", "Upvalue", {
 
 function Coder:init_upvalues()
 
+    local flattened_body = {}
+    for _, func in ipairs(self.module.functions) do
+        flattened_body[func] = ir.flatten_cmds(func.body)
+    end
+
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
         table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
@@ -529,7 +531,7 @@ function Coder:init_upvalues()
 
     -- String Literals
     for _, func in ipairs(self.module.functions) do
-        for _, cmd in ipairs(func.flattened_body) do
+        for _, cmd in ipairs(flattened_body[func]) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.String" then
                     local str = v.value
@@ -542,7 +544,7 @@ function Coder:init_upvalues()
 
     -- Functions
     for _, func in ipairs(self.module.functions) do
-        for _, cmd in ipairs(func.flattened_body) do
+        for _, cmd in ipairs(flattened_body[func]) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.Function" then
                     local f_id = v.id

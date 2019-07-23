@@ -75,12 +75,25 @@ function ir.add_export(module, f_id)
 end
 
 --
--- Mutate functions
+-- Function variables
 --
 
 function ir.add_local(func, typ, comment)
     table.insert(func.vars, ir.VarDecl(typ, comment))
     return #func.vars
+end
+
+
+function ir.arg_var(func, i)
+    local narg = #func.typ.arg_types
+    assert(1 <= i and i <= narg)
+    return i
+end
+
+function ir.ret_var(func, i)
+    local nret = #func.typ.ret_types
+    assert(1 <= i and i <= nret)
+    return #func.typ.arg_types + i
 end
 
 --
