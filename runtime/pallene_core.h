@@ -6,6 +6,7 @@
 #include "lualib.h"
 
 #include "lapi.h"
+#include "ldo.h"
 #include "lfunc.h"
 #include "lgc.h"
 #include "lobject.h"

@@ -28,6 +28,7 @@ build = {
       ["pallene.c_compiler"] =     "pallene/c_compiler.lua",
       ["pallene.checker"] =        "pallene/checker.lua",
       ["pallene.coder"] =          "pallene/coder.lua",
+      ["pallene.gc"] =             "pallene/gc.lua",
       ["pallene.ir"] =             "pallene/ir.lua",
       ["pallene.lexer"] =          "pallene/lexer.lua",
       ["pallene.location"] =       "pallene/location.lua",

@@ -1,4 +1,5 @@
 local C = require "pallene.C"
+local gc = require "pallene.gc"
 local ir = require "pallene.ir"
 local location = require "pallene.location"
 local types = require "pallene.types"
@@ -68,6 +69,11 @@ function Coder.new(module, modname)
     for i, typ in ipairs(self.module.record_types) do
         self.record_ids[typ] = i
         self.record_coders[typ] = RecordCoder.new(self, typ)
+    end
+
+    self.gc = {}
+    for _, func in ipairs(self.module.functions) do
+        self.gc[func] = gc.compute_stack_slots(func)
     end
 
     return self
@@ -254,13 +260,10 @@ end
 --      for variable v_id from function f_id, and a correspong C comment, if
 --      applicable. Since this may be used for either
 --      a local variable or a function argument, there is no semicolon.
-function Coder:c_declaration(f_id, v_id)
-    local func = self.module.functions[f_id]
-    local decl = func.vars[v_id]
-
+function Coder:local_declaration(f_id, v_id)
+    local decl = self.module.functions[f_id].vars[v_id]
     local name = self:c_var(v_id)
     local comment = decl.comment and C.comment(decl.comment) or ""
-
     return c_declaration(decl.typ, name), comment
 end
 
@@ -294,7 +297,8 @@ function Coder:pallene_entry_point_declaration(f_id)
     table.insert(args, {"Udata *G", ""})
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
-        table.insert(args, {self:c_declaration(f_id, v_id)})
+        local decl, comment = self:local_declaration(f_id, v_id)
+        table.insert(args, {decl, comment})
     end
 
     local arg_lines = {}
@@ -317,46 +321,66 @@ function Coder:pallene_entry_point_definition(f_id)
     local func = self.module.functions[f_id]
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
+    local func_gc = self.gc[func]
 
     local name_comment = func.name
     if func.loc then
         name_comment = name_comment .. " " .. location.show_line(func.loc)
     end
 
-    local var_decls = {}
+    local prologue = {}
+    local epilogue = {}
+
+    local frame_size = func_gc.frame_size
+    local slots_used = frame_size + 0
+    if slots_used > 0 then
+        table.insert(prologue, util.render([[
+            luaD_checkstack(L, $slots_used);
+            L->top += $frame_size;
+        ]], {
+            slots_used = C.integer(slots_used),
+            frame_size = C.integer(frame_size),
+        }))
+
+        table.insert(epilogue, util.render([[
+            L->top -= $frame_size;
+        ]], {
+            frame_size = C.integer(frame_size)
+        }))
+    end
+
     for v_id = #arg_types + 1, #func.vars do
-        local decl, comment = self:c_declaration(f_id, v_id)
-        table.insert(var_decls, string.format("%s; %s", decl, comment))
+        local decl, comment = self:local_declaration(f_id, v_id)
+        table.insert(prologue, string.format("%s; %s", decl, comment))
     end
 
     self.func = func
     local body = self:generate_cmds(func.body)
     self.func = nil
 
-    local return_
     if #ret_types == 0 then
-        return_ = "return;"
+        table.insert(epilogue, "return;")
     else
         local v = self:c_var(ir.ret_var(func, 1))
-        return_ = string.format("return %s;", v)
+        table.insert(epilogue, string.format("return %s;", v))
     end
 
     return (util.render([[
         ${name_comment}
         ${fun_decl} {
-            ${var_decls}
+            ${prologue}
 
             ${body}
 
           done:
-            ${return_}
+            ${epilogue}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
-        var_decls = table.concat(var_decls, "\n"),
+        prologue = table.concat(prologue, "\n"),
         body = body,
-        return_ = return_,
+        epilogue = table.concat(epilogue, "\n"),
     }))
 end
 
@@ -741,7 +765,6 @@ end
 --
 -- # Generate Cmd
 --
-
 
 local gen_cmd = {}
 
@@ -1186,7 +1209,7 @@ gen_cmd["For"] = function(self, cmd)
 end
 
 gen_cmd["CheckGC"] = function(self, _cmd)
-    return [[ /* checkGC() */ ]]
+    return [[ luaC_checkGC(L); ]]
 end
 
 function Coder:generate_cmds(cmds)
@@ -1195,6 +1218,15 @@ function Coder:generate_cmds(cmds)
         local name = assert(string.match(cmd._tag, "^ir%.Cmd%.(.*)$"))
         local f = assert(gen_cmd[name], "impossible")
         table.insert(out, f(self, cmd))
+
+        for _, v_id in ipairs(ir.get_dsts(cmd)) do
+            local n = self.gc[self.func].slot_of_variable[v_id]
+            if n then
+                local typ = self.func.vars[v_id].typ
+                local slot = util.render([[s2v(L->top - $n)]], { n = C.integer(n) })
+                table.insert(out, set_stack_slot(typ, slot, self:c_var(v_id)))
+            end
+        end
     end
     return table.concat(out, "\n")
 end
@@ -1374,7 +1406,5 @@ function Coder:generate_luaopen_function()
         init_exports  = table.concat(init_exports, "\n"),
     }))
 end
-
-
 
 return coder
