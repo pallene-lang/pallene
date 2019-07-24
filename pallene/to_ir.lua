@@ -324,6 +324,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             return xs
         end
 
+        local f_typ = exp.exp._type
         local cname = (
             exp.exp._tag == "ast.Exp.Var" and
             exp.exp.var._tag == "ast.Var.Name" and
@@ -331,7 +332,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         if     cname and cname._tag == "checker.Name.Function" then
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallStatic(loc, dst, cname.id, xs))
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dst, cname.id, xs))
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
@@ -350,7 +351,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         else
             local f = self:exp_to_value(cmds, exp.exp)
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallDyn(loc, dst, f, xs))
+            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dst, f, xs))
         end
 
     elseif tag == "ast.Exp.CallMethod" then

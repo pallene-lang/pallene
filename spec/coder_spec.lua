@@ -240,7 +240,6 @@ describe("Pallene coder /", function()
                 return inc
             end
 
-        --[=[
             --------
 
             function call(
@@ -265,7 +264,6 @@ describe("Pallene coder /", function()
             function callf(x:integer): integer
                 return f(x)
             end
-        --]=]
         ]]))
 
         it("Object identity", function()
@@ -274,7 +272,6 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        --[=[
         it("Can call non-static functions", function()
             run_test([[
                 local f = function(x) return x * 20 end
@@ -296,11 +293,6 @@ describe("Pallene coder /", function()
                 assert( 9 == test.getf()(10))
             ]])
         end)
-        --]=]
-        it("", function()
-            pending("todo (globals, Lua calls)")
-        end)
-
     end)
 
     describe("Unary Operators /", function()
@@ -960,11 +952,11 @@ describe("Pallene coder /", function()
             function id(x:value): value
                 return x
             end
-        --[=[
+
             function call(f:value->value, x:value): value
                 return f(x)
             end
-        --]=]
+
             function read(xs:{value}, i:integer): value
                 return xs[i]
             end
@@ -982,9 +974,7 @@ describe("Pallene coder /", function()
         it("can receive and return values", function()
             run_test([[ assert(17 == test.id(17)) ]])
             run_test([[ assert(true == test.id(true)) ]])
-        --[=[
             run_test([[ assert(true == test.call(test.id, true)) ]])
-        --]=]
         end)
 
         it("can read from array of value", function()
@@ -1003,10 +993,6 @@ describe("Pallene coder /", function()
                 assert(10 == xs[1])
                 assert("hello" == xs[2])
             ]])
-        end)
-
-        it("", function()
-            pending("todo (Lua calls)")
         end)
     end)
 

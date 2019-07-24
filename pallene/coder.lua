@@ -76,6 +76,19 @@ function Coder.new(module, modname)
         self.gc[func] = gc.compute_stack_slots(func)
     end
 
+    self.max_lua_call_stack_usage = {} -- func => integer
+    for _, func in ipairs(self.module.functions) do
+        local max = 0
+        for _, cmd in ipairs(ir.flatten_cmds(func.body)) do
+            if cmd._tag == "ir.Cmd.CallDyn" then
+                local nsrcs = #cmd.srcs
+                local ndst  = 1
+                max = math.max(max, nsrcs+1, ndst)
+            end
+        end
+        self.max_lua_call_stack_usage[func] = max
+    end
+
     return self
 end
 
@@ -321,7 +334,6 @@ function Coder:pallene_entry_point_definition(f_id)
     local func = self.module.functions[f_id]
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
-    local func_gc = self.gc[func]
 
     local name_comment = func.name
     if func.loc then
@@ -331,8 +343,8 @@ function Coder:pallene_entry_point_definition(f_id)
     local prologue = {}
     local epilogue = {}
 
-    local frame_size = func_gc.frame_size
-    local slots_used = frame_size + 0
+    local frame_size = self.gc[func].frame_size
+    local slots_used = frame_size + self.max_lua_call_stack_usage[func]
     if slots_used > 0 then
         table.insert(prologue, util.render([[
             luaD_checkstack(L, $slots_used);
@@ -1070,8 +1082,38 @@ gen_cmd["CallStatic"] = function(self, cmd)
     return self:call_pallene_function(dst, cmd.f_id, xs)
 end
 
-gen_cmd["CallDyn"] = function(self, _cmd)
-    error("not implemented (call dyn)")
+gen_cmd["CallDyn"] = function(self, cmd)
+    local f_typ = cmd.f_typ
+    local dst = cmd.dst and self:c_var(cmd.dst)
+
+    local push_to_stack = {}
+    table.insert(push_to_stack,
+        set_stack_slot(f_typ, "s2v(L->top++)", self:c_value(cmd.src_f)))
+    for i = 1, #f_typ.arg_types do
+        local typ = f_typ.arg_types[i]
+        table.insert(push_to_stack,
+            set_stack_slot(typ, "s2v(L->top++)", self:c_value(cmd.srcs[i])))
+    end
+
+    local pop_from_stack = {}
+    if dst then
+        assert(#f_typ.ret_types == 1)
+        local typ = f_typ.ret_types[1]
+        table.insert(pop_from_stack, util.render([[
+            $dst = $get_slot;]], {
+                dst = dst,
+                get_slot = get_slot(typ, "s2v(--L->top)") }))
+    end
+
+    return (util.render([[
+        ${push_to_stack}
+        lua_call(L, $nargs, $nrets);
+        ${pop_from_stack} ]], {
+            push_to_stack = table.concat(push_to_stack, "\n"),
+            pop_from_stack = table.concat(pop_from_stack, "\n"),
+            nargs = C.integer(#f_typ.arg_types),
+            nrets = C.integer(#f_typ.ret_types),
+        }))
 end
 
 gen_cmd["ToFloat"] = function(self, cmd)
