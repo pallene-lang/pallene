@@ -1054,9 +1054,10 @@ describe("Pallene coder /", function()
             run_test([[ assert( 11 == test.local_initializer() ) ]])
         end)
 
-        it("for loop variable scope doesn't shadow its type annotation", function()
-            pending("todo (type aliases)")
-        end)
+        -- See Issue #94
+        --it("for loop variable scope doesn't shadow its type annotation", function()
+        --    pending("todo (type aliases)")
+        --end)
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
