@@ -71,23 +71,13 @@ function Coder.new(module, modname)
         self.record_coders[typ] = RecordCoder.new(self, typ)
     end
 
-    self.gc = {}
-    for _, func in ipairs(self.module.functions) do
-        self.gc[func] = gc.compute_stack_slots(func)
-    end
-
+    self.gc = {} -- func => stack_slots
     self.max_lua_call_stack_usage = {} -- func => integer
-    for _, func in ipairs(self.module.functions) do
-        local max = 0
-        for _, cmd in ipairs(ir.flatten_cmds(func.body)) do
-            if cmd._tag == "ir.Cmd.CallDyn" then
-                local nsrcs = #cmd.srcs
-                local ndst  = 1
-                max = math.max(max, nsrcs+1, ndst)
-            end
-        end
-        self.max_lua_call_stack_usage[func] = max
-    end
+    self:init_gc()
+
+    self.closures = {}      -- list of f_id
+    self.closure_index = {} -- fid => index in closures lis
+    self:init_closures()
 
     return self
 end
@@ -432,6 +422,27 @@ end
 --
 -- The first upvalue should be the module's global userdata object.
 
+
+-- Computes a list of function ids that need a Lua entry point
+function Coder:init_closures()
+    local f_ids = {}
+    table.insert(f_ids, 1) -- $init function
+    for f_id in pairs(self.upvalue_of_function) do
+        table.insert(f_ids, f_id)
+    end
+    for _, f_id in ipairs(self.module.exports) do
+        table.insert(f_ids, f_id)
+    end
+    table.sort(f_ids) -- For determinism
+
+    for _, f_id in ipairs(f_ids) do
+        if not self.closure_index[f_id] then
+            table.insert(self.closures, f_id)
+            self.closure_index[f_id] = #self.closures
+        end
+    end
+end
+
 function Coder:lua_entry_point_name(f_id)
     return string.format("function_%02d_lua", f_id)
 end
@@ -772,6 +783,29 @@ function RecordCoder:get_gc_slot(rec_cvar, field_name)
         udata = rec_cvar,
         i = C.integer(ix - 1),
     }))
+end
+
+--
+-- # GC Stuff
+--
+
+function Coder:init_gc()
+
+    for _, func in ipairs(self.module.functions) do
+        self.gc[func] = gc.compute_stack_slots(func)
+    end
+
+    for _, func in ipairs(self.module.functions) do
+        local max = 0
+        for _, cmd in ipairs(ir.flatten_cmds(func.body)) do
+            if cmd._tag == "ir.Cmd.CallDyn" then
+                local nsrcs = #cmd.srcs
+                local ndst  = 1
+                max = math.max(max, nsrcs+1, ndst)
+            end
+        end
+        self.max_lua_call_stack_usage[func] = max
+    end
 end
 
 --
@@ -1316,7 +1350,7 @@ function Coder:generate_module()
     end
 
     table.insert(out, section_comment("Exports"))
-    for f_id = 1, #self.module.functions do
+    for _, f_id in ipairs(self.closures) do
         table.insert(out, self:lua_entry_point_definition(f_id))
     end
     table.insert(out, self:generate_luaopen_function())
@@ -1326,27 +1360,8 @@ end
 
 function Coder:generate_luaopen_function()
 
-    local f_ids = {}
-    table.insert(f_ids, 1) -- $init function
-    for f_id in pairs(self.upvalue_of_function) do
-        table.insert(f_ids, f_id)
-    end
-    for _, f_id in ipairs(self.module.exports) do
-        table.insert(f_ids, f_id)
-    end
-    table.sort(f_ids) -- for determinism, (may still contain duplicates)
-
-    local closures      = {} -- { f_id }
-    local closure_index = {} -- f_id => integer
-    for _, f_id in ipairs(f_ids) do
-        if not closure_index[f_id] then
-            table.insert(closures, f_id)
-            closure_index[f_id] = #closures
-        end
-    end
-
     local init_closures = {}
-    for ix, f_id in ipairs(closures) do
+    for ix, f_id in ipairs(self.closures) do
         local entry_point = self:lua_entry_point_name(f_id)
         table.insert(init_closures, util.render([[
             lua_pushvalue(L, globals);
@@ -1377,7 +1392,7 @@ function Coder:generate_luaopen_function()
             elseif tag == "coder.Upvalue.Function" then
                 table.insert(init_upvalues, util.render([[
                     lua_geti(L, closures, $ix); ]], {
-                        ix = C.integer(closure_index[upv.f_id])
+                        ix = C.integer(self.closure_index[upv.f_id])
                     }))
             else
                 error("impossible")
@@ -1406,7 +1421,7 @@ function Coder:generate_luaopen_function()
             lua_settable(L, export_table);
         ]], {
             name = C.string(name),
-            ix = C.integer(closure_index[f_id]),
+            ix = C.integer(self.closure_index[f_id]),
         }))
     end
 
@@ -1441,7 +1456,7 @@ function Coder:generate_luaopen_function()
         }
     ]], {
         name = "luaopen_" .. self.modname,
-        n_closures = C.integer(#closures),
+        n_closures = C.integer(#self.closures),
         n_upvalues = C.integer(#self.upvalues),
         init_closures = table.concat(init_closures, "\n"),
         init_upvalues = table.concat(init_upvalues, "\n"),
