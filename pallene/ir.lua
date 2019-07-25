@@ -41,13 +41,13 @@ function ir.VarDecl(typ, comment)
     }
 end
 
-function ir.Function(loc, name, typ)
+function ir.Function(loc, name, typ, body)
     return {
         loc = loc,           -- Location
         name = name,         -- string
         typ = typ,           -- Type
         vars = {},           -- list of ir.VarDecl
-        body = false,        -- ast.Stat, or list of ir.Cmd
+        body = body,         -- ast.Stat, or list of ir.Cmd
     }
 end
 
@@ -60,8 +60,8 @@ function ir.add_record_type(module, typ)
     return #module.record_types
 end
 
-function ir.add_function(module, loc, name, typ)
-    table.insert(module.functions, ir.Function(loc, name, typ))
+function ir.add_function(module, loc, name, typ, body)
+    table.insert(module.functions, ir.Function(loc, name, typ, body))
     return #module.functions
 end
 
