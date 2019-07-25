@@ -52,7 +52,6 @@ Coder = util.Class()
 function Coder:init(module, modname)
     self.module = module
     self.modname = modname
-    self.func = false
 
     self.upvalues = {} -- { coder.Upvalue }
     self.upvalue_of_metatable = {} -- typ  => integer
@@ -351,9 +350,7 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, string.format("%s; %s", decl, comment))
     end
 
-    self.func = func
-    local body = self:generate_cmds(func.body)
-    self.func = nil
+    local body = self:generate_cmds(func, func.body)
 
     if #ret_types == 0 then
         table.insert(epilogue, "return;")
@@ -813,13 +810,13 @@ end
 
 local gen_cmd = {}
 
-gen_cmd["Move"] = function(self, cmd)
+gen_cmd["Move"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
     return (util.render([[ $dst = $src; ]], { dst = dst, src = src }))
 end
 
-gen_cmd["GetGlobal"] = function(self, cmd)
+gen_cmd["GetGlobal"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local g_id = cmd.global_id
     local typ = self.module.globals[g_id].typ
@@ -829,14 +826,14 @@ gen_cmd["GetGlobal"] = function(self, cmd)
     }))
 end
 
-gen_cmd["SetGlobal"] = function(self, cmd)
+gen_cmd["SetGlobal"] = function(self, cmd, _func)
     local src = self:c_value(cmd.src)
     local g_id = cmd.global_id
     local typ = self.module.globals[g_id].typ
     return (set_heap_slot(typ, self:global_upvalue_slot(g_id), src, "G"))
 end
 
-gen_cmd["Unop"] = function(self, cmd)
+gen_cmd["Unop"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local x = self:c_value(cmd.src)
 
@@ -873,7 +870,7 @@ gen_cmd["Unop"] = function(self, cmd)
     end
 end
 
-gen_cmd["Binop"] = function(self, cmd)
+gen_cmd["Binop"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local x = self:c_value(cmd.src1)
     local y = self:c_value(cmd.src2)
@@ -962,7 +959,7 @@ gen_cmd["Binop"] = function(self, cmd)
     end
 end
 
-gen_cmd["Concat"] = function(self, cmd)
+gen_cmd["Concat"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
 
     local init_input_array = {}
@@ -987,14 +984,14 @@ gen_cmd["Concat"] = function(self, cmd)
         }))
 end
 
-gen_cmd["ToDyn"] = function(self, cmd)
+gen_cmd["ToDyn"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
     local src_typ = cmd.src_typ
     return (set_stack_slot(src_typ, "&"..dst, src))
 end
 
-gen_cmd["FromDyn"] = function(self, cmd)
+gen_cmd["FromDyn"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
     local dst_typ = cmd.dst_typ
@@ -1008,7 +1005,7 @@ gen_cmd["FromDyn"] = function(self, cmd)
         }))
 end
 
-gen_cmd["NewArr"] = function(self, cmd)
+gen_cmd["NewArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local n = C.integer(cmd.size_hint)
     return (util.render([[ $dst = pallene_new_array(L, $n); ]], {
@@ -1017,7 +1014,7 @@ gen_cmd["NewArr"] = function(self, cmd)
     }))
 end
 
-gen_cmd["GetArr"] = function(self, cmd)
+gen_cmd["GetArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local arr = self:c_value(cmd.src_arr)
     local i   = self:c_value(cmd.src_i)
@@ -1039,7 +1036,7 @@ gen_cmd["GetArr"] = function(self, cmd)
         }))
 end
 
-gen_cmd["SetArr"] = function(self, cmd)
+gen_cmd["SetArr"] = function(self, cmd, _func)
     local arr = self:c_value(cmd.src_arr)
     local i   = self:c_value(cmd.src_i)
     local v   = self:c_value(cmd.src_v)
@@ -1059,7 +1056,7 @@ gen_cmd["SetArr"] = function(self, cmd)
         }))
 end
 
-gen_cmd["NewRecord"] = function(self, cmd)
+gen_cmd["NewRecord"] = function(self, cmd, _func)
     local rc = self.record_coders[cmd.rec_typ]
     local rec = self:c_var(cmd.dst)
     return (util.render([[$rec = $constructor(L, G);]] , {
@@ -1068,7 +1065,7 @@ gen_cmd["NewRecord"] = function(self, cmd)
         }))
 end
 
-gen_cmd["GetField"] = function(self, cmd)
+gen_cmd["GetField"] = function(self, cmd, _func)
     local rec_typ = cmd.rec_typ
     local rc = self.record_coders[rec_typ]
 
@@ -1088,7 +1085,7 @@ gen_cmd["GetField"] = function(self, cmd)
     return (util.render([[$dst = $result;]], { dst = dst, result = result }))
 end
 
-gen_cmd["SetField"] = function(self, cmd)
+gen_cmd["SetField"] = function(self, cmd, _func)
     local rec_typ = cmd.rec_typ
     local rc = self.record_coders[rec_typ]
 
@@ -1106,7 +1103,7 @@ gen_cmd["SetField"] = function(self, cmd)
     end
 end
 
-gen_cmd["CallStatic"] = function(self, cmd)
+gen_cmd["CallStatic"] = function(self, cmd, _func)
     local dst = cmd.dst and self:c_var(cmd.dst)
     local xs = {}
     for _, x in ipairs(cmd.srcs) do
@@ -1115,7 +1112,7 @@ gen_cmd["CallStatic"] = function(self, cmd)
     return self:call_pallene_function(dst, cmd.f_id, xs)
 end
 
-gen_cmd["CallDyn"] = function(self, cmd)
+gen_cmd["CallDyn"] = function(self, cmd, _func)
     local f_typ = cmd.f_typ
     local dst = cmd.dst and self:c_var(cmd.dst)
 
@@ -1149,13 +1146,13 @@ gen_cmd["CallDyn"] = function(self, cmd)
         }))
 end
 
-gen_cmd["ToFloat"] = function(self, cmd)
+gen_cmd["ToFloat"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local v = self:c_value(cmd.src)
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
-gen_cmd["IoWrite"] = function(self, cmd)
+gen_cmd["IoWrite"] = function(self, cmd, _func)
     local v = self:c_value(cmd.src)
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
@@ -1168,15 +1165,15 @@ gen_cmd["Return"] = function(self, _cmd)
     return [[ goto done; ]]
 end
 
-gen_cmd["BreakIf"] = function(self, cmd)
+gen_cmd["BreakIf"] = function(self, cmd, _func)
     local x = self:c_value(cmd.condition)
     return (util.render([[ if ($x) break; ]], { x = x }))
 end
 
-gen_cmd["If"] = function(self, cmd)
+gen_cmd["If"] = function(self, cmd, func)
     local condition = self:c_value(cmd.condition)
-    local then_ = self:generate_cmds(cmd.then_)
-    local else_ = self:generate_cmds(cmd.else_)
+    local then_ = self:generate_cmds(func, cmd.then_)
+    local else_ = self:generate_cmds(func, cmd.else_)
 
     local A = (#cmd.then_ > 0)
     local B = (#cmd.else_ > 0)
@@ -1216,8 +1213,8 @@ gen_cmd["If"] = function(self, cmd)
     end
 end
 
-gen_cmd["Loop"] = function(self, cmd)
-    local body = self:generate_cmds(cmd.body)
+gen_cmd["Loop"] = function(self, cmd, func)
+    local body = self:generate_cmds(func, cmd.body)
     return (util.render([[
         while (1) {
             ${body}
@@ -1227,8 +1224,8 @@ gen_cmd["Loop"] = function(self, cmd)
 end
 
 local for_counter = 0
-gen_cmd["For"] = function(self, cmd)
-    local typ = self.func.vars[cmd.loop_var].typ
+gen_cmd["For"] = function(self, cmd, func)
+    local typ = cmd.typ
 
     -- Use a unique name for the loop variables, to avoid Wshaadow warning
     for_counter = for_counter + 1
@@ -1263,7 +1260,7 @@ gen_cmd["For"] = function(self, cmd)
         start = start, limit = limit, step = step
     })
 
-    local body = self:generate_cmds(cmd.body)
+    local body = self:generate_cmds(func, cmd.body)
 
     return (util.render([[
         for(
@@ -1287,17 +1284,17 @@ gen_cmd["CheckGC"] = function(self, _cmd)
     return [[ luaC_checkGC(L); ]]
 end
 
-function Coder:generate_cmds(cmds)
+function Coder:generate_cmds(func, cmds)
     local out = {}
     for _, cmd in ipairs(cmds) do
         local name = assert(string.match(cmd._tag, "^ir%.Cmd%.(.*)$"))
         local f = assert(gen_cmd[name], "impossible")
-        table.insert(out, f(self, cmd))
+        table.insert(out, f(self, cmd, func))
 
         for _, v_id in ipairs(ir.get_dsts(cmd)) do
-            local n = self.gc[self.func].slot_of_variable[v_id]
+            local n = self.gc[func].slot_of_variable[v_id]
             if n then
-                local typ = self.func.vars[v_id].typ
+                local typ = func.vars[v_id].typ
                 local slot = util.render([[s2v(L->top - $n)]], { n = C.integer(n) })
                 table.insert(out, set_stack_slot(typ, slot, self:c_var(v_id)))
             end

@@ -71,11 +71,12 @@ function ToIR:convert_stat(cmds, stat)
         local cname = stat.decl._name
         assert(cname._tag == "checker.Name.Local")
         local v = cname.id
+        local typ = self.func.vars[v].typ
 
         local body = {}
         self:convert_stat(body, stat.block)
 
-        table.insert(cmds, ir.Cmd.For(v, start, limit, step, body))
+        table.insert(cmds, ir.Cmd.For(typ, v, start, limit, step, body))
 
     elseif tag == "ast.Stat.Assign" then
         local var = stat.var
