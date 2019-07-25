@@ -1,32 +1,31 @@
-local symtab = {}
+local util = require "pallene.util"
 
-symtab.__index = symtab
-
-function symtab.new()
-    return setmetatable({ blocks = {} }, symtab)
+local Symtab = util.Class()
+function Symtab:init()
+    self.blocks = {}
 end
 
-function symtab:open_block()
+function Symtab:open_block()
     table.insert(self.blocks, {})
 end
 
-function symtab:close_block()
+function Symtab:close_block()
     table.remove(self.blocks)
 end
 
-function symtab:with_block(body, ...)
+function Symtab:with_block(body, ...)
     self:open_block()
     body(...)
     self:close_block()
 end
 
-function symtab:add_symbol(name, decl)
+function Symtab:add_symbol(name, decl)
     assert(#self.blocks > 0)
     local block = self.blocks
     block[#block][name] = decl
 end
 
-function symtab:find_symbol(name)
+function Symtab:find_symbol(name)
     for i = #self.blocks, 1, -1 do
         local decl = self.blocks[i][name]
         if decl then
@@ -40,8 +39,8 @@ end
 -- This is necessary in cases where shadowing other definitions in the same
 -- scope is not allowed, but shadowing outer definitions is ok. For example,
 -- function argument names.
-function symtab:find_dup(name)
+function Symtab:find_dup(name)
     return self.blocks[#self.blocks][name]
 end
 
-return symtab
+return Symtab

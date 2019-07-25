@@ -48,11 +48,8 @@ end
 --
 --
 
-Coder = {}
-Coder.__index = Coder
-
-function Coder.new(module, modname)
-    local self = setmetatable({}, Coder)
+Coder = util.Class()
+function Coder:init(module, modname)
     self.module = module
     self.modname = modname
     self.func = false
@@ -78,8 +75,6 @@ function Coder.new(module, modname)
     self.closures = {}      -- list of f_id
     self.closure_index = {} -- fid => index in closures lis
     self:init_closures()
-
-    return self
 end
 
 --
@@ -644,12 +639,8 @@ end
 -- The GC-typed fields are represented as tagged TValues, and stored as
 -- uservalues. (We need the tags because function values need the tag variants)
 
-RecordCoder = {}
-RecordCoder.__index = RecordCoder
-
-function RecordCoder.new(owner, record_typ)
-    local self = setmetatable({}, RecordCoder)
-
+RecordCoder = util.Class()
+function RecordCoder:init(owner, record_typ)
     local gc_count = 0
     local gc_index = {}
     local prim_count = 0
@@ -671,8 +662,6 @@ function RecordCoder.new(owner, record_typ)
     self.gc_index = gc_index      -- map string => integer
     self.prim_count = prim_count  -- integer
     self.prim_index = prim_index  -- map string => integer
-
-    return self
 end
 
 function RecordCoder:struct_name()

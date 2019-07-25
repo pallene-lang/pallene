@@ -103,4 +103,21 @@ function util.outputs_of_execute(cmd)
     return ok, err, out_content, err_content
 end
 
+--
+-- OOP
+--
+
+function util.Class()
+    local cls = {}
+    cls.__index = cls
+
+    cls.new = function(...)
+        local self = setmetatable({}, cls)
+        self:init(...)
+        return self
+    end
+
+    return cls
+end
+
 return util

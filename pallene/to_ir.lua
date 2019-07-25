@@ -1,6 +1,7 @@
 local ast = require "pallene.ast"
 local ir = require "pallene.ir"
 local types = require "pallene.types"
+local util = require "pallene.util"
 
 local to_ir = {}
 
@@ -19,14 +20,10 @@ end
 --
 --
 
-ToIR = {}
-ToIR.__index = ToIR
-
-function ToIR.new(module, func)
-    local self = setmetatable({}, ToIR)
+ToIR = util.Class()
+function ToIR:init(module, func)
     self.module = module
     self.func = func
-    return self
 end
 
 function ToIR:convert_stats(cmds, stats)

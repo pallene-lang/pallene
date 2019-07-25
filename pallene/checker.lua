@@ -5,6 +5,7 @@ local location = require "pallene.location"
 local symtab = require "pallene.symtab"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
+local util = require "pallene.util"
 
 local checker = {}
 
@@ -70,11 +71,8 @@ declare_type("Name", {
 --
 --
 
-Checker = {}
-Checker.__index = Checker
-
-function Checker.new()
-    local self = setmetatable({}, Checker)
+Checker = util.Class()
+function Checker:init()
     self.symbol_table = symtab.new() -- string => checker.Name
     self.module = ir.Module()        -- types, functions, etc
     self.func = false                -- Current function. (false means toplevel)
