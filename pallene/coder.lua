@@ -464,6 +464,16 @@ function Coder:lua_entry_point_definition(f_id)
         fname = C.string(fname),
     })
 
+    -- We unconditionally initialize the G userdata here, in case one of the tag
+    -- checking tests needs to use it. We don't bother to make this
+    -- initialization conditional because in the case that really matters (small
+    -- leaf functions that don't use G) the C compiler can optimize this read
+    -- away after inlining the Pallene entry point.
+    local init_global_userdata = [[
+        CClosure *func = clCvalue(s2v(base));
+        Udata *G = uvalue(&func->upvalue[0]);
+    ]]
+
     local type_checks = {}
     for i, typ in ipairs(arg_types) do
         local name = func.vars[i].comment
@@ -521,8 +531,7 @@ function Coder:lua_entry_point_definition(f_id)
             StackValue *base = L->ci->func;
             TValue *slot;
 
-            CClosure *func = clCvalue(s2v(base));
-            Udata *G = uvalue(&func->upvalue[0]);
+            ${init_global_userdata}
 
             ${arity_check}
 
@@ -535,6 +544,7 @@ function Coder:lua_entry_point_definition(f_id)
         }
     ]], {
         fun_decl = self:lua_entry_point_declaration(f_id),
+        init_global_userdata = init_global_userdata,
         arity_check = arity_check,
         type_checks = table.concat(type_checks, "\n"),
         init_args = table.concat(init_args, "\n"),
