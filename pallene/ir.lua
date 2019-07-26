@@ -240,5 +240,65 @@ function ir.flatten_cmds(root_cmds)
     return res
 end
 
+-- Transform a list of commands. Can be used to remove or replace commands, or
+-- to insert new commands before or after existing commands
+--
+-- The f parameter maps commands to an optional list of replacements.
+function ir.edit(root_cmds, f)
+
+    local edit_cmds
+    local edit_cmd
+
+    edit_cmds = function(in_cmds)
+        local out_cmds = {}
+        for _, in_cmd in ipairs(in_cmds) do
+            edit_cmd(in_cmd)
+            local replacements = f(in_cmd) or { in_cmd }
+            for _, out_cmd in ipairs(replacements) do
+                table.insert(out_cmds, out_cmd)
+            end
+        end
+        return out_cmds
+    end
+
+    edit_cmd = function(cmd)
+        local tag = cmd._tag
+        if tag == "ir.Cmd.If" then
+            cmd.then_ = edit_cmds(cmd.then_)
+            cmd.else_ = edit_cmds(cmd.else_)
+        elseif tag == "ir.Cmd.Loop" then
+            cmd.body = edit_cmds(cmd.body)
+        elseif tag == "ir.Cmd.For" then
+            cmd.body = edit_cmds(cmd.body)
+        else
+            -- no recursion needed
+        end
+    end
+
+    return edit_cmds(root_cmds)
+end
+
+-- Remove some kinds of silly control flow
+function ir.clean(cmds)
+    return ir.edit(cmds, function(cmd)
+        local tag = cmd._tag
+        if tag == "ir.Cmd.If" then
+            local v = cmd.condition
+            if #cmd.then_ == 0 and #cmd.else_ == 0 then
+                return {}
+            elseif v._tag == "ir.Value.Bool" and v.value == true then
+                return cmd.then_
+            elseif v._tag == "ir.Value.Bool" and v.value == false then
+                return cmd.else_
+            end
+
+        elseif tag == "ir.Cmd.BreakIf" then
+            local v = cmd.condition
+            if v._tag == "ir.Value.Bool" and v.value == false then
+                return {}
+            end
+        end
+    end)
+end
 
 return ir
