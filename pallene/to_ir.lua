@@ -40,13 +40,9 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stats(cmds, stat.stats)
 
     elseif tag == "ast.Stat.While" then
-        local not_cond = ast.Exp.Unop(
-            stat.condition.loc, "not", stat.condition)
-        not_cond._type = types.T.Boolean()
-
         local body = {}
-        local condition = self:exp_to_value(body, not_cond)
-        table.insert(body, ir.Cmd.BreakIf(condition))
+        local condition = self:exp_to_value(body, stat.condition)
+        table.insert(body, ir.Cmd.If(condition, ir.Cmd.Nop(), ir.Cmd.Break()))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
@@ -54,7 +50,7 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         self:convert_stat(body, stat.block)
         local condition = self:exp_to_value(body, stat.condition)
-        table.insert(body, ir.Cmd.BreakIf(condition))
+        table.insert(body, ir.Cmd.If(condition, ir.Cmd.Break(), ir.Cmd.Nop()))
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then

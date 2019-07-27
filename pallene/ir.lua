@@ -156,7 +156,7 @@ declare_type("Cmd", {
     Seq     = {"cmds"},
 
     Return  = {},
-    BreakIf = {"condition"},
+    Break   = {},
     If      = {"condition", "then_", "else_"},
     Loop    = {"body"},
     For     = {"typ", "loop_var", "start", "limit", "step", "body"},
@@ -248,7 +248,6 @@ end
 -- Remove some kinds of silly control flow
 --   - Empty If
 --   - if statements w/ constant condition
---   - break-if w/ constant condition
 --   - Nop and Seq statements inside Seq
 --   - Seq commands w/ no statements
 --   - Seq commans w/ only one element
@@ -291,13 +290,6 @@ function ir.clean(cmd)
             return cmd
         end
 
-    elseif tag == "ir.Cmd.BreakIf" then
-        local v = cmd.condition
-        if v._tag == "ir.Value.Bool" and v.value == false then
-            return ir.Cmd.Nop()
-        else
-            return cmd
-        end
     else
         return cmd
     end

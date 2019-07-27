@@ -1177,9 +1177,8 @@ gen_cmd["Return"] = function(self, _cmd)
     return [[ goto done; ]]
 end
 
-gen_cmd["BreakIf"] = function(self, cmd, _func)
-    local x = self:c_value(cmd.condition)
-    return (util.render([[ if ($x) break; ]], { x = x }))
+gen_cmd["Break"] = function(self, _cmd, _func)
+    return [[ break; ]]
 end
 
 gen_cmd["If"] = function(self, cmd, func)
