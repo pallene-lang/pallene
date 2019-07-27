@@ -350,7 +350,7 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, string.format("%s; %s", decl, comment))
     end
 
-    local body = self:generate_cmds(func, func.body)
+    local body = self:generate_cmd(func, func.body)
 
     if #ret_types == 0 then
         table.insert(epilogue, "return;")
@@ -569,7 +569,7 @@ function Coder:init_upvalues()
 
     local flattened_body = {}
     for _, func in ipairs(self.module.functions) do
-        flattened_body[func] = ir.flatten_cmds(func.body)
+        flattened_body[func] = ir.flatten_cmd(func.body)
     end
 
     -- Metatables
@@ -793,7 +793,7 @@ function Coder:init_gc()
 
     for _, func in ipairs(self.module.functions) do
         local max = 0
-        for _, cmd in ipairs(ir.flatten_cmds(func.body)) do
+        for _, cmd in ipairs(ir.flatten_cmd(func.body)) do
             if cmd._tag == "ir.Cmd.CallDyn" then
                 local nsrcs = #cmd.srcs
                 local ndst  = 1
@@ -1161,6 +1161,18 @@ end
 -- Control flow
 --
 
+gen_cmd["Nop"] = function(self, _cmd, _func)
+    return ""
+end
+
+gen_cmd["Seq"] = function(self, cmd, func)
+    local out = {}
+    for _, c in ipairs(cmd.cmds) do
+        table.insert(out, self:generate_cmd(func, c))
+    end
+    return table.concat(out, "\n")
+end
+
 gen_cmd["Return"] = function(self, _cmd)
     return [[ goto done; ]]
 end
@@ -1172,11 +1184,11 @@ end
 
 gen_cmd["If"] = function(self, cmd, func)
     local condition = self:c_value(cmd.condition)
-    local then_ = self:generate_cmds(func, cmd.then_)
-    local else_ = self:generate_cmds(func, cmd.else_)
+    local then_ = self:generate_cmd(func, cmd.then_)
+    local else_ = self:generate_cmd(func, cmd.else_)
 
-    local A = (#cmd.then_ > 0)
-    local B = (#cmd.else_ > 0)
+    local A = (then_ ~= "")
+    local B = (else_ ~= "")
 
     if  A and B then
         return (util.render([[
@@ -1209,12 +1221,13 @@ gen_cmd["If"] = function(self, cmd, func)
             }))
 
     else -- (not A) and (not B)
-        return ""
+        -- ir.Clean does not allow this case.
+        error("impossible")
     end
 end
 
 gen_cmd["Loop"] = function(self, cmd, func)
-    local body = self:generate_cmds(func, cmd.body)
+    local body = self:generate_cmd(func, cmd.body)
     return (util.render([[
         while (1) {
             ${body}
@@ -1260,7 +1273,7 @@ gen_cmd["For"] = function(self, cmd, func)
         start = start, limit = limit, step = step
     })
 
-    local body = self:generate_cmds(func, cmd.body)
+    local body = self:generate_cmd(func, cmd.body)
 
     return (util.render([[
         for(
@@ -1284,23 +1297,21 @@ gen_cmd["CheckGC"] = function(self, _cmd)
     return [[ luaC_checkGC(L); ]]
 end
 
-function Coder:generate_cmds(func, cmds)
-    local out = {}
-    for _, cmd in ipairs(cmds) do
-        local name = assert(string.match(cmd._tag, "^ir%.Cmd%.(.*)$"))
-        local f = assert(gen_cmd[name], "impossible")
-        table.insert(out, f(self, cmd, func))
+function Coder:generate_cmd(func, cmd)
+    local name = assert(string.match(cmd._tag, "^ir%.Cmd%.(.*)$"))
+    local f = assert(gen_cmd[name], "impossible")
+    local out = f(self, cmd, func)
 
-        for _, v_id in ipairs(ir.get_dsts(cmd)) do
-            local n = self.gc[func].slot_of_variable[v_id]
-            if n then
-                local typ = func.vars[v_id].typ
-                local slot = util.render([[s2v(L->top - $n)]], { n = C.integer(n) })
-                table.insert(out, set_stack_slot(typ, slot, self:c_var(v_id)))
-            end
+    for _, v_id in ipairs(ir.get_dsts(cmd)) do
+        local n = self.gc[func].slot_of_variable[v_id]
+        if n then
+            local typ = func.vars[v_id].typ
+            local slot = util.render([[s2v(L->top - $n)]], { n = C.integer(n) })
+            out = out .. "\n" .. set_stack_slot(typ, slot, self:c_var(v_id))
         end
     end
-    return table.concat(out, "\n")
+
+    return out
 end
 
 --

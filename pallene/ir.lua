@@ -152,6 +152,9 @@ declare_type("Cmd", {
     --
     -- Control flow
     --
+    Nop     = {},
+    Seq     = {"cmds"},
+
     Return  = {},
     BreakIf = {"condition"},
     If      = {"condition", "then_", "else_"},
@@ -160,6 +163,12 @@ declare_type("Cmd", {
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
+})
+
+declare_type("Seq", {
+    -- This level of indirection on top of a "list of commands" helps when
+    -- editing the command list in-place
+    Seq = {"cmds"}
 })
 
 local  src_fields = {
@@ -208,97 +217,90 @@ end
 
 -- Linearize the commands in a pre-order traversal. Makes it easier to iterate
 -- over all commands, and is also helpful for register allocation.
-function ir.flatten_cmds(root_cmds)
+function ir.flatten_cmd(root_cmd)
     local res = {}
 
-    local do_cmds
-    local do_cmd
-
-    do_cmds = function(cmds)
-        for _, cmd in ipairs(cmds) do
-            do_cmd(cmd)
-        end
-    end
-
-    do_cmd = function(cmd)
+    local function go(cmd)
         table.insert(res, cmd)
 
         local tag = cmd._tag
-        if tag == "ir.Cmd.If" then
-            do_cmds(cmd.then_)
-            do_cmds(cmd.else_)
+        if     tag == "ir.Cmd.Seq" then
+            for _, c in ipairs(cmd.cmds) do
+                go(c)
+            end
+        elseif tag == "ir.Cmd.If" then
+            go(cmd.then_)
+            go(cmd.else_)
         elseif tag == "ir.Cmd.Loop" then
-            do_cmds(cmd.body)
+            go(cmd.body)
         elseif tag == "ir.Cmd.For" then
-            do_cmds(cmd.body)
+            go(cmd.body)
         else
             -- no recursion needed
         end
+
     end
 
-    do_cmds(root_cmds)
+    go(root_cmd)
     return res
 end
 
--- Transform a list of commands. Can be used to remove or replace commands, or
--- to insert new commands before or after existing commands
---
--- The f parameter maps commands to an optional list of replacements.
-function ir.edit(root_cmds, f)
-
-    local edit_cmds
-    local edit_cmd
-
-    edit_cmds = function(in_cmds)
-        local out_cmds = {}
-        for _, in_cmd in ipairs(in_cmds) do
-            edit_cmd(in_cmd)
-            local replacements = f(in_cmd) or { in_cmd }
-            for _, out_cmd in ipairs(replacements) do
-                table.insert(out_cmds, out_cmd)
-            end
-        end
-        return out_cmds
-    end
-
-    edit_cmd = function(cmd)
-        local tag = cmd._tag
-        if tag == "ir.Cmd.If" then
-            cmd.then_ = edit_cmds(cmd.then_)
-            cmd.else_ = edit_cmds(cmd.else_)
-        elseif tag == "ir.Cmd.Loop" then
-            cmd.body = edit_cmds(cmd.body)
-        elseif tag == "ir.Cmd.For" then
-            cmd.body = edit_cmds(cmd.body)
-        else
-            -- no recursion needed
-        end
-    end
-
-    return edit_cmds(root_cmds)
-end
-
 -- Remove some kinds of silly control flow
-function ir.clean(cmds)
-    return ir.edit(cmds, function(cmd)
-        local tag = cmd._tag
-        if tag == "ir.Cmd.If" then
-            local v = cmd.condition
-            if #cmd.then_ == 0 and #cmd.else_ == 0 then
-                return {}
-            elseif v._tag == "ir.Value.Bool" and v.value == true then
-                return cmd.then_
-            elseif v._tag == "ir.Value.Bool" and v.value == false then
-                return cmd.else_
-            end
-
-        elseif tag == "ir.Cmd.BreakIf" then
-            local v = cmd.condition
-            if v._tag == "ir.Value.Bool" and v.value == false then
-                return {}
+--   - Empty If
+--   - if statements w/ constant condition
+--   - break-if w/ constant condition
+--   - Nop and Seq statements inside Seq
+--   - Seq commands w/ no statements
+--   - Seq commans w/ only one element
+function ir.clean(cmd)
+    local tag = cmd._tag
+    if tag == "ir.Cmd.Seq" then
+        local out = {}
+        for _, c in ipairs(cmd.cmds) do
+            c = ir.clean(c)
+            if c._tag == "ir.Cmd.Nop" then
+                -- skip
+            elseif c._tag == "ir.Cmd.Seq" then
+                for _, cc in ipairs(c.cmds) do
+                    table.insert(out, cc)
+                end
+            else
+                table.insert(out, c)
             end
         end
-    end)
+        if     #out == 0 then
+            return ir.Cmd.Nop()
+        elseif #out == 1 then
+            return out[1]
+        else
+            return ir.Cmd.Seq(out)
+        end
+
+    elseif tag == "ir.Cmd.If" then
+        local v = cmd.condition
+        local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")
+        local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
+
+        if t_empty and e_empty then
+            return ir.Seq.Nop()
+        elseif v._tag == "ir.Value.Bool" and v.value == true then
+            return cmd.then_
+        elseif v._tag == "ir.Value.Bool" and v.value == false then
+            return cmd.else_
+        else
+            return cmd
+        end
+
+    elseif tag == "ir.Cmd.BreakIf" then
+        local v = cmd.condition
+        if v._tag == "ir.Value.Bool" and v.value == false then
+            return ir.Cmd.Nop()
+        else
+            return cmd
+        end
+    else
+        return cmd
+    end
 end
 
 return ir

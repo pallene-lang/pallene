@@ -11,7 +11,7 @@ function to_ir.convert(module)
     for _, func in ipairs(module.functions) do
         local cmds = {}
         ToIR.new(module, func):convert_stat(cmds, func.body)
-        func.body = cmds
+        func.body = ir.Cmd.Seq(cmds)
     end
     return module, {}
 end
@@ -48,20 +48,23 @@ function ToIR:convert_stat(cmds, stat)
         local condition = self:exp_to_value(body, not_cond)
         table.insert(body, ir.Cmd.BreakIf(condition))
         self:convert_stat(body, stat.block)
-        table.insert(cmds, ir.Cmd.Loop(body))
+        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Repeat" then
         local body = {}
         self:convert_stat(body, stat.block)
         local condition = self:exp_to_value(body, stat.condition)
         table.insert(body, ir.Cmd.BreakIf(condition))
-        table.insert(cmds, ir.Cmd.Loop(body))
+        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then
         local condition = self:exp_to_value(cmds, stat.condition)
         local then_ = {}; self:convert_stat(then_, stat.then_)
         local else_ = {}; self:convert_stat(else_, stat.else_)
-        table.insert(cmds, ir.Cmd.If(condition, then_, else_))
+        table.insert(cmds, ir.Cmd.If(
+            condition,
+            ir.Cmd.Seq(then_),
+            ir.Cmd.Seq(else_)))
 
     elseif tag == "ast.Stat.For" then
         local start = self:exp_to_value(cmds, stat.start)
@@ -76,7 +79,10 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         self:convert_stat(body, stat.block)
 
-        table.insert(cmds, ir.Cmd.For(typ, v, start, limit, step, body))
+        table.insert(cmds, ir.Cmd.For(
+            typ, v,
+            start, limit, step,
+            ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
         local var = stat.var
@@ -400,13 +406,19 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             self:exp_to_assignment(cmds, dst, exp.lhs)
             local rhs_cmds = {}
             self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
-            table.insert(cmds, ir.Cmd.If(ir.Value.LocalVar(dst), rhs_cmds, {}))
+            table.insert(cmds, ir.Cmd.If(
+                ir.Value.LocalVar(dst),
+                ir.Cmd.Seq(rhs_cmds),
+                ir.Cmd.Seq({})))
 
         elseif op == "or" then
             self:exp_to_assignment(cmds, dst, exp.lhs)
             local rhs_cmds = {}
             self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
-            table.insert(cmds, ir.Cmd.If(ir.Value.LocalVar(dst), {}, rhs_cmds))
+            table.insert(cmds, ir.Cmd.If(
+                ir.Value.LocalVar(dst),
+                ir.Cmd.Seq({}),
+                ir.Cmd.Seq(rhs_cmds)))
 
         else
             local irop =
