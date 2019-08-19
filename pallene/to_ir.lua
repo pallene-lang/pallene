@@ -13,6 +13,7 @@ function to_ir.convert(module)
         ToIR.new(module, func):convert_stat(cmds, func.body)
         func.body = ir.Cmd.Seq(cmds)
     end
+    ir.clean_all(module)
     return module, {}
 end
 

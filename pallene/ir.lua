@@ -245,6 +245,35 @@ function ir.flatten_cmd(root_cmd)
     return res
 end
 
+-- Transform an ir.Cmd, via a mapping function that modifies individual nodes.
+-- Returns the new root node. Child nodes are modified in-place.
+-- If the mapping function returns a falsy value, the original version of the
+-- node is kept.
+function ir.map_cmd(root_cmd, f)
+    local function go(cmd)
+        -- Transform child nodes recursively
+        local tag = cmd._tag
+        if     tag == "ir.Cmd.Seq" then
+            for i = 1, #cmd.cmds do
+                cmd.cmds[i] = go(cmd.cmds[i])
+            end
+        elseif tag == "ir.Cmd.If" then
+            cmd.then_ = go(cmd.then_)
+            cmd.else_ = go(cmd.else_)
+        elseif tag == "ir.Cmd.Loop" then
+            cmd.body = go(cmd.body)
+        elseif tag == "ir.Cmd.For" then
+            cmd.body = go(cmd.body)
+        else
+            -- no child nodes
+        end
+
+        -- Transform parent node
+        return f(cmd) or cmd
+    end
+    return go(root_cmd)
+end
+
 -- Remove some kinds of silly control flow
 --   - Empty If
 --   - if statements w/ constant condition
@@ -292,6 +321,12 @@ function ir.clean(cmd)
 
     else
         return cmd
+    end
+end
+
+function ir.clean_all(module)
+    for _, func in ipairs(module.functions) do
+        func.body = ir.clean(func.body)
     end
 end
 

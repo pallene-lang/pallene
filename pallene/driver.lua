@@ -1,5 +1,6 @@
 local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
+local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
 local ir = require "pallene.ir"
 local parser = require "pallene.parser"
@@ -60,8 +61,9 @@ function driver.compile_internal(filename, stop_after)
         return module, errs
     end
 
-    for _, func in ipairs(module.functions) do
-        func.body = ir.clean(func.body)
+    module, errs = constant_propagation.run(module)
+    if stop_after == "constant_propagation" or not module then
+        return module, errs
     end
 
     if stop_after == "optimize" or not module then

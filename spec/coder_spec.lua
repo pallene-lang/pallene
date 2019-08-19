@@ -1115,4 +1115,30 @@ describe("Pallene coder /", function()
             ]])
         end)
     end)
+
+    describe("Constant propagation", function()
+        setup(compile([[
+            local x = 0 -- never read from
+            local step = 1
+            local counter = 0
+
+            local function inc(): integer
+                counter = counter + step
+                return counter
+            end
+
+            function next(): integer
+                x = inc()
+                return counter
+            end
+        ]]))
+
+        it("preserves assignment side-effects", function()
+            run_test([[
+                assert(1 == test.next())
+                assert(2 == test.next())
+                assert(3 == test.next())
+            ]])
+        end)
+    end)
 end)
