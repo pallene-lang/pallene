@@ -62,10 +62,16 @@ function location.from_pos(file_name, source, pos)
     return location.new(file_name, line, col)
 end
 
+function location.show_line(loc)
+    return string.format("%s:%d", loc.file_name, loc.line)
+end
+
+function location.show_line_col(loc)
+    return string.format("%s:%d:%d", loc.file_name, loc.line, loc.col)
+end
+
 function location.format_error(loc, fmt, ...)
-    return string.format("%s:%d:%d: "..fmt,
-            loc.file_name, loc.line, loc.col,
-            ...)
+    return location.show_line_col(loc) .. ": " .. string.format(fmt, ...)
 end
 
 return location

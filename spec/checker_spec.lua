@@ -3,15 +3,87 @@ local util = require 'pallene.util'
 
 local function run_checker(code)
     assert(util.set_file_contents("test.pln", code))
-    local prog_ast, errs = driver.test_ast("checker", "test.pln")
-    return prog_ast, table.concat(errs, "\n")
+    local module, errs = driver.compile_internal("test.pln", "checker")
+    return module, table.concat(errs, "\n")
 end
 
-local function assert_type_error(code, expected_err)
-    local prog_ast, errs = run_checker(code)
-    assert.falsy(prog_ast)
+local function assert_error(code, expected_err)
+    local module, errs = run_checker(code)
+    assert.falsy(module)
     assert.match(expected_err, errs, 1, true)
 end
+
+describe("Scope analysis: ", function()
+
+    teardown(function()
+        os.remove("test.pln")
+    end)
+
+    it("forbids variables from being used before they are defined", function()
+        assert_error([[
+            function fn(): nil
+                x = 17
+                local x = 18
+            end
+        ]],
+            "variable 'x' is not declared")
+    end)
+
+    it("forbids type variables from being used before they are defined", function()
+        assert_error([[
+            function fn(p: Point): integer
+                return p.x
+            end
+
+            record Point
+                x: integer
+                y: integer
+            end
+        ]],
+            "type 'Point' is not declared")
+    end)
+
+    it("do-end limits variable scope", function()
+        assert_error([[
+            function fn(): nil
+                do
+                    local x = 17
+                end
+                x = 18
+            end
+        ]],
+            "variable 'x' is not declared")
+    end)
+
+    it("forbids mutually recursive definitions", function()
+        assert_error([[
+            local function foo(): integer
+                return bar()
+            end
+
+            local function bar(): integer
+                return foo()
+            end
+        ]],
+            "variable 'bar' is not declared")
+    end)
+
+    it("forbids multiple toplevel declarations with the same name", function()
+        assert_error([[
+            local function f() end
+            local function f() end
+        ]],
+            "duplicate toplevel declaration")
+    end)
+
+    it("forbids multiple function arguments with the same name", function()
+        assert_error([[
+            function fn(x: integer, x:string)
+            end
+        ]],
+            "function has multiple parameters named 'x'")
+    end)
+end)
 
 describe("Pallene type checker", function()
 
@@ -20,26 +92,30 @@ describe("Pallene type checker", function()
     end)
 
     it("detects when a non-type is used in a type variable", function()
-        assert_type_error([[
-            local foo: integer = 10
-            local bar: foo = 11
+        assert_error([[
+            function fn()
+                local foo: integer = 10
+                local bar: foo = 11
+            end
         ]],
             "'foo' isn't a type")
     end)
 
     it("detects when a non-value is used in a value variable", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: integer
                 y: integer
             end
-            local bar: integer = Point
+            function fn()
+                local bar: integer = Point
+            end
         ]],
             "'Point' isn't a value")
     end)
 
     it("catches array expression in indexing is not an array", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: integer)
                 x[1] = 2
             end
@@ -48,7 +124,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches wrong use of length operator", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: integer): integer
                 return #x
             end
@@ -57,7 +133,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches wrong use of unary minus", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: boolean): boolean
                 return -x
             end
@@ -66,7 +142,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches wrong use of bitwise not", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: boolean): boolean
                 return ~x
             end
@@ -75,7 +151,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches wrong use of boolean not", function()
-        assert_type_error([[
+        assert_error([[
             function fn(): boolean
                 return not nil
             end
@@ -84,7 +160,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches mismatching types in locals", function()
-        assert_type_error([[
+        assert_error([[
             function fn()
                 local i: integer = 1
                 local s: string = "foo"
@@ -95,7 +171,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches mismatching types in arguments", function()
-        assert_type_error([[
+        assert_error([[
             function fn(i: integer, s: string): integer
                 s = i
             end
@@ -104,114 +180,138 @@ describe("Pallene type checker", function()
     end)
 
     it("forbids empty array (without type annotation)", function()
-        assert_type_error([[
-            local xs = {}
+        assert_error([[
+            function fn()
+                local xs = {}
+            end
         ]],
             "missing type hint for array or record initializer")
     end)
 
     it("forbids non-empty array (without type annotation)", function()
-        assert_type_error([[
-            local xs = {10, 20, 30}
+        assert_error([[
+            function fn()
+                local xs = {10, 20, 30}
+            end
         ]],
             "missing type hint for array or record initializer")
     end)
 
     it("forbids array initializers with a table part", function()
-        assert_type_error([[
-            local xs: {integer} = {10, 20, 30, x=17}
+        assert_error([[
+            function fn()
+                local xs: {integer} = {10, 20, 30, x=17}
+            end
         ]],
             "named field x in array initializer")
     end)
 
     it("forbids wrong type in array initializer", function()
-        assert_type_error([[
-            local xs: {integer} = {10, "hello"}
+        assert_error([[
+            function fn()
+                local xs: {integer} = {10, "hello"}
+            end
         ]],
             "expected integer but found string in array initializer")
     end)
 
     it("forbids record creation (without type annotation)", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: float
                 y: float
             end
-            local p = { x = 10.0, y = 20.0 }
+            function fn()
+                local p = { x = 10.0, y = 20.0 }
+            end
         ]],
             "missing type hint for array or record initializer")
     end)
 
     it("forbids wrong type in record initializer", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: float
                 y: float
             end
-            local p: Point = { x = 10.0, y = "hello" }
+            function fn()
+                local p: Point = { x = 10.0, y = "hello" }
+            end
         ]],
             "expected float but found string in record initializer")
     end)
 
     it("forbids wrong field name in record initializer", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: float
                 y: float
             end
-            local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
+            function fn()
+                local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
+            end
         ]],
             "invalid field z in record initializer for Point")
     end)
 
     it("forbids array part in record initializer", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: float
                 y: float
             end
-            local p: Point = { x = 10.0, y = 20.0, 30.0 }
+            function fn()
+                local p: Point = { x = 10.0, y = 20.0, 30.0 }
+            end
         ]],
             "record initializer has array part")
     end)
 
     it("forbids initializing a record field twice", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: float
                 y: float
             end
-            local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
+            function fn()
+                local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
+            end
         ]],
             "duplicate field x in record initializer")
     end)
 
     it("forbids missing fields in record initializer", function()
-        assert_type_error([[
+        assert_error([[
             record Point
                 x: float
             end
-            local p: Point = { }
+            function fn()
+                local p: Point = { }
+            end
         ]],
             "required field x is missing")
     end)
 
     it("forbids type hints that are not array or records", function()
-        assert_type_error([[
-            local p: string = { 10, 20, 30 }
+        assert_error([[
+            function fn()
+                local p: string = { 10, 20, 30 }
+            end
         ]],
             "type hint for array or record initializer is not an array or record type")
     end)
 
     it("forbids array of nil", function()
-        assert_type_error([[
-            local xs: {nil} = {}
+        assert_error([[
+            function fn()
+                local xs: {nil} = {}
+            end
         ]],
             "array of nil is not allowed")
     end)
 
     it("requires while statement conditions to be boolean", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x:integer): integer
                 while x do
                     return 10
@@ -223,7 +323,7 @@ describe("Pallene type checker", function()
     end)
 
     it("requires repeat statement conditions to be boolean", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x:integer): integer
                 repeat
                     return 10
@@ -235,7 +335,7 @@ describe("Pallene type checker", function()
     end)
 
     it("requires if statement conditions to be boolean", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x:integer): integer
                 if x then
                     return 10
@@ -248,7 +348,7 @@ describe("Pallene type checker", function()
     end)
 
     it("ensures numeric 'for' variable has number type", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: integer, s: string): integer
                 for i: string = "hello", 10, 2 do
                     x = x + i
@@ -260,7 +360,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches 'for' errors in the start expression", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: integer, s: string): integer
                 for i:integer = s, 10, 2 do
                     x = x + i
@@ -272,7 +372,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches 'for' errors in the limit expression", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: integer, s: string): integer
                 for i = 1, s, 2 do
                     x = x + i
@@ -284,7 +384,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches 'for' errors in the step expression", function()
-        assert_type_error([[
+        assert_error([[
             function fn(x: integer, s: string): integer
                 for i = 1, 10, s do
                     x = x + i
@@ -296,7 +396,7 @@ describe("Pallene type checker", function()
     end)
 
     it("detects too many return values", function()
-        assert_type_error([[
+        assert_error([[
             function f(): ()
                 return 1
             end
@@ -305,7 +405,7 @@ describe("Pallene type checker", function()
     end)
 
     it("detects too few return values", function()
-        assert_type_error([[
+        assert_error([[
             function f(): integer
                 return
             end
@@ -314,7 +414,7 @@ describe("Pallene type checker", function()
     end)
 
     it("detects when a function returns the wrong type", function()
-        assert_type_error([[
+        assert_error([[
             function fn(): integer
                 return "hello"
             end
@@ -356,12 +456,12 @@ describe("Pallene type checker", function()
         ]],
         }
         for _, c in ipairs(code) do
-            assert_type_error(c,"control reaches end of function with non-empty return type")
+            assert_error(c,"control reaches end of function with non-empty return type")
         end
     end)
 
     it("rejects void functions in expression contexts", function()
-        assert_type_error([[
+        assert_error([[
             local function f(): ()
             end
 
@@ -373,7 +473,7 @@ describe("Pallene type checker", function()
     end)
 
     it("detects attempts to call non-functions", function()
-        assert_type_error([[
+        assert_error([[
             function fn(): integer
                 local i: integer = 0
                 i()
@@ -383,7 +483,7 @@ describe("Pallene type checker", function()
     end)
 
     it("detects wrong number of arguments to functions", function()
-        assert_type_error([[
+        assert_error([[
             function f(x: integer, y: integer): integer
                 return x + y
             end
@@ -396,7 +496,7 @@ describe("Pallene type checker", function()
     end)
 
     it("detects wrong types of arguments to functions", function()
-        assert_type_error([[
+        assert_error([[
             function f(x: integer, y: integer): integer
                 return x + y
             end
@@ -419,7 +519,7 @@ describe("Pallene type checker", function()
             ]], { typ = typ })
 
             it(err_msg, function()
-                assert_type_error(test_program, err_msg)
+                assert_error(test_program, err_msg)
             end)
         end
     end)
@@ -429,7 +529,7 @@ describe("Pallene type checker", function()
         local err_msg = util.render(err_template, opts)
         local test_program = util.render(program_template, opts)
         it(err_msg, function()
-            assert_type_error(test_program, err_msg)
+            assert_error(test_program, err_msg)
         end)
     end
 
@@ -534,7 +634,7 @@ describe("Pallene type checker", function()
     end)
 
     it("catches assignment to function", function ()
-        assert_type_error([[
+        assert_error([[
             function f()
             end
 
@@ -546,21 +646,12 @@ describe("Pallene type checker", function()
     end)
 
     it("typechecks io.write (error)", function()
-        assert_type_error([[
+        assert_error([[
             function f()
                 io_write(17)
             end
         ]],
             "expected string but found integer in argument 1")
-    end)
-
-    it("typechecks table.insert (error)", function()
-        assert_type_error([[
-            function f(xs: {integer})
-                table_insert("asd", xs)
-            end
-        ]],
-            "expected { value } but found string in argument 1")
     end)
 end)
 
@@ -577,7 +668,7 @@ describe("Pallene typecheck of records", function()
 
     it("doesn't typecheck read/write to non existent fields", function()
         local function assert_non_existent(code)
-            assert_type_error(wrap_record(code),
+            assert_error(wrap_record(code),
                 "field 'nope' not found in record 'Point'")
         end
         assert_non_existent([[ p.nope = 10 ]])
@@ -585,9 +676,9 @@ describe("Pallene typecheck of records", function()
     end)
 
     it("doesn't typecheck read/write with invalid types", function()
-        assert_type_error(wrap_record[[ p.x = p ]],
+        assert_error(wrap_record[[ p.x = p ]],
             "expected float but found Point in assignment")
-        assert_type_error(wrap_record[[ local p: Point = p.x ]],
+        assert_error(wrap_record[[ local p: Point = p.x ]],
             "expected Point but found float in declaration")
     end)
 end)

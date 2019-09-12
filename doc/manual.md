@@ -135,7 +135,9 @@ local r2 = p.x * p.x + p.y * p.y
 
 Pallene records are implemented as userdata, and are *not* Lua tables.
 You cannot create a Lua table with an `x` and `y` field and pass it to a Pallene function expecting a Point.
-That said, Pallene objects carry a metatable that allows you to still use the usual dot notation when accessing them from Lua.
+The fields of a Pallene record can be directly accessed by Pallene functions using dot notation but are *cannot* be accessed by Lua functions the same way.
+From the point of view of Lua, Pallene records are opaque.
+If you want to allow Lua to read or write to a field, you shold export appropriate getter and setter functions.
 
 ### Value
 

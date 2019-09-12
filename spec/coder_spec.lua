@@ -236,6 +236,10 @@ describe("Pallene coder /", function()
             function inc(x:integer): integer   return x + 1   end
             function dec(x:integer): integer   return x - 1   end
 
+            function get_inc(): integer->integer
+                return inc
+            end
+
             --------
 
             function call(
@@ -264,7 +268,7 @@ describe("Pallene coder /", function()
 
         it("Object identity", function()
             run_test([[
-                assert(test.getf() == test.getf())
+                assert(test.inc == test.get_inc())
             ]])
         end)
 
@@ -399,8 +403,8 @@ describe("Pallene coder /", function()
             -- NYI { "le_ss",     "<=",  "string",  "string",  "boolean" },
             -- NYI { "ge_ss",     ">=",  "string",  "string",  "boolean" },
 
-            -- NYI { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
-            -- NYI { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
+            { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
+            { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
 
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
@@ -444,8 +448,8 @@ describe("Pallene coder /", function()
         setup(compile(table.concat(pallene_code, "\n")))
 
         for _, test in ipairs(tests) do
-            local name = test[1]
-            it(name, function() run_test(test_scripts[name]) end)
+             local name = test[1]
+             it(name, function() run_test(test_scripts[name]) end)
         end
     end)
 
@@ -529,7 +533,6 @@ describe("Pallene coder /", function()
                     "wrong type for downcasted value", nil, true))
             ]])
         end)
-
     end)
 
     describe("Statements /", function()
@@ -672,12 +675,12 @@ describe("Pallene coder /", function()
                 arr[i] = v
             end
 
-            function insert(xs: {integer}, v:integer): ()
-                table_insert(xs, v)
+            function insert(xs: {value}, v:value): ()
+                xs[#xs + 1] = v
             end
 
-            function remove(xs: {integer}): ()
-                table_remove(xs)
+            function remove(xs: {value}): ()
+                xs[#xs] = nil
             end
         ]]))
 
@@ -842,21 +845,6 @@ describe("Pallene coder /", function()
             function make_empty(): Empty
                 return {}
             end
-
-            record Big
-                f1: integer; f2: integer; f3: integer
-                f4: integer; f5: integer; f6: integer
-                f7: integer; f8: integer; f9: integer
-            end
-
-            function make_big(
-                    f1: integer, f2: integer, f3: integer,
-                    f4: integer, f5: integer, f6: integer,
-                    f7: integer, f8: integer, f9: integer): Big
-                return {f1 = f1, f2 = f2, f3 = f3,
-                        f4 = f4, f5 = f5, f6 = f6,
-                        f7 = f7, f8 = f8, f9 = f9}
-            end
         ]]))
 
         it("create records", function()
@@ -925,81 +913,6 @@ describe("Pallene coder /", function()
                         nil, true))
             ]])
         end)
-
-        it("implements __index and __newindex", function()
-            run_test([[
-                local a, b = {}, {}
-                local foo = test.make_foo(123, a)
-                -- x
-                assert(123 == foo.x)
-                foo.x = 10
-                assert(10 == foo.x)
-                -- y
-                assert(a == foo.y)
-                foo.y = b
-                assert(b == foo.y)
-            ]])
-        end)
-
-        it("checks if Lua tries to access a non-string field", function()
-            run_test([[
-                local msg = "attempt to access non-string field of type 'table'"
-                local foo = test.make_foo(123, {})
-                -- __index
-                local ok, err = pcall(function()
-                    local x = foo[{}]
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-                -- __newindex
-                local ok, err = pcall(function()
-                    foo[{}] = 10
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-            ]])
-        end)
-
-        it("checks if Lua tries to access an nonexistent field", function()
-            run_test([[
-                local msg = "attempt to access nonexistent field 'z'"
-                local foo = test.make_foo(123, {})
-                -- __index
-                local ok, err = pcall(function()
-                    local x = foo.z
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-                -- __newindex
-                local ok, err = pcall(function()
-                    foo.z = 10
-                end)
-                assert(not ok)
-                assert(string.find(err, msg, nil, true))
-            ]])
-        end)
-
-        it("checks the field type before assignment", function()
-            run_test([[
-                local foo = test.make_foo(123, {})
-                local ok, err = pcall(function()
-                    foo.x = {}
-                end)
-                assert(not ok)
-                assert(string.find(err,
-                    "wrong type for record field 'x'",
-                    nil, true))
-            ]])
-        end)
-
-        it("(__index) works for records with a lot of fields", function()
-            run_test([[
-                local big = test.make_big(10, 20, 30, 40, 50, 60, 70, 80, 90)
-                for i = 1, 9 do
-                    assert(i * 10 == big['f' .. i])
-                end
-            ]])
-        end)
     end)
 
     describe("I/O", function()
@@ -1009,7 +922,7 @@ describe("Pallene coder /", function()
             end
         ]]))
 
-        it("Can run io.write without crashing", function()
+        it("io.write works", function()
             run_test([[
                 test.write("Hello:)World")
             ]])
@@ -1051,13 +964,6 @@ describe("Pallene coder /", function()
             function write(xs:{value}, i:integer, x:value): ()
                 xs[i] = x
             end
-
-            record Box
-                v: value
-            end
-            function new_box(v:value): Box
-                return {v = v}
-            end
         ]]))
 
         --
@@ -1088,16 +994,6 @@ describe("Pallene coder /", function()
                 assert("hello" == xs[2])
             ]])
         end)
-
-        it("can read and write record via __newindex", function()
-            run_test([[
-                local b = test.new_box(10)
-                assert(10 == b.v)
-                b.v = "hello"
-                assert("hello" == b.v)
-            ]])
-        end)
-
     end)
 
     describe("Corner cases of scoping", function()
@@ -1129,8 +1025,12 @@ describe("Pallene coder /", function()
                 end
                 return res
             end
-        ]]))
 
+            function tofloat_shadowing(x:integer) : float
+                local tofloat = 1.0
+                return (x + tofloat)
+            end
+        ]]))
 
         it("local variable doesn't shadow its type annotation", function()
             run_test([[ assert( 1 == test.local_type() ) ]])
@@ -1140,12 +1040,17 @@ describe("Pallene coder /", function()
             run_test([[ assert( 11 == test.local_initializer() ) ]])
         end)
 
-        it("for loop variable scope doesn't shadow its type annotation", function()
-            pending("requires type aliases")
-        end)
+        -- See Issue #94
+        --it("for loop variable scope doesn't shadow its type annotation", function()
+        --    pending("todo (type aliases)")
+        --end)
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
+        end)
+
+        it("tofloat in coercions doesn't get shadowed", function()
+            run_test([[ assert( 21.0 == test.tofloat_shadowing(20) ) ]])
         end)
     end)
 
@@ -1185,6 +1090,28 @@ describe("Pallene coder /", function()
                 local x4 = test.get_x4()
                 assert ( 1 == #x4 )
                 assert ( 10 == x4[1] )
+            ]])
+        end)
+    end)
+
+    describe("Nested for loops", function()
+        setup(compile([[
+            function mul(n: integer, m:integer) : integer
+                local ret = 0
+                for i = 1, n do
+                    for j = 1, m do
+                        ret = ret + 1
+                    end
+                end
+                return ret
+            end
+        ]]))
+
+        it("", function()
+            run_test([[
+                assert( 0 == test.mul(0, 2))
+                assert( 0 == test.mul(2, 0))
+                assert(15 == test.mul(3, 5))
             ]])
         end)
     end)

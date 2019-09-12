@@ -39,6 +39,15 @@ function C.float(n)
     return string.format("%a /*%f*/", n, n)
 end
 
+--
+-- Comments
+-- (The reformater assumes that they are single-line)
+
+function C.comment(str)
+    str = str:gsub("\n", " ")
+    str = str:gsub("%*%/", "")
+    return string.format("/* %s */", str)
+end
 
 --
 -- Pretty printing
@@ -54,51 +63,55 @@ end
 --   * Use braces on if statements, while loops, and for loops.
 --   * /**/-style comments must not span multiple lines
 --   * Be careful about special characters inside strings and comments
+--   * goto labels must appear on a line by themselves
 --
 function C.reformat(input)
     local out = {}
-    local indent = 0
+    local depth = 0
     local previous_is_blank = true
     for line in input:gmatch("([^\n]*)") do
         line = line:match("^[ \t]*(.-)[ \t]*$")
 
-        -- Inside functions ignore all empty lines. In the toplevel, collapse
-        -- groups of empty lines between declarations into a single empty line.
+        -- Collapse groups of empty lines into a single empty line.
         local is_blank = (#line == 0)
-        if (not is_blank) or (indent == 0 and not previous_is_blank) then
+        if not (is_blank and previous_is_blank) then
 
-            local indent_for_this_line
+            local nspaces
             if line:match("^#") then
                 -- Preprocessor directives are never indented
-                indent_for_this_line = 0
+                nspaces = 0
+
+            elseif line:match("^[A-Za-z_][A-Za-z_0-9]*:$") then
+                -- Labels are indented halfway
+                nspaces = math.max(0, 4 * depth - 2)
+
             else
                 -- Otherwise, count braces and parens
-                local without_strings = line:gsub('\\\"', "")
-                                            :gsub('".-"', "")
+                local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
                 local without_comments = without_strings:gsub("/%*.-%*/", "")
                                                         :gsub("//.*", "")
-                local n_open  = #string.gsub(without_comments, "[^{(]", "")
-                local n_close = #string.gsub(without_comments, "[^})]", "")
+                local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
+                local _, n_close = string.gsub(without_comments, "[})]", "%1")
                 local unindent_this_line = string.match(line, "^[})]")
 
-                indent_for_this_line = indent - (unindent_this_line and 1 or 0)
+                nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
 
                 if     n_open > n_close then
-                    indent = indent + 1
+                    depth = depth + 1
                 elseif n_open < n_close then
-                    indent = indent - 1
+                    depth = depth - 1
                 end
 
-                if indent < 0 then
+                if depth < 0 then
                     -- Don't let the indentation level get negative. If by any
                     -- chance our heuristics fail to spot an open brace or
                     -- paren, this confines the messed up indentation to a
                     -- single function.
-                    indent = 0
+                    depth = 0
                 end
             end
 
-            table.insert(out, string.rep("    ", indent_for_this_line))
+            table.insert(out, string.rep(" ", nspaces))
             table.insert(out, line)
             table.insert(out, "\n")
         end
