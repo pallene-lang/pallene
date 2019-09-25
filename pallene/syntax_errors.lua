@@ -48,6 +48,12 @@ local errors = {
 
     EndRecord = "Expected 'end' to close the record.",
 
+    NameTypeAlias = "Expected a type-alias name after 'type'.",
+
+    AssignTypeAlias = "Expected '=' after type-alias name.",
+
+    TypeTypeAlias = "Expected a type after '=' in a type-alias.",
+
     NameImport = "Expected a name after 'local'.",
 
     -- This label is not thrown in rule 'import' because rule 'toplevelvar'

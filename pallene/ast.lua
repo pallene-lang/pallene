@@ -19,11 +19,12 @@ declare_type("Type", {
 })
 
 declare_type("Toplevel", {
-    Func    = {"loc", "is_local", "decl", "value"},
-    Var     = {"loc", "decl", "value"},
-    Record  = {"loc", "name", "field_decls"},
-    Import  = {"loc", "local_name", "mod_name"},
-    Builtin = {"loc", "name"},
+    Func      = {"loc", "is_local", "decl", "value"},
+    Var       = {"loc", "decl", "value"},
+    Typealias = {"loc", "name", "type"},
+    Record    = {"loc", "name", "field_decls"},
+    Import    = {"loc", "local_name", "mod_name"},
+    Builtin   = {"loc", "name"},
 })
 
 declare_type("Decl", {
@@ -82,6 +83,8 @@ function ast.toplevel_name(tl_node)
         return tl_node.decl.name
     elseif tag == "ast.Toplevel.Var" then
         return tl_node.decl.name
+    elseif tag == "ast.Toplevel.Typealias" then
+        return tl_node.name
     elseif tag == "ast.Toplevel.Record" then
         return tl_node.name
     elseif tag == "ast.Toplevel.Import" then

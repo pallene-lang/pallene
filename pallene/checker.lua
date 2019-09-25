@@ -275,6 +275,11 @@ function Checker:check_program(prog_ast)
                 local fun_checker = FunChecker.new(self, f_id)
                 fun_checker:check_function(func_lambda, func_typ)
 
+            elseif tag == "ast.Toplevel.Typealias" then
+                local name = tl_node.name
+                local typ = self:from_ast_type(tl_node.type)
+                self.symbol_table:add_symbol(name, checker.Name.Type(typ))
+
             elseif tag == "ast.Toplevel.Record" then
                 local name = tl_node.name
                 local field_names = {}

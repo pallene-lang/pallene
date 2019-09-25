@@ -221,6 +221,7 @@ local grammar = re.compile([[
     program         <-  SKIP*
                         {| ( toplevelfunc
                            / toplevelvar
+                           / typealias
                            / toplevelrecord
                            / import )* |} !.
 
@@ -230,6 +231,9 @@ local grammar = re.compile([[
 
     toplevelvar     <- (P  LOCAL decl ASSIGN^AssignVar
                            !IMPORT exp^ExpVarDec)                -> ToplevelVar
+
+    typealias       <- (P  TYPE NAME^NameTypeAlias ASSIGN^AssignTypeAlias
+                           type^TypeTypeAlias)                   -> ToplevelTypealias
 
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
@@ -427,6 +431,7 @@ local grammar = re.compile([[
     WHILE           <- %WHILE SKIP*
     IMPORT          <- %IMPORT SKIP*
     AS              <- %AS SKIP*
+    TYPE            <- %TYPE SKIP*
 
     BOOLEAN         <- %BOOLEAN SKIP*
     INTEGER         <- %INTEGER SKIP*
