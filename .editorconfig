@@ -9,7 +9,7 @@ max_line_length = 80
 [*.md]
 max_line_length = off
 
-[*.{lua,pallene,c,h}]
+[*.{lua,pln,c,h}]
 indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
