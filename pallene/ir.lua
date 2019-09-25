@@ -214,14 +214,11 @@ function ir.get_dsts(cmd)
     return dsts
 end
 
-
--- Linearize the commands in a pre-order traversal. Makes it easier to iterate
--- over all commands, and is also helpful for register allocation.
-function ir.flatten_cmd(root_cmd)
-    local res = {}
+-- Iterate over the cmds with a pre-order traversal.
+function ir.iter(root_cmd)
 
     local function go(cmd)
-        table.insert(res, cmd)
+        coroutine.yield(cmd)
 
         local tag = cmd._tag
         if     tag == "ir.Cmd.Seq" then
@@ -238,11 +235,48 @@ function ir.flatten_cmd(root_cmd)
         else
             -- no recursion needed
         end
-
     end
 
-    go(root_cmd)
+    return coroutine.wrap(function()
+        go(root_cmd)
+    end)
+end
+
+function ir.flatten_cmd(root_cmd)
+    local res = {}
+    for cmd in ir.iter(root_cmd) do
+        table.insert(res, cmd)
+    end
     return res
+end
+
+-- Transform an ir.Cmd, via a mapping function that modifies individual nodes.
+-- Returns the new root node. Child nodes are modified in-place.
+-- If the mapping function returns a falsy value, the original version of the
+-- node is kept.
+function ir.map_cmd(root_cmd, f)
+    local function go(cmd)
+        -- Transform child nodes recursively
+        local tag = cmd._tag
+        if     tag == "ir.Cmd.Seq" then
+            for i = 1, #cmd.cmds do
+                cmd.cmds[i] = go(cmd.cmds[i])
+            end
+        elseif tag == "ir.Cmd.If" then
+            cmd.then_ = go(cmd.then_)
+            cmd.else_ = go(cmd.else_)
+        elseif tag == "ir.Cmd.Loop" then
+            cmd.body = go(cmd.body)
+        elseif tag == "ir.Cmd.For" then
+            cmd.body = go(cmd.body)
+        else
+            -- no child nodes
+        end
+
+        -- Transform parent node
+        return f(cmd) or cmd
+    end
+    return go(root_cmd)
 end
 
 -- Remove some kinds of silly control flow
@@ -292,6 +326,12 @@ function ir.clean(cmd)
 
     else
         return cmd
+    end
+end
+
+function ir.clean_all(module)
+    for _, func in ipairs(module.functions) do
+        func.body = ir.clean(func.body)
     end
 end
 
