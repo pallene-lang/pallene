@@ -214,14 +214,11 @@ function ir.get_dsts(cmd)
     return dsts
 end
 
-
--- Linearize the commands in a pre-order traversal. Makes it easier to iterate
--- over all commands, and is also helpful for register allocation.
-function ir.flatten_cmd(root_cmd)
-    local res = {}
+-- Iterate over the cmds with a pre-order traversal.
+function ir.iter(root_cmd)
 
     local function go(cmd)
-        table.insert(res, cmd)
+        coroutine.yield(cmd)
 
         local tag = cmd._tag
         if     tag == "ir.Cmd.Seq" then
@@ -238,10 +235,18 @@ function ir.flatten_cmd(root_cmd)
         else
             -- no recursion needed
         end
-
     end
 
-    go(root_cmd)
+    return coroutine.wrap(function()
+        go(root_cmd)
+    end)
+end
+
+function ir.flatten_cmd(root_cmd)
+    local res = {}
+    for cmd in ir.iter(root_cmd) do
+        table.insert(res, cmd)
+    end
     return res
 end
 

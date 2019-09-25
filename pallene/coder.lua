@@ -567,11 +567,6 @@ typedecl.declare(coder, "coder", "Upvalue", {
 
 function Coder:init_upvalues()
 
-    local flattened_body = {}
-    for _, func in ipairs(self.module.functions) do
-        flattened_body[func] = ir.flatten_cmd(func.body)
-    end
-
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
         table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
@@ -580,7 +575,7 @@ function Coder:init_upvalues()
 
     -- String Literals
     for _, func in ipairs(self.module.functions) do
-        for _, cmd in ipairs(flattened_body[func]) do
+        for cmd in ir.iter(func.body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.String" then
                     local str = v.value
@@ -593,7 +588,7 @@ function Coder:init_upvalues()
 
     -- Functions
     for _, func in ipairs(self.module.functions) do
-        for _, cmd in ipairs(flattened_body[func]) do
+        for cmd in ir.iter(func.body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.Function" then
                     local f_id = v.id
@@ -793,7 +788,7 @@ function Coder:init_gc()
 
     for _, func in ipairs(self.module.functions) do
         local max = 0
-        for _, cmd in ipairs(ir.flatten_cmd(func.body)) do
+        for cmd in ir.iter(func.body) do
             if cmd._tag == "ir.Cmd.CallDyn" then
                 local nsrcs = #cmd.srcs
                 local ndst  = 1

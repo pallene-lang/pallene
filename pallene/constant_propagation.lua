@@ -64,7 +64,7 @@ function constant_propagation.run(module)
     end
 
     for _, func in ipairs(module.functions) do
-        for _, cmd in ipairs(ir.flatten_cmd(func.body)) do
+        for cmd in ir.iter(func.body) do
             local tag = cmd._tag
             if     tag == "ir.Cmd.GetGlobal" then
                 local id = cmd.global_id
