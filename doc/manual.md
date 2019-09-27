@@ -195,7 +195,7 @@ Creates an alias for a previously-declared type with the following syntax:
 type <name> = <type>
 ```
 
-Type alias in Pallene cannot be used to declare recursive types, such as:
+Type alias in Pallene curretly cannot be used to declare recursive types, such as:
 
 ```
 type T = {T}
