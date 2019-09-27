@@ -796,6 +796,60 @@ describe("Pallene coder /", function()
         end)
     end)
 
+    describe("Typealias", function()
+        setup(compile([[
+            type Float = float
+            type FLOAT = float
+
+            function Float2float(x: Float): float return x end
+            function float2Float(x: float): Float return x end
+            function Float2FLOAT(x: Float): FLOAT return x end
+
+            record point
+                x: Float
+            end
+
+            type Point = point
+            type Points = {Point}
+
+            function newPoint(x: Float): Point
+                return {x = x}
+            end
+
+            function get(p: Point): FLOAT
+                return p.x
+            end
+
+            function addPoint(ps: Points, p: Point)
+                ps[#ps + 1] = p
+            end
+        ]]))
+
+        it("converts between typealiases of the same type", function()
+            run_test([[
+                assert(1.1 == test.Float2float(1.1))
+                assert(1.1 == test.float2Float(1.1))
+                assert(1.1 == test.Float2FLOAT(1.1))
+            ]])
+        end)
+
+        it("creates a records with typealiases", function()
+            run_test([[
+                local p = test.newPoint(1.1)
+                assert(1.1 == test.get(p))
+            ]])
+        end)
+
+        it("manipulates typealias of an array", function()
+            run_test([[
+                local p = test.newPoint(1.1)
+                local ps = {}
+                test.addPoint(ps, p)
+                assert(p == ps[1])
+            ]])
+        end)
+    end)
+
     describe("Records", function()
         setup(compile([[
             record Foo

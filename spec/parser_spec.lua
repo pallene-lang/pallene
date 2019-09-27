@@ -169,7 +169,6 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[ x=17 ]], "Syntax Error")
     end)
 
-
     it("can parse toplevel function declarations", function()
         assert_program_ast([[
             local function fA() : float
@@ -344,6 +343,13 @@ describe("Pallene parser", function()
                         { _tag = "ast.Type.Name", name = "d" } },
                     ret_types = { { _tag = "ast.Type.Name", name = "e" } } } )
         end)
+    end)
+
+    it("can parse type alias", function()
+        assert_program_ast([[ type point = {float} ]], {
+            { _tag = "ast.Toplevel.Typealias",
+                name = "point", type = { _tag = "ast.Type.Array" } }
+        })
     end)
 
     it("can parse values", function()
@@ -864,6 +870,18 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[
             record
         ]], "Expected a record name after 'record'.")
+
+        assert_program_syntax_error([[
+            type
+        ]], "Expected a type-alias name after 'type'.")
+
+        assert_program_syntax_error([[
+            type point
+        ]], "Expected '=' after type-alias name.")
+
+        assert_program_syntax_error([[
+            type point =
+        ]], "Expected a type after '=' in a type-alias.")
 
         assert_program_syntax_error([[
             record A

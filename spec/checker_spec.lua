@@ -83,6 +83,28 @@ describe("Scope analysis: ", function()
         ]],
             "function has multiple parameters named 'x'")
     end)
+
+    it("forbids typealias to non-existent type", function()
+        assert_error([[
+            type point = foo
+        ]],
+            "type 'foo' is not declared")
+    end)
+
+    it("forbids recursive typealias", function()
+        assert_error([[
+            type point = {point}
+        ]],
+            "type 'point' is not declared")
+    end)
+
+    it("forbids typealias to non-type name", function()
+        assert_error([[
+            local x: integer = 0
+            type point = x
+        ]],
+            "type error: 'x' isn't a type")
+    end)
 end)
 
 describe("Pallene type checker", function()

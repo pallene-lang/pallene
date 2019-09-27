@@ -187,9 +187,23 @@ end
 
 A Pallene module consists of a sequence of type declarations, module-local variables, and function definitions.
 
-### Type declarations
+### Type aliases
 
-Currently, type declarations consist solely of record declarations.
+Creates an alias for a previously-declared type with the following syntax:
+
+```
+type <name> = <type>
+```
+
+Type alias in Pallene curretly cannot be used to declare recursive types, such as:
+
+```
+type T = {T}
+```
+
+### Record declarations
+
+Record declarations consist solely of record declarations.
 
 ```
 record <name> 
