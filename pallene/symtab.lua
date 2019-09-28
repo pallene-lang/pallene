@@ -2,7 +2,7 @@ local util = require "pallene.util"
 
 local Symtab = util.Class()
 function Symtab:init()
-    self.blocks = {}
+    self.blocks = { {} }
 end
 
 function Symtab:open_block()
