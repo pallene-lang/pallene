@@ -67,7 +67,7 @@ function Coder:init(module, modname)
         self.record_coders[typ] = RecordCoder.new(self, typ)
     end
 
-    self.gc = {} -- func => stack_slots
+    self.gc = {} -- (see gc.compute_stack_slots)
     self.max_lua_call_stack_usage = {} -- func => integer
     self:init_gc()
 
@@ -292,6 +292,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     local args = {} -- { {name , comment} }
     table.insert(args, {"lua_State *L", ""})
     table.insert(args, {"Udata *G", ""})
+    table.insert(args, {"StackValue *base", ""})
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
         local decl, comment = self:local_declaration(f_id, v_id)
@@ -327,21 +328,12 @@ function Coder:pallene_entry_point_definition(f_id)
     local prologue = {}
     local epilogue = {}
 
-    local frame_size = self.gc[func].frame_size
-    local slots_used = frame_size + self.max_lua_call_stack_usage[func]
-    if slots_used > 0 then
-        table.insert(prologue, util.render([[
-            luaD_checkstack(L, $slots_used);
-            L->top += $frame_size;
-        ]], {
-            slots_used = C.integer(slots_used),
-            frame_size = C.integer(frame_size),
-        }))
-
-        table.insert(epilogue, util.render([[
-            L->top -= $frame_size;
-        ]], {
-            frame_size = C.integer(frame_size)
+    local max_frame_size = self.gc[func].max_frame_size
+    local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
+    if slots_needed > 0 then
+        table.insert(prologue, util.render(
+            [[ luaD_checkstack(L, $slots_needed); ]], {
+            slots_needed = C.integer(slots_needed),
         }))
     end
 
@@ -378,13 +370,14 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dst, f_id, xs)
+function Coder:call_pallene_function(dst, f_id, base, xs)
     local func = self.module.functions[f_id]
     local ret_types = func.typ.ret_types
 
     local args = {}
     table.insert(args, "L")
     table.insert(args, "G")
+    table.insert(args, base)
     for _, x in ipairs(xs) do
         table.insert(args, x)
     end
@@ -487,6 +480,8 @@ function Coder:lua_entry_point_definition(f_id)
         end
     end
 
+    local base = "L->top"
+
     local arg_vars = {}
     local init_args = {}
     for i, typ in ipairs(arg_types) do
@@ -510,9 +505,9 @@ function Coder:lua_entry_point_definition(f_id)
 
     local call_pallene
     if #ret_types == 0 then
-        call_pallene = self:call_pallene_function(false, f_id, arg_vars)
+        call_pallene = self:call_pallene_function(false, f_id, base, arg_vars)
     else
-        call_pallene = self:call_pallene_function(ret_vars[1], f_id, arg_vars)
+        call_pallene = self:call_pallene_function(ret_vars[1], f_id, base, arg_vars)
     end
 
     local return_results = {}
@@ -797,6 +792,31 @@ function Coder:init_gc()
         end
         self.max_lua_call_stack_usage[func] = max
     end
+end
+
+--
+-- # Call stack managements
+--
+
+function Coder:stack_top_at(func, cmd)
+    local offset = 0
+    for _, v_id in ipairs(self.gc[func].live_gc_vars[cmd]) do
+        local slot = self.gc[func].slot_of_variable[v_id]
+        offset = math.max(offset, slot + 1)
+    end
+
+    return util.render("base + $offset", { offset = C.integer(offset) })
+end
+
+function Coder:wrap_function_call(call_stats)
+    return util.render([[
+        {
+            StackValue *old_stack = L->stack;
+            ${call_stats}
+            base = L->stack + (base - old_stack);
+        } ]], {
+        call_stats = call_stats,
+    })
 end
 
 --
@@ -1098,16 +1118,18 @@ gen_cmd["SetField"] = function(self, cmd, _func)
     end
 end
 
-gen_cmd["CallStatic"] = function(self, cmd, _func)
+gen_cmd["CallStatic"] = function(self, cmd, func)
     local dst = cmd.dst and self:c_var(cmd.dst)
     local xs = {}
     for _, x in ipairs(cmd.srcs) do
         table.insert(xs, self:c_value(x))
     end
-    return self:call_pallene_function(dst, cmd.f_id, xs)
+    local top = self:stack_top_at(func, cmd)
+    local call_stats = self:call_pallene_function(dst, cmd.f_id, top, xs)
+    return self:wrap_function_call(call_stats)
 end
 
-gen_cmd["CallDyn"] = function(self, cmd, _func)
+gen_cmd["CallDyn"] = function(self, cmd, func)
     local f_typ = cmd.f_typ
     local dst = cmd.dst and self:c_var(cmd.dst)
 
@@ -1130,15 +1152,19 @@ gen_cmd["CallDyn"] = function(self, cmd, _func)
                 get_slot = get_slot(typ, "s2v(--L->top)") }))
     end
 
-    return (util.render([[
+    local top = self:stack_top_at(func, cmd)
+    local call_stats = util.render([[
+        L->top = $top;
         ${push_to_stack}
         lua_call(L, $nargs, $nrets);
         ${pop_from_stack} ]], {
+            top = top,
             push_to_stack = table.concat(push_to_stack, "\n"),
             pop_from_stack = table.concat(pop_from_stack, "\n"),
             nargs = C.integer(#f_typ.arg_types),
             nrets = C.integer(#f_typ.ret_types),
-        }))
+        })
+    return self:wrap_function_call(call_stats)
 end
 
 gen_cmd["ToFloat"] = function(self, cmd, _func)
@@ -1287,8 +1313,10 @@ gen_cmd["For"] = function(self, cmd, func)
         }))
 end
 
-gen_cmd["CheckGC"] = function(self, _cmd)
-    return [[ luaC_checkGC(L); ]]
+gen_cmd["CheckGC"] = function(self, cmd, func)
+    local top = self:stack_top_at(func, cmd)
+    return util.render([[ luaC_condGC(L, L->top = $top, (void)0); ]], {
+        top = top })
 end
 
 function Coder:generate_cmd(func, cmd)
@@ -1300,7 +1328,7 @@ function Coder:generate_cmd(func, cmd)
         local n = self.gc[func].slot_of_variable[v_id]
         if n then
             local typ = func.vars[v_id].typ
-            local slot = util.render([[s2v(L->top - $n)]], { n = C.integer(n) })
+            local slot = util.render([[s2v(base + $n)]], { n = C.integer(n) })
             out = out .. "\n" .. set_stack_slot(typ, slot, self:c_var(v_id))
         end
     end
