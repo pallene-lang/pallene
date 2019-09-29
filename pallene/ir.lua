@@ -34,10 +34,10 @@ function ir.Module()
     }
 end
 
-function ir.VarDecl(typ, comment)
+function ir.VarDecl(typ, name)
     return {
-        typ = typ,          -- Type
-        comment = comment   -- string (variable name, location, etc)
+        typ = typ,   -- Type
+        name = name  -- string
     }
 end
 
@@ -78,8 +78,8 @@ end
 -- Function variables
 --
 
-function ir.add_local(func, typ, comment)
-    table.insert(func.vars, ir.VarDecl(typ, comment))
+function ir.add_local(func, typ, name)
+    table.insert(func.vars, ir.VarDecl(typ, name))
     return #func.vars
 end
 

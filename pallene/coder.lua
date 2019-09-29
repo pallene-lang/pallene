@@ -254,13 +254,13 @@ function Coder:c_value(value)
 end
 
 -- @returns A syntactically valid function argument or variable declaration
---      for variable v_id from function f_id, and a correspong C comment, if
---      applicable. Since this may be used for either
+--      for variable v_id from function f_id. If the variable has a name,
+--      also includes it, as a C comment. Since this may be used for either
 --      a local variable or a function argument, there is no semicolon.
 function Coder:local_declaration(f_id, v_id)
     local decl = self.module.functions[f_id].vars[v_id]
     local name = self:c_var(v_id)
-    local comment = decl.comment and C.comment(decl.comment) or ""
+    local comment = decl.name and C.comment(decl.name) or ""
     return c_declaration(decl.typ, name), comment
 end
 
@@ -466,7 +466,7 @@ function Coder:lua_entry_point_definition(f_id)
 
     local type_checks = {}
     for i, typ in ipairs(arg_types) do
-        local name = func.vars[i].comment
+        local name = func.vars[i].name
         local check_tag =
             self:check_tag(typ, "slot", func.loc, "argument %s", C.string(name))
         if check_tag ~= ""  then
