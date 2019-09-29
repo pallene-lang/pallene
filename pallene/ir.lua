@@ -157,9 +157,10 @@ declare_type("Cmd", {
 
     Return  = {},
     Break   = {},
-    If      = {"condition", "then_", "else_"},
     Loop    = {"body"},
-    For     = {"typ", "loop_var", "start", "limit", "step", "body"},
+
+    If      = {"loc", "condition", "then_", "else_"},
+    For     = {"loc", "typ", "loop_var", "start", "limit", "step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
