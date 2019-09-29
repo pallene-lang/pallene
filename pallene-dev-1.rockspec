@@ -38,6 +38,7 @@ build = {
       ["pallene.to_ir"] =          "pallene/to_ir.lua",
       ["pallene.typedecl"] =       "pallene/typedecl.lua",
       ["pallene.types"] =          "pallene/types.lua",
+      ["pallene.uninitialized"] =  "pallene/uninitialized.lua",
       ["pallene.util"] =           "pallene/util.lua",
    },
    install = {

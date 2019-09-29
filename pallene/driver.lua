@@ -2,9 +2,9 @@ local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
 local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
-local ir = require "pallene.ir"
 local parser = require "pallene.parser"
 local to_ir = require "pallene.to_ir"
+local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
 
 local driver = {}
@@ -58,6 +58,11 @@ function driver.compile_internal(filename, stop_after)
 
     module, errs = to_ir.convert(module)
     if stop_after == "to_ir" or not module then
+        return module, errs
+    end
+
+    module, errs = uninitialized.verify_variables(module)
+    if stop_after == "uninitialized" or not module then
         return module, errs
     end
 

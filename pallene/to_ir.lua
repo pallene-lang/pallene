@@ -114,10 +114,12 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        local cname = stat.decl._name
-        assert(cname._tag == "checker.Name.Local")
-        local v = cname.id
-        self:exp_to_assignment(cmds, v, stat.exp)
+        if stat.exp then
+            local cname = stat.decl._name
+            assert(cname._tag == "checker.Name.Local")
+            local v = cname.id
+            self:exp_to_assignment(cmds, v, stat.exp)
+        end
 
     elseif tag == "ast.Stat.Call" then
         self:exp_to_assignment(cmds, false, stat.call_exp)

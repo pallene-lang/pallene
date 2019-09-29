@@ -192,6 +192,16 @@ describe("Pallene type checker", function()
             "expected string but found integer in assignment")
     end)
 
+    it("requires a type annotation for an uninitialized variable", function()
+        assert_error([[
+            function fn(): integer
+                local x
+                x = 10
+                return x
+            end
+        ]], "uninitialized variable 'x' needs a type annotation")
+    end)
+
     it("catches mismatching types in arguments", function()
         assert_error([[
             function fn(i: integer, s: string): integer
@@ -442,44 +452,6 @@ describe("Pallene type checker", function()
             end
         ]],
             "expected integer but found string in return statement")
-    end)
-
-    it("detects missing return statements", function()
-        local code = {[[
-            function fn(): integer
-            end
-        ]],
-        [[
-            function getval(a:integer): integer
-                if a == 1 then
-                    return 10
-                elseif a == 2 then
-                else
-                    return 30
-                end
-            end
-        ]],
-        [[
-            function getval(a:integer): integer
-                if a == 1 then
-                    return 10
-                elseif a == 2 then
-                    return 20
-                else
-                    if a < 5 then
-                        if a == 3 then
-                            return 30
-                        end
-                    else
-                        return 50
-                    end
-                end
-            end
-        ]],
-        }
-        for _, c in ipairs(code) do
-            assert_error(c,"control reaches end of function with non-empty return type")
-        end
     end)
 
     it("rejects void functions in expression contexts", function()

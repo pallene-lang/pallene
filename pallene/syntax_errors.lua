@@ -125,8 +125,6 @@ local errors = {
 
     DeclLocal = "Expected variable declaration after 'local'.",
 
-    AssignLocal = "Expected '=' after variable declaration.",
-
     ExpLocal = "Expected an expression after '='.",
 
     AssignAssign = "Expected '=' after variable.",
