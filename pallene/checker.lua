@@ -308,7 +308,7 @@ function FunChecker:init(p, f_id)
 end
 
 function FunChecker:add_local(name, typ)
-    local l_id = ir.add_local(self.func, typ, name)
+    local l_id = ir.add_local(self.func, name, typ)
     self.p.symbol_table:add_symbol(name, checker.Name.Local(l_id))
     return l_id
 end

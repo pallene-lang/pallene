@@ -34,10 +34,10 @@ function ir.Module()
     }
 end
 
-function ir.VarDecl(typ, name)
+function ir.VarDecl(name, typ)
     return {
+        name = name, -- string
         typ = typ,   -- Type
-        name = name  -- string
     }
 end
 
@@ -66,7 +66,7 @@ function ir.add_function(module, loc, name, typ, body)
 end
 
 function ir.add_global(module, name, typ)
-    table.insert(module.globals, ir.VarDecl(typ, name))
+    table.insert(module.globals, ir.VarDecl(name, typ))
     return #module.globals
 end
 
@@ -78,8 +78,8 @@ end
 -- Function variables
 --
 
-function ir.add_local(func, typ, name)
-    table.insert(func.vars, ir.VarDecl(typ, name))
+function ir.add_local(func, name, typ)
+    table.insert(func.vars, ir.VarDecl(name, typ))
     return #func.vars
 end
 

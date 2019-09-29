@@ -261,7 +261,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
     end
 
     -- Otherwise we need to create a temporary variable
-    local v = ir.add_local(self.func, exp._type)
+    local v = ir.add_local(self.func, false, exp._type)
     self:exp_to_assignment(cmds, v, exp)
     return ir.Value.LocalVar(v)
 end
