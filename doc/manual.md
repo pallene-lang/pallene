@@ -195,7 +195,7 @@ Creates an alias for a previously-declared type with the following syntax:
 type <name> = <type>
 ```
 
-Type alias in Pallene curretly cannot be used to declare recursive types, such as:
+Type alias in Pallene currently cannot be used to declare recursive types, such as:
 
 ```
 type T = {T}
@@ -272,6 +272,15 @@ Unlike languages like C or Java, Pallene does not require type annotations on ev
 It uses a bidirectional type-checking system that is able to infer the types of almost all variables and expressions.
 Roughly speaking, you must include type annotations for the parameters and return types of toplevel functions, and almost everything else can be inferred from that.
 For example, notice how the `sum_floats` from the Brief Overview section does not include a type annotation for the `result` and `i` variables.
+
+If a local variable declaration doesn't have an initializer, it must have a type annotation
+```
+function contrived(): integer
+    local x:integer
+    x = 10
+    return x
+end
+```
 
 ### Automatic type coercions
 
