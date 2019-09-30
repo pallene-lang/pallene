@@ -288,7 +288,10 @@ end
 --   - Seq commans w/ only one element
 function ir.clean(cmd)
     local tag = cmd._tag
-    if tag == "ir.Cmd.Seq" then
+    if tag == "ir.Cmd.Nop" then
+        return cmd
+
+    elseif tag == "ir.Cmd.Seq" then
         local out = {}
         for _, c in ipairs(cmd.cmds) do
             c = ir.clean(c)
@@ -312,6 +315,8 @@ function ir.clean(cmd)
 
     elseif tag == "ir.Cmd.If" then
         local v = cmd.condition
+        cmd.then_ = ir.clean(cmd.then_)
+        cmd.else_ = ir.clean(cmd.else_)
         local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")
         local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
 
@@ -324,6 +329,14 @@ function ir.clean(cmd)
         else
             return cmd
         end
+
+    elseif tag == "ir.Cmd.Loop" then
+        cmd.body = ir.clean(cmd.body)
+        return cmd
+
+    elseif tag == "ir.Cmd.For" then
+        cmd.body = ir.clean(cmd.body)
+        return cmd
 
     else
         return cmd
