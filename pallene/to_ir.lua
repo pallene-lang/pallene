@@ -131,6 +131,9 @@ function ToIR:convert_stat(cmds, stat)
         end
         table.insert(cmds, ir.Cmd.Return())
 
+    elseif tag == "ast.Stat.Break" then
+        table.insert(cmds, ir.Cmd.Break())
+
     else
         error("impossible")
     end

@@ -930,7 +930,6 @@ describe("Pallene parser", function()
         assert_type_syntax_error([[ (a, b) -> = nil ]],
             "Expected return types after `->` to finish the function type")
 
-
         assert_program_syntax_error([[
             record A
                 x  int
@@ -1108,5 +1107,13 @@ describe("Pallene parser", function()
 
         assert_expression_syntax_error([[ foo as ]],
             "Expected a type for the cast expression")
+    end)
+
+    it("catches break statements outside loops", function()
+        assert_program_syntax_error([[
+            function fn()
+                break
+            end
+        ]], "break statement outside loop")
     end)
 end)

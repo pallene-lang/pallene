@@ -303,6 +303,7 @@ local grammar = re.compile([[
                            DO^DoFor block END^EndFor)            -> StatFor
                      / (P  LOCAL decl^DeclLocal
                                  (ASSIGN exp^ExpLocal)? ->opt)   -> StatDecl
+                     / (P  BREAK)                                -> StatBreak
                      / (P  var ASSIGN^AssignAssign
                                exp^ExpAssign)                    -> StatAssign
                      / &(exp ASSIGN) %{AssignNotToVar}
@@ -485,10 +486,31 @@ local grammar = re.compile([[
 
 ]], defs)
 
-local function parser_error(loc, label)
-    local err_msg = syntax_errors.errors[label]
+local function syntax_error(loc, err_msg)
     return location.format_error(loc, "syntax error: %s", err_msg)
 end
+
+local function find_breaks_outside_loops(root_stat)
+    local bad_breaks = {}
+    local function find_errors(stat)
+        local tag = stat._tag
+        if     tag == "ast.Stat.Break" then
+            table.insert(bad_breaks, stat)
+        elseif tag == "ast.Stat.Block" then
+            for i = 1, #stat.stats do
+                find_errors(stat.stats[i])
+            end
+        elseif tag == "ast.Stat.If" then
+            find_errors(stat.then_)
+            find_errors(stat.else_)
+        else
+            -- ok
+        end
+    end
+    find_errors(root_stat)
+    return bad_breaks
+end
+
 
 function parser.parse(file_name, input)
     -- Abort if someone calls this non-reentrant parser recursively
@@ -499,12 +521,27 @@ function parser.parse(file_name, input)
     local prog_ast, err, errpos = grammar:match(input)
     THIS_FILENAME = nil
 
-    local errors = {}
     if not prog_ast then
         local loc = location.from_pos(file_name, input, errpos)
-        table.insert(errors, parser_error(loc, err))
+        local errors = { syntax_error(loc, syntax_errors.errors[err]) }
+        return false, errors
     end
-    return prog_ast, errors
+
+    local break_errors = {}
+    for _, tl_node in ipairs(prog_ast) do
+        if tl_node._tag == "ast.Toplevel.Func" then
+            local body = tl_node.value.body
+            for _, stat in ipairs(find_breaks_outside_loops(body)) do
+                table.insert(break_errors,
+                    syntax_error(stat.loc, "break statement outside loop"))
+            end
+        end
+    end
+    if #break_errors > 0 then
+        return false, break_errors
+    end
+
+    return prog_ast, {}
 end
 
 function parser.pretty_print_ast(prog_ast)
