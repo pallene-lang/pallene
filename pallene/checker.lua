@@ -212,93 +212,90 @@ function Checker:check_program(prog_ast)
         end
     end
 
-    self.symbol_table:with_block(function()
+    -- Add builtins to symbol table.
+    -- (The order does not matter because they are distinct)
+    for name, _ in pairs(builtins) do
+        self:add_builtin(name)
+    end
 
-        -- Add builtins to symbol table.
-        -- (The order does not matter because they are distinct)
-        for name, _ in pairs(builtins) do
-            self:add_builtin(name)
-        end
+    -- Add a special entry for tofloat which can never be shadowed
+    -- and is therefore always visible.
+    self.symbol_table:add_symbol(
+        "$tofloat",
+        checker.Name.Builtin("tofloat"))
 
-        -- Add a special entry for tofloat which can never be shadowed
-        -- and is therefore always visible.
-        self.symbol_table:add_symbol(
-            "$tofloat",
-            checker.Name.Builtin("tofloat"))
+    local toplevel_f_id = self:add_function(
+        false,
+        "$init",
+        types.T.Function({}, {}),
+        ast.Stat.Block(false, {})
+    )
+    assert(toplevel_f_id == 1) -- coder currently assumes this
+    local toplevel_stats = self.module.functions[toplevel_f_id].body.stats
+    local toplevel_fun_checker = FunChecker.new(self, toplevel_f_id)
 
-        local toplevel_f_id = self:add_function(
-            false,
-            "$init",
-            types.T.Function({}, {}),
-            ast.Stat.Block(false, {})
-        )
-        assert(toplevel_f_id == 1) -- coder currently assumes this
-        local toplevel_stats = self.module.functions[toplevel_f_id].body.stats
-        local toplevel_fun_checker = FunChecker.new(self, toplevel_f_id)
+    -- Check toplevel
+    for _, tl_node in ipairs(prog_ast) do
+        local tag = tl_node._tag
+        if     tag == "ast.Toplevel.Import" then
+            type_error(tl_node.loc, "modules are not implemented yet")
 
-        -- Check toplevel
-        for _, tl_node in ipairs(prog_ast) do
-            local tag = tl_node._tag
-            if     tag == "ast.Toplevel.Import" then
-                type_error(tl_node.loc, "modules are not implemented yet")
+        elseif tag == "ast.Toplevel.Var" then
+            local loc = tl_node.loc
+            local value = tl_node.value
+            local name = tl_node.decl.name
+            local ast_type = tl_node.decl.type
 
-            elseif tag == "ast.Toplevel.Var" then
-                local loc = tl_node.loc
-                local value = tl_node.value
-                local name = tl_node.decl.name
-                local ast_type = tl_node.decl.type
+            local exp = toplevel_fun_checker:check_initializer_exp(
+                value, ast_type,
+                "declaration of module variable %s", name)
+            local _ = self:add_global(name, exp._type)
+            local var = ast.Var.Name(loc, name)
+            toplevel_fun_checker:check_var(var)
+            table.insert(toplevel_stats,
+                ast.Stat.Assign(loc, var, exp))
 
-                local exp = toplevel_fun_checker:check_initializer_exp(
-                    value, ast_type,
-                    "declaration of module variable %s", name)
-                local _ = self:add_global(name, exp._type)
-                local var = ast.Var.Name(loc, name)
-                toplevel_fun_checker:check_var(var)
-                table.insert(toplevel_stats,
-                    ast.Stat.Assign(loc, var, exp))
+        elseif tag == "ast.Toplevel.Func" then
+            local loc = tl_node.loc
+            local func_name = tl_node.decl.name
+            local func_typ  = self:from_ast_type(tl_node.decl.type)
+            local func_lambda = tl_node.value
 
-            elseif tag == "ast.Toplevel.Func" then
-                local loc = tl_node.loc
-                local func_name = tl_node.decl.name
-                local func_typ  = self:from_ast_type(tl_node.decl.type)
-                local func_lambda = tl_node.value
-
-                local f_id = self:add_function(
-                    loc,
-                    func_name,
-                    func_typ,
-                    func_lambda.body)
-                if not tl_node.is_local then
-                    ir.add_export(self.module, f_id)
-                end
-
-                local fun_checker = FunChecker.new(self, f_id)
-                fun_checker:check_function(func_lambda, func_typ)
-
-            elseif tag == "ast.Toplevel.Typealias" then
-                local name = tl_node.name
-                local typ = self:from_ast_type(tl_node.type)
-                self.symbol_table:add_symbol(name, checker.Name.Type(typ))
-
-            elseif tag == "ast.Toplevel.Record" then
-                local name = tl_node.name
-                local field_names = {}
-                local field_types = {}
-                for _, field_decl in ipairs(tl_node.field_decls) do
-                    local field_name = field_decl.name
-                    local typ = self:from_ast_type(field_decl.type)
-                    table.insert(field_names, field_name)
-                    field_types[field_name] = typ
-                end
-
-                local typ = types.T.Record(name, field_names, field_types)
-                self:add_record_type(name, typ)
-
-            else
-                error("impossible")
+            local f_id = self:add_function(
+                loc,
+                func_name,
+                func_typ,
+                func_lambda.body)
+            if not tl_node.is_local then
+                ir.add_export(self.module, f_id)
             end
+
+            local fun_checker = FunChecker.new(self, f_id)
+            fun_checker:check_function(func_lambda, func_typ)
+
+        elseif tag == "ast.Toplevel.Typealias" then
+            local name = tl_node.name
+            local typ = self:from_ast_type(tl_node.type)
+            self.symbol_table:add_symbol(name, checker.Name.Type(typ))
+
+        elseif tag == "ast.Toplevel.Record" then
+            local name = tl_node.name
+            local field_names = {}
+            local field_types = {}
+            for _, field_decl in ipairs(tl_node.field_decls) do
+                local field_name = field_decl.name
+                local typ = self:from_ast_type(field_decl.type)
+                table.insert(field_names, field_name)
+                field_types[field_name] = typ
+            end
+
+            local typ = types.T.Record(name, field_names, field_types)
+            self:add_record_type(name, typ)
+
+        else
+            error("impossible")
         end
-    end)
+    end
 
     return self.module
 end

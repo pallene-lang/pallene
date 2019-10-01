@@ -2,7 +2,7 @@ local util = require "pallene.util"
 
 local Symtab = util.Class()
 function Symtab:init()
-    self.blocks = {}
+    self.blocks = { {} }
 end
 
 function Symtab:open_block()
@@ -33,14 +33,6 @@ function Symtab:find_symbol(name)
         end
     end
     return nil
-end
-
--- Determine if the given name is already being defined in the current scope.
--- This is necessary in cases where shadowing other definitions in the same
--- scope is not allowed, but shadowing outer definitions is ok. For example,
--- function argument names.
-function Symtab:find_dup(name)
-    return self.blocks[#self.blocks][name]
 end
 
 return Symtab
