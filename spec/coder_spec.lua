@@ -1204,4 +1204,57 @@ describe("Pallene coder /", function()
             ]])
         end)
     end)
+
+    describe("Uninitialized variables", function()
+        setup(compile([[
+            function sign(x: integer): integer
+                local ret: integer
+                if     x  < 0 then
+                    ret = -1
+                elseif x == 0 then
+                    ret = 0
+                else
+                    ret = 1
+                end
+                return ret
+            end
+
+            function non_breaking_loop(): integer
+                local i = 1
+                while true do
+                    if i == 42 then return i end
+                    i = i + 1
+                end
+            end
+
+            function initialize_inside_loop(): integer
+                local x: integer
+                repeat
+                    x = 17
+                until true
+                return x
+            end
+        ]]))
+
+        it("can be used", function()
+            run_test([[
+                assert(-1 == test.sign(-10))
+                assert( 0 == test.sign(0))
+                assert( 1 == test.sign(10))
+            ]])
+        end)
+
+        it("infinite loops don't fall through", function()
+            run_test([[
+                assert(42 == test.non_breaking_loop())
+            ]])
+        end)
+
+        it("can initialize inside loops", function()
+            run_test([[
+                assert(17 == test.initialize_inside_loop())
+            ]])
+        end)
+
+    end)
 end)

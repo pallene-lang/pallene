@@ -1045,10 +1045,6 @@ describe("Pallene parser", function()
         ]], "Expected variable declaration after 'local'.")
 
         assert_statements_syntax_error([[
-            local x  3
-        ]], "Expected '=' after variable declaration.")
-
-        assert_statements_syntax_error([[
             local x =
         ]], "Expected an expression after '='.")
 

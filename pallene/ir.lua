@@ -34,10 +34,10 @@ function ir.Module()
     }
 end
 
-function ir.VarDecl(typ, comment)
+function ir.VarDecl(name, typ)
     return {
-        typ = typ,          -- Type
-        comment = comment   -- string (variable name, location, etc)
+        name = name, -- string
+        typ = typ,   -- Type
     }
 end
 
@@ -66,7 +66,7 @@ function ir.add_function(module, loc, name, typ, body)
 end
 
 function ir.add_global(module, name, typ)
-    table.insert(module.globals, ir.VarDecl(typ, name))
+    table.insert(module.globals, ir.VarDecl(name, typ))
     return #module.globals
 end
 
@@ -78,8 +78,8 @@ end
 -- Function variables
 --
 
-function ir.add_local(func, typ, comment)
-    table.insert(func.vars, ir.VarDecl(typ, comment))
+function ir.add_local(func, name, typ)
+    table.insert(func.vars, ir.VarDecl(name, typ))
     return #func.vars
 end
 
@@ -157,9 +157,10 @@ declare_type("Cmd", {
 
     Return  = {},
     Break   = {},
-    If      = {"condition", "then_", "else_"},
     Loop    = {"body"},
-    For     = {"typ", "loop_var", "start", "limit", "step", "body"},
+
+    If      = {"loc", "condition", "then_", "else_"},
+    For     = {"loc", "typ", "loop_var", "start", "limit", "step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -287,7 +288,10 @@ end
 --   - Seq commans w/ only one element
 function ir.clean(cmd)
     local tag = cmd._tag
-    if tag == "ir.Cmd.Seq" then
+    if tag == "ir.Cmd.Nop" then
+        return cmd
+
+    elseif tag == "ir.Cmd.Seq" then
         local out = {}
         for _, c in ipairs(cmd.cmds) do
             c = ir.clean(c)
@@ -311,6 +315,8 @@ function ir.clean(cmd)
 
     elseif tag == "ir.Cmd.If" then
         local v = cmd.condition
+        cmd.then_ = ir.clean(cmd.then_)
+        cmd.else_ = ir.clean(cmd.else_)
         local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")
         local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
 
@@ -323,6 +329,14 @@ function ir.clean(cmd)
         else
             return cmd
         end
+
+    elseif tag == "ir.Cmd.Loop" then
+        cmd.body = ir.clean(cmd.body)
+        return cmd
+
+    elseif tag == "ir.Cmd.For" then
+        cmd.body = ir.clean(cmd.body)
+        return cmd
 
     else
         return cmd

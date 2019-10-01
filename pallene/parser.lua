@@ -301,8 +301,8 @@ local grammar = re.compile([[
                            COMMA^CommaFor exp^Exp2For
                            (COMMA exp^Exp3For)?                  -> opt
                            DO^DoFor block END^EndFor)            -> StatFor
-                     / (P  LOCAL decl^DeclLocal ASSIGN^AssignLocal
-                                 exp^ExpLocal)                   -> StatDecl
+                     / (P  LOCAL decl^DeclLocal
+                                 (ASSIGN exp^ExpLocal)? ->opt)   -> StatDecl
                      / (P  var ASSIGN^AssignAssign
                                exp^ExpAssign)                    -> StatAssign
                      / &(exp ASSIGN) %{AssignNotToVar}

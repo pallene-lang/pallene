@@ -162,38 +162,6 @@ function Checker:from_ast_type(ast_typ)
     end
 end
 
--- Does this statement always call "return"?
-local function stat_always_returns(stat)
-    local tag = stat._tag
-    if     tag == "ast.Stat.Decl" then
-        return false
-    elseif tag == "ast.Stat.Block" then
-        for _, inner_stat in ipairs(stat.stats) do
-            if stat_always_returns(inner_stat) then
-                return true
-            end
-        end
-        return false
-    elseif tag == "ast.Stat.While" then
-        return false
-    elseif tag == "ast.Stat.Repeat" then
-        return false
-    elseif tag == "ast.Stat.For" then
-        return false
-    elseif tag == "ast.Stat.Assign" then
-        return false
-    elseif tag == "ast.Stat.Call"  then
-        return false
-    elseif tag == "ast.Stat.Return" then
-        return true
-    elseif tag == "ast.Stat.If" then
-        return stat_always_returns(stat.then_) and
-                stat_always_returns(stat.else_)
-    else
-        error("impossible")
-    end
-end
-
 function Checker:check_program(prog_ast)
 
     do
@@ -244,12 +212,10 @@ function Checker:check_program(prog_ast)
             local loc = tl_node.loc
             local value = tl_node.value
             local name = tl_node.decl.name
-            local ast_type = tl_node.decl.type
-
-            local exp = toplevel_fun_checker:check_initializer_exp(
-                value, ast_type,
+            local typ, exp = toplevel_fun_checker:check_initializer_exp(
+                tl_node.decl, value,
                 "declaration of module variable %s", name)
-            local _ = self:add_global(name, exp._type)
+            local _ = self:add_global(name, typ)
             local var = ast.Var.Name(loc, name)
             toplevel_fun_checker:check_var(var)
             table.insert(toplevel_stats,
@@ -308,7 +274,7 @@ function FunChecker:init(p, f_id)
 end
 
 function FunChecker:add_local(name, typ)
-    local l_id = ir.add_local(self.func, typ, name)
+    local l_id = ir.add_local(self.func, name, typ)
     self.p.symbol_table:add_symbol(name, checker.Name.Local(l_id))
     return l_id
 end
@@ -339,23 +305,16 @@ function FunChecker:check_function(lambda, func_typ)
 
         local body = self.func.body
         self:check_stat(body)
-
-        if #func_typ.ret_types > 0 and
-            not stat_always_returns(body)
-        then
-            type_error(lambda.loc,
-                "control reaches end of function with non-empty return type")
-        end
-
     end)
 end
 
 function FunChecker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
-        stat.exp = self:check_initializer_exp(stat.exp, stat.decl.type,
+        local typ
+        typ, stat.exp = self:check_initializer_exp(stat.decl, stat.exp,
             "declaration of local variable %s", stat.decl.name)
-        self:add_local(stat.decl.name, stat.exp._type)
+        self:add_local(stat.decl.name, typ)
         stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
 
     elseif tag == "ast.Stat.Block" then
@@ -384,9 +343,9 @@ function FunChecker:check_stat(stat)
 
     elseif tag == "ast.Stat.For" then
 
-        stat.start = self:check_initializer_exp(stat.start, stat.decl.type,
+        local loop_type
+        loop_type, stat.start = self:check_initializer_exp(stat.decl, stat.start,
             "numeric for-loop initializer")
-        local loop_type = stat.start._type
 
         if  loop_type._tag ~= "types.T.Integer" and
             loop_type._tag ~= "types.T.Float"
@@ -863,12 +822,23 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
 end
 
 -- Checks `x : ast_typ = exp`, where ast_typ my be optional
-function FunChecker:check_initializer_exp(exp, ast_typ, err_fmt, ...)
-    if ast_typ then
-        local typ = self.p:from_ast_type(ast_typ)
-        return self:check_exp_verify(exp, typ, err_fmt, ...)
+function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
+    if decl.type then
+        local typ = self.p:from_ast_type(decl.type)
+        if exp then
+            return typ, self:check_exp_verify(exp, typ, err_fmt, ...)
+        else
+            return typ, false
+        end
     else
-        return self:check_exp_synthesize(exp)
+        if exp then
+            local e = self:check_exp_synthesize(exp)
+            return e._type, e
+        else
+            type_error(decl.loc, string.format(
+                "uninitialized variable '%s' needs a type annotation",
+                decl.name))
+        end
     end
 end
 
