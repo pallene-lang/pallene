@@ -1060,6 +1060,8 @@ describe("Pallene coder /", function()
 
             local x = 10
 
+            type y = integer
+
             ------
 
             function local_type(): integer
@@ -1070,6 +1072,14 @@ describe("Pallene coder /", function()
             function local_initializer(): integer
                 local x = x + 1
                 return x
+            end
+
+            function for_type_annotation(): integer
+                local res = 0
+                for y:y = 1, 10 do
+                    res = res + y
+                end
+                return res
             end
 
             function for_initializer(): integer
@@ -1094,10 +1104,9 @@ describe("Pallene coder /", function()
             run_test([[ assert( 11 == test.local_initializer() ) ]])
         end)
 
-        -- See Issue #94
-        --it("for loop variable scope doesn't shadow its type annotation", function()
-        --    pending("todo (type aliases)")
-        --end)
+        it("for loop variable scope doesn't shadow its type annotation", function()
+            run_test([[ assert( 55 == test.for_type_annotation() ) ]])
+        end)
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
