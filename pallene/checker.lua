@@ -839,7 +839,6 @@ function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
                 "uninitialized variable '%s' needs a type annotation",
                 decl.name))
         end
-
     end
 end
 

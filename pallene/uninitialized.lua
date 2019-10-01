@@ -51,7 +51,7 @@ local function test(cmd, uninit, loop)
 
     local function check_use(v)
         if uninit[v] then
-            coroutine.yield({ v = v, cmd = cmd})
+            coroutine.yield({v = v, cmd = cmd})
         end
     end
 

@@ -1234,7 +1234,6 @@ describe("Pallene coder /", function()
                 until true
                 return x
             end
-
         ]]))
 
         it("can be used", function()
