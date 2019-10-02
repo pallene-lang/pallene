@@ -638,14 +638,16 @@ describe("Pallene coder /", function()
                 while true do
                     while true do
                         break
+                        return 10
                     end
                     if x then
                         break
+                        return 20
                     else
-                        return 10
+                        return 30
                     end
                 end
-                return 20
+                return 40
             end
 
         ]]))
@@ -702,7 +704,7 @@ describe("Pallene coder /", function()
             run_test([[ assert(1 == test.break_for()) ]])
         end)
         it("Nested break", function()
-            run_test([[ assert(20 == test.nested_break(true)) ]])
+            run_test([[ assert(40 == test.nested_break(true)) ]])
         end)
 
 
