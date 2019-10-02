@@ -633,6 +633,21 @@ describe("Pallene coder /", function()
                 end
                 return x
             end
+
+            function nested_break(x:boolean): integer
+                while true do
+                    while true do
+                        break
+                    end
+                    if x then
+                        break
+                    else
+                        return 10
+                    end
+                end
+                return 20
+            end
+
         ]]))
 
         it("Block, Assign, Decl", function()
@@ -686,6 +701,10 @@ describe("Pallene coder /", function()
         it("Break for loop", function()
             run_test([[ assert(1 == test.break_for()) ]])
         end)
+        it("Nested break", function()
+            run_test([[ assert(20 == test.nested_break(true)) ]])
+        end)
+
 
     end)
 

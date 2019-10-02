@@ -503,8 +503,6 @@ local function find_breaks_outside_loops(root_stat)
         elseif tag == "ast.Stat.If" then
             find_errors(stat.then_)
             find_errors(stat.else_)
-        else
-            -- ok
         end
     end
     find_errors(root_stat)

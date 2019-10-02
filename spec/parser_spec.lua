@@ -1116,4 +1116,19 @@ describe("Pallene parser", function()
             end
         ]], "break statement outside loop")
     end)
+
+    it("catches break statements outside loops but inside other statements", function()
+        assert_program_syntax_error([[
+            function fn(x:boolean)
+                do
+                    if x then
+                        break
+                    else
+                        break
+                    end
+                end
+            end
+        ]], "break statement outside loop")
+    end)
+
 end)
