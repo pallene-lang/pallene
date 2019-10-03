@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.h,v 2.51 2018/02/23 13:13:31 roberto Exp $
+** $Id: lvm.h $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -84,7 +84,7 @@
 #define luaV_fastgeti(L,t,k,slot) \
   (!ttistable(t)  \
    ? (slot = NULL, 0)  /* not a table; 'slot' is NULL and result is 0 */  \
-   : (slot = (l_castS2U(k) - 1u < hvalue(t)->sizearray) \
+   : (slot = (l_castS2U(k) - 1u < hvalue(t)->alimit) \
               ? &hvalue(t)->array[k - 1] : luaH_getint(hvalue(t), k), \
       !isempty(slot)))  /* result not empty? */
 
@@ -114,8 +114,9 @@ LUAI_FUNC void luaV_finishset (lua_State *L, const TValue *t, TValue *key,
 LUAI_FUNC void luaV_finishOp (lua_State *L);
 LUAI_FUNC void luaV_execute (lua_State *L, CallInfo *ci);
 LUAI_FUNC void luaV_concat (lua_State *L, int total);
-LUAI_FUNC lua_Integer luaV_div (lua_State *L, lua_Integer x, lua_Integer y);
+LUAI_FUNC lua_Integer luaV_idiv (lua_State *L, lua_Integer x, lua_Integer y);
 LUAI_FUNC lua_Integer luaV_mod (lua_State *L, lua_Integer x, lua_Integer y);
+LUAI_FUNC lua_Number luaV_modf (lua_State *L, lua_Number x, lua_Number y);
 LUAI_FUNC lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y);
 LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
 

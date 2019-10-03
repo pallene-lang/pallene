@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.h,v 2.141 2018/02/26 14:16:05 roberto Exp $
+** $Id: lobject.h $
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -89,8 +89,8 @@ typedef struct TValue {
 #define righttt(obj)		(ttypetag(obj) == gcvalue(obj)->tt)
 
 #define checkliveness(L,obj) \
-	lua_longassert(!iscollectable(obj) || \
-		(righttt(obj) && (L == NULL || !isdead(G(L),gcvalue(obj)))))
+	((void)L, lua_longassert(!iscollectable(obj) || \
+		(righttt(obj) && (L == NULL || !isdead(G(L),gcvalue(obj))))))
 
 
 /* Macros to set values */
@@ -100,7 +100,7 @@ typedef struct TValue {
 #define setobj(L,obj1,obj2) \
 	{ TValue *io1=(obj1); const TValue *io2=(obj2); \
           io1->value_ = io2->value_; io1->tt_ = io2->tt_; \
-	  (void)L; checkliveness(L,io1); lua_assert(!isreallyempty(io1)); }
+	  checkliveness(L,io1); lua_assert(!isreallyempty(io1)); }
 
 /*
 ** different types of assignments, according to destination
@@ -137,16 +137,14 @@ typedef StackValue *StkId;  /* index to stack elements */
 ** ===================================================================
 */
 
-#define ttisnil(o)		checktag((o), LUA_TNIL)
+/* macro to test for (any kind of) nil */
+#define ttisnil(v)		checktype((v), LUA_TNIL)
 
-/* macro defining a nil value */
-#define NILCONSTANT	{NULL}, LUA_TNIL
+/* macro to test for a "pure" nil */
+#define ttisstrictnil(o)	checktag((o), LUA_TNIL)
+
 
 #define setnilvalue(obj) settt_(obj, LUA_TNIL)
-
-
-/* (address of) a fixed nil value */
-#define luaO_nilobject		(&luaO_nilobject_)
 
 
 /*
@@ -155,23 +153,32 @@ typedef StackValue *StkId;  /* index to stack elements */
 */
 #define LUA_TEMPTY	(LUA_TNIL | (1 << 4))
 
-#define ttisnilorempty(v)	checktype((v), LUA_TNIL)
+/*
+** Variant used only in the value returned for a key not found in a
+** table (absent key).
+*/
+#define LUA_TABSTKEY	(LUA_TNIL | (2 << 4))
 
-#define isreallyempty(v)	checktag((v), LUA_TEMPTY)
+
+#define isabstkey(v)		checktag((v), LUA_TABSTKEY)
 
 
-#if defined(LUA_NILINTABLE)
+/*
+** macro to detect non-standard nils (used only in assertions)
+*/
+#define isreallyempty(v)	(ttisnil(v) && !ttisstrictnil(v))
 
-#define isempty(v)		isreallyempty(v)
 
-#else /* By default, entries with any kind of nil are considered empty */
+/*
+** By default, entries with any kind of nil are considered empty.
+** (In any definition, values associated with absent keys must also
+** be accepted as empty.)
+*/
+#define isempty(v)		ttisnil(v)
 
-#define isempty(v)		ttisnilorempty(v)
 
-#endif
-
-/* macro defining an empty value */
-#define EMPTYCONSTANT	{NULL}, LUA_TEMPTY
+/* macro defining a value corresponding to an absent key */
+#define ABSTKEYCONSTANT		{NULL}, LUA_TABSTKEY
 
 
 /* mark an entry as empty */
@@ -343,21 +350,13 @@ typedef struct TString {
 } TString;
 
 
-/*
-** Ensures that address after this type is always fully aligned.
-*/
-typedef union UTString {
-  LUAI_MAXALIGN;  /* ensures maximum alignment for strings */
-  TString tsv;
-} UTString;
-
 
 /*
 ** Get the actual string (array of bytes) from a 'TString'.
 ** (Access to 'extra' ensures that value is really a 'TString'.)
 */
 #define getstr(ts)  \
-  check_exp(sizeof((ts)->extra), cast_charp((ts)) + sizeof(UTString))
+  check_exp(sizeof((ts)->extra), cast_charp((ts)) + sizeof(TString))
 
 
 /* get the actual string (array of bytes) from a Lua value */
@@ -461,6 +460,7 @@ typedef struct Upvaldesc {
   TString *name;  /* upvalue name (for debug information) */
   lu_byte instack;  /* whether it is in stack (register) */
   lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
+  lu_byte kind;  /* kind of corresponding variable */
 } Upvaldesc;
 
 
@@ -498,7 +498,6 @@ typedef struct Proto {
   lu_byte numparams;  /* number of fixed (named) parameters */
   lu_byte is_vararg;
   lu_byte maxstacksize;  /* number of registers needed by this function */
-  lu_byte cachemiss;  /* count for successive misses for 'cache' field */
   int sizeupvalues;  /* size of 'upvalues' */
   int sizek;  /* size of 'k' */
   int sizecode;
@@ -509,7 +508,6 @@ typedef struct Proto {
   int linedefined;  /* debug information  */
   int lastlinedefined;  /* debug information  */
   TValue *k;  /* constants used by the function */
-  struct LClosure *cache;  /* last-created closure with this prototype */
   Instruction *code;  /* opcodes */
   struct Proto **p;  /* functions defined inside the function */
   Upvaldesc *upvalues;  /* upvalue information */
@@ -570,6 +568,7 @@ typedef struct Proto {
 */
 typedef struct UpVal {
   CommonHeader;
+  lu_byte tbc;  /* true if it represents a to-be-closed variable */
   TValue *v;  /* points to stack or to its own value */
   union {
     struct {  /* (when open) */
@@ -579,6 +578,7 @@ typedef struct UpVal {
     TValue value;  /* the value (when closed) */
   } u;
 } UpVal;
+
 
 
 #define ClosureHeader \
@@ -649,21 +649,34 @@ typedef union Node {
 #define setnodekey(L,node,obj) \
 	{ Node *n_=(node); const TValue *io_=(obj); \
 	  n_->u.key_val = io_->value_; n_->u.key_tt = io_->tt_; \
-	  (void)L; checkliveness(L,io_); }
+	  checkliveness(L,io_); }
 
 
 /* copy a value from a key */
 #define getnodekey(L,obj,node) \
 	{ TValue *io_=(obj); const Node *n_=(node); \
 	  io_->value_ = n_->u.key_val; io_->tt_ = n_->u.key_tt; \
-	  (void)L; checkliveness(L,io_); }
+	  checkliveness(L,io_); }
+
+
+/*
+** About 'alimit': if 'isrealasize(t)' is true, then 'alimit' is the
+** real size of 'array'. Otherwise, the real size of 'array' is the
+** smallest power of two not smaller than 'alimit' (or zero iff 'alimit'
+** is zero); 'alimit' is then used as a hint for #t.
+*/
+
+#define BITRAS		(1 << 7)
+#define isrealasize(t)		(!((t)->marked & BITRAS))
+#define setrealasize(t)		((t)->marked &= cast_byte(~BITRAS))
+#define setnorealasize(t)	((t)->marked |= BITRAS)
 
 
 typedef struct Table {
   CommonHeader;
   lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
   lu_byte lsizenode;  /* log2 of size of 'node' array */
-  unsigned int sizearray;  /* size of 'array' array */
+  unsigned int alimit;  /* "limit" of 'array' array */
   TValue *array;  /* array part */
   Node *node;
   Node *lastfree;  /* any free position is before this position */
@@ -716,13 +729,9 @@ typedef struct Table {
 #define sizenode(t)	(twoto((t)->lsizenode))
 
 
-LUAI_DDEC const TValue luaO_nilobject_;
-
 /* size of buffer for 'luaO_utf8esc' function */
 #define UTF8BUFFSZ	8
 
-LUAI_FUNC int luaO_int2fb (unsigned int x);
-LUAI_FUNC int luaO_fb2int (int x);
 LUAI_FUNC int luaO_utf8esc (char *buff, unsigned long x);
 LUAI_FUNC int luaO_ceillog2 (unsigned int x);
 LUAI_FUNC int luaO_rawarith (lua_State *L, int op, const TValue *p1,
@@ -735,7 +744,7 @@ LUAI_FUNC void luaO_tostring (lua_State *L, TValue *obj);
 LUAI_FUNC const char *luaO_pushvfstring (lua_State *L, const char *fmt,
                                                        va_list argp);
 LUAI_FUNC const char *luaO_pushfstring (lua_State *L, const char *fmt, ...);
-LUAI_FUNC void luaO_chunkid (char *out, const char *source, size_t len);
+LUAI_FUNC void luaO_chunkid (char *out, const char *source, size_t srclen);
 
 
 #endif

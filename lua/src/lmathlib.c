@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.125 2018/03/12 12:39:03 roberto Exp $
+** $Id: lmathlib.c $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "lua.h"
 
@@ -76,7 +77,7 @@ static int math_toint (lua_State *L) {
     lua_pushinteger(L, n);
   else {
     luaL_checkany(L, 1);
-    lua_pushnil(L);  /* value is not convertible to integer */
+    luaL_pushfail(L);  /* value is not convertible to integer */
   }
   return 1;
 }
@@ -230,15 +231,11 @@ static int math_max (lua_State *L) {
 
 
 static int math_type (lua_State *L) {
-  if (lua_type(L, 1) == LUA_TNUMBER) {
-      if (lua_isinteger(L, 1))
-        lua_pushliteral(L, "integer");
-      else
-        lua_pushliteral(L, "float");
-  }
+  if (lua_type(L, 1) == LUA_TNUMBER)
+    lua_pushstring(L, (lua_isinteger(L, 1)) ? "integer" : "float");
   else {
     luaL_checkany(L, 1);
-    lua_pushnil(L);
+    luaL_pushfail(L);
   }
   return 1;
 }
@@ -247,7 +244,7 @@ static int math_type (lua_State *L) {
 
 /*
 ** {==================================================================
-** Pseudo-Random Number Generator based on 'xorshift128+'.
+** Pseudo-Random Number Generator based on 'xoshiro256**'.
 ** ===================================================================
 */
 
@@ -261,203 +258,296 @@ static int math_type (lua_State *L) {
 #endif
 
 
-#if !defined(LUA_USE_C89) && defined(LLONG_MAX) && !defined(LUA_DEBUG)  /* { */
+/*
+** LUA_RAND32 forces the use of 32-bit integers in the implementation
+** of the PRN generator (mainly for testing).
+*/
+#if !defined(LUA_RAND32) && !defined(Rand64)
+
+/* try to find an integer type with at least 64 bits */
+
+#if (ULONG_MAX >> 31 >> 31) >= 3
+
+/* 'long' has at least 64 bits */
+#define Rand64		unsigned long
+
+#elif !defined(LUA_USE_C89) && defined(LLONG_MAX)
+
+/* there is a 'long long' type (which must have at least 64 bits) */
+#define Rand64		unsigned long long
+
+#elif (LUA_MAXUNSIGNED >> 31 >> 31) >= 3
+
+/* 'lua_Integer' has at least 64 bits */
+#define Rand64		lua_Unsigned
+
+#endif
+
+#endif
+
+
+#if defined(Rand64)  /* { */
 
 /*
-** Assume long long.
+** Standard implementation, using 64-bit integers.
+** If 'Rand64' has more than 64 bits, the extra bits do not interfere
+** with the 64 initial bits, except in a right shift. Moreover, the
+** final result has to discard the extra bits.
 */
 
-/* a 64-bit value */
-typedef unsigned long long I;
+/* avoid using extra bits when needed */
+#define trim64(x)	((x) & 0xffffffffffffffffu)
 
-static I xorshift128plus (I *state) {
-  I x = state[0];
-  I y = state[1];
-  state[0] = y;
-  x ^= x << 23;
-  state[1] = (x ^ (x >> 18)) ^ (y ^ (y >> 5));
-  return state[1] + y;
+
+/* rotate left 'x' by 'n' bits */
+static Rand64 rotl (Rand64 x, int n) {
+  return (x << n) | (trim64(x) >> (64 - n));
 }
+
+static Rand64 nextrand (Rand64 *state) {
+  Rand64 state0 = state[0];
+  Rand64 state1 = state[1];
+  Rand64 state2 = state[2] ^ state0;
+  Rand64 state3 = state[3] ^ state1;
+  Rand64 res = rotl(state1 * 5, 7) * 9;
+  state[0] = state0 ^ state3;
+  state[1] = state1 ^ state2;
+  state[2] = state2 ^ (state1 << 17);
+  state[3] = rotl(state3, 45);
+  return res;
+}
+
 
 /* must take care to not shift stuff by more than 63 slots */
 
-#define maskFIG		(~(~1LLU << (FIGS - 1)))  /* use FIGS bits */
-#define shiftFIG	(l_mathop(0.5) / (1LLU << (FIGS - 1)))  /* 2^(-FIG) */
 
 /*
 ** Convert bits from a random integer into a float in the
-** interval [0,1).
+** interval [0,1), getting the higher FIG bits from the
+** random unsigned integer and converting that to a float.
 */
-static lua_Number I2d (I x) {
-  return (lua_Number)(x & maskFIG) * shiftFIG;
+
+/* must throw out the extra (64 - FIGS) bits */
+#define shift64_FIG  	(64 - FIGS)
+
+/* to scale to [0, 1), multiply by scaleFIG = 2^(-FIGS) */
+#define scaleFIG	(l_mathop(0.5) / ((Rand64)1 << (FIGS - 1)))
+
+static lua_Number I2d (Rand64 x) {
+  return (lua_Number)(trim64(x) >> shift64_FIG) * scaleFIG;
 }
 
-/* convert an 'I' to a lua_Unsigned */
-#define I2UInt(x)	((lua_Unsigned)(x))
+/* convert a 'Rand64' to a 'lua_Unsigned' */
+#define I2UInt(x)	((lua_Unsigned)trim64(x))
 
-/* convert a lua_Integer to an 'I' */
-#define Int2I(x)	((I)(x))
+/* convert a 'lua_Unsigned' to a 'Rand64' */
+#define Int2I(x)	((Rand64)(x))
 
-#else  /* no long long   }{ */
 
-/*
-** Use two 32-bit integers to represent a 64-bit quantity.
-*/
+#else	/* no 'Rand64'   }{ */
 
-#if LUAI_BITSINT >= 32
+/* get an integer with at least 32 bits */
+#if LUAI_IS32INT
 typedef unsigned int lu_int32;
 #else
 typedef unsigned long lu_int32;
 #endif
 
-/* a 64-bit value */
-typedef struct I {
+
+/*
+** Use two 32-bit integers to represent a 64-bit quantity.
+*/
+typedef struct Rand64 {
   lu_int32 h;  /* higher half */
   lu_int32 l;  /* lower half */
-} I;
+} Rand64;
 
 
 /*
-** basic operations on 'I' values
+** If 'lu_int32' has more than 32 bits, the extra bits do not interfere
+** with the 32 initial bits, except in a right shift and comparisons.
+** Moreover, the final result has to discard the extra bits.
 */
 
-static I pack (lu_int32 h, lu_int32 l) {
-  I result;
+/* avoid using extra bits when needed */
+#define trim32(x)	((x) & 0xffffffffu)
+
+
+/*
+** basic operations on 'Rand64' values
+*/
+
+/* build a new Rand64 value */
+static Rand64 packI (lu_int32 h, lu_int32 l) {
+  Rand64 result;
   result.h = h;
   result.l = l;
   return result;
 }
 
-/* i ^ (i << n) */
-static I Ixorshl (I i, int n) {
-  return pack(i.h ^ ((i.h << n) | (i.l >> (32 - n))), i.l ^ (i.l << n));
+/* return i << n */
+static Rand64 Ishl (Rand64 i, int n) {
+  lua_assert(n > 0 && n < 32);
+  return packI((i.h << n) | (trim32(i.l) >> (32 - n)), i.l << n);
 }
 
-/* i ^ (i >> n) */
-static I Ixorshr (I i, int n) {
-  return pack(i.h ^ (i.h >> n), i.l ^ ((i.l >> n) | (i.h << (32 - n))));
+/* i1 ^= i2 */
+static void Ixor (Rand64 *i1, Rand64 i2) {
+  i1->h ^= i2.h;
+  i1->l ^= i2.l;
 }
 
-static I Ixor (I i1, I i2) {
-  return pack(i1.h ^ i2.h, i1.l ^ i2.l);
-}
-
-static I Iadd (I i1, I i2) {
-  I result = pack(i1.h + i2.h, i1.l + i2.l);
-  if (result.l < i1.l)  /* carry? */
+/* return i1 + i2 */
+static Rand64 Iadd (Rand64 i1, Rand64 i2) {
+  Rand64 result = packI(i1.h + i2.h, i1.l + i2.l);
+  if (trim32(result.l) < trim32(i1.l))  /* carry? */
     result.h++;
   return result;
 }
 
+/* return i * 5 */
+static Rand64 times5 (Rand64 i) {
+  return Iadd(Ishl(i, 2), i);  /* i * 5 == (i << 2) + i */
+}
+
+/* return i * 9 */
+static Rand64 times9 (Rand64 i) {
+  return Iadd(Ishl(i, 3), i);  /* i * 9 == (i << 3) + i */
+}
+
+/* return 'i' rotated left 'n' bits */
+static Rand64 rotl (Rand64 i, int n) {
+  lua_assert(n > 0 && n < 32);
+  return packI((i.h << n) | (trim32(i.l) >> (32 - n)),
+               (trim32(i.h) >> (32 - n)) | (i.l << n));
+}
+
+/* for offsets larger than 32, rotate right by 64 - offset */
+static Rand64 rotl1 (Rand64 i, int n) {
+  lua_assert(n > 32 && n < 64);
+  n = 64 - n;
+  return packI((trim32(i.h) >> n) | (i.l << (32 - n)),
+               (i.h << (32 - n)) | (trim32(i.l) >> n));
+}
 
 /*
-** implementation of 'xorshift128+' algorithm on 'I' values
+** implementation of 'xoshiro256**' algorithm on 'Rand64' values
 */
-static I xorshift128plus (I *state) {
-  I x = state[0];
-  I y = state[1];
-  state[0] = y;
-  x = Ixorshl(x, 23);  /* x ^= x << 23; */
-  /* state[1] = (x ^ (x >> 18)) ^ (y ^ (y >> 5)); */
-  state[1] = Ixor(Ixorshr(x, 18), Ixorshr(y, 5));
-  return Iadd(state[1], y);  /* return state[1] + y; */
+static Rand64 nextrand (Rand64 *state) {
+  Rand64 res = times9(rotl(times5(state[1]), 7));
+  Rand64 t = Ishl(state[1], 17);
+  Ixor(&state[2], state[0]);
+  Ixor(&state[3], state[1]);
+  Ixor(&state[1], state[2]);
+  Ixor(&state[0], state[3]);
+  Ixor(&state[2], t);
+  state[3] = rotl1(state[3], 45);
+  return res;
 }
 
 
 /*
-** Converts an 'I' into a float.
+** Converts a 'Rand64' into a float.
 */
 
 /* an unsigned 1 with proper type */
 #define UONE		((lu_int32)1)
 
+
 #if FIGS <= 32
 
-#define maskHF		0  /* do not need bits from higher half */
-#define maskLOW		(~(~UONE << (FIGS - 1)))  /* use FIG bits */
-#define shiftFIG	(l_mathop(0.5) / (UONE << (FIGS - 1)))  /* 2^(-FIG) */
+/* 2^(-FIGS) */
+#define scaleFIG       (l_mathop(0.5) / (UONE << (FIGS - 1)))
+
+/*
+** get up to 32 bits from higher half, shifting right to
+** throw out the extra bits.
+*/
+static lua_Number I2d (Rand64 x) {
+  lua_Number h = (lua_Number)(trim32(x.h) >> (32 - FIGS));
+  return h * scaleFIG;
+}
 
 #else	/* 32 < FIGS <= 64 */
 
 /* must take care to not shift stuff by more than 31 slots */
 
-/* use FIG - 32 bits from higher half */
-#define maskHF		(~(~UONE << (FIGS - 33)))
+/* 2^(-FIGS) = 1.0 / 2^30 / 2^3 / 2^(FIGS-33) */
+#define scaleFIG  \
+	((lua_Number)1.0 / (UONE << 30) / 8.0 / (UONE << (FIGS - 33)))
 
-/* use all bits from lower half */
-#define maskLOW		(~(lu_int32)0)
+/*
+** use FIGS - 32 bits from lower half, throwing out the other
+** (32 - (FIGS - 32)) = (64 - FIGS) bits
+*/
+#define shiftLOW	(64 - FIGS)
 
-/* 2^(-FIG) == (1 / 2^33) / 2^(FIG-33) */
-#define shiftFIG  ((lua_Number)(1.0 / 8589934592.0) / (UONE << (FIGS - 33)))
+/*
+** higher 32 bits go after those (FIGS - 32) bits: shiftHI = 2^(FIGS - 32)
+*/
+#define shiftHI		((lua_Number)(UONE << (FIGS - 33)) * 2.0)
+
+
+static lua_Number I2d (Rand64 x) {
+  lua_Number h = (lua_Number)trim32(x.h) * shiftHI;
+  lua_Number l = (lua_Number)(trim32(x.l) >> shiftLOW);
+  return (h + l) * scaleFIG;
+}
 
 #endif
 
-#define twoto32		l_mathop(4294967296.0)  /* 2^32 */
 
-static lua_Number I2d (I x) {
-  lua_Number h = (lua_Number)(x.h & maskHF);
-  lua_Number l = (lua_Number)(x.l & maskLOW);
-  return (h * twoto32 + l) * shiftFIG;
+/* convert a 'Rand64' to a 'lua_Unsigned' */
+static lua_Unsigned I2UInt (Rand64 x) {
+  return ((lua_Unsigned)trim32(x.h) << 31 << 1) | (lua_Unsigned)trim32(x.l);
 }
 
-static lua_Unsigned I2UInt (I x) {
-  return ((lua_Unsigned)x.h << 31 << 1) | x.l;
-}
-
-static I Int2I (lua_Integer n) {
-  lua_Unsigned un = n;
-  return pack((lu_int32)un, (lu_int32)(un >> 31 >> 1));
+/* convert a 'lua_Unsigned' to a 'Rand64' */
+static Rand64 Int2I (lua_Unsigned n) {
+  return packI((lu_int32)(n >> 31 >> 1), (lu_int32)n);
 }
 
 #endif  /* } */
 
 
 /*
-** A state uses two 'I' values.
+** A state uses four 'Rand64' values.
 */
 typedef struct {
-  I s[2];
+  Rand64 s[4];
 } RanState;
 
 
 /*
 ** Project the random integer 'ran' into the interval [0, n].
-** Because 'ran' has 2^B possible values, the projection can only
-** be uniform when the size of the interval [0, n] is a power of 2
-** (exact division). With the fairest possible projection (e.g.,
-** '(ran % (n + 1))'), the maximum bias is 1 in 2^B/n.
-** For a "small" 'n', this bias is acceptable. (Here, we accept
-** a maximum bias of 0.0001%.) For a larger 'n', we first
-** compute 'lim', the smallest (2^b - 1) not smaller than 'n',
-** to get a uniform projection into [0,lim]. If the result is
-** inside [0, n], we are done. Otherwise, we try we another
-** 'ran' until we have a result inside the interval.
+** Because 'ran' has 2^B possible values, the projection can only be
+** uniform when the size of the interval is a power of 2 (exact
+** division).  To get a uniform projection into [0, n], we first compute
+** 'lim', the smallest Mersenne number not smaller than 'n'. We then
+** project 'ran' into the interval [0, lim].  If the result is inside
+** [0, n], we are done. Otherwise, we try with another 'ran', until we
+** have a result inside the interval.
 */
-
-#define MAXBIAS		1000000
-
 static lua_Unsigned project (lua_Unsigned ran, lua_Unsigned n,
                              RanState *state) {
-  if (n < LUA_MAXUNSIGNED / MAXBIAS)
-    return ran % (n + 1);
-  else {
+  lua_Unsigned lim = n;
+  if ((lim & (lim + 1)) > 0) {  /* 'lim + 1' is not a power of 2? */
     /* compute the smallest (2^b - 1) not smaller than 'n' */
-    lua_Unsigned lim = n;
     lim |= (lim >> 1);
     lim |= (lim >> 2);
     lim |= (lim >> 4);
     lim |= (lim >> 8);
     lim |= (lim >> 16);
-#if (LUA_MAXINTEGER >> 30 >> 2) > 0
+#if (LUA_MAXUNSIGNED >> 31) >= 3
     lim |= (lim >> 32);  /* integer type has more than 32 bits */
 #endif
-    lua_assert((lim & (lim + 1)) == 0  /* 'lim + 1' is a power of 2 */
-      && lim >= n  /* not smaller than 'n' */
-      && (lim >> 1) < n);  /* it is the smallest one */
-    while ((ran & lim) > n)
-      ran = I2UInt(xorshift128plus(state->s));
-    return ran & lim;
   }
+  lua_assert((lim & (lim + 1)) == 0  /* 'lim + 1' is a power of 2, */
+    && lim >= n  /* not smaller than 'n', */
+    && (lim == 0 || (lim >> 1) < n));  /* and it is the smallest one */
+  while ((ran &= lim) > n)  /* project 'ran' into [0..lim] */
+    ran = I2UInt(nextrand(state->s));  /* not inside [0..n]? try again */
+  return ran;
 }
 
 
@@ -465,7 +555,7 @@ static int math_random (lua_State *L) {
   lua_Integer low, up;
   lua_Unsigned p;
   RanState *state = (RanState *)lua_touserdata(L, lua_upvalueindex(1));
-  I rv = xorshift128plus(state->s);  /* next pseudo-random value */
+  Rand64 rv = nextrand(state->s);  /* next pseudo-random value */
   switch (lua_gettop(L)) {  /* check number of arguments */
     case 0: {  /* no arguments */
       lua_pushnumber(L, I2d(rv));  /* float between 0 and 1 */
@@ -496,20 +586,43 @@ static int math_random (lua_State *L) {
 }
 
 
-static void setseed (I *state, lua_Integer n) {
+static void setseed (lua_State *L, Rand64 *state,
+                     lua_Unsigned n1, lua_Unsigned n2) {
   int i;
-  state[0] = Int2I(n);
-  state[1] = Int2I(~n);
+  state[0] = Int2I(n1);
+  state[1] = Int2I(0xff);  /* avoid a zero state */
+  state[2] = Int2I(n2);
+  state[3] = Int2I(0);
   for (i = 0; i < 16; i++)
-    xorshift128plus(state);  /* discard initial values */
+    nextrand(state);  /* discard initial values to "spread" seed */
+  lua_pushinteger(L, n1);
+  lua_pushinteger(L, n2);
+}
+
+
+/*
+** Set a "random" seed. To get some randomness, use the current time
+** and the address of 'L' (in case the machine does address space layout
+** randomization).
+*/
+static void randseed (lua_State *L, RanState *state) {
+  lua_Unsigned seed1 = (lua_Unsigned)time(NULL);
+  lua_Unsigned seed2 = (lua_Unsigned)(size_t)L;
+  setseed(L, state->s, seed1, seed2);
 }
 
 
 static int math_randomseed (lua_State *L) {
   RanState *state = (RanState *)lua_touserdata(L, lua_upvalueindex(1));
-  lua_Integer n = luaL_checkinteger(L, 1);
-  setseed(state->s, n);
-  return 0;
+  if (lua_isnone(L, 1)) {
+    randseed(L, state);
+  }
+  else {
+    lua_Integer n1 = luaL_checkinteger(L, 1);
+    lua_Integer n2 = luaL_optinteger(L, 2, 0);
+    setseed(L, state->s, n1, n2);
+  }
+  return 2;  /* return seeds */
 }
 
 
@@ -519,9 +632,14 @@ static const luaL_Reg randfuncs[] = {
   {NULL, NULL}
 };
 
+
+/*
+** Register the random functions and initialize their state.
+*/
 static void setrandfunc (lua_State *L) {
   RanState *state = (RanState *)lua_newuserdatauv(L, sizeof(RanState), 0);
-  setseed(state->s, 0);
+  randseed(L, state);  /* initialize with a "random" seed */
+  lua_pop(L, 2);  /* remove pushed seeds */
   luaL_setfuncs(L, randfuncs, 1);
 }
 

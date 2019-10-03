@@ -47,7 +47,7 @@ Welcome to Lua 5.4
 
 <H2><A NAME="about">About Lua</A></H2>
 <P>
-Lua is a powerful, fast, lightweight, embeddable scripting language
+Lua is a powerful, efficient, lightweight, embeddable scripting language
 developed by a
 <A HREF="http://www.lua.org/authors.html">team</A>
 at
@@ -55,7 +55,9 @@ at
 the Pontifical Catholic University of Rio de Janeiro in Brazil.
 Lua is
 <A HREF="#license">free software</A>
-used in many products and projects around the world.
+used in
+<A HREF="http://www.lua.org/uses.html">many products and projects</A>
+around the world.
 
 <P>
 Lua's
@@ -85,7 +87,8 @@ because
 Lua is implemented in pure ANSI C and compiles unmodified in all known
 platforms that have an ANSI C compiler.
 Lua also compiles unmodified as C++.
-The instructions given below for building Lua are for Unix-like platforms.
+The instructions given below for building Lua are for Unix-like platforms,
+such as Linux and Mac OS X.
 See also
 <A HREF="#other">instructions for other systems</A>
 and
@@ -107,7 +110,7 @@ Here are the details.
 <OL>
 <LI>
 Open a terminal window and move to
-the top-level directory, which is named <TT>lua-5.4.x</TT>.
+the top-level directory, which is named <TT>lua-5.4.0-beta</TT>.
 The <TT>Makefile</TT> there controls both the build process and the installation process.
 <P>
 <LI>
@@ -115,8 +118,12 @@ The <TT>Makefile</TT> there controls both the build process and the installation
   The platforms currently supported are:
 <P>
 <P CLASS="display">
-   aix bsd c89 freebsd generic linux macosx mingw posix solaris
+   aix bsd c89 freebsd generic guess linux linux-readline macosx mingw posix solaris
 </P>
+<P>
+  If your platform is a common Unix-like platform,
+  just do "<KBD>make guess</KBD>".
+  The <TT>Makefile</TT> will guess your platform and build Lua for it.
 <P>
   If your platform is listed, just do "<KBD>make xxx</KBD>", where xxx
   is your platform name.
@@ -136,7 +143,7 @@ and liblua.a (the library).
   after building Lua. This will run the interpreter and print its version.
 </OL>
 <P>
-If you're running Linux and get compilation errors,
+If you're running Linux and get compilation errors when building for <TT>linux-readline</TT>,
 make sure you have installed the <TT>readline</TT> development package
 (which is probably named <TT>libreadline-dev</TT> or <TT>readline-devel</TT>).
 If you get link errors after that,
@@ -147,11 +154,11 @@ then try "<KBD>make linux MYLIBS=-ltermcap</KBD>".
   Once you have built Lua, you may want to install it in an official
   place in your system. In this case, do "<KBD>make install</KBD>". The official
   place and the way to install files are defined in the <TT>Makefile</TT>. You'll
-  probably need the right permissions to install files.
+  probably need the right permissions to install files, and so may need to do "<KBD>sudo make install</KBD>".
 
 <P>
   To build and install Lua in one step, do "<KBD>make xxx install</KBD>",
-  where xxx is your platform name.
+  where xxx is your platform name, including "guess".
 
 <P>
   To install Lua locally, do "<KBD>make local</KBD>".
@@ -223,11 +230,8 @@ then try "<KBD>make linux MYLIBS=-ltermcap</KBD>".
 <DT>
 library:
 <DD>
-lapi.c lcode.c lctype.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c
-lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ltable.c
-ltm.c lundump.c lvm.c lzio.c
-lauxlib.c lbaselib.c lbitlib.c lcorolib.c ldblib.c liolib.c
-lmathlib.c loslib.c lstrlib.c ltablib.c lutf8lib.c loadlib.c linit.c
+lapi.c lcode.c lctype.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ltable.c ltm.c lundump.c lvm.c lzio.c
+lauxlib.c lbaselib.c lcorolib.c ldblib.c liolib.c lmathlib.c loadlib.c loslib.c lstrlib.c ltablib.c lutf8lib.c linit.c
 <DT>
 interpreter:
 <DD>
@@ -239,9 +243,9 @@ compiler:
 </DL>
 
 <P>
-  To use Lua as a library in your own programs you'll need to know how to
+  To use Lua as a library in your own programs, you'll need to know how to
   create and use libraries with your compiler. Moreover, to dynamically load
-  C libraries for Lua you'll need to know how to create dynamic libraries
+  C libraries for Lua, you'll need to know how to create dynamic libraries
   and you'll need to make sure that the Lua API functions are accessible to
   those dynamic libraries &mdash; but <EM>don't</EM> link the Lua library
   into each dynamic library. For Unix, we recommend that the Lua library
@@ -265,10 +269,19 @@ lists the
 <H3>Main changes</H3>
 <UL>
 <LI> new generational mode for garbage collection
+<LI> to-be-closed variables
+<LI> const variables
 <LI> userdata can have multiple user values
+<LI> new implementation for math.random
+<LI> warning system
 <LI> debug information about function arguments and returns
-<LI> new implementation for <CODE>math.random</CODE>
-
+<LI> new semantics for the integer 'for' loop
+<LI> optional 'init' argument to 'string.gmatch'
+<LI> new functions 'lua_resetthread' and 'coroutine.close'
+<LI> coersions string-to-number moved to the string library
+<LI> allocation function allowed to fail when shrinking a memory block
+<LI> new format '%p' in 'string.format'
+<LI> utf8 library accepts codepoints up to 2^31
 </UL>
 
 <H2><A NAME="license">License</A></H2>
@@ -289,7 +302,7 @@ For details, see
 <A HREF="http://www.lua.org/license.html">this</A>.
 
 <BLOCKQUOTE STYLE="padding-bottom: 0em">
-Copyright &copy; 1994&ndash;2018 Lua.org, PUC-Rio.
+Copyright &copy; 1994&ndash;2019 Lua.org, PUC-Rio.
 
 <P>
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -316,10 +329,10 @@ THE SOFTWARE.
 
 <P CLASS="footer">
 Last update:
-Mon Mar 12 14:52:57 -03 2018
+Tue Sep 24 16:42:41 UTC 2019
 </P>
 <!--
-Last change: revised for Lua 5.4.0 (work1)
+Last change: revised for Lua 5.4.0 (beta)
 -->
 
 </BODY>

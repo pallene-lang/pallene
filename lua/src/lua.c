@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.234 2018/03/06 20:30:17 roberto Exp $
+** $Id: lua.c $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -73,6 +73,7 @@ static void print_usage (const char *badoption) {
   "  -l name  require library 'name' into global 'name'\n"
   "  -v       show version information\n"
   "  -E       ignore environment variables\n"
+  "  -W       turn warnings on\n"
   "  --       stop handling options\n"
   "  -        stop handling options and execute stdin\n"
   ,
@@ -259,14 +260,18 @@ static int collectargs (char **argv, int *first) {
       case '\0':  /* '-' */
         return args;  /* script "name" is '-' */
       case 'E':
-        if (argv[i][2] != '\0')  /* extra characters after 1st? */
+        if (argv[i][2] != '\0')  /* extra characters? */
           return has_error;  /* invalid option */
         args |= has_E;
+        break;
+      case 'W':
+        if (argv[i][2] != '\0')  /* extra characters? */
+          return has_error;  /* invalid option */
         break;
       case 'i':
         args |= has_i;  /* (-i implies -v) *//* FALLTHROUGH */
       case 'v':
-        if (argv[i][2] != '\0')  /* extra characters after 1st? */
+        if (argv[i][2] != '\0')  /* extra characters? */
           return has_error;  /* invalid option */
         args |= has_v;
         break;
@@ -289,7 +294,8 @@ static int collectargs (char **argv, int *first) {
 
 
 /*
-** Processes options 'e' and 'l', which involve running Lua code.
+** Processes options 'e' and 'l', which involve running Lua code, and
+** 'W', which also affects the state.
 ** Returns 0 if some code raises an error.
 */
 static int runargs (lua_State *L, char **argv, int n) {
@@ -297,15 +303,21 @@ static int runargs (lua_State *L, char **argv, int n) {
   for (i = 1; i < n; i++) {
     int option = argv[i][1];
     lua_assert(argv[i][0] == '-');  /* already checked */
-    if (option == 'e' || option == 'l') {
-      int status;
-      const char *extra = argv[i] + 2;  /* both options need an argument */
-      if (*extra == '\0') extra = argv[++i];
-      lua_assert(extra != NULL);
-      status = (option == 'e')
-               ? dostring(L, extra, "=(command line)")
-               : dolibrary(L, extra);
-      if (status != LUA_OK) return 0;
+    switch (option) {
+      case 'e':  case 'l': {
+        int status;
+        const char *extra = argv[i] + 2;  /* both options need an argument */
+        if (*extra == '\0') extra = argv[++i];
+        lua_assert(extra != NULL);
+        status = (option == 'e')
+                 ? dostring(L, extra, "=(command line)")
+                 : dolibrary(L, extra);
+        if (status != LUA_OK) return 0;
+        break;
+      }
+      case 'W':
+        lua_warning(L, "@on", 0);  /* warnings on */
+        break;
     }
   }
   return 1;
@@ -383,12 +395,14 @@ static int handle_luainit (lua_State *L) {
 
 #include <readline/readline.h>
 #include <readline/history.h>
+#define lua_initreadline(L)	((void)L, rl_readline_name="lua")
 #define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != NULL)
 #define lua_saveline(L,line)	((void)L, add_history(line))
 #define lua_freeline(L,b)	((void)L, free(b))
 
 #else				/* }{ */
 
+#define lua_initreadline(L)  ((void)L)
 #define lua_readline(L,b,p) \
         ((void)L, fputs(p, stdout), fflush(stdout),  /* show prompt */ \
         fgets(b, LUA_MAXINPUT, stdin) != NULL)  /* get line */
@@ -539,6 +553,7 @@ static void doREPL (lua_State *L) {
   int status;
   const char *oldprogname = progname;
   progname = NULL;  /* no 'progname' on errors in interactive mode */
+  lua_initreadline(L);
   while ((status = loadline(L)) != -1) {
     if (status == LUA_OK)
       status = docall(L, 0, LUA_MULTRET);

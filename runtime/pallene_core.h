@@ -193,7 +193,7 @@ void pallene_renormalize_array(
     int line
 ){
     lua_Unsigned ui = (lua_Unsigned) i - 1;
-    if (PALLENE_UNLIKELY(ui >= arr->sizearray)) {
+    if (PALLENE_UNLIKELY(ui >= arr->alimit)) {
         pallene_grow_array(L, arr, ui, line);
     }
 }

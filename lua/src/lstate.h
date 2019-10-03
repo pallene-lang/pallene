@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.h,v 2.157 2018/02/25 12:43:52 roberto Exp $
+** $Id: lstate.h $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -15,7 +15,6 @@
 
 
 /*
-
 ** Some notes about garbage-collected objects: All objects in Lua must
 ** be kept somehow accessible until being freed, so all objects always
 ** belong to one (and only one) of these lists, using field 'next' of
@@ -27,6 +26,22 @@
 ** 'fixedgc': all objects that are not to be collected (currently
 ** only small strings, such as reserved words).
 **
+** For the generational collector, some of these lists have marks for
+** generations. Each mark points to the first element in the list for
+** that particular generation; that generation goes until the next mark.
+**
+** 'allgc' -> 'survival': new objects;
+** 'survival' -> 'old': objects that survived one collection;
+** 'old' -> 'reallyold': objects that became old in last collection;
+** 'reallyold' -> NULL: objects old for more than one cycle.
+**
+** 'finobj' -> 'finobjsur': new objects marked for finalization;
+** 'finobjsur' -> 'finobjold': survived   """";
+** 'finobjold' -> 'finobjrold': just old  """";
+** 'finobjrold' -> NULL: really old       """".
+*/
+
+/*
 ** Moreover, there is another set of lists that control gray objects.
 ** These lists are linked by fields 'gclist'. (All objects that
 ** can become gray have such a field. The field is not the same
@@ -43,10 +58,77 @@
 ** 'weak': tables with weak values to be cleared;
 ** 'ephemeron': ephemeron tables with white->white entries;
 ** 'allweak': tables with weak keys and/or weak values to be cleared.
-** There is also a list 'protogray' for prototypes that need to have
-** their caches cleared.
-
 */
+
+
+
+/*
+** About 'nCcalls': each thread in Lua (a lua_State) keeps a count of
+** how many "C calls" it still can do in the C stack, to avoid C-stack
+** overflow.  This count is very rough approximation; it considers only
+** recursive functions inside the interpreter, as non-recursive calls
+** can be considered using a fixed (although unknown) amount of stack
+** space.
+**
+** The count has two parts: the lower part is the count itself; the
+** higher part counts the number of non-yieldable calls in the stack.
+** (They are together so that we can change both with one instruction.)
+**
+** Because calls to external C functions can use an unknown amount
+** of space (e.g., functions using an auxiliary buffer), calls
+** to these functions add more than one to the count (see CSTACKCF).
+**
+** The proper count excludes the number of CallInfo structures allocated
+** by Lua, as a kind of "potential" calls. So, when Lua calls a function
+** (and "consumes" one CallInfo), it needs neither to decrement nor to
+** check 'nCcalls', as its use of C stack is already accounted for.
+*/
+
+/* number of "C stack slots" used by an external C function */
+#define CSTACKCF	10
+
+
+/*
+** The C-stack size is sliced in the following zones:
+** - larger than CSTACKERR: normal stack;
+** - [CSTACKMARK, CSTACKERR]: buffer zone to signal a stack overflow;
+** - [CSTACKCF, CSTACKERRMARK]: error-handling zone;
+** - below CSTACKERRMARK: buffer zone to signal overflow during overflow;
+** (Because the counter can be decremented CSTACKCF at once, we need
+** the so called "buffer zones", with at least that size, to properly
+** detect a change from one zone to the next.)
+*/
+#define CSTACKERR	(8 * CSTACKCF)
+#define CSTACKMARK	(CSTACKERR - (CSTACKCF + 2))
+#define CSTACKERRMARK	(CSTACKCF + 2)
+
+
+/* initial limit for the C-stack of threads */
+#define CSTACKTHREAD	(2 * CSTACKERR)
+
+
+/* true if this thread does not have non-yieldable calls in the stack */
+#define yieldable(L)		(((L)->nCcalls & 0xffff0000) == 0)
+
+/* real number of C calls */
+#define getCcalls(L)	((L)->nCcalls & 0xffff)
+
+
+/* Increment the number of non-yieldable calls */
+#define incnny(L)	((L)->nCcalls += 0x10000)
+
+/* Decrement the number of non-yieldable calls */
+#define decnny(L)	((L)->nCcalls -= 0x10000)
+
+/* Increment the number of non-yieldable calls and decrement nCcalls */
+#define incXCcalls(L)	((L)->nCcalls += 0x10000 - CSTACKCF)
+
+/* Decrement the number of non-yieldable calls and increment nCcalls */
+#define decXCcalls(L)	((L)->nCcalls -= 0x10000 - CSTACKCF)
+
+
+
+
 
 
 struct lua_longjmp;  /* defined in ldo.c */
@@ -103,9 +185,9 @@ typedef struct CallInfo {
   union {
     int funcidx;  /* called-function index */
     int nyield;  /* number of values yielded */
-    struct {  /* info about transfered values (for call/return hooks) */
-      unsigned short fTransfer;  /* offset of first value transfered */
-      unsigned short nTransfer;  /* number of values transfered */
+    struct {  /* info about transferred values (for call/return hooks) */
+      unsigned short ftransfer;  /* offset of first value transferred */
+      unsigned short ntransfer;  /* number of values transferred */
     } transferinfo;
   } u2;
   short nresults;  /* expected number of results from this function */
@@ -122,9 +204,11 @@ typedef struct CallInfo {
 #define CIST_YPCALL	(1<<3)	/* call is a yieldable protected call */
 #define CIST_TAIL	(1<<4)	/* call was tail called */
 #define CIST_HOOKYIELD	(1<<5)	/* last hook called yielded */
-#define CIST_LEQ	(1<<6)  /* using __lt for __le */
-#define CIST_FIN	(1<<7)  /* call is running a finalizer */
-#define CIST_TRAN	(1<<8)	/* 'ci' has transfer information */
+#define CIST_FIN	(1<<6)  /* call is running a finalizer */
+#define CIST_TRAN	(1<<7)	/* 'ci' has transfer information */
+#if defined(LUA_COMPAT_LT_LE)
+#define CIST_LEQ	(1<<8)  /* using __lt for __le */
+#endif
 
 /* active function is a Lua function */
 #define isLua(ci)	(!((ci)->callstatus & CIST_C))
@@ -146,8 +230,10 @@ typedef struct global_State {
   l_mem totalbytes;  /* number of bytes currently allocated - GCdebt */
   l_mem GCdebt;  /* bytes allocated not yet compensated by the collector */
   lu_mem GCestimate;  /* an estimate of the non-garbage memory in use */
+  lu_mem lastatomic;  /* see function 'genstep' in file 'lgc.c' */
   stringtable strt;  /* hash table for strings */
   TValue l_registry;
+  TValue nilvalue;  /* a nil value */
   unsigned int seed;  /* randomized seed for hashes */
   lu_byte currentwhite;
   lu_byte gcstate;  /* state of garbage collector */
@@ -167,7 +253,6 @@ typedef struct global_State {
   GCObject *weak;  /* list of tables with weak values */
   GCObject *ephemeron;  /* list of ephemeron tables (weak keys) */
   GCObject *allweak;  /* list of all-weak tables */
-  GCObject *protogray;  /* list of prototypes with "new" caches */
   GCObject *tobefnz;  /* list of userdata to be GC */
   GCObject *fixedgc;  /* list of objects not to be collected */
   /* fields for generational collector */
@@ -180,11 +265,13 @@ typedef struct global_State {
   struct lua_State *twups;  /* list of threads with open upvalues */
   lua_CFunction panic;  /* to be called in unprotected errors */
   struct lua_State *mainthread;
-  const lua_Number *version;  /* pointer to version number */
   TString *memerrmsg;  /* message for memory-allocation errors */
   TString *tmname[TM_N];  /* array with tag-method names */
   struct Table *mt[LUA_NUMTAGS];  /* metatables for basic types */
   TString *strcache[STRCACHE_N][STRCACHE_M];  /* cache for strings in API */
+  lua_WarnFunction warnf;  /* warning function */
+  void *ud_warn;         /* auxiliary data to 'warnf' */
+  unsigned int Cstacklimit;  /* current limit for the C stack */
 } global_State;
 
 
@@ -193,8 +280,9 @@ typedef struct global_State {
 */
 struct lua_State {
   CommonHeader;
-  unsigned short nci;  /* number of items in 'ci' list */
   lu_byte status;
+  lu_byte allowhook;
+  unsigned short nci;  /* number of items in 'ci' list */
   StkId top;  /* first free slot in the stack */
   global_State *l_G;
   CallInfo *ci;  /* call info for current function */
@@ -208,13 +296,11 @@ struct lua_State {
   CallInfo base_ci;  /* CallInfo for first level (C calling Lua) */
   volatile lua_Hook hook;
   ptrdiff_t errfunc;  /* current error handling function (stack index) */
+  l_uint32 nCcalls;  /* number of allowed nested C calls - 'nci' */
   int stacksize;
   int basehookcount;
   int hookcount;
-  unsigned short nny;  /* number of non-yieldable calls in stack */
-  unsigned short nCcalls;  /* number of nested C calls */
   l_signalT hookmask;
-  lu_byte allowhook;
 };
 
 
@@ -249,7 +335,7 @@ union GCUnion {
 #define gco2t(o)  check_exp((o)->tt == LUA_TTABLE, &((cast_u(o))->h))
 #define gco2p(o)  check_exp((o)->tt == LUA_TPROTO, &((cast_u(o))->p))
 #define gco2th(o)  check_exp((o)->tt == LUA_TTHREAD, &((cast_u(o))->th))
-#define gco2upv(o)  check_exp((o)->tt == LUA_TUPVAL, &((cast_u(o))->upv))
+#define gco2upv(o)	check_exp((o)->tt == LUA_TUPVAL, &((cast_u(o))->upv))
 
 
 /*
@@ -267,8 +353,12 @@ LUAI_FUNC void luaE_freethread (lua_State *L, lua_State *L1);
 LUAI_FUNC CallInfo *luaE_extendCI (lua_State *L);
 LUAI_FUNC void luaE_freeCI (lua_State *L);
 LUAI_FUNC void luaE_shrinkCI (lua_State *L);
-LUAI_FUNC void luaE_incCcalls (lua_State *L);
+LUAI_FUNC void luaE_enterCcall (lua_State *L);
+LUAI_FUNC void luaE_warning (lua_State *L, const char *msg, int tocont);
+LUAI_FUNC void luaE_warnerror (lua_State *L, const char *where);
 
+
+#define luaE_exitCcall(L)	((L)->nCcalls++)
 
 #endif
 
