@@ -103,7 +103,7 @@ end
 local function set_stack_slot(typ, dst_slot, value)
     local tmpl
     local tag = typ._tag
-    if     tag == "types.T.Nil"      then tmpl = "setnilvalue($dst);"
+    if     tag == "types.T.Nil"      then tmpl = "pallene_setnilvalue($dst);"
     elseif tag == "types.T.Boolean"  then tmpl = "setbvalue($dst, $src);"
     elseif tag == "types.T.Integer"  then tmpl = "setivalue($dst, $src);"
     elseif tag == "types.T.Float"    then tmpl = "setfltvalue($dst, $src);"
@@ -1066,6 +1066,7 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
     if dst_typ._tag == "types.T.Value" then
         -- Remove "EMPTY" variant tag from out-of-bound nils
         -- note: rawget in lapi.c also needs to do this.
+        -- note: pallene_setnilvalue not needed since dst is already initialized
         table.insert(parts,
             util.render([[ if (isempty(&$dst)) { setnilvalue(&$dst); } ]], {
                 dst = dst }))
