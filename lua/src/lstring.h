@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.h,v 1.64 2018/02/20 16:52:50 roberto Exp $
+** $Id: lstring.h $
 ** String table (keep all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -19,7 +19,7 @@
 #define MEMERRMSG       "not enough memory"
 
 
-#define sizelstring(l)  (sizeof(union UTString) + ((l) + 1) * sizeof(char))
+#define sizelstring(l)  (sizeof(TString) + ((l) + 1) * sizeof(char))
 
 #define luaS_newliteral(L, s)	(luaS_newlstr(L, "" s, \
                                  (sizeof(s)/sizeof(char))-1))

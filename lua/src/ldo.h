@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.h,v 2.43 2018/02/17 19:29:29 roberto Exp $
+** $Id: ldo.h $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -50,6 +50,7 @@
 /* type of protected functions, to be ran by 'runprotected' */
 typedef void (*Pfunc) (lua_State *L, void *ud);
 
+LUAI_FUNC void luaD_seterrorobj (lua_State *L, int errcode, StkId oldtop);
 LUAI_FUNC int luaD_protectedparser (lua_State *L, ZIO *z, const char *name,
                                                   const char *mode);
 LUAI_FUNC void luaD_hook (lua_State *L, int event, int line,
@@ -61,8 +62,7 @@ LUAI_FUNC void luaD_callnoyield (lua_State *L, StkId func, int nResults);
 LUAI_FUNC void luaD_tryfuncTM (lua_State *L, StkId func);
 LUAI_FUNC int luaD_pcall (lua_State *L, Pfunc func, void *u,
                                         ptrdiff_t oldtop, ptrdiff_t ef);
-LUAI_FUNC void luaD_poscall (lua_State *L, CallInfo *ci, StkId firstResult,
-                                          int nres);
+LUAI_FUNC void luaD_poscall (lua_State *L, CallInfo *ci, int nres);
 LUAI_FUNC int luaD_reallocstack (lua_State *L, int newsize, int raiseerror);
 LUAI_FUNC int luaD_growstack (lua_State *L, int n, int raiseerror);
 LUAI_FUNC void luaD_shrinkstack (lua_State *L);
