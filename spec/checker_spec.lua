@@ -333,15 +333,6 @@ describe("Pallene type checker", function()
             "type hint for array or record initializer is not an array or record type")
     end)
 
-    it("forbids array of nil", function()
-        assert_error([[
-            function fn()
-                local xs: {nil} = {}
-            end
-        ]],
-            "array of nil is not allowed")
-    end)
-
     it("requires while statement conditions to be boolean", function()
         assert_error([[
             function fn(x:integer): integer

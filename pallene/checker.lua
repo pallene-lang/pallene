@@ -138,9 +138,6 @@ function Checker:from_ast_type(ast_typ)
 
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
-        if subtype._tag == "types.T.Nil" then
-            type_error(ast_typ.loc, "array of nil is not allowed")
-        end
         return types.T.Array(subtype)
 
     elseif tag == "ast.Type.Function" then

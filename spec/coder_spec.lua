@@ -720,11 +720,11 @@ describe("Pallene coder /", function()
                 return #xs
             end
 
-            function get(arr: {integer}, i: integer): integer
+            function geti(arr: {integer}, i: integer): integer
                 return arr[i]
             end
 
-            function set(arr: {integer}, i: integer, v: integer)
+            function seti(arr: {integer}, i: integer, v: integer)
                 arr[i] = v
             end
 
@@ -734,6 +734,14 @@ describe("Pallene coder /", function()
 
             function remove(xs: {value}): ()
                 xs[#xs] = nil
+            end
+
+            function getvalue(xs: {value}, i:integer): value
+                return xs[i]
+            end
+
+            function getnil(xs: {nil}, i: integer): nil
+                return xs[i]
             end
         ]]))
 
@@ -759,38 +767,19 @@ describe("Pallene coder /", function()
         it("get", function()
             run_test([[
                 local arr = {10, 20, 30}
-                assert(10 == test.get(arr, 1))
-                assert(20 == test.get(arr, 2))
-                assert(30 == test.get(arr, 3))
+                assert(10 == test.geti(arr, 1))
+                assert(20 == test.geti(arr, 2))
+                assert(30 == test.geti(arr, 3))
             ]])
         end)
 
         it("set", function()
             run_test( [[
                 local arr = {10, 20, 30}
-                test.set(arr, 2, 123)
+                test.seti(arr, 2, 123)
                 assert( 10 == arr[1])
                 assert(123 == arr[2])
                 assert( 30 == arr[3])
-            ]])
-        end)
-
-        it("check out of bounds errors in get", function()
-            run_test([[
-                local arr = {10, 20, 30}
-
-                local ok, err = pcall(test.get, arr, 0)
-                assert(not ok)
-                assert(string.find(err, "invalid index", nil, true))
-
-                local ok, err = pcall(test.get, arr, 4)
-                assert(not ok)
-                assert(string.find(err, "wrong type for array element", nil, true))
-
-                table.remove(arr)
-                local ok, err = pcall(test.get, arr, 3)
-                assert(not ok)
-                assert(string.find(err, "wrong type for array element", nil, true))
             ]])
         end)
 
@@ -798,7 +787,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local arr = {10, 20, "hello"}
 
-                local ok, err = pcall(test.get, arr, 3)
+                local ok, err = pcall(test.geti, arr, 3)
                 assert(not ok)
                 assert(
                     string.find(err, "wrong type for array element", nil, true))
@@ -832,6 +821,45 @@ describe("Pallene coder /", function()
                     end
                 end
             ]])
+        end)
+
+        it("out-of bounds get is a tag error", function()
+            run_test([[
+                local arr = {10, 20, 30}
+
+                local ok, err = pcall(test.geti, arr, 0)
+                assert(not ok)
+                assert(string.find(err, "invalid index", nil, true))
+
+                local ok, err = pcall(test.geti, arr, 4)
+                assert(not ok)
+                assert(string.find(err, "wrong type for array element", nil, true))
+
+                table.remove(arr)
+                local ok, err = pcall(test.geti, arr, 3)
+                assert(not ok)
+                assert(string.find(err, "wrong type for array element", nil, true))
+            ]])
+        end)
+
+        it("{nil}: in-bounds get nil", function()
+            run_test([[ assert(nil == test.getnil({10, nil, 30}, 2)) ]])
+        end)
+
+        it("{nil}: out-of-bounds get nil", function()
+            run_test([[ assert(nil == test.getnil({10, nil, 30}, 4)) ]])
+        end)
+
+        it("{value}: get non-nil", function()
+            run_test([[ assert(10  == test.getvalue({10, nil, 30}, 1)) ]])
+        end)
+
+        it("{value}: in-bounds get nil", function()
+            run_test([[ assert(nil == test.getvalue({10, nil, 30}, 2)) ]])
+        end)
+
+        it("{value}: out-of-bounds get nil", function()
+            run_test([[ assert(nil == test.getvalue({10, nil, 30}, 4)) ]])
         end)
     end)
 
