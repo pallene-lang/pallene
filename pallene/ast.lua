@@ -41,6 +41,7 @@ declare_type("Stat", {
     Decl   = {"loc", "decl", "exp"},
     Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
+    Break  = {"loc"},
 })
 
 declare_type("Var", {

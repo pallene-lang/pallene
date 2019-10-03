@@ -377,7 +377,6 @@ function FunChecker:check_stat(stat)
         self.p.symbol_table:with_block(function()
             self:add_local(stat.decl.name, loop_type)
             stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
-
             self:check_stat(stat.block)
         end)
 
@@ -421,6 +420,9 @@ function FunChecker:check_stat(stat)
             "if statement condition")
         self:check_stat(stat.then_)
         self:check_stat(stat.else_)
+
+    elseif tag == "ast.Stat.Break" then
+        -- ok
 
     else
         error("impossible")

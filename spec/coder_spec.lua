@@ -614,6 +614,42 @@ describe("Pallene coder /", function()
                 until limit >= 100
                 return x
             end
+
+            function break_while() : integer
+                while true do break end
+                return 17
+            end
+
+            function break_repeat() : integer
+                repeat break until false
+                return 17
+            end
+
+            function break_for(): integer
+                local x = 0
+                for i = 1, 10 do
+                    x = x + i
+                    break
+                end
+                return x
+            end
+
+            function nested_break(x:boolean): integer
+                while true do
+                    while true do
+                        break
+                        return 10
+                    end
+                    if x then
+                        break
+                        return 20
+                    else
+                        return 30
+                    end
+                end
+                return 40
+            end
+
         ]]))
 
         it("Block, Assign, Decl", function()
@@ -655,6 +691,23 @@ describe("Pallene coder /", function()
         it("Repeat until", function()
             run_test([[ assert(10 == test.repeat_until()) ]])
         end)
+
+        it("Break while loop", function()
+            run_test([[ assert(17 == test.break_while()) ]])
+        end)
+
+        it("Break repeat-until loop", function()
+            run_test([[ assert(17 == test.break_repeat()) ]])
+        end)
+
+        it("Break for loop", function()
+            run_test([[ assert(1 == test.break_for()) ]])
+        end)
+        it("Nested break", function()
+            run_test([[ assert(40 == test.nested_break(true)) ]])
+        end)
+
+
     end)
 
     describe("Arrays /", function()
