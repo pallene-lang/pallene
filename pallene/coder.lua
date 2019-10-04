@@ -936,6 +936,11 @@ gen_cmd["Binop"] = function(self, cmd, _func)
             dst = dst, x = x, y = y }))
     end
 
+    local function strcmp(op)
+        return (util.render([[ $dst = (pallene_l_strcmp($x, $y) $op 0); ]], {
+            dst = dst, x = x, y = y, op = op }))
+    end
+
     local op = cmd.op
     if     op == "IntAdd"    then return int_binop("+")
     elseif op == "IntSub"    then return int_binop("-")
@@ -966,6 +971,12 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "FltGt"     then return binop_paren(">")
     elseif op == "FltLeq"    then return binop_paren("<=")
     elseif op == "FltGeq"    then return binop_paren(">=")
+    elseif op == "StrEq"     then return strcmp("==")
+    elseif op == "StrNeq"    then return strcmp("!=")
+    elseif op == "StrLt"     then return strcmp("<")
+    elseif op == "StrGt"     then return strcmp(">")
+    elseif op == "StrLeq"    then return strcmp("<=")
+    elseif op == "StrGeq"    then return strcmp(">=")
     elseif op == "BoolEq"    then return binop_paren("==")
     elseif op == "BoolNeq"   then return binop_paren("!=")
     else

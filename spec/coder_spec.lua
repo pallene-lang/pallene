@@ -396,12 +396,12 @@ describe("Pallene coder /", function()
             { "le_ff",     "<=",  "float",   "float",   "boolean" },
             { "ge_ff",     ">=",  "float",   "float",   "boolean" },
 
-            -- NYI { "eq_ss",     "==",  "string",  "string",  "boolean" },
-            -- NYI { "ne_ss",     "~=",  "string",  "string",  "boolean" },
-            -- NYI { "lt_ss",     "<",   "string",  "string",  "boolean" },
-            -- NYI { "gt_ss",     ">",   "string",  "string",  "boolean" },
-            -- NYI { "le_ss",     "<=",  "string",  "string",  "boolean" },
-            -- NYI { "ge_ss",     ">=",  "string",  "string",  "boolean" },
+            { "eq_ss",     "==",  "string",  "string",  "boolean" },
+            { "ne_ss",     "~=",  "string",  "string",  "boolean" },
+            { "lt_ss",     "<",   "string",  "string",  "boolean" },
+            { "gt_ss",     ">",   "string",  "string",  "boolean" },
+            { "le_ss",     "<=",  "string",  "string",  "boolean" },
+            { "ge_ss",     ">=",  "string",  "string",  "boolean" },
 
             { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
             { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
