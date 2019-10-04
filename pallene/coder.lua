@@ -1457,6 +1457,8 @@ function Coder:generate_luaopen_function()
     return (util.render([[
         int ${name}(lua_State *L)
         {
+            luaL_checkversion(L);
+
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
 
