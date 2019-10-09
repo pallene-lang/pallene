@@ -70,6 +70,20 @@ int pallene_l_strcmp(
 /* Inline functions and macros */
 /* --------------------------- */
 
+/* This is a workaround to avoid -Wmaybe-uninitialized warnings with GCC. If we
+ * initialize a TValue with setnilvalue and then follow that with a setobj, GCC
+ * complains that the setobj might be reading from an uninitialized obj->value_.
+ *
+ * To placate the compiler we write some bogus data to the value field whenever
+ * we would initialize a TValue with nil. In theory this should not have a
+ * noticeable performance impact because it only affects nil literals and
+ * variables of type nil. */
+static inline
+void pallene_setnilvalue(TValue *obj)
+{
+    val_(obj).b = 0;
+    setnilvalue(obj);
+}
 
 /* We must call these write barriers whenever we set "v" as an element of "p",
  * in order to preserve the color invariants of the incremental GC.
