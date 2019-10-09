@@ -72,50 +72,54 @@ function C.reformat(input)
     for line in input:gmatch("([^\n]*)") do
         line = line:match("^[ \t]*(.-)[ \t]*$")
 
-        -- Collapse groups of empty lines into a single empty line.
+        -- Collapse toplevel blank lines into a single one
         local is_blank = (#line == 0)
-        if not (is_blank and previous_is_blank) then
+        local skip = is_blank and previous_is_blank
+        previous_is_blank = is_blank
+        if skip then
+            goto continue
+        end
 
-            local nspaces
-            if line:match("^#") then
-                -- Preprocessor directives are never indented
-                nspaces = 0
+        local nspaces
+        if line:match("^#") then
+            -- Preprocessor directives are never indented
+            nspaces = 0
 
-            elseif line:match("^[A-Za-z_][A-Za-z_0-9]*:$") then
-                -- Labels are indented halfway
-                nspaces = math.max(0, 4 * depth - 2)
+        elseif line:match("^[A-Za-z_][A-Za-z_0-9]*:$") then
+            -- Labels are indented halfway
+            nspaces = math.max(0, 4 * depth - 2)
 
-            else
-                -- Otherwise, count braces and parens
-                local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
-                local without_comments = without_strings:gsub("/%*.-%*/", "")
-                                                        :gsub("//.*", "")
-                local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
-                local _, n_close = string.gsub(without_comments, "[})]", "%1")
-                local unindent_this_line = string.match(line, "^[})]")
+        else
+            -- Otherwise, count braces and parens
+            local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
+            local without_comments = without_strings:gsub("/%*.-%*/", "")
+                                                    :gsub("//.*", "")
+            local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
+            local _, n_close = string.gsub(without_comments, "[})]", "%1")
+            local unindent_this_line = string.match(line, "^[})]")
 
-                nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
+            nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
 
-                if     n_open > n_close then
-                    depth = depth + 1
-                elseif n_open < n_close then
-                    depth = depth - 1
-                end
-
-                if depth < 0 then
-                    -- Don't let the indentation level get negative. If by any
-                    -- chance our heuristics fail to spot an open brace or
-                    -- paren, this confines the messed up indentation to a
-                    -- single function.
-                    depth = 0
-                end
+            if     n_open > n_close then
+                depth = depth + 1
+            elseif n_open < n_close then
+                depth = depth - 1
             end
 
-            table.insert(out, string.rep(" ", nspaces))
-            table.insert(out, line)
-            table.insert(out, "\n")
+            if depth < 0 then
+                -- Don't let the indentation level get negative. If by any
+                -- chance our heuristics fail to spot an open brace or
+                -- paren, this confines the messed up indentation to a
+                -- single function.
+                depth = 0
+            end
         end
-        previous_is_blank = is_blank
+
+        table.insert(out, string.rep(" ", nspaces))
+        table.insert(out, line)
+        table.insert(out, "\n")
+
+        ::continue::
     end
     return table.concat(out)
 end
