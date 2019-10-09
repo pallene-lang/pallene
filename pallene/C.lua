@@ -72,11 +72,20 @@ function C.reformat(input)
     for line in input:gmatch("([^\n]*)") do
         line = line:match("^[ \t]*(.-)[ \t]*$")
 
-        -- Collapse toplevel blank lines into a single one
+        -- Empty comments mark lines that we intentionally want to keep a blank
+        -- inside a function. (Note: this feature means that the reformat
+        -- function is not indempotent).
+        local intentional_blank = (line == "/**/")
+        if intentional_blank then
+            line = ""
+        end
+
+        -- Merge adjacent blank lines.
         local is_blank = (#line == 0)
-        local skip = is_blank and previous_is_blank
-        previous_is_blank = is_blank
-        if skip then
+        if is_blank and (
+            previous_is_blank or
+            (depth > 0 and not intentional_blank))
+        then
             goto continue
         end
 
@@ -118,6 +127,8 @@ function C.reformat(input)
         table.insert(out, string.rep(" ", nspaces))
         table.insert(out, line)
         table.insert(out, "\n")
+
+        previous_is_blank = is_blank
 
         ::continue::
     end
