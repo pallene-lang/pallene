@@ -184,6 +184,13 @@ local binops = {
     { "<=", "Float",   "Float",   "FltLeq" },
     { ">=", "Float",   "Float",   "FltGeq" },
 
+    { "==", "String",   "String",   "StrEq"  },
+    { "~=", "String",   "String",   "StrNeq" },
+    { "<" , "String",   "String",   "StrLt"  },
+    { ">" , "String",   "String",   "StrGt"  },
+    { "<=", "String",   "String",   "StrLeq" },
+    { ">=", "String",   "String",   "StrGeq" },
+
     { "==", "Boolean", "Boolean", "BoolEq" },
     { "~=", "Boolean", "Boolean", "BoolNeq" },
 }
