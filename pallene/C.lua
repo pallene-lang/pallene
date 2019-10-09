@@ -64,24 +64,26 @@ end
 --   * /**/-style comments must not span multiple lines
 --   * Be careful about special characters inside strings and comments
 --   * goto labels must appear on a line by themselves
+--   * Use spaces for indentation instead of tabs
 --
 function C.reformat(input)
     local out = {}
     local depth = 0
     local previous_is_blank = true
     for line in input:gmatch("([^\n]*)") do
-        line = line:match("^[ \t]*(.-)[ \t]*$")
+        line = line:match("^ *(.-) *$")
 
-        -- Empty comments mark lines that we intentionally want to keep a blank
-        -- inside a function. (Note: this feature means that the reformat
-        -- function is not indempotent).
-        local intentional_blank = (line == "/**/")
-        if intentional_blank then
-            line = ""
+        -- We use tab characters to mark blank lines that should be preserved
+        -- in the output, for presentation purposes. (This trick means that the
+        -- reformat fucntion is still indempotent). However, typing a \t inside
+        -- [[ ]] strings is hard so we also use /**/ as a blank line marker.
+        if line == "/**/" then
+            line = "\t"
         end
 
-        -- Merge adjacent blank lines.
-        local is_blank = (#line == 0)
+        -- Clusters of blank lines are merged into a single blank line.
+        local is_blank          = not not line:match("^\t*$")
+        local intentional_blank = not not line:match("^\t+$")
         if is_blank and (
             previous_is_blank or
             (depth > 0 and not intentional_blank))
