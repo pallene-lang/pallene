@@ -1035,20 +1035,34 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
     local i   = self:c_value(cmd.src_i)
     local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
-    return (util.render([[
-        {
-            pallene_renormalize_array(L, $arr, $i, $line);
-            TValue *slot = &$arr->array[$i - 1];
-            ${check_tag}
-            $dst = $get_slot;
-        } ]], {
-            dst = dst,
-            arr = arr,
-            i = i,
-            line = line,
-            check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element"),
-            get_slot = get_slot(dst_typ, "slot"),
-        }))
+
+    local parts = {}
+    table.insert(parts, "{")
+
+    table.insert(parts, util.render([[
+        pallene_renormalize_array(L, $arr, $i, $line);
+        TValue *slot = &$arr->array[$i - 1];]], {
+            arr = arr, i = i, line = line
+    }))
+
+    local check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element")
+    if check_tag ~= "" then table.insert(parts, check_tag) end
+
+    table.insert(parts,
+        util.render([[ $dst = $get_slot; ]], {
+            dst = dst, get_slot = get_slot(dst_typ, "slot")}))
+
+    if dst_typ._tag == "types.T.Value" then
+        -- Remove "EMPTY" variant tag from out-of-bound nils
+        -- note: rawget in lapi.c also needs to do this.
+        table.insert(parts,
+            util.render([[ if (isempty(&$dst)) { setnilvalue(&$dst); } ]], {
+                dst = dst }))
+    end
+
+    table.insert(parts, "}")
+
+    return table.concat(parts, "\n")
 end
 
 gen_cmd["SetArr"] = function(self, cmd, _func)
