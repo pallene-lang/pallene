@@ -64,59 +64,71 @@ end
 --   * /**/-style comments must not span multiple lines
 --   * Be careful about special characters inside strings and comments
 --   * goto labels must appear on a line by themselves
+--   * Use spaces for indentation instead of tabs
 --
 function C.reformat(input)
     local out = {}
     local depth = 0
     local previous_is_blank = true
     for line in input:gmatch("([^\n]*)") do
-        line = line:match("^[ \t]*(.-)[ \t]*$")
+        line = line:match("^ *(.-) *$")
 
-        -- Collapse groups of empty lines into a single empty line.
-        local is_blank = (#line == 0)
-        if not (is_blank and previous_is_blank) then
+        -- We use tab characters to mark blank lines that should be preserved
+        -- in the output, for presentation purposes. (This trick means that the
+        -- reformat fucntion is still indempotent). However, typing a \t inside
+        -- [[ ]] strings is hard so we also use /**/ as a blank line marker.
+        if line == "/**/" then
+            line = "\t"
+        end
 
-            local nspaces
-            if line:match("^#") then
-                -- Preprocessor directives are never indented
-                nspaces = 0
+        -- Clusters of blank lines are merged into a single blank line.
+        local is_blank          = not not line:match("^\t*$")
+        local intentional_blank = not not line:match("^\t+$")
+        if is_blank and (
+            previous_is_blank or
+            (depth > 0 and not intentional_blank))
+        then
+            goto continue
+        end
 
-            elseif line:match("^[A-Za-z_][A-Za-z_0-9]*:$") then
-                -- Labels are indented halfway
-                nspaces = math.max(0, 4 * depth - 2)
+        local nspaces
+        if line:match("^#") then
+            -- Preprocessor directives are never indented
+            nspaces = 0
 
-            else
-                -- Otherwise, count braces and parens
-                local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
-                local without_comments = without_strings:gsub("/%*.-%*/", "")
-                                                        :gsub("//.*", "")
-                local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
-                local _, n_close = string.gsub(without_comments, "[})]", "%1")
-                local unindent_this_line = string.match(line, "^[})]")
+        elseif line:match("^[A-Za-z_][A-Za-z_0-9]*:$") then
+            -- Labels are indented halfway
+            nspaces = math.max(0, 4 * depth - 2)
 
-                nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
+        else
+            -- Otherwise, count braces and parens
+            local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
+            local without_comments = without_strings:gsub("/%*.-%*/", "")
+                                                    :gsub("//.*", "")
+            local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
+            local _, n_close = string.gsub(without_comments, "[})]", "%1")
+            local unindent_this_line = string.match(line, "^[})]")
 
-                if     n_open > n_close then
-                    depth = depth + 1
-                elseif n_open < n_close then
-                    depth = depth - 1
-                end
+            nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
 
-                if depth < 0 then
-                    -- Don't let the indentation level get negative. If by any
-                    -- chance our heuristics fail to spot an open brace or
-                    -- paren, this confines the messed up indentation to a
-                    -- single function.
-                    depth = 0
-                end
+            if     n_open > n_close then
+                depth = depth + 1
+            elseif n_open < n_close then
+                depth = depth - 1
             end
 
-            table.insert(out, string.rep(" ", nspaces))
-            table.insert(out, line)
-            table.insert(out, "\n")
+            assert(depth >= 0, "Unbalanced indentation. Too many '}'s")
         end
+
+        table.insert(out, string.rep(" ", nspaces))
+        table.insert(out, line)
+        table.insert(out, "\n")
+
         previous_is_blank = is_blank
+
+        ::continue::
     end
+    assert(depth == 0, "Unbalanced indentation at end of file.")
     return table.concat(out)
 end
 

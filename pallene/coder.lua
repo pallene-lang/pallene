@@ -140,8 +140,9 @@ end
 function Coder:push_to_stack(typ, value)
     return (util.render([[
         ${set_stack_slot}
-        api_incr_top(L); ]],{
-            set_stack_slot = set_stack_slot(typ, "s2v(L->top)", value),
+        api_incr_top(L);
+    ]],{
+        set_stack_slot = set_stack_slot(typ, "s2v(L->top)", value),
     }))
 end
 
@@ -204,14 +205,15 @@ function Coder:check_tag(typ, slot, loc, description_fmt, ...)
                 pallene_runtime_tag_check_error(L,
                     $line, $expected_tag, rawtt($slot),
                     ${description_fmt}${opt_comma}${extra_args});
-            } ]], {
-                test = self:test_tag(typ, slot),
-                line = C.integer(loc and loc.line or 0),
-                expected_tag = pallene_type_tag(typ),
-                slot = slot,
-                description_fmt = C.string(description_fmt),
-                opt_comma = (#extra_args == 0 and "" or ", "),
-                extra_args = table.concat(extra_args, ", "),
+            }
+        ]], {
+            test = self:test_tag(typ, slot),
+            line = C.integer(loc and loc.line or 0),
+            expected_tag = pallene_type_tag(typ),
+            slot = slot,
+            description_fmt = C.string(description_fmt),
+            opt_comma = (#extra_args == 0 and "" or ", "),
+            extra_args = table.concat(extra_args, ", "),
         }))
     end
 end
@@ -308,7 +310,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     return (util.render([[
         static ${ret_type} ${name}(
             ${args}
-        )]], {
+        )]], { -- no whitespace after ")"
             ret_type = ret_type,
             name = self:pallene_entry_point_name(f_id),
             args = table.concat(arg_lines, "\n"),
@@ -331,8 +333,9 @@ function Coder:pallene_entry_point_definition(f_id)
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
     if slots_needed > 0 then
-        table.insert(prologue, util.render(
-            [[ luaD_checkstack(L, $slots_needed); ]], {
+        table.insert(prologue, util.render([[
+            luaD_checkstack(L, $slots_needed);
+        ]], {
             slots_needed = C.integer(slots_needed),
         }))
     end
@@ -356,7 +359,11 @@ function Coder:pallene_entry_point_definition(f_id)
         ${fun_decl} {
             ${prologue}
 
+            /**/
+
             ${body}
+
+            /**/
 
           done:
             ${epilogue}
@@ -444,6 +451,16 @@ function Coder:lua_entry_point_definition(f_id)
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
 
+    -- We unconditionally initialize the G userdata here, in case one of the tag
+    -- checking tests needs to use it. We don't bother to make this
+    -- initialization conditional because in the case that really matters (small
+    -- leaf functions that don't use G) the C compiler can optimize this read
+    -- away after inlining the Pallene entry point.
+    local init_global_userdata = [[
+        CClosure *func = clCvalue(s2v(base));
+        Udata *G = uvalue(&func->upvalue[0]);
+    ]]
+
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
         if (PALLENE_UNLIKELY(nargs != $nargs)) {
@@ -454,15 +471,6 @@ function Coder:lua_entry_point_definition(f_id)
         fname = C.string(fname),
     })
 
-    -- We unconditionally initialize the G userdata here, in case one of the tag
-    -- checking tests needs to use it. We don't bother to make this
-    -- initialization conditional because in the case that really matters (small
-    -- leaf functions that don't use G) the C compiler can optimize this read
-    -- away after inlining the Pallene entry point.
-    local init_global_userdata = [[
-        CClosure *func = clCvalue(s2v(base));
-        Udata *G = uvalue(&func->upvalue[0]);
-    ]]
 
     local type_checks = {}
     for i, typ in ipairs(arg_types) do
@@ -489,9 +497,10 @@ function Coder:lua_entry_point_definition(f_id)
         local name = "x"..i
         arg_vars[i] = name
         table.insert(init_args, util.render([[
-            $decl = $get_slot; ]], {
-                decl = c_declaration(typ, name),
-                get_slot = get_slot(typ, slot),
+            $decl = $get_slot;
+        ]], {
+            decl = c_declaration(typ, name),
+            get_slot = get_slot(typ, slot),
         }))
     end
 
@@ -522,13 +531,13 @@ function Coder:lua_entry_point_definition(f_id)
         {
             StackValue *base = L->ci->func;
             TValue *slot;
-
+            /**/
             ${init_global_userdata}
-
+            /**/
             ${arity_check}
-
+            /**/
             ${type_checks}
-
+            /**/
             ${init_args}
             ${ret_decls}
             ${call_pallene}
@@ -744,12 +753,13 @@ function RecordCoder:declarations()
             Udata *rec = luaS_newudata(L, $prims_sizeof, $nvalues);
             rec->metatable = hvalue($mt_slot);
             return rec;
-        } ]], {
-            constructor_name = self:constructor_name(),
-            prims_sizeof = self:prims_sizeof(),
-            nvalues = C.integer(self.gc_count),
-            mt_slot = self.owner:metatable_upvalue_slot(self.record_typ),
-        }))
+        }
+    ]], {
+        constructor_name = self:constructor_name(),
+        prims_sizeof = self:prims_sizeof(),
+        nvalues = C.integer(self.gc_count),
+        mt_slot = self.owner:metatable_upvalue_slot(self.record_typ),
+    }))
 
     return table.concat(declarations, "\n")
 end
@@ -814,7 +824,8 @@ function Coder:wrap_function_call(call_stats)
             StackValue *old_stack = L->stack;
             ${call_stats}
             base = L->stack + (base - old_stack);
-        } ]], {
+        }
+    ]], {
         call_stats = call_stats,
     })
 end
@@ -991,8 +1002,8 @@ gen_cmd["Concat"] = function(self, cmd, _func)
     local init_input_array = {}
     for ix, srcv in ipairs(cmd.srcs) do
         local src = self:c_value(srcv)
-        table.insert(init_input_array, util.render([[
-            ss[$i] = $src; ]], {
+        table.insert(init_input_array,
+            util.render([[ ss[$i] = $src; ]], {
                 i = C.integer(ix - 1),
                 src = src,
             }))
@@ -1003,11 +1014,12 @@ gen_cmd["Concat"] = function(self, cmd, _func)
             TString *ss[$N];
             ${init_input_array};
             $dst = pallene_string_concatN(L, $N, ss);
-        } ]], {
-            dst = dst,
-            N = C.integer(#cmd.srcs),
-            init_input_array = table.concat(init_input_array, "\n"),
-        }))
+        }
+    ]], {
+        dst = dst,
+        N = C.integer(#cmd.srcs),
+        init_input_array = table.concat(init_input_array, "\n"),
+    }))
 end
 
 gen_cmd["ToDyn"] = function(self, cmd, _func)
@@ -1023,12 +1035,13 @@ gen_cmd["FromDyn"] = function(self, cmd, _func)
     local dst_typ = cmd.dst_typ
     return (util.render([[
         ${check_tag}
-        $dst = $get_slot; ]], {
-            dst = dst,
-            check_tag = self:check_tag(dst_typ, "&"..src,
-                    cmd.loc, "downcasted value"),
-            get_slot = get_slot(dst_typ, "&"..src),
-        }))
+        $dst = $get_slot;
+    ]], {
+        dst = dst,
+        check_tag = self:check_tag(dst_typ, "&"..src,
+                cmd.loc, "downcasted value"),
+        get_slot = get_slot(dst_typ, "&"..src),
+    }))
 end
 
 gen_cmd["NewArr"] = function(self, cmd, _func)
@@ -1047,34 +1060,35 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
     local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
 
-    local parts = {}
-    table.insert(parts, "{")
-
-    table.insert(parts, util.render([[
-        pallene_renormalize_array(L, $arr, $i, $line);
-        TValue *slot = &$arr->array[$i - 1];]], {
-            arr = arr, i = i, line = line
-    }))
-
-    local check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element")
-    if check_tag ~= "" then table.insert(parts, check_tag) end
-
-    table.insert(parts,
-        util.render([[ $dst = $get_slot; ]], {
-            dst = dst, get_slot = get_slot(dst_typ, "slot")}))
-
+    local fix_nils = ""
     if dst_typ._tag == "types.T.Value" then
         -- Remove "EMPTY" variant tag from out-of-bound nils
         -- note: rawget in lapi.c also needs to do this.
         -- note: pallene_setnilvalue not needed since dst is already initialized
-        table.insert(parts,
-            util.render([[ if (isempty(&$dst)) { setnilvalue(&$dst); } ]], {
-                dst = dst }))
+        fix_nils = util.render([[
+            if (isempty(&$dst)) { setnilvalue(&$dst); }
+        ]], {
+            dst = dst
+        })
     end
 
-    table.insert(parts, "}")
-
-    return table.concat(parts, "\n")
+    return (util.render([[
+        {
+            pallene_renormalize_array(L, $arr, $i, $line);
+            TValue *slot = &$arr->array[$i - 1];
+            ${check_tag}
+            $dst = $get_slot;
+            ${fix_nils}
+        }
+    ]], {
+        dst = dst,
+        arr = arr,
+        i = i,
+        line = line,
+        check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element"),
+        get_slot = get_slot(dst_typ, "slot"),
+        fix_nils = fix_nils,
+    }))
 end
 
 gen_cmd["SetArr"] = function(self, cmd, _func)
@@ -1088,13 +1102,14 @@ gen_cmd["SetArr"] = function(self, cmd, _func)
             pallene_renormalize_array(L, $arr, $i, $line);
             TValue *slot = &$arr->array[$i - 1];
             ${set_heap_slot}
-        } ]], {
-            arr = arr,
-            i = i,
-            v = v,
-            line = line,
-            set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
-        }))
+        }
+    ]], {
+        arr = arr,
+        i = i,
+        v = v,
+        line = line,
+        set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
+    }))
 end
 
 gen_cmd["NewRecord"] = function(self, cmd, _func)
@@ -1183,13 +1198,14 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
         L->top = $top;
         ${push_to_stack}
         lua_call(L, $nargs, $nrets);
-        ${pop_from_stack} ]], {
-            top = top,
-            push_to_stack = table.concat(push_to_stack, "\n"),
-            pop_from_stack = table.concat(pop_from_stack, "\n"),
-            nargs = C.integer(#f_typ.arg_types),
-            nrets = C.integer(#f_typ.ret_types),
-        })
+        ${pop_from_stack}
+    ]], {
+        top = top,
+        push_to_stack = table.concat(push_to_stack, "\n"),
+        pop_from_stack = table.concat(pop_from_stack, "\n"),
+        nargs = C.integer(#f_typ.arg_types),
+        nrets = C.integer(#f_typ.ret_types),
+    })
     return self:wrap_function_call(call_stats)
 end
 
@@ -1242,29 +1258,32 @@ gen_cmd["If"] = function(self, cmd, func)
                 ${then_}
             } else {
                 ${else_}
-            } ]], {
-                condition = condition,
-                then_ = then_,
-                else_ = else_,
-            }))
+            }
+        ]], {
+            condition = condition,
+            then_ = then_,
+            else_ = else_,
+        }))
 
     elseif A and (not B) then
         return (util.render([[
             if ($condition) {
                 ${then_}
-            } ]], {
-                condition = condition,
-                then_ = then_,
-            }))
+            }
+        ]], {
+            condition = condition,
+            then_ = then_,
+        }))
 
     elseif (not A) and B then
         return (util.render([[
             if (!$condition) {
                 ${else_}
-            } ]], {
-                condition = condition,
-                else_ = else_,
-            }))
+            }
+        ]], {
+            condition = condition,
+            else_ = else_,
+        }))
 
     else -- (not A) and (not B)
         -- ir.Clean does not allow this case.
@@ -1277,9 +1296,10 @@ gen_cmd["Loop"] = function(self, cmd, func)
     return (util.render([[
         while (1) {
             ${body}
-        } ]], {
-            body = body
-        }))
+        }
+    ]], {
+        body = body
+    }))
 end
 
 local for_counter = 0
@@ -1329,14 +1349,15 @@ gen_cmd["For"] = function(self, cmd, func)
         ){
             $loopvar = $start;
             ${body}
-        } ]], {
-            loopvar = self:c_var(cmd.loop_var),
-            start = start,
-            initialize = initialize,
-            condition = condition,
-            update = update,
-            body = body,
-        }))
+        }
+    ]], {
+        loopvar = self:c_var(cmd.loop_var),
+        start = start,
+        initialize = initialize,
+        condition = condition,
+        update = update,
+        body = body,
+    }))
 end
 
 gen_cmd["CheckGC"] = function(self, cmd, func)
@@ -1422,6 +1443,7 @@ function Coder:generate_luaopen_function()
             lua_pushvalue(L, globals);
             lua_pushcclosure(L, ${entry_point}, 1);
             lua_seti(L, closures, $ix);
+            /**/
         ]], {
             entry_point = entry_point,
             ix = C.integer(ix),
@@ -1455,6 +1477,7 @@ function Coder:generate_luaopen_function()
 
             table.insert(init_upvalues, util.render([[
                 lua_setiuservalue(L, globals, $ix);
+                /**/
             ]], {
                 ix = C.integer(ix),
             }))
@@ -1474,6 +1497,7 @@ function Coder:generate_luaopen_function()
             lua_pushstring(L, ${name});
             lua_geti(L, closures, $ix);
             lua_settable(L, export_table);
+            /**/
         ]], {
             name = C.string(name),
             ix = C.integer(self.closure_index[f_id]),
@@ -1485,24 +1509,36 @@ function Coder:generate_luaopen_function()
         {
             luaL_checkversion(L);
 
+            /**/
+
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
+
+            /**/
 
             lua_createtable(L, $n_closures, 0);
             int closures = lua_gettop(L);
 
+            /**/
+
             lua_newtable(L);
             int export_table = lua_gettop(L);
 
+            /**/
             /* Closures */
+            /**/
 
             ${init_closures}
 
+            /**/
             /* Global values */
+            /**/
 
             ${init_upvalues}
 
+            /**/
             /* Exports */
+            /**/
 
             ${init_exports}
 
