@@ -310,7 +310,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     return (util.render([[
         static ${ret_type} ${name}(
             ${args}
-        )]], { -- don't leave whitespace between ")" and upcoming ";"
+        )]], { -- no whitespace after ")"
             ret_type = ret_type,
             name = self:pallene_entry_point_name(f_id),
             args = table.concat(arg_lines, "\n"),
