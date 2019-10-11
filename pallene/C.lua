@@ -117,13 +117,7 @@ function C.reformat(input)
                 depth = depth - 1
             end
 
-            if depth < 0 then
-                -- Don't let the indentation level get negative. If by any
-                -- chance our heuristics fail to spot an open brace or
-                -- paren, this confines the messed up indentation to a
-                -- single function.
-                depth = 0
-            end
+            assert(depth >= 0, "Unbalanced indentation. Too many '}'s")
         end
 
         table.insert(out, string.rep(" ", nspaces))
@@ -134,6 +128,7 @@ function C.reformat(input)
 
         ::continue::
     end
+    assert(depth == 0, "Unbalanced indentation at end of file.")
     return table.concat(out)
 end
 
