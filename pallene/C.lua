@@ -34,9 +34,19 @@ function C.boolean(b)
 end
 
 function C.float(n)
-    -- We use hexadecimal float literals (%a) to avoid losing any precision.
-    -- This feature is part of the C99 and C++17 standards.
-    return string.format("%a /*%f*/", n, n)
+    -- 17 decimal digits should be able to accurately represent any IEE-754
+    -- double-precision floating point number except for NaN and infinities.
+    -- The HUGE_VAL macro is a part of math.h. For more info, please see the
+    -- quotefloat function in lstrlib.c and https://stackoverflow.com/a/21162120
+    if n == math.huge then
+        return "HUGE_VAL"
+    elseif n == -math.huge then
+        return "-HUGE_VAL"
+    elseif n ~= n then
+        error("NaN cannot be round-tripped")
+    else
+        return string.format("%.17g", n)
+    end
 end
 
 --
