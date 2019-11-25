@@ -147,6 +147,7 @@ declare_type("Cmd", {
 
     -- Builtin operations
     ToFloat    = {"loc", "dst", "src"},
+    Sqrt       = {"loc", "dst", "src"},
     IoWrite    = {"loc",        "src"},
 
     --
