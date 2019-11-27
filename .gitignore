@@ -5,6 +5,7 @@
 # lua
 lua/src/lua
 lua/src/luac
+lua/src/luaot
 
 cbenchmarks/*
 !cbenchmarks/*.c

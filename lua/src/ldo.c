@@ -501,7 +501,14 @@ void luaD_call (lua_State *L, StkId func, int nresults) {
       for (; narg < nfixparams; narg++)
         setnilvalue(s2v(L->top++));  /* complete missing arguments */
       lua_assert(ci->top <= L->stack_last);
-      luaV_execute(L, ci);  /* run the function */
+
+      /* run the function */
+      if (p->aot_implementation) {
+          p->aot_implementation(L, ci);
+      } else {
+          luaV_execute(L, ci);
+      }
+
       break;
     }
     default: {  /* not a function */
