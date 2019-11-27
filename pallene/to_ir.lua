@@ -354,9 +354,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             if     bname == "io_write" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.IoWrite(loc, xs[1]))
-            elseif bname == "sqrt" then
+            elseif bname == "math_sqrt" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.Sqrt(loc, dst, xs[1]))
+                table.insert(cmds, ir.Cmd.MathSqrt(loc, dst, xs[1]))
             elseif bname == "tofloat" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.ToFloat(loc, dst, xs[1]))

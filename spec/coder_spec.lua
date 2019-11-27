@@ -1085,7 +1085,7 @@ describe("Pallene coder /", function()
     describe("sqrt builtin", function()
         setup(compile([[
             function square_root(x: float): float
-                return sqrt(x)
+                return math_sqrt(x)
             end
         ]]))
 
@@ -1098,7 +1098,7 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("returns NaN on nevative numbers", function()
+        it("returns NaN on negative numbers", function()
             run_test([[
                 local x = test.square_root(-4.0)
                 assert(x ~= x)
