@@ -1095,12 +1095,20 @@ describe("Pallene coder /", function()
                 assert(2.0 == test.square_root(4.0))
                 assert(3.0 == test.square_root(9.0))
                 assert(4.0 == test.square_root(16.0))
+                assert(math.huge == test.square_root(math.huge))
             ]])
         end)
 
         it("returns NaN on negative numbers", function()
             run_test([[
                 local x = test.square_root(-4.0)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.square_root(0.0 / 0.0)
                 assert(x ~= x)
             ]])
         end)
