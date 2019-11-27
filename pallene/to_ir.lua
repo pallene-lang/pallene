@@ -351,12 +351,15 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local xs = get_xs()
 
             local bname = cname.name
-            if     bname == "tofloat" then
-                assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.ToFloat(loc, dst, xs[1]))
-            elseif bname == "io_write" then
+            if     bname == "io_write" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.IoWrite(loc, xs[1]))
+            elseif bname == "math_sqrt" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.MathSqrt(loc, dst, xs[1]))
+            elseif bname == "tofloat" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.ToFloat(loc, dst, xs[1]))
             else
                 error("impossible")
             end
