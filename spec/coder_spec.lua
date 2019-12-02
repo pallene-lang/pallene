@@ -65,6 +65,7 @@ describe("Pallene coder /", function()
             function f_string(): string    return "Hello World" end
             function pi(): float           return 3.141592653589793 end
             function e(): float            return 2.718281828459045 end
+            function one_half(): float     return 1.0 / 2.0 end
         ]]))
 
         it("nil", function()
@@ -98,6 +99,13 @@ describe("Pallene coder /", function()
                 assert(pi == test.pi())
                 assert(e  == test.e())
                 assert(pi*e*e == test.pi() * test.e() * test.e())
+            ]])
+        end)
+
+        it("floating point literals are the right type in C", function()
+            -- There was a bug where (1.0/2.0) became (1/2) in the generated C
+            run_test([[
+                assert(0.5 == test.one_half())
             ]])
         end)
     end)

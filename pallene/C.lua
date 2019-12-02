@@ -37,7 +37,8 @@ function C.float(n)
     -- 17 decimal digits should be able to accurately represent any IEE-754
     -- double-precision floating point number except for NaN and infinities.
     -- The HUGE_VAL macro is a part of math.h. For more info, please see the
-    -- quotefloat function in lstrlib.c and https://stackoverflow.com/a/21162120
+    -- quotefloat function in lstrlib.c, tostringbuff in lobject.c, and
+    -- https://stackoverflow.com/a/21162120
     if n == math.huge then
         return "HUGE_VAL"
     elseif n == -math.huge then
@@ -45,7 +46,12 @@ function C.float(n)
     elseif n ~= n then
         error("NaN cannot be round-tripped")
     else
-        return string.format("%.17g", n)
+        local s = string.format("%.17g", n)
+        if s:match("^%-?[0-9]+$") then
+            -- Looks like an integer. Add a decimal point to force to be double.
+            s = s .. ".0"
+        end
+        return s
     end
 end
 
