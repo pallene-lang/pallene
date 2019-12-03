@@ -1209,18 +1209,18 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     return self:wrap_function_call(call_stats)
 end
 
-gen_cmd["IoWrite"] = function(self, cmd, _func)
+gen_cmd["BuiltinIoWrite"] = function(self, cmd, _func)
     local v = self:c_value(cmd.src)
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 
-gen_cmd["MathSqrt"] = function(self, cmd, _func)
+gen_cmd["BuiltinMathSqrt"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local v = self:c_value(cmd.src)
     return util.render([[ $dst = sqrt($v); ]], { dst = dst, v = v })
 end
 
-gen_cmd["ToFloat"] = function(self, cmd, _func)
+gen_cmd["BuiltinToFloat"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local v = self:c_value(cmd.src)
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
