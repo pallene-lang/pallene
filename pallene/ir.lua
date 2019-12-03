@@ -146,9 +146,10 @@ declare_type("Cmd", {
     CallDyn     = {"loc", "f_typ", "dst", "src_f", "srcs"},
 
     -- Builtin operations
-    BuiltinIoWrite  = {"loc",        "src"},
-    BuiltinMathSqrt = {"loc", "dst", "src"},
-    BuiltinToFloat  = {"loc", "dst", "src"},
+    BuiltinIoWrite    = {"loc",        "src"},
+    BuiltinMathSqrt   = {"loc", "dst", "src"},
+    BuiltinStringChar = {"loc", "dst", "src"},
+    BuiltinToFloat    = {"loc", "dst", "src"},
 
     --
     -- Control flow

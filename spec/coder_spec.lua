@@ -1082,7 +1082,7 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("sqrt builtin", function()
+    describe("math.sqrt builtin", function()
         setup(compile([[
             function square_root(x: float): float
                 return math_sqrt(x)
@@ -1110,6 +1110,40 @@ describe("Pallene coder /", function()
             run_test([[
                 local x = test.square_root(0.0 / 0.0)
                 assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("string.char builtin", function()
+        setup(compile([[
+            function chr(x: integer): string
+                return string_char(x)
+            end
+        ]]))
+
+        it("works on normal characters", function()
+            run_test([[
+                for i = 1, 255 do
+                    assert(string.char(i) == test.chr(i))
+                end
+            ]])
+        end)
+
+        it("works on zero", function()
+            run_test([[
+                assert(string.char(0) == test.chr(0))
+            ]])
+        end)
+
+        it("error case", function()
+            run_test([[
+                local ok, err = pcall(test.chr, -1)
+                assert(not ok)
+                assert(string.find(err, "out of range", nil, true))
+
+                local ok, err = pcall(test.chr, 256)
+                assert(not ok)
+                assert(string.find(err, "out of range", nil, true))
             ]])
         end)
     end)
