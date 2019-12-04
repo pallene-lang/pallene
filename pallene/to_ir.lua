@@ -361,6 +361,12 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, dst, xs[1]))
                 table.insert(cmds, ir.Cmd.CheckGC())
+            elseif bname == "string_sub" then
+                assert(#xs == 3)
+                table.insert(cmds,
+                    ir.Cmd.BuiltinStringSub(loc, dst, xs[1], xs[2], xs[3]))
+                table.insert(cmds, ir.Cmd.CheckGC())
+
             elseif bname == "tofloat" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, dst, xs[1]))

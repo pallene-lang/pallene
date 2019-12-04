@@ -1228,6 +1228,15 @@ gen_cmd["BuiltinStringChar"] = function(self, cmd, _func)
         dst = dst, v = v, line = C.integer(line) })
 end
 
+gen_cmd["BuiltinStringSub"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local str = self:c_value(cmd.src1)
+    local i   = self:c_value(cmd.src2)
+    local j   = self:c_value(cmd.src3)
+    return util.render([[ $dst = pallene_string_sub(L, $str, $i, $j); ]], {
+        dst = dst, str = str, i = i, j = j })
+end
+
 gen_cmd["BuiltinToFloat"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local v = self:c_value(cmd.src)

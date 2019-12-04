@@ -66,6 +66,9 @@ void pallene_io_write(
 TString* pallene_string_char(
     lua_State *L, lua_Integer c, int line);
 
+TString* pallene_string_sub(
+    lua_State *L, TString *str, lua_Integer start, lua_Integer end);
+
 int pallene_l_strcmp(
     const TString *ls, const TString *rs);
 
