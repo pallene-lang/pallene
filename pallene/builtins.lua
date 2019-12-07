@@ -2,10 +2,13 @@ local types = require "pallene.types"
 
 local builtins = {}
 
+local T = types.T
+
 for lua_name, typ in pairs({
-    ["io.write"]     = types.T.Function({types.T.String()}, {}),
-    ["math.sqrt"]    = types.T.Function({types.T.Float()}, {types.T.Float()}),
-    ["tofloat"]      = types.T.Function({types.T.Integer()}, {types.T.Float()}),
+    ["io.write"]     = T.Function({T.String()}, {}),
+    ["math.sqrt"]    = T.Function({T.Float()}, {T.Float()}),
+    ["string.char"]  = T.Function({T.Integer()}, {T.String()}),
+    ["tofloat"]      = T.Function({T.Integer()}, {T.Float()}),
 }) do
     local pallene_name = string.gsub(lua_name, "%.", "_")
     builtins[pallene_name] = {

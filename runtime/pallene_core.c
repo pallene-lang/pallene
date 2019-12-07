@@ -166,6 +166,18 @@ void pallene_io_write(lua_State *L, TString *str)
     fwrite(s, 1, len, stdout);
 }
 
+TString* pallene_string_char(lua_State *L, lua_Integer c, int line)
+{
+    if (l_castS2U(c) > UCHAR_MAX) {
+        luaL_error(L, "char value out of range", line);
+    }
+
+    char buff[2];
+    buff[0] = c;
+    buff[1] = '\0';
+    return luaS_newlstr(L, buff, 1);
+}
+
 /* l_strcmp, copied from lvm.c
  *
  * Compare two strings 'ls' x 'rs', returning an integer less-equal-

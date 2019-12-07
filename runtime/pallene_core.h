@@ -63,6 +63,9 @@ void pallene_grow_array(
 void pallene_io_write(
     lua_State *L, TString *str);
 
+TString* pallene_string_char(
+    lua_State *L, lua_Integer c, int line);
+
 int pallene_l_strcmp(
     const TString *ls, const TString *rs);
 
