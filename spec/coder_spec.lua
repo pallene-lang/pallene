@@ -1148,6 +1148,25 @@ describe("Pallene coder /", function()
         end)
     end)
 
+    describe("string.sub builtin", function()
+        setup(compile([[
+            function sub(s: string, i: integer, j: integer): string
+                return string_sub(s, i, j)
+            end
+        ]]))
+
+        it("work", function()
+            run_test([[
+                local s = "abcde"
+                for i = -10, 10 do
+                    for j = -10, 10 do
+                        assert(string.sub(s, i, j) == test.sub(s, i, j))
+                    end
+                end
+            ]])
+        end)
+    end)
+
     describe("value", function()
         setup(compile([[
             function id(x:value): value

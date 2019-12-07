@@ -178,6 +178,53 @@ TString* pallene_string_char(lua_State *L, lua_Integer c, int line)
     return luaS_newlstr(L, buff, 1);
 }
 
+/* Translate a relative initial string position. (Negative means back from end)
+ * Clip result to [1, inf). See posrelatI() in lstrlib.c
+ */
+static
+size_t get_start_pos(lua_Integer pos, size_t len)
+{
+    if (pos > 0) {
+        return (size_t)pos;
+    } else if (pos == 0) {
+        return 1;
+    } else if (pos < -(lua_Integer)len) {
+        return 1;
+    } else {
+        return len + (size_t)pos + 1;
+    }
+}
+
+/* Clip i between [0, len]. Negative means back from end.
+ * See getendpos() in lstrlib.c */
+static
+size_t get_end_pos(lua_Integer pos, size_t len)
+{
+    if (pos > (lua_Integer)len) {
+        return len;
+    } else if (pos >= 0) {
+        return (size_t)pos;
+    } else if (pos < -(lua_Integer)len) {
+        return 0;
+    } else {
+        return len + (size_t)pos + 1;
+    }
+}
+
+TString* pallene_string_sub(
+        lua_State *L, TString *str, lua_Integer istart, lua_Integer iend)
+{
+    const char *s = getstr(str);
+    size_t len = tsslen(str);
+    size_t start = get_start_pos(istart, len);
+    size_t end = get_end_pos(iend, len);
+    if (start <= end) {
+        return luaS_newlstr(L, s + start - 1, (end - start) + 1);
+    } else {
+        return luaS_new(L, "");
+    }
+}
+
 /* l_strcmp, copied from lvm.c
  *
  * Compare two strings 'ls' x 'rs', returning an integer less-equal-

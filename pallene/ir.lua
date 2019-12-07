@@ -149,6 +149,7 @@ declare_type("Cmd", {
     BuiltinIoWrite    = {"loc",        "src"},
     BuiltinMathSqrt   = {"loc", "dst", "src"},
     BuiltinStringChar = {"loc", "dst", "src"},
+    BuiltinStringSub  = {"loc", "dst", "src1", "src2", "src3"},
     BuiltinToFloat    = {"loc", "dst", "src"},
 
     --
