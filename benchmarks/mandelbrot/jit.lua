@@ -2,6 +2,8 @@ local function mandelbrot(N)
     local bits  = 0
     local nbits = 0
 
+    local final_shift = 2 ^ (8 - (N%8))
+
     local delta = 2.0 / N
     for y = 0, N-1 do
         local Ci = y*delta - 1.0
@@ -24,7 +26,7 @@ local function mandelbrot(N)
                 end
             end
 
-            bits = (bits << 1) | bit
+            bits = (bits + bits) + bit
             nbits = nbits + 1
 
             if nbits == 8 then
@@ -35,7 +37,7 @@ local function mandelbrot(N)
         end
 
         if nbits > 0 then
-            bits  = bits << (8 - nbits)
+            bits  = bits * final_shift
             io.write(string.char(bits))
             bits  = 0
             nbits = 0
