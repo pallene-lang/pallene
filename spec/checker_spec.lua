@@ -136,6 +136,13 @@ describe("Pallene type checker", function()
             "'Point' isn't a value")
     end)
 
+    it("catches table type with repeated fields", function()
+        assert_error([[
+            function fn(t: {x: float, x: integer}) end
+        ]],
+            "duplicate field 'x' in table")
+    end)
+
     it("catches array expression in indexing is not an array", function()
         assert_error([[
             function fn(x: integer)
@@ -217,7 +224,7 @@ describe("Pallene type checker", function()
                 local xs = {}
             end
         ]],
-            "missing type hint for array or record initializer")
+            "missing type hint for initializer")
     end)
 
     it("forbids non-empty array (without type annotation)", function()
@@ -226,7 +233,7 @@ describe("Pallene type checker", function()
                 local xs = {10, 20, 30}
             end
         ]],
-            "missing type hint for array or record initializer")
+            "missing type hint for initializer")
     end)
 
     it("forbids array initializers with a table part", function()
@@ -247,90 +254,70 @@ describe("Pallene type checker", function()
             "expected integer but found string in array initializer")
     end)
 
-    it("forbids record creation (without type annotation)", function()
-        assert_error([[
-            record Point
-                x: float
-                y: float
-            end
-            function fn()
-                local p = { x = 10.0, y = 20.0 }
-            end
-        ]],
-            "missing type hint for array or record initializer")
+    describe("table/record initalizer", function()
+        local function assert_init_error(code, err)
+            assert_error([[
+                record Point x: float; y:float end
+
+                function f(): float
+                    ]].. code ..[[
+                end
+            ]], err)
+        end
+
+        for _, typ in ipairs({"{ x: float, y: float }", "Point"}) do
+
+            it("forbids creation without type annotation", function()
+                assert_init_error([[
+                    local p = { x = 10.0, y = 20.0 }
+                ]],
+                    "missing type hint for initializer")
+            end)
+
+            it("forbids wrong type in initializer", function()
+                assert_init_error([[
+                    local p: Point = { x = 10.0, y = "hello" }
+                ]],
+                    "expected float but found string in table initializer")
+            end)
+
+            it("forbids wrong field name in initializer", function()
+                assert_init_error([[
+                    local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
+                ]],
+                    "invalid field 'z' in table initializer for Point")
+            end)
+
+            it("forbids array part in initializer", function()
+                assert_init_error([[
+                    local p: Point = { x = 10.0, y = 20.0, 30.0 }
+                ]],
+                    "table initializer has array part")
+            end)
+
+            it("forbids initializing a field twice", function()
+                assert_init_error([[
+                    local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
+                ]],
+                    "duplicate field 'x' in table initializer")
+            end)
+
+            it("forbids missing fields in initializer", function()
+                assert_init_error([[
+                    local p: Point = { y = 1.0 }
+                ]],
+                    "required field 'x' is missing")
+            end)
+        end
     end)
 
-    it("forbids wrong type in record initializer", function()
-        assert_error([[
-            record Point
-                x: float
-                y: float
-            end
-            function fn()
-                local p: Point = { x = 10.0, y = "hello" }
-            end
-        ]],
-            "expected float but found string in record initializer")
-    end)
-
-    it("forbids wrong field name in record initializer", function()
-        assert_error([[
-            record Point
-                x: float
-                y: float
-            end
-            function fn()
-                local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
-            end
-        ]],
-            "invalid field 'z' in record initializer for 'Point'")
-    end)
-
-    it("forbids array part in record initializer", function()
-        assert_error([[
-            record Point
-                x: float
-                y: float
-            end
-            function fn()
-                local p: Point = { x = 10.0, y = 20.0, 30.0 }
-            end
-        ]],
-            "record initializer has array part")
-    end)
-
-    it("forbids initializing a record field twice", function()
-        assert_error([[
-            record Point
-                x: float
-                y: float
-            end
-            function fn()
-                local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
-            end
-        ]],
-            "duplicate field 'x' in record initializer")
-    end)
-
-    it("forbids missing fields in record initializer", function()
-        assert_error([[
-            record Point
-                x: float
-            end
-            function fn()
-                local p: Point = { }
-            end
-        ]],
-            "required field 'x' is missing")
-    end)
-
-    it("forbids type hints that are not array or records", function()
+    it("forbids type hints that are not array, tables, or records", function()
         assert_error([[
             function fn()
                 local p: string = { 10, 20, 30 }
             end
         ]],
-            "type hint for array or record initializer is not an array or record type")
+            "type hint for initializer is not an array, table, or record type")
     end)
 
     it("requires while statement conditions to be boolean", function()
@@ -600,6 +587,33 @@ describe("Pallene type checker", function()
         end
     end)
 
+    describe("dot", function()
+        for _, typ in ipairs({"{ x: float, y: float }", "Point"}) do
+            local function assert_dot_error(code, err)
+                assert_error([[
+                    record Point x: float; y:float end
+
+                    function f(p: ]].. typ ..[[): float
+                        ]].. code ..[[
+                    end
+                ]], err)
+            end
+
+            it("doesn't typecheck read/write to non existent fields", function()
+                local err = "field 'nope' not found in type '".. typ .."'"
+                assert_dot_error([[ p.nope = 10 ]], err)
+                assert_dot_error([[ return p.nope ]], err)
+            end)
+
+            it("doesn't typecheck read/write with invalid types", function()
+                assert_dot_error([[ p.x = p ]],
+                    "expected float but found ".. typ .." in assignment")
+                assert_dot_error([[ local p: ]].. typ ..[[ = p.x ]],
+                    "expected ".. typ .." but found float in declaration")
+            end)
+        end
+    end)
+
     describe("casting:", function()
         local typs = {
             "boolean", "float", "integer", "nil", "string",
@@ -637,33 +651,5 @@ describe("Pallene type checker", function()
             end
         ]],
             "expected string but found integer in argument 1")
-    end)
-end)
-
-describe("Pallene typecheck of records", function()
-    local function wrap_record(code)
-        return [[
-            record Point x: float; y:float end
-
-            function f(p: Point): float
-                ]].. code ..[[
-            end
-        ]]
-    end
-
-    it("doesn't typecheck read/write to non existent fields", function()
-        local function assert_non_existent(code)
-            assert_error(wrap_record(code),
-                "field 'nope' not found in record 'Point'")
-        end
-        assert_non_existent([[ p.nope = 10 ]])
-        assert_non_existent([[ return p.nope ]])
-    end)
-
-    it("doesn't typecheck read/write with invalid types", function()
-        assert_error(wrap_record[[ p.x = p ]],
-            "expected float but found Point in assignment")
-        assert_error(wrap_record[[ local p: Point = p.x ]],
-            "expected Point but found float in declaration")
     end)
 end)

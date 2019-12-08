@@ -150,6 +150,17 @@ function Checker:from_ast_type(ast_typ)
         local subtype = self:from_ast_type(ast_typ.subtype)
         return types.T.Array(subtype)
 
+    elseif tag == "ast.Type.Table" then
+        local fields = {}
+        for _, field in ipairs(ast_typ.fields) do
+            if fields[field.name] then
+                type_error(ast_typ.loc, "duplicate field '%s' in table",
+                           field.name)
+            end
+            fields[field.name] = self:from_ast_type(field.type)
+        end
+        return types.T.Table(fields)
+
     elseif tag == "ast.Type.Function" then
         if #ast_typ.ret_types >= 2 then
             error("functions with 2+ return values are not yet implemented")
@@ -461,7 +472,8 @@ function FunChecker:check_var(var)
     elseif tag == "ast.Var.Dot" then
         var.exp = self:check_exp_synthesize(var.exp)
         local rec_type = var.exp._type
-        if rec_type._tag ~= "types.T.Record" then
+        local tag = rec_type._tag
+        if tag ~= "types.T.Record" and tag ~= "types.T.Table" then
             type_error(var.loc,
                 "trying to access a member of value of type '%s'",
                 types.tostring(rec_type))
@@ -469,7 +481,7 @@ function FunChecker:check_var(var)
         local field_type = rec_type.field_types[var.name]
         if not field_type then
             type_error(var.loc,
-                "field '%s' not found in record '%s'",
+                "field '%s' not found in type '%s'",
                 var.name, types.tostring(rec_type))
         end
         var._type = field_type
@@ -536,7 +548,7 @@ function FunChecker:check_exp_synthesize(exp)
 
     elseif tag == "ast.Exp.Initlist" then
         type_error(exp.loc,
-            "missing type hint for array or record initializer")
+            "missing type hint for initializer")
 
     elseif tag == "ast.Exp.Lambda" then
         type_error(exp.loc,
@@ -748,17 +760,18 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                     "array initializer")
             end
 
-        elseif expected_type._tag == "types.T.Record" then
+        elseif expected_type._tag == "types.T.Record" or
+               expected_type._tag == "types.T.Table" then
             local initialized_fields = {}
             for _, field in ipairs(exp.fields) do
                 if not field.name then
                     type_error(field.loc,
-                        "record initializer has array part")
+                        "table initializer has array part")
                 end
 
                 if initialized_fields[field.name] then
                     type_error(field.loc,
-                        "duplicate field '%s' in record initializer",
+                        "duplicate field '%s' in table initializer",
                         field.name)
                 end
                 initialized_fields[field.name] = true
@@ -766,13 +779,13 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                 local field_type = expected_type.field_types[field.name]
                 if not field_type then
                     type_error(field.loc,
-                        "invalid field '%s' in record initializer for '%s'",
+                        "invalid field '%s' in table initializer for %s",
                         field.name, types.tostring(expected_type))
                 end
 
                 field.exp = self:check_exp_verify(
                     field.exp, field_type,
-                    "record initializer")
+                    "table initializer")
             end
 
             for field_name, _ in pairs(expected_type.field_types) do
@@ -784,7 +797,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
             end
         else
             type_error(exp.loc,
-                "type hint for array or record initializer is not an array or record type")
+                "type hint for initializer is not an array, table, or record type")
         end
 
         exp._type = expected_type

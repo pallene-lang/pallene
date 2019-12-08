@@ -16,6 +16,7 @@ declare_type("T", {
     String   = {},
     Function = {"arg_types", "ret_types"},
     Array    = {"elem"},
+    Table    = {"field_types"},
     Record   = {
         "name",        -- for tostring only
         "field_names", -- same order as the source type declaration
@@ -37,6 +38,7 @@ function types.is_gc(t)
            tag == "types.T.String" or
            tag == "types.T.Function" or
            tag == "types.T.Array" or
+           tag == "types.T.Table" or
            tag == "types.T.Record"
     then
         return true
@@ -98,6 +100,24 @@ local function equivalent(t1, t2, is_gradual)
     elseif tag1 == "types.T.Array" then
         return equivalent(t1.elem, t2.elem, is_gradual)
 
+    elseif tag1 == "types.T.Table" then
+        local f1 = t1.field_types
+        local f2 = t2.field_types
+
+        for name, typ in pairs(f1) do
+            if not f2[name] or not equivalent(typ, f2[name], is_gradual) then
+                return false
+            end
+        end
+
+        for name, typ in pairs(f2) do
+            if not f1[name] or not equivalent(f1[name], typ, is_gradual) then
+                return false
+            end
+        end
+
+        return true
+
     elseif tag1 == "types.T.Function" then
         if #t1.arg_types ~= #t2.arg_types then
             return false
@@ -151,6 +171,21 @@ function types.tostring(t)
         return "function" -- TODO implement
     elseif tag == "types.T.Array" then
         return "{ " .. types.tostring(t.elem) .. " }"
+    elseif tag == "types.T.Table" then
+        local sorted_fields = {}
+        for name, typ in pairs(t.field_types) do
+            table.insert(sorted_fields, {name = name, typ = typ})
+        end
+        table.sort(sorted_fields, function(a, b) return a.name < b.name end)
+
+        local parts = {}
+        for _, field in ipairs(sorted_fields) do
+            local typ = types.tostring(field.typ)
+            table.insert(parts, string.format("%s: %s", field.name, typ))
+        end
+
+        return "{ " .. table.concat(parts, ", ") .. " }"
+
     elseif tag == "types.T.Record" then
         return t.name
     else
