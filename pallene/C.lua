@@ -39,12 +39,12 @@ function C.float(n)
     -- The HUGE_VAL macro is a part of math.h. For more info, please see the
     -- quotefloat function in lstrlib.c, tostringbuff in lobject.c, and
     -- https://stackoverflow.com/a/21162120
-    if n == math.huge then
+    if n ~= n then
+        error("NaN cannot be round-tripped")
+    elseif n == math.huge then
         return "HUGE_VAL"
     elseif n == -math.huge then
         return "-HUGE_VAL"
-    elseif n ~= n then
-        error("NaN cannot be round-tripped")
     else
         local s = string.format("%.17g", n)
         if s:match("^%-?[0-9]+$") then
