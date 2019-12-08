@@ -2,7 +2,7 @@ local syntax_errors = {}
 
 local errors = {
     -- The `fail` label is the default "parsing failed" error number
-    fail = "Syntax Error",
+    fail = "Syntax Error.",
 
     --
     -- Lexer errors
@@ -15,9 +15,9 @@ local errors = {
 
     UnclosedShortString = "Unclosed short string.",
 
-    InvalidEscape = "Invalid escape character in string." ,
+    InvalidEscape = "Invalid escape character in string.",
 
-    MalformedEscape_decimal = "Decimal escape too large",
+    MalformedEscape_decimal = "Decimal escape too large.",
 
     MalformedEscape_u = "\\u escape sequence is malformed.",
 
@@ -79,11 +79,11 @@ local errors = {
 
     RCurlyType = "Expected '}' to close type specification.",
 
-    TypelistType = "Expected type after ','",
+    TypelistType = "Expected type after ','.",
 
-    RParenTypelist = "Expected ')' to close type list",
+    RParenTypelist = "Expected ')' to close type list.",
 
-    TypeReturnTypes = "Expected return types after `->` to finish the function type",
+    TypeReturnTypes = "Expected return types after `->` to finish the function type.",
 
     ColonRecordField = "Expected ':' after the name of a record field.",
 
@@ -159,11 +159,11 @@ local errors = {
 
     ExpFieldList = "Expected an expression after ',' or ';'.",
 
-    ExpStat = "Expected a statement but found an expression that is not a function call",
+    ExpStat = "Expected a statement but found an expression that is not a function call.",
 
-    AssignNotToVar = "Expected a valid lvalue in the left side of assignment but found a regular expression",
+    AssignNotToVar = "Expected a valid lvalue in the left side of assignment but found a regular expression.",
 
-    CastMissingType = "Expected a type for the cast expression",
+    CastMissingType = "Expected a type for the cast expression.",
 }
 
 syntax_errors.errors = errors
