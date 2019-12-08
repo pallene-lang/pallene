@@ -85,6 +85,8 @@ local errors = {
 
     TypeReturnTypes = "Expected return types after `->` to finish the function type.",
 
+    TypeTableField = "Expected a type name after ':'.",
+
     ColonRecordField = "Expected ':' after the name of a record field.",
 
     TypeRecordField = "Expected a type name after ':'.",

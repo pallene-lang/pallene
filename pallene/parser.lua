@@ -261,6 +261,7 @@ local grammar = re.compile([[
                      / (P  STRING)                               -> TypeString
                      / (P  VALUE)                                -> TypeValue
                      / (P  NAME)                                 -> TypeName
+                     / (P  LCURLY tablefields RCURLY^RCurlyType) -> TypeTable
                      / (P  LCURLY type^TypeType
                            RCURLY^RCurlyType)                    -> TypeArray
 
@@ -280,6 +281,11 @@ local grammar = re.compile([[
                      / (P  {| simpletype |} RARROW
                            rettype^TypeReturnTypes)              -> TypeFunction
                      / simpletype
+
+    tablefields     <- {| tablefield (fieldsep tablefield)*
+                          fieldsep? |}                           -- produces {Decl}
+
+    tablefield      <- (P  NAME COLON type^TypeTableField)       -> DeclDecl
 
     recordfields    <- {| recordfield* |}                        -- produces {Decl}
 

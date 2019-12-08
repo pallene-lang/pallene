@@ -270,6 +270,24 @@ describe("Pallene parser", function()
                     {_tag = "ast.Type.Name", name = "int" } } } )
     end)
 
+    it("can parse table types", function()
+        assert_type_ast("{ x: float }",
+            { _tag = "ast.Type.Table",
+              fields = {
+                { name = "x", type = { _tag = "ast.Type.Float" } } } })
+
+        assert_type_ast("{ x: float, y: integer }",
+            { _tag = "ast.Type.Table",
+              fields = {
+                { name = "x", type = { _tag = "ast.Type.Float" } },
+                { name = "y", type = { _tag = "ast.Type.Integer" } } } })
+
+        assert_type_ast("{ a: {integer} }",
+            { _tag = "ast.Type.Table",
+              fields = {
+                { name = "a", type = { _tag = "ast.Type.Array" } } } })
+    end)
+
     describe("can parse function types", function()
         it("with parameter lists of length = 0", function()
             assert_type_ast("() -> ()",
@@ -920,6 +938,13 @@ describe("Pallene parser", function()
 
         assert_type_syntax_error([[ {int ]],
             "Expected '}' to close type specification.")
+
+        assert_type_syntax_error([[ {a: float ]],
+            "Expected '}' to close type specification.")
+
+        assert_type_syntax_error([[
+            {a: }
+        ]], "Expected a type name after ':'.")
 
         assert_type_syntax_error([[ (a,,,) -> b ]],
             "Expected type after ','")
