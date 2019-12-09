@@ -220,5 +220,10 @@ void pallene_renormalize_array(
     }
 }
 
+static inline
+int pallene_is_truthy(const TValue *v)
+{
+    return !(ttisnil(v) || (ttisboolean(v) && bvalue(v) == 0));
+}
 
 #endif

@@ -322,9 +322,8 @@ function FunChecker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.While" then
-        stat.condition = self:check_exp_verify(
-            stat.condition, types.T.Boolean(),
-            "while loop condition")
+        stat.condition = self:check_condition_exp(
+            stat.condition, "while loop condition")
         self:check_stat(stat.block)
 
     elseif tag == "ast.Stat.Repeat" then
@@ -333,9 +332,8 @@ function FunChecker:check_stat(stat)
             for _, inner_stat in ipairs(stat.block.stats) do
                 self:check_stat(inner_stat)
             end
-            stat.condition = self:check_exp_verify(
-                stat.condition, types.T.Boolean(),
-                "repeat-until loop condition")
+            stat.condition = self:check_condition_exp(
+                stat.condition, "repeat-until loop condition")
         end)
 
     elseif tag == "ast.Stat.For" then
@@ -412,9 +410,8 @@ function FunChecker:check_stat(stat)
         end
 
     elseif tag == "ast.Stat.If" then
-        stat.condition = self:check_exp_verify(
-            stat.condition, types.T.Boolean(),
-            "if statement condition")
+        stat.condition = self:check_condition_exp(
+            stat.condition, "if statement condition")
         self:check_stat(stat.then_)
         self:check_stat(stat.else_)
 
@@ -820,6 +817,20 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
     end
 end
 
+-- Checks if exp can be used as the condition in an `if`, `while` or `repeat`
+-- statement or in a logical operator such as `and`, `or` or `not`.
+function FunChecker:check_condition_exp(exp, description)
+    exp = self:check_exp_synthesize(exp)
+    local typ = exp._type
+    if typ._tag == "types.T.Boolean" or typ._tag == "types.T.Value" then
+        return exp
+    else
+        type_error(exp.loc,
+            "expression passed to %s has type %s. Expected boolean or value.",
+            description, types.tostring(typ))
+    end
+end
+
 -- Checks `x : ast_typ = exp`, where ast_typ my be optional
 function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
     if decl.type then
@@ -840,5 +851,6 @@ function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
         end
     end
 end
+
 
 return checker

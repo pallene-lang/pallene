@@ -127,6 +127,7 @@ declare_type("Cmd", {
     --- Dynamic Value
     ToDyn      = {"loc", "src_typ", "dst", "src"},
     FromDyn    = {"loc", "dst_typ", "dst", "src"},
+    IsTruthy   = {"loc", "dst", "src"},
 
     -- Arrays
     NewArr     = {"loc", "dst", "size_hint"},

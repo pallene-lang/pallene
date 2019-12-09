@@ -1192,6 +1192,35 @@ describe("Pallene coder /", function()
             function write(xs:{value}, i:integer, x:value): ()
                 xs[i] = x
             end
+
+            function if_value(x:value): boolean
+                if x then
+                    return true
+                else
+                    return false
+                end
+            end
+
+            function while_value(x:value): integer
+                local out = 0
+                while x do
+                    out = out + 1
+                    x = false
+                end
+                return out
+            end
+
+            function repeat_value(x:value): integer
+                local out = 0
+                repeat
+                    out = out + 1
+                    if out == 2 then
+                        break
+                    end
+                until x
+                return out
+            end
+
         ]]))
 
         --
@@ -1222,6 +1251,35 @@ describe("Pallene coder /", function()
                 assert("hello" == xs[2])
             ]])
         end)
+
+        it("can use value in if-statement condition", function()
+            run_test([[
+                assert(true == test.if_value(0))
+                assert(true == test.if_value(true))
+                assert(false == test.if_value(false))
+                assert(false == test.if_value(nil))
+            ]])
+        end)
+
+        it("can use value in while-statement condition", function()
+            run_test([[
+                assert(1 == test.while_value(0))
+                assert(1 == test.while_value(true))
+                assert(0 == test.while_value(false))
+                assert(0 == test.while_value(nil))
+            ]])
+        end)
+
+        it("can use value in repeat-until-statement condition", function()
+            run_test([[
+                assert(1 == test.repeat_value(0))
+                assert(1 == test.repeat_value(true))
+                assert(2 == test.repeat_value(false))
+                assert(2 == test.repeat_value(nil))
+            ]])
+        end)
+
+
     end)
 
     describe("Corner cases of scoping", function()

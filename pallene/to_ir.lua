@@ -42,24 +42,24 @@ function ToIR:convert_stat(cmds, stat)
 
     elseif tag == "ast.Stat.While" then
         local body = {}
-        local condition = self:exp_to_value(body, stat.condition)
-        table.insert(body, ir.Cmd.If(stat.loc, condition, ir.Cmd.Nop(), ir.Cmd.Break()))
+        local _, condBool = self:exp_to_condition(body, stat.condition)
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Repeat" then
         local body = {}
         self:convert_stat(body, stat.block)
-        local condition = self:exp_to_value(body, stat.condition)
-        table.insert(body, ir.Cmd.If(stat.loc, condition, ir.Cmd.Break(), ir.Cmd.Nop()))
+        local _, condBool = self:exp_to_condition(body, stat.condition)
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then
-        local condition = self:exp_to_value(cmds, stat.condition)
+        local _, condBool = self:exp_to_condition(cmds, stat.condition)
         local then_ = {}; self:convert_stat(then_, stat.then_)
         local else_ = {}; self:convert_stat(else_, stat.else_)
         table.insert(cmds, ir.Cmd.If(
-            stat.loc, condition,
+            stat.loc, condBool,
             ir.Cmd.Seq(then_),
             ir.Cmd.Seq(else_)))
 
@@ -222,7 +222,7 @@ local function type_specific_binop(op, typ1, typ2)
     error("impossible")
 end
 
--- Converts a typecheced ast.Exp to a ir.Value. If necessary, will create a
+-- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a
 -- fresh variable, and add intermediate computations to the @cmds list.
 function ToIR:exp_to_value(cmds, exp, _recursive)
     local tag = exp._tag
@@ -473,6 +473,27 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         -- through to the default case.
         local value = self:exp_to_value(cmds, exp, true)
         table.insert(cmds, ir.Cmd.Move(loc, dst, value))
+    end
+end
+
+-- Returns two results:
+--   1. An ir.Value correspoding to exp
+--   2. A boolean ir.Value, corresponding to whether exp is truthy.
+-- As usual, may add intermediate cmds to the @cmds list
+function ToIR:exp_to_condition(cmds, exp)
+    local loc = exp.loc
+    local typ = exp._type
+    if typ._tag == "types.T.Boolean" then
+        local ev = self:exp_to_value(cmds, exp)
+        return ev, ev
+    elseif typ._tag == "types.T.Value" then
+        local ev = self:exp_to_value(cmds, exp)
+        local b = ir.add_local(self.func, false, types.T.Boolean())
+        table.insert(cmds, ir.Cmd.IsTruthy(loc, b, ev))
+        local bv = ir.Value.LocalVar(b)
+        return ev, bv
+    else
+        error("impossible")
     end
 end
 
