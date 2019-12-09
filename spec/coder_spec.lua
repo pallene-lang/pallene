@@ -309,6 +309,7 @@ describe("Pallene coder /", function()
             { "neg_i", "-",   "integer", "integer" },
             { "bnot",  "~",   "integer", "integer" },
             { "not_b", "not", "boolean", "boolean" },
+            { "not_v", "not", "value",   "value"   },
         }
 
         local pallene_code = {}
@@ -416,6 +417,9 @@ describe("Pallene coder /", function()
 
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
+
+            { "and_vv",    "and", "value", "value", "value" },
+            { "or_vv",     "or",  "value", "value", "value" },
 
             { "concat_ss", "..",  "string",  "string",  "string" },
         }
@@ -1220,7 +1224,6 @@ describe("Pallene coder /", function()
                 until x
                 return out
             end
-
         ]]))
 
         --
@@ -1278,8 +1281,6 @@ describe("Pallene coder /", function()
                 assert(2 == test.repeat_value(nil))
             ]])
         end)
-
-
     end)
 
     describe("Corner cases of scoping", function()

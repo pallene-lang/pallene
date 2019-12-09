@@ -178,7 +178,7 @@ describe("Pallene type checker", function()
                 return not nil
             end
         ]],
-            "trying to boolean negate a nil")
+            "expression passed to 'not' operator has type nil")
     end)
 
     it("catches mismatching types in locals", function()
@@ -552,7 +552,7 @@ describe("Pallene type checker", function()
                 }) do
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
-       "$dir hand side of logical expression is a $t instead of a boolean", [[
+       "$dir hand side of '$op' has type $t", [[
                         function fn(x: $t1, y: $t2) : boolean
                             return x $op y
                         end
