@@ -59,6 +59,10 @@ function gc.compute_stack_slots(func)
             end
         end
     end
+    for i = 1, #func.typ.ret_types do
+        local v = ir.ret_var(func, i)
+        last_use[v] = #flat_cmds + 1
+    end
 
     -- 2) Find which variables are live at each GC and, conversely,
     --    which variables are live at some GC slot.
