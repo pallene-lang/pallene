@@ -32,6 +32,7 @@ local function ctype(typ)
     elseif tag == "types.T.String"   then return "TString *"
     elseif tag == "types.T.Function" then return "TValue"
     elseif tag == "types.T.Array"    then return "Table *"
+    elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
     elseif tag == "types.T.Value"    then return "TValue"
     else error("impossible")
@@ -91,6 +92,7 @@ local function get_slot(typ, src_slot)
     elseif tag == "types.T.String"   then tmpl = "tsvalue($src)"
     elseif tag == "types.T.Function" then tmpl = "*($src)"
     elseif tag == "types.T.Array"    then tmpl = "hvalue($src)"
+    elseif tag == "types.T.Table"    then tmpl = "hvalue($src)"
     elseif tag == "types.T.Record"   then tmpl = "uvalue($src)"
     elseif tag == "types.T.Value"    then tmpl = "*($src)"
     else error("impossible")
@@ -110,6 +112,7 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.String"   then tmpl = "setsvalue(L, $dst, $src);"
     elseif tag == "types.T.Function" then tmpl = "setobj(L, $dst, &$src);"
     elseif tag == "types.T.Array"    then tmpl = "sethvalue(L, $dst, $src);"
+    elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
     elseif tag == "types.T.Value"    then tmpl = "setobj(L, $dst, &$src);"
     else error("impossible")
@@ -159,6 +162,7 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.String"   then return "LUA_TSTRING"
     elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
+    elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
     elseif tag == "types.T.Value"    then error("value is not a tag")
     else error("impossible")
@@ -175,6 +179,7 @@ function Coder:test_tag(typ, slot)
     elseif tag == "types.T.String"   then tmpl = "ttisstring($slot)"
     elseif tag == "types.T.Function" then tmpl = "ttisfunction($slot)"
     elseif tag == "types.T.Array"    then tmpl = "ttistable($slot)"
+    elseif tag == "types.T.Table"    then tmpl = "ttistable($slot)"
     elseif tag == "types.T.Value"    then tmpl = "1"
     elseif tag == "types.T.Record"   then
         return (util.render([[(ttisfulluserdata($slot) && uvalue($slot)->metatable == hvalue($mt_slot))]], {
@@ -1131,6 +1136,64 @@ gen_cmd["SetArr"] = function(self, cmd, _func)
         v = v,
         line = line,
         set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
+    }))
+end
+
+gen_cmd["NewTable"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local n = C.integer(cmd.size_hint)
+    return (util.render([[ $dst = pallene_new_table(L, $n); ]], {
+        dst = dst,
+        n = n,
+    }))
+end
+
+gen_cmd["GetTable"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local tab = self:c_value(cmd.src_tab)
+    local key = self:c_value(cmd.src_k)
+    local dst_typ = cmd.dst_typ
+    local line = C.integer(cmd.loc.line)
+
+    return (util.render([[
+        {
+            static int cache = 0;
+            TValue *slot = pallene_getstr($tab, $key, &cache);
+            ${check_tag}
+            $dst = $get_slot;
+        }
+    ]], {
+        dst = dst,
+        tab = tab,
+        key = key,
+        line = line,
+        check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "table field"),
+        get_slot = get_slot(dst_typ, "slot"),
+    }))
+end
+
+gen_cmd["SetTable"] = function(self, cmd, _func)
+    local tab = self:c_value(cmd.src_tab)
+    local key = self:c_value(cmd.src_k)
+    local v = self:c_value(cmd.src_v)
+    local src_typ = cmd.src_typ
+    local line = C.integer(cmd.loc.line)
+    return (util.render([[
+        {
+            static int cache = 0;
+            TValue *slot = pallene_getstr($tab, $key, &cache);
+            if (PALLENE_UNLIKELY(isabstkey(slot))) {
+                TValue keyv;
+                setsvalue(L, &keyv, $key);
+                slot = luaH_newkey(L, $tab, &keyv);
+            }
+            ${set_heap_slot}
+        }
+    ]], {
+        tab = tab,
+        key = key,
+        line = line,
+        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
     }))
 end
 

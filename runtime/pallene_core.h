@@ -226,4 +226,41 @@ int pallene_is_truthy(const TValue *v)
     return !(ttisnil(v) || (ttisboolean(v) && bvalue(v) == 0));
 }
 
+static inline
+Table *pallene_new_table(lua_State *L, lua_Integer n)
+{
+    Table *t = luaH_new(L);
+    if (n > 0) {
+        luaH_resize(L, t, 0, n);
+    }
+    return t;
+}
+
+static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
+
+static inline
+TValue *pallene_getstr(Table *t, TString *key, int *pos)
+{
+    if (PALLENE_LIKELY(*pos < sizenode(t))) {
+       Node *n = gnode(t, *pos);
+       if (PALLENE_LIKELY(keyisshrstr(n) && eqshrstr(keystrval(n), key)))
+           return gval(n);
+    }
+    int currpos = lmod(key->hash, sizenode(t));
+    Node *n = gnode(t, currpos);
+    for (;;) {
+        if (keyisshrstr(n) && eqshrstr(keystrval(n), key)) {
+            *pos = currpos;
+            return gval(n);
+        }
+        else {
+            int nx = gnext(n);
+            if (nx == 0)
+                return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
+            currpos += nx;
+            n += nx;
+        }
+    }
+}
+
 #endif

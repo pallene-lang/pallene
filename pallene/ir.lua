@@ -135,6 +135,12 @@ declare_type("Cmd", {
     GetArr     = {"loc", "dst_typ", "dst", "src_arr", "src_i"},
     SetArr     = {"loc", "src_typ",        "src_arr", "src_i", "src_v"},
 
+    -- Tables
+    NewTable   = {"loc", "dst", "size_hint"},
+
+    GetTable   = {"loc", "dst_typ", "dst", "src_tab", "src_k"},
+    SetTable   = {"loc", "src_typ",        "src_tab", "src_k", "src_v"},
+
     -- Records
     NewRecord  = {"loc", "rec_typ", "dst"},
 
@@ -178,7 +184,7 @@ declare_type("Seq", {
 
 local  src_fields = {
     "src", "src1", "src2",
-    "src_arr", "src_rec", "src_i", "src_v",
+    "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
     "condition", "start", "limit", "step" }
 local srcs_fields = { "srcs" }
 
