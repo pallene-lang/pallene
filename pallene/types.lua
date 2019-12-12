@@ -46,6 +46,30 @@ function types.is_gc(t)
     end
 end
 
+function types.is_condition(t)
+    local tag = t._tag
+    if     tag == "types.T.Value" or
+           tag == "types.T.Boolean"
+    then
+        return true
+
+    elseif tag == "types.T.Void" or
+           tag == "types.T.Nil" or
+           tag == "types.T.Integer" or
+           tag == "types.T.Float" or
+           tag == "types.T.String" or
+           tag == "types.T.Function" or
+           tag == "types.T.Array" or
+           tag == "types.T.Record"
+    then
+        return false
+
+    else
+        error("impossible")
+    end
+
+end
+
 -- This helper function implements both the type equality relation and the and
 -- the gradual type consistency relation from gradual typing.
 -- Gradual type consistency is a relaxed form of equality where the the "value"

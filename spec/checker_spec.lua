@@ -178,7 +178,7 @@ describe("Pallene type checker", function()
                 return not nil
             end
         ]],
-            "trying to boolean negate a nil")
+            "expression passed to 'not' operator has type nil")
     end)
 
     it("catches mismatching types in locals", function()
@@ -342,7 +342,7 @@ describe("Pallene type checker", function()
                 return 20
             end
         ]],
-            "expected boolean but found integer in while loop condition")
+            "expression passed to while loop condition has type integer")
     end)
 
     it("requires repeat statement conditions to be boolean", function()
@@ -354,7 +354,7 @@ describe("Pallene type checker", function()
                 return 20
             end
         ]],
-            "expected boolean but found integer in repeat-until loop condition")
+            "expression passed to repeat-until loop condition has type integer")
     end)
 
     it("requires if statement conditions to be boolean", function()
@@ -367,7 +367,7 @@ describe("Pallene type checker", function()
                 end
             end
         ]],
-            "expected boolean but found integer in if statement condition")
+            "expression passed to if statement condition has type integer")
     end)
 
     it("ensures numeric 'for' variable has number type", function()
@@ -552,7 +552,7 @@ describe("Pallene type checker", function()
                 }) do
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
-       "$dir hand side of logical expression is a $t instead of a boolean", [[
+       "$dir hand side of '$op' has type $t", [[
                         function fn(x: $t1, y: $t2) : boolean
                             return x $op y
                         end

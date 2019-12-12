@@ -19,6 +19,23 @@ local values = {
     },
 }
 
+do
+    local typs = {}
+    for k, _ in pairs(values) do
+        table.insert(typs, k)
+    end
+    table.sort(typs)
+
+    local all_values = {}
+    for _, typ in ipairs(typs) do
+        for _, v in ipairs(values[typ]) do
+            table.insert(all_values, v)
+        end
+    end
+
+    values["value"] = all_values
+end
+
 local function isnan(x)
     return x ~= x
 end

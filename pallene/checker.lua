@@ -53,6 +53,16 @@ local function type_error(loc, fmt, ...)
     return checker_error(loc, ("type error: " .. fmt), ...)
 end
 
+local function check_type_is_condition(exp, err_fmt, ...)
+    local typ = exp._type
+    if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Value" then
+        type_error(exp.loc,
+            "expression passed to %s has type %s. Expected boolean or value.",
+            string.format(err_fmt, ...),
+            types.tostring(typ))
+    end
+end
+
 --
 --
 --
@@ -322,9 +332,8 @@ function FunChecker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.While" then
-        stat.condition = self:check_exp_verify(
-            stat.condition, types.T.Boolean(),
-            "while loop condition")
+        stat.condition = self:check_exp_synthesize(stat.condition)
+        check_type_is_condition(stat.condition, "while loop condition")
         self:check_stat(stat.block)
 
     elseif tag == "ast.Stat.Repeat" then
@@ -333,9 +342,8 @@ function FunChecker:check_stat(stat)
             for _, inner_stat in ipairs(stat.block.stats) do
                 self:check_stat(inner_stat)
             end
-            stat.condition = self:check_exp_verify(
-                stat.condition, types.T.Boolean(),
-                "repeat-until loop condition")
+            stat.condition = self:check_exp_synthesize(stat.condition)
+            check_type_is_condition(stat.condition, "repeat-until loop condition")
         end)
 
     elseif tag == "ast.Stat.For" then
@@ -412,9 +420,8 @@ function FunChecker:check_stat(stat)
         end
 
     elseif tag == "ast.Stat.If" then
-        stat.condition = self:check_exp_verify(
-            stat.condition, types.T.Boolean(),
-            "if statement condition")
+        stat.condition = self:check_exp_synthesize(stat.condition)
+        check_type_is_condition(stat.condition, "if statement condition")
         self:check_stat(stat.then_)
         self:check_stat(stat.else_)
 
@@ -565,12 +572,7 @@ function FunChecker:check_exp_synthesize(exp)
             end
             exp._type = types.T.Integer()
         elseif op == "not" then
-            if t._tag ~= "types.T.Boolean" then
-                -- We are being intentionaly restrictive here w.r.t Lua
-                type_error(exp.loc,
-                    "trying to boolean negate a %s instead of a boolean",
-                    types.tostring(t))
-            end
+            check_type_is_condition(exp.exp, "'not' operator")
             exp._type = types.T.Boolean()
         else
             error("impossible")
@@ -661,17 +663,9 @@ function FunChecker:check_exp_synthesize(exp)
             exp._type = types.T.Float()
 
         elseif op == "and" or op == "or" then
-            if t1._tag ~= "types.T.Boolean" then
-                type_error(exp.loc,
-                    "left hand side of logical expression is a %s instead of a boolean",
-                    types.tostring(t1))
-            end
-            if t2._tag ~= "types.T.Boolean" then
-                type_error(exp.loc,
-                    "right hand side of logical expression is a %s instead of a boolean",
-                    types.tostring(t2))
-            end
-            exp._type = types.T.Boolean()
+            check_type_is_condition(exp.lhs, "left hand side of '%s'", op)
+            check_type_is_condition(exp.rhs, "right hand side of '%s'", op)
+            exp._type = t2
 
         elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
             if t1._tag ~= "types.T.Integer" then
@@ -840,5 +834,6 @@ function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
         end
     end
 end
+
 
 return checker

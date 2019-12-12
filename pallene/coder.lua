@@ -1044,12 +1044,18 @@ gen_cmd["FromDyn"] = function(self, cmd, _func)
     }))
 end
 
+gen_cmd["IsTruthy"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local src = self:c_value(cmd.src)
+    return (util.render([[ $dst = pallene_is_truthy(&$src); ]], {
+        dst = dst, src = src }))
+end
+
 gen_cmd["NewArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local n = C.integer(cmd.size_hint)
     return (util.render([[ $dst = pallene_new_array(L, $n); ]], {
-        dst = dst,
-        n = n,
+        dst = dst, n = n,
     }))
 end
 

@@ -247,8 +247,8 @@ Pallene functions can refer to functions defined before them but not to function
 Pallene uses the same set of operators and control-flow statements as Lua.
 The only difference is that the type system is more restrictive:
 
-* Logic operators (`not`, `and`, `or`) only operate on booleans
-* The condition for `if`, `while` and `repeat` must be a boolean
+* The logic operators (`not`, `and`, `or`) only operate on expressions of type `boolean` or of type `value`
+* The condition of `if`, `while` and `repeat` must be of type `boolean` or of type `value`
 * Relational operators (`==`, `<`, etc) must receive two arguments of the same type.
 * The arithmetic and concatenation operators don't automatically coerce between numbers and strings.
 
@@ -285,8 +285,7 @@ end
 ### Automatic type coercions
 
 In some places in a Pallene program there is a natural "expected type".
-For example, the type of the condition of an if-statement is expected to be a boolean,
-and the type of a parameter being passed to a function is expected to be the type described by the corresponding function type.
+For example, the type of a parameter being passed to a function is expected to be the type described by the corresponding function type.
 Similarly, there is also an expected type for expressions surrounded by a type annotation, or values being assigned to a variable of known type.
 
 If the expected type of an expression is `value` but the inferred type is something else, Pallene will automatically insert an upcast to `value`.
