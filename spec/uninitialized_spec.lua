@@ -68,7 +68,7 @@ describe("Uninitialized variable analysis: ", function()
                 local x:integer
                 return x
             end
-        ]], "variable x is used before being initialized")
+        ]], "variable 'x' is used before being initialized")
     end)
 
     it("assumes that loops might not execute", function()
@@ -81,6 +81,6 @@ describe("Uninitialized variable analysis: ", function()
                 end
                 return x
             end
-        ]], "variable x is used before being initialized")
+        ]], "variable 'x' is used before being initialized")
     end)
 end)

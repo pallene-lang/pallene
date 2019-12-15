@@ -235,7 +235,7 @@ describe("Pallene type checker", function()
                 local xs: {integer} = {10, 20, 30, x=17}
             end
         ]],
-            "named field x in array initializer")
+            "named field 'x' in array initializer")
     end)
 
     it("forbids wrong type in array initializer", function()
@@ -283,7 +283,7 @@ describe("Pallene type checker", function()
                 local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
             end
         ]],
-            "invalid field z in record initializer for Point")
+            "invalid field 'z' in record initializer for Point")
     end)
 
     it("forbids array part in record initializer", function()
@@ -309,7 +309,7 @@ describe("Pallene type checker", function()
                 local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
             end
         ]],
-            "duplicate field x in record initializer")
+            "duplicate field 'x' in record initializer")
     end)
 
     it("forbids missing fields in record initializer", function()
@@ -321,7 +321,7 @@ describe("Pallene type checker", function()
                 local p: Point = { }
             end
         ]],
-            "required field x is missing")
+            "required field 'x' is missing")
     end)
 
     it("forbids type hints that are not array or records", function()
@@ -627,7 +627,7 @@ describe("Pallene type checker", function()
                 f = g
             end
         ]],
-            "attempting to assign to toplevel constant function f")
+            "attempting to assign to toplevel constant function 'f'")
     end)
 
     it("typechecks io.write (error)", function()
