@@ -947,6 +947,12 @@ gen_cmd["Binop"] = function(self, cmd, _func)
             dst = dst, x = x, y = y }))
     end
 
+    local function equalobj(is_eq)
+        local neg = is_eq and "" or "!"
+        return (util.render([[ $dst = ${neg}luaV_equalobj(L, &$x, &$y); ]], {
+            dst = dst, neg = neg, x = x, y = y }))
+    end
+
     local function strcmp(op)
         return (util.render([[ $dst = (pallene_l_strcmp($x, $y) $op 0); ]], {
             dst = dst, x = x, y = y, op = op }))
@@ -970,6 +976,10 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "BitLShift" then return shift("pallene_shiftL")
     elseif op == "BitRShift" then return shift("pallene_shiftR")
     elseif op == "FltPow"    then return pow()
+    elseif op == "ValueEq"   then return equalobj(true)
+    elseif op == "ValueNeq"  then return equalobj(false)
+    elseif op == "NilEq"     then return binop_paren("==")
+    elseif op == "NilNeq"    then return binop_paren("!=")
     elseif op == "BoolEq"    then return binop_paren("==")
     elseif op == "BoolNeq"   then return binop_paren("!=")
     elseif op == "IntEq"     then return binop_paren("==")
@@ -990,6 +1000,12 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "StrGt"     then return strcmp(">")
     elseif op == "StrLeq"    then return strcmp("<=")
     elseif op == "StrGeq"    then return strcmp(">=")
+    elseif op == "FunctionEq"  then return equalobj(true)
+    elseif op == "FunctionNeq" then return equalobj(false)
+    elseif op == "ArrayEq"   then return binop_paren("==")
+    elseif op == "ArrayNeq"  then return binop_paren("!=")
+    elseif op == "RecordEq"  then return binop_paren("==")
+    elseif op == "RecordNeq" then return binop_paren("!=")
     else
         print("OP=", op)
         error("impossible")

@@ -173,6 +173,12 @@ local binops = {
 
     { "^" , "Float",   "Float",   "FltPow" },
 
+    { "==", "Value",   "Value",   "ValueEq"  },
+    { "~=", "Value",   "Value",   "ValueNeq" },
+
+    { "==", "Nil",     "Nil",     "NilEq"  },
+    { "~=", "Nil",     "Nil",     "NilNeq" },
+
     { "==", "Boolean", "Boolean", "BoolEq"  },
     { "~=", "Boolean", "Boolean", "BoolNeq" },
 
@@ -197,6 +203,14 @@ local binops = {
     { "<=", "String",  "String",   "StrLeq" },
     { ">=", "String",  "String",   "StrGeq" },
 
+    { "==", "Function","Function", "FunctionEq"  },
+    { "~=", "Function","Function", "FunctionNeq" },
+
+    { "==", "Array",   "Array",    "ArrayEq"    },
+    { "~=", "Array",   "Array",    "ArrayNeq"    },
+
+    { "==", "Record",  "Record",   "RecordEq",  },
+    { "~=", "Record",  "Record",   "RecordNeq",  },
 }
 
 local function type_specific_unop(op, typ)
