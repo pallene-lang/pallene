@@ -403,6 +403,10 @@ describe("Pallene coder /", function()
             { "concat_ss", "..",  "string",  "string",  "string" },
 
             -- Comparison operators, same order as types.lua
+            -- Nil and Record are tested separately.
+
+            { "eq_vv",     "==",  "value",   "value",   "value" },
+            { "ne_vv",     "~=",  "value",   "value",   "value" },
 
             { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
             { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
@@ -427,6 +431,16 @@ describe("Pallene coder /", function()
             { "gt_ss",     ">",   "string",  "string",  "boolean" },
             { "le_ss",     "<=",  "string",  "string",  "boolean" },
             { "ge_ss",     ">=",  "string",  "string",  "boolean" },
+
+            { "eq_fun_fun", "==", "(integer, integer) -> integer",
+                                  "(integer, integer) -> integer",
+                                  "boolean" },
+            { "ne_fun_fun", "~=",  "(integer, integer) -> integer",
+                                  "(integer, integer) -> integer",
+                                  "boolean" },
+
+            { "eq_arr_arr", "==", "{integer}", "{integer}", "boolean" },
+            { "ne_arr_arr", "~=", "{integer}", "{integer}", "boolean" },
         }
 
         local pallene_code = {}
@@ -468,6 +482,91 @@ describe("Pallene coder /", function()
              local name = test[1]
              it(name, function() run_test(test_scripts[name]) end)
         end
+    end)
+
+    describe("Nil equality", function()
+        setup(compile([[
+            function eq_nil(x: nil, y: nil): boolean
+                return x == y
+            end
+
+            function ne_nil(x: nil, y: nil): boolean
+                return x ~= y
+            end
+
+            function eq_value(x: value, y: value): boolean
+                return x == y
+            end
+        ]]))
+
+        it("==", function()
+            run_test([[
+                assert(true == test.eq_nil(nil, nil))
+                assert(true == test.eq_nil(nil, ({})[1]))
+            ]])
+        end)
+
+        it("~=", function()
+            run_test([[
+                assert(true == test.eq_nil(nil, nil))
+                assert(true == test.eq_nil(nil, ({})[1]))
+            ]])
+        end)
+
+        it("is not equal to false", function()
+            run_test([[
+                assert(false == test.eq_value(nil, false))
+            ]])
+        end)
+    end)
+
+    describe("Record equality", function()
+        setup(compile([[
+            record Point
+                x: float
+                y: float
+            end
+
+            function points(): {Point}
+                return {
+                    { x = 1.0, y = 2.0 },
+                    { x = 1.0, y = 2.0 },
+                    { x = 3.0, y = 4.0 },
+                }
+            end
+
+            function eq_point(p: Point, q: Point): boolean
+                return p == q
+            end
+
+            function ne_point(p: Point, q: Point): boolean
+                return p ~= q
+            end
+        ]]))
+
+        it("==", function()
+            run_test([[
+                local p = test.points()
+                for i = 1, #p do
+                    for j = 1, #p do
+                        local ok = (i == j)
+                        assert(ok == test.eq_point(p[i], p[j]))
+                    end
+                end
+            ]])
+        end)
+
+        it("~=", function()
+            run_test([[
+                local p = test.points()
+                for i = 1, #p do
+                    for j = 1, #p do
+                        local ok = (i ~= j)
+                        assert(ok == test.ne_point(p[i], p[j]))
+                    end
+                end
+            ]])
+        end)
     end)
 
     describe("Coercions with dynamic type /", function()

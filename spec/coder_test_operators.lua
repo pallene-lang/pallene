@@ -17,6 +17,14 @@ local values = {
         "c\0d",
         "ABCDEFGHIJKLMNOPQRSTabcdefghilklmnopqrst", -- long string >= 40 chars
     },
+    ["(integer, integer) -> integer"] = {
+        function(x, y) return x + y end,
+        function(x, y) return x + y end,
+        function(x, y) return x - y end,
+    },
+    ["{integer}"] = {
+        {}, {17}, {17}, {17, 18},
+    }
 }
 
 do
