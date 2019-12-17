@@ -405,8 +405,8 @@ describe("Pallene coder /", function()
             -- Comparison operators, same order as types.lua
             -- Nil and Record are tested separately.
 
-            { "eq_value", "==",  "value", "value", "value" },
-            { "ne_value", "~=",  "value", "value", "value" },
+            { "eq_value", "==",  "value", "value", "boolean" },
+            { "ne_value", "~=",  "value", "value", "boolean" },
 
             { "eq_boolean", "==",  "boolean", "boolean", "boolean" },
             { "ne_boolean", "~=",  "boolean", "boolean", "boolean" },
