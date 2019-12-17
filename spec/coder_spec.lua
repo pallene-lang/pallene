@@ -353,6 +353,9 @@ describe("Pallene coder /", function()
     describe("Binary Operators /", function()
 
         local tests = {
+
+            -- Non-comparison operators, same order as checker.lua
+
             { "add_ii",    "+",   "integer", "integer", "integer" },
             { "add_if",    "+",   "integer", "float",   "float" },
             { "add_fi",    "+",   "float",   "integer", "float" },
@@ -373,23 +376,36 @@ describe("Pallene coder /", function()
             -- NYI { "mod_fi",    "%",   "float",   "integer", "float" },
             -- NYI { "mod_ff",    "%",   "float",   "float",   "float" },
 
-            { "fltdiv_ii", "/",   "integer", "integer", "float" },
-            { "fltdiv_ff", "/",   "float",   "float",   "float" },
-
-            { "band",      "&",   "integer", "integer", "integer" },
-            { "bor",       "|",   "integer", "integer", "integer" },
-            { "bxor",      "~",   "integer", "integer", "integer" },
-
-            { "lshift",    "<<",  "integer", "integer", "integer" },
-            { "rshift",    ">>",  "integer", "integer", "integer" },
-
             { "intdiv_ii", "//",  "integer", "integer", "integer" },
             { "intdiv_if", "//",  "integer", "float",   "float" },
             { "intdiv_fi", "//",  "float",   "integer", "float" },
             { "intdiv_ff", "//",  "float",   "float",   "float" },
 
+
+            { "fltdiv_ii", "/",   "integer", "integer", "float" },
+            { "fltdiv_ff", "/",   "float",   "float",   "float" },
+
             { "pow_ii",    "^",   "integer", "integer", "float" },
             { "pow_ff",    "^",   "float",   "float",   "float" },
+
+            { "and_bb",    "and", "boolean", "boolean", "boolean" },
+            { "or_bb",     "or",  "boolean", "boolean", "boolean" },
+
+            { "and_vv",    "and", "value", "value", "value" },
+            { "or_vv",     "or",  "value", "value", "value" },
+
+            { "bor",       "|",   "integer", "integer", "integer" },
+            { "band",      "&",   "integer", "integer", "integer" },
+            { "bxor",      "~",   "integer", "integer", "integer" },
+            { "lshift",    "<<",  "integer", "integer", "integer" },
+            { "rshift",    ">>",  "integer", "integer", "integer" },
+
+            { "concat_ss", "..",  "string",  "string",  "string" },
+
+            -- Comparison operators, same order as types.lua
+
+            { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
+            { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
 
             { "eq_ii",     "==",  "integer", "integer", "boolean" },
             { "ne_ii",     "~=",  "integer", "integer", "boolean" },
@@ -411,17 +427,6 @@ describe("Pallene coder /", function()
             { "gt_ss",     ">",   "string",  "string",  "boolean" },
             { "le_ss",     "<=",  "string",  "string",  "boolean" },
             { "ge_ss",     ">=",  "string",  "string",  "boolean" },
-
-            { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
-            { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
-
-            { "and_bb",    "and", "boolean", "boolean", "boolean" },
-            { "or_bb",     "or",  "boolean", "boolean", "boolean" },
-
-            { "and_vv",    "and", "value", "value", "value" },
-            { "or_vv",     "or",  "value", "value", "value" },
-
-            { "concat_ss", "..",  "string",  "string",  "string" },
         }
 
         local pallene_code = {}
