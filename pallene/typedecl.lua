@@ -18,7 +18,7 @@ local function make_tag(mod_name, type_name, cons_name)
     assert(is_valid_name_component(cons_name))
     local tag = mod_name .. "." .. type_name .. "." .. cons_name
     if existing_tags[tag] then
-        error("tag name " .. tag .. " is already being used")
+        error("tag name '" .. tag .. "' is already being used")
     else
         existing_tags[tag] = true
     end

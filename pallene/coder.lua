@@ -476,7 +476,7 @@ function Coder:lua_entry_point_definition(f_id)
     for i, typ in ipairs(arg_types) do
         local name = func.vars[i].name
         local check_tag =
-            self:check_tag(typ, "slot", func.loc, "argument %s", C.string(name))
+            self:check_tag(typ, "slot", func.loc, "argument '%s'", C.string(name))
         if check_tag ~= ""  then
             table.insert(type_checks, util.render([[
                 slot = s2v(base + $i);

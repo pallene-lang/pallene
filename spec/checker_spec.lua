@@ -73,7 +73,7 @@ describe("Scope analysis: ", function()
             local function f() end
             local function f() end
         ]],
-            "duplicate toplevel declaration")
+            "duplicate toplevel declaration for 'f'")
     end)
 
     it("forbids multiple function arguments with the same name", function()
@@ -283,7 +283,7 @@ describe("Pallene type checker", function()
                 local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
             end
         ]],
-            "invalid field 'z' in record initializer for Point")
+            "invalid field 'z' in record initializer for 'Point'")
     end)
 
     it("forbids array part in record initializer", function()

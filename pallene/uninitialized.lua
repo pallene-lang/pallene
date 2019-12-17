@@ -162,7 +162,7 @@ function uninitialized.verify_variables(module)
                 reported_variables[v] = true
                 local name = assert(func.vars[v].name)
                 table.insert(errors, location.format_error(cmd.loc,
-                        "error: variable %s is used before being initialized", name))
+                        "error: variable '%s' is used before being initialized", name))
             end
         end
 
