@@ -180,7 +180,7 @@ function Checker:check_program(prog_ast)
             local old_loc = names[name]
             if old_loc then
                 scope_error(loc,
-                    "duplicate toplevel declaration for %s, previous one at line %d",
+                    "duplicate toplevel declaration for '%s', previous one at line %d",
                     name, old_loc.line)
             end
             names[name] = loc
@@ -392,7 +392,7 @@ function FunChecker:check_stat(stat)
             local ntag = stat.var._name._tag
             if ntag == "checker.Name.Function" then
                 type_error(stat.loc,
-                    "attempting to assign to toplevel constant function %s",
+                    "attempting to assign to toplevel constant function '%s'",
                     stat.var.name)
             elseif ntag == "checker.Name.Builtin" then
                 type_error(stat.loc,
@@ -740,7 +740,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
             for _, field in ipairs(exp.fields) do
                 if field.name then
                     type_error(field.loc,
-                        "named field %s in array initializer",
+                        "named field '%s' in array initializer",
                         field.name)
                 end
                 field.exp = self:check_exp_verify(
@@ -758,7 +758,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
 
                 if initialized_fields[field.name] then
                     type_error(field.loc,
-                        "duplicate field %s in record initializer",
+                        "duplicate field '%s' in record initializer",
                         field.name)
                 end
                 initialized_fields[field.name] = true
@@ -766,7 +766,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                 local field_type = expected_type.field_types[field.name]
                 if not field_type then
                     type_error(field.loc,
-                        "invalid field %s in record initializer for %s",
+                        "invalid field '%s' in record initializer for '%s'",
                         field.name, types.tostring(expected_type))
                 end
 
@@ -778,7 +778,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
             for field_name, _ in pairs(expected_type.field_types) do
                 if not initialized_fields[field_name] then
                     type_error(exp.loc,
-                        "required field %s is missing from initializer",
+                        "required field '%s' is missing from initializer",
                         field_name)
                 end
             end

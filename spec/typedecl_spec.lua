@@ -6,6 +6,6 @@ describe("Typedecl", function()
             local mod = {}
             typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
             typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
-        end, "tag name TESTTYPE.Foo.Bar is already being used")
+        end, "tag name 'TESTTYPE.Foo.Bar' is already being used")
     end)
 end)

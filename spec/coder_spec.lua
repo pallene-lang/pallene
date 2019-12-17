@@ -232,7 +232,7 @@ describe("Pallene coder /", function()
             run_test([[
                 local ok, err = pcall(test.g1, 3.14)
                 assert(string.find(err,
-                    "wrong type for argument x, " ..
+                    "wrong type for argument 'x', " ..
                     "expected integer but found float",
                     nil, true))
             ]])
