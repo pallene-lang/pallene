@@ -87,6 +87,16 @@ void pallene_runtime_mod_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
+int pallene_runtime_table_absent_error(
+    lua_State *L,
+    int line,
+    TString *key
+){
+    luaL_error(L, "attempt to access nonexistent field '%s' in line %d",
+        getstr(key), line);
+    PALLENE_UNREACHABLE;
+}
+
 int pallene_runtime_record_nonstr_error(
     lua_State *L,
     int received_tag

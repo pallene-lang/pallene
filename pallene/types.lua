@@ -16,7 +16,7 @@ declare_type("T", {
     String   = {},
     Function = {"arg_types", "ret_types"},
     Array    = {"elem"},
-    Table    = {"field_types"},
+    Table    = {"fields"},
     Record   = {
         "name",        -- for tostring only
         "field_names", -- same order as the source type declaration
@@ -62,6 +62,7 @@ function types.is_condition(t)
            tag == "types.T.String" or
            tag == "types.T.Function" or
            tag == "types.T.Array" or
+           tag == "types.T.Table" or
            tag == "types.T.Record"
     then
         return false
@@ -70,6 +71,43 @@ function types.is_condition(t)
         error("impossible")
     end
 
+end
+
+function types.is_indexable(t)
+    local tag = t._tag
+    if     tag == "types.T.Table" or
+           tag == "types.T.Record"
+    then
+        return true
+
+    elseif tag == "types.T.Void" or
+           tag == "types.T.Nil" or
+           tag == "types.T.Boolean" or
+           tag == "types.T.Integer" or
+           tag == "types.T.Float" or
+           tag == "types.T.Value" or
+           tag == "types.T.String" or
+           tag == "types.T.Function" or
+           tag == "types.T.Array"
+    then
+        return false
+
+    else
+        error("impossible")
+    end
+end
+
+function types.indices(t)
+    local tag = t._tag
+    if     tag == "types.T.Table" then
+        return t.fields
+
+    elseif tag == "types.T.Record" then
+        return t.field_types
+
+    else
+        error("impossible")
+    end
 end
 
 -- This helper function implements both the type equality relation and the and
@@ -101,8 +139,8 @@ local function equivalent(t1, t2, is_gradual)
         return equivalent(t1.elem, t2.elem, is_gradual)
 
     elseif tag1 == "types.T.Table" then
-        local f1 = t1.field_types
-        local f2 = t2.field_types
+        local f1 = t1.fields
+        local f2 = t2.fields
 
         for name, typ in pairs(f1) do
             if not f2[name] or not equivalent(typ, f2[name], is_gradual) then
@@ -173,7 +211,7 @@ function types.tostring(t)
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == "types.T.Table" then
         local sorted_fields = {}
-        for name, typ in pairs(t.field_types) do
+        for name, typ in pairs(t.fields) do
             table.insert(sorted_fields, {name = name, typ = typ})
         end
         table.sort(sorted_fields, function(a, b) return a.name < b.name end)

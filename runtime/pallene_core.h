@@ -46,6 +46,10 @@ void pallene_runtime_mod_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
 
+int pallene_runtime_table_absent_error(
+    lua_State *L, int line, TString *key)
+    PALLENE_NORETURN;
+
 int pallene_runtime_record_nonstr_error(
     lua_State *L, int received_tag)
     PALLENE_NORETURN;
@@ -238,26 +242,25 @@ Table *pallene_new_table(lua_State *L, lua_Integer n)
 
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
+/* This function is a speciallization of luaH_getshortstr from ltable.c */
 static inline
-TValue *pallene_getstr(Table *t, TString *key, int *pos)
+TValue *pallene_getstr(Table *t, TString *key, size_t *pos)
 {
     if (PALLENE_LIKELY(*pos < sizenode(t))) {
        Node *n = gnode(t, *pos);
        if (PALLENE_LIKELY(keyisshrstr(n) && eqshrstr(keystrval(n), key)))
            return gval(n);
     }
-    int currpos = lmod(key->hash, sizenode(t));
-    Node *n = gnode(t, currpos);
+    Node *n = gnode(t, lmod(key->hash, sizenode(t)));
     for (;;) {
         if (keyisshrstr(n) && eqshrstr(keystrval(n), key)) {
-            *pos = currpos;
+            *pos = n - gnode(t, 0);
             return gval(n);
         }
         else {
             int nx = gnext(n);
             if (nx == 0)
                 return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
-            currpos += nx;
             n += nx;
         }
     }

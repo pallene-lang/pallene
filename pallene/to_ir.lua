@@ -444,7 +444,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local cmd
             if     typ._tag == "types.T.Table" then
                 local key = ir.Value.String(field)
-                local dst_typ = typ.field_types[field]
+                local dst_typ = typ.fields[field]
                 cmd = ir.Cmd.GetTable(loc, dst_typ, dst, rec, key)
             elseif typ._tag == "types.T.Record" then
                 cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)

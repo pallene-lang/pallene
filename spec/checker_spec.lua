@@ -508,7 +508,8 @@ describe("Pallene type checker", function()
     describe("equality:", function()
         local ops = { "==", "~=" }
         local typs = {
-            "integer", "boolean", "float", "string", "{ integer }", "{ float }"
+            "integer", "boolean", "float", "string", "{ integer }", "{ float }",
+            "{ x: float }"
         }
         for _, op in ipairs(ops) do
             for _, t1 in ipairs(typs) do
@@ -617,7 +618,7 @@ describe("Pallene type checker", function()
     describe("casting:", function()
         local typs = {
             "boolean", "float", "integer", "nil", "string",
-            "{ integer }", "{ float }",
+            "{ integer }", "{ float }", "{ x: float }",
         }
         for _, t1 in ipairs(typs) do
             for _, t2 in ipairs(typs) do

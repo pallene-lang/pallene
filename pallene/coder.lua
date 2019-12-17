@@ -1157,7 +1157,7 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
 
     return (util.render([[
         {
-            static int cache = 0;
+            static size_t cache = 0;
             TValue *slot = pallene_getstr($tab, $key, &cache);
             ${check_tag}
             $dst = $get_slot;
@@ -1180,12 +1180,10 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local line = C.integer(cmd.loc.line)
     return (util.render([[
         {
-            static int cache = 0;
+            static size_t cache = 0;
             TValue *slot = pallene_getstr($tab, $key, &cache);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
-                TValue keyv;
-                setsvalue(L, &keyv, $key);
-                slot = luaH_newkey(L, $tab, &keyv);
+                pallene_runtime_table_absent_error(L, $line, $key);
             }
             ${set_heap_slot}
         }

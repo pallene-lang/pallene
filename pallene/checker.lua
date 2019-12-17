@@ -471,18 +471,17 @@ function FunChecker:check_var(var)
 
     elseif tag == "ast.Var.Dot" then
         var.exp = self:check_exp_synthesize(var.exp)
-        local rec_type = var.exp._type
-        local tag = rec_type._tag
-        if tag ~= "types.T.Record" and tag ~= "types.T.Table" then
+        local ind_type = var.exp._type
+        if not types.is_indexable(ind_type) then
             type_error(var.loc,
                 "trying to access a member of value of type '%s'",
                 types.tostring(rec_type))
         end
-        local field_type = rec_type.field_types[var.name]
+        local field_type = types.indices(ind_type)[var.name]
         if not field_type then
             type_error(var.loc,
                 "field '%s' not found in type '%s'",
-                var.name, types.tostring(rec_type))
+                var.name, types.tostring(ind_type))
         end
         var._type = field_type
 
@@ -760,8 +759,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                     "array initializer")
             end
 
-        elseif expected_type._tag == "types.T.Record" or
-               expected_type._tag == "types.T.Table" then
+        elseif types.is_indexable(expected_type) then
             local initialized_fields = {}
             for _, field in ipairs(exp.fields) do
                 if not field.name then
@@ -776,7 +774,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                 end
                 initialized_fields[field.name] = true
 
-                local field_type = expected_type.field_types[field.name]
+                local field_type = types.indices(expected_type)[field.name]
                 if not field_type then
                     type_error(field.loc,
                         "invalid field '%s' in table initializer for %s",
@@ -788,7 +786,7 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                     "table initializer")
             end
 
-            for field_name, _ in pairs(expected_type.field_types) do
+            for field_name, _ in pairs(types.indices(expected_type)) do
                 if not initialized_fields[field_name] then
                     type_error(exp.loc,
                         "required field '%s' is missing from initializer",
