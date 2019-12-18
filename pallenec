@@ -30,7 +30,7 @@ end
 
 local flags = {}
 if args.emit_c    then table.insert(flags, "--emit-c") end
-if args.emit_asm  then table.insert(flags, "--emit-s") end
+if args.emit_asm  then table.insert(flags, "--emit-asm") end
 if args.compile_c then table.insert(flags, "--compile-c") end
 
 if #flags >= 2 then
