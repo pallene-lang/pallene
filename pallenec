@@ -17,7 +17,7 @@ local args = p:parse()
 local compiler_name = arg[0]
 
 local function pallenec_abort(fmt, ...)
-    return util.abort(compiler_name .. ":" .. string.format(fmt, ...))
+    return util.abort(compiler_name .. ": " .. string.format(fmt, ...))
 end
 
 local function compile(in_ext, out_ext)
