@@ -57,10 +57,12 @@ before_install:
 
 install:
   - luarocks install busted
+  - luarocks install luacheck
   - luarocks make # This installs necessary runtime dependencies
 
 script:
   - busted -o gtest -v spec/
+  - luacheck ./pallene ./spec
 
 notifications:
   email:
