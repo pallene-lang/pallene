@@ -259,8 +259,14 @@ TValue *pallene_getstr(Table *t, TString *key, size_t *pos)
         }
         else {
             int nx = gnext(n);
-            if (nx == 0)
+            if (nx == 0) {
+                /* It is slightly better to have an invalid cache when we don't
+                 * expect the cache to hit. The code will be faster because
+                 * getstr will jump straight to the key search instead of trying
+                 * to access a cache that we expect to be a miss. */
+                *pos = UINT_MAX;
                 return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
+            }
             n += nx;
         }
     }
