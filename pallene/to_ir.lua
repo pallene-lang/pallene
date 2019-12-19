@@ -1,4 +1,3 @@
-local ast = require "pallene.ast"
 local ir = require "pallene.ir"
 local types = require "pallene.types"
 local util = require "pallene.util"

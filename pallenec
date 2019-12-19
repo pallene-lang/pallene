@@ -17,7 +17,7 @@ local args = p:parse()
 local compiler_name = arg[0]
 
 local function pallenec_abort(fmt, ...)
-    return util.abort(compiler_name .. ":" .. string.format(fmt, ...))
+    return util.abort(compiler_name .. ": " .. string.format(fmt, ...))
 end
 
 local function compile(in_ext, out_ext)
@@ -30,7 +30,7 @@ end
 
 local flags = {}
 if args.emit_c    then table.insert(flags, "--emit-c") end
-if args.emit_asm  then table.insert(flags, "--emit-s") end
+if args.emit_asm  then table.insert(flags, "--emit-asm") end
 if args.compile_c then table.insert(flags, "--compile-c") end
 
 if #flags >= 2 then
