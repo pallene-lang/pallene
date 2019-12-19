@@ -258,8 +258,8 @@ Pallene is a statically-typed language, which means that every variable and expr
 Sometimes this may be the catch-all type `value`, but it is still known at compilation time.
 Similarly to most other statically-typed languages, Pallene allows you to add type annotations to variables, functions, and expressions.
 (This is one of the few syntactical differences between Lua and Pallene.)
-Pallene type annotations for variables and functions are written using semicolons.
-For expressions the semicolon is already used for method calls, so Pallene uses the `as` operator instead.
+Pallene type annotations for variables and functions are written using colons.
+For expressions the colon is already used for method calls, so Pallene uses the `as` operator instead.
 
 ```
 function foo(x : value) : integer
