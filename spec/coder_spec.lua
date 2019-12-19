@@ -353,6 +353,9 @@ describe("Pallene coder /", function()
     describe("Binary Operators /", function()
 
         local tests = {
+
+            -- Non-comparison operators, same order as checker.lua
+
             { "add_ii",    "+",   "integer", "integer", "integer" },
             { "add_if",    "+",   "integer", "float",   "float" },
             { "add_fi",    "+",   "float",   "integer", "float" },
@@ -373,47 +376,17 @@ describe("Pallene coder /", function()
             -- NYI { "mod_fi",    "%",   "float",   "integer", "float" },
             -- NYI { "mod_ff",    "%",   "float",   "float",   "float" },
 
-            { "fltdiv_ii", "/",   "integer", "integer", "float" },
-            { "fltdiv_ff", "/",   "float",   "float",   "float" },
-
-            { "band",      "&",   "integer", "integer", "integer" },
-            { "bor",       "|",   "integer", "integer", "integer" },
-            { "bxor",      "~",   "integer", "integer", "integer" },
-
-            { "lshift",    "<<",  "integer", "integer", "integer" },
-            { "rshift",    ">>",  "integer", "integer", "integer" },
-
             { "intdiv_ii", "//",  "integer", "integer", "integer" },
             { "intdiv_if", "//",  "integer", "float",   "float" },
             { "intdiv_fi", "//",  "float",   "integer", "float" },
             { "intdiv_ff", "//",  "float",   "float",   "float" },
 
+
+            { "fltdiv_ii", "/",   "integer", "integer", "float" },
+            { "fltdiv_ff", "/",   "float",   "float",   "float" },
+
             { "pow_ii",    "^",   "integer", "integer", "float" },
             { "pow_ff",    "^",   "float",   "float",   "float" },
-
-            { "eq_ii",     "==",  "integer", "integer", "boolean" },
-            { "ne_ii",     "~=",  "integer", "integer", "boolean" },
-            { "lt_ii",     "<",   "integer", "integer", "boolean" },
-            { "gt_ii",     ">",   "integer", "integer", "boolean" },
-            { "le_ii",     "<=",  "integer", "integer", "boolean" },
-            { "ge_ii",     ">=",  "integer", "integer", "boolean" },
-
-            { "eq_ff",     "==",  "float",   "float",   "boolean" },
-            { "ne_ff",     "~=",  "float",   "float",   "boolean" },
-            { "lt_ff",     "<",   "float",   "float",   "boolean" },
-            { "gt_ff",     ">",   "float",   "float",   "boolean" },
-            { "le_ff",     "<=",  "float",   "float",   "boolean" },
-            { "ge_ff",     ">=",  "float",   "float",   "boolean" },
-
-            { "eq_ss",     "==",  "string",  "string",  "boolean" },
-            { "ne_ss",     "~=",  "string",  "string",  "boolean" },
-            { "lt_ss",     "<",   "string",  "string",  "boolean" },
-            { "gt_ss",     ">",   "string",  "string",  "boolean" },
-            { "le_ss",     "<=",  "string",  "string",  "boolean" },
-            { "ge_ss",     ">=",  "string",  "string",  "boolean" },
-
-            { "eq_bb",     "==",  "boolean",   "boolean",   "boolean" },
-            { "ne_bb",     "~=",  "boolean",   "boolean",   "boolean" },
 
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
@@ -421,7 +394,53 @@ describe("Pallene coder /", function()
             { "and_vv",    "and", "value", "value", "value" },
             { "or_vv",     "or",  "value", "value", "value" },
 
+            { "bor",       "|",   "integer", "integer", "integer" },
+            { "band",      "&",   "integer", "integer", "integer" },
+            { "bxor",      "~",   "integer", "integer", "integer" },
+            { "lshift",    "<<",  "integer", "integer", "integer" },
+            { "rshift",    ">>",  "integer", "integer", "integer" },
+
             { "concat_ss", "..",  "string",  "string",  "string" },
+
+            -- Comparison operators, same order as types.lua
+            -- Nil and Record are tested separately.
+
+            { "eq_value", "==",  "value", "value", "boolean" },
+            { "ne_value", "~=",  "value", "value", "boolean" },
+
+            { "eq_boolean", "==",  "boolean", "boolean", "boolean" },
+            { "ne_boolean", "~=",  "boolean", "boolean", "boolean" },
+
+            { "eq_integer", "==",  "integer", "integer", "boolean" },
+            { "ne_integer", "~=",  "integer", "integer", "boolean" },
+            { "lt_integer", "<",   "integer", "integer", "boolean" },
+            { "gt_integer", ">",   "integer", "integer", "boolean" },
+            { "le_integer", "<=",  "integer", "integer", "boolean" },
+            { "ge_integer", ">=",  "integer", "integer", "boolean" },
+
+            { "eq_float", "==",  "float", "float", "boolean" },
+            { "ne_float", "~=",  "float", "float", "boolean" },
+            { "lt_float", "<",   "float", "float", "boolean" },
+            { "gt_float", ">",   "float", "float", "boolean" },
+            { "le_float", "<=",  "float", "float", "boolean" },
+            { "ge_float", ">=",  "float", "float", "boolean" },
+
+            { "eq_string", "==",  "string", "string", "boolean" },
+            { "ne_string", "~=",  "string", "string", "boolean" },
+            { "lt_string", "<",   "string", "string", "boolean" },
+            { "gt_string", ">",   "string", "string", "boolean" },
+            { "le_string", "<=",  "string", "string", "boolean" },
+            { "ge_string", ">=",  "string", "string", "boolean" },
+
+            { "eq_function", "==", "(integer, integer) -> integer",
+                                   "(integer, integer) -> integer",
+                                   "boolean" },
+            { "ne_function", "~=", "(integer, integer) -> integer",
+                                   "(integer, integer) -> integer",
+                                   "boolean" },
+
+            { "eq_array", "==", "{integer}", "{integer}", "boolean" },
+            { "ne_array", "~=", "{integer}", "{integer}", "boolean" },
         }
 
         local pallene_code = {}
@@ -463,6 +482,91 @@ describe("Pallene coder /", function()
              local name = test[1]
              it(name, function() run_test(test_scripts[name]) end)
         end
+    end)
+
+    describe("Nil equality", function()
+        setup(compile([[
+            function eq_nil(x: nil, y: nil): boolean
+                return x == y
+            end
+
+            function ne_nil(x: nil, y: nil): boolean
+                return x ~= y
+            end
+
+            function eq_value(x: value, y: value): boolean
+                return x == y
+            end
+        ]]))
+
+        it("==", function()
+            run_test([[
+                assert(true == test.eq_nil(nil, nil))
+                assert(true == test.eq_nil(nil, ({})[1]))
+            ]])
+        end)
+
+        it("~=", function()
+            run_test([[
+                assert(true == test.eq_nil(nil, nil))
+                assert(true == test.eq_nil(nil, ({})[1]))
+            ]])
+        end)
+
+        it("is not equal to false", function()
+            run_test([[
+                assert(false == test.eq_value(nil, false))
+            ]])
+        end)
+    end)
+
+    describe("Record equality", function()
+        setup(compile([[
+            record Point
+                x: float
+                y: float
+            end
+
+            function points(): {Point}
+                return {
+                    { x = 1.0, y = 2.0 },
+                    { x = 1.0, y = 2.0 },
+                    { x = 3.0, y = 4.0 },
+                }
+            end
+
+            function eq_point(p: Point, q: Point): boolean
+                return p == q
+            end
+
+            function ne_point(p: Point, q: Point): boolean
+                return p ~= q
+            end
+        ]]))
+
+        it("==", function()
+            run_test([[
+                local p = test.points()
+                for i = 1, #p do
+                    for j = 1, #p do
+                        local ok = (i == j)
+                        assert(ok == test.eq_point(p[i], p[j]))
+                    end
+                end
+            ]])
+        end)
+
+        it("~=", function()
+            run_test([[
+                local p = test.points()
+                for i = 1, #p do
+                    for j = 1, #p do
+                        local ok = (i ~= j)
+                        assert(ok == test.ne_point(p[i], p[j]))
+                    end
+                end
+            ]])
+        end)
     end)
 
     describe("Coercions with dynamic type /", function()

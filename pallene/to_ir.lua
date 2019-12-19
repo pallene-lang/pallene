@@ -173,6 +173,15 @@ local binops = {
 
     { "^" , "Float",   "Float",   "FltPow" },
 
+    { "==", "Value",   "Value",   "ValueEq"  },
+    { "~=", "Value",   "Value",   "ValueNeq" },
+
+    { "==", "Nil",     "Nil",     "NilEq"  },
+    { "~=", "Nil",     "Nil",     "NilNeq" },
+
+    { "==", "Boolean", "Boolean", "BoolEq"  },
+    { "~=", "Boolean", "Boolean", "BoolNeq" },
+
     { "==", "Integer", "Integer", "IntEq"  },
     { "~=", "Integer", "Integer", "IntNeq" },
     { "<" , "Integer", "Integer", "IntLt"  },
@@ -187,15 +196,21 @@ local binops = {
     { "<=", "Float",   "Float",   "FltLeq" },
     { ">=", "Float",   "Float",   "FltGeq" },
 
-    { "==", "String",   "String",   "StrEq"  },
-    { "~=", "String",   "String",   "StrNeq" },
-    { "<" , "String",   "String",   "StrLt"  },
-    { ">" , "String",   "String",   "StrGt"  },
-    { "<=", "String",   "String",   "StrLeq" },
-    { ">=", "String",   "String",   "StrGeq" },
+    { "==", "String",  "String",   "StrEq"  },
+    { "~=", "String",  "String",   "StrNeq" },
+    { "<" , "String",  "String",   "StrLt"  },
+    { ">" , "String",  "String",   "StrGt"  },
+    { "<=", "String",  "String",   "StrLeq" },
+    { ">=", "String",  "String",   "StrGeq" },
 
-    { "==", "Boolean", "Boolean", "BoolEq" },
-    { "~=", "Boolean", "Boolean", "BoolNeq" },
+    { "==", "Function","Function", "FunctionEq"  },
+    { "~=", "Function","Function", "FunctionNeq" },
+
+    { "==", "Array",   "Array",    "ArrayEq"    },
+    { "~=", "Array",   "Array",    "ArrayNeq"    },
+
+    { "==", "Record",  "Record",   "RecordEq",  },
+    { "~=", "Record",  "Record",   "RecordNeq",  },
 }
 
 local function type_specific_unop(op, typ)
