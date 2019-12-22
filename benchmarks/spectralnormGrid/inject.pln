@@ -1,0 +1,94 @@
+--
+-- In this version of the Pallene function, all function calls are dynamic
+-- and it is possible to replace the Pallene implementations with a Lua
+-- implementation.
+--
+
+function A_pln(i: integer, j: integer): float
+    local ij = i + j
+    return 1.0 / ((ij-1) * (ij-2) * 0.5 + i)
+end
+
+local A = A_pln
+
+function injectA(f: any)
+    A = f
+end
+
+------------------------
+
+function MultiplyAv_pln(N: integer, v: {float}, out: {float})
+    for i = 1, N do
+        local s = 0.0
+        for j = 1, N do
+            s = s + A(i,j) * v[j]
+        end
+        out[i] = s
+    end
+end
+
+local MultiplyAv = MultiplyAv_pln
+
+function injectMultiplyAv(f: any)
+    MultiplyAv = f
+end
+
+------------------------
+
+function MultiplyAtv_pln(N: integer, v: {float}, out: {float})
+    for i=1, N do
+        local s = 0.0
+        for j = 1, N do
+            s = s + A(j,i) * v[j]
+        end
+        out[i] = s
+    end
+end
+
+local MultiplyAtv = MultiplyAtv_pln
+
+function injectMultiplyAtv(f: any)
+    MultiplyAtv = f
+end
+
+------------------------
+
+function MultiplyAtAv_pln(N: integer, v: {float}, out: {float})
+    local u: {float} = {}
+    MultiplyAv(N, v, u)
+    MultiplyAtv(N, u, out)
+end
+
+local MultiplyAtAv = MultiplyAtAv_pln
+
+function injectMultiplyAtAv(f: any)
+    MultiplyAtAv = f
+end
+
+------------------------
+
+function Approximate(N: integer): float
+    -- Create unit vector
+    local u: {float} = {}
+    for i = 1, N do
+        u[i] = 1.0
+    end
+
+    -- 20 steps of the power method
+    local v: {float} = {}
+    for _ = 1, 10 do
+        MultiplyAtAv(N, u, v)
+        MultiplyAtAv(N, v, u)
+    end
+
+    local vBv = 0.0
+    local vv  = 0.0
+    for i = 1, N do
+        local ui = u[i]
+        local vi = v[i]
+        vBv = vBv + ui*vi
+        vv  = vv  + vi*vi
+    end
+
+    return math_sqrt(vBv/vv)
+end
