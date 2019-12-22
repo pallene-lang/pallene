@@ -475,7 +475,7 @@ function FunChecker:check_var(var)
         if not types.is_indexable(ind_type) then
             type_error(var.loc,
                 "trying to access a member of value of type '%s'",
-                types.tostring(rec_type))
+                types.tostring(ind_type))
         end
         local field_type = types.indices(ind_type)[var.name]
         if not field_type then

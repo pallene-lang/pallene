@@ -589,27 +589,33 @@ describe("Pallene type checker", function()
     end)
 
     describe("dot", function()
+        local function assert_dot_error(typ, code, err)
+            assert_error([[
+                record Point x: float; y:float end
+
+                function f(p: ]].. typ ..[[): float
+                    ]].. code ..[[
+                end
+            ]], err)
+        end
+
+        it("doesn't typecheck read/write to non indexable type", function()
+            local err = "trying to access a member of value of type 'string'"
+            assert_dot_error("string", [[ ("t").x = 10 ]], err)
+            assert_dot_error("string", [[ local x = ("t").x ]], err)
+        end)
+
         for _, typ in ipairs({"{ x: float, y: float }", "Point"}) do
-            local function assert_dot_error(code, err)
-                assert_error([[
-                    record Point x: float; y:float end
-
-                    function f(p: ]].. typ ..[[): float
-                        ]].. code ..[[
-                    end
-                ]], err)
-            end
-
             it("doesn't typecheck read/write to non existent fields", function()
                 local err = "field 'nope' not found in type '".. typ .."'"
-                assert_dot_error([[ p.nope = 10 ]], err)
-                assert_dot_error([[ return p.nope ]], err)
+                assert_dot_error(typ, [[ p.nope = 10 ]], err)
+                assert_dot_error(typ, [[ return p.nope ]], err)
             end)
 
             it("doesn't typecheck read/write with invalid types", function()
-                assert_dot_error([[ p.x = p ]],
+                assert_dot_error(typ, [[ p.x = p ]],
                     "expected float but found ".. typ .." in assignment")
-                assert_dot_error([[ local p: ]].. typ ..[[ = p.x ]],
+                assert_dot_error(typ, [[ local p: ]].. typ ..[[ = p.x ]],
                     "expected ".. typ .." but found float in declaration")
             end)
         end
