@@ -1180,19 +1180,39 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
     local line = C.integer(cmd.loc.line)
+
+    local fallback
+    if cmd.newkey then
+        fallback = util.render([[
+            TValue keyv;
+            setsvalue(L, &keyv, $key);
+            slot = luaH_newkey(L, $tab, &keyv);
+        ]], {
+            tab = tab,
+            key = key,
+        })
+    else
+        fallback = util.render([[
+            pallene_runtime_table_absent_error(L, $line, $key);
+        ]], {
+            key = key,
+            line = line,
+        })
+    end
+
     return (util.render([[
         {
             static size_t cache = UINT_MAX;
             TValue *slot = pallene_getstr($tab, $key, &cache);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
-                pallene_runtime_table_absent_error(L, $line, $key);
+                $fallback
             }
             ${set_heap_slot}
         }
     ]], {
         tab = tab,
         key = key,
-        line = line,
+        fallback = fallback,
         set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
     }))
 end

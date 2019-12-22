@@ -583,6 +583,7 @@ describe("Pallene coder /", function()
             { "string"   , "string",          "'hello'"},
             { "function" , "integer->string", "tostring"},
             { "array"    , "{integer}",       "{10,20}"},
+            { "table"    , "{x: integer}",    "{x = 1}"},
             { "record"   , "Empty",           "test.new_empty()"},
             { "value"    , "value",           "17"},
         }
@@ -827,8 +828,6 @@ describe("Pallene coder /", function()
         it("Nested break", function()
             run_test([[ assert(40 == test.nested_break(true)) ]])
         end)
-
-
     end)
 
     describe("Arrays /", function()
@@ -981,6 +980,136 @@ describe("Pallene coder /", function()
 
         it("{value}: out-of-bounds get nil", function()
             run_test([[ assert(nil == test.getvalue({10, nil, 30}, 4)) ]])
+        end)
+    end)
+
+    describe("Tables /", function()
+        setup(compile([[
+            type point = {x: integer, y: integer}
+
+            function newpoint(): point
+                return {x = 10, y = 20}
+            end
+
+            function getx(p: point): integer
+                return p.x
+            end
+
+            function gety(p: point): integer
+                return p.y
+            end
+
+            function setx(p: point, v: integer)
+                p.x = v
+            end
+
+            function sety(p: point, v: integer)
+                p.y = v
+            end
+
+            function getvalue(t: {x: value}): value
+                return t.x
+            end
+
+            function setvalue(t: {x: value}, v: value)
+                t.x = v
+            end
+
+            function getnil(t: {x: nil}): nil
+                return t.x
+            end
+
+            function setnil(t: {x: nil})
+                t.x = nil
+            end
+        ]]))
+
+        it("has literals", function()
+            run_test([[
+                local t = test.newpoint()
+                assert(type(t) == "table")
+                assert(10 == t.x)
+                assert(20 == t.y)
+            ]])
+        end)
+
+        it("gets", function()
+            run_test([[
+                local p = {x = 10, y = 20}
+                assert(10 == test.getx(p))
+                assert(20 == test.gety(p))
+            ]])
+        end)
+
+        it("sets", function()
+            run_test([[
+                local p = {x = 10, y = 20}
+                test.setx(p, 30)
+                test.sety(p, 40)
+                assert(30 == p.x)
+                assert(40 == p.y)
+            ]])
+        end)
+
+        it("gets and sets values", function()
+            run_test([[
+                local p = {x = 10}
+                assert(10 == test.getvalue(p))
+                test.setvalue(p, "hi")
+                assert("hi" == test.getvalue(p))
+            ]])
+        end)
+
+        it("get and sets nil", function()
+            run_test([[
+                local p = {x = nil}
+                assert(nil == test.getnil(p))
+                p.x = "hi"
+                test.setnil(p)
+                assert(nil == p.x)
+            ]])
+        end)
+
+        it("checks type tags in get", function()
+            run_test([[
+                local p = {x = 10, y = "hello"}
+                local ok, err = pcall(test.gety, p)
+                assert(not ok)
+                assert(
+                    string.find(err, "wrong type for table field", nil, true))
+            ]])
+        end)
+
+        it("checks whether the field is absent in get", function()
+            run_test([[
+                local p = {y = 20}
+                local ok, err = pcall(test.getx, p)
+                assert(not ok)
+                assert(
+                    string.find(err, "wrong type for table field", nil, true))
+            ]])
+        end)
+
+        it("checks whether the field is absent in set", function()
+            run_test([[
+                local p = {y = 20}
+                local ok, err = pcall(test.setx, p, 10)
+                assert(not ok)
+                assert(
+                    string.find(err, "attempt to access nonexistent field 'x'",
+                                nil, true))
+            ]])
+        end)
+
+        it("checks whether the field is absent when setting a value", function()
+            run_test([[
+                local p = {}
+                local ok, err = pcall(test.setvalue, p, 10)
+                assert(not ok)
+                assert(
+                    string.find(err, "attempt to access nonexistent field 'x'",
+                                nil, true))
+            ]])
         end)
     end)
 
@@ -1468,7 +1597,8 @@ describe("Pallene coder /", function()
             local x1 = f()
             local x2 = x1
             local x3 = -x2
-            local x4 : {integer} = { x1 }
+            local x4: {integer} = { x1 }
+            local x5: {x: integer} = { x = x1 }
 
             function get_x1(): integer
                 return x1
@@ -1485,6 +1615,10 @@ describe("Pallene coder /", function()
             function get_x4(): {integer}
                 return x4
             end
+
+            function get_x5(): {x: integer}
+                return x5
+            end
         ]]))
 
         it("", function()
@@ -1493,8 +1627,10 @@ describe("Pallene coder /", function()
                 assert(  10 == test.get_x2() )
                 assert( -10 == test.get_x3() )
                 local x4 = test.get_x4()
-                assert ( 1 == #x4 )
-                assert ( 10 == x4[1] )
+                assert( 1 == #x4 )
+                assert( 10 == x4[1] )
+                local x5 = test.get_x5()
+                assert(10 == x5.x)
             ]])
         end)
     end)
