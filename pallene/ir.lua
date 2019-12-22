@@ -139,8 +139,7 @@ declare_type("Cmd", {
     NewTable   = {"loc", "dst", "size_hint"},
 
     GetTable   = {"loc", "dst_typ", "dst", "src_tab", "src_k"},
-    SetTable   = {"loc", "src_typ",        "src_tab", "src_k", "src_v",
-                  "newkey"},
+    SetTable   = {"loc", "src_typ",        "src_tab", "src_k", "src_v"},
 
     -- Records
     NewRecord  = {"loc", "rec_typ", "dst"},

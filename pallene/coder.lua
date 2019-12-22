@@ -82,7 +82,7 @@ end
 --
 
 -- @param src_slot: The TValue* to read from
-local function get_slot(typ, src_slot)
+local function get_stack_slot(typ, src_slot)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
@@ -98,6 +98,22 @@ local function get_slot(typ, src_slot)
     else error("impossible")
     end
     return (util.render(tmpl, {src = src_slot}))
+end
+
+-- Obtains the value in the slot and remove "EMPTY" variant tag from
+-- out-of-bound nils
+-- note: rawget in lapi.c also needs to do this.
+-- note: pallene_setnilvalue not needed since dst is already initialized
+local function get_heap_slot(typ, src_slot)
+    if typ._tag == "types.T.Value" then
+        return (util.render([[
+            (isempty($src) ? PALLENE_NILKEY : *($src))
+        ]], {
+            src = src_slot
+        }))
+    else
+        return get_stack_slot(typ, src_slot)
+    end
 end
 
 -- Set a TValue* slot that is in the Lua or C stack.
@@ -245,14 +261,14 @@ function Coder:c_value(value)
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
         local str = value.value
-        return get_slot(
+        return get_stack_slot(
             types.T.String(),
             self:string_upvalue_slot(str))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
     elseif tag == "ir.Value.Function" then
         local f_id = value.id
-        return get_slot(
+        return get_stack_slot(
             self.module.functions[f_id].typ,
             self:function_upvalue_slot(f_id))
     else
@@ -505,7 +521,7 @@ function Coder:lua_entry_point_definition(f_id)
             $decl = $get_slot;
         ]], {
             decl = c_declaration(typ, name),
-            get_slot = get_slot(typ, slot),
+            get_slot = get_stack_slot(typ, slot),
         }))
     end
 
@@ -853,7 +869,7 @@ gen_cmd["GetGlobal"] = function(self, cmd, _func)
     local typ = self.module.globals[g_id].typ
     return (util.render([[ $dst = $get_slot; ]], {
         dst = dst,
-        get_slot = get_slot(typ, self:global_upvalue_slot(g_id)),
+        get_slot = get_stack_slot(typ, self:global_upvalue_slot(g_id)),
     }))
 end
 
@@ -1063,7 +1079,7 @@ gen_cmd["FromDyn"] = function(self, cmd, _func)
         dst = dst,
         check_tag = self:check_tag(dst_typ, "&"..src,
                 cmd.loc, "downcasted value"),
-        get_slot = get_slot(dst_typ, "&"..src),
+        get_slot = get_stack_slot(dst_typ, "&"..src),
     }))
 end
 
@@ -1089,25 +1105,12 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
     local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
 
-    local fix_nils = ""
-    if dst_typ._tag == "types.T.Value" then
-        -- Remove "EMPTY" variant tag from out-of-bound nils
-        -- note: rawget in lapi.c also needs to do this.
-        -- note: pallene_setnilvalue not needed since dst is already initialized
-        fix_nils = util.render([[
-            if (isempty(&$dst)) { setnilvalue(&$dst); }
-        ]], {
-            dst = dst
-        })
-    end
-
     return (util.render([[
         {
             pallene_renormalize_array(L, $arr, $i, $line);
             TValue *slot = &$arr->array[$i - 1];
             ${check_tag}
             $dst = $get_slot;
-            ${fix_nils}
         }
     ]], {
         dst = dst,
@@ -1115,8 +1118,7 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
         i = i,
         line = line,
         check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element"),
-        get_slot = get_slot(dst_typ, "slot"),
-        fix_nils = fix_nils,
+        get_slot = get_heap_slot(dst_typ, "slot"),
     }))
 end
 
@@ -1170,7 +1172,7 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
         key = key,
         line = line,
         check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "table field"),
-        get_slot = get_slot(dst_typ, "slot"),
+        get_slot = get_heap_slot(dst_typ, "slot"),
     }))
 end
 
@@ -1179,40 +1181,20 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
-    local line = C.integer(cmd.loc.line)
-
-    local fallback
-    if cmd.newkey then
-        fallback = util.render([[
-            TValue keyv;
-            setsvalue(L, &keyv, $key);
-            slot = luaH_newkey(L, $tab, &keyv);
-        ]], {
-            tab = tab,
-            key = key,
-        })
-    else
-        fallback = util.render([[
-            pallene_runtime_table_absent_error(L, $line, $key);
-        ]], {
-            key = key,
-            line = line,
-        })
-    end
-
     return (util.render([[
         {
             static size_t cache = UINT_MAX;
             TValue *slot = pallene_getstr($tab, $key, &cache);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
-                $fallback
+                TValue keyv;
+                setsvalue(L, &keyv, $key);
+                slot = luaH_newkey(L, $tab, &keyv);
             }
             ${set_heap_slot}
         }
     ]], {
         tab = tab,
         key = key,
-        fallback = fallback,
         set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
     }))
 end
@@ -1238,7 +1220,7 @@ gen_cmd["GetField"] = function(self, cmd, _func)
     local result
     if types.is_gc(f_typ) then
         local slot = rc:get_gc_slot(rec, field_name)
-        result = get_slot(f_typ, slot)
+        result = get_stack_slot(f_typ, slot)
     else
         result = rc:get_prim_lvalue(rec, field_name)
     end
@@ -1295,7 +1277,7 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
         table.insert(pop_from_stack, util.render([[
             $dst = $get_slot;]], {
                 dst = dst,
-                get_slot = get_slot(typ, "s2v(--L->top)") }))
+                get_slot = get_stack_slot(typ, "s2v(--L->top)") }))
     end
 
     local top = self:stack_top_at(func, cmd)

@@ -114,10 +114,6 @@ p.x = 30
 print(p.x) --> 30
 ```
 
-Pallene expects all fields to be initialized before their use.
-For example, if a function expects a table with the type `{x: value}`, the field `x` must be initialized regardless of the value in `x`.
-Passing a table with an unitialized field might trigger a runtime error.
-
 The length of the field should be at max `LUAI_MAXSHORTLEN` characters.
 In Lua 5.4, the default value for this constant is 40 characters.
 

@@ -1044,35 +1044,29 @@ describe("Pallene coder /", function()
                 local p = {x = 10, y = 20}
                 assert(10 == test.getx(p))
                 assert(20 == test.gety(p))
+
+                p.x = "hello"
+                assert("hello" == test.getvalue(p))
+
+                p.x = nil
+                assert(nil == test.getvalue(p))
+                assert(nil == test.getnil(p))
             ]])
         end)
 
         it("sets", function()
             run_test([[
-                local p = {x = 10, y = 20}
+                local p = {}
                 test.setx(p, 30)
                 test.sety(p, 40)
                 assert(30 == p.x)
                 assert(40 == p.y)
-            ]])
-        end)
 
-        it("gets and sets values", function()
-            run_test([[
-                local p = {x = 10}
-                assert(10 == test.getvalue(p))
-                test.setvalue(p, "hi")
-                assert("hi" == test.getvalue(p))
-            ]])
-        end)
-
-        it("get and sets nil", function()
-            run_test([[
-                local p = {x = nil}
-                assert(nil == test.getnil(p))
-                p.x = "hi"
                 test.setnil(p)
                 assert(nil == p.x)
+
+                test.setvalue(p, "hello")
+                assert("hello", p.x)
             ]])
         end)
 
@@ -1083,38 +1077,6 @@ describe("Pallene coder /", function()
                 assert(not ok)
                 assert(
                     string.find(err, "wrong type for table field", nil, true))
-            ]])
-        end)
-
-        it("checks whether the field is absent in get", function()
-            run_test([[
-                local p = {y = 20}
-                local ok, err = pcall(test.getx, p)
-                assert(not ok)
-                assert(
-                    string.find(err, "wrong type for table field", nil, true))
-            ]])
-        end)
-
-        it("checks whether the field is absent in set", function()
-            run_test([[
-                local p = {y = 20}
-                local ok, err = pcall(test.setx, p, 10)
-                assert(not ok)
-                assert(
-                    string.find(err, "attempt to access nonexistent field 'x'",
-                                nil, true))
-            ]])
-        end)
-
-        it("checks whether the field is absent when setting a value", function()
-            run_test([[
-                local p = {}
-                local ok, err = pcall(test.setvalue, p, 10)
-                assert(not ok)
-                assert(
-                    string.find(err, "attempt to access nonexistent field 'x'",
-                                nil, true))
             ]])
         end)
 

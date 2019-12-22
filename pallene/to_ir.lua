@@ -112,7 +112,7 @@ function ToIR:convert_stat(cmds, stat)
             local cmd
             if     typ._tag == "types.T.Table" then
                 local key = ir.Value.String(field)
-                cmd = ir.Cmd.SetTable(stat.loc, exp._type, rec, key, v, false)
+                cmd = ir.Cmd.SetTable(stat.loc, exp._type, rec, key, v)
             elseif typ._tag == "types.T.Record" then
                 cmd = ir.Cmd.SetField(stat.loc, typ, rec, field, v)
             else
@@ -342,7 +342,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 local kv = ir.Value.String(field.name)
                 local vv = self:exp_to_value(cmds, field.exp)
                 local src_typ = field.exp._type
-                local cmd = ir.Cmd.SetTable(loc, src_typ, tv, kv, vv, true)
+                local cmd = ir.Cmd.SetTable(loc, src_typ, tv, kv, vv)
                 table.insert(cmds, cmd)
             end
 
