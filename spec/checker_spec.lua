@@ -276,35 +276,35 @@ describe("Pallene type checker", function()
 
             it("forbids wrong type in initializer", function()
                 assert_init_error([[
-                    local p: Point = { x = 10.0, y = "hello" }
+                    local p: ]].. typ ..[[ = { x = 10.0, y = "hello" }
                 ]],
                     "expected float but found string in table initializer")
             end)
 
             it("forbids wrong field name in initializer", function()
                 assert_init_error([[
-                    local p: Point = { x = 10.0, y = 20.0, z = 30.0 }
+                    local p: ]].. typ ..[[ = { x = 10.0, y = 20.0, z = 30.0 }
                 ]],
-                    "invalid field 'z' in table initializer for Point")
+                    "invalid field 'z' in table initializer for " .. typ)
             end)
 
             it("forbids array part in initializer", function()
                 assert_init_error([[
-                    local p: Point = { x = 10.0, y = 20.0, 30.0 }
+                    local p: ]].. typ ..[[ = { x = 10.0, y = 20.0, 30.0 }
                 ]],
                     "table initializer has array part")
             end)
 
             it("forbids initializing a field twice", function()
                 assert_init_error([[
-                    local p: Point = { x = 10.0, x = 11.0, y = 20.0 }
+                    local p: ]].. typ ..[[ = { x = 10.0, x = 11.0, y = 20.0 }
                 ]],
                     "duplicate field 'x' in table initializer")
             end)
 
             it("forbids missing fields in initializer", function()
                 assert_init_error([[
-                    local p: Point = { y = 1.0 }
+                    local p: ]].. typ ..[[ = { y = 1.0 }
                 ]],
                     "required field 'x' is missing")
             end)
