@@ -441,6 +441,11 @@ describe("Pallene coder /", function()
 
             { "eq_array", "==", "{integer}", "{integer}", "boolean" },
             { "ne_array", "~=", "{integer}", "{integer}", "boolean" },
+
+            { "eq_table", "==", "{x: integer, y: integer}",
+                                "{x: integer, y: integer}", "boolean" },
+            { "ne_table", "~=", "{x: integer, y: integer}",
+                                "{x: integer, y: integer}", "boolean" },
         }
 
         local pallene_code = {}

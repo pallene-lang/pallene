@@ -217,6 +217,9 @@ local binops = {
     { "==", "Array",   "Array",    "ArrayEq"    },
     { "~=", "Array",   "Array",    "ArrayNeq"    },
 
+    { "==", "Table",   "Table",    "TableEq"    },
+    { "~=", "Table",   "Table",    "TableNeq"    },
+
     { "==", "Record",  "Record",   "RecordEq",  },
     { "~=", "Record",  "Record",   "RecordNeq",  },
 }

@@ -1009,6 +1009,8 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "FunctionNeq" then return equalobj(false)
     elseif op == "ArrayEq"   then return binop_paren("==")
     elseif op == "ArrayNeq"  then return binop_paren("!=")
+    elseif op == "TableEq"   then return binop_paren("==")
+    elseif op == "TableNeq"  then return binop_paren("!=")
     elseif op == "RecordEq"  then return binop_paren("==")
     elseif op == "RecordNeq" then return binop_paren("!=")
     else
