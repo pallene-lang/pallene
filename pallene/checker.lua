@@ -157,6 +157,9 @@ function Checker:from_ast_type(ast_typ)
                 type_error(ast_typ.loc, "duplicate field '%s' in table",
                            field.name)
             end
+            if #field.name > 40 then
+                type_error(ast_typ.loc, "field name '%s' too big", field.name)
+            end
             fields[field.name] = self:from_ast_type(field.type)
         end
         return types.T.Table(fields)

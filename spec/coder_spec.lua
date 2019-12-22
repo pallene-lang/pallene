@@ -984,6 +984,8 @@ describe("Pallene coder /", function()
     end)
 
     describe("Tables /", function()
+        local big_field = string.rep('a', 40)
+
         setup(compile([[
             type point = {x: integer, y: integer}
 
@@ -1021,6 +1023,10 @@ describe("Pallene coder /", function()
 
             function setnil(t: {x: nil})
                 t.x = nil
+            end
+
+            function getbig(t: {]].. big_field ..[[: integer}): integer
+                return t.]].. big_field ..[[
             end
         ]]))
 
@@ -1109,6 +1115,13 @@ describe("Pallene coder /", function()
                 assert(
                     string.find(err, "attempt to access nonexistent field 'x'",
                                 nil, true))
+            ]])
+        end)
+
+        it("works with big fields", function()
+            run_test([[
+                local t = {]].. big_field ..[[ = 10}
+                assert(10 == test.getbig(t))
             ]])
         end)
     end)
