@@ -46,10 +46,6 @@ void pallene_runtime_mod_by_zero_error(
     lua_State *L, int line)
     PALLENE_NORETURN;
 
-int pallene_runtime_table_absent_error(
-    lua_State *L, int line, TString *key)
-    PALLENE_NORETURN;
-
 int pallene_runtime_record_nonstr_error(
     lua_State *L, int received_tag)
     PALLENE_NORETURN;
@@ -247,9 +243,9 @@ static const TValue PALLENE_NILKEY = {{NULL}, LUA_TNIL};
 static inline
 TValue *pallene_getstr(Table *t, TString *key, size_t *pos)
 {
-    if (PALLENE_LIKELY(*pos < sizenode(t))) {
+    if (*pos < sizenode(t)) {
        Node *n = gnode(t, *pos);
-       if (PALLENE_LIKELY(keyisshrstr(n) && eqshrstr(keystrval(n), key)))
+       if (keyisshrstr(n) && eqshrstr(keystrval(n), key))
            return gval(n);
     }
     Node *n = gnode(t, lmod(key->hash, sizenode(t)));

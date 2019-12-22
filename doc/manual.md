@@ -33,7 +33,7 @@ The `sum.so` file can be loaded from within Lua with `require`, as usual:
 ```
 $ ./lua/src/lua
 > sum = require "sum"
-> print(sum.sum_floats({10.0, 20.0, 30.0}))
+> print(sum.sum_floats({10.0, 20.0, 30.0})) --> 60.0
 ```
 
 In this example, we invoke our bundled Lua interpreter because Pallene is only compatible with a specific release version of the interpreter.
@@ -104,8 +104,8 @@ type point = {x: integer, y: integer}
 local p: point = {x = 10, y = 20}
 ```
 
-Notice that all fields must be initialized, even fields with the type `value` which can be `nil`.
-Unlike Lua, Pallene doesn't consider an absent field to be `nil`; instead, it will trigger an error.
+Notice that all fields must be initialized in the Pallene initalizer list, even fields with the type `value` which could be `nil`.
+Tables that come from Lua may have absent fields; like Lua, absent fields are considered to be nil.
 
 It is possible to get and set fields in tables using the usual dot syntax:
 
@@ -114,7 +114,7 @@ p.x = 30
 print(p.x) --> 30
 ```
 
-The length of the field should be at max `LUAI_MAXSHORTLEN` characters.
+In the current version of Pallene, the length of the field should be at max `LUAI_MAXSHORTLEN` characters.
 In Lua 5.4, the default value for this constant is 40 characters.
 
 ### Functions

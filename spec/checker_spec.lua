@@ -148,7 +148,7 @@ describe("Pallene type checker", function()
         assert_error([[
             function f(t: {]].. field ..[[: float}) end
         ]],
-            "field name '".. field .. "' too big")
+            "field name '".. field .. "' too long")
     end)
 
     it("catches array expression in indexing is not an array", function()
@@ -263,57 +263,46 @@ describe("Pallene type checker", function()
     end)
 
     describe("table/record initalizer", function()
-        local function assert_init_error(code, err)
+        local function assert_init_error(typ, code, err)
+            typ = typ and (": " .. typ) or ""
             assert_error([[
                 record Point x: float; y:float end
 
                 function f(): float
-                    ]].. code ..[[
+                    local p ]].. typ ..[[ = ]].. code ..[[
                 end
             ]], err)
         end
 
+        it("forbids creation without type annotation", function()
+            assert_init_error(nil, [[ { x = 10.0, y = 20.0 } ]],
+                "missing type hint for initializer")
+        end)
+
         for _, typ in ipairs({"{ x: float, y: float }", "Point"}) do
 
-            it("forbids creation without type annotation", function()
-                assert_init_error([[
-                    local p = { x = 10.0, y = 20.0 }
-                ]],
-                    "missing type hint for initializer")
-            end)
-
             it("forbids wrong type in initializer", function()
-                assert_init_error([[
-                    local p: ]].. typ ..[[ = { x = 10.0, y = "hello" }
-                ]],
+                assert_init_error(typ, [[ { x = 10.0, y = "hello" } ]],
                     "expected float but found string in table initializer")
             end)
 
             it("forbids wrong field name in initializer", function()
-                assert_init_error([[
-                    local p: ]].. typ ..[[ = { x = 10.0, y = 20.0, z = 30.0 }
-                ]],
+                assert_init_error(typ, [[ { x = 10.0, y = 20.0, z = 30.0 } ]],
                     "invalid field 'z' in table initializer for " .. typ)
             end)
 
             it("forbids array part in initializer", function()
-                assert_init_error([[
-                    local p: ]].. typ ..[[ = { x = 10.0, y = 20.0, 30.0 }
-                ]],
+                assert_init_error(typ, [[ { x = 10.0, y = 20.0, 30.0 } ]],
                     "table initializer has array part")
             end)
 
             it("forbids initializing a field twice", function()
-                assert_init_error([[
-                    local p: ]].. typ ..[[ = { x = 10.0, x = 11.0, y = 20.0 }
-                ]],
+                assert_init_error(typ, [[ { x = 10.0, x = 11.0, y = 20.0 } ]],
                     "duplicate field 'x' in table initializer")
             end)
 
             it("forbids missing fields in initializer", function()
-                assert_init_error([[
-                    local p: ]].. typ ..[[ = { y = 1.0 }
-                ]],
+                assert_init_error(typ, [[ { y = 1.0 } ]],
                     "required field 'x' is missing")
             end)
         end

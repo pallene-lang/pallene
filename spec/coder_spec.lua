@@ -984,7 +984,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Tables /", function()
-        local big_field = string.rep('a', 40)
+        local maxlenfield = string.rep('a', 40)
 
         setup(compile([[
             type point = {x: integer, y: integer}
@@ -1025,8 +1025,8 @@ describe("Pallene coder /", function()
                 t.x = nil
             end
 
-            function getbig(t: {]].. big_field ..[[: integer}): integer
-                return t.]].. big_field ..[[
+            function getmax(t: {]].. maxlenfield ..[[: integer}): integer
+                return t.]].. maxlenfield ..[[
             end
         ]]))
 
@@ -1080,10 +1080,10 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("works with big fields", function()
+        it("works with fields with the max length", function()
             run_test([[
-                local t = {]].. big_field ..[[ = 10}
-                assert(10 == test.getbig(t))
+                local t = {]].. maxlenfield ..[[ = 10}
+                assert(10 == test.getmax(t))
             ]])
         end)
     end)

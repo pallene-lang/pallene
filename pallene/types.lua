@@ -142,14 +142,20 @@ local function equivalent(t1, t2, is_gradual)
         local f1 = t1.fields
         local f2 = t2.fields
 
-        for name, typ in pairs(f1) do
-            if not f2[name] or not equivalent(typ, f2[name], is_gradual) then
+        for name in pairs(f1) do
+            if not f2[name] then
                 return false
             end
         end
 
-        for name, typ in pairs(f2) do
-            if not f1[name] or not equivalent(f1[name], typ, is_gradual) then
+        for name in pairs(f2) do
+            if not f1[name] then
+                return false
+            end
+        end
+
+        for name in pairs(f2) do
+            if not equivalent(f1[name], f2[name], is_gradual) then
                 return false
             end
         end

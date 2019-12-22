@@ -158,7 +158,7 @@ function Checker:from_ast_type(ast_typ)
                            field.name)
             end
             if #field.name > 40 then
-                type_error(ast_typ.loc, "field name '%s' too big", field.name)
+                type_error(ast_typ.loc, "field name '%s' too long", field.name)
             end
             fields[field.name] = self:from_ast_type(field.type)
         end
