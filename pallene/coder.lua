@@ -1100,7 +1100,7 @@ end
 gen_cmd["NewArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local n = C.integer(cmd.size_hint)
-    return (util.render([[ $dst = pallene_new_array(L, $n); ]], {
+    return (util.render([[ $dst = pallene_createtable(L, $n, 0); ]], {
         dst = dst, n = n,
     }))
 end
@@ -1152,7 +1152,7 @@ end
 gen_cmd["NewTable"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local n = C.integer(cmd.size_hint)
-    return (util.render([[ $dst = pallene_new_table(L, $n); ]], {
+    return (util.render([[ $dst = pallene_createtable(L, 0, $n); ]], {
         dst = dst,
         n = n,
     }))

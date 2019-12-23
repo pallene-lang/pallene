@@ -193,13 +193,14 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 }
 
 
-/* Similar to lua_createtable*/
+/* This version of lua_createtable bypasses the Lua stack, and can be inlined
+ * and optimized when the allocation size is known at compilation time. */
 static inline
-Table *pallene_new_array(lua_State *L, lua_Integer n)
+Table *pallene_createtable(lua_State *L, lua_Integer narray, lua_Integer nrec)
 {
     Table *t = luaH_new(L);
-    if (n > 0) {
-        luaH_resizearray(L, t, n);
+    if (narray > 0 || nrec > 0) {
+        luaH_resize(L, t, narray, nrec);
     }
     return t;
 }
@@ -224,16 +225,6 @@ static inline
 int pallene_is_truthy(const TValue *v)
 {
     return !(ttisnil(v) || (ttisboolean(v) && bvalue(v) == 0));
-}
-
-static inline
-Table *pallene_new_table(lua_State *L, lua_Integer n)
-{
-    Table *t = luaH_new(L);
-    if (n > 0) {
-        luaH_resize(L, t, 0, n);
-    }
-    return t;
 }
 
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
