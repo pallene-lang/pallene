@@ -76,6 +76,12 @@ int pallene_l_strcmp(
 /* Inline functions and macros */
 /* --------------------------- */
 
+static inline
+int pallene_is_truthy(const TValue *v)
+{
+    return !l_isfalse(v);
+}
+
 /* This is a workaround to avoid -Wmaybe-uninitialized warnings with GCC. If we
  * initialize a TValue with setnilvalue and then follow that with a setobj, GCC
  * complains that the setobj might be reading from an uninitialized obj->value_.
@@ -219,12 +225,6 @@ void pallene_renormalize_array(
     if (PALLENE_UNLIKELY(ui >= arr->alimit)) {
         pallene_grow_array(L, arr, ui, line);
     }
-}
-
-static inline
-int pallene_is_truthy(const TValue *v)
-{
-    return !(ttisnil(v) || (ttisboolean(v) && bvalue(v) == 0));
 }
 
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
