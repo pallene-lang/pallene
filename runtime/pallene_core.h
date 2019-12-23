@@ -227,11 +227,13 @@ void pallene_renormalize_array(
     }
 }
 
+/* This function is a version of luaH_getshortstr that uses an inline cache for
+ * the hash function */
+
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
-/* This function is a speciallization of luaH_getshortstr from ltable.c */
 static inline
-TValue *pallene_getshortstr(Table *t, TString *key, size_t *pos)
+TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
 {
     if (*pos < sizenode(t)) {
        Node *n = gnode(t, *pos);
