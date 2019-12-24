@@ -180,6 +180,24 @@ describe("Pallene coder /", function()
 
             -----------
 
+            function even(x: integer): boolean
+                if x == 0 then
+                    return true
+                else
+                    return odd(x-1)
+                end
+            end
+
+            function odd(x: integer): boolean
+                if x == 0 then
+                    return false
+                else
+                    return even(x-1)
+                end
+            end
+
+            -----------
+
             function skip_a() end
             function skip_b() skip_a(); skip_a() end
         ]]))
@@ -199,6 +217,16 @@ describe("Pallene coder /", function()
         it("recursive calls", function()
             run_test([[ assert(3*5 == test.gcd(2*3*5, 3*5*7)) ]])
         end)
+
+        it("mutually recursive calls", function()
+            run_test([[
+                for i = 0, 5 do
+                    assert( (i%2 == 0) == test.even(i) )
+                    assert( (i%2 == 1) == test.odd(i) )
+                end
+            ]])
+        end)
+
 
         it("void functions", function()
             run_test([[ assert(0 == select("#", test.skip_b())) ]])

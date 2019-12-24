@@ -55,19 +55,6 @@ describe("Scope analysis: ", function()
             "variable 'x' is not declared")
     end)
 
-    it("forbids mutually recursive definitions", function()
-        assert_error([[
-            local function foo(): integer
-                return bar()
-            end
-
-            local function bar(): integer
-                return foo()
-            end
-        ]],
-            "variable 'bar' is not declared")
-    end)
-
     it("forbids multiple toplevel declarations with the same name", function()
         assert_error([[
             local function f() end
