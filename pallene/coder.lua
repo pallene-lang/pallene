@@ -34,7 +34,7 @@ local function ctype(typ)
     elseif tag == "types.T.Array"    then return "Table *"
     elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
-    elseif tag == "types.T.Value"    then return "TValue"
+    elseif tag == "types.T.Any"      then return "TValue"
     else error("impossible")
     end
 end
@@ -94,7 +94,7 @@ local function lua_value(typ, src_slot)
     elseif tag == "types.T.Array"    then tmpl = "hvalue($src)"
     elseif tag == "types.T.Table"    then tmpl = "hvalue($src)"
     elseif tag == "types.T.Record"   then tmpl = "uvalue($src)"
-    elseif tag == "types.T.Value"    then tmpl = "*($src)"
+    elseif tag == "types.T.Any"      then tmpl = "*($src)"
     else error("impossible")
     end
     return (util.render(tmpl, {src = src_slot}))
@@ -113,7 +113,7 @@ end
 -- note: pallene_setnilvalue not needed since dst is already initialized
 local function get_luatable_slot(typ, dst, src)
     local fix_nils = ""
-    if typ._tag == "types.T.Value" then
+    if typ._tag == "types.T.Any" then
         fix_nils = util.render([[
             if (isempty(&$dst)) {
                 setnilvalue(&$dst);
@@ -145,7 +145,7 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.Array"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
-    elseif tag == "types.T.Value"    then tmpl = "setobj(L, $dst, &$src);"
+    elseif tag == "types.T.Any"      then tmpl = "setobj(L, $dst, &$src);"
     else error("impossible")
     end
     return (util.render(tmpl, { dst = dst_slot, src = value }))
@@ -160,7 +160,7 @@ local function set_heap_slot(typ, dst_slot, value, parent)
 
     if types.is_gc(typ) then
         local tmpl
-        if typ._tag == "types.T.Value" or typ._tag == "types.T.Function" then
+        if typ._tag == "types.T.Any" or typ._tag == "types.T.Function" then
             tmpl = [[pallene_barrierback_unknown_child(L, $p, &$v); ]]
         else
             tmpl = [[pallene_barrierback_collectable_child(L, $p, $v); ]]
@@ -195,7 +195,7 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
     elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
-    elseif tag == "types.T.Value"    then error("value is not a tag")
+    elseif tag == "types.T.Any"    then error("value is not a tag")
     else error("impossible")
     end
 end
@@ -211,7 +211,7 @@ function Coder:test_tag(typ, slot)
     elseif tag == "types.T.Function" then tmpl = "ttisfunction($slot)"
     elseif tag == "types.T.Array"    then tmpl = "ttistable($slot)"
     elseif tag == "types.T.Table"    then tmpl = "ttistable($slot)"
-    elseif tag == "types.T.Value"    then tmpl = "1"
+    elseif tag == "types.T.Any"    then tmpl = "1"
     elseif tag == "types.T.Record"   then
         return (util.render([[(ttisfulluserdata($slot) && uvalue($slot)->metatable == hvalue($mt_slot))]], {
             slot = slot,
@@ -232,7 +232,7 @@ end
 -- ... (extra_args): Parameters to the format string.
 --                  Received as serialized C expressions.
 function Coder:check_tag(typ, slot, loc, description_fmt, ...)
-    if typ._tag == "types.T.Value" then
+    if typ._tag == "types.T.Any" then
         return ""
     else
         local extra_args = table.pack(...)
@@ -1005,8 +1005,8 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "BitLShift" then return shift("pallene_shiftL")
     elseif op == "BitRShift" then return shift("pallene_shiftR")
     elseif op == "FltPow"    then return pow()
-    elseif op == "ValueEq"   then return equalobj(true)
-    elseif op == "ValueNeq"  then return equalobj(false)
+    elseif op == "AnyEq"     then return equalobj(true)
+    elseif op == "AnyNeq"    then return equalobj(false)
     elseif op == "NilEq"     then return binop_paren("==")
     elseif op == "NilNeq"    then return binop_paren("!=")
     elseif op == "BoolEq"    then return binop_paren("==")

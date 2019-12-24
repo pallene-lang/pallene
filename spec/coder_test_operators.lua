@@ -48,7 +48,7 @@ do
         end
     end
 
-    values["value"] = all_values
+    values["any"] = all_values
 end
 
 local function isnan(x)
