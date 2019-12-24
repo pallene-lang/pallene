@@ -309,7 +309,7 @@ describe("Pallene coder /", function()
             { "neg_i", "-",   "integer", "integer" },
             { "bnot",  "~",   "integer", "integer" },
             { "not_b", "not", "boolean", "boolean" },
-            { "not_v", "not", "value",   "value"   },
+            { "not_a", "not", "any",     "any"   },
         }
 
         local pallene_code = {}
@@ -391,8 +391,8 @@ describe("Pallene coder /", function()
             { "and_bb",    "and", "boolean", "boolean", "boolean" },
             { "or_bb",     "or",  "boolean", "boolean", "boolean" },
 
-            { "and_vv",    "and", "value", "value", "value" },
-            { "or_vv",     "or",  "value", "value", "value" },
+            { "and_aa",    "and", "any", "any", "any" },
+            { "or_aa",     "or",  "any", "any", "any" },
 
             { "bor",       "|",   "integer", "integer", "integer" },
             { "band",      "&",   "integer", "integer", "integer" },
@@ -405,8 +405,8 @@ describe("Pallene coder /", function()
             -- Comparison operators, same order as types.lua
             -- Nil and Record are tested separately.
 
-            { "eq_value", "==",  "value", "value", "boolean" },
-            { "ne_value", "~=",  "value", "value", "boolean" },
+            { "eq_any", "==",  "any", "any", "boolean" },
+            { "ne_any", "~=",  "any", "any", "boolean" },
 
             { "eq_boolean", "==",  "boolean", "boolean", "boolean" },
             { "ne_boolean", "~=",  "boolean", "boolean", "boolean" },
@@ -499,7 +499,7 @@ describe("Pallene coder /", function()
                 return x ~= y
             end
 
-            function eq_value(x: value, y: value): boolean
+            function eq_any(x: any, y: any): boolean
                 return x == y
             end
         ]]))
@@ -520,7 +520,7 @@ describe("Pallene coder /", function()
 
         it("is not equal to false", function()
             run_test([[
-                assert(false == test.eq_value(nil, false))
+                assert(false == test.eq_any(nil, false))
             ]])
         end)
     end)
@@ -585,7 +585,7 @@ describe("Pallene coder /", function()
             { "array"    , "{integer}",       "{10,20}"},
             { "table"    , "{x: integer}",    "{x = 1}"},
             { "record"   , "Empty",           "test.new_empty()"},
-            { "value"    , "value",           "17"},
+            { "any"      , "any",             "17"},
         }
 
         local record_decls = [[
@@ -604,10 +604,10 @@ describe("Pallene coder /", function()
             local name, typ, value = test[1], test[2], test[3]
 
             pallene_code[i] = util.render([[
-                function from_${name}(x: ${typ}): value
-                    return (x as value)
+                function from_${name}(x: ${typ}): any
+                    return (x as any)
                 end
-                function to_${name}(x: value): ${typ}
+                function to_${name}(x: any): ${typ}
                     return (x as ${typ})
                 end
             ]], {
@@ -639,12 +639,12 @@ describe("Pallene coder /", function()
 
         for _, test in ipairs(tests) do
             local name = test[1]
-            it(name .. "->value", function() run_test(test_to[name]) end)
+            it(name .. "->any", function() run_test(test_to[name]) end)
         end
 
         for _, test in ipairs(tests) do
             local name = test[1]
-            it("value->" .. name, function() run_test(test_from[name]) end)
+            it("any->" .. name, function() run_test(test_from[name]) end)
         end
 
         it("detects downcast error", function()
@@ -848,15 +848,15 @@ describe("Pallene coder /", function()
                 arr[i] = v
             end
 
-            function insert(xs: {value}, v:value): ()
+            function insert(xs: {any}, v:any): ()
                 xs[#xs + 1] = v
             end
 
-            function remove(xs: {value}): ()
+            function remove(xs: {any}): ()
                 xs[#xs] = nil
             end
 
-            function getvalue(xs: {value}, i:integer): value
+            function getany(xs: {any}, i:integer): any
                 return xs[i]
             end
 
@@ -970,16 +970,16 @@ describe("Pallene coder /", function()
             run_test([[ assert(nil == test.getnil({10, nil, 30}, 4)) ]])
         end)
 
-        it("{value}: get non-nil", function()
-            run_test([[ assert(10  == test.getvalue({10, nil, 30}, 1)) ]])
+        it("{any}: get non-nil", function()
+            run_test([[ assert(10  == test.getany({10, nil, 30}, 1)) ]])
         end)
 
-        it("{value}: in-bounds get nil", function()
-            run_test([[ assert(nil == test.getvalue({10, nil, 30}, 2)) ]])
+        it("{any}: in-bounds get nil", function()
+            run_test([[ assert(nil == test.getany({10, nil, 30}, 2)) ]])
         end)
 
-        it("{value}: out-of-bounds get nil", function()
-            run_test([[ assert(nil == test.getvalue({10, nil, 30}, 4)) ]])
+        it("{any}: out-of-bounds get nil", function()
+            run_test([[ assert(nil == test.getany({10, nil, 30}, 4)) ]])
         end)
     end)
 
@@ -1009,11 +1009,11 @@ describe("Pallene coder /", function()
                 p.y = v
             end
 
-            function getvalue(t: {x: value}): value
+            function getany(t: {x: any}): any
                 return t.x
             end
 
-            function setvalue(t: {x: value}, v: value)
+            function setany(t: {x: any}, v: any)
                 t.x = v
             end
 
@@ -1046,10 +1046,10 @@ describe("Pallene coder /", function()
                 assert(20 == test.gety(p))
 
                 p.x = "hello"
-                assert("hello" == test.getvalue(p))
+                assert("hello" == test.getany(p))
 
                 p.x = nil
-                assert(nil == test.getvalue(p))
+                assert(nil == test.getany(p))
                 assert(nil == test.getnil(p))
             ]])
         end)
@@ -1065,7 +1065,7 @@ describe("Pallene coder /", function()
                 test.setnil(p)
                 assert(nil == p.x)
 
-                test.setvalue(p, "hello")
+                test.setany(p, "hello")
                 assert("hello", p.x)
             ]])
         end)
@@ -1392,25 +1392,25 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("value", function()
+    describe("any", function()
         setup(compile([[
-            function id(x:value): value
+            function id(x:any): any
                 return x
             end
 
-            function call(f:value->value, x:value): value
+            function call(f:any->any, x:any): any
                 return f(x)
             end
 
-            function read(xs:{value}, i:integer): value
+            function read(xs:{any}, i:integer): any
                 return xs[i]
             end
 
-            function write(xs:{value}, i:integer, x:value): ()
+            function write(xs:{any}, i:integer, x:any): ()
                 xs[i] = x
             end
 
-            function if_value(x:value): boolean
+            function if_any(x:any): boolean
                 if x then
                     return true
                 else
@@ -1418,7 +1418,7 @@ describe("Pallene coder /", function()
                 end
             end
 
-            function while_value(x:value): integer
+            function while_any(x:any): integer
                 local out = 0
                 while x do
                     out = out + 1
@@ -1427,7 +1427,7 @@ describe("Pallene coder /", function()
                 return out
             end
 
-            function repeat_value(x:value): integer
+            function repeat_any(x:any): integer
                 local out = 0
                 repeat
                     out = out + 1
@@ -1440,17 +1440,17 @@ describe("Pallene coder /", function()
         ]]))
 
         --
-        -- All of these have a separate branch for the Value and the non-Value
-        -- case. So we better stress them by testing the Value case...
+        -- All of these have a separate branch for the "any" and the non-"any"
+        -- case. So we better stress them by testing the "any" case...
         --
 
-        it("can receive and return values", function()
+        it("can receive and return anys", function()
             run_test([[ assert(17 == test.id(17)) ]])
             run_test([[ assert(true == test.id(true)) ]])
             run_test([[ assert(true == test.call(test.id, true)) ]])
         end)
 
-        it("can read from array of value", function()
+        it("can read from array of any", function()
             run_test([[
                 local xs = {10, "hello"}
                 assert(10 == test.read(xs, 1))
@@ -1458,7 +1458,7 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("can write to array of value", function()
+        it("can write to array of any", function()
             run_test([[
                 local xs = {}
                 test.write(xs, 1, 10)
@@ -1468,30 +1468,30 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("can use value in if-statement condition", function()
+        it("can use any in if-statement condition", function()
             run_test([[
-                assert(true == test.if_value(0))
-                assert(true == test.if_value(true))
-                assert(false == test.if_value(false))
-                assert(false == test.if_value(nil))
+                assert(true == test.if_any(0))
+                assert(true == test.if_any(true))
+                assert(false == test.if_any(false))
+                assert(false == test.if_any(nil))
             ]])
         end)
 
-        it("can use value in while-statement condition", function()
+        it("can use any in while-statement condition", function()
             run_test([[
-                assert(1 == test.while_value(0))
-                assert(1 == test.while_value(true))
-                assert(0 == test.while_value(false))
-                assert(0 == test.while_value(nil))
+                assert(1 == test.while_any(0))
+                assert(1 == test.while_any(true))
+                assert(0 == test.while_any(false))
+                assert(0 == test.while_any(nil))
             ]])
         end)
 
-        it("can use value in repeat-until-statement condition", function()
+        it("can use any in repeat-until-statement condition", function()
             run_test([[
-                assert(1 == test.repeat_value(0))
-                assert(1 == test.repeat_value(true))
-                assert(2 == test.repeat_value(false))
-                assert(2 == test.repeat_value(nil))
+                assert(1 == test.repeat_any(0))
+                assert(1 == test.repeat_any(true))
+                assert(2 == test.repeat_any(false))
+                assert(2 == test.repeat_any(nil))
             ]])
         end)
     end)

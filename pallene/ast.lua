@@ -12,7 +12,7 @@ declare_type("Type", {
     Integer  = {"loc"},
     Float    = {"loc"},
     String   = {"loc"},
-    Value    = {"loc"},
+    Any      = {"loc"},
     Name     = {"loc", "name"},
     Array    = {"loc", "subtype"},
     Table    = {"loc", "fields"},

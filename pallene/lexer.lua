@@ -172,7 +172,7 @@ local keywords = {
     "repeat", "return", "then", "true", "until", "while", "import",
     "record", "as", "type",
 
-    "boolean", "integer", "float", "string", "value"
+    "boolean", "integer", "float", "string", "any"
 }
 
 for _, keyword in ipairs(keywords) do

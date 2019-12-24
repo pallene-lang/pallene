@@ -1,4 +1,4 @@
-function BottomUpTree(depth: integer): {value}
+function BottomUpTree(depth: integer): {any}
     if depth > 0 then
         depth = depth - 1
         local left  = BottomUpTree(depth)
@@ -9,7 +9,7 @@ function BottomUpTree(depth: integer): {value}
     end
 end
 
-function ItemCheck(tree: {value}): integer
+function ItemCheck(tree: {any}): integer
     if tree[1] then
         return 1 + ItemCheck(tree[1]) + ItemCheck(tree[2])
     else

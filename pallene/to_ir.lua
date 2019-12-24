@@ -181,8 +181,8 @@ local binops = {
 
     { "^" , "Float",   "Float",   "FltPow" },
 
-    { "==", "Value",   "Value",   "ValueEq"  },
-    { "~=", "Value",   "Value",   "ValueNeq" },
+    { "==", "Any",   "Any",   "AnyEq"  },
+    { "~=", "Any",   "Any",   "AnyNeq" },
 
     { "==", "Nil",     "Nil",     "NilEq"  },
     { "~=", "Nil",     "Nil",     "NilNeq" },
@@ -521,9 +521,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             self:exp_to_assignment(cmds, dst, exp.exp)
         else
             local v = self:exp_to_value(cmds, exp.exp)
-            if     dst_typ._tag == "types.T.Value" then
+            if     dst_typ._tag == "types.T.Any" then
                 table.insert(cmds, ir.Cmd.ToDyn(loc, src_typ, dst, v))
-            elseif src_typ._tag == "types.T.Value" then
+            elseif src_typ._tag == "types.T.Any" then
                 table.insert(cmds, ir.Cmd.FromDyn(loc, dst_typ, dst, v))
             else
                 error("impossible")
@@ -545,7 +545,7 @@ function ToIR:value_is_truthy(cmds, exp, val)
     local typ = exp._type
     if typ._tag == "types.T.Boolean" then
         return val
-    elseif typ._tag == "types.T.Value" then
+    elseif typ._tag == "types.T.Any" then
         local b = ir.add_local(self.func, false, types.T.Boolean())
         table.insert(cmds, ir.Cmd.IsTruthy(exp.loc, b, val))
         return ir.Value.LocalVar(b)

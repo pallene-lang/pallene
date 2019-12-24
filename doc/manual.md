@@ -42,7 +42,7 @@ The Lua installed in the system might be from an incompatible version.
 ## The Pallene Type System
 
 Pallene's type system includes the usual Lua primitive types (`nil`, `boolean`, `float` and `integer`), as well as strings, arrays, tables, functions, and records.
-There is also a catch-all type `value`, which can refer to any Lua or Pallene value.
+There is also a catch-all type `any`, which can refer to any Lua or Pallene value.
 
 ### Primitive types
 
@@ -74,7 +74,7 @@ Pallene arrays are implemented as Lua tables, and Pallene also uses the same syn
 local xs: {integer} = {10, 20, 30}
 ```
 
-Like Lua, reading from an "out of bounds" index produces `nil`, which results in a run-time type error unless the type of the array elements is value.
+Like Lua, reading from an "out of bounds" index produces `nil`, which results in a run-time type error unless the type of the array elements is `any`.
 Notice that Pallene doesn't accept arrays of nil.
 
 One important thing to know about array literals in Pallene is that they must be accompanied by a type annotation.
@@ -104,7 +104,7 @@ type point = {x: integer, y: integer}
 local p: point = {x = 10, y = 20}
 ```
 
-Notice that all fields must be initialized in the Pallene initalizer list, even fields with the type `value` which could be `nil`.
+Notice that all fields must be initialized in the Pallene initalizer list, even fields with the type `any` which could be `nil`.
 Tables that come from Lua may have absent fields; like Lua, absent fields are considered to be nil.
 
 It is possible to get and set fields in tables using the usual dot syntax:
@@ -164,46 +164,46 @@ The fields of a Pallene record can be directly accessed by Pallene functions usi
 From the point of view of Lua, Pallene records are opaque.
 If you want to allow Lua to read or write to a field, you shold export appropriate getter and setter functions.
 
-### Value
+### Any
 
-Variables of type `value` can store any Lua or Pallene value.
+Variables of type `any` can store any Lua or Pallene value.
 
 ```
-local x: value = 10
+local x: any = 10
 x = "hello"
 ```
 
-Similarly, arrays of `value` can store values of varied types
+Similarly, arrays of `any` can store anys of varied types
 
 ```
-local xs: {value} = {10, "hello", 3.14}
+local xs: {any} = {10, "hello", 3.14}
 ```
 
-Upcasting a Pallene value to the `value` type always succeeds.
-Pallene also allows you to downcast from `value` to other types.
+Upcasting a Pallene value to the `any` type always succeeds.
+Pallene also allows you to downcast from `any` to other types.
 This is checked at run-time, and may result in a run-time type error.
 
 ```
-local v = (17 as value)
+local v = (17 as any)
 local s = (v as string)  -- run-time error: v is not a string
 ```
 
-The `value` type allows allows for a limited form of dynamic typing.
-The main difference compared to Lua is that Pallene does not allow you to perform any operations on a `value`.
-You may pass a `value` to a functions and you may store it in an array but you cannot call it, index it, or use it in an arithmetic operation:
+The `any` type allows allows for a limited form of dynamic typing.
+The main difference compared to Lua is that Pallene does not allow you to perform any operations on a `any`.
+You may pass a `any` to a functions and you may store it in an array but you cannot call it, index it, or use it in an arithmetic operation:
 
 ```
-function f(x: value, y: value): value
-    return x + y -- compile-time type error: Cannot add two values
+function f(x: any, y: any): any
+    return x + y -- compile-time type error: Cannot add two anys
 end
 ```
 
-You must first downcast the `value` to the appropriate type.
+You must first downcast the `any` to the appropriate type.
 Sometimes the Pallene compiler can do this automatically for you but in other situations you may need to use an explicit type annotation.
 The reason for this is that, for performance, Pallene must know at compile-time what version of the arithmetic operator to use.
 
 ```
-function f(x: value, y: value): integer
+function f(x: any, y: any): integer
     return (x as integer) + (y as integer)
 end
 ```
@@ -272,22 +272,22 @@ Pallene functions can refer to functions defined before them but not to function
 Pallene uses the same set of operators and control-flow statements as Lua.
 The only difference is that the type system is more restrictive:
 
-* The logic operators (`not`, `and`, `or`) only operate on expressions of type `boolean` or of type `value`
-* The condition of `if`, `while` and `repeat` must be of type `boolean` or of type `value`
+* The logic operators (`not`, `and`, `or`) only operate on expressions of type `boolean` or of type `any`
+* The condition of `if`, `while` and `repeat` must be of type `boolean` or of type `any`
 * Relational operators (`==`, `<`, etc) must receive two arguments of the same type.
 * The arithmetic and concatenation operators don't automatically coerce between numbers and strings.
 
 ## Type annotations and type inference
 
 Pallene is a statically-typed language, which means that every variable and expression has a known type, determined at compilation time.
-Sometimes this may be the catch-all type `value`, but it is still known at compilation time.
+Sometimes this may be the catch-all type `any`, but it is still known at compilation time.
 Similarly to most other statically-typed languages, Pallene allows you to add type annotations to variables, functions, and expressions.
 (This is one of the few syntactical differences between Lua and Pallene.)
 Pallene type annotations for variables and functions are written using colons.
 For expressions the colon is already used for method calls, so Pallene uses the `as` operator instead.
 
 ```
-function foo(x : value) : integer
+function foo(x : any) : integer
    local y: integer = (x as integer)
    return y + y
 end
@@ -313,29 +313,29 @@ In some places in a Pallene program there is a natural "expected type".
 For example, the type of a parameter being passed to a function is expected to be the type described by the corresponding function type.
 Similarly, there is also an expected type for expressions surrounded by a type annotation, or values being assigned to a variable of known type.
 
-If the expected type of an expression is `value` but the inferred type is something else, Pallene will automatically insert an upcast to `value`.
-Similarly, if the inferred type is `value` but the expected type is something else, Pallene will insert a downcast from `value`.
-For instance, one of the code examples from the Value section of this manual can be rewritten to use automatic coercions as follows:
+If the expected type of an expression is `any` but the inferred type is something else, Pallene will automatically insert an upcast to `any`.
+Similarly, if the inferred type is `any` but the expected type is something else, Pallene will insert a downcast from `any`.
+For instance, one of the code examples from the Any section of this manual can be rewritten to use automatic coercions as follows:
 
 ```
-local v: value  = 17
+local v: any  = 17
 local s: string = v
 ```
 
-In addition to allowing conversions to and from `value`, Pallene also makes implicit conversions to and from types that contain value in compatible ways.
-For example, `{ value }` and `{ integer }` are considered to be compatible, and one may be used where the other is expected.
-Similar, for function types `integer -> integer`, `value -> integer`, `integer -> value`, and `value -> value` are all compatible with each other.
+In addition to allowing conversions to and from `any`, Pallene also makes implicit conversions to and from types that contain `any` in compatible ways.
+For example, `{ any }` and `{ integer }` are considered to be compatible, and one may be used where the other is expected.
+Similar, for function types `integer -> integer`, `any -> integer`, `integer -> any`, and `any -> any` are all compatible with each other.
 These automatic coercions between array and function types never fail at run-time.
 
 To illustrate this, consider the following function for inserting an element in a list.
 
 ```
-function insert(xs: {value}, v:value)
+function insert(xs: {any}, v:any)
     xs[#xs + 1] = v
 end
 ```
 
-Since the parameter to the insert function is an array of `value`, we can use it to add elements to lists of any type:
+Since the parameter to the insert function is an array of `any`, we can use it to add elements to lists of any type:
 
 ```
 local ns: {integer} = {10, 20, 30}
@@ -372,7 +372,7 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
     paramlist ::= NAME ':' type {',' NAME ':' type}
 
-    type ::= nil | integer | float | boolean | string | value | '{' type '}' | NAME
+    type ::= nil | integer | float | boolean | string | any | '{' type '}' | NAME
 
     block ::= {statement} [returnstat]
 

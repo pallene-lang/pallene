@@ -48,7 +48,7 @@ local function linear_search(ps: {float}, p: float): integer
     return 1
 end
 
-function random_fasta(id: string, desc: string, frequencies: {{value}}, n: integer)
+function random_fasta(id: string, desc: string, frequencies: {{any}}, n: integer)
     print_fasta_header(id, desc)
 
     -- Prepare the cummulative probability table

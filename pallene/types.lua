@@ -7,7 +7,7 @@ local function declare_type(type_name, cons)
 end
 
 declare_type("T", {
-    Value    = {},
+    Any      = {},
     Void     = {}, -- For functions with 0 returns
     Nil      = {},
     Boolean  = {},
@@ -34,7 +34,7 @@ function types.is_gc(t)
     then
         return false
 
-    elseif tag == "types.T.Value" or
+    elseif tag == "types.T.Any" or
            tag == "types.T.String" or
            tag == "types.T.Function" or
            tag == "types.T.Array" or
@@ -50,7 +50,7 @@ end
 
 function types.is_condition(t)
     local tag = t._tag
-    if     tag == "types.T.Value" or
+    if     tag == "types.T.Any" or
            tag == "types.T.Boolean"
     then
         return true
@@ -85,7 +85,7 @@ function types.is_indexable(t)
            tag == "types.T.Boolean" or
            tag == "types.T.Integer" or
            tag == "types.T.Float" or
-           tag == "types.T.Value" or
+           tag == "types.T.Any" or
            tag == "types.T.String" or
            tag == "types.T.Function" or
            tag == "types.T.Array"
@@ -112,20 +112,20 @@ end
 
 -- This helper function implements both the type equality relation and the and
 -- the gradual type consistency relation from gradual typing.
--- Gradual type consistency is a relaxed form of equality where the the "value"
+-- Gradual type consistency is a relaxed form of equality where the the "any"
 -- type is considered to be consistent with all other types.
 local function equivalent(t1, t2, is_gradual)
     assert(is_gradual ~= nil)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
-    if is_gradual and (tag1 == "types.T.Value" or tag2 == "types.T.Value") then
+    if is_gradual and (tag1 == "types.T.Any" or tag2 == "types.T.Any") then
         return true
 
     elseif tag1 ~= tag2 then
         return false
 
-    elseif tag1 == "types.T.Value" or
+    elseif tag1 == "types.T.Any" or
            tag1 == "types.T.Void" or
            tag1 == "types.T.Nil" or
            tag1 == "types.T.Boolean" or
@@ -204,7 +204,7 @@ end
 
 function types.tostring(t)
     local tag = t._tag
-    if     tag == "types.T.Value"       then return "value"
+    if     tag == "types.T.Any"         then return "any"
     elseif tag == "types.T.Void"        then return "void"
     elseif tag == "types.T.Nil"         then return "nil"
     elseif tag == "types.T.Boolean"     then return "boolean"

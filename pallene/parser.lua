@@ -259,7 +259,7 @@ local grammar = re.compile([[
                      / (P  INTEGER)                              -> TypeInteger
                      / (P  FLOAT)                                -> TypeFloat
                      / (P  STRING)                               -> TypeString
-                     / (P  VALUE)                                -> TypeValue
+                     / (P  ANY)                                  -> TypeAny
                      / (P  NAME)                                 -> TypeName
                      / (P  LCURLY tablefields RCURLY^RCurlyType) -> TypeTable
                      / (P  LCURLY type^TypeType
@@ -444,7 +444,7 @@ local grammar = re.compile([[
     INTEGER         <- %INTEGER SKIP*
     FLOAT           <- %FLOAT SKIP*
     STRING          <- %STRING SKIP*
-    VALUE           <- %VALUE SKIP*
+    ANY             <- %ANY SKIP*
 
     ADD             <- %ADD SKIP*
     SUB             <- %SUB SKIP*

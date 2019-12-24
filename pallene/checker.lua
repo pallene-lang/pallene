@@ -55,7 +55,7 @@ end
 
 local function check_type_is_condition(exp, err_fmt, ...)
     local typ = exp._type
-    if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Value" then
+    if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Any" then
         type_error(exp.loc,
             "expression passed to %s has type %s. Expected boolean or value.",
             string.format(err_fmt, ...),
@@ -132,8 +132,8 @@ function Checker:from_ast_type(ast_typ)
     elseif tag == "ast.Type.String" then
         return types.T.String()
 
-    elseif tag == "ast.Type.Value" then
-        return types.T.Value()
+    elseif tag == "ast.Type.Any" then
+        return types.T.Any()
 
     elseif tag == "ast.Type.Name" then
         local name = ast_typ.name
