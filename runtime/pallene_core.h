@@ -237,7 +237,6 @@ Table *pallene_new_table(lua_State *L, lua_Integer n)
 }
 
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
-static const TValue PALLENE_NILKEY = {{NULL}, LUA_TNIL};
 
 /* This function is a speciallization of luaH_getshortstr from ltable.c */
 static inline
