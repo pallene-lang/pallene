@@ -109,7 +109,16 @@ function ToIR:convert_stat(cmds, stat)
             local field = var.name
             local rec = self:exp_to_value(cmds, var.exp)
             local v   = self:exp_to_value(cmds, exp)
-            table.insert(cmds, ir.Cmd.SetField(stat.loc, typ, rec, field, v))
+            local cmd
+            if     typ._tag == "types.T.Table" then
+                local key = ir.Value.String(field)
+                cmd = ir.Cmd.SetTable(stat.loc, exp._type, rec, key, v)
+            elseif typ._tag == "types.T.Record" then
+                cmd = ir.Cmd.SetField(stat.loc, typ, rec, field, v)
+            else
+                error("impossible")
+            end
+            table.insert(cmds, cmd)
 
         else
             error("impossible")
@@ -207,6 +216,9 @@ local binops = {
 
     { "==", "Array",   "Array",    "ArrayEq"    },
     { "~=", "Array",   "Array",    "ArrayNeq"    },
+
+    { "==", "Table",   "Table",    "TableEq"    },
+    { "~=", "Table",   "Table",    "TableNeq"    },
 
     { "==", "Record",  "Record",   "RecordEq",  },
     { "~=", "Record",  "Record",   "RecordNeq",  },
@@ -321,6 +333,19 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 table.insert(cmds, ir.Cmd.SetArr(loc, src_typ, av, iv, vv))
             end
 
+        elseif typ._tag == "types.T.Table" then
+            local n = #exp.fields
+            table.insert(cmds, ir.Cmd.NewTable(loc, dst, n))
+            table.insert(cmds, ir.Cmd.CheckGC())
+            for _, field in ipairs(exp.fields) do
+                local tv = ir.Value.LocalVar(dst)
+                local kv = ir.Value.String(field.name)
+                local vv = self:exp_to_value(cmds, field.exp)
+                local src_typ = field.exp._type
+                local cmd = ir.Cmd.SetTable(loc, src_typ, tv, kv, vv)
+                table.insert(cmds, cmd)
+            end
+
         elseif typ._tag == "types.T.Record" then
             local field_exps = {}
             for _, field in ipairs(exp.fields) do
@@ -420,7 +445,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local typ = assert(var.exp._type)
             local field = var.name
             local rec = self:exp_to_value(cmds, var.exp)
-            table.insert(cmds, ir.Cmd.GetField(loc, typ, dst, rec, field))
+            local cmd
+            if     typ._tag == "types.T.Table" then
+                local key = ir.Value.String(field)
+                local dst_typ = typ.fields[field]
+                cmd = ir.Cmd.GetTable(loc, dst_typ, dst, rec, key)
+            elseif typ._tag == "types.T.Record" then
+                cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)
+            else
+                error("impossible")
+            end
+            table.insert(cmds, cmd)
 
         else
             error("impossible")

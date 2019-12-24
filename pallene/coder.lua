@@ -32,6 +32,7 @@ local function ctype(typ)
     elseif tag == "types.T.String"   then return "TString *"
     elseif tag == "types.T.Function" then return "TValue"
     elseif tag == "types.T.Array"    then return "Table *"
+    elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
     elseif tag == "types.T.Value"    then return "TValue"
     else error("impossible")
@@ -81,7 +82,7 @@ end
 --
 
 -- @param src_slot: The TValue* to read from
-local function get_slot(typ, src_slot)
+local function lua_value(typ, src_slot)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
@@ -91,11 +92,43 @@ local function get_slot(typ, src_slot)
     elseif tag == "types.T.String"   then tmpl = "tsvalue($src)"
     elseif tag == "types.T.Function" then tmpl = "*($src)"
     elseif tag == "types.T.Array"    then tmpl = "hvalue($src)"
+    elseif tag == "types.T.Table"    then tmpl = "hvalue($src)"
     elseif tag == "types.T.Record"   then tmpl = "uvalue($src)"
     elseif tag == "types.T.Value"    then tmpl = "*($src)"
     else error("impossible")
     end
     return (util.render(tmpl, {src = src_slot}))
+end
+
+local function get_stack_slot(typ, dst, src)
+    return (util.render([[ $dst = $value; ]], {
+        dst = dst,
+        value = lua_value(typ, src)
+    }))
+end
+
+-- Obtains the value in the slot and remove "EMPTY" variant tag from
+-- out-of-bound nils
+-- note: rawget in lapi.c also needs to do this.
+-- note: pallene_setnilvalue not needed since dst is already initialized
+local function get_luatable_slot(typ, dst, src)
+    local fix_nils = ""
+    if typ._tag == "types.T.Value" then
+        fix_nils = util.render([[
+            if (isempty(&$dst)) {
+                setnilvalue(&$dst);
+            }
+        ]], {
+            dst = dst
+        })
+    end
+    return (util.render([[
+      $get_slot
+      $fix_nils
+    ]], {
+      get_slot = get_stack_slot(typ, dst, src),
+      fix_nils = fix_nils,
+    }))
 end
 
 -- Set a TValue* slot that is in the Lua or C stack.
@@ -110,6 +143,7 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.String"   then tmpl = "setsvalue(L, $dst, $src);"
     elseif tag == "types.T.Function" then tmpl = "setobj(L, $dst, &$src);"
     elseif tag == "types.T.Array"    then tmpl = "sethvalue(L, $dst, $src);"
+    elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
     elseif tag == "types.T.Value"    then tmpl = "setobj(L, $dst, &$src);"
     else error("impossible")
@@ -159,6 +193,7 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.String"   then return "LUA_TSTRING"
     elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
+    elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
     elseif tag == "types.T.Value"    then error("value is not a tag")
     else error("impossible")
@@ -175,6 +210,7 @@ function Coder:test_tag(typ, slot)
     elseif tag == "types.T.String"   then tmpl = "ttisstring($slot)"
     elseif tag == "types.T.Function" then tmpl = "ttisfunction($slot)"
     elseif tag == "types.T.Array"    then tmpl = "ttistable($slot)"
+    elseif tag == "types.T.Table"    then tmpl = "ttistable($slot)"
     elseif tag == "types.T.Value"    then tmpl = "1"
     elseif tag == "types.T.Record"   then
         return (util.render([[(ttisfulluserdata($slot) && uvalue($slot)->metatable == hvalue($mt_slot))]], {
@@ -240,14 +276,14 @@ function Coder:c_value(value)
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
         local str = value.value
-        return get_slot(
+        return lua_value(
             types.T.String(),
             self:string_upvalue_slot(str))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
     elseif tag == "ir.Value.Function" then
         local f_id = value.id
-        return get_slot(
+        return lua_value(
             self.module.functions[f_id].typ,
             self:function_upvalue_slot(f_id))
     else
@@ -496,12 +532,8 @@ function Coder:lua_entry_point_definition(f_id)
         local slot = string.format("s2v(base + %s)", C.integer(i))
         local name = "x"..i
         arg_vars[i] = name
-        table.insert(init_args, util.render([[
-            $decl = $get_slot;
-        ]], {
-            decl = c_declaration(typ, name),
-            get_slot = get_slot(typ, slot),
-        }))
+        local dst = c_declaration(typ, name)
+        table.insert(init_args, get_stack_slot(typ, dst, slot))
     end
 
     local ret_vars = {}
@@ -846,10 +878,7 @@ gen_cmd["GetGlobal"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local g_id = cmd.global_id
     local typ = self.module.globals[g_id].typ
-    return (util.render([[ $dst = $get_slot; ]], {
-        dst = dst,
-        get_slot = get_slot(typ, self:global_upvalue_slot(g_id)),
-    }))
+    return get_stack_slot(typ, dst, self:global_upvalue_slot(g_id))
 end
 
 gen_cmd["SetGlobal"] = function(self, cmd, _func)
@@ -1004,6 +1033,8 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "FunctionNeq" then return equalobj(false)
     elseif op == "ArrayEq"   then return binop_paren("==")
     elseif op == "ArrayNeq"  then return binop_paren("!=")
+    elseif op == "TableEq"   then return binop_paren("==")
+    elseif op == "TableNeq"  then return binop_paren("!=")
     elseif op == "RecordEq"  then return binop_paren("==")
     elseif op == "RecordNeq" then return binop_paren("!=")
     else
@@ -1050,13 +1081,12 @@ gen_cmd["FromDyn"] = function(self, cmd, _func)
     local src = self:c_value(cmd.src)
     local dst_typ = cmd.dst_typ
     return (util.render([[
-        ${check_tag}
-        $dst = $get_slot;
+        $check_tag
+        $get_slot
     ]], {
-        dst = dst,
         check_tag = self:check_tag(dst_typ, "&"..src,
                 cmd.loc, "downcasted value"),
-        get_slot = get_slot(dst_typ, "&"..src),
+        get_slot = get_stack_slot(dst_typ, dst, "&"..src),
     }))
 end
 
@@ -1082,34 +1112,19 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
     local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
 
-    local fix_nils = ""
-    if dst_typ._tag == "types.T.Value" then
-        -- Remove "EMPTY" variant tag from out-of-bound nils
-        -- note: rawget in lapi.c also needs to do this.
-        -- note: pallene_setnilvalue not needed since dst is already initialized
-        fix_nils = util.render([[
-            if (isempty(&$dst)) { setnilvalue(&$dst); }
-        ]], {
-            dst = dst
-        })
-    end
-
     return (util.render([[
         {
             pallene_renormalize_array(L, $arr, $i, $line);
             TValue *slot = &$arr->array[$i - 1];
-            ${check_tag}
-            $dst = $get_slot;
-            ${fix_nils}
+            $check_tag
+            $get_slot
         }
     ]], {
-        dst = dst,
         arr = arr,
         i = i,
         line = line,
         check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element"),
-        get_slot = get_slot(dst_typ, "slot"),
-        fix_nils = fix_nils,
+        get_slot = get_luatable_slot(dst_typ, dst, "slot"),
     }))
 end
 
@@ -1134,6 +1149,61 @@ gen_cmd["SetArr"] = function(self, cmd, _func)
     }))
 end
 
+gen_cmd["NewTable"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local n = C.integer(cmd.size_hint)
+    return (util.render([[ $dst = pallene_new_table(L, $n); ]], {
+        dst = dst,
+        n = n,
+    }))
+end
+
+gen_cmd["GetTable"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local tab = self:c_value(cmd.src_tab)
+    local key = self:c_value(cmd.src_k)
+    local dst_typ = cmd.dst_typ
+    local line = C.integer(cmd.loc.line)
+
+    return (util.render([[
+        {
+            static size_t cache = UINT_MAX;
+            TValue *slot = pallene_getshortstr($tab, $key, &cache);
+            $check_tag
+            $get_slot
+        }
+    ]], {
+        tab = tab,
+        key = key,
+        line = line,
+        check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "table field"),
+        get_slot = get_luatable_slot(dst_typ, dst, "slot"),
+    }))
+end
+
+gen_cmd["SetTable"] = function(self, cmd, _func)
+    local tab = self:c_value(cmd.src_tab)
+    local key = self:c_value(cmd.src_k)
+    local v = self:c_value(cmd.src_v)
+    local src_typ = cmd.src_typ
+    return (util.render([[
+        {
+            static size_t cache = UINT_MAX;
+            TValue *slot = pallene_getshortstr($tab, $key, &cache);
+            if (PALLENE_UNLIKELY(isabstkey(slot))) {
+                TValue keyv;
+                setsvalue(L, &keyv, $key);
+                slot = luaH_newkey(L, $tab, &keyv);
+            }
+            ${set_heap_slot}
+        }
+    ]], {
+        tab = tab,
+        key = key,
+        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
+    }))
+end
+
 gen_cmd["NewRecord"] = function(self, cmd, _func)
     local rc = self.record_coders[cmd.rec_typ]
     local rec = self:c_var(cmd.dst)
@@ -1152,15 +1222,17 @@ gen_cmd["GetField"] = function(self, cmd, _func)
     local field_name = cmd.field_name
 
     local f_typ = rec_typ.field_types[field_name]
-    local result
     if types.is_gc(f_typ) then
         local slot = rc:get_gc_slot(rec, field_name)
-        result = get_slot(f_typ, slot)
+        return get_stack_slot(f_typ, dst, slot)
     else
-        result = rc:get_prim_lvalue(rec, field_name)
+        return (util.render([[
+            $dst = $lval;
+        ]], {
+            dst = dst,
+            lval = rc:get_prim_lvalue(rec, field_name),
+        }))
     end
-
-    return (util.render([[$dst = $result;]], { dst = dst, result = result }))
 end
 
 gen_cmd["SetField"] = function(self, cmd, _func)
@@ -1209,10 +1281,7 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     if dst then
         assert(#f_typ.ret_types == 1)
         local typ = f_typ.ret_types[1]
-        table.insert(pop_from_stack, util.render([[
-            $dst = $get_slot;]], {
-                dst = dst,
-                get_slot = get_slot(typ, "s2v(--L->top)") }))
+        table.insert(pop_from_stack, get_stack_slot(typ, dst, "s2v(--L->top)"))
     end
 
     local top = self:stack_top_at(func, cmd)

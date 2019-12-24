@@ -15,6 +15,7 @@ declare_type("Type", {
     Value    = {"loc"},
     Name     = {"loc", "name"},
     Array    = {"loc", "subtype"},
+    Table    = {"loc", "fields"},
     Function = {"loc", "arg_types", "ret_types"},
 })
 

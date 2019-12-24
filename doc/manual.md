@@ -33,7 +33,7 @@ The `sum.so` file can be loaded from within Lua with `require`, as usual:
 ```
 $ ./lua/src/lua
 > sum = require "sum"
-> print(sum.sum_floats({10.0, 20.0, 30.0}))
+> print(sum.sum_floats({10.0, 20.0, 30.0})) --> 60.0
 ```
 
 In this example, we invoke our bundled Lua interpreter because Pallene is only compatible with a specific release version of the interpreter.
@@ -41,7 +41,7 @@ The Lua installed in the system might be from an incompatible version.
 
 ## The Pallene Type System
 
-Pallene's type system includes the usual Lua primitive types (`nil`, `boolean`, `float` and `integer`), as well as strings, arrays, functions, and records.
+Pallene's type system includes the usual Lua primitive types (`nil`, `boolean`, `float` and `integer`), as well as strings, arrays, tables, functions, and records.
 There is also a catch-all type `value`, which can refer to any Lua or Pallene value.
 
 ### Primitive types
@@ -91,6 +91,31 @@ Nevertheless, Pallene is still able to infer then type of an array literal if th
 ```
 local result = sum_floats({1.0, 2.0, 3.0})
 ```
+
+### Tables
+
+Table types in Pallene are writen as `{ field: t [, field2: t2, ...] }`, where `field` is an identifier and `t` is any Pallene type.
+For instance, `{ x: integer, y: integer }` is the type for a table with the fields `x` and `y` that are integers.
+
+Like arrays, Pallene tables are implemented as Lua tables and Pallene uses the same Lua syntax for their creation:
+
+```
+type point = {x: integer, y: integer}
+local p: point = {x = 10, y = 20}
+```
+
+Notice that all fields must be initialized in the Pallene initalizer list, even fields with the type `value` which could be `nil`.
+Tables that come from Lua may have absent fields; like Lua, absent fields are considered to be nil.
+
+It is possible to get and set fields in tables using the usual dot syntax:
+
+```
+p.x = 30
+print(p.x) --> 30
+```
+
+In the current version of Pallene, the length of the field should be at max `LUAI_MAXSHORTLEN` characters.
+In Lua 5.4, the default value for this constant is 40 characters.
 
 ### Functions
 

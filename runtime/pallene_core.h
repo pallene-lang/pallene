@@ -226,4 +226,46 @@ int pallene_is_truthy(const TValue *v)
     return !(ttisnil(v) || (ttisboolean(v) && bvalue(v) == 0));
 }
 
+static inline
+Table *pallene_new_table(lua_State *L, lua_Integer n)
+{
+    Table *t = luaH_new(L);
+    if (n > 0) {
+        luaH_resize(L, t, 0, n);
+    }
+    return t;
+}
+
+static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
+
+/* This function is a speciallization of luaH_getshortstr from ltable.c */
+static inline
+TValue *pallene_getshortstr(Table *t, TString *key, size_t *pos)
+{
+    if (*pos < sizenode(t)) {
+       Node *n = gnode(t, *pos);
+       if (keyisshrstr(n) && eqshrstr(keystrval(n), key))
+           return gval(n);
+    }
+    Node *n = gnode(t, lmod(key->hash, sizenode(t)));
+    for (;;) {
+        if (keyisshrstr(n) && eqshrstr(keystrval(n), key)) {
+            *pos = n - gnode(t, 0);
+            return gval(n);
+        }
+        else {
+            int nx = gnext(n);
+            if (nx == 0) {
+                /* It is slightly better to have an invalid cache when we don't
+                 * expect the cache to hit. The code will be faster because
+                 * getstr will jump straight to the key search instead of trying
+                 * to access a cache that we expect to be a miss. */
+                *pos = UINT_MAX;
+                return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
+            }
+            n += nx;
+        }
+    }
+}
+
 #endif
