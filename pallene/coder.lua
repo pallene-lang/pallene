@@ -1268,21 +1268,21 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     local f_typ = cmd.f_typ
     local dst = cmd.dst and self:c_var(cmd.dst)
 
-    local push_to_stack = {}
-    table.insert(push_to_stack,
-        set_stack_slot(f_typ, "s2v(L->top++)", self:c_value(cmd.src_f)))
+    local push_arguments = {}
+    table.insert(push_arguments,
+        self:push_to_stack(f_typ, self:c_value(cmd.src_f)))
     for i = 1, #f_typ.arg_types do
         local typ = f_typ.arg_types[i]
-        table.insert(push_to_stack,
-            set_stack_slot(typ, "s2v(L->top++)", self:c_value(cmd.srcs[i])))
+        table.insert(push_arguments,
+            self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
-    local pop_from_stack = {}
+    local pop_results = {}
     if dst then
         assert(#f_typ.ret_types == 1)
         local i = 1
         local typ = f_typ.ret_types[i]
-        table.insert(pop_from_stack, util.render([[
+        table.insert(pop_results, util.render([[
             {
                 TValue *slot = s2v(--L->top);
                 $check_tag
@@ -1299,13 +1299,13 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     local top = self:stack_top_at(func, cmd)
     local call_stats = util.render([[
         L->top = $top;
-        ${push_to_stack}
+        ${push_arguments}
         lua_call(L, $nargs, $nrets);
-        ${pop_from_stack}
+        ${pop_results}
     ]], {
         top = top,
-        push_to_stack = table.concat(push_to_stack, "\n"),
-        pop_from_stack = table.concat(pop_from_stack, "\n"),
+        push_arguments = table.concat(push_arguments, "\n"),
+        pop_results = table.concat(pop_results, "\n"),
         nargs = C.integer(#f_typ.arg_types),
         nrets = C.integer(#f_typ.ret_types),
     })
