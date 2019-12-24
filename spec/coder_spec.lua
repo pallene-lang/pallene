@@ -329,6 +329,18 @@ describe("Pallene coder /", function()
                 assert( 9 == test.getf()(10))
             ]])
         end)
+
+        it("Type-checks Lua functions", function()
+            run_test([[
+                local f = function(x) return "hello" end
+                local ok, err = pcall(test.call, f, 0)
+                assert(not ok)
+                assert(string.find(err,
+                    "wrong type for return value #1, "..
+                    "expected integer but found string",
+                    nil, true))
+            ]])
+        end)
     end)
 
     describe("Unary Operators /", function()

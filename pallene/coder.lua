@@ -1280,8 +1280,20 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     local pop_from_stack = {}
     if dst then
         assert(#f_typ.ret_types == 1)
-        local typ = f_typ.ret_types[1]
-        table.insert(pop_from_stack, get_stack_slot(typ, dst, "s2v(--L->top)"))
+        local i = 1
+        local typ = f_typ.ret_types[i]
+        table.insert(pop_from_stack, util.render([[
+            {
+                TValue *slot = s2v(--L->top);
+                $check_tag
+                $get_slot
+            }
+        ]], {
+            check_tag = self:check_tag(typ, "slot", cmd.loc,
+                string.format("return value #%d", i)),
+            get_slot = get_stack_slot(typ, dst, "slot")
+        }))
+
     end
 
     local top = self:stack_top_at(func, cmd)
