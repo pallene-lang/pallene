@@ -241,7 +241,7 @@ static const TValue PALLENE_NILKEY = {{NULL}, LUA_TNIL};
 
 /* This function is a speciallization of luaH_getshortstr from ltable.c */
 static inline
-TValue *pallene_getstr(Table *t, TString *key, size_t *pos)
+TValue *pallene_getshortstr(Table *t, TString *key, size_t *pos)
 {
     if (*pos < sizenode(t)) {
        Node *n = gnode(t, *pos);
