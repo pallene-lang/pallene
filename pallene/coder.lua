@@ -174,7 +174,7 @@ end
 function Coder:push_to_stack(typ, value)
     return (util.render([[
         ${set_stack_slot}
-        api_incr_top(L);
+        L->top++;
     ]],{
         set_stack_slot = set_stack_slot(typ, "s2v(L->top)", value),
     }))
@@ -1284,7 +1284,8 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
         local typ = f_typ.ret_types[i]
         table.insert(pop_results, util.render([[
             {
-                TValue *slot = s2v(--L->top);
+                L->top--;
+                TValue *slot = s2v(L->top);
                 $check_tag
                 $get_slot
             }
