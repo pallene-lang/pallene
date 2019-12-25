@@ -135,6 +135,7 @@ LUA_API int lua_setcstacklimit (lua_State *L, unsigned int limit) {
 void luaE_enterCcall (lua_State *L) {
   int ncalls = getCcalls(L);
   L->nCcalls--;
+#if 0
   if (ncalls <= CSTACKERR) {  /* possible overflow? */
     luaE_freeCI(L);  /* release unused CIs */
     ncalls = getCcalls(L);  /* update call count */
@@ -150,6 +151,7 @@ void luaE_enterCcall (lua_State *L) {
          allow message handler to work */
     }
   }
+#endif
 }
 
 
