@@ -1,0 +1,119 @@
+-- Simple streams library for building infinite lists.
+-- Based on the implementation from Racket, but modified to use explicit
+-- parameters instead of closures
+
+record StreamPln
+    head:  any
+    state: any
+    get_tail: any->any
+end
+
+function make_stream_pln(head: any, state: any, get_tail: any): StreamPln
+    return { head = head, state = state, get_tail = get_tail}
+end
+
+function stream_head_pln(st: StreamPln): any
+    return st.head
+end
+
+function stream_tail_pln(st: StreamPln): StreamPln
+    return (st.get_tail(st.state)) as StreamPln
+end
+
+function stream_get_pln(st: StreamPln, n: integer): any
+    for _ = 1, n-1 do
+        st = stream_tail_pln(st)
+    end
+    return (stream_head_pln(st))
+end
+
+type StreamLib = {
+    make_stream : any,
+    stream_head : any,
+    stream_tail : any,
+    stream_get  : any,
+}
+
+type Stream = any
+local make_stream : (any, any, any) -> Stream = make_stream_pln
+local stream_head : Stream -> any             = stream_head_pln
+local stream_tail : Stream -> Stream          = stream_tail_pln
+local stream_get  : (Stream, integer) -> any  = stream_get_pln
+
+function injectStream(t: StreamLib)
+    make_stream = t.make_stream
+    stream_head = t.stream_head
+    stream_tail = t.stream_tail
+    stream_get  = t.stream_get
+end
+
+----------------------------------------------
+
+-- Build a stream of integers starting from 1
+
+function count_from_pln(n: integer): Stream
+    return (make_stream(n, n, _tail1))
+end
+
+local function _tail1(i: integer): Stream
+    return (count_from_pln(i+1))
+end
+
+-- Filter all multiples of n
+
+record Closure2
+    n: integer
+    tl: Stream
+end
+
+function sift_pln(n: integer, st: Stream): Stream
+    local hd = stream_head(st) as integer
+    local tl = stream_tail(st)
+    while hd % n == 0 do
+        st = tl
+        hd = stream_head(st) as integer
+        tl = stream_tail(st)
+    end
+    local state: Closure2 = { n = n, tl = tl }
+    return (make_stream(hd, state, _tail2))
+end
+
+local function _tail2(state: Closure2): Stream
+    return (sift_pln(state.n, state.tl))
+end
+
+-- Naive sieve of Erasthostenes
+
+function sieve_pln(st: Stream): Stream
+    local n  = stream_head(st)
+    local tl = stream_tail(st)
+    local state: Closure2 = { n = n, tl = tl }
+    return (make_stream(n, state, _tail3))
+end
+
+local function _tail3(state: Closure2): Stream
+    return (sieve_pln(sift_pln(state.n, state.tl)))
+end
+
+type MainLib = {
+    count_from : any,
+    sift       : any,
+    sieve      : any,
+}
+
+local count_from = count_from_pln
+local sift       = sift_pln
+local sieve      = sieve_pln
+
+function injectMain(t: MainLib)
+    count_from = t.count_from
+    sift       = t.sift
+    sieve      = t.sieve
+end
+
+function get_prime(n: integer): integer
+    local prime_stream = sieve(count_from(2))
+    return (stream_get(prime_stream, n))
+end
+
+

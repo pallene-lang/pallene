@@ -1,0 +1,86 @@
+
+-- Simple streams library for building infinite lists.
+-- Based on the implementation from Racket, but modified to use explicit
+-- parameters instead of closures
+
+record Stream
+    head:  any
+    state: any
+    get_tail: any->any
+end
+
+local function make_stream(head: any, state: any, get_tail: any): Stream
+    return { head = head, state = state, get_tail = get_tail}
+end
+
+local function stream_head(st: Stream): any
+    return st.head
+end
+
+local function stream_tail(st: Stream): Stream
+    return (st.get_tail(st.state)) as Stream
+end
+
+local function stream_get(st: Stream, n: integer): any
+    for _ = 1, n-1 do
+        st = stream_tail(st)
+    end
+    return (stream_head(st))
+end
+
+----------------------------------------------
+
+-- Build a stream of integers starting from 1
+
+local function count_from(n: integer): Stream
+    return (make_stream(n, n, _tail1))
+end
+
+local function _tail1(i: integer): Stream
+    return (count_from(i+1))
+end
+
+-- Filter all multiples of n
+
+record Closure2
+    n: integer
+    tl: Stream
+end
+
+local function sift(n: integer, st: Stream): Stream
+    local hd = stream_head(st) as integer
+    local tl = stream_tail(st)
+    while hd % n == 0 do
+        st = tl
+        hd = stream_head(st) as integer
+        tl = stream_tail(st)
+    end
+    local state: Closure2 = { n = n, tl = tl }
+    return (make_stream(hd, state, _tail2))
+end
+
+local function _tail2(state: Closure2): Stream
+    return (sift(state.n, state.tl))
+end
+
+-- Naive sieve of Erasthostenes
+
+local function sieve(st: Stream): Stream
+    local n  = stream_head(st)
+    local tl = stream_tail(st)
+    local state: Closure2 = { n = n, tl = tl }
+    return (make_stream(n, state, _tail3))
+end
+
+local function _tail3(state: Closure2): Stream
+    return (sieve(sift(state.n, state.tl)))
+end
+
+--
+
+function get_prime(n: integer): integer
+    local prime_stream = sieve(count_from(2))
+    return (stream_get(prime_stream, n))
+end
+
+
