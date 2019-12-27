@@ -56,6 +56,8 @@ function c_compiler.compile_s_to_o(in_filename, out_filename)
 end
 
 function c_compiler.compile_o_to_so(in_filename, out_filename)
+    -- There is no need to add the '-x' flag when compiling an object file without a '.o' extension.
+    -- According to GCC, any file name with no recognized suffix is treated as an object file.
     return run_cc({
         c_compiler.CFLAGS_SHARED,
         "-o", util.shell_quote(out_filename),
