@@ -40,6 +40,7 @@ function c_compiler.compile_c_to_s(in_filename, out_filename)
         c_compiler.CFLAGS_WARN,
         c_compiler.CFLAGS_OPT,
         c_compiler.S_FLAGS,
+        "-x c",
         "-o", util.shell_quote(out_filename),
         "-S", util.shell_quote(in_filename),
     })
@@ -47,6 +48,7 @@ end
 
 function c_compiler.compile_s_to_o(in_filename, out_filename)
     return run_cc({
+        "-x assembler",
         "-o", util.shell_quote(out_filename),
         "-c", util.shell_quote(in_filename),
     })

@@ -136,7 +136,11 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
     local file_names = {}
     for i = first_step, last_step do
         local step = compiler_steps[i]
-        file_names[i] = base_name .. "." .. step.name
+        if (i == first_step or i == last_step) then
+            file_names[i] = base_name .. "." .. step.name
+        else
+            file_names[i] = os.tmpname()
+        end
     end
 
     local ok, errs
