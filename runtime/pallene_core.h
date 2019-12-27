@@ -24,9 +24,6 @@
 #define PALLENE_LIKELY(x)   __builtin_expect(!!(x), 1)
 #define PALLENE_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
-#define PALLENE_LUAINTEGER_NBITS  cast_int(sizeof(lua_Integer) * CHAR_BIT)
-
-
 const char *pallene_tag_name(int raw_tag);
 
 void pallene_runtime_tag_check_error(
@@ -171,13 +168,16 @@ lua_Integer pallene_int_modi(
  * instruction.  In the dynamic case with unknown "y" this implementation is a
  * little bit faster Lua because we put the most common case under a single
  * level of branching. (~20% speedup) */
+
+#define PALLENE_NBITS  (sizeof(lua_Integer) * CHAR_BIT)
+
 static inline
 lua_Integer pallene_shiftL(lua_Integer x, lua_Integer y)
 {
-    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_LUAINTEGER_NBITS)) {
+    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_NBITS)) {
         return intop(<<, x, y);
     } else {
-        if (l_castS2U(-y) < PALLENE_LUAINTEGER_NBITS) {
+        if (l_castS2U(-y) < PALLENE_NBITS) {
             return intop(>>, x, -y);
         } else {
             return 0;
@@ -187,10 +187,10 @@ lua_Integer pallene_shiftL(lua_Integer x, lua_Integer y)
 static inline
 lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 {
-    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_LUAINTEGER_NBITS)) {
+    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_NBITS)) {
         return intop(>>, x, y);
     } else {
-        if (l_castS2U(-y) < PALLENE_LUAINTEGER_NBITS) {
+        if (l_castS2U(-y) < PALLENE_NBITS) {
             return intop(<<, x, -y);
         } else {
             return 0;
