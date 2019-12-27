@@ -932,8 +932,8 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     end
 
     local function flt_mod()
-        -- See luai_nummod
-        error("not implemented (float mod)")
+        return (util.render([[ $dst = luaV_modf(L, $x, $y); ]], {
+            dst = dst, x = x, y = y }))
     end
 
     -- For integer shift:
@@ -968,7 +968,7 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     elseif op == "FltSub"    then return binop("-")
     elseif op == "FltMul"    then return binop("*")
     elseif op == "FltDivi"   then return flt_divi()
-    elseif op == "FltMod"    then return flt_mod()
+    elseif op == "FltMod"    then return flt_mod("pallene_float_modi")
     elseif op == "FltDiv"    then return binop("/")
     elseif op == "BitAnd"    then return int_binop("&")
     elseif op == "BitOr"     then return int_binop("|")

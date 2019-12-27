@@ -155,6 +155,14 @@ lua_Integer pallene_int_modi(
     }
 }
 
+static inline
+lua_Number pallene_float_modi(lua_State *L ,lua_Number m, lua_Number n)
+{
+    lua_Number r;
+    luai_nummod(L, m, n, r);
+    return r;
+}
+
 /* In C, there is undefined behavior if the shift ammount is negative or is
  * larger than the integer width. On the other hand, Lua and Pallene specify the
  * behavior in these cases (negative means shift in the opposite direction, and

@@ -372,9 +372,9 @@ describe("Pallene coder /", function()
             { "mul_ff",    "*",   "float",   "float",   "float" },
 
             { "mod_ii",    "%",   "integer", "integer", "integer" },
-            -- NYI { "mod_if",    "%",   "integer", "float",   "float" },
-            -- NYI { "mod_fi",    "%",   "float",   "integer", "float" },
-            -- NYI { "mod_ff",    "%",   "float",   "float",   "float" },
+            { "mod_if",    "%",   "integer", "float",   "float" },
+            { "mod_fi",    "%",   "float",   "integer", "float" },
+            { "mod_ff",    "%",   "float",   "float",   "float" },
 
             { "intdiv_ii", "//",  "integer", "integer", "integer" },
             { "intdiv_if", "//",  "integer", "float",   "float" },
