@@ -9,7 +9,7 @@ local values = {
         math.mininteger, -10, -3, -2, -1, 0, 1, 2, 3, 10, math.maxinteger,
     },
     ["float"] = {
-        -math.huge, -2.0, -1.0, 0.0, 1.0, math.pi, math.huge,
+        -math.huge, -4.5, -3.345, -2.999, -2.001, -1.0, 0.0, 1.0, 2.001, 2.999, 3.345, 4.5, math.pi, math.huge,
     },
     ["string"] = {
         "",

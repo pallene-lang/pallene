@@ -961,8 +961,8 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     end
 
     local function flt_mod()
-        -- See luai_nummod
-        error("not implemented (float mod)")
+        return (util.render([[ $dst = luaV_modf(L, $x, $y); ]], {
+            dst = dst, x = x, y = y }))
     end
 
     -- For integer shift:
