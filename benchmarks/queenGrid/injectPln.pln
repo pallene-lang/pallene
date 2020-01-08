@@ -1,0 +1,66 @@
+-- check whether position (n,c) is free from attacks
+function isplaceok_pln (a:{integer}, n:integer, c:integer): boolean
+  for i = 1, n - 1 do   -- for each queen already placed
+    local d = a[i]
+    if (d == c) or                -- same column?
+       (d - i == c - n) or        -- same diagonal?
+       (d + i == c + n) then      -- same diagonal?
+      return false            -- place can be attacked
+    end
+  end
+  return true    -- no attacks; place is OK
+end
+
+local isplaceok = isplaceok_pln
+
+function inject_isplaceok(f: ({integer}, integer, integer) -> boolean)
+    isplaceok = f
+end
+
+-- print a board
+function printsolution_pln (N: integer, a:{integer})
+  for i = 1, N do
+    local ai = a[i]
+    for j = 1, N do
+      if ai == j then
+        io_write("X")
+      else
+        io_write("-")
+      end
+      io_write(" ")
+    end
+    io_write("\n")
+  end
+  io_write("\n")
+end
+
+local printsolution = printsolution_pln
+
+function inject_printsolution(f: (integer, {integer}) -> ())
+    printsolution = f
+end
+
+-- add to board 'a' all queens from 'n' to 'N'
+function addqueen_pln (N:integer, a:{integer}, n:integer)
+  if n > N then    -- all queens have been placed?
+    printsolution(N, a)
+  else  -- try to place n-th queen
+    for c = 1, N do
+      if isplaceok(a, n, c) then
+        a[n] = c    -- place n-th queen at column 'c'
+        addqueen_pln(N, a, n + 1)
+      end
+    end
+  end
+end
+
+local addqueen = addqueen_pln
+
+function inject_addqueen(f: (integer, {integer}, integer) -> ())
+    addqueen = f
+end
+
+-- run the program
+function nqueens(N:integer)
+    addqueen(N, {}, 1)
+end
