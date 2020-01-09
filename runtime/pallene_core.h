@@ -24,9 +24,6 @@
 #define PALLENE_LIKELY(x)   __builtin_expect(!!(x), 1)
 #define PALLENE_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
-#define PALLENE_LUAINTEGER_NBITS  cast_int(sizeof(lua_Integer) * CHAR_BIT)
-
-
 const char *pallene_tag_name(int raw_tag);
 
 void pallene_runtime_tag_check_error(
@@ -75,6 +72,12 @@ int pallene_l_strcmp(
 /* --------------------------- */
 /* Inline functions and macros */
 /* --------------------------- */
+
+static inline
+int pallene_is_truthy(const TValue *v)
+{
+    return !l_isfalse(v);
+}
 
 /* This is a workaround to avoid -Wmaybe-uninitialized warnings with GCC. If we
  * initialize a TValue with setnilvalue and then follow that with a setobj, GCC
@@ -165,13 +168,16 @@ lua_Integer pallene_int_modi(
  * instruction.  In the dynamic case with unknown "y" this implementation is a
  * little bit faster Lua because we put the most common case under a single
  * level of branching. (~20% speedup) */
+
+#define PALLENE_NBITS  (sizeof(lua_Integer) * CHAR_BIT)
+
 static inline
 lua_Integer pallene_shiftL(lua_Integer x, lua_Integer y)
 {
-    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_LUAINTEGER_NBITS)) {
+    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_NBITS)) {
         return intop(<<, x, y);
     } else {
-        if (l_castS2U(-y) < PALLENE_LUAINTEGER_NBITS) {
+        if (l_castS2U(-y) < PALLENE_NBITS) {
             return intop(>>, x, -y);
         } else {
             return 0;
@@ -181,10 +187,10 @@ lua_Integer pallene_shiftL(lua_Integer x, lua_Integer y)
 static inline
 lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 {
-    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_LUAINTEGER_NBITS)) {
+    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_NBITS)) {
         return intop(>>, x, y);
     } else {
-        if (l_castS2U(-y) < PALLENE_LUAINTEGER_NBITS) {
+        if (l_castS2U(-y) < PALLENE_NBITS) {
             return intop(<<, x, -y);
         } else {
             return 0;
@@ -193,13 +199,14 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 }
 
 
-/* Similar to lua_createtable*/
+/* This version of lua_createtable bypasses the Lua stack, and can be inlined
+ * and optimized when the allocation size is known at compilation time. */
 static inline
-Table *pallene_new_array(lua_State *L, lua_Integer n)
+Table *pallene_createtable(lua_State *L, lua_Integer narray, lua_Integer nrec)
 {
     Table *t = luaH_new(L);
-    if (n > 0) {
-        luaH_resizearray(L, t, n);
+    if (narray > 0 || nrec > 0) {
+        luaH_resize(L, t, narray, nrec);
     }
     return t;
 }
@@ -220,27 +227,13 @@ void pallene_renormalize_array(
     }
 }
 
-static inline
-int pallene_is_truthy(const TValue *v)
-{
-    return !(ttisnil(v) || (ttisboolean(v) && bvalue(v) == 0));
-}
-
-static inline
-Table *pallene_new_table(lua_State *L, lua_Integer n)
-{
-    Table *t = luaH_new(L);
-    if (n > 0) {
-        luaH_resize(L, t, 0, n);
-    }
-    return t;
-}
+/* This function is a version of luaH_getshortstr that uses an inline cache for
+ * the hash function */
 
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
-/* This function is a speciallization of luaH_getshortstr from ltable.c */
 static inline
-TValue *pallene_getshortstr(Table *t, TString *key, size_t *pos)
+TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
 {
     if (*pos < sizenode(t)) {
        Node *n = gnode(t, *pos);
