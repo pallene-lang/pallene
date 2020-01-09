@@ -1,0 +1,63 @@
+type Body = {
+    x: float,
+    y: float,
+    z: float,
+    vx: float,
+    vy: float,
+    vz: float,
+    mass: float,
+}
+
+function update_speeds_pln(bi: Body, bj: Body, dt: float)
+    local dx = bi.x - bj.x
+    local dy = bi.y - bj.y
+    local dz = bi.z - bj.z
+
+    local dist = math_sqrt(dx*dx + dy*dy + dz*dz)
+    local mag = dt / (dist * dist * dist)
+
+    local bjm = bj.mass * mag
+    bi.vx = bi.vx - (dx * bjm)
+    bi.vy = bi.vy - (dy * bjm)
+    bi.vz = bi.vz - (dz * bjm)
+
+    local bim = bi.mass * mag
+    bj.vx = bj.vx + (dx * bim)
+    bj.vy = bj.vy + (dy * bim)
+    bj.vz = bj.vz + (dz * bim)
+end
+
+local update_speeds = update_speeds_pln
+
+function inject_update_speeds(f: any)
+    update_speeds = f
+end
+
+function update_position_pln(bi: Body, dt: float)
+    bi.x = bi.x + dt * bi.vx
+    bi.y = bi.y + dt * bi.vy
+    bi.z = bi.z + dt * bi.vz
+end
+
+local update_position = update_position_pln
+
+function inject_update_position(f: any)
+    update_position = f
+end
+
+function advance(nsteps: integer, bodies: {Body}, dt: float)
+    local n = #bodies
+    for _ = 1, nsteps do
+        for i = 1, n do
+            local bi = bodies[i]
+            for j=i+1,n do
+                local bj = bodies[j]
+                update_speeds(bi, bj, dt)
+            end
+        end
+        for i = 1, n do
+            local bi = bodies[i]
+            update_position(bi, dt)
+        end
+    end
+end
