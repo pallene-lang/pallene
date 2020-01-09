@@ -6,12 +6,13 @@
 --
 
 local modname = arg[1]
-local N       = tonumber(arg[2]) or 2000 -- or 5500
+local luaname = arg[2] or "injectLua"
 local INJECT  = tonumber(arg[3]) or 0
+local N       = tonumber(arg[4]) or 2000 -- or 5500
 
 local prefix = string.match(modname, "^(.*)%.")
 
-local luaVersion = require(prefix .. ".injectLua")
+local luaVersion = require(prefix .. "." .. luaname)
 local plnVersion = require(prefix .. ".injectPln")
 
 for i, submodule in ipairs({ "Stream", "Main" }) do

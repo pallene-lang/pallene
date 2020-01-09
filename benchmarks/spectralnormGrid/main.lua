@@ -1,26 +1,22 @@
-local spectralnorm = require(arg[1])
-local N            = tonumber(arg[2]) or 1000 -- or 5500
+local modname = arg[1]
+local luaname = arg[2] or "injectLua"
 local INJECT       = tonumber(arg[3]) or 0
+local N            = tonumber(arg[4]) or 1000 -- or 5500
 
-local prefix = string.match(arg[1], '^(.*)%.')
-if arg[1] == prefix .. ".inject" then
-    local luaversion = require(prefix .. ".lua")
-    local palleneversion = spectralnorm
-    local methods = {"A", "MultiplyAv", "MultiplyAtv", "MultiplyAtAv"}
-    for i, method in ipairs(methods) do
-        local mask = 1 << (i-1)
-        local injector = "inject" .. method
-        if (0 == INJECT & mask) then
-            print(method, "lua")
-            palleneversion[injector](luaversion[method])
-        else
-            print(method, "pallene")
-            luaversion[injector](palleneversion[method.."_pln"])
-        end
+local prefix = string.match(modname, '^(.*)%.')
+local luaVersion = require(prefix .. "." .. luaname)
+local plnVersion = require(prefix .. ".injectPln")
+
+local methods = {"A", "MultiplyAv", "MultiplyAtv", "MultiplyAtAv"}
+for i, method in ipairs(methods) do
+    local mask = 1 << (i-1)
+    local injector = "inject" .. method
+    if (0 == INJECT & mask) then
+        plnVersion[injector](luaVersion[method])
+    else
+        luaVersion[injector](plnVersion[method.."_pln"])
     end
 end
 
-print("===")
-
-local res = spectralnorm.Approximate(N)
+local res = luaVersion.Approximate(N)
 print(string.format("%0.9f", res))
