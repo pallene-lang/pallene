@@ -2,7 +2,7 @@
 // Most of what we need is copied verbatim from lvm.c
 //
 
-#include "lvm.c"
+#include "lvm_internals.c"
 
 //
 // These operations normally use `pc++` to skip metamethod calls in the
