@@ -265,7 +265,8 @@ Parameters are a comma-separated list of `<name>: <type>`.
 Two parameters cannot have the same name.
 The function body is a sequence of statements.
 
-Pallene functions can refer to functions defined before them but not to functions defined further down in the file. A future version of Pallene will lift this restriction and allow for mutually-recursive functions.
+Pallene functions can be recursive.
+Blocks of mutually-recursive functions are also allowed, as long as the mutually-recursive functions are declared next to each other, without any type or variable declarations between them.
 
 ## Expressions and Statements
 

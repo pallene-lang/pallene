@@ -183,6 +183,14 @@ function Checker:from_ast_type(ast_typ)
     end
 end
 
+local letrec_groups = {
+    ["ast.Toplevel.Import"]    = "Import",
+    ["ast.Toplevel.Var"]       = "Var",
+    ["ast.Toplevel.Func"]      = "Func",
+    ["ast.Toplevel.Typealias"] = "Type",
+    ["ast.Toplevel.Record"]    = "Type",
+}
+
 function Checker:check_program(prog_ast)
 
     do
@@ -207,7 +215,7 @@ function Checker:check_program(prog_ast)
         self:add_builtin(name)
     end
 
-    -- Add a special entry for tofloat which can never be shadowed
+    -- Add a special entry for $tofloat which can never be shadowed
     -- and is therefore always visible.
     self.symbol_table:add_symbol(
         "$tofloat",
@@ -223,61 +231,118 @@ function Checker:check_program(prog_ast)
     local toplevel_stats = self.module.functions[toplevel_f_id].body.stats
     local toplevel_fun_checker = FunChecker.new(self, toplevel_f_id)
 
+    -- Group mutually-recursive definitions
+    local tl_groups = {}
+    do
+        local i = 1
+        local N = #prog_ast
+        while i <= N do
+            local node1 = prog_ast[i]
+            local tag1  = node1._tag
+            assert(letrec_groups[tag1])
+
+            local group = { node1 }
+            local j = i + 1
+            while j <= N do
+                local node2 = prog_ast[j]
+                local tag2  = node2._tag
+                assert(letrec_groups[tag2])
+
+                if letrec_groups[tag1] ~= letrec_groups[tag2] then
+                    break
+                end
+
+                table.insert(group, node2)
+                j = j + 1
+            end
+            table.insert(tl_groups, group)
+            i = j
+        end
+    end
+
     -- Check toplevel
-    for _, tl_node in ipairs(prog_ast) do
-        local tag = tl_node._tag
-        if     tag == "ast.Toplevel.Import" then
-            type_error(tl_node.loc, "modules are not implemented yet")
+    for _, tl_group in ipairs(tl_groups) do
+        local group_kind = letrec_groups[tl_group[1]._tag]
 
-        elseif tag == "ast.Toplevel.Var" then
-            local loc = tl_node.loc
-            local value = tl_node.value
-            local name = tl_node.decl.name
-            local typ, exp = toplevel_fun_checker:check_initializer_exp(
-                tl_node.decl, value,
-                "declaration of module variable %s", name)
-            local _ = self:add_global(name, typ)
-            local var = ast.Var.Name(loc, name)
-            toplevel_fun_checker:check_var(var)
-            table.insert(toplevel_stats,
-                ast.Stat.Assign(loc, var, exp))
+        if     group_kind == "Import" then
+            local loc = tl_group[1].loc
+            type_error(loc, "modules are not implemented yet")
 
-        elseif tag == "ast.Toplevel.Func" then
-            local loc = tl_node.loc
-            local func_name = tl_node.decl.name
-            local func_typ  = self:from_ast_type(tl_node.decl.type)
-            local func_lambda = tl_node.value
+        elseif group_kind == "Var" then
 
-            local f_id = self:add_function(
-                loc,
-                func_name,
-                func_typ,
-                func_lambda.body)
-            if not tl_node.is_local then
-                ir.add_export(self.module, f_id)
+            for _, tl_var in ipairs(tl_group) do
+                local loc = tl_var.loc
+                local value = tl_var.value
+                local name = tl_var.decl.name
+                local typ, exp = toplevel_fun_checker:check_initializer_exp(
+                    tl_var.decl, value,
+                    "declaration of module variable %s", name)
+                local _ = self:add_global(name, typ)
+                local var = ast.Var.Name(loc, name)
+                toplevel_fun_checker:check_var(var)
+                table.insert(toplevel_stats,
+                    ast.Stat.Assign(loc, var, exp))
             end
 
-            local fun_checker = FunChecker.new(self, f_id)
-            fun_checker:check_function(func_lambda, func_typ)
+        elseif group_kind == "Func" then
 
-        elseif tag == "ast.Toplevel.Typealias" then
-            local name = tl_node.name
-            local typ = self:from_ast_type(tl_node.type)
-            self.symbol_table:add_symbol(name, checker.Name.Type(typ))
+            local delayed_checks = {}
 
-        elseif tag == "ast.Toplevel.Record" then
-            local name = tl_node.name
-            local field_names = {}
-            local field_types = {}
-            for _, field_decl in ipairs(tl_node.field_decls) do
-                local field_name = field_decl.name
-                local typ = self:from_ast_type(field_decl.type)
-                table.insert(field_names, field_name)
-                field_types[field_name] = typ
+            for _, tl_func in ipairs(tl_group) do
+                local loc = tl_func.loc
+                local func_name = tl_func.decl.name
+                local func_typ  = self:from_ast_type(tl_func.decl.type)
+                local func_lambda = tl_func.value
+
+                local f_id = self:add_function(
+                    loc,
+                    func_name,
+                    func_typ,
+                    func_lambda.body)
+
+                if not tl_func.is_local then
+                    ir.add_export(self.module, f_id)
+                end
+
+                table.insert(delayed_checks, function()
+                    local fun_checker = FunChecker.new(self, f_id)
+                    fun_checker:check_function(func_lambda, func_typ)
+                end)
+
             end
 
-            local typ = types.T.Record(name, field_names, field_types)
-            self:add_record_type(name, typ)
+            for _, check in ipairs(delayed_checks) do
+                check()
+            end
+
+        elseif group_kind == "Type" then
+
+            -- TODO: Implement recursive and mutually recursive types
+            for _, tl_node in ipairs(tl_group) do
+                local tag = tl_node._tag
+                if     tag == "ast.Toplevel.Typealias" then
+                    local name = tl_node.name
+                    local typ = self:from_ast_type(tl_node.type)
+                    self.symbol_table:add_symbol(name, checker.Name.Type(typ))
+
+                elseif tag == "ast.Toplevel.Record" then
+                    local name = tl_node.name
+                    local field_names = {}
+                    local field_types = {}
+                    for _, field_decl in ipairs(tl_node.field_decls) do
+                        local field_name = field_decl.name
+                        local typ = self:from_ast_type(field_decl.type)
+                        table.insert(field_names, field_name)
+                        field_types[field_name] = typ
+                    end
+
+                    local typ = types.T.Record(name, field_names, field_types)
+                    self:add_record_type(name, typ)
+
+                else
+                    error("impossible")
+                end
+            end
 
         else
             error("impossible")
