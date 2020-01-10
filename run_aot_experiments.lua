@@ -28,7 +28,7 @@ local tests = {
         N = 3000, Nsmall = 30,
     },
     {
-        name = "N Body",
+        name = "Nbody",
         dir  = "nbody",
         luajit = "ffi.lua",
         N = 2000000, Nsmall = 100,
@@ -40,7 +40,7 @@ local tests = {
         N = 1000, Nsmall = 10,
     },
     {
-        name = "N Queens",
+        name = "Queens",
         dir  = "queen",
         luajit = false,
         N = 13, Nsmall = 4,
@@ -53,7 +53,8 @@ local tests = {
     },
 }
 
-local impls = {"lua", "luajit", "luaot", "pallene"}
+--local impls = {"lua", "luajit", "luaot", "pallene"}
+local impls = {"lua", "luaot", "pallene", "luajit"}
 local nrep = 5
 local runner = benchlib.modes.chronos
 
@@ -109,5 +110,58 @@ for _, test in ipairs(tests) do
     end
 end
 
+local ratios = {}
+for _, test in ipairs(tests) do
+    ratios[test.dir] = {}
+    for _, impl in ipairs(impls) do
+        ratios[test.dir][impl] =
+            averages[test.dir][impl] / averages[test.dir]["lua"]
+    end
+end
+
+
+
+local TAB_HEADER = [[
+\begin{tabular}{lrrrr}
+\toprule
+    \thead{Benchmark} &
+    \thead{Lua} &
+    \thead{Lua-AOT} &
+    \thead{Pallene} &
+    \thead{LuaJIT} \\
+\midrule]]
+
+local TAB_FOOTER = [[
+\bottomrule
+\end{tabular}
+]]
+
+local function tex_table(name, values)
+    local parts = {}
+    table.insert(parts, "% " .. name)
+    table.insert(parts, TAB_HEADER)
+
+    for _, test in ipairs(tests) do
+        local cols = {}
+        table.insert(cols, string.format("%-16s", test.name))
+        for _, impl in ipairs(impls) do
+            local t = values[test.dir][impl]
+            local s = string.format("%.2f", t)
+            table.insert(cols, string.format("%5s", s))
+        end
+        table.insert(parts, table.concat(cols, " & ") .. " \\\\")
+    end
+
+    table.insert(parts, TAB_FOOTER)
+
+    return table.concat(parts, "\n")
+end
+
 local ii = require("inspect")
 print("averages =", ii(averages))
+print("ratios =", ii(ratios))
+print()
+print(tex_table("AVERAGES", averages))
+print(tex_table("RATIOS", ratios))
+
+
