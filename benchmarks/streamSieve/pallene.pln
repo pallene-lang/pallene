@@ -3,26 +3,29 @@
 -- Based on the implementation from Racket, but modified to use explicit
 -- parameters instead of closures
 
-type Stream = {any}
+record Stream
+    head:  any
+    state: any
+    get_tail: any->any
+end
 
 local function make_stream(head: any, state: any, get_tail: any): Stream
-    return { head, state, get_tail }
+    return { head = head, state = state, get_tail = get_tail}
 end
 
 local function stream_head(st: Stream): any
-    return st[1]
+    return st.head
 end
 
 local function stream_tail(st: Stream): Stream
-    local f = st[3] as any->Stream
-    return f(st[2])
+    return (st.get_tail(st.state)) as Stream
 end
 
 local function stream_get(st: Stream, n: integer): any
     for _ = 1, n-1 do
         st = stream_tail(st)
     end
-    return stream_head(st)
+    return (stream_head(st))
 end
 
 ----------------------------------------------
@@ -30,14 +33,19 @@ end
 -- Build a stream of integers starting from 1
 
 local function count_from(n: integer): Stream
-    return make_stream(n, n, _tail1)
+    return (make_stream(n, n, _tail1))
 end
 
 local function _tail1(i: integer): Stream
-    return count_from(i+1)
+    return (count_from(i+1))
 end
 
 -- Filter all multiples of n
+
+record Closure2
+    n: integer
+    tl: Stream
+end
 
 local function sift(n: integer, st: Stream): Stream
     local hd = stream_head(st) as integer
@@ -47,12 +55,12 @@ local function sift(n: integer, st: Stream): Stream
         hd = stream_head(st) as integer
         tl = stream_tail(st)
     end
-    local state = { n, tl } as {any}
-    return make_stream(hd, state, _tail2)
+    local state: Closure2 = { n = n, tl = tl }
+    return (make_stream(hd, state, _tail2))
 end
 
-local function _tail2(state: {any}): Stream
-    return sift(state[1] as integer, state[2] as any)
+local function _tail2(state: Closure2): Stream
+    return (sift(state.n, state.tl))
 end
 
 -- Naive sieve of Erasthostenes
@@ -60,19 +68,19 @@ end
 local function sieve(st: Stream): Stream
     local n  = stream_head(st)
     local tl = stream_tail(st)
-    local state = { n, tl } as {any}
-    return make_stream(n, state, _tail3)
+    local state: Closure2 = { n = n, tl = tl }
+    return (make_stream(n, state, _tail3))
 end
 
-local function _tail3(state: {any}): Stream
-    return sieve(sift(state[1], state[2]))
+local function _tail3(state: Closure2): Stream
+    return (sieve(sift(state.n, state.tl)))
 end
 
 --
 
 function get_prime(n: integer): integer
     local prime_stream = sieve(count_from(2))
-    return stream_get(prime_stream, n)
+    return (stream_get(prime_stream, n))
 end
 
 

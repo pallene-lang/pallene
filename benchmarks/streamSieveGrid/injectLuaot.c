@@ -1,6 +1,6 @@
 #include "luaot_header.c"
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // main function
 static
 void magic_implementation_00(lua_State *L, CallInfo *ci)
@@ -48,7 +48,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     }
   }
   
-  // 2	[7]	CLOSURE  	0 0	; 0x13fd010
+  // 2	[7]	CLOSURE  	0 0	; 0x1de6060
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 2)
   #undef  LUA_AOT_NEXT_JUMP
@@ -61,7 +61,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     checkGC(L, ra + 1);
   }
   
-  // 3	[11]	CLOSURE  	1 1	; 0x13fd530
+  // 3	[11]	CLOSURE  	1 1	; 0x1de6580
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 3)
   #undef  LUA_AOT_NEXT_JUMP
@@ -74,7 +74,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     checkGC(L, ra + 1);
   }
   
-  // 4	[15]	CLOSURE  	2 2	; 0x13fd660
+  // 4	[15]	CLOSURE  	2 2	; 0x1de66b0
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 4)
   #undef  LUA_AOT_NEXT_JUMP
@@ -87,7 +87,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     checkGC(L, ra + 1);
   }
   
-  // 5	[22]	CLOSURE  	3 3	; 0x13fd7b0
+  // 5	[22]	CLOSURE  	3 3	; 0x1de6800
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 5)
   #undef  LUA_AOT_NEXT_JUMP
@@ -114,7 +114,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     } while (b--);
   }
   
-  // 7	[32]	CLOSURE  	6 4	; 0x13fe030
+  // 7	[32]	CLOSURE  	6 4	; 0x1de7080
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 7)
   #undef  LUA_AOT_NEXT_JUMP
@@ -138,7 +138,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     setobjs2s(L, ra, RB(i));
   }
   
-  // 9	[36]	CLOSURE  	6 5	; 0x13fe140
+  // 9	[36]	CLOSURE  	6 5	; 0x1de7190
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 9)
   #undef  LUA_AOT_NEXT_JUMP
@@ -176,7 +176,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     } while (b--);
   }
   
-  // 12	[52]	CLOSURE  	8 6	; 0x13fe2f0
+  // 12	[52]	CLOSURE  	8 6	; 0x1de7340
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 12)
   #undef  LUA_AOT_NEXT_JUMP
@@ -200,7 +200,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     setobjs2s(L, ra, RB(i));
   }
   
-  // 14	[56]	CLOSURE  	8 7	; 0x13fe570
+  // 14	[56]	CLOSURE  	8 7	; 0x1de75c0
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 14)
   #undef  LUA_AOT_NEXT_JUMP
@@ -238,7 +238,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     } while (b--);
   }
   
-  // 17	[67]	CLOSURE  	10 8	; 0x13fdf50
+  // 17	[67]	CLOSURE  	10 8	; 0x1de6fa0
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 17)
   #undef  LUA_AOT_NEXT_JUMP
@@ -262,7 +262,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     setobjs2s(L, ra, RB(i));
   }
   
-  // 19	[71]	CLOSURE  	10 9	; 0x13fe9f0
+  // 19	[71]	CLOSURE  	10 9	; 0x1de7a40
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 19)
   #undef  LUA_AOT_NEXT_JUMP
@@ -286,7 +286,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
     setobjs2s(L, ra, RB(i));
   }
   
-  // 21	[78]	CLOSURE  	10 10	; 0x13feb00
+  // 21	[78]	CLOSURE  	10 10	; 0x1de7b50
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 21)
   #undef  LUA_AOT_NEXT_JUMP
@@ -487,7 +487,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
       Protect(luaV_finishset(L, s2v(ra), rb, rc, slot));
   }
   
-  // 32	[97]	CLOSURE  	12 11	; 0x13fec80
+  // 32	[97]	CLOSURE  	12 11	; 0x1de7cd0
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 32)
   #undef  LUA_AOT_NEXT_JUMP
@@ -519,7 +519,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
       Protect(luaV_finishset(L, s2v(ra), rb, rc, slot));
   }
   
-  // 34	[103]	CLOSURE  	12 12	; 0x13fe930
+  // 34	[103]	CLOSURE  	12 12	; 0x1de7980
   #undef  LUA_AOT_PC
   #define LUA_AOT_PC (function_code + 34)
   #undef  LUA_AOT_NEXT_JUMP
@@ -605,7 +605,7 @@ void magic_implementation_00(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 5 - 7
 static
 void magic_implementation_01(lua_State *L, CallInfo *ci)
@@ -788,7 +788,7 @@ void magic_implementation_01(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 9 - 11
 static
 void magic_implementation_02(lua_State *L, CallInfo *ci)
@@ -890,7 +890,7 @@ void magic_implementation_02(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 13 - 15
 static
 void magic_implementation_03(lua_State *L, CallInfo *ci)
@@ -1029,7 +1029,7 @@ void magic_implementation_03(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 17 - 22
 static
 void magic_implementation_04(lua_State *L, CallInfo *ci)
@@ -1346,7 +1346,7 @@ void magic_implementation_04(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 30 - 32
 static
 void magic_implementation_05(lua_State *L, CallInfo *ci)
@@ -1489,7 +1489,7 @@ void magic_implementation_05(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 34 - 36
 static
 void magic_implementation_06(lua_State *L, CallInfo *ci)
@@ -1625,7 +1625,7 @@ void magic_implementation_06(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 42 - 52
 static
 void magic_implementation_07(lua_State *L, CallInfo *ci)
@@ -2120,7 +2120,7 @@ void magic_implementation_07(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 54 - 56
 static
 void magic_implementation_08(lua_State *L, CallInfo *ci)
@@ -2271,7 +2271,7 @@ void magic_implementation_08(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 62 - 67
 static
 void magic_implementation_09(lua_State *L, CallInfo *ci)
@@ -2583,7 +2583,7 @@ void magic_implementation_09(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 69 - 71
 static
 void magic_implementation_10(lua_State *L, CallInfo *ci)
@@ -2762,7 +2762,7 @@ void magic_implementation_10(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 75 - 78
 static
 void magic_implementation_11(lua_State *L, CallInfo *ci)
@@ -2961,7 +2961,7 @@ void magic_implementation_11(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 92 - 97
 static
 void magic_implementation_12(lua_State *L, CallInfo *ci)
@@ -3283,7 +3283,7 @@ void magic_implementation_12(lua_State *L, CallInfo *ci)
   
 }
  
-// source = @benchmarks/streamSieve/injectLua.lua
+// source = @benchmarks/streamSieveGrid/injectLua.lua
 // lines: 99 - 103
 static
 void magic_implementation_13(lua_State *L, CallInfo *ci)
@@ -3695,6 +3695,6 @@ static const char LUA_AOT_MODULE_SOURCE_CODE[] = {
    32, 101, 110, 100,  44,  10, 125,  10,   0
 };
  
-#define LUA_AOT_LUAOPEN_NAME luaopen_benchmarks_streamSieve_injectLuaot
+#define LUA_AOT_LUAOPEN_NAME luaopen_benchmarks_streamSieveGrid_injectLuaot
  
 #include "luaot_footer.c"

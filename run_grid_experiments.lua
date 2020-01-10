@@ -24,7 +24,7 @@ local tests = {
     },
     {
         name = "Stream Sieve",
-        dir = "streamSieve",
+        dir = "streamSieveGrid",
         modules = 2,
         N = 2000,
         Nsmall = 10,
@@ -34,6 +34,7 @@ local tests = {
 local luapath = "./lua/src/lua"
 local luanames = {"injectLua", "injectLuaot"}
 local nrep = 5
+local size = "N"
 
 -- Pre-compile the Luaot versions
 for _, test in ipairs(tests) do
@@ -55,7 +56,7 @@ for _, test in ipairs(tests) do
             for rep = 1, nrep do
 
                 local bpath = "benchmarks/" .. test.dir .. "/injectPln.pln"
-                local bargs = { luaname, k-1, test.N }
+                local bargs = { luaname, k-1, test[size] }
                 local cmd = benchlib.prepare_benchmark(luapath, bpath, bargs)
 
                 print("running", test.name, table.concat(bargs, "\t"), "i="..rep)
