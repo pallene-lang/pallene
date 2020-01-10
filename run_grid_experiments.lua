@@ -1,5 +1,7 @@
 local benchlib = require "benchmarks.benchlib"
 
+local size = arg[1] or "N"
+
 local tests = {
     {
         name = "Spectral Norm",
@@ -34,7 +36,6 @@ local tests = {
 local luapath = "./lua/src/lua"
 local luanames = {"injectLua", "injectLuaot"}
 local nrep = 5
-local size = "N"
 
 -- Pre-compile the Luaot versions
 for _, test in ipairs(tests) do
