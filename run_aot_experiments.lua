@@ -29,10 +29,15 @@ local tests = {
     },
     {
         name = "Nbody",
-        dir  = "nbody",
-        luajit = "ffi.lua",
+        dir  = "nbodyTable",
         N = 2000000, Nsmall = 100,
     },
+    --{
+    --    name = "Nbody",
+    --    dir  = "nbody",
+    --    luajit = "ffi.lua",
+    --    N = 2000000, Nsmall = 100,
+    --},
     {
         name = "Spectral Norm",
         dir  = "spectralnorm",
