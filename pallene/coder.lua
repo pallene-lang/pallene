@@ -100,34 +100,10 @@ local function lua_value(typ, src_slot)
     return (util.render(tmpl, {src = src_slot}))
 end
 
-local function get_stack_slot(typ, dst, src)
+local function unchecked_get_slot(typ, dst, src)
     return (util.render([[ $dst = $value; ]], {
         dst = dst,
         value = lua_value(typ, src)
-    }))
-end
-
--- Obtains the value in the slot and remove "EMPTY" variant tag from
--- out-of-bound nils
--- note: rawget in lapi.c also needs to do this.
--- note: pallene_setnilvalue not needed since dst is already initialized
-local function get_luatable_slot(typ, dst, src)
-    local fix_nils = ""
-    if typ._tag == "types.T.Any" then
-        fix_nils = util.render([[
-            if (isempty(&$dst)) {
-                setnilvalue(&$dst);
-            }
-        ]], {
-            dst = dst
-        })
-    end
-    return (util.render([[
-      $get_slot
-      $fix_nils
-    ]], {
-      get_slot = get_stack_slot(typ, dst, src),
-      fix_nils = fix_nils,
     }))
 end
 
@@ -174,7 +150,7 @@ end
 function Coder:push_to_stack(typ, value)
     return (util.render([[
         ${set_stack_slot}
-        api_incr_top(L);
+        L->top++;
     ]],{
         set_stack_slot = set_stack_slot(typ, "s2v(L->top)", value),
     }))
@@ -221,37 +197,79 @@ function Coder:test_tag(typ, slot)
     return (util.render(tmpl, {slot = slot}))
 end
 
--- Perform a run-time tag check
+-- Convert a Lua value to a Pallene value, performing a tag check.
+-- Make sure to use the appropriate function depending on if this Lua value is
+-- coming from the Lua stack or a Lua table.
 --
 -- typ: expected type
--- slot: TValue* to be tested
+-- dst: Pallene output variable
+-- src: Lua input variable (TValue*)
 -- loc: source code location (for error reporting)
 -- description_fmt: Format string in lua_pushfstring format, which
 --                  describes what this tag check is for.
 --                  Received as a Lua string.
 -- ... (extra_args): Parameters to the format string.
 --                  Received as serialized C expressions.
-function Coder:check_tag(typ, slot, loc, description_fmt, ...)
+--
+
+function Coder:get_stack_slot(typ, dst, src, loc, description_fmt, ...)
+
+    local check_tag
     if typ._tag == "types.T.Any" then
-        return ""
+        check_tag = ""
     else
         local extra_args = table.pack(...)
-        return (util.render([[
+        check_tag = util.render([[
             if (PALLENE_UNLIKELY(!$test)) {
                 pallene_runtime_tag_check_error(L,
-                    $line, $expected_tag, rawtt($slot),
+                    $line, $expected_tag, rawtt($src),
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
-            test = self:test_tag(typ, slot),
+            test = self:test_tag(typ, src),
             line = C.integer(loc and loc.line or 0),
             expected_tag = pallene_type_tag(typ),
-            slot = slot,
+            src = src,
             description_fmt = C.string(description_fmt),
             opt_comma = (#extra_args == 0 and "" or ", "),
             extra_args = table.concat(extra_args, ", "),
-        }))
+        })
     end
+
+    return (util.render([[
+        $check_tag
+        $get_slot
+    ]], {
+        check_tag = check_tag,
+        get_slot  = unchecked_get_slot(typ, dst, src)
+    }))
+end
+
+function Coder:get_luatable_slot(typ, dst, src, loc, description_fmt, ...)
+
+    -- Holes in Lua arrays and tables contain a special "empty" value, which
+    -- is a special variant of nil. These need to be converted to regular nils
+    -- when we read them. (rawget in lapi.c also needs to do this.)
+    local fix_nils
+    if typ._tag == "types.T.Any" then
+        fix_nils = util.render([[
+            if (isempty(&$dst)) {
+                setnilvalue(&$dst);
+            }
+        ]], {
+            dst = dst
+        })
+    else
+        fix_nils = ""
+    end
+
+    return (util.render([[
+        $get_slot
+        $fix_nils
+    ]], {
+        get_slot = self:get_stack_slot(typ, dst, src, loc, description_fmt, ...),
+        fix_nils = fix_nils
+    }))
 end
 
 --
@@ -507,33 +525,22 @@ function Coder:lua_entry_point_definition(f_id)
         fname = C.string(fname),
     })
 
-
-    local type_checks = {}
+    local arg_vars  = {}
+    local arg_decls = {}
     for i, typ in ipairs(arg_types) do
-        local name = func.vars[i].name
-        local check_tag =
-            self:check_tag(typ, "slot", func.loc, "argument '%s'", C.string(name))
-        if check_tag ~= ""  then
-            table.insert(type_checks, util.render([[
-                slot = s2v(base + $i);
-                ${check_tag}
-            ]], {
-                i = C.integer(i),
-                check_tag = check_tag,
-            }))
-        end
-    end
-
-    local base = "L->top"
-
-    local arg_vars = {}
-    local init_args = {}
-    for i, typ in ipairs(arg_types) do
-        local slot = string.format("s2v(base + %s)", C.integer(i))
         local name = "x"..i
         arg_vars[i] = name
-        local dst = c_declaration(typ, name)
-        table.insert(init_args, get_stack_slot(typ, dst, slot))
+        arg_decls[i] = c_declaration(typ, name)..";"
+    end
+
+    local init_args = {}
+    for i, typ in ipairs(arg_types) do
+        local name = func.vars[i].name
+        local dst = arg_vars[i]
+        local src = string.format("s2v(base + %s)", C.integer(i))
+        table.insert(init_args,
+            self:get_stack_slot(typ, dst, src,
+                func.loc, "argument '%s'", C.string(name)))
     end
 
     local ret_vars = {}
@@ -546,44 +553,43 @@ function Coder:lua_entry_point_definition(f_id)
 
     local call_pallene
     if #ret_types == 0 then
-        call_pallene = self:call_pallene_function(false, f_id, base, arg_vars)
+        call_pallene = self:call_pallene_function(false, f_id, "L->top", arg_vars)
     else
-        call_pallene = self:call_pallene_function(ret_vars[1], f_id, base, arg_vars)
+        call_pallene = self:call_pallene_function(ret_vars[1], f_id, "L->top", arg_vars)
     end
 
-    local return_results = {}
+    local push_results = {}
     for i, typ in ipairs(ret_types) do
-        table.insert(return_results, self:push_to_stack(typ, ret_vars[i]))
+        table.insert(push_results, self:push_to_stack(typ, ret_vars[i]))
     end
-    table.insert(return_results,
-        string.format("return %s;", C.integer(#ret_types)))
 
     return (util.render([[
         ${fun_decl}
         {
             StackValue *base = L->ci->func;
-            TValue *slot;
-            /**/
             ${init_global_userdata}
             /**/
             ${arity_check}
             /**/
-            ${type_checks}
+            ${arg_decls}
             /**/
             ${init_args}
+            /**/
             ${ret_decls}
             ${call_pallene}
-            ${return_results}
+            ${push_results}
+            return $nresults;
         }
     ]], {
         fun_decl = self:lua_entry_point_declaration(f_id),
         init_global_userdata = init_global_userdata,
         arity_check = arity_check,
-        type_checks = table.concat(type_checks, "\n"),
-        init_args = table.concat(init_args, "\n"),
+        arg_decls = table.concat(arg_decls, "\n"),
+        init_args = table.concat(init_args, "\n/**/\n"),
         ret_decls = table.concat(ret_decls, "\n"),
         call_pallene = call_pallene,
-        return_results = table.concat(return_results, "\n"),
+        push_results = table.concat(push_results, "\n"),
+        nresults = C.integer(#ret_types),
     }))
 end
 
@@ -878,7 +884,7 @@ gen_cmd["GetGlobal"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local g_id = cmd.global_id
     local typ = self.module.globals[g_id].typ
-    return get_stack_slot(typ, dst, self:global_upvalue_slot(g_id))
+    return unchecked_get_slot(typ, dst, self:global_upvalue_slot(g_id))
 end
 
 gen_cmd["SetGlobal"] = function(self, cmd, _func)
@@ -1080,14 +1086,8 @@ gen_cmd["FromDyn"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
     local dst_typ = cmd.dst_typ
-    return (util.render([[
-        $check_tag
-        $get_slot
-    ]], {
-        check_tag = self:check_tag(dst_typ, "&"..src,
-                cmd.loc, "downcasted value"),
-        get_slot = get_stack_slot(dst_typ, dst, "&"..src),
-    }))
+    return self:get_stack_slot(dst_typ, dst, "&"..src,
+        cmd.loc, "downcasted value")
 end
 
 gen_cmd["IsTruthy"] = function(self, cmd, _func)
@@ -1116,15 +1116,14 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
         {
             pallene_renormalize_array(L, $arr, $i, $line);
             TValue *slot = &$arr->array[$i - 1];
-            $check_tag
             $get_slot
         }
     ]], {
         arr = arr,
         i = i,
         line = line,
-        check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "array element"),
-        get_slot = get_luatable_slot(dst_typ, dst, "slot"),
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot",
+            cmd.loc, "array element"),
     }))
 end
 
@@ -1169,15 +1168,14 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
         {
             static size_t cache = UINT_MAX;
             TValue *slot = pallene_getshortstr($tab, $key, &cache);
-            $check_tag
             $get_slot
         }
     ]], {
         tab = tab,
         key = key,
         line = line,
-        check_tag = self:check_tag(dst_typ, "slot", cmd.loc, "table field"),
-        get_slot = get_luatable_slot(dst_typ, dst, "slot"),
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot",
+            cmd.loc, "table field"),
     }))
 end
 
@@ -1224,7 +1222,7 @@ gen_cmd["GetField"] = function(self, cmd, _func)
     local f_typ = rec_typ.field_types[field_name]
     if types.is_gc(f_typ) then
         local slot = rc:get_gc_slot(rec, field_name)
-        return get_stack_slot(f_typ, dst, slot)
+        return unchecked_get_slot(f_typ, dst, slot)
     else
         return (util.render([[
             $dst = $lval;
@@ -1268,32 +1266,43 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     local f_typ = cmd.f_typ
     local dst = cmd.dst and self:c_var(cmd.dst)
 
-    local push_to_stack = {}
-    table.insert(push_to_stack,
-        set_stack_slot(f_typ, "s2v(L->top++)", self:c_value(cmd.src_f)))
+    local push_arguments = {}
+    table.insert(push_arguments,
+        self:push_to_stack(f_typ, self:c_value(cmd.src_f)))
     for i = 1, #f_typ.arg_types do
         local typ = f_typ.arg_types[i]
-        table.insert(push_to_stack,
-            set_stack_slot(typ, "s2v(L->top++)", self:c_value(cmd.srcs[i])))
+        table.insert(push_arguments,
+            self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
-    local pop_from_stack = {}
+    local pop_results = {}
     if dst then
         assert(#f_typ.ret_types == 1)
-        local typ = f_typ.ret_types[1]
-        table.insert(pop_from_stack, get_stack_slot(typ, dst, "s2v(--L->top)"))
+        local i = 1
+        local typ = f_typ.ret_types[i]
+        table.insert(pop_results, util.render([[
+            {
+                L->top--;
+                TValue *slot = s2v(L->top);
+                $get_slot
+            }
+        ]], {
+            get_slot = self:get_stack_slot(typ, dst, "slot",
+                cmd.loc, "return value #%d", i),
+        }))
+
     end
 
     local top = self:stack_top_at(func, cmd)
     local call_stats = util.render([[
         L->top = $top;
-        ${push_to_stack}
+        ${push_arguments}
         lua_call(L, $nargs, $nrets);
-        ${pop_from_stack}
+        ${pop_results}
     ]], {
         top = top,
-        push_to_stack = table.concat(push_to_stack, "\n"),
-        pop_from_stack = table.concat(pop_from_stack, "\n"),
+        push_arguments = table.concat(push_arguments, "\n"),
+        pop_results = table.concat(pop_results, "\n"),
         nargs = C.integer(#f_typ.arg_types),
         nrets = C.integer(#f_typ.ret_types),
     })
