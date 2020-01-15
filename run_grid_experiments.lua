@@ -11,14 +11,14 @@ local tests = {
         Nsmall = 10,
     },
     {
-        name = "N Queens",
+        name = "Queens",
         dir = "queenGrid",
         modules = 3,
         N = 13,
         Nsmall = 5,
     },
     {
-        name = "N Body",
+        name = "Nbody",
         dir = "nbodyGrid",
         modules = 3,
         N = 2000000,
@@ -35,7 +35,7 @@ local tests = {
 
 local luapath = "./lua/src/lua"
 local luanames = {"injectLua", "injectLuaot"}
-local nrep = 5
+local nrep = 10
 
 -- Pre-compile the Luaot versions
 for _, test in ipairs(tests) do
@@ -102,43 +102,57 @@ for _, test in ipairs(tests) do
 end
 
 local FMT_2 = [[
-%% %s (%s)
-\begin{tikzpicture}[column sep=1ex]
-    \path
-    (0,0)  node[matrix]{
-        \pic{ovals={%s}}; \\ }  %% 3
-    (0,-1) node[matrix]{
-        \pic{ovals={%s}}; &     %% 1
-        \pic{ovals={%s}};\\ }   %% 2
-    (0,-2) node[matrix]{
-        \pic{ovals={%s}}; \\ }  %% 0
-    ;
-\end{tikzpicture}
-
-]]
+        \begin{tikzpicture}[column sep=1ex]
+            \path
+            (0,0)  node[matrix]{
+                \pic{ovals={%s}};  %% 3
+                \\ }
+            (0,-1) node[matrix]{
+                \pic{ovals={%s}};  %% 1
+                \pgfmatrixnextcell
+                \pic{ovals={%s}};  %% 2
+                \\ }
+            (0,-2) node[matrix]{
+                \pic{ovals={%s}};  %% 0
+                \\ };
+        \end{tikzpicture}]]
 
 local FMT_3 = [[
-%% %s (%s)
-\begin{tikzpicture}[column sep=1ex]
-    \path
-    (0,0)  node[matrix]{
-        \pic{ovals={%s}}; \\ } %% 7
-    (0,-1) node[matrix]{
-        \pic{ovals={%s}}; &    %% 3
-        \pic{ovals={%s}}; &    %% 5
-        \pic{ovals={%s}};\\ }  %% 6
-    (0,-2) node[matrix]{
-        \pic{ovals={%s}}; &    %% 1
-        \pic{ovals={%s}}; &    %% 2
-        \pic{ovals={%s}};\\ }  %% 4
-    (0,-3) node[matrix]{
-        \pic{ovals={%s}}; \\ } %% 0
-    ;
-\end{tikzpicture}
+        \begin{tikzpicture}[column sep=1ex]
+            \path
+            (0,0)  node[matrix]{
+                \pic{ovals={%s}};  %% 7
+                \\ }
+            (0,-1) node[matrix]{
+                \pic{ovals={%s}};  %% 3
+                \pgfmatrixnextcell
+                \pic{ovals={%s}};  %% 5
+                \pgfmatrixnextcell
+                \pic{ovals={%s}};  %% 6
+                \\ }
+            (0,-2) node[matrix]{
+                \pic{ovals={%s}};  %% 1
+                \pgfmatrixnextcell
+                \pic{ovals={%s}};  %% 2
+                \pgfmatrixnextcell
+                \pic{ovals={%s}};  %% 4
+                \\ }
+            (0,-3) node[matrix]{
+                \pic{ovals={%s}};  %% 0
+                \\ };
+        \end{tikzpicture}]]
 
-]]
+local FMT_SUBFIG = [[
+\subfloat[%s]{
+    \begin{minipage}{0.5\textwidth}
+        \centering
+%s
+    \end{minipage}
+}%%]]
 
-local function tex_figure(test, luaname, a)
+local function tex_subfigure(test, luaname, values)
+
+    local a = values[test.dir][luaname]
 
     local chars
     if luaname == "injectLua" then
@@ -158,13 +172,14 @@ local function tex_figure(test, luaname, a)
         return s .. "/" .. string.format("%.2f", a[k])
     end
 
+    local grid
     if test.modules == 2 then
-        return string.format(FMT_2, test.name, luaname,
+        grid = string.format(FMT_2,
                   o(4),
                o(2), o(3),
                   o(1))
     elseif test.modules == 3 then
-        return string.format(FMT_3, test.name, luaname,
+        grid = string.format(FMT_3,
                   o(8),
             o(4), o(6), o(7),
             o(2), o(3), o(5),
@@ -172,9 +187,20 @@ local function tex_figure(test, luaname, a)
     else
         error("impossible")
     end
+
+    return string.format(FMT_SUBFIG, test.name, grid)
 end
 
-
+local function tex_figure(luaname, values)
+    local parts = {}
+    for i, test in ipairs(tests) do
+        table.insert(parts, tex_subfigure(test, luaname, values))
+        if i % 2 == 0 then
+            table.insert(parts, "\\\\")
+        end
+    end
+    return table.concat(parts, "\n")
+end
 
 local ii = require "inspect"
 print("raw_times = ", ii(raw_times))
@@ -183,10 +209,12 @@ print("ratios = ", ii(ratios))
 
 print("==== GRAPHS =====")
 
-for _, test in ipairs(tests) do
-    for _, luaname in ipairs(luanames) do
-        print(tex_figure(test, luaname, ratios[test.dir][luaname]))
-    end
+for _, luaname in ipairs(luanames) do
+    print("% ")
+    print("% " .. luaname)
+    print("% ")
+    print(tex_figure(luaname, ratios))
+    print("")
 end
 
 

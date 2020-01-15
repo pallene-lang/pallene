@@ -51,16 +51,15 @@ local tests = {
         N = 13, Nsmall = 4,
     },
     {
-        name = "Sieve",
+        name = "Stream Sieve",
         dir  = "streamSieve",
         luajit = false,
         N = 2000, Nsmall = 10,
     },
 }
 
---local impls = {"lua", "luajit", "luaot", "pallene"}
-local impls = {"lua", "luaot", "pallene", "luajit"}
-local nrep = 5
+local impls = {"lua", "luaot", "luajit", "pallene"}
+local nrep = 10
 local runner = benchlib.modes.chronos
 
 local raw_times = {}
@@ -115,6 +114,37 @@ for _, test in ipairs(tests) do
     end
 end
 
+local maximums = {}
+for _, test in ipairs(tests) do
+    maximums[test.dir] = {}
+    for _, impl in ipairs(impls) do
+        local times = raw_times[test.dir][impl]
+        maximums[test.dir][impl] = math.max(table.unpack(times))
+    end
+end
+
+local minimums = {}
+for _, test in ipairs(tests) do
+    minimums[test.dir] = {}
+    for _, impl in ipairs(impls) do
+        local times = raw_times[test.dir][impl]
+        minimums[test.dir][impl] = math.min(table.unpack(times))
+    end
+end
+
+local with_errors = {}
+for _, test in ipairs(tests) do
+    with_errors[test.dir] = {}
+    for _, impl in ipairs(impls) do
+        local a = averages[test.dir][impl]
+        local hi = maximums[test.dir][impl]
+        local lo = minimums[test.dir][impl]
+        local delta = math.max(hi-a, a-lo)
+        with_errors[test.dir][impl] =
+            string.format("$%.2f \\pm %.2f$", a, delta)
+    end
+end
+
 local ratios = {}
 for _, test in ipairs(tests) do
     ratios[test.dir] = {}
@@ -124,49 +154,68 @@ for _, test in ipairs(tests) do
     end
 end
 
+local impl_names = {
+    ["lua"]   = "Lua",
+    ["luaot"] = "Lua-AOT",
+    ["luajit"] = "LuaJIT",
+    ["pallene"] = "Pallene",
+}
 
+local function totexrow(elems)
+    return "    " .. table.concat(elems, " & ") .. " \\\\"
+end
 
-local TAB_HEADER = [[
-\begin{tabular}{lrrrr}
-\toprule
-    \thead{Benchmark} &
-    \thead{Lua} &
-    \thead{Lua-AOT} &
-    \thead{Pallene} &
-    \thead{LuaJIT} \\
-\midrule]]
+local function totexstring(v)
+    if     type(v) == "string" then
+        return v
+    elseif type(v) == "number" then
+        return string.format("%.2f", v)
+    else
+        error("type " .. type(v) .. " not allowed")
+    end
+end
 
-local TAB_FOOTER = [[
-\bottomrule
-\end{tabular}
-]]
-
-local function tex_table(name, values)
+local function tex_table(name, columns, values)
     local parts = {}
     table.insert(parts, "% " .. name)
-    table.insert(parts, TAB_HEADER)
+    table.insert(parts, "\\begin{tabular}{lrrrr}")
+    table.insert(parts, "\\toprule")
 
-    for _, test in ipairs(tests) do
-        local cols = {}
-        table.insert(cols, string.format("%-16s", test.name))
-        for _, impl in ipairs(impls) do
-            local t = values[test.dir][impl]
-            local s = string.format("%.2f", t)
-            table.insert(cols, string.format("%5s", s))
-        end
-        table.insert(parts, table.concat(cols, " & ") .. " \\\\")
+    local header = {}
+    table.insert(header, "Benchmarks")
+    for _, col in ipairs(columns) do
+        table.insert(header, impl_names[col])
     end
 
-    table.insert(parts, TAB_FOOTER)
+    for i = 1, #header do
+        header[i] = string.format("\\thead{%s}", header[i])
+    end
+
+    table.insert(parts, totexrow(header))
+
+    table.insert(parts, "\\midrule")
+
+    for _, test in ipairs(tests) do
+        local numbers = {}
+        table.insert(numbers, string.format("%-14s", test.name))
+        for _, impl in ipairs(columns) do
+            local s = totexstring(values[test.dir][impl])
+            table.insert(numbers, string.format("%5s", s))
+        end
+        table.insert(parts, totexrow(numbers))
+    end
+
+    table.insert(parts, "\\bottomrule")
+    table.insert(parts, "\\end{tabular}")
+    table.insert(parts, "")
 
     return table.concat(parts, "\n")
 end
 
 local ii = require("inspect")
 print("averages =", ii(averages))
+print("maximums =", ii(maximums))
 print("ratios =", ii(ratios))
 print()
-print(tex_table("AVERAGES", averages))
-print(tex_table("RATIOS", ratios))
-
-
+print(tex_table("AVERAGES", {"lua", "luaot", "luajit", "pallene"}, with_errors))
+print(tex_table("RATIOS", {"luaot", "luajit", "pallene"}, ratios))
