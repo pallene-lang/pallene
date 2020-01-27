@@ -3,12 +3,12 @@ local benchlib = require "benchmarks.benchlib"
 local size = arg[1] or "N"
 
 local tests = {
-    {
-        name = "Binary Trees",
-        dir  = "binarytrees",
-        luajit = "jit.lua",
-        N = 17, Nsmall = 8,
-    },
+    --{
+    --    name = "Binary Trees",
+    --    dir  = "binarytrees",
+    --    luajit = "jit.lua",
+    --    N = 17, Nsmall = 8,
+    --},
     {
         name = "Fannkuch",
         dir  = "fannkuchredux",

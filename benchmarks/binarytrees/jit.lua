@@ -10,8 +10,10 @@ local function BottomUpTree(depth)
 end
 
 local function ItemCheck(tree)
-    if tree[1] then
-        return 1 + ItemCheck(tree[1]) + ItemCheck(tree[2])
+    local t1 = tree[1]
+    if t1 then
+        local t2 = tree[2]
+        return 1 + ItemCheck(t1) + ItemCheck(t2)
     else
         return 1
     end
