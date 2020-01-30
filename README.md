@@ -140,9 +140,10 @@ the benchmark, without measuring anything.
 ```sh
 ./benchmarks/run benchmarks/sieve/pallene.pln --mode=none
 ```
-It may be the case that your terminal will come with a time program, but will lack the `/usr/bin/time`, which will raise an assertion error in lua when you try to run a benchmark. In that case install with `$ sudo apt install time` or equivalent.
 
-
+To run Pallene's benchmarks you need to have /usr/bin/time installed in your system.
+Some Linux distributions may have only the Bash time builtin function but not the /usr/bin/time executable.
+If that is the case you will need to install time with $ sudo apt install time or equivalent.
 
 To run benchmarks with LuaJIT, use the `--lua` option:
 
