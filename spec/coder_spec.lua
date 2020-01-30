@@ -311,6 +311,13 @@ describe("Pallene coder /", function()
             function callf(x:integer): integer
                 return f(x)
             end
+
+            ---------
+
+            function ignore_return(g: ()->integer): boolean
+                g()
+                return true
+            end
         ]]))
 
         it("Object identity", function()
@@ -350,6 +357,13 @@ describe("Pallene coder /", function()
                     "wrong type for return value #1, "..
                     "expected integer but found string",
                     nil, true))
+            ]])
+        end)
+
+        it("Does not type check ignored return values", function()
+            run_test([[
+                local f = function() return "hello" end
+                assert(true == test.ignore_return(f))
             ]])
         end)
     end)
