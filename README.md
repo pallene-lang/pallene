@@ -27,7 +27,11 @@ $ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
 If you use the --local flag when installing packages from Luarocks, you may
-also need to configure the appropriate environment variables on your .bashrc.
+also need to configure the appropriate environment variables on your terminal configuration file.
+If you are using bash you can do (as stated in `luarocks --help path`):
+```sh
+$ echo 'eval `luarocks path`' >> ~/.bashrc 
+```
 For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
 
 If you want to use Pallene on Linux we also recommend installing the `readline`
@@ -131,14 +135,19 @@ script from the root project directory:
 By default, the benchmark runner just outputs the running time, as measured by
 `/usr/bin/time`, but it also supports other measurements. For example,
 `--mode=perf` shows perf output and `--mode=none` shows the stdout produced by
-the benchmark, withot measuring anything.
+the benchmark, without measuring anything.
 
 ```sh
 ./benchmarks/run benchmarks/sieve/pallene.pln --mode=none
 ```
+
+To run Pallene's benchmarks you need to have /usr/bin/time installed in your system.
+Some Linux distributions may have only the Bash time builtin function but not the /usr/bin/time executable.
+If that is the case you will need to install time with $ sudo apt install time or equivalent.
 
 To run benchmarks with LuaJIT, use the `--lua` option:
 
 ```sh
 ./benchmarks/run benchmarks/sieve/lua.lua --lua=luajit
 ```
+
