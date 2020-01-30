@@ -183,8 +183,9 @@ declare_type("Seq", {
 })
 
 local  src_fields = {
-    "src", "src1", "src2",
+    "src", "src1", "src2", "src3",
     "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
+    "src_f",
     "condition", "start", "limit", "step" }
 local srcs_fields = { "srcs" }
 
