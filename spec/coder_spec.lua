@@ -200,6 +200,14 @@ describe("Pallene coder /", function()
 
             function skip_a() end
             function skip_b() skip_a(); skip_a() end
+
+            -----------
+
+            function ignore_return(): integer
+                even(1)
+                return 17
+            end
+
         ]]))
 
         it("no parameters", function()
@@ -227,9 +235,12 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-
         it("void functions", function()
             run_test([[ assert(0 == select("#", test.skip_b())) ]])
+        end)
+
+        it("unused return value", function()
+            run_test([[ assert(17 == test.ignore_return()) ]])
         end)
 
         -- Errors

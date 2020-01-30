@@ -452,11 +452,14 @@ function Coder:call_pallene_function(dst, f_id, base, xs)
         assert(dst == false)
         return call
     else
-        assert(dst)
-        return (util.render([[$dst = $call]], {
-            dst = dst,
-            call = call,
-        }))
+        if dst then
+            return (util.render([[$dst = $call]], {
+                dst = dst,
+                call = call,
+            }))
+        else
+            return call
+        end
     end
 end
 
