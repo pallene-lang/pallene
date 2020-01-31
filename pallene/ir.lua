@@ -110,10 +110,10 @@ declare_type("Value", {
     Function   = {"id"},
 })
 
--- [IMPORTANT!] After any changes to this data type, update the get_srcs and
--- get_dsts functions accordingly
+-- [IMPORTANT!] After any changes to this data type, update the src_fields,
+-- dst_fields, and other_fields list accordingly.
 --
-declare_type("Cmd", {
+local ir_cmd_constructors = {
     -- Variables
     Move       = {"loc", "dst", "src"},
     GetGlobal  = {"loc", "dst", "global_id"},
@@ -174,8 +174,9 @@ declare_type("Cmd", {
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
-})
+}
 
+declare_type("Cmd", ir_cmd_constructors)
 declare_type("Seq", {
     -- This level of indirection on top of a "list of commands" helps when
     -- editing the command list in-place
@@ -183,8 +184,9 @@ declare_type("Seq", {
 })
 
 local  src_fields = {
-    "src", "src1", "src2",
+    "src", "src1", "src2", "src3",
     "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
+    "src_f",
     "condition", "start", "limit", "step" }
 local srcs_fields = { "srcs" }
 
@@ -223,6 +225,40 @@ function ir.get_dsts(cmd)
         end
     end
     return dsts
+end
+
+local other_fields = {
+    "loc",
+    "global_id",
+    "op",
+    "src_typ", "dst_typ", "rec_typ", "f_typ",
+    "size_hint",
+    "field_name",
+    "f_id",
+    "cmds", "then_", "else_",
+    "typ", "loop_var", "body",
+}
+do
+    local all_lists = {
+        src_fields, srcs_fields,
+        dst_fields, dsts_fields,
+        other_fields
+    }
+    local all_fields = {}
+    for _, fields in ipairs(all_lists) do
+        for _, field in ipairs(fields) do
+            all_fields[field] = true
+        end
+    end
+
+    for ctor, params in pairs(ir_cmd_constructors) do
+        for _, field in ipairs(params) do
+            if not all_fields[field] then
+                error(string.format("Field '%s' in %s is not accounted for",
+                        field, ctor))
+            end
+        end
+    end
 end
 
 -- Iterate over the cmds with a pre-order traversal.
