@@ -1,3 +1,8 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
 local constant_propagation = require "pallene.constant_propagation"

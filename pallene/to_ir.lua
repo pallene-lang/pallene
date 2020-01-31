@@ -1,3 +1,8 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 local ir = require "pallene.ir"
 local types = require "pallene.types"
 local util = require "pallene.util"

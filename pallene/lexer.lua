@@ -1,3 +1,8 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 --
 -- This module exports lpeg patterns that can lex Pallene source code.
 --
