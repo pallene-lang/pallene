@@ -452,11 +452,14 @@ function Coder:call_pallene_function(dst, f_id, base, xs)
         assert(dst == false)
         return call
     else
-        assert(dst)
-        return (util.render([[$dst = $call]], {
-            dst = dst,
-            call = call,
-        }))
+        if dst then
+            return (util.render([[$dst = $call]], {
+                dst = dst,
+                call = call,
+            }))
+        else
+            return call
+        end
     end
 end
 
@@ -1275,11 +1278,16 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
             self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
+    local dsts = { dst }
     local pop_results = {}
-    if dst then
-        assert(#f_typ.ret_types == 1)
-        local i = 1
-        local typ = f_typ.ret_types[i]
+    for i, typ in ipairs(f_typ.ret_types) do
+        local get_slot
+        if dsts[i] then
+            get_slot = self:get_stack_slot(
+                typ, dst, "slot", cmd.loc, "return value #%d", i)
+        else
+            get_slot = ""
+        end
         table.insert(pop_results, util.render([[
             {
                 L->top--;
@@ -1287,10 +1295,8 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
                 $get_slot
             }
         ]], {
-            get_slot = self:get_stack_slot(typ, dst, "slot",
-                cmd.loc, "return value #%d", i),
+            get_slot = get_slot
         }))
-
     end
 
     local top = self:stack_top_at(func, cmd)
