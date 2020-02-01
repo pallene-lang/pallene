@@ -1046,6 +1046,16 @@ describe("Pallene coder /", function()
         it("{any}: out-of-bounds get nil", function()
             run_test([[ assert(nil == test.getany({10, nil, 30}, 4)) ]])
         end)
+
+        it("length operator rejects tables with a metatable", function()
+            run_test([[
+                local arr = {}
+                setmetatable(arr, { __len = function(self) return 42 end })
+                local ok, err = pcall(test.len, arr)
+                assert(not ok)
+                assert(string.find(err, "must not have a metatable", nil, true))
+            ]])
+        end)
     end)
 
     describe("Tables /", function()

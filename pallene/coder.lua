@@ -277,6 +277,17 @@ function Coder:get_luatable_slot(typ, dst, src, loc, description_fmt, ...)
     }))
 end
 
+local function check_no_metatable(src, loc)
+    return (util.render([[
+        if ($src->metatable) {
+            pallene_runtime_array_metatable_error(L, $line);
+        }
+    ]], {
+        src = src,
+        line = C.integer(loc.line),
+    }))
+end
+
 --
 --  # Local variables
 --
@@ -918,8 +929,15 @@ gen_cmd["Unop"] = function(self, cmd, _func)
     end
 
     local function arr_len()
-        return (util.render([[ $dst = luaH_getn($x); ]], {
-            dst = dst, x = x }))
+        return (util.render([[
+            ${check_no_metatable}
+            $dst = luaH_getn($x);
+        ]], {
+            check_no_metatable = check_no_metatable(x, cmd.loc),
+            line = C.integer(cmd.loc.line),
+            dst = dst,
+            x = x
+        }))
     end
 
     local function str_len()
