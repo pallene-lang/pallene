@@ -1,3 +1,8 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 local typedecl = require "pallene.typedecl"
 
 -- This IR is produced as a result of typechecking the parser's AST. The main
