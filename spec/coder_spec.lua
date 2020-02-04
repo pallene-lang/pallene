@@ -1047,11 +1047,21 @@ describe("Pallene coder /", function()
             run_test([[ assert(nil == test.getany({10, nil, 30}, 4)) ]])
         end)
 
-        it("length operator rejects tables with a metatable", function()
+        it("length operator rejects arrays with a metatable", function()
             run_test([[
                 local arr = {}
                 setmetatable(arr, { __len = function(self) return 42 end })
                 local ok, err = pcall(test.len, arr)
+                assert(not ok)
+                assert(string.find(err, "must not have a metatable", nil, true))
+            ]])
+        end)
+
+        it("indexing operator rejects arrays with a metatable", function()
+            run_test([[
+                local arr = {}
+                setmetatable(arr, { __index = function(self, k) return 42 end })
+                local ok, err = pcall(test.getany, arr, 1)
                 assert(not ok)
                 assert(string.find(err, "must not have a metatable", nil, true))
             ]])
@@ -1159,6 +1169,16 @@ describe("Pallene coder /", function()
             run_test([[
                 local t = {]].. maxlenfield ..[[ = 10}
                 assert(10 == test.getmax(t))
+            ]])
+        end)
+
+        it("table field access rejects tables with a metatable", function()
+            run_test([[
+                local tab = {}
+                setmetatable(tab, { __index = function(self, k) return 42 end })
+                local ok, err = pcall(test.getany, tab)
+                assert(not ok)
+                assert(string.find(err, "must not have a metatable", nil, true))
             ]])
         end)
     end)
