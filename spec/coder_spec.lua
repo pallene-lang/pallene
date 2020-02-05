@@ -1813,6 +1813,58 @@ describe("Pallene coder /", function()
                 assert(17 == test.initialize_inside_loop())
             ]])
         end)
+    end)
 
+    describe("For loop integer overflow", function()
+        setup(compile([[
+            function loop(A: integer, B: integer, C: integer): {integer}
+                local xs: {integer} = {}
+                for i = A, B, C do
+                    xs[#xs+1] = i
+                end
+                return xs
+            end
+        ]]))
+
+        it("int loop avoids overflow", function()
+            run_test([[
+                local high = math.maxinteger
+                local xs = test.loop(high-5, high, 10)
+                assert(#xs == 1)
+                assert(xs[1] == high-5)
+            ]])
+        end)
+
+        it("int loop avoids underderflow", function()
+            run_test([[
+                local low = math.mininteger
+                local xs = test.loop(low+5, low, -10)
+                assert(#xs == 1)
+                assert(xs[1] == low+5)
+            ]])
+        end)
+
+        it("very large interval (up)", function()
+            run_test([[
+                local low  = math.mininteger
+                local high = math.maxinteger
+                local xs = test.loop(low, high, high)
+                assert(#xs == 3)
+                assert(xs[1] == low)
+                assert(xs[2] == -1)
+                assert(xs[3] == high-1)
+            ]])
+        end)
+
+        it("very large interval (down)", function()
+            run_test([[
+                local low  = math.mininteger
+                local high = math.maxinteger
+                local xs = test.loop(high, low, low)
+                assert(#xs == 2)
+                assert(xs[1] == high)
+                assert(xs[2] == -1)
+            ]])
+        end)
     end)
 end)

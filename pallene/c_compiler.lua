@@ -10,7 +10,7 @@ local c_compiler = {}
 c_compiler.CC = "cc"
 c_compiler.CPPFLAGS = "-I./lua/src -I./runtime"
 c_compiler.CFLAGS_BASE = "-std=c99 -g -fPIC"
-c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wshadow -Wpedantic -Wno-unused"
+c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.S_FLAGS = "-fverbose-asm"
 
