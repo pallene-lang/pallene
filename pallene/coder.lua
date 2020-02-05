@@ -267,31 +267,39 @@ end
 
 function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
 
-    -- Holes in Lua arrays and tables contain a special "empty" value, which
-    -- is a special variant of nil. These need to be converted to regular nils
-    -- when we read them. (rawget in lapi.c also needs to do this.)
-    local fix_nils
-    if typ._tag == "types.T.Any" then
-        fix_nils = util.render([[
-            if (isempty(&$dst)) {
+    local parts = {}
+
+    table.insert(parts,
+        self:get_stack_slot(typ, dst, slot, loc, description_fmt, ...))
+
+    -- Lua calls the __index metamethod when it reads from an empty field. We
+    -- want to avoid that in Pallene, so we raise an error instead.
+    if typ._tag == "types.T.Any" or typ._tag == "types.T.Nil" then
+        table.insert(parts, util.render([[
+            if (isempty($slot)) {
                 ${check_no_metatable}
+            }
+        ]], {
+            slot = slot,
+            check_no_metatable = check_no_metatable(tab, loc),
+        }))
+    end
+
+    -- Another tricky thing about holes in Lua 5.4 is that they actually contain
+    -- "empty", a special of nil. When reading them, they must be converted to
+    -- regular nils, just like how the "rawget" function in lapi.c does.
+    if typ._tag == "types.T.Any" then
+        table.insert(parts, util.render([[
+            if (isempty($slot)) {
                 setnilvalue(&$dst);
             }
         ]], {
+            slot = slot,
             dst = dst,
-            check_no_metatable = check_no_metatable(tab, loc),
-        })
-    else
-        fix_nils = ""
+        }))
     end
 
-    return (util.render([[
-        $get_slot
-        $fix_nils
-    ]], {
-        get_slot = self:get_stack_slot(typ, dst, slot, loc, description_fmt, ...),
-        fix_nils = fix_nils
-    }))
+    return table.concat(parts, "\n")
 end
 
 --

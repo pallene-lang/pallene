@@ -1181,6 +1181,16 @@ describe("Pallene coder /", function()
                 assert(string.find(err, "must not have a metatable", nil, true))
             ]])
         end)
+
+        it("table field access rejects tables with a metatable", function()
+            run_test([[
+                local tab = {}
+                setmetatable(tab, { __index = function(self, k) return 42 end })
+                local ok, err = pcall(test.getnil, tab)
+                assert(not ok)
+                assert(string.find(err, "must not have a metatable", nil, true))
+            ]])
+        end)
     end)
 
     describe("Strings", function()
