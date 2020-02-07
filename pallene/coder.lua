@@ -202,6 +202,21 @@ function Coder:test_tag(typ, slot)
     return (util.render(tmpl, {slot = slot}))
 end
 
+-- Raise an error if the given table contains a metatable. Pallene would rather
+-- raise an error in these cases instead of invoking the metatable operations,
+-- which may impair program optimization even if they are never called.
+--
+local function check_no_metatable(src, loc)
+    return (util.render([[
+        if ($src->metatable) {
+            pallene_runtime_array_metatable_error(L, $line);
+        }
+    ]], {
+        src = src,
+        line = C.integer(loc.line),
+    }))
+end
+
 -- Convert a Lua value to a Pallene value, performing a tag check.
 -- Make sure to use the appropriate function depending on if this Lua value is
 -- coming from the Lua stack or a Lua table.
@@ -217,7 +232,7 @@ end
 --                  Received as serialized C expressions.
 --
 
-function Coder:get_stack_slot(typ, dst, src, loc, description_fmt, ...)
+function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
 
     local check_tag
     if typ._tag == "types.T.Any" then
@@ -227,14 +242,14 @@ function Coder:get_stack_slot(typ, dst, src, loc, description_fmt, ...)
         check_tag = util.render([[
             if (PALLENE_UNLIKELY(!$test)) {
                 pallene_runtime_tag_check_error(L,
-                    $line, $expected_tag, rawtt($src),
+                    $line, $expected_tag, rawtt($slot),
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
-            test = self:test_tag(typ, src),
+            test = self:test_tag(typ, slot),
             line = C.integer(loc and loc.line or 0),
             expected_tag = pallene_type_tag(typ),
-            src = src,
+            slot = slot,
             description_fmt = C.string(description_fmt),
             opt_comma = (#extra_args == 0 and "" or ", "),
             extra_args = table.concat(extra_args, ", "),
@@ -246,35 +261,45 @@ function Coder:get_stack_slot(typ, dst, src, loc, description_fmt, ...)
         $get_slot
     ]], {
         check_tag = check_tag,
-        get_slot  = unchecked_get_slot(typ, dst, src)
+        get_slot  = unchecked_get_slot(typ, dst, slot)
     }))
 end
 
-function Coder:get_luatable_slot(typ, dst, src, loc, description_fmt, ...)
+function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
 
-    -- Holes in Lua arrays and tables contain a special "empty" value, which
-    -- is a special variant of nil. These need to be converted to regular nils
-    -- when we read them. (rawget in lapi.c also needs to do this.)
-    local fix_nils
+    local parts = {}
+
+    table.insert(parts,
+        self:get_stack_slot(typ, dst, slot, loc, description_fmt, ...))
+
+    -- Lua calls the __index metamethod when it reads from an empty field. We
+    -- want to avoid that in Pallene, so we raise an error instead.
+    if typ._tag == "types.T.Any" or typ._tag == "types.T.Nil" then
+        table.insert(parts, util.render([[
+            if (isempty($slot)) {
+                ${check_no_metatable}
+            }
+        ]], {
+            slot = slot,
+            check_no_metatable = check_no_metatable(tab, loc),
+        }))
+    end
+
+    -- Another tricky thing about holes in Lua 5.4 is that they actually contain
+    -- "empty", a special of nil. When reading them, they must be converted to
+    -- regular nils, just like how the "rawget" function in lapi.c does.
     if typ._tag == "types.T.Any" then
-        fix_nils = util.render([[
-            if (isempty(&$dst)) {
+        table.insert(parts, util.render([[
+            if (isempty($slot)) {
                 setnilvalue(&$dst);
             }
         ]], {
-            dst = dst
-        })
-    else
-        fix_nils = ""
+            slot = slot,
+            dst = dst,
+        }))
     end
 
-    return (util.render([[
-        $get_slot
-        $fix_nils
-    ]], {
-        get_slot = self:get_stack_slot(typ, dst, src, loc, description_fmt, ...),
-        fix_nils = fix_nils
-    }))
+    return table.concat(parts, "\n")
 end
 
 --
@@ -918,8 +943,15 @@ gen_cmd["Unop"] = function(self, cmd, _func)
     end
 
     local function arr_len()
-        return (util.render([[ $dst = luaH_getn($x); ]], {
-            dst = dst, x = x }))
+        return (util.render([[
+            ${check_no_metatable}
+            $dst = luaH_getn($x);
+        ]], {
+            check_no_metatable = check_no_metatable(x, cmd.loc),
+            line = C.integer(cmd.loc.line),
+            dst = dst,
+            x = x
+        }))
     end
 
     local function str_len()
@@ -1130,7 +1162,7 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
         arr = arr,
         i = i,
         line = line,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot",
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", arr,
             cmd.loc, "array element"),
     }))
 end
@@ -1182,7 +1214,7 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
         tab = tab,
         key = key,
         line = line,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot",
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab,
             cmd.loc, "table field"),
     }))
 end

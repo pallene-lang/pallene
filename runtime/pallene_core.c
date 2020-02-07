@@ -109,6 +109,13 @@ int pallene_runtime_record_index_error(
     PALLENE_UNREACHABLE;
 }
 
+void pallene_runtime_array_metatable_error(
+    lua_State *L, int line
+){
+    luaL_error(L, "arrays in Pallene must not have a metatable. Line %d", line);
+    PALLENE_UNREACHABLE;
+}
+
 static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
 {
     char *b = out_buf;
