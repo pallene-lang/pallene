@@ -317,7 +317,7 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
         lua_Number _init  = A; \
         lua_Number _limit = B; \
         lua_Number _step  = C; \
-        if (_step == 0.0 ) { \
+        if (_step == 0.0) { \
             luaL_error(L, "'for' step is zero"); \
         } \
         for ( \
