@@ -270,4 +270,66 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
     }
 }
 
+/* To avoid looping infinitely due to integer overflow, Lua 5.4 carefully
+ * computes the number of iterations before starting the loop (see OP_FORPREP).
+ *
+ * The code that implements this behavior does not look like a regular C for
+ * loop, so to help improve the readability of the generated C code we hide it
+ * behind the following set of macros. Note that some of the open braces in the
+ * BEGIN macro are only closed in the END macro, so they must always be used
+ * together.
+ *
+ * We assume that the C compiler will be able to optimize the common case where
+ * the step parameter is a compile-time constant. */
+
+#define PALLENE_INT_FOR_LOOP_BEGIN(i, A, B, C) \
+    { \
+        lua_Integer _init  = A; \
+        lua_Integer _limit = B; \
+        lua_Integer _step  = C; \
+        if (_step == 0 ) { \
+            luaL_error(L, "'for' step is zero"); \
+        } \
+        if (_step > 0 ? (_init <= _limit) : (_init >= _limit)) {        \
+            lua_Unsigned _uinit  = l_castS2U(_init);                    \
+            lua_Unsigned _ulimit = l_castS2U(_limit);                   \
+            lua_Unsigned _count = ( _step > 0                           \
+                ? (_ulimit - _uinit) / _step                            \
+                : (_uinit - _ulimit) / (l_castS2U(-(_step + 1)) + 1u)); \
+            lua_Integer _loopvar = _init; \
+            while (1) { \
+                i = _loopvar; \
+                {
+                    /* Loop body goes here*/
+
+#define PALLENE_INT_FOR_LOOP_END \
+                } \
+                if (_count == 0) break; \
+                _loopvar += _step; \
+                _count -= 1; \
+            } \
+        } \
+    }
+
+
+#define PALLENE_FLT_FOR_LOOP_BEGIN(i, A, B, C) \
+    { \
+        lua_Number _init  = A; \
+        lua_Number _limit = B; \
+        lua_Number _step  = C; \
+        if (_step == 0.0) { \
+            luaL_error(L, "'for' step is zero"); \
+        } \
+        for ( \
+            lua_Number _loopvar = _init; \
+            (_step > 0.0 ? (_loopvar <= _limit) : (_loopvar >= _limit)); \
+            _loopvar += _step \
+        ){ \
+            i = _loopvar;
+            /* Loop body goes here*/
+
+#define PALLENE_FLT_FOR_LOOP_END \
+        } \
+    }
+
 #endif

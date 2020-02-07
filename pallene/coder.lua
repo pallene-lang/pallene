@@ -1469,61 +1469,31 @@ gen_cmd["Loop"] = function(self, cmd, func)
     }))
 end
 
-local for_counter = 0
 gen_cmd["For"] = function(self, cmd, func)
     local typ = cmd.typ
 
-    -- Use a unique name for the loop variables, to avoid Wshaadow warning
-    for_counter = for_counter + 1
-    local start = string.format("start%02d", for_counter)
-    local limit = string.format("limit%02d", for_counter)
-    local step  = string.format("step%02d", for_counter)
-
-    local initialize = util.render(
-        [[$ctyp $start = $startv, $limit = $limitv, $step = $stepv]], {
-            ctyp = ctype(typ),
-            start = start, limit = limit, step = step,
-            startv = self:c_value(cmd.start),
-            limitv = self:c_value(cmd.limit),
-            stepv  = self:c_value(cmd.step),
-        })
-
-    local condition = util.render(
-        [[($step >= 0 ? $start <= $limit : $start >= $limit)]], {
-            start = start, limit = limit, step = step
-        })
-
-    local update_tmpl
+    local macro
     if     typ._tag == "types.T.Integer" then
-        update_tmpl = [[ $start = intop(+, $start, $step) ]]
+        macro = "PALLENE_INT_FOR_LOOP"
     elseif typ._tag == "types.T.Float" then
-        update_tmpl = [[ $start = $start + $step ]]
+        macro = "PALLENE_FLT_FOR_LOOP"
     else
         error("impossible")
     end
 
-    local update = util.render(update_tmpl, {
-        start = start, limit = limit, step = step
-    })
-
-    local body = self:generate_cmd(func, cmd.body)
-
     return (util.render([[
-        for(
-            ${initialize};
-            ${condition};
-            ${update}
-        ){
-            $loopvar = $start;
-            ${body}
+        ${macro}_BEGIN($x, $start, $limit, $step)
+        {
+            $body
         }
+        ${macro}_END
     ]], {
-        loopvar = self:c_var(cmd.loop_var),
-        start = start,
-        initialize = initialize,
-        condition = condition,
-        update = update,
-        body = body,
+        macro = macro,
+        x     = self:c_var(cmd.loop_var),
+        start = self:c_value(cmd.start),
+        limit = self:c_value(cmd.limit),
+        step  = self:c_value(cmd.step),
+        body  = self:generate_cmd(func, cmd.body)
     }))
 end
 
