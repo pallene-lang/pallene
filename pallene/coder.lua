@@ -1203,20 +1203,32 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
-
-    return (util.render([[
-        {
-            static size_t cache = UINT_MAX;
-            TValue *slot = pallene_getshortstr($tab, $key, &cache);
-            $get_slot
-        }
-    ]], {
+    local ops = {
         tab = tab,
         key = key,
         line = line,
         get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab,
             cmd.loc, "table field"),
-    }))
+    }
+    -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
+    if(#cmd.src_k.value < 40 ) then
+        return (util.render([[
+            {
+                static size_t cache = UINT_MAX;
+                TValue *slot = pallene_getshortstr($tab, $key, &cache);
+                $get_slot
+            }
+        ]], ops))
+
+    -- Else, use Lua's default getStr method
+    else
+        return (util.render([[
+            {
+                TValue *slot = luaH_getstr($tab, $key);
+                $get_slot
+            }
+    ]], ops))
+    end
 end
 
 gen_cmd["SetTable"] = function(self, cmd, _func)
@@ -1224,10 +1236,31 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
+    local ops = {
+        tab = tab,
+        key = key,
+        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
+    }
+    -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
+    if(#cmd.src_k.value < 40 ) then
+        return (util.render([[
+            {
+                static size_t cache = UINT_MAX;
+                TValue *slot = pallene_getshortstr($tab, $key, &cache);
+                if (PALLENE_UNLIKELY(isabstkey(slot))) {
+                    TValue keyv;
+                    setsvalue(L, &keyv, $key);
+                    slot = luaH_newkey(L, $tab, &keyv);
+                }
+                ${set_heap_slot}
+            }
+        ]], ops))
+
+    -- Else, use Lua's default getStr method
+    else
     return (util.render([[
         {
-            static size_t cache = UINT_MAX;
-            TValue *slot = pallene_getshortstr($tab, $key, &cache);
+            TValue *slot = luaH_getstr($tab, $key);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
                 TValue keyv;
                 setsvalue(L, &keyv, $key);
@@ -1235,11 +1268,8 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
             }
             ${set_heap_slot}
         }
-    ]], {
-        tab = tab,
-        key = key,
-        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
-    }))
+    ]], ops))
+    end
 end
 
 gen_cmd["NewRecord"] = function(self, cmd, _func)
