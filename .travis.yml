@@ -2,73 +2,28 @@ language: python
 
 matrix:
   include:
-#    - os: linux
-#      env:
-#        - INSTALL_LUA="lua=5.1"
-#        - LUA="lua"
-#    - os: linux
-#      env:
-#        - INSTALL_LUA="lua=5.2"
-#        - LUA="lua"
     - os: linux
       env:
-        - INSTALL_LUA="lua=5.3"
-        - LUA="lua"
-#    - os: linux
-#      env:
-#        - INSTALL_LUA="luajit=2.0"
-#        - LUA="luajit"
-#    - os: linux
-#      env:
-#        - INSTALL_LUA="luajit=2.1"
-#        - LUA="luajit"
-#    - os: osx
-#      language: generic
-#      env:
-#        - INSTALL_LUA="lua=5.1"
-#        - LUA="luajit"
-#    - os: osx
-#      language: generic
-#      env:
-#        - INSTALL_LUA="lua=5.2"
-#        - LUA="luajit"
-#    - os: osx
-#      language: generic
-#      env:
-#        - INSTALL_LUA="lua=5.3"
-#        - LUA="luajit"
-#    - os: osx
-#      language: generic
-#      env:
-#        - INSTALL_LUA="luajit=2.0"
-#        - LUA="luajit"
-#    - os: osx
-#      language: generic
-#      env:
-#        - INSTALL_LUA="luajit=2.1"
-#        - LUA="luajit"
+        - LUA="lua=5.3"
+cache:
+  directories:
+    - hrenv
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - pip install hererocks
-  - hererocks lua_install -rlatest --$INSTALL_LUA
-  - export PATH=$PATH:$PWD/lua_install/bin # Add directory with all installed binaries to PATH
-  - make linux-noreadline
+  - hererocks hrenv -rlatest --$LUA
+  - source hrenv/bin/activate
 
 install:
   - luarocks install busted
   - luarocks install luacheck
   - luarocks make # This installs necessary runtime dependencies
 
+before_script:
+  - make linux-noreadline
+
 script:
-  - busted -o gtest -v spec/
+  - busted -o gtest -v ./spec
   - luacheck ./pallene ./spec
 
-notifications:
-  email:
-    on_success: change
-    on_failure: change
 
-cache:
-  directories:
-    - $HOME/.luarocks
