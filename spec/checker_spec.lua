@@ -130,6 +130,14 @@ describe("Pallene type checker", function()
             "duplicate field 'x' in table")
     end)
 
+    it("allows tables with fields with more than LUAI_MAXSHORTLEN chars", function()
+        local field = string.rep('a', 41)
+        local module, _ = run_checker([[
+            function f(t: {]].. field ..[[: float}) end
+        ]])
+        assert.truthy(module)
+    end)
+
     it("catches array expression in indexing is not an array", function()
         assert_error([[
             function fn(x: integer)
