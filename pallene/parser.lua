@@ -65,8 +65,17 @@ function defs.opt(x)
         return x
     end
 end
+
 function defs.opt_bool(x)
     return x ~= ""
+end
+
+function defs.opt_list(x)
+    if x == "" then
+        return {}
+    else
+        return x
+    end
 end
 
 function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
@@ -312,11 +321,12 @@ local grammar = re.compile([[
                            COMMA^CommaFor exp^Exp2For
                            (COMMA exp^Exp3For)?                  -> opt
                            DO^DoFor block END^EndFor)            -> StatFor
-                     / (P  LOCAL decl^DeclLocal
-                                 (ASSIGN exp^ExpLocal)? ->opt)   -> StatDecl
+                     / (P  LOCAL decllist^DeclLocal
+                            (ASSIGN
+                                explist1^ExpLocal)? -> opt_list) -> StatDecl
                      / (P  BREAK)                                -> StatBreak
-                     / (P  var ASSIGN^AssignAssign
-                               exp^ExpAssign)                    -> StatAssign
+                     / (P  varlist ASSIGN^AssignAssign
+                               explist1^ExpAssign)               -> StatAssign
                      / &(exp ASSIGN) %{AssignNotToVar}
                      / (P  (suffixedexp => exp_is_call))         -> StatCall
                      / &exp %{ExpStat}
@@ -328,7 +338,7 @@ local grammar = re.compile([[
 
     elseopt         <- (ELSE block)?                             -> opt
 
-    returnstat      <- (P  RETURN {| exp? |} SEMICOLON?)         -> StatReturn
+    returnstat      <- (P  RETURN explist0 SEMICOLON?)           -> StatReturn
 
     op1             <- ( OR -> 'or' )
     op2             <- ( AND -> 'and' )
@@ -376,8 +386,8 @@ local grammar = re.compile([[
                      / simpleexp                                 -- produces Exp
 
     simpleexp       <- (P  NIL)                                  -> nil_exp
-                     / (P  FALSE -> to_false)                     -> ExpBool
-                     / (P  TRUE -> to_true)                       -> ExpBool
+                     / (P  FALSE -> to_false)                    -> ExpBool
+                     / (P  TRUE -> to_true)                      -> ExpBool
                      / (P  NUMBER)                               -> number_exp
                      / (P  STRINGLIT)                            -> ExpString
                      / initlist                                  -- produces Exp
@@ -387,11 +397,17 @@ local grammar = re.compile([[
     var             <- (suffixedexp => exp_is_var)               -> exp_to_var
                      / (P  NAME !expsuffix)                      -> name_exp -> exp_to_var
 
-    funcargs        <- (LPAREN explist RPAREN^RParFuncArgs)      -- produces {Exp}
+    funcargs        <- (LPAREN explist0 RPAREN^RParFuncArgs)     -- produces {Exp}
                      / {| initlist |}                            -- produces {Exp}
                      / {| (P  STRINGLIT) -> ExpString |}         -- produces {Exp}
 
-    explist         <- {| (exp (COMMA exp^ExpExpList)*)? |}      -- produces {Exp}
+    explist0         <- {| (exp (COMMA exp^ExpExpList)*)? |}     -- produces {Exp}
+
+    explist1         <- {| exp (COMMA exp^ExpExpList)* |}        -- produces {Exp}
+
+    varlist         <- {| var (COMMA var^VarVarList)* |}         -- produces {Var}
+
+    decllist         <- {| decl (COMMA decl^DeclDeclList)* |}    -- produces {Decl}
 
     initlist        <- (P  LCURLY {| fieldlist? |}
                                   RCURLY^RCurlyInitList)         -> ExpInitlist

@@ -78,6 +78,8 @@ local errors = {
 
     DeclParList = "Expected a variable name after ','.",
 
+    DeclDeclList = "Expected a variable name after ','.",
+
     TypeDecl = "Expected a type name after ':'.",
 
     TypeType = "Expected a type name after '{'.",
@@ -161,6 +163,8 @@ local errors = {
     RParFuncArgs = "Expected ')' to match '('.",
 
     ExpExpList = "Expected an expression after ','.",
+
+    VarVarList = "Expected an assignable after ','.",
 
     RCurlyInitList = "Expected '{' to match '}'.",
 

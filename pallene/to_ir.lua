@@ -87,8 +87,8 @@ function ToIR:convert_stat(cmds, stat)
             ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
-        local var = stat.var
-        local exp = stat.exp
+        local var = assert(#stat.vars == 1 and stat.vars[1])
+        local exp = assert(#stat.exps == 1 and stat.exps[1])
         if     var._tag == "ast.Var.Name" then
             local cname = var._name
             if     cname._tag == "checker.Name.Local" then
@@ -128,11 +128,11 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        if stat.exp then
-            local cname = stat.decl._name
+        if stat.exps[1] then
+            local cname = stat.decls[1]._name
             assert(cname._tag == "checker.Name.Local")
             local v = cname.id
-            self:exp_to_assignment(cmds, v, stat.exp)
+            self:exp_to_assignment(cmds, v, stat.exps[1])
         end
 
     elseif tag == "ast.Stat.Call" then

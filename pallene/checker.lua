@@ -283,7 +283,7 @@ function Checker:check_program(prog_ast)
                 local var = ast.Var.Name(loc, name)
                 toplevel_fun_checker:check_var(var)
                 table.insert(toplevel_stats,
-                    ast.Stat.Assign(loc, var, exp))
+                    ast.Stat.Assign(loc, { var }, { exp }))
             end
 
         elseif group_kind == "Func" then
@@ -395,10 +395,10 @@ function FunChecker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
         local typ
-        typ, stat.exp = self:check_initializer_exp(stat.decl, stat.exp,
-            "declaration of local variable %s", stat.decl.name)
-        self:add_local(stat.decl.name, typ)
-        stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
+        typ, stat.exps[1] = self:check_initializer_exp(stat.decls[1], stat.exps[1],
+            "declaration of local variable %s", stat.decls[1].name)
+        self:add_local(stat.decls[1].name, typ)
+        stat.decls[1]._name = self.p.symbol_table:find_symbol(stat.decls[1].name)
 
     elseif tag == "ast.Stat.Block" then
         self.p.symbol_table:with_block(function()
@@ -462,18 +462,18 @@ function FunChecker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.Assign" then
-        self:check_var(stat.var)
-        stat.exp = self:check_exp_verify(stat.exp, stat.var._type, "assignment")
-        if stat.var._tag == "ast.Var.Name" then
-            local ntag = stat.var._name._tag
+        self:check_var(stat.vars[1])
+        stat.exps[1] = self:check_exp_verify(stat.exps[1], stat.vars[1]._type, "assignment")
+        if stat.vars[1]._tag == "ast.Var.Name" then
+            local ntag = stat.vars[1]._name._tag
             if ntag == "checker.Name.Function" then
                 type_error(stat.loc,
                     "attempting to assign to toplevel constant function '%s'",
-                    stat.var.name)
+                    stat.vars[1].name)
             elseif ntag == "checker.Name.Builtin" then
                 type_error(stat.loc,
                     "attempting to assign to builtin function %s",
-                    stat.var.name)
+                    stat.vars[1].name)
             end
         end
 
