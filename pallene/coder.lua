@@ -1210,26 +1210,30 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
         get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab,
             cmd.loc, "table field"),
     }
+    local renderStr = [[
+        $get_slot
+    ]]
+
     -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
     if #field_name < 40 then
-        return (util.render([[
+        return (util.render(string.format([[
             {
                 static size_t cache = UINT_MAX;
                 TValue *slot = pallene_getshortstr($tab, $key, &cache);
-                $get_slot
+                %s
             }
-        ]], ops))
+        ]], renderStr), ops))
 
     -- Else, use Lua's default getStr method
     else
-        return (util.render([[
+        return (util.render(string.format([[
             {
                 TValue *slot = luaH_getstr($tab, $key);
-                $get_slot
+                %s
             }
-        ]], ops))
+        ]], renderStr), ops))
     end
 end
 
@@ -1243,36 +1247,35 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
         key = key,
         set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
     }
+    local renderStr = [[
+        if (PALLENE_UNLIKELY(isabstkey(slot))) {
+            TValue keyv;
+            setsvalue(L, &keyv, $key);
+            slot = luaH_newkey(L, $tab, &keyv);
+        }
+        ${set_heap_slot}
+    ]]
+    
     -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
     if #field_name < 40 then
-        return (util.render([[
+        return (util.render(string.format([[
             {
                 static size_t cache = UINT_MAX;
                 TValue *slot = pallene_getshortstr($tab, $key, &cache);
-                if (PALLENE_UNLIKELY(isabstkey(slot))) {
-                    TValue keyv;
-                    setsvalue(L, &keyv, $key);
-                    slot = luaH_newkey(L, $tab, &keyv);
-                }
-                ${set_heap_slot}
+                %s
             }
-        ]], ops))
+        ]], renderStr), ops))
 
     -- Else, use Lua's default getStr method
     else
-        return (util.render([[
+        return (util.render(string.format([[
             {
                 TValue *slot = luaH_getstr($tab, $key);
-                if (PALLENE_UNLIKELY(isabstkey(slot))) {
-                    TValue keyv;
-                    setsvalue(L, &keyv, $key);
-                    slot = luaH_newkey(L, $tab, &keyv);
-                }
-                ${set_heap_slot}
+                %s
             }
-        ]], ops))
+        ]], renderStr), ops))
     end
 end
 
