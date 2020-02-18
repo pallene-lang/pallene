@@ -395,10 +395,14 @@ function FunChecker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
         local typ
-        typ, stat.exps[1] = self:check_initializer_exp(stat.decls[1], stat.exps[1],
-            "declaration of local variable %s", stat.decls[1].name)
-        self:add_local(stat.decls[1].name, typ)
-        stat.decls[1]._name = self.p.symbol_table:find_symbol(stat.decls[1].name)
+        for i = 1, #stat.decls do
+            typ, stat.exps[i] = self:check_initializer_exp(stat.decls[i],
+                stat.exps[i], "declaration of local variable %s",
+                stat.decls[i].name)
+            self:add_local(stat.decls[i].name, typ)
+            stat.decls[i]._name = self.p.symbol_table:find_symbol(
+                stat.decls[i].name)
+        end
 
     elseif tag == "ast.Stat.Block" then
         self.p.symbol_table:with_block(function()
@@ -462,18 +466,21 @@ function FunChecker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.Assign" then
-        self:check_var(stat.vars[1])
-        stat.exps[1] = self:check_exp_verify(stat.exps[1], stat.vars[1]._type, "assignment")
-        if stat.vars[1]._tag == "ast.Var.Name" then
-            local ntag = stat.vars[1]._name._tag
-            if ntag == "checker.Name.Function" then
-                type_error(stat.loc,
-                    "attempting to assign to toplevel constant function '%s'",
-                    stat.vars[1].name)
-            elseif ntag == "checker.Name.Builtin" then
-                type_error(stat.loc,
-                    "attempting to assign to builtin function %s",
-                    stat.vars[1].name)
+        for i = 1, #stat.vars do
+            self:check_var(stat.vars[i])
+            stat.exps[i] = self:check_exp_verify(stat.exps[i],
+                stat.vars[i]._type, "assignment")
+            if stat.vars[i]._tag == "ast.Var.Name" then
+                local ntag = stat.vars[i]._name._tag
+                if ntag == "checker.Name.Function" then
+                    type_error(stat.loc,
+                        "attempting to assign to toplevel constant function '%s'",
+                        stat.vars[i].name)
+                elseif ntag == "checker.Name.Builtin" then
+                    type_error(stat.loc,
+                        "attempting to assign to builtin function %s",
+                        stat.vars[i].name)
+                end
             end
         end
 

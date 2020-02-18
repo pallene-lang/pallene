@@ -87,52 +87,56 @@ function ToIR:convert_stat(cmds, stat)
             ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
-        local var = assert(#stat.vars == 1 and stat.vars[1])
-        local exp = assert(#stat.exps == 1 and stat.exps[1])
-        if     var._tag == "ast.Var.Name" then
-            local cname = var._name
-            if     cname._tag == "checker.Name.Local" then
-                self:exp_to_assignment(cmds, cname.id, exp)
-            elseif cname._tag == "checker.Name.Global" then
-                local v = self:exp_to_value(cmds, exp)
-                table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, cname.id, v))
+        for i = 1, #stat.vars do
+            local var = stat.vars[i]
+            local exp = stat.exps[i]
+            if     var._tag == "ast.Var.Name" then
+                local cname = var._name
+                if     cname._tag == "checker.Name.Local" then
+                    self:exp_to_assignment(cmds, cname.id, exp)
+                elseif cname._tag == "checker.Name.Global" then
+                    local v = self:exp_to_value(cmds, exp)
+                    table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, cname.id, v))
+                else
+                    error("impossible")
+                end
+
+            elseif var._tag == "ast.Var.Bracket" then
+                local arr = self:exp_to_value(cmds, var.t)
+                local k   = self:exp_to_value(cmds, var.k)
+                local v   = self:exp_to_value(cmds, exp)
+                local src_typ = exp._type
+                table.insert(cmds, ir.Cmd.SetArr(stat.loc, src_typ, arr, k, v))
+
+            elseif var._tag == "ast.Var.Dot" then
+                local typ = assert(var.exp._type)
+                local field = var.name
+                local rec = self:exp_to_value(cmds, var.exp)
+                local v   = self:exp_to_value(cmds, exp)
+                local cmd
+                if     typ._tag == "types.T.Table" then
+                    local key = ir.Value.String(field)
+                    cmd = ir.Cmd.SetTable(stat.loc, exp._type, rec, key, v)
+                elseif typ._tag == "types.T.Record" then
+                    cmd = ir.Cmd.SetField(stat.loc, typ, rec, field, v)
+                else
+                    error("impossible")
+                end
+                table.insert(cmds, cmd)
+
             else
                 error("impossible")
             end
-
-        elseif var._tag == "ast.Var.Bracket" then
-            local arr = self:exp_to_value(cmds, var.t)
-            local i   = self:exp_to_value(cmds, var.k)
-            local v   = self:exp_to_value(cmds, exp)
-            local src_typ = exp._type
-            table.insert(cmds, ir.Cmd.SetArr(stat.loc, src_typ, arr, i, v))
-
-        elseif var._tag == "ast.Var.Dot" then
-            local typ = assert(var.exp._type)
-            local field = var.name
-            local rec = self:exp_to_value(cmds, var.exp)
-            local v   = self:exp_to_value(cmds, exp)
-            local cmd
-            if     typ._tag == "types.T.Table" then
-                local key = ir.Value.String(field)
-                cmd = ir.Cmd.SetTable(stat.loc, exp._type, rec, key, v)
-            elseif typ._tag == "types.T.Record" then
-                cmd = ir.Cmd.SetField(stat.loc, typ, rec, field, v)
-            else
-                error("impossible")
-            end
-            table.insert(cmds, cmd)
-
-        else
-            error("impossible")
         end
 
     elseif tag == "ast.Stat.Decl" then
-        if stat.exps[1] then
-            local cname = stat.decls[1]._name
-            assert(cname._tag == "checker.Name.Local")
-            local v = cname.id
-            self:exp_to_assignment(cmds, v, stat.exps[1])
+        for i = 1, #stat.decls do
+            if stat.exps[i] then
+                local cname = stat.decls[i]._name
+                assert(cname._tag == "checker.Name.Local")
+                local v = cname.id
+                self:exp_to_assignment(cmds, v, stat.exps[i])
+            end
         end
 
     elseif tag == "ast.Stat.Call" then
