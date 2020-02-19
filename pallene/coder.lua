@@ -1222,7 +1222,7 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
     -- Else, use Lua's default getStr method
     else
         find_slot = util.render([[
-            TValue *slot = luaH_getstr($tab, $key);
+            TValue *slot = cast(TValue *, luaH_getstr($tab, $key));
         ]], ops)
     end
 
@@ -1260,7 +1260,7 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     -- Else, use Lua's default getStr method
     else
         find_slot = util.render([[
-            TValue *slot = luaH_getstr($tab, $key);
+            TValue *slot = cast(TValue *, luaH_getstr($tab, $key));
         ]], ops)
     end
 
