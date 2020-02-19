@@ -1203,38 +1203,38 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local dst_typ = cmd.dst_typ
     local line = C.integer(cmd.loc.line)
+
+    assert(cmd.src_k._tag == "ir.Value.String")
+    local field_name = cmd.src_k.value
+    local find_slot
     local ops = {
         tab = tab,
         key = key,
         line = line,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab,
-            cmd.loc, "table field"),
     }
-    local renderStr = [[
-        $get_slot
-    ]]
 
     -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
-    assert(cmd.src_k._tag == "ir.Value.String")
-    local field_name = cmd.src_k.value
     if #field_name < 40 then
-        return (util.render(string.format([[
-            {
-                static size_t cache = UINT_MAX;
-                TValue *slot = pallene_getshortstr($tab, $key, &cache);
-                %s
-            }
-        ]], renderStr), ops))
-
+        find_slot = util.render([[
+            static size_t cache = UINT_MAX;
+            TValue *slot = pallene_getshortstr($tab, $key, &cache);
+        ]], ops)
     -- Else, use Lua's default getStr method
     else
-        return (util.render(string.format([[
-            {
-                TValue *slot = luaH_getstr($tab, $key);
-                %s
-            }
-        ]], renderStr), ops))
+        find_slot = util.render([[
+            TValue *slot = luaH_getstr($tab, $key);
+        ]], ops)
     end
+
+    return util.render([[
+        {
+            ${find_slot}
+            ${get_slot}
+        }
+    ]], {
+        find_slot = find_slot,
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, cmd.loc, "table field"),
+    })
 end
 
 gen_cmd["SetTable"] = function(self, cmd, _func)
@@ -1242,41 +1242,44 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
+    
+    assert(cmd.src_k._tag == "ir.Value.String")
+    local field_name = cmd.src_k.value
+    local find_slot
     local ops = {
         tab = tab,
         key = key,
-        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
     }
-    local renderStr = [[
-        if (PALLENE_UNLIKELY(isabstkey(slot))) {
-            TValue keyv;
-            setsvalue(L, &keyv, $key);
-            slot = luaH_newkey(L, $tab, &keyv);
-        }
-        ${set_heap_slot}
-    ]]
-    
+
     -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
-    assert(cmd.src_k._tag == "ir.Value.String")
-    local field_name = cmd.src_k.value
     if #field_name < 40 then
-        return (util.render(string.format([[
-            {
+        find_slot = util.render([[
                 static size_t cache = UINT_MAX;
                 TValue *slot = pallene_getshortstr($tab, $key, &cache);
-                %s
-            }
-        ]], renderStr), ops))
-
+        ]], ops)
     -- Else, use Lua's default getStr method
     else
-        return (util.render(string.format([[
-            {
-                TValue *slot = luaH_getstr($tab, $key);
-                %s
-            }
-        ]], renderStr), ops))
+        find_slot = util.render([[
+            TValue *slot = luaH_getstr($tab, $key);
+        ]], ops)
     end
+
+    return util.render([[
+        {
+            ${find_slot}
+            if (PALLENE_UNLIKELY(isabstkey(slot))) {
+                TValue keyv;
+                setsvalue(L, &keyv, $key);
+                slot = luaH_newkey(L, $tab, &keyv);
+            }
+            ${set_heap_slot}
+        }
+    ]], {
+        tab = tab,
+        key = key,
+        find_slot = find_slot,
+        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
+    })
 end
 
 gen_cmd["NewRecord"] = function(self, cmd, _func)
