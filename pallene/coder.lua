@@ -1209,7 +1209,6 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
     local ops = {
         tab = tab,
         key = key,
-        line = line,
     }
 
     -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
