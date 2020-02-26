@@ -1205,32 +1205,17 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
 
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
-    local find_slot
-    local ops = {
-        tab = tab,
-        key = key,
-    }
-
-    -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
-    if #field_name < 40 then
-        find_slot = util.render([[
-            static size_t cache = UINT_MAX;
-            TValue *slot = pallene_getshortstr($tab, $key, &cache);
-        ]], ops)
-    -- Else, use Lua's default getStr method
-    else
-        find_slot = util.render([[
-            TValue *slot = cast(TValue *, luaH_getstr($tab, $key));
-        ]], ops)
-    end
 
     return util.render([[
         {
-            ${find_slot}
+            TValue *slot;
+            pallene_getfieldslot($field_len, $tab, $key, slot);
             ${get_slot}
         }
     ]], {
-        find_slot = find_slot,
+        field_len = tostring(#field_name),
+        tab = tab,
+        key = key,
         get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, cmd.loc, "table field"),
     })
 end
@@ -1243,28 +1228,11 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
-    local find_slot
-    local ops = {
-        tab = tab,
-        key = key,
-    }
-
-    -- If the table field size is smaller than 40, use the optimized getStr Pallene implementation
-    if #field_name < 40 then
-        find_slot = util.render([[
-                static size_t cache = UINT_MAX;
-                TValue *slot = pallene_getshortstr($tab, $key, &cache);
-        ]], ops)
-    -- Else, use Lua's default getStr method
-    else
-        find_slot = util.render([[
-            TValue *slot = cast(TValue *, luaH_getstr($tab, $key));
-        ]], ops)
-    end
 
     return util.render([[
         {
-            ${find_slot}
+            TValue *slot;
+            pallene_getfieldslot($field_len, $tab, $key, slot);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
                 TValue keyv;
                 setsvalue(L, &keyv, $key);
@@ -1273,9 +1241,9 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
             ${set_heap_slot}
         }
     ]], {
+        field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        find_slot = find_slot,
         set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
     })
 end
