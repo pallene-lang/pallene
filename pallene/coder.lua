@@ -1202,7 +1202,6 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
     local tab = self:c_value(cmd.src_tab)
     local key = self:c_value(cmd.src_k)
     local dst_typ = cmd.dst_typ
-    local line = C.integer(cmd.loc.line)
 
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
