@@ -236,8 +236,10 @@ void pallene_renormalize_array(
     }
 }
 
-/* This function is a version of luaH_getshortstr that uses an inline cache for
- * the hash function */
+/* These specializations of luaH_getstr and luaH_getshortstr introduce two
+ * optimizations:
+ *   - After inlining, the length of the string is a compile-time constant
+ *   - getshortstr's table lookup uses an inline cache. */
 
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
@@ -270,8 +272,6 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
     }
 }
 
-/* If the table field size is smaller than LUAI_MAXSHORTLEN, use the optimized
- * getStr Pallene implementation, else, use use Lua's default getStr method. */
 static inline
 TValue *pallene_getstr(
         size_t field_len, Table *tab, TString *key, size_t *restrict cache)
