@@ -275,7 +275,7 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
 static inline
 TValue *pallene_getstr(size_t len, Table *t, TString *key, size_t *cache)
 {
-    if (len < LUAI_MAXSHORTLEN) {
+    if (len <= LUAI_MAXSHORTLEN) {
         return pallene_getshortstr(t, key, cache);
     } else {
         return cast(TValue *, luaH_getstr(t, key));
