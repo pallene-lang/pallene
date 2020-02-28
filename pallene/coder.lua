@@ -1202,21 +1202,22 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
     local tab = self:c_value(cmd.src_tab)
     local key = self:c_value(cmd.src_k)
     local dst_typ = cmd.dst_typ
-    local line = C.integer(cmd.loc.line)
 
-    return (util.render([[
+    assert(cmd.src_k._tag == "ir.Value.String")
+    local field_name = cmd.src_k.value
+
+    return util.render([[
         {
             static size_t cache = UINT_MAX;
-            TValue *slot = pallene_getshortstr($tab, $key, &cache);
-            $get_slot
+            TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
+            ${get_slot}
         }
     ]], {
+        field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        line = line,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab,
-            cmd.loc, "table field"),
-    }))
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, cmd.loc, "table field"),
+    })
 end
 
 gen_cmd["SetTable"] = function(self, cmd, _func)
@@ -1224,10 +1225,14 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
-    return (util.render([[
+    
+    assert(cmd.src_k._tag == "ir.Value.String")
+    local field_name = cmd.src_k.value
+
+    return util.render([[
         {
             static size_t cache = UINT_MAX;
-            TValue *slot = pallene_getshortstr($tab, $key, &cache);
+            TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
                 TValue keyv;
                 setsvalue(L, &keyv, $key);
@@ -1236,10 +1241,11 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
             ${set_heap_slot}
         }
     ]], {
+        field_len = tostring(#field_name),
         tab = tab,
         key = key,
         set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
-    }))
+    })
 end
 
 gen_cmd["NewRecord"] = function(self, cmd, _func)

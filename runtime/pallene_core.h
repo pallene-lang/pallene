@@ -270,6 +270,19 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
     }
 }
 
+/* If the table field size is smaller than LUAI_MAXSHORTLEN, use the optimized
+ * getStr Pallene implementation, else, use use Lua's default getStr method. */
+static inline
+TValue *pallene_getstr(
+        size_t field_len, Table *tab, TString *key, size_t *restrict cache)
+{
+    if (field_len < LUAI_MAXSHORTLEN) {
+        return pallene_getshortstr(tab, key, cache);
+    } else {
+        return cast(TValue *, luaH_getstr(tab, key));
+    }
+}
+
 /* To avoid looping infinitely due to integer overflow, Lua 5.4 carefully
  * computes the number of iterations before starting the loop (see OP_FORPREP).
  *
