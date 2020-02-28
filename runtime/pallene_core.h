@@ -244,17 +244,17 @@ void pallene_renormalize_array(
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
 static inline
-TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
+TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
 {
-    if (*pos < sizenode(t)) {
-       Node *n = gnode(t, *pos);
+    if (*cache < sizenode(t)) {
+       Node *n = gnode(t, *cache);
        if (keyisshrstr(n) && eqshrstr(keystrval(n), key))
            return gval(n);
     }
     Node *n = gnode(t, lmod(key->hash, sizenode(t)));
     for (;;) {
         if (keyisshrstr(n) && eqshrstr(keystrval(n), key)) {
-            *pos = n - gnode(t, 0);
+            *cache = n - gnode(t, 0);
             return gval(n);
         }
         else {
@@ -264,7 +264,7 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
                  * expect the cache to hit. The code will be faster because
                  * getstr will jump straight to the key search instead of trying
                  * to access a cache that we expect to be a miss. */
-                *pos = UINT_MAX;
+                *cache = UINT_MAX;
                 return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
             }
             n += nx;
@@ -274,12 +274,12 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t * restrict pos)
 
 static inline
 TValue *pallene_getstr(
-        size_t field_len, Table *tab, TString *key, size_t *restrict cache)
+    size_t len, Table *t, TString *key, size_t *restrict cache)
 {
-    if (field_len < LUAI_MAXSHORTLEN) {
-        return pallene_getshortstr(tab, key, cache);
+    if (len < LUAI_MAXSHORTLEN) {
+        return pallene_getshortstr(t, key, cache);
     } else {
-        return cast(TValue *, luaH_getstr(tab, key));
+        return cast(TValue *, luaH_getstr(t, key));
     }
 }
 
