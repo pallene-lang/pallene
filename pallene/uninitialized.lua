@@ -108,7 +108,7 @@ local function test(cmd, uninit, loop)
             return true, loop.uninit
         end
 
-    elseif tag == "ir.Cmd.For" then
+    elseif tag == "ir.Cmd.ForNum" then
         check_use(cmd.start)
         check_use(cmd.limit)
         check_use(cmd.step)

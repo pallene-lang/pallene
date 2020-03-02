@@ -427,7 +427,7 @@ function FunChecker:check_stat(stat)
             check_type_is_condition(stat.condition, "repeat-until loop condition")
         end)
 
-    elseif tag == "ast.Stat.For" then
+    elseif tag == "ast.Stat.ForNum" then
 
         local loop_type
         loop_type, stat.start = self:check_initializer_exp(stat.decl, stat.start,
@@ -463,6 +463,32 @@ function FunChecker:check_stat(stat)
         self.p.symbol_table:with_block(function()
             self:add_local(stat.decl.name, loop_type)
             stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
+            self:check_stat(stat.block)
+        end)
+        
+    elseif tag == "ast.Stat.ForIn" then
+        local tab = self:check_exp_synthesize(stat.exp)
+
+        if tab.exp.var.name == "ipairs" then
+            tab = tab.args[1].exp
+        end
+
+        if tab._type._tag ~= "types.T.Array" then
+            type_error(tab.loc,
+                "expected array but found %s in for-loop",
+                types.tostring(tab._type),
+                tab.name)
+        end        
+
+        tab = tab._type.elem --take type of table/array element
+
+        self.p.symbol_table:with_block(function()
+            self:add_local(stat.index.name, types.T.Integer())
+            stat.index._name = self.p.symbol_table:find_symbol(stat.index.name)
+
+            self:add_local(stat.decl.name, tab)
+            stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
+
             self:check_stat(stat.block)
         end)
 

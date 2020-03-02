@@ -149,7 +149,7 @@ local ir_cmd_constructors = {
     -- Records
     NewRecord  = {"loc", "rec_typ", "dst"},
 
-    GetField   = {"loc", "rec_typ", "dst", "src_rec", "field_name", },
+    GetField   = {"loc", "rec_typ", "dst", "src_rec", "field_name"},
     SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
@@ -163,6 +163,7 @@ local ir_cmd_constructors = {
     BuiltinStringChar = {"loc", "dst", "src"},
     BuiltinStringSub  = {"loc", "dst", "src1", "src2", "src3"},
     BuiltinToFloat    = {"loc", "dst", "src"},
+    BuiltinToIpairs   = {"loc", "src"},
 
     --
     -- Control flow
@@ -175,7 +176,8 @@ local ir_cmd_constructors = {
     Loop    = {"body"},
 
     If      = {"loc", "condition", "then_", "else_"},
-    For     = {"loc", "typ", "loop_var", "start", "limit", "step", "body"},
+    ForNum  = {"loc", "loop_var", "start", "limit", "step", "body"},
+    ForIn   = {"loc", "index", "loop_var", "src", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -241,7 +243,7 @@ local other_fields = {
     "field_name",
     "f_id",
     "cmds", "then_", "else_",
-    "typ", "loop_var", "body",
+    "typ", "loop_var","index", "body",
 }
 do
     local all_lists = {
@@ -282,7 +284,9 @@ function ir.iter(root_cmd)
             go(cmd.else_)
         elseif tag == "ir.Cmd.Loop" then
             go(cmd.body)
-        elseif tag == "ir.Cmd.For" then
+        elseif tag == "ir.Cmd.ForNum" then
+            go(cmd.body)
+        elseif tag == "ir.Cmd.ForIn" then
             go(cmd.body)
         else
             -- no recursion needed
@@ -319,7 +323,9 @@ function ir.map_cmd(root_cmd, f)
             cmd.else_ = go(cmd.else_)
         elseif tag == "ir.Cmd.Loop" then
             cmd.body = go(cmd.body)
-        elseif tag == "ir.Cmd.For" then
+        elseif tag == "ir.Cmd.ForNum" then
+            cmd.body = go(cmd.body)
+        elseif tag == "ir.Cmd.ForIn" then
             cmd.body = go(cmd.body)
         else
             -- no child nodes
@@ -385,7 +391,11 @@ function ir.clean(cmd)
         cmd.body = ir.clean(cmd.body)
         return cmd
 
-    elseif tag == "ir.Cmd.For" then
+    elseif tag == "ir.Cmd.ForNum" then
+        cmd.body = ir.clean(cmd.body)
+        return cmd
+
+    elseif tag == "ir.Cmd.ForIn" then
         cmd.body = ir.clean(cmd.body)
         return cmd
 

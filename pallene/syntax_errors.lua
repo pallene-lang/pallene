@@ -116,11 +116,15 @@ local errors = {
 
     DeclFor = "Expected variable declaration in for statement.",
 
-    AssignFor = "Expected '=' after variable declaration in for statement.",
+    ForCommaOrAssign = "Expected '=' or ',' after variable declaration in for statement.",
 
     Exp1For = "Expected an expression after '='.",
 
     CommaFor = "Expected ',' in for statement.",
+
+    InForIn = "Expected 'in' in for statement.",
+
+    ExpForIn = "Expected an expression list after 'in'.",
 
     Exp2For = "Expected an expression after ','.",
 

@@ -478,7 +478,7 @@ describe("Pallene parser", function()
                 x = i
             end
         ]], {
-            { _tag = "ast.Stat.For",
+            { _tag = "ast.Stat.ForNum",
               block = {
                 stats = {
                   { _tag = "ast.Stat.Assign",
@@ -1031,12 +1031,18 @@ describe("Pallene parser", function()
         assert_statements_syntax_error([[
             for x  1, 10 do
             end
-        ]], "Expected '=' after variable declaration in for statement.")
+        ]], "Expected '=' or ',' after variable declaration in for statement.")
 
         assert_statements_syntax_error([[
             for x = , 10 do
             end
         ]], "Expected an expression after '='.")
+
+        assert_statements_syntax_error([[
+            for x in do
+            end
+        ]], "Expected '=' or ',' after variable declaration in for statement.")
+        
 
         assert_statements_syntax_error([[
             for x = 1 10 do

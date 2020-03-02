@@ -1475,8 +1475,8 @@ gen_cmd["Loop"] = function(self, cmd, func)
     }))
 end
 
-gen_cmd["For"] = function(self, cmd, func)
-    local typ = cmd.typ
+gen_cmd["ForNum"] = function(self, cmd, func)
+    local typ = func.vars[cmd.loop_var].typ
 
     local macro
     if     typ._tag == "types.T.Integer" then
@@ -1499,6 +1499,25 @@ gen_cmd["For"] = function(self, cmd, func)
         start = self:c_value(cmd.start),
         limit = self:c_value(cmd.limit),
         step  = self:c_value(cmd.step),
+        body  = self:generate_cmd(func, cmd.body)
+    }))
+end
+
+gen_cmd["ForIn"] = function(self, cmd, func)
+
+    local macro = "PALLENE_FOR_IN_LOOP"
+
+    return (util.render([[
+        ${macro}_BEGIN($index, $x, $tab)
+        {
+            $body
+        }
+        ${macro}_END
+    ]], {
+        macro = macro,
+        index = self:c_var(cmd.index),
+        x     = self:c_var(cmd.loop_var),
+        tab   = self:c_var(cmd.src),
         body  = self:generate_cmd(func, cmd.body)
     }))
 end

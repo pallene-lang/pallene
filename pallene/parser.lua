@@ -307,11 +307,16 @@ local grammar = re.compile([[
                                       exp^ExpRepeat)             -> StatRepeat
                      / (P  IF exp^ExpIf THEN^ThenIf block
                            elseifstats elseopt END^EndIf)        -> if_stat
-                     / (P  FOR decl^DeclFor
-                           ASSIGN^AssignFor exp^Exp1For
+                     / (P  FOR decl ASSIGN exp^Exp1For
                            COMMA^CommaFor exp^Exp2For
                            (COMMA exp^Exp3For)?                  -> opt
-                           DO^DoFor block END^EndFor)            -> StatFor
+                           DO^DoFor block END^EndFor)            -> StatForNum
+                     / (P  FOR decl COMMA 
+                           decl^DeclFor IN^InForIn
+                           exp^ExpForIn
+                           DO^DoFor block END^EndFor)            -> StatForIn
+                     / (   FOR decl^DeclFor 
+                           (ASSIGN/COMMA)^ForCommaOrAssign)
                      / (P  LOCAL decl^DeclLocal
                                  (ASSIGN exp^ExpLocal)? ->opt)   -> StatDecl
                      / (P  BREAK)                                -> StatBreak

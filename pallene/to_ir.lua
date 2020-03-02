@@ -70,7 +70,7 @@ function ToIR:convert_stat(cmds, stat)
             ir.Cmd.Seq(then_),
             ir.Cmd.Seq(else_)))
 
-    elseif tag == "ast.Stat.For" then
+    elseif tag == "ast.Stat.ForNum" then
         local start = self:exp_to_value(cmds, stat.start)
         local limit = self:exp_to_value(cmds, stat.limit)
         local step  = self:exp_to_value(cmds, stat.step)
@@ -78,15 +78,30 @@ function ToIR:convert_stat(cmds, stat)
         local cname = stat.decl._name
         assert(cname._tag == "checker.Name.Local")
         local v = cname.id
-        local typ = self.func.vars[v].typ
 
         local body = {}
         self:convert_stat(body, stat.block)
 
-        table.insert(cmds, ir.Cmd.For(stat.loc,
-            typ, v,
-            start, limit, step,
+        table.insert(cmds, ir.Cmd.ForNum(stat.loc,
+            v, start, limit, step,
             ir.Cmd.Seq(body)))
+
+    elseif tag == "ast.Stat.ForIn" then
+        local cname1 = stat.index._name
+        assert(cname1._tag == "checker.Name.Local")
+
+        local cname2 = stat.decl._name
+        assert(cname2._tag == "checker.Name.Local")
+
+        local v1 = cname1.id
+        local v2 = cname2.id
+
+        local body = {}
+        self:convert_stat(body, stat.block)
+
+        table.insert(cmds, ir.Cmd.ForIn(stat.loc,
+            v1, v2, stat.exp,
+            ir.Cmd.Seq(body)))     
 
     elseif tag == "ast.Stat.Assign" then
         local var = stat.var
@@ -417,6 +432,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "tofloat" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, dst, xs[1]))
+
+            elseif bname == "ipairs" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinIpairs(loc, xs[1]))
             else
                 error("impossible")
             end

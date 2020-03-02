@@ -15,6 +15,7 @@ for lua_name, typ in pairs({
     ["string.char"]  = T.Function({T.Integer()}, {T.String()}),
     ["string.sub"]   = T.Function({T.String(), T.Integer(), T.Integer()}, {T.String()}),
     ["tofloat"]      = T.Function({T.Integer()}, {T.Float()}),
+    ["ipairs"]       = T.Function({T.Any()}, {}),
 }) do
     local pallene_name = string.gsub(lua_name, "%.", "_")
     builtins[pallene_name] = {
