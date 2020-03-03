@@ -121,11 +121,10 @@ Flag             | Effect
 busted -v        | Verbose output, including the stack trace
 busted --no-k    | Stop running tests after the first error
 busted -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
-```
 
 ### Running the benchmarks suite
 
-To run of the benchmarks in the benchmarks directory, tun the `benchmarks/run`
+To run of the benchmarks in the benchmarks directory, run the `benchmarks/run`
 script from the root project directory:
 
 ```sh
