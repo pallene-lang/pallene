@@ -299,6 +299,9 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         else
             -- Fallthrough to default
         end
+
+    elseif tag == "ast.Exp.Paren" then
+        return self:exp_to_value(cmds, exp.exp, false)
     end
 
     if _recursive then

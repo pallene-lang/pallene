@@ -801,6 +801,10 @@ function FunChecker:check_exp_synthesize(exp)
         local dst_t = self.p:from_ast_type(exp.target)
         return self:check_exp_verify(exp.exp, dst_t, "cast expression")
 
+    elseif tag == "ast.Exp.Paren" then
+        exp.exp = self:check_exp_synthesize(exp.exp)
+        exp._type = exp.exp._type
+
     else
         error("impossible")
     end
@@ -875,6 +879,10 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
 
     elseif tag == "ast.Exp.Lambda" then
         error("not implemented yet")
+
+    elseif tag == "ast.Exp.Paren" then
+        exp.exp = self:check_exp_verify(exp.exp, expected_type, errmsg_fmt, ...)
+        return exp
 
     else
 

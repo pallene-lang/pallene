@@ -413,7 +413,10 @@ describe("Pallene parser", function()
     end)
 
     it("can parse parenthesized expressions", function()
-        assert_expression_ast("((1))", { _tag = "ast.Exp.Integer", value = 1 })
+        assert_expression_ast("((1))",
+            { _tag = "ast.Exp.Paren",
+                exp = { _tag = "ast.Exp.Paren",
+                    exp = { _tag = "ast.Exp.Integer", value = 1 }}})
     end)
 
     it("can parse table constructors", function()
@@ -561,15 +564,15 @@ describe("Pallene parser", function()
         assert_expression_ast([[(1 <= 2) == (4 < 5) == (6 ~= 7)]],
             { op = "==",
                 lhs = { op = "==",
-                    lhs = { op = "<=",
+                    lhs = { _tag = "ast.Exp.Paren", exp = { op = "<=",
                         lhs = { value = 1 },
-                        rhs = { value = 2 } },
-                    rhs = { op = "<",
+                        rhs = { value = 2 } } },
+                    rhs = { _tag = "ast.Exp.Paren", exp = { op = "<",
                         lhs = { value = 4 },
-                        rhs = { value = 5 } } },
-                rhs = { op = "~=",
+                        rhs = { value = 5 } } } },
+                rhs = { _tag = "ast.Exp.Paren", exp = { op = "~=",
                     lhs = { value = 6 },
-                    rhs = { value = 7 } } })
+                    rhs = { value = 7 } } } })
 
         assert_expression_ast([[~~1 ~ 2 << 3 >> 4 | 5 & 6]],
             { op = "|",

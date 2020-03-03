@@ -378,8 +378,8 @@ local grammar = re.compile([[
                      / (P  DOT NAME^NameDotExpSuf)               -> suffix_dot
 
     prefixexp       <- (P  NAME)                                 -> name_exp
-                     / (LPAREN exp^ExpSimpleExp
-                               RPAREN^RParSimpleExp)             -- produces Exp
+                     / (P LPAREN exp^ExpSimpleExp
+                               RPAREN^RParSimpleExp)             -> ExpParen
 
 
     castexp         <- (P  simpleexp AS type^CastMissingType)    -> ExpCast
