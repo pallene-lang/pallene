@@ -1225,7 +1225,7 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
-    
+
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
 
@@ -1476,7 +1476,7 @@ gen_cmd["Loop"] = function(self, cmd, func)
 end
 
 gen_cmd["For"] = function(self, cmd, func)
-    local typ = cmd.typ
+    local typ = func.vars[cmd.loop_var].typ
 
     local macro
     if     typ._tag == "types.T.Integer" then
