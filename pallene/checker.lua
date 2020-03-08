@@ -62,7 +62,7 @@ local function check_type_is_condition(exp, err_fmt, ...)
     local typ = exp._type
     if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Any" then
         type_error(exp.loc,
-            "expression passed to %s has type %s. Expected boolean or value.",
+            "expression passed to %s has type %s. Expected boolean or any.",
             string.format(err_fmt, ...),
             types.tostring(typ))
     end
