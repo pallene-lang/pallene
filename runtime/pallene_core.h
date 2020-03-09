@@ -78,6 +78,9 @@ TString* pallene_string_sub(
 int pallene_l_strcmp(
     const TString *ls, const TString *rs);
 
+TString *pallene_type_builtin(
+    lua_State *L, TValue v);
+
 /* --------------------------- */
 /* Inline functions and macros */
 /* --------------------------- */

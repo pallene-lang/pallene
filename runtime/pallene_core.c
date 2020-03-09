@@ -265,3 +265,7 @@ int pallene_l_strcmp (const TString *ls, const TString *rs) {
     }
   }
 }
+
+TString *pallene_type_builtin(lua_State *L, TValue v) {
+    return luaS_new(L, lua_typename(L, ttype(&v)));
+}
