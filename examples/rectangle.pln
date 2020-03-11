@@ -1,0 +1,6 @@
+type rectangle = { width: float, height: float }
+
+function find_area(r: rectangle): float
+	local result = r.width * r.height
+	return result
+end

@@ -1,3 +1,7 @@
 echo "[info] Running sum of array"
 ./pallenec examples/sum_of_array.pln
 ./lua/src/lua examples/sum_of_array_main.lua
+
+echo "[info] Running rectangle area"
+./pallenec examples/rectangle.pln
+./lua/src/lua examples/rectangle_main.lua
