@@ -26,6 +26,12 @@ the [LuaRocks](http://luarocks.org) package manager:
 $ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
+> As of now, LuaRocks is configured to use Lua 5.1 by default. However, Pallene
+> requires Lua 5.3 to run. Therefore, please configure LuaRocks to use Lua 5.3.
+> You can use the following command to configure LuaRocks to use Lua 5.3 when
+> compiling it:
+> `./configure --lua-version=5.3`
+
 If you use the --local flag when installing packages from Luarocks, you may
 also need to configure the appropriate environment variables on your terminal configuration file.
 If you are using bash you can do (as stated in `luarocks --help path`):
