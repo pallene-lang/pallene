@@ -163,7 +163,7 @@ local ir_cmd_constructors = {
     BuiltinStringChar = {"loc", "dst", "src"},
     BuiltinStringSub  = {"loc", "dst", "src1", "src2", "src3"},
     BuiltinToFloat    = {"loc", "dst", "src"},
-    BuiltinToIpairs   = {"loc", "src"},
+    BuiltinIpairs     = {"loc", "src"},
 
     --
     -- Control flow
@@ -177,7 +177,7 @@ local ir_cmd_constructors = {
 
     If      = {"loc", "condition", "then_", "else_"},
     ForNum  = {"loc", "loop_var", "start", "limit", "step", "body"},
-    ForIn   = {"loc", "index", "loop_var", "src", "body"},
+    ForIn   = {"loc", "index", "loop_var", "src_arr", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},

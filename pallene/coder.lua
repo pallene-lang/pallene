@@ -1503,25 +1503,6 @@ gen_cmd["ForNum"] = function(self, cmd, func)
     }))
 end
 
-gen_cmd["ForIn"] = function(self, cmd, func)
-
-    local macro = "PALLENE_FOR_IN_LOOP"
-
-    return (util.render([[
-        ${macro}_BEGIN($index, $x, $tab)
-        {
-            $body
-        }
-        ${macro}_END
-    ]], {
-        macro = macro,
-        index = self:c_var(cmd.index),
-        x     = self:c_var(cmd.loop_var),
-        tab   = self:c_var(cmd.src),
-        body  = self:generate_cmd(func, cmd.body)
-    }))
-end
-
 gen_cmd["CheckGC"] = function(self, cmd, func)
     local top = self:stack_top_at(func, cmd)
     return util.render([[ luaC_condGC(L, L->top = $top, (void)0); ]], {

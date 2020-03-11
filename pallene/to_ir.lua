@@ -95,13 +95,14 @@ function ToIR:convert_stat(cmds, stat)
 
         local v1 = cname1.id
         local v2 = cname2.id
-
+        
+        local tab = stat.exp.args[1].exp
+        self:exp_to_assignment(cmds, v1, stat.start)
         local body = {}
+        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type, cname2, tab, cname1))
         self:convert_stat(body, stat.block)
+        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
-        table.insert(cmds, ir.Cmd.ForIn(stat.loc,
-            v1, v2, stat.exp,
-            ir.Cmd.Seq(body)))     
 
     elseif tag == "ast.Stat.Assign" then
         local var = stat.var

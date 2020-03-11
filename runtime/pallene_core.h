@@ -344,19 +344,4 @@ TValue *pallene_getstr(size_t len, Table *t, TString *key, size_t *cache)
         } \
     }
     
-#define PALLENE_FOR_IN_LOOP_BEGIN(i, j, A) \
-    { \
-        lua_Number _init = 0; \
-        i = _init; \
-        while (1) { \
-            j = A[i]; \
-
-            if (!j) break; \
-            /* Loop body goes here*/
-
-#define PALLENE_FOR_IN_LOOP_END \
-            i++; \
-        } \
-    }
-
 #endif

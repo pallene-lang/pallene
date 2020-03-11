@@ -43,7 +43,7 @@ declare_type("Stat", {
     Repeat = {"loc", "block", "condition"},
     If     = {"loc", "condition", "then_", "else_"},
     ForNum = {"loc", "decl", "start", "limit", "step", "block"},
-    ForIn  = {"loc", "index", "decl", "exp", "block"}, -- index = index variable, decl takes table elements
+    ForIn  = {"loc", "index", "decl", "exp", "block"},
     Assign = {"loc", "var", "exp"},
     Decl   = {"loc", "decl", "exp"},
     Call   = {"loc", "call_exp"},
