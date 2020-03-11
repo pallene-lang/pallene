@@ -73,14 +73,14 @@ describe("Scope analysis: ", function()
 
     it("forbids typealias to non-existent type", function()
         assert_error([[
-            type point = foo
+            typealias point = foo
         ]],
             "type 'foo' is not declared")
     end)
 
     it("forbids recursive typealias", function()
         assert_error([[
-            type point = {point}
+            typealias point = {point}
         ]],
             "type 'point' is not declared")
     end)
@@ -88,7 +88,7 @@ describe("Scope analysis: ", function()
     it("forbids typealias to non-type name", function()
         assert_error([[
             local x: integer = 0
-            type point = x
+            typealias point = x
         ]],
             "type error: 'x' isn't a type")
     end)

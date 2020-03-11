@@ -364,7 +364,7 @@ describe("Pallene parser", function()
     end)
 
     it("can parse type alias", function()
-        assert_program_ast([[ type point = {float} ]], {
+        assert_program_ast([[ typealias point = {float} ]], {
             { _tag = "ast.Toplevel.Typealias",
                 name = "point", type = { _tag = "ast.Type.Array" } }
         })
@@ -890,15 +890,15 @@ describe("Pallene parser", function()
         ]], "Expected a record name after 'record'.")
 
         assert_program_syntax_error([[
-            type
-        ]], "Expected a type-alias name after 'type'.")
+            typealias
+        ]], "Expected a type-alias name after 'typealias'.")
 
         assert_program_syntax_error([[
-            type point
+            typealias point
         ]], "Expected '=' after type-alias name.")
 
         assert_program_syntax_error([[
-            type point =
+            typealias point =
         ]], "Expected a type after '=' in a type-alias.")
 
         assert_program_syntax_error([[

@@ -416,9 +416,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "tofloat" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, dst, xs[1]))
-            elseif bname == "btype" then
+            elseif bname == "type" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinBType(loc, dst, xs[1]))
+                table.insert(cmds, ir.Cmd.BuiltinType(loc, dst, xs[1]))
             else
                 error("impossible")
             end
