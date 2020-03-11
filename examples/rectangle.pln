@@ -1,5 +1,9 @@
+-- The following program demonstrates using table types in Pallene.
+
 type rectangle = { width: float, height: float }
 
+-- The find_area() function accepts a rectangle object. It evaluates the area
+-- and returns it.
 function find_area(r: rectangle): float
 	local result = r.width * r.height
 	return result

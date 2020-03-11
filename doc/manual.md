@@ -188,7 +188,7 @@ local v = (17 as any)
 local s = (v as string)  -- run-time error: v is not a string
 ```
 
-The `any` type allows allows for a limited form of dynamic typing.
+The `any` type allows for a limited form of dynamic typing.
 The main difference compared to Lua is that Pallene does not allow you to perform any operations on a `any`.
 You may pass a `any` to a functions and you may store it in an array but you cannot call it, index it, or use it in an arithmetic operation:
 
