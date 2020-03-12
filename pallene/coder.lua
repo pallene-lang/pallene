@@ -1225,7 +1225,7 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     local key = self:c_value(cmd.src_k)
     local v = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
-    
+
     assert(cmd.src_k._tag == "ir.Value.String")
     local field_name = cmd.src_k.value
 
