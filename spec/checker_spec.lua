@@ -2,8 +2,8 @@ local driver = require 'pallene.driver'
 local util = require 'pallene.util'
 
 local function run_checker(code)
-    assert(util.set_file_contents("test.pln", code))
-    local module, errs = driver.compile_internal("test.pln", "checker")
+    assert(util.set_file_contents("__test__.pln", code))
+    local module, errs = driver.compile_internal("__test__.pln", "checker")
     return module, table.concat(errs, "\n")
 end
 
@@ -16,7 +16,7 @@ end
 describe("Scope analysis: ", function()
 
     teardown(function()
-        os.remove("test.pln")
+        os.remove("__test__.pln")
     end)
 
     it("forbids variables from being used before they are defined", function()
@@ -97,7 +97,7 @@ end)
 describe("Pallene type checker", function()
 
     teardown(function()
-        os.remove("test.pln")
+        os.remove("__test__.pln")
     end)
 
     it("detects when a non-type is used in a type variable", function()
