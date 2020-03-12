@@ -93,14 +93,26 @@ function ToIR:convert_stat(cmds, stat)
         local cname2 = stat.decl._name
         assert(cname2._tag == "checker.Name.Local")
 
-        local v1 = cname1.id
-        local v2 = cname2.id
-        
         local tab = stat.exp.args[1].exp
-        self:exp_to_assignment(cmds, v1, stat.start)
+
+        local v1 = ir.Value.LocalVar(cname1.id)
+        local v2 = ir.Value.LocalVar(cname2.id)
+        local tabId = ir.Value.LocalVar(tab.var._name.id)
+
+        self:exp_to_assignment(cmds, cname1.id, stat.start)
+
         local body = {}
-        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type, cname2, tab, cname1))
+        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type.elem, v2.id, tabId, v1))
+        -- local b = ir.add_local(self.func, false, types.T.Boolean())
+        -- table.insert(body, ir.Cmd.IsTruthy(stat.decl.loc, b, v2))
+        -- local hasTag = ir.Value.LocalVar(b)
+        -- table.insert(body, ir.Cmd.If(stat.block.loc, hasTag, ir.Cmd.Break(), ir.Cmd.Nop()))
+
         self:convert_stat(body, stat.block)
+
+        local indexIncr = ir.Cmd.Binop(stat.index.loc, v1.id, "IntAdd", v1, ir.Value.Integer(1))
+        table.insert(body, indexIncr)
+
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
 
