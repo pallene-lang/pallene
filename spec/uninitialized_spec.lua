@@ -2,8 +2,8 @@ local driver = require 'pallene.driver'
 local util = require 'pallene.util'
 
 local function run_uninitialized(code)
-    assert(util.set_file_contents("test.pln", code))
-    local module, errs = driver.compile_internal("test.pln", "uninitialized")
+    assert(util.set_file_contents("__test__.pln", code))
+    local module, errs = driver.compile_internal("__test__.pln", "uninitialized")
     return module, table.concat(errs, "\n")
 end
 
@@ -19,7 +19,7 @@ local missing_return =
 describe("Uninitialized variable analysis: ", function()
 
     teardown(function()
-        os.remove("test.pln")
+        os.remove("__test__.pln")
     end)
 
     it("empty function", function()

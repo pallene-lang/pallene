@@ -3,33 +3,33 @@ local util = require "pallene.util"
 
 local function compile(pallene_code)
     return function()
-        assert(util.set_file_contents("test.pln", pallene_code))
+        assert(util.set_file_contents("__test__.pln", pallene_code))
         local ok, errors =
-            driver.compile("pallenec-tests", "pln", "so", "test.pln")
+            driver.compile("pallenec-tests", "pln", "so", "__test__.pln")
         assert(ok, errors[1])
     end
 end
 
 local function run_test(test_script)
-    util.set_file_contents("test_script.lua", util.render([[
-        local test = require "test"
+    util.set_file_contents("__test__script__.lua", util.render([[
+        local test = require "__test__"
         ${TEST_SCRIPT}
     ]], {
         TEST_SCRIPT = test_script
     }))
-    assert(util.execute("./lua/src/lua test_script.lua > test_output.txt"))
+    assert(util.execute("./lua/src/lua __test__script__.lua > __test__output__.txt"))
 end
 
 local function assert_test_output(expected)
-    local output = assert(util.get_file_contents("test_output.txt"))
+    local output = assert(util.get_file_contents("__test__output__.txt"))
     assert.are.same(expected, output)
 end
 
 local function cleanup()
-    os.remove("test.pln")
-    os.remove("test.so")
-    os.remove("test_script.lua")
-    os.remove("test_output.txt")
+    os.remove("__test__.pln")
+    os.remove("__test__.so")
+    os.remove("__test__script__.lua")
+    os.remove("__test__output__.txt")
 end
 
 describe("Pallene coder /", function()
