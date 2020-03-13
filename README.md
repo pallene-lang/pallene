@@ -19,18 +19,32 @@ install its Lua library dependencies and compile its run-time library.
 
 ### Prerequisites
 
+Before you build Pallene, you need to install `gcc` and `make` on your system.
+Ubuntu users can run the following commands to install these tools.
+```
+sudo apt-get update
+sudo apt-get install build-essential
+```
+
+Linux users using pacman can run the following commands.
+```
+pacman -Syyu
+pacman -S make
+pacman -S gcc
+```
+
 Pallene requires Lua 5.3 to be installed on your system. You can either install it
 from a package manager (such as apt) or build it from the source code. You can download
-the source code of Lua 5.3 from [https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks).
+the source code of Lua 5.3 from [https://www.lua.org/ftp/](https://www.lua.org/ftp/).
 
 After Lua 5.3 is installed, download the source code of LuaRocks from 
-[https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks). Follow
-the build instructions appropriate for your platform and install it no your system.
+[https://github.com/luarocks/luarocks/releases](https://github.com/luarocks/luarocks/releases). Follow
+the build instructions appropriate for your platform and install it on your system.
 
-As of now, LuaRocks is configured to use Lua 5.1 by default. However, Pallene
-requires Lua 5.3 to run. Therefore, please configure LuaRocks to use Lua 5.3.
-You can use the following command to configure LuaRocks to use Lua 5.3 when
-compiling it:
+If LuaRocks is configured to use older versions of Lua, you may not be able to
+install the dependencies as described in the next section. Therefore, please
+configure LuaRocks to use Lua 5.3. You can use the following command to configure
+LuaRocks to use Lua 5.3 when compiling it:
 `./configure --lua-version=5.3`
 
 ### Installing dependencies
