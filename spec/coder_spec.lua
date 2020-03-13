@@ -1072,7 +1072,7 @@ describe("Pallene coder /", function()
         local maxlenfield = string.rep('a', 40)
 
         setup(compile([[
-            type point = {x: integer, y: integer}
+            typealias point = {x: integer, y: integer}
 
             function newpoint(): point
                 return {x = 10, y = 20}
@@ -1209,8 +1209,8 @@ describe("Pallene coder /", function()
 
     describe("Typealias", function()
         setup(compile([[
-            type Float = float
-            type FLOAT = float
+            typealias Float = float
+            typealias FLOAT = float
 
             function Float2float(x: Float): float return x end
             function float2Float(x: float): Float return x end
@@ -1220,8 +1220,8 @@ describe("Pallene coder /", function()
                 x: Float
             end
 
-            type Point = point
-            type Points = {Point}
+            typealias Point = point
+            typealias Points = {Point}
 
             function newPoint(x: Float): Point
                 return {x = x}
@@ -1611,7 +1611,7 @@ describe("Pallene coder /", function()
 
             local x = 10
 
-            type y = integer
+            typealias y = integer
 
             ------
 

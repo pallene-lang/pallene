@@ -100,7 +100,7 @@ For instance, `{ x: integer, y: integer }` is the type for a table with the fiel
 Like arrays, Pallene tables are implemented as Lua tables and Pallene uses the same Lua syntax for their creation:
 
 ```
-type point = {x: integer, y: integer}
+typealias point = {x: integer, y: integer}
 local p: point = {x = 10, y = 20}
 ```
 
@@ -217,13 +217,13 @@ A Pallene module consists of a sequence of type declarations, module-local varia
 Creates an alias for a previously-declared type with the following syntax:
 
 ```
-type <name> = <type>
+typealias <name> = <type>
 ```
 
 Type alias in Pallene currently cannot be used to declare recursive types, such as:
 
 ```
-type T = {T}
+typealias T = {T}
 ```
 
 ### Record declarations
@@ -231,8 +231,8 @@ type T = {T}
 Record declarations consist solely of record declarations.
 
 ```
-record <name> 
-    <name> : type 
+record <name>
+    <name> : type
     ...
 end
 ```

@@ -1392,6 +1392,11 @@ gen_cmd["BuiltinToFloat"] = function(self, cmd, _func)
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
+gen_cmd["BuiltinType"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local v = self:c_value(cmd.src)
+    return util.render([[ $dst = pallene_type_builtin(L, $v); ]], { dst = dst, v = v })
+end
 
 --
 -- Control flow

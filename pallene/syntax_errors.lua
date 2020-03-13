@@ -53,7 +53,7 @@ local errors = {
 
     EndRecord = "Expected 'end' to close the record.",
 
-    NameTypeAlias = "Expected a type-alias name after 'type'.",
+    NameTypeAlias = "Expected a type-alias name after 'typealias'.",
 
     AssignTypeAlias = "Expected '=' after type-alias name.",
 
