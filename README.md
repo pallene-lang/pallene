@@ -17,6 +17,21 @@ Compared to LuaJIT, Pallene aims to offer more predictable run-time performance.
 In order to use this source distribution of the Pallene compiler, you need to
 install its Lua library dependencies and compile its run-time library.
 
+### Prerequisites
+
+Pallene requires Lua 5.3 to be installed on your system. You can either install it
+from a package manager (such as apt) or build it from the source code. You can download
+the source code of Lua 5.3 from [https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks).
+
+After Lua 5.3 is installed, download the source code of LuaRocks from 
+[https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks).
+
+As of now, LuaRocks is configured to use Lua 5.1 by default. However, Pallene
+requires Lua 5.3 to run. Therefore, please configure LuaRocks to use Lua 5.3.
+You can use the following command to configure LuaRocks to use Lua 5.3 when
+compiling it:
+`./configure --lua-version=5.3`
+
 ### Installing dependencies
 
 The easiest way to install the dependencies for the Pallene compiler is through
@@ -26,11 +41,7 @@ the [LuaRocks](http://luarocks.org) package manager:
 $ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
-> As of now, LuaRocks is configured to use Lua 5.1 by default. However, Pallene
-> requires Lua 5.3 to run. Therefore, please configure LuaRocks to use Lua 5.3.
-> You can use the following command to configure LuaRocks to use Lua 5.3 when
-> compiling it:
-> `./configure --lua-version=5.3`
+
 
 If you use the --local flag when installing packages from Luarocks, you may
 also need to configure the appropriate environment variables on your terminal configuration file.
