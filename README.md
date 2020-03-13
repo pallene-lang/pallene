@@ -24,7 +24,8 @@ from a package manager (such as apt) or build it from the source code. You can d
 the source code of Lua 5.3 from [https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks).
 
 After Lua 5.3 is installed, download the source code of LuaRocks from 
-[https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks).
+[https://github.com/luarocks/luarocks](https://github.com/luarocks/luarocks). Follow
+the build instructions appropriate for your platform and install it no your system.
 
 As of now, LuaRocks is configured to use Lua 5.1 by default. However, Pallene
 requires Lua 5.3 to run. Therefore, please configure LuaRocks to use Lua 5.3.
