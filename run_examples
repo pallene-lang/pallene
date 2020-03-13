@@ -1,11 +1,11 @@
 echo "[info] Running sum of array"
-./pallenec examples/sum_of_array.pln
-./lua/src/lua examples/sum_of_array_main.lua
+./pallenec examples/sum_of_array_main/sum_of_array.pln
+./lua/src/lua examples/sum_of_array_main/main.lua
 
 echo "[info] Running rectangle area"
-./pallenec examples/rectangle.pln
-./lua/src/lua examples/rectangle_main.lua
+./pallenec examples/rectangle/rectangle.pln
+./lua/src/lua examples/rectangle/main.lua
 
 echo "[info] Running arithmetic"
-./pallenec examples/arithmetic.pln
-./lua/src/lua examples/arithmetic_main.lua
+./pallenec examples/arithmetic/arithmetic.pln
+./lua/src/lua examples/arithmetic/main.lua
