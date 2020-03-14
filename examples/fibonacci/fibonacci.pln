@@ -1,0 +1,19 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+function fibonacci(count: integer): { integer }
+    local a: integer = 0
+    local b: integer = 1
+    local i: integer = 1
+    local result: { integer } = {}
+    while i <= count do
+        result[i] = a
+        local c: integer = a + b
+        a = b
+        b = c
+        i = i + 1
+    end
+    return result
+end
