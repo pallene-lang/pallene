@@ -1,0 +1,12 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+function sum(array: { float }): float
+    local result = 0.0
+    for i = 1, #array do
+        result = result + array[i]
+    end
+    return result
+end
