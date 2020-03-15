@@ -4,11 +4,7 @@
 -- SPDX-License-Identifier: MIT
 
 function add(a: any, b: any): integer
-    if a.type() != "integer" then
-        return -1
-    else
-        return (a as integer) + (b as integer)
-    end
+    return (a as integer) + (b as integer)
 end
 
 function subtract(a: any, b: any): float

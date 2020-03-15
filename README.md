@@ -26,13 +26,6 @@ sudo apt-get update
 sudo apt-get install build-essential
 ```
 
-Linux users using pacman can run the following commands.
-```
-pacman -Syyu
-pacman -S make
-pacman -S gcc
-```
-
 Pallene requires Lua 5.3 to be installed on your system. You can either install it
 from a package manager (such as apt) or build it from the source code. You can download
 the source code of Lua 5.3 from [https://www.lua.org/ftp/](https://www.lua.org/ftp/).
