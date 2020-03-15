@@ -132,7 +132,6 @@ local ir_cmd_constructors = {
     --- Dynamic Value
     ToDyn      = {"loc", "src_typ", "dst", "src"},
     FromDyn    = {"loc", "dst_typ", "dst", "src"},
-    HasTag     = {"loc", "dst_typ", "dst", "src"},
     IsTruthy   = {"loc", "dst", "src"},
     
     -- Arrays
@@ -178,7 +177,6 @@ local ir_cmd_constructors = {
 
     If      = {"loc", "condition", "then_", "else_"},
     ForNum  = {"loc", "loop_var", "start", "limit", "step", "body"},
-    ForIn   = {"loc", "index", "loop_var", "src_arr", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},

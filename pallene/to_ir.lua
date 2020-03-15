@@ -95,27 +95,30 @@ function ToIR:convert_stat(cmds, stat)
 
         local tab = stat.exp.args[1].exp
 
-        local v1 = ir.Value.LocalVar(cname1.id)
-        local v2 = ir.Value.LocalVar(cname2.id)
+        local index = ir.Value.LocalVar(cname1.id)
+        local elem = ir.Value.LocalVar(cname2.id)
         local tabId = ir.Value.LocalVar(tab.var._name.id)
 
-        self:exp_to_assignment(cmds, v1.id, stat.start)
+        self:exp_to_assignment(cmds, index.id, stat.start)
 
         local body = {} 
-        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type.elem, v2.id, tabId, v1))    
+
+        local v = ir.Value.LocalVar(ir.add_local(self.func, false, types.T.Any()))
+        table.insert(body, ir.Cmd.GetArr(stat.decl.loc, types.T.Any(), v.id, tabId, index))
 
         local b = ir.add_local(self.func, false, types.T.Boolean())
-        table.insert(body, ir.Cmd.HasTag(stat.block.loc, tab._type.elem, b, v2))
+        table.insert(body, ir.Cmd.IsTruthy(stat.block.loc, b, v))
+
         local condBool = ir.Value.LocalVar(b)
         table.insert(body, ir.Cmd.If(stat.block.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
 
+        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type.elem, elem.id, tabId, index))    
         self:convert_stat(body, stat.block)
 
-        local indexIncr = ir.Cmd.Binop(stat.index.loc, v1.id, "IntAdd", v1, ir.Value.Integer(1))
+        local indexIncr = ir.Cmd.Binop(stat.index.loc, index.id, "IntAdd", index, ir.Value.Integer(1))
         table.insert(body, indexIncr)
 
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
-
 
     elseif tag == "ast.Stat.Assign" then
         local var = stat.var

@@ -1137,20 +1137,6 @@ gen_cmd["IsTruthy"] = function(self, cmd, _func)
         dst = dst, src = src }))
 end
 
-gen_cmd["HasTag"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dst)
-    local src = self:c_value(cmd.src)
-    local dst_typ = cmd.dst_typ
-
-    
-    return (util.render([[ 
-        setnilvalue(&$dst);
-    ]], {
-        dst = dst,
-        --src = lua_value(dst_typ, '&'..src),
-    })) 
-end
-
 gen_cmd["NewArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local n = C.integer(cmd.size_hint)
