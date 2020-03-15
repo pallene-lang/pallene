@@ -56,8 +56,6 @@ the [LuaRocks](http://luarocks.org) package manager:
 $ luarocks install --local --only-deps pallene-dev-1.rockspec
 ```
 
-
-
 If you use the --local flag when installing packages from Luarocks, you may
 also need to configure the appropriate environment variables on your terminal configuration file.
 If you are using bash you can do (as stated in `luarocks --help path`):
@@ -181,4 +179,3 @@ To run benchmarks with LuaJIT, use the `--lua` option:
 ```sh
 ./benchmarks/run benchmarks/sieve/lua.lua --lua=luajit
 ```
-
