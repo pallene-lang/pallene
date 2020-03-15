@@ -99,14 +99,15 @@ function ToIR:convert_stat(cmds, stat)
         local v2 = ir.Value.LocalVar(cname2.id)
         local tabId = ir.Value.LocalVar(tab.var._name.id)
 
-        self:exp_to_assignment(cmds, cname1.id, stat.start)
+        self:exp_to_assignment(cmds, v1.id, stat.start)
 
-        local body = {}
-        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type.elem, v2.id, tabId, v1))
-        -- local b = ir.add_local(self.func, false, types.T.Boolean())
-        -- table.insert(body, ir.Cmd.IsTruthy(stat.decl.loc, b, v2))
-        -- local hasTag = ir.Value.LocalVar(b)
-        -- table.insert(body, ir.Cmd.If(stat.block.loc, hasTag, ir.Cmd.Break(), ir.Cmd.Nop()))
+        local body = {} 
+        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type.elem, v2.id, tabId, v1))    
+
+        local b = ir.add_local(self.func, false, types.T.Boolean())
+        table.insert(body, ir.Cmd.HasTag(stat.block.loc, tab._type.elem, b, v2))
+        local condBool = ir.Value.LocalVar(b)
+        table.insert(body, ir.Cmd.If(stat.block.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
 
         self:convert_stat(body, stat.block)
 
@@ -441,14 +442,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 table.insert(cmds,
                     ir.Cmd.BuiltinStringSub(loc, dst, xs[1], xs[2], xs[3]))
                 table.insert(cmds, ir.Cmd.CheckGC())
-
             elseif bname == "tofloat" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, dst, xs[1]))
-
-            elseif bname == "ipairs" then
-                assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinIpairs(loc, xs[1]))
             else
                 error("impossible")
             end
