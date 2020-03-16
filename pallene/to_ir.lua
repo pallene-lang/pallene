@@ -87,37 +87,53 @@ function ToIR:convert_stat(cmds, stat)
             ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.ForIn" then
-        local cname1 = stat.index._name
-        assert(cname1._tag == "checker.Name.Local")
+        assert(stat.index._name._tag == "checker.Name.Local")
+        assert(stat.decl._name._tag == "checker.Name.Local")
 
-        local cname2 = stat.decl._name
-        assert(cname2._tag == "checker.Name.Local")
+        local arr = stat.exp.args[1].exp
+        local index = ir.Value.LocalVar(stat.index._name.id)
+        local elem = ir.Value.LocalVar(stat.decl._name.id)
+        local arrVar = self:exp_to_value(cmds, arr)
 
-        local tab = stat.exp.args[1].exp
+        local xsId
+        if arr._type._tag == "types.T.Array" then
+            xsId = ir.add_local(self.func, false, types.T.Array(arr._type.elem))
+        end
+            
+        -- xs = arr
+        local xs = ir.Value.LocalVar(xsId)
+        table.insert(cmds, ir.Cmd.Move(stat.index.loc, xsId, arrVar))
 
-        local index = ir.Value.LocalVar(cname1.id)
-        local elem = ir.Value.LocalVar(cname2.id)
-        local tabId = ir.Value.LocalVar(tab.var._name.id)
-
-        self:exp_to_assignment(cmds, index.id, stat.start)
+        -- index = 1
+        table.insert(cmds, ir.Cmd.Move(stat.index.loc, index.id, ir.Value.Integer(1)))
 
         local body = {} 
 
-        local v = ir.Value.LocalVar(ir.add_local(self.func, false, types.T.Any()))
-        table.insert(body, ir.Cmd.GetArr(stat.decl.loc, types.T.Any(), v.id, tabId, index))
+        -- fresh variable is needed to check if array elem is not nil
+        -- v = xs[index]
+        local v_id = ir.add_local(self.func, false, types.T.Any()) 
+        local v = ir.Value.LocalVar(v_id)
+        table.insert(body, ir.Cmd.GetArr(stat.decl.loc, types.T.Any(), v.id, xs, index))
 
-        local b = ir.add_local(self.func, false, types.T.Boolean())
-        table.insert(body, ir.Cmd.IsTruthy(stat.block.loc, b, v))
+        -- if v is truthy b = 1 
+        -- else b = 0
+        local b_id = ir.add_local(self.func, false, types.T.Boolean())
+        local b = ir.Value.LocalVar(b_id)
+        table.insert(body, ir.Cmd.IsTruthy(stat.block.loc, b_id, v)) 
+        -- TODO: replace IsTruthy with HasTag since array may contain 'false'
 
-        local condBool = ir.Value.LocalVar(b)
-        table.insert(body, ir.Cmd.If(stat.block.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
+        -- if (b) Nop
+        -- else break
+        table.insert(body, ir.Cmd.If(stat.block.loc, b, ir.Cmd.Nop(), ir.Cmd.Break()))
 
-        table.insert(body, ir.Cmd.GetArr(tab.loc, tab._type.elem, elem.id, tabId, index))    
+        -- elem = xs[i]
+        -- {body}
+        table.insert(body, ir.Cmd.GetArr(stat.decl.loc, arr._type.elem, elem.id, xs, index))    
         self:convert_stat(body, stat.block)
 
+        -- index += 1
         local indexIncr = ir.Cmd.Binop(stat.index.loc, index.id, "IntAdd", index, ir.Value.Integer(1))
         table.insert(body, indexIncr)
-
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then

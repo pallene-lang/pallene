@@ -467,29 +467,35 @@ function FunChecker:check_stat(stat)
         end)
         
     elseif tag == "ast.Stat.ForIn" then
-        local func = self:check_exp_synthesize(stat.exp)
+        stat.exp = self:check_exp_synthesize(stat.exp)
 
-        if func._tag ~= "ast.Exp.CallFunc" then
-            type_error(func.loc,
+        if stat.exp._tag ~= "ast.Exp.CallFunc" then
+            type_error(stat.exp.loc,
                 "expected ipairs function but found %s in for-loop",
-                types.tostring(func._type),
-                func.name)
+                types.tostring(stat.exp._type),
+                stat.exp.name)
         end
 
-        if func.exp._tag ~= "ast.Exp.Var" then -- check if arg is an array
-            type_error(func.exp.loc,
-                "expected table or array in ipairs",
-                func.exp.name)
+        if stat.exp.exp._tag == "ast.Exp.Var" and
+           stat.exp.exp.var.name ~= "ipairs"
+        then
+            type_error(stat.exp.exp.loc, 
+                "expected ipairs function but found %s in for-loop",
+                stat.exp.exp.var.name)
         end
-        
-        local tab = self:check_exp_synthesize(func.args[1].exp)
-        stat.start = self:check_exp_synthesize(ast.Exp.Integer(stat.index.loc, 1))
+
+        local arr = stat.exp.args[1].exp
+        if arr._type._tag ~= "types.T.Array" then
+            type_error(stat.exp.exp.loc, 
+                "expected array but found %s in ipairs",
+                types.tostring(arr._type))
+        end
 
         self.p.symbol_table:with_block(function()
             self:add_local(stat.index.name, types.T.Integer())
             stat.index._name = self.p.symbol_table:find_symbol(stat.index.name)
 
-            self:add_local(stat.decl.name, tab._type.elem)
+            self:add_local(stat.decl.name, arr._type.elem)
             stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
 
             self:check_stat(stat.block)

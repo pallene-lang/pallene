@@ -343,5 +343,5 @@ TValue *pallene_getstr(size_t len, Table *t, TString *key, size_t *cache)
 #define PALLENE_FLT_FOR_LOOP_END \
         } \
     }
-    
+
 #endif
