@@ -486,11 +486,6 @@ function FunChecker:check_stat(stat)
         end
 
         local arr = stat.exp.args[1].exp
-        if arr._type._tag ~= "types.T.Array" then
-            type_error(stat.exp.exp.loc, 
-                "expected array but found %s in ipairs",
-                types.tostring(arr._type))
-        end
 
         self.p.symbol_table:with_block(function()
             self:add_local(stat.index.name, types.T.Integer())
