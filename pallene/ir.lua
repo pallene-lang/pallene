@@ -133,7 +133,7 @@ local ir_cmd_constructors = {
     ToDyn      = {"loc", "src_typ", "dst", "src"},
     FromDyn    = {"loc", "dst_typ", "dst", "src"},
     IsTruthy   = {"loc", "dst", "src"},
-    
+
     -- Arrays
     NewArr     = {"loc", "dst", "size_hint"},
 
@@ -242,7 +242,7 @@ local other_fields = {
     "field_name",
     "f_id",
     "cmds", "then_", "else_",
-    "typ", "loop_var","index", "body",
+    "typ", "loop_var", "index", "body",
 }
 do
     local all_lists = {

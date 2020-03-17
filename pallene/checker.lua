@@ -477,7 +477,8 @@ function FunChecker:check_stat(stat)
         end
 
         if stat.exp.exp._tag == "ast.Exp.Var" and
-           stat.exp.exp.var.name ~= "ipairs"
+           stat.exp.exp.var._name.name ~= "ipairs" and
+           stat.exp.exp.var._name._tag == "checker.Name.Builtin"
         then
             type_error(stat.exp.exp.loc, 
                 "expected ipairs function but found %s in for-loop",

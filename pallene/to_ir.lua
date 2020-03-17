@@ -96,9 +96,8 @@ function ToIR:convert_stat(cmds, stat)
         local arrVar = self:exp_to_value(cmds, arr)
 
         local xsId
-        if arr._type._tag == "types.T.Array" then
-            xsId = ir.add_local(self.func, false, types.T.Array(arr._type.elem))
-        end
+        assert(arr._type._tag == "types.T.Array")
+        xsId = ir.add_local(self.func, false, types.T.Array(arr._type.elem))
             
         -- xs = arr
         local xs = ir.Value.LocalVar(xsId)
