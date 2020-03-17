@@ -44,7 +44,6 @@ local flags = {}
 if args.emit_c    then table.insert(flags, "--emit-c") end
 if args.emit_asm  then table.insert(flags, "--emit-asm") end
 if args.compile_c then table.insert(flags, "--compile-c") end
-if args.compile_c then table.insert(flags, "--compile-c") end
 if args.dump_ast then table.insert(flags, "--dump-ast") end
 if args.dump_checker then table.insert(flags, "--dump-checker") end
 if args.dump_ir then table.insert(flags, "--dump-ir") end
