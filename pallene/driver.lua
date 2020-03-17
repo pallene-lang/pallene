@@ -12,8 +12,6 @@ local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
 
-local inspect = require "inspect"
-
 local driver = {}
 
 local function check_source_filename(argv0, file_name, expected_ext)
@@ -31,17 +29,11 @@ local function check_source_filename(argv0, file_name, expected_ext)
     return name
 end
 
-local function process_item(item, path)
-    if path[#path] ~= inspect.METATABLE and path[#path] ~= "loc" then
-        return item
-    end
-end
-
 --
 -- Run AST and IR passes, up-to and including the specified pass.
 -- This is meant for unit tests.
 --
-function driver.compile_internal(filename, stop_after, dump)
+function driver.compile_internal(filename, stop_after)
     stop_after = stop_after or "optimize"
     local err, errs
 
@@ -60,42 +52,27 @@ function driver.compile_internal(filename, stop_after, dump)
     local prog_ast
     prog_ast, errs = parser.parse(filename, input)
     if stop_after == "parser" or not prog_ast then
-        if dump then
-            print(inspect(prog_ast, {process = process_item}))
-        end
         return prog_ast, errs
     end
 
     local module
     module, errs = checker.check(prog_ast)
     if stop_after == "checker" or not module then
-        if dump then
-            print(inspect(module, {process = process_item}))
-        end
         return module, errs
     end
 
     module, errs = to_ir.convert(module)
     if stop_after == "to_ir" or not module then
-        if dump then
-            print(inspect(module, {process = process_item}))
-        end
         return module, errs
     end
 
     module, errs = uninitialized.verify_variables(module)
     if stop_after == "uninitialized" or not module then
-        if dump then
-            print(inspect(module, {process = process_item}))
-        end
         return module, errs
     end
 
     module, errs = constant_propagation.run(module)
     if stop_after == "constant_propagation" or not module then
-        if dump then
-            print(inspect(module, {process = process_item}))
-        end
         return module, errs
     end
 
