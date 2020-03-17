@@ -31,9 +31,9 @@ local function check_source_filename(argv0, file_name, expected_ext)
     return name
 end
 
-local function remove_loc(item, path)
+local function process_item(item, path)
     if path[#path] == "loc" then return end
-    return item
+    if path[#path] ~= inspect.METATABLE then return item end
 end
 
 --
@@ -60,7 +60,7 @@ function driver.compile_internal(filename, stop_after, dump)
     prog_ast, errs = parser.parse(filename, input)
     if stop_after == "parser" or not prog_ast then
         if dump then
-            print(inspect(prog_ast, {process = remove_loc}))
+            print(inspect(prog_ast, {process = process_item}))
         end
         return prog_ast, errs
     end
@@ -69,7 +69,7 @@ function driver.compile_internal(filename, stop_after, dump)
     module, errs = checker.check(prog_ast)
     if stop_after == "checker" or not module then
         if dump then
-            print(inspect(module, {process = remove_loc}))
+            print(inspect(module, {process = process_item}))
         end
         return module, errs
     end
@@ -77,7 +77,7 @@ function driver.compile_internal(filename, stop_after, dump)
     module, errs = to_ir.convert(module)
     if stop_after == "to_ir" or not module then
         if dump then
-            print(inspect(module, {process = remove_loc}))
+            print(inspect(module, {process = process_item}))
         end
         return module, errs
     end
@@ -85,7 +85,7 @@ function driver.compile_internal(filename, stop_after, dump)
     module, errs = uninitialized.verify_variables(module)
     if stop_after == "uninitialized" or not module then
         if dump then
-            print(inspect(module, {process = remove_loc}))
+            print(inspect(module, {process = process_item}))
         end
         return module, errs
     end
@@ -93,7 +93,7 @@ function driver.compile_internal(filename, stop_after, dump)
     module, errs = constant_propagation.run(module)
     if stop_after == "constant_propagation" or not module then
         if dump then
-            print(inspect(module, {process = remove_loc}))
+            print(inspect(module, {process = process_item}))
         end
         return module, errs
     end
