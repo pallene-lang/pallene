@@ -32,8 +32,9 @@ local function check_source_filename(argv0, file_name, expected_ext)
 end
 
 local function process_item(item, path)
-    if path[#path] == "loc" then return end
-    if path[#path] ~= inspect.METATABLE then return item end
+    if path[#path] ~= inspect.METATABLE and path[#path] ~= "loc" then
+        return item
+    end
 end
 
 --
