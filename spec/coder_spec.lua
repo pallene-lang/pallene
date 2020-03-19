@@ -793,6 +793,30 @@ describe("Pallene coder /", function()
                 return res
             end
 
+            function factorial_for_in_inc(n: integer): integer
+                local t:{integer} = {}
+                local res = 1
+
+                for i = 1, n do
+                    t[i] = i
+                end
+
+                for i, j in ipairs(t) do
+                    res = res * j
+                end
+                return res
+            end
+
+            function str_cat_for_in(): string
+                local t: {string} = {"Pallene", " is", " the best"}
+                local res: string = ""
+
+                for i, j in ipairs(t) do
+                    res = res .. j
+                end
+                return res
+            end
+
             function repeat_until(): integer
                 local x = 0
                 repeat
@@ -816,6 +840,17 @@ describe("Pallene coder /", function()
                 local x = 0
                 for i = 1, 10 do
                     x = x + i
+                    break
+                end
+                return x
+            end
+
+            function break_for_in(): integer
+                local t: {integer} = {1, 2, 3}
+                local x = 0
+
+                for i, j in ipairs(t) do
+                    x = x + j
                     break
                 end
                 return x
@@ -875,6 +910,14 @@ describe("Pallene coder /", function()
             run_test([[ assert(720.0 == test.factorial_float_for_dec(6.0)) ]])
         end)
 
+        it("Generic For loop (integer) (going up)", function()
+            run_test([[ assert(720 == test.factorial_for_in_inc(6)) ]])
+        end)
+
+        it("Generic For loop (string) (concatenation)", function()
+            run_test([[ assert("Pallene is the best" == test.str_cat_for_in()) ]])
+        end)     
+
         it("Repeat until", function()
             run_test([[ assert(10 == test.repeat_until()) ]])
         end)
@@ -890,6 +933,11 @@ describe("Pallene coder /", function()
         it("Break for loop", function()
             run_test([[ assert(1 == test.break_for()) ]])
         end)
+
+        it("Break generic for loop", function()
+            run_test([[ assert(1 == test.break_for_in()) ]])
+        end)
+
         it("Nested break", function()
             run_test([[ assert(40 == test.nested_break(true)) ]])
         end)
@@ -1497,6 +1545,15 @@ describe("Pallene coder /", function()
         end)
     end)
 
+    describe("ipairs builtin", function()
+        it("work", function()
+            run_test([[
+                local t = {10, 20, 30}
+                assert(ipairs(t))
+            ]])
+        end)
+    end)
+
     describe("any", function()
         setup(compile([[
             function id(x:any): any
@@ -1835,7 +1892,7 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("int loop avoids underderflow", function()
+        it("int loop avoids underflow", function()
             run_test([[
                 local low = math.mininteger
                 local xs = test.loop(low+5, low, -10)

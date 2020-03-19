@@ -389,6 +389,30 @@ describe("Pallene type checker", function()
             "expected integer but found string in numeric for-loop step")
     end)
 
+    it("catches 'for' errors in the ipairs argument", function()
+        assert_error([[
+            function fn(x: integer, s: string): integer
+                for i,j in ipairs(s) do
+                    x = x + i
+                end
+                return x
+            end
+        ]],
+            "expected { any } but found string in argument 1")
+    end)
+
+    it("catches 'for' errors in the ipairs expression", function()
+        assert_error([[
+            function fn(x: integer, s: string): integer
+                for i,j in s do
+                    x = x + i
+                end
+                return x
+            end
+        ]],
+            "expected ipairs function but found string in for-loop")
+    end)
+
     it("detects too many return values", function()
         assert_error([[
             function f(): ()
