@@ -19,7 +19,7 @@ install its Lua library dependencies and compile its run-time library.
 
 ### Prerequisites
 
-Before you build Pallene, you need to install a C compler (e.g. `gcc`) and `make` on your system.
+Before you build Pallene, you need to install a C compiler (e.g. `gcc`) and `make` on your system.
 Ubuntu users can run the following commands to install these tools.
 ```
 sudo apt-get update
