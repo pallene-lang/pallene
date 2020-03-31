@@ -26,9 +26,9 @@ sudo apt-get update
 sudo apt-get install build-essential
 ```
 
-Pallene requires Lua 5.3 to be installed on your system. You can either install it
-from a package manager (such as apt) or build it from the source code. You can download
-the source code of Lua 5.3 from [https://www.lua.org/ftp/](https://www.lua.org/ftp/).
+Pallene requires Lua 5.3 to be installed on your system.
+You can either install it [from source](https://www.lua.org/ftp/) or via the package manager for your Linux distro.
+If you install via the package manager then make sure to also install the Lua headers, which are often in a separate "development" package.
 
 After Lua 5.3 is installed, download the source code of LuaRocks from 
 [https://github.com/luarocks/luarocks/releases](https://github.com/luarocks/luarocks/releases). Follow
