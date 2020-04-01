@@ -386,11 +386,6 @@ function FunChecker:check_function(lambda, func_typ)
             local name = lambda.arg_names[i]
             self:add_local(name, typ)
         end
-        for i, typ in ipairs(func_typ.ret_types) do
-            local name = "ret"..i
-            self:add_local(name, typ)
-        end
-
         local body = self.func.body
         self:check_stat(body)
     end)
