@@ -1,12 +1,11 @@
 
 local ir = require "pallene.ir"
-local inspect = require "inspect"
+--local inspect = require "inspect"
+--local ppi = function(t,f) return inspect(t,{newline='',process=f}) end
+--local pp = function(t,f) return inspect(t,{process=f}) end
 
 local RD = {}
 -- start set operations -----------
-
-local ppi = function(t,f) return inspect(t,{newline='',process=f}) end
-local pp = function(t,f) return inspect(t,{process=f}) end
 
 local function copy(t1,t2)
     for k,v in pairs(t2) do t1[k] = v end
@@ -138,9 +137,10 @@ local function check_unreachable(index, cfg, df)
         end
     end
 end
+--[[
 local function cfg2dot(cfg)
-    print([[ digraph cfg { 
-        0 [label="Entry"];]])
+    print(' digraph cfg {')
+    print('0 [label="Entry"];')
     local visited = {}
     traversecfg(cfg,1,{function(index,cfg_)
         local n = cfg_[index]
@@ -154,6 +154,7 @@ local function cfg2dot(cfg)
     end})
     print('}')
 end
+--]]
 -- end   control flow -------------
 -- start definitions  -------------
 
