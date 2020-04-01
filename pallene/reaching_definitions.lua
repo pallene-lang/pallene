@@ -1,5 +1,7 @@
 
 local ir = require "pallene.ir"
+local location = require "pallene.location"
+
 --local inspect = require "inspect"
 --local ppi = function(t,f) return inspect(t,{newline='',process=f}) end
 --local pp = function(t,f) return inspect(t,{process=f}) end
@@ -92,10 +94,11 @@ local function build_cfg(cmd,cfg,parent)
         return newidx
     elseif tag == "ir.Cmd.If" then
         local newidx = build_cfg(cmd.condition,cfg,parent)
-        local then_ = build_cfg(cmd.then_,cfg,newidx)
-        local else_ = build_cfg(cmd.else_,cfg,newidx) 
+        local then_ = cmd.then_ and build_cfg(cmd.then_,cfg,newidx) or {}
+        local else_ = cmd.else_ and build_cfg(cmd.else_,cfg,newidx) or {}
         return union(then_,else_)
     elseif tag == "ir.Cmd.Loop" then
+        return build_cfg(cmd.body,cfg,parent)
     elseif tag == "ir.Cmd.For" then
         local newidx = parent
         newidx = build_cfg(cmd.start,cfg,newidx)
@@ -130,9 +133,9 @@ local function check_unreachable(index, cfg, df)
         end
         if unreachable ==  #node.from and #node.from ~= 0 then
             if node.cmd.loc then
-                df.unreachable[node.cmd.loc.line] = true
+                df.unreachable[node.cmd.loc] = true
             else
-                print('ERROR: unreachable code without lineinfo')
+                df.unreachable[true] = true
             end 
         end
     end
@@ -165,11 +168,11 @@ local function find_defs_uses(index,cfg,i)
         table.insert(i.definitions,{
             cmd = node,
             bb = index,
-            line = node.loc and node.loc.line,
+            loc = node.loc,
             var = v_id
            })
         if not i.vars[v_id] then
-            i.vars[v_id] = {defs={},uses={},line=node.loc and node.loc.line}
+            i.vars[v_id] = {defs={},uses={},loc=node.loc}
         end
         table.insert(i.vars[v_id].defs,#i.definitions)
         for _, val in ipairs(ir.get_srcs(node)) do
@@ -258,15 +261,15 @@ local function undeclared_unused_vars(df)
     -- trivial cases
     for k,v in pairs(df.vars) do
         if equal(v.defs,{}) then
-            df.undeclared[k] = v.line
+            df.undeclared[k] = v.loc
         end
         if equal(v.uses,{}) then
-            df.unused[k] = v.line
+            df.unused[k] = v.loc
         end
     end
     local unused = difference(df.OUT[#df.OUT],df.IN[#df.IN])
     for _,v in ipairs(unused) do
-        df.unused[df.definitions[v].var] = df.definitions[v].line
+        df.unused[df.definitions[v].var] = df.definitions[v].loc
         --print(df.definitions[v].var, 'unused on bb',df.definitions[v].bb)
     end
 end
@@ -283,7 +286,7 @@ local function shadowing(df)
       end
       local t3 = difference(t2,temp)
       for _,v in ipairs(t3) do
-        df.shadowed[df.definitions[v].var] = df.definitions[v].line
+        df.shadowed[df.definitions[v].var] = df.definitions[v].loc
         --print(df.definitions[v].var,'was shadowed on basic block',df.definitions[v].bb)
       end
 end
@@ -307,7 +310,11 @@ function RD.run(module)
             df.unreachable = {}
             traversecfg(CFG,1,{check_unreachable},df)
             for k,_ in pairs(df.unreachable) do
-                print('unreachable code on line',k)
+                if k == true then 
+                    table.insert(errors, location.format_error(func.loc,'unreachable code'))
+                else
+                    table.insert(errors, location.format_error(k,'unreachable code'))
+                end
             end
             traversecfg(CFG,1,{find_defs_uses},df)
             -- print('vars defs/uses')
@@ -341,15 +348,19 @@ function RD.run(module)
             df.undeclared = {}
             undeclared_unused_vars(df)
             for k,v in pairs(df.unused) do
-                print('unused',func.vars[k].name,'on line ',v)
+                if func.vars[k].name and not (func.vars[k].name == "ret1") then
+                    table.insert(errors, location.format_error(v,func.vars[k].name..' unused'))
+                end
             end
             for k,v in pairs(df.undeclared) do
-                print('undeclared',func.vars[k].name,'on line ',v)
+                table.insert(errors, location.format_error(v,func.vars[k].name..' undeclared'))
             end
             df.shadowed = {}
             shadowing(df)
             for k,v in pairs(df.shadowed) do
-                print(func.vars[k].name,'on line ',v,'is shadowed')
+                if func.vars[k].name and not (func.vars[k].name == "ret1") then
+                    table.insert(errors, location.format_error(v,func.vars[k].name..' is shadowed'))
+                end
             end
         end
     end
