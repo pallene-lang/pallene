@@ -72,9 +72,6 @@ local function test(cmd, uninit, loop)
         end
         return true, uninit
 
-    elseif tag == "ir.Cmd.Return" then
-        return false
-
     elseif tag == "ir.Cmd.Break" then
         assert(loop)
         loop.is_infinite = false
@@ -135,7 +132,12 @@ local function test(cmd, uninit, loop)
         for _, v_id in ipairs(ir.get_dsts(cmd)) do
             uninit[v_id] = nil
         end
-        return true, uninit
+
+        if tag == "ir.Cmd.Return" then
+            return false
+        else
+            return true, uninit
+        end
     else
         error("impossible")
     end

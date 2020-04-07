@@ -95,12 +95,6 @@ function ir.arg_var(func, i)
     return i
 end
 
-function ir.ret_var(func, i)
-    local nret = #func.typ.ret_types
-    assert(1 <= i and i <= nret)
-    return #func.typ.arg_types + i
-end
-
 --
 -- Pallene IR
 --
@@ -171,7 +165,7 @@ local ir_cmd_constructors = {
     Nop     = {},
     Seq     = {"cmds"},
 
-    Return  = {},
+    Return  = {"loc", "srcs"},
     Break   = {},
     Loop    = {"body"},
 

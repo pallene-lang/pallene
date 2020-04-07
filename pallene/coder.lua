@@ -404,7 +404,6 @@ end
 function Coder:pallene_entry_point_definition(f_id)
     local func = self.module.functions[f_id]
     local arg_types = func.typ.arg_types
-    local ret_types = func.typ.ret_types
 
     local name_comment = func.name
     if func.loc then
@@ -412,7 +411,6 @@ function Coder:pallene_entry_point_definition(f_id)
     end
 
     local prologue = {}
-    local epilogue = {}
 
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
@@ -431,13 +429,6 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local body = self:generate_cmd(func, func.body)
 
-    if #ret_types == 0 then
-        table.insert(epilogue, "return;")
-    else
-        local v = self:c_var(ir.ret_var(func, 1))
-        table.insert(epilogue, string.format("return %s;", v))
-    end
-
     return (util.render([[
         ${name_comment}
         ${fun_decl} {
@@ -446,18 +437,12 @@ function Coder:pallene_entry_point_definition(f_id)
             /**/
 
             ${body}
-
-            /**/
-
-          done:
-            ${epilogue}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         prologue = table.concat(prologue, "\n"),
         body = body,
-        epilogue = table.concat(epilogue, "\n"),
     }))
 end
 
@@ -1414,8 +1399,16 @@ gen_cmd["Seq"] = function(self, cmd, func)
     return table.concat(out, "\n")
 end
 
-gen_cmd["Return"] = function(self, _cmd)
-    return [[ goto done; ]]
+gen_cmd["Return"] = function(self, cmd)
+    if #cmd.srcs == 0 then
+        return [[ return; ]]
+    else
+        if #cmd.srcs >= 2 then
+            error("not yet implemented")
+        end
+        local src1 = self:c_value(cmd.srcs[1])
+        return util.render([[ return $v; ]], { v = src1 })
+    end
 end
 
 gen_cmd["Break"] = function(self, _cmd, _func)
