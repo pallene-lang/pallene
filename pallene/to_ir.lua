@@ -25,6 +25,12 @@ end
 --
 --
 
+local dsts = {} -- list for multiple return functions
+
+--
+--
+--
+
 ToIR = util.Class()
 function ToIR:init(module, func)
     self.module = module
@@ -48,7 +54,8 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(),
+                                ir.Cmd.Break()))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
@@ -57,7 +64,8 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stat(body, stat.block)
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(),
+                                ir.Cmd.Nop()))
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then
@@ -87,43 +95,97 @@ function ToIR:convert_stat(cmds, stat)
             ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
+        local lvars = { locals = {}, globals = {}, brackets = {}, dots = {} }
+
         for i = 1, #stat.vars do
             local var = stat.vars[i]
             local exp = stat.exps[i]
+
             if     var._tag == "ast.Var.Name" then
                 local cname = var._name
                 if     cname._tag == "checker.Name.Local" then
-                    self:exp_to_assignment(cmds, cname.id, exp)
+                    local v = ir.add_local(self.func, false, exp._type)
+                    self:exp_to_assignment(cmds, v, exp)
+                    lvars.locals[var] = ir.Value.LocalVar(v)
+
                 elseif cname._tag == "checker.Name.Global" then
-                    local v = self:exp_to_value(cmds, exp)
-                    table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, cname.id, v))
+                    local v = ir.add_local(self.func, false, exp._type)
+                    self:exp_to_assignment(cmds, v, exp)
+                    lvars.globals[var] = ir.Value.LocalVar(v)
                 else
                     error("impossible")
                 end
 
             elseif var._tag == "ast.Var.Bracket" then
-                local arr = self:exp_to_value(cmds, var.t)
-                local k   = self:exp_to_value(cmds, var.k)
-                local v   = self:exp_to_value(cmds, exp)
-                local src_typ = exp._type
-                table.insert(cmds, ir.Cmd.SetArr(stat.loc, src_typ, arr, k, v))
+                local arr = self:exp_to_value(cmds, var.t, false)
+                local k = ir.add_local(self.func, false, var.k._type)
+                self:exp_to_assignment(cmds, k, var.k)
+                local v = ir.add_local(self.func, false, exp._type)
+                self:exp_to_assignment(cmds, v, exp)
+                lvars.brackets[var] = {
+                    arr = arr,
+                    k = ir.Value.LocalVar(k),
+                    v = ir.Value.LocalVar(v),
+                    src_typ = exp._type
+                }
 
             elseif var._tag == "ast.Var.Dot" then
                 local typ = assert(var.exp._type)
                 local field = var.name
-                local rec = self:exp_to_value(cmds, var.exp)
-                local v   = self:exp_to_value(cmds, exp)
-                local cmd
+                local rec = self:exp_to_value(cmds, var.exp, false)
+                local v = ir.add_local(self.func, false, exp._type)
+                self:exp_to_assignment(cmds, v, exp)
+
                 if     typ._tag == "types.T.Table" then
                     local key = ir.Value.String(field)
-                    cmd = ir.Cmd.SetTable(stat.loc, exp._type, rec, key, v)
+                    lvars.dots[var] = {
+                        rec = rec,
+                        key = key,
+                        v = ir.Value.LocalVar(v),
+                        typ = exp._type
+                    }
                 elseif typ._tag == "types.T.Record" then
-                    cmd = ir.Cmd.SetField(stat.loc, typ, rec, field, v)
+                    lvars.dots[var] = {
+                        rec = rec,
+                        field = field,
+                        v = ir.Value.LocalVar(v),
+                        typ = typ
+                    }
                 else
                     error("impossible")
                 end
-                table.insert(cmds, cmd)
 
+            else
+                error("impossible")
+            end
+
+        end
+
+        for ltyp, t in pairs(lvars) do
+            if     ltyp == "locals" then
+                for dst, src in pairs(t) do
+                    table.insert(cmds, ir.Cmd.Move(stat.loc, dst._name.id, src))
+                end
+            elseif ltyp == "globals" then
+                for dst, src in pairs(t) do
+                    table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, dst._name.id, src))
+                end
+            elseif ltyp == "brackets" then
+                for _, src in pairs(t) do
+                    table.insert(cmds, ir.Cmd.SetArr(stat.loc, src.src_typ, src.arr, src.k, src.v))
+                end
+            elseif ltyp == "dots" then
+                for _, src in pairs(t) do
+                    local cmd
+                    if src.key then
+                        cmd = ir.Cmd.SetTable(stat.loc, src.typ, src.rec, src.key, src.v)
+                    elseif src.field then
+                        cmd = ir.Cmd.SetField(stat.loc, src.typ, src.rec, src.field, src.v)
+                    else
+                        error("impossible")
+                    end
+                    table.insert(cmds, cmd)
+                end
             else
                 error("impossible")
             end
@@ -135,7 +197,8 @@ function ToIR:convert_stat(cmds, stat)
                 local cname = stat.decls[i]._name
                 assert(cname._tag == "checker.Name.Local")
                 local v = cname.id
-                self:exp_to_assignment(cmds, v, stat.exps[i])
+                local exp = stat.exps[i]
+                self:exp_to_assignment(cmds, v, exp)
             end
         end
 
@@ -319,11 +382,17 @@ end
 
 -- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added
 -- to the @cmds list. (If this is a function call, then dst may be false)
-function ToIR:exp_to_assignment(cmds, dst, exp)
+-- @return_slot is used when the expression is a function/method call. It
+-- informs which return value to use.
+-- @is_last is used when the expression is a function/method call. It informs
+-- that the current evaluation is the last return value of the function and
+-- we can create the entire function call.
+function ToIR:exp_to_assignment(cmds, dst, exp, return_slot, is_last)
     local loc = exp.loc
     local tag = exp._tag
 
     local old_len = #cmds
+    local creating_function = false
 
     if not dst then
         assert(tag == "ast.Exp.CallFunc" or tag == "ast.Exp.CallMethod")
@@ -378,7 +447,20 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     elseif tag == "ast.Exp.Lambda" then
         error("not implemented")
 
+    elseif tag == "ast.Exp.ExtraRet" then
+        creating_function = true
+        return_slot = exp.i
+        is_last = is_last or exp.i == exp.n
+        self:exp_to_assignment(cmds, dst, exp.call_exp, return_slot, is_last)
+
     elseif tag == "ast.Exp.CallFunc" then
+        creating_function = true
+        if not return_slot then
+            return_slot = 1
+        end
+        if not exp._types then
+            is_last = true
+        end
 
         local function get_xs()
             -- "xs" should be evaluated after "f"
@@ -396,8 +478,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             exp.exp.var._name )
 
         if     cname and cname._tag == "checker.Name.Function" then
-            local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dst, cname.id, xs))
+            dsts[return_slot] = dst
+            if is_last then
+                local _dsts = {}
+                for i = 1, #dsts do
+                    _dsts[i] = dsts[i]
+                end
+                dsts = {}
+                local xs = get_xs()
+                table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, _dsts,
+                    cname.id, xs))
+            end
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
@@ -429,9 +520,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         else
+            dsts[return_slot] = dst
             local f = self:exp_to_value(cmds, exp.exp)
-            local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dst, f, xs))
+            if is_last then
+                local _dsts = {}
+                for i = 1, #dsts do
+                    _dsts[i] = dsts[i]
+                end
+                dsts = {}
+                local xs = get_xs()
+                table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, _dsts, f, xs))
+            end
         end
 
     elseif tag == "ast.Exp.CallMethod" then
@@ -543,9 +642,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         end
     end
 
-    if old_len == #cmds then
-        -- If we haven't added any new Cmds by now it means that we fell
-        -- through to the default case.
+    if old_len == #cmds and not creating_function then
+        -- If we haven't added any new Cmds by now and we are not in the middle
+        -- of creating a function call, it means that we fell through to the
+        -- default case.
         local value = self:exp_to_value(cmds, exp, true)
         table.insert(cmds, ir.Cmd.Move(loc, dst, value))
     end

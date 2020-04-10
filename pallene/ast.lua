@@ -72,6 +72,7 @@ declare_type("Exp", {
     Binop      = {"loc", "lhs", "op", "rhs"},
     Cast       = {"loc", "exp", "target"},
     Paren      = {"loc", "exp"},
+    ExtraRet   = {"loc", "call_exp", "i", "n", "_type"}, -- See checker.lua
 })
 
 declare_type("Field", {

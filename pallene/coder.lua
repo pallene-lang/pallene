@@ -11,6 +11,8 @@ local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
+local ii = require 'inspect'
+
 local coder = {}
 
 local Coder
@@ -316,6 +318,11 @@ function Coder:c_var(v_id)
     return "x" .. v_id
 end
 
+-- @returns the C return variable name for the variable v_id
+function Coder:c_ret_var(v_id)
+    return "ret" .. v_id
+end
+
 -- @returns the C expression for an ir.Value
 function Coder:c_value(value)
     local tag = value._tag
@@ -355,6 +362,16 @@ function Coder:local_declaration(f_id, v_id)
     return c_declaration(decl.typ, name), comment
 end
 
+-- @returns A syntactically valid return value as argument declaration
+--      for variable v_id from function f_id. If the variable has a name,
+--      also includes it, as a C comment. There is no semicolon.
+function Coder:ret_value_as_arg_declaration(f_id, v_id)
+    local decl = self.module.functions[f_id].vars[v_id]
+    local name = self:c_ret_var(v_id)
+    local comment = ""
+    return c_declaration(decl.typ, "*" .. name), comment
+end
+
 --
 -- # Pallene entry point
 --
@@ -362,6 +379,7 @@ end
 --  - Lua state (L)
 --  - Global upvalues table (G)
 --  - Regular parameters (x1, x2, x3...)
+--  - Multiple returns when more than 1 return is present (ret2, ret3, ret4...)
 --
 -- If the function returns no results, it returns void.
 -- Otherwhise it returns its return value. Multiple returns are not implemented
@@ -376,7 +394,6 @@ function Coder:pallene_entry_point_declaration(f_id)
     local func = self.module.functions[f_id]
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
-    assert(#ret_types <= 1)
 
     local ret_type = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
 
@@ -388,6 +405,13 @@ function Coder:pallene_entry_point_declaration(f_id)
         local v_id = ir.arg_var(func, i)
         local decl, comment = self:local_declaration(f_id, v_id)
         table.insert(args, {decl, comment})
+    end
+    if #ret_types > 1 then
+        for i = 2, #ret_types do
+            local v_id = ir.arg_ret_var(func, i)
+            local decl, comment = self:ret_value_as_arg_declaration(f_id, v_id)
+            table.insert(args, {decl, comment})
+        end
     end
 
     local arg_lines = {}
@@ -451,16 +475,28 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dst, f_id, base, xs)
+function Coder:call_pallene_function(dsts, f_id, base, xs)
     local func = self.module.functions[f_id]
     local ret_types = func.typ.ret_types
 
     local args = {}
+    local temp_args = {}
     table.insert(args, "L")
     table.insert(args, "G")
     table.insert(args, base)
     for _, x in ipairs(xs) do
         table.insert(args, x)
+    end
+    if dsts and #dsts > 1 then
+        for i = 2, #dsts do
+            table.insert(args, "&"..dsts[i])
+        end
+    elseif dsts and #dsts == 1 and #ret_types > 1 then
+        for i = 2, #ret_types do
+            local temp_i = ir.temp_arg_var(func, i)
+            table.insert(temp_args, ctype(ret_types[i]).." temp"..temp_i..";")
+            table.insert(args, "&temp"..temp_i)
+        end
     end
 
     local call = util.render([[$name($args);]], {
@@ -469,14 +505,17 @@ function Coder:call_pallene_function(dst, f_id, base, xs)
     })
 
     if #ret_types == 0 then
-        assert(dst == false)
+        assert(dsts == false or #dsts == 0 or (#dsts == 1 and dsts[1] == false))
         return call
     else
-        if dst then
-            return (util.render([[$dst = $call]], {
-                dst = dst,
-                call = call,
-            }))
+        if dsts[1] then
+            return (util.render([[
+                    $temp_args
+                    $dst = $call
+                ]], { temp_args = table.concat(temp_args, "\n"),
+                      dst = dsts[1],
+                      call = call, }
+            ))
         else
             return call
         end
@@ -578,7 +617,7 @@ function Coder:lua_entry_point_definition(f_id)
     if #ret_types == 0 then
         call_pallene = self:call_pallene_function(false, f_id, "L->top", arg_vars)
     else
-        call_pallene = self:call_pallene_function(ret_vars[1], f_id, "L->top", arg_vars)
+        call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars)
     end
 
     local push_results = {}
@@ -1288,19 +1327,25 @@ gen_cmd["SetField"] = function(self, cmd, _func)
 end
 
 gen_cmd["CallStatic"] = function(self, cmd, func)
-    local dst = cmd.dst and self:c_var(cmd.dst)
+    local dsts = {}
+    for i = 1, #cmd.dsts do
+        dsts[i] = cmd.dsts[i] and self:c_var(cmd.dsts[i])
+    end
     local xs = {}
     for _, x in ipairs(cmd.srcs) do
         table.insert(xs, self:c_value(x))
     end
     local top = self:stack_top_at(func, cmd)
-    local call_stats = self:call_pallene_function(dst, cmd.f_id, top, xs)
+    local call_stats = self:call_pallene_function(dsts, cmd.f_id, top, xs)
     return self:wrap_function_call(call_stats)
 end
 
 gen_cmd["CallDyn"] = function(self, cmd, func)
     local f_typ = cmd.f_typ
-    local dst = cmd.dst and self:c_var(cmd.dst)
+    local dsts = {}
+    for i = 1, #cmd.dsts do
+        dsts[i] = cmd.dsts[i] and self:c_var(cmd.dsts[i])
+    end
 
     local push_arguments = {}
     table.insert(push_arguments,
@@ -1311,13 +1356,12 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
             self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
-    local dsts = { dst }
     local pop_results = {}
     for i, typ in ipairs(f_typ.ret_types) do
         local get_slot
         if dsts[i] then
             get_slot = self:get_stack_slot(
-                typ, dst, "slot", cmd.loc, "return value #%d", i)
+                typ, dsts[i], "slot", cmd.loc, "return value #%d", i)
         else
             get_slot = ""
         end
@@ -1404,11 +1448,12 @@ gen_cmd["Seq"] = function(self, cmd, func)
     return table.concat(out, "\n")
 end
 
-gen_cmd["Return"] = function(self, cmd)
+gen_cmd["Return"] = function(self, cmd) -- check here
     if #cmd.srcs == 0 then
         return [[ return; ]]
     else
         if #cmd.srcs >= 2 then
+            print('>', ii(cmd.srcs))
             error("not yet implemented")
         end
         local src1 = self:c_value(cmd.srcs[1])

@@ -95,6 +95,12 @@ function ir.arg_var(func, i)
     return i
 end
 
+function ir.temp_arg_var(func, i)
+    local nret = #func.typ.ret_types
+    assert(1 <= i and i <= nret)
+    return i
+end
+
 --
 -- Pallene IR
 --
@@ -148,8 +154,8 @@ local ir_cmd_constructors = {
 
     -- Functions
     -- (dst is false if the return value is void, or unused)
-    CallStatic  = {"loc", "f_typ", "dst", "f_id", "srcs"},
-    CallDyn     = {"loc", "f_typ", "dst", "src_f", "srcs"},
+    CallStatic  = {"loc", "f_typ", "dsts", "f_id", "srcs"},
+    CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},
 
     -- Builtin operations
     BuiltinIoWrite    = {"loc",        "src"},
@@ -218,7 +224,7 @@ function ir.get_dsts(cmd)
         end
     end
     for _, k in ipairs(dsts_fields) do
-        if cmd[k] then
+        if cmd[k] and cmd[k][1] ~= false then
             for _, dst in ipairs(cmd[k]) do
                 table.insert(dsts, dst)
             end

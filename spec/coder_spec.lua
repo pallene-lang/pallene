@@ -1867,4 +1867,147 @@ describe("Pallene coder /", function()
             ]])
         end)
     end)
+
+    describe("Multiple assignment", function()
+        setup(compile([[
+            type point = {x:integer, y:integer}
+
+            local gi = 1
+            local ga: {integer} = {}
+            function assign_global(): (integer, integer)
+                gi, ga[gi] = gi+1, 20
+                return gi, ga[gi-1]
+            end
+
+            function assign_local(): (integer, integer)
+                local li: integer = 1
+                local la: {integer} = {}
+
+                li, la[li] = li+1, 20
+                return li, la[li-1]
+            end
+
+            function assign_bracket(): (integer, integer)
+                local a: {integer} = {1, 2}
+
+                a[1], a[2] = a[2], a[1]
+                return a[1], a[2]
+            end
+
+            function swap(): (integer, integer)
+                local x, y = 1, 2
+                x, y = y, x
+                return x, y
+            end
+
+            function swap_point(): point
+                local p:point = { x = 1, y = 2 }
+                p.x, p.y = p.y, p.x
+                return p
+            end
+        ]]))
+
+        it("preserves evaluation order with local variables", function()
+            run_test([[
+                local i, ai = test.assign_local()
+                assert(2 == i)
+                assert(20 == ai)
+            ]])
+        end)
+
+        it("preserves evaluation order with global variables", function()
+            run_test([[
+                local i, ai = test.assign_global()
+                assert(2 == i)
+                assert(20 == ai)
+            ]])
+        end)
+
+        it("preserves evaluation order with bracket variables", function()
+            run_test([[
+                local i, j = test.assign_bracket()
+                assert(2 == i)
+                assert(1 == j)
+            ]])
+        end)
+
+        it("preserves evaluation order with dot variables", function()
+            run_test([[
+                local p = test.swap_point()
+                assert(2 == p.x)
+                assert(1 == p.y)
+            ]])
+        end)
+
+        it("swap variables correctly", function()
+            run_test([[
+                local x, y = test.swap()
+                assert(2 == x)
+                assert(1 == y)
+            ]])
+        end)
+    end)
+
+    describe("Multiple returns", function()
+        setup(compile([[
+            function f(): (integer, integer, integer)
+                return 1, 2, 3
+            end
+
+            function g(x:integer, y:integer, z:integer): integer
+                return x + y + z
+            end
+
+            function func_as_param(): integer
+                local a = g(f())
+                return a
+            end
+
+            function func_as_return(): (integer, integer, integer)
+                return f()
+            end
+
+            function func_as_first_return(): (integer, integer)
+                return f(), 42
+            end
+
+            function func_inside_paren(): integer
+                return (f())
+            end
+        ]]))
+
+        it("works as function arguments", function()
+            run_test([[
+                local a = test.func_as_param()
+                assert(6 == a)
+            ]])
+        end)
+
+        it("works as only return value on multiple return", function()
+            run_test([[
+                local a, b, c = test.func_as_return()
+                assert(1 == a)
+                assert(2 == b)
+                assert(3 == c)
+            ]])
+        end)
+
+        it("works as first return value on multiple return", function()
+            run_test([[
+                local a, b = test.func_as_first_return()
+                assert(1  == a)
+                assert(42 == b)
+            ]])
+        end)
+
+        it("works inside parenthesis", function()
+            run_test([[
+                local a, b, c = test.func_inside_paren()
+                assert(1   == a)
+                assert(nil == b)
+                assert(nil == c)
+            ]])
+        end)
+    end)
+
 end)

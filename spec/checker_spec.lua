@@ -451,6 +451,23 @@ describe("Pallene type checker", function()
             "function expects 2 argument(s) but received 1")
     end)
 
+    it("detects wrong number of arguments when expanding a function", function()
+        assert_error([[
+            function f(): (integer, integer)
+                return 1, 2
+            end
+
+            function g(x:integer, y:integer): integer
+                return x + y
+            end
+
+            function test(): integer
+                return g(1, f())
+            end
+        ]],
+            "function expects 2 argument(s) but received 3")
+    end)
+
     it("detects wrong types of arguments to functions", function()
         assert_error([[
             function f(x: integer, y: integer): integer
