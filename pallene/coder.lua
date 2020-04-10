@@ -1357,7 +1357,8 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     end
 
     local pop_results = {}
-    for i, typ in ipairs(f_typ.ret_types) do
+    for i = #f_typ.ret_types, 1, -1 do
+        local typ = f_typ.ret_types[i]
         local get_slot
         if dsts[i] then
             get_slot = self:get_stack_slot(
