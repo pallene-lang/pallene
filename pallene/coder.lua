@@ -11,8 +11,6 @@ local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
-local ii = require 'inspect'
-
 local coder = {}
 
 local Coder
@@ -363,13 +361,10 @@ function Coder:local_declaration(f_id, v_id)
 end
 
 -- @returns A syntactically valid return value as argument declaration
---      for variable v_id from function f_id. If the variable has a name,
---      also includes it, as a C comment. There is no semicolon.
-function Coder:ret_value_as_arg_declaration(f_id, v_id)
-    local decl = self.module.functions[f_id].vars[v_id]
+--      for variable v_id and type typ. There is no semicolon and no comment.
+function Coder:ret_value_as_arg_declaration(v_id, typ)
     local name = self:c_ret_var(v_id)
-    local comment = ""
-    return c_declaration(decl.typ, "*" .. name), comment
+    return c_declaration(typ, "*" .. name), ""
 end
 
 --
@@ -409,8 +404,11 @@ function Coder:pallene_entry_point_declaration(f_id)
     if #ret_types > 1 then
         for i = 2, #ret_types do
             local v_id = ir.arg_ret_var(func, i)
-            local decl, comment = self:ret_value_as_arg_declaration(f_id, v_id)
-            table.insert(args, {decl, comment})
+            local decl, comment = self:ret_value_as_arg_declaration(v_id,
+                                        ret_types[i])
+            if decl then
+                table.insert(args, {decl, comment})
+            end
         end
     end
 
@@ -1453,12 +1451,17 @@ gen_cmd["Return"] = function(self, cmd) -- check here
     if #cmd.srcs == 0 then
         return [[ return; ]]
     else
+        local returns = {}
         if #cmd.srcs >= 2 then
-            print('>', ii(cmd.srcs))
-            error("not yet implemented")
+            for i = 2, #cmd.srcs do
+                local src = self:c_value(cmd.srcs[i])
+                table.insert(returns, util.render([[ *$reti = $v; ]],
+                                        { reti = self:c_ret_var(i), v = src }))
+            end
         end
         local src1 = self:c_value(cmd.srcs[1])
-        return util.render([[ return $v; ]], { v = src1 })
+        table.insert(returns, util.render([[ return $v; ]], { v = src1 }))
+        return table.concat(returns, "\n")
     end
 end
 

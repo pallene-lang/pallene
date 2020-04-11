@@ -28,7 +28,6 @@ local FunChecker
 -- @call_exp: This is the actual function call
 -- @i: This is the index of the return value of this node
 -- @n: This is the total number of return values of the function
--- @_type: This is the type of the return value of this node
 
 --
 --
@@ -438,7 +437,8 @@ function FunChecker:check_stat(stat)
                 for i = 2, #last_exp._types do
                     local decl = stat.decls[nlast_exp + i - 1]
                     local exp = ast.Exp.ExtraRet(last_exp.loc, last_exp, i,
-                                    #last_exp._types, last_exp._types[i])
+                                    #last_exp._types)
+                    exp._type = last_exp._types[i]
                     if decl then
                         exp = self:check_and_declare_var(decl, exp)
                     end
@@ -519,9 +519,10 @@ function FunChecker:check_stat(stat)
             last_exp = self:check_exp_synthesize(last_exp)
             if last_exp._types and #last_exp._types > 1 then
                 for i = 2, #last_exp._types do
-                    table.insert(stat.exps, ast.Exp.ExtraRet(last_exp.loc,
-                                                last_exp, i, #last_exp._types,
-                                                last_exp._types[i]))
+                    local nexp = ast.Exp.ExtraRet(last_exp.loc, last_exp, i,
+                                    #last_exp._types)
+                    nexp._type = last_exp._types[i]
+                    table.insert(stat.exps, nexp)
                 end
             end
             if #stat.vars ~= #stat.exps then
@@ -559,9 +560,10 @@ function FunChecker:check_stat(stat)
             last_exp = self:check_exp_synthesize(last_exp)
             if last_exp._types and #last_exp._types > 1 then
                 for i = 2, #last_exp._types do
-                    table.insert(stat.exps, ast.Exp.ExtraRet(last_exp.loc,
-                                                last_exp, i, #last_exp._types,
-                                                last_exp._types[i]))
+                    local nexp = ast.Exp.ExtraRet(last_exp.loc, last_exp, i,
+                                    #last_exp._types)
+                    nexp._type = last_exp._types[i]
+                    table.insert(stat.exps, nexp)
                 end
             end
         end
@@ -870,7 +872,8 @@ function FunChecker:check_exp_synthesize(exp)
                     local narg = #f_type.arg_types - i + 1
                     local param_type = f_type.arg_types[narg]
                     local extra_exp = ast.Exp.ExtraRet(last_arg.loc, last_arg,
-                                        i, #last_arg._types, last_arg._types[i])
+                                            i, #last_arg._types)
+                    extra_exp._type = last_arg._types[i]
                     if param_type then
                         extra_exp = self:check_exp_verify(extra_exp, param_type,
                                         "argument %d of call to function", i)
@@ -894,9 +897,11 @@ function FunChecker:check_exp_synthesize(exp)
                (#f_type.ret_types > 1 and exp._single_ret)
             then
                 exp._type = f_type.ret_types[1]
+
             elseif #f_type.ret_types > 1 and not exp._single_ret then
                 exp._type  = f_type.ret_types[1]
                 exp._types = f_type.ret_types
+
             else
                 exp._type = types.T.Void()
             end
