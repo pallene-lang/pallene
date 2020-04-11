@@ -1870,7 +1870,7 @@ describe("Pallene coder /", function()
 
     describe("Multiple assignment", function()
         setup(compile([[
-            type point = {x:integer, y:integer}
+            typealias point = {x:integer, y:integer}
 
             local gi = 1
             local ga: {integer} = {}
