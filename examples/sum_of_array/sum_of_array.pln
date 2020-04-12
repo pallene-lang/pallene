@@ -8,10 +8,5 @@ function sum(array: { float }): float
     for i = 1, #array do
         result = result + array[i]
     end
-    if result > 4.0 then
-        return result
-    else
-        return 0.0
-    end
     return result
 end
