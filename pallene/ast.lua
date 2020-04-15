@@ -26,7 +26,7 @@ declare_type("Type", {
 
 declare_type("Toplevel", {
     Func      = {"loc", "is_local", "decl", "value"},
-    Var       = {"loc", "decl", "value"},
+    Var       = {"loc", "decls", "values"},
     Typealias = {"loc", "name", "type"},
     Record    = {"loc", "name", "field_decls"},
     Import    = {"loc", "local_name", "mod_name"},
@@ -88,8 +88,6 @@ declare_type("Field", {
 function ast.toplevel_name(tl_node)
     local tag = tl_node._tag
     if     tag == "ast.Toplevel.Func" then
-        return tl_node.decl.name
-    elseif tag == "ast.Toplevel.Var" then
         return tl_node.decl.name
     elseif tag == "ast.Toplevel.Typealias" then
         return tl_node.name

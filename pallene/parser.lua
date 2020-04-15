@@ -243,8 +243,8 @@ local grammar = re.compile([[
                            LPAREN^LParPList paramlist RPAREN^RParPList
                            rettypeopt block END^EndFunc)         -> toplevel_func
 
-    toplevelvar     <- (P  LOCAL decl ASSIGN^AssignVar
-                           !IMPORT exp^ExpVarDec)                -> ToplevelVar
+    toplevelvar     <- (P  LOCAL decllist ASSIGN^AssignVar
+                           !IMPORT explist1^ExpVarDec)                -> ToplevelVar
 
     typealias       <- (P  TYPEALIAS NAME^NameTypeAlias ASSIGN^AssignTypeAlias
                            type^TypeTypeAlias)                   -> ToplevelTypealias

@@ -207,21 +207,52 @@ local letrec_groups = {
     ["ast.Toplevel.Record"]    = "Type",
 }
 
+function Checker:check_top_level_name(names, name, loc)
+    local old_loc = names[name]
+    if old_loc then
+        scope_error(loc,
+            "duplicate toplevel declaration for '%s', previous one at line %d",
+            name, old_loc.line)
+    end
+    names[name] = loc
+end
+
 function Checker:check_program(prog_ast)
 
     do
         -- Forbid toplevel duplicates
         local names = {}
         for _, tl_node in ipairs(prog_ast) do
-            local name = ast.toplevel_name(tl_node)
-            local loc = tl_node.loc
-            local old_loc = names[name]
-            if old_loc then
-                scope_error(loc,
-                    "duplicate toplevel declaration for '%s', previous one at line %d",
-                    name, old_loc.line)
+            local tag = tl_node._tag
+
+            if     tag == "ast.Toplevel.Var" then
+                for _, decl in ipairs(tl_node.decls) do
+                    self:check_top_level_name(names, decl.name, decl.loc)
+                end
+
+            elseif tag == "ast.Toplevel.Func" then
+                self:check_top_level_name(names, ast.toplevel_name(tl_node),
+                    tl_node.loc)
+
+            elseif tag == "ast.Toplevel.Typealias" then
+                self:check_top_level_name(names, ast.toplevel_name(tl_node),
+                    tl_node.loc)
+
+            elseif tag == "ast.Toplevel.Record" then
+                self:check_top_level_name(names, ast.toplevel_name(tl_node),
+                    tl_node.loc)
+
+            elseif tag == "ast.Toplevel.Import" then
+                self:check_top_level_name(names, ast.toplevel_name(tl_node),
+                    tl_node.loc)
+
+            elseif tag == "ast.Toplevel.Builtin" then
+                self:check_top_level_name(names, ast.toplevel_name(tl_node),
+                    tl_node.loc)
+
+            else
+                error("impossible")
             end
-            names[name] = loc
         end
     end
 
@@ -288,16 +319,43 @@ function Checker:check_program(prog_ast)
 
             for _, tl_var in ipairs(tl_group) do
                 local loc = tl_var.loc
-                local value = tl_var.value
-                local name = tl_var.decl.name
-                local typ, exp = toplevel_fun_checker:check_initializer_exp(
-                    tl_var.decl, value,
-                    "declaration of module variable %s", name)
-                local _ = self:add_global(name, typ)
-                local var = ast.Var.Name(loc, name)
-                toplevel_fun_checker:check_var(var)
-                table.insert(toplevel_stats,
-                    ast.Stat.Assign(loc, { var }, { exp }))
+
+                local last_val = tl_var.values[#tl_var.values]
+                if last_val._tag == "ast.Exp.CallFunc" then
+                    -- print(ii(last_val))
+                    last_val = toplevel_fun_checker:check_exp_synthesize(last_val)
+                    if last_val._types and #last_val._types > 1 then
+                        for i = 2, #last_val._types do
+                            local nval= ast.Exp.ExtraRet(last_val.loc, last_val, i,
+                                            #last_val._types)
+                            nval._type = last_val._types[i]
+                            table.insert(tl_var.values, nval)
+                        end
+                    end
+                end
+                if #tl_var.decls ~= #tl_var.values then
+                    type_error(tl_var.loc,
+                        "left-hand side expects %d value(s) but right-hand " ..
+                        "side produces %d value(s)", #tl_var.decls, #tl_var.values)
+                end
+
+                local vars = {}
+                local exps = {}
+                for i = 1, #tl_var.decls do
+                    local decl = tl_var.decls[i]
+                    local exp = tl_var.values[i]
+                    local name = decl.name
+                    local typ
+                    typ, exp = toplevel_fun_checker:check_initializer_exp(
+                                    decl, exp,
+                                    "declaration of module variable %s", name)
+                    local _ = self:add_global(name, typ)
+                    local var = ast.Var.Name(loc, name)
+                    toplevel_fun_checker:check_var(var)
+                    table.insert(vars, var)
+                    table.insert(exps, exp)
+                end
+                table.insert(toplevel_stats, ast.Stat.Assign(loc, vars, exps))
             end
 
         elseif group_kind == "Func" then

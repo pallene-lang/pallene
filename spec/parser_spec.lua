@@ -74,7 +74,7 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast[1].decl.type
+    local type_ast = program_ast[1].decls[1].type
     assert_is_subset(expected_ast, type_ast)
 end
 
@@ -161,7 +161,7 @@ describe("Pallene parser", function()
     it("can parse toplevel var declarations", function()
         assert_program_ast([[ local x=17 ]], {
             { _tag = "ast.Toplevel.Var",
-                decl = { name = "x", type = false } }
+                decls = { { name = "x", type = false } } }
         })
     end)
 
