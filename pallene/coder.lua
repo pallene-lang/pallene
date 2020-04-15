@@ -1144,7 +1144,7 @@ gen_cmd["NewArr"] = function(self, cmd, _func)
         dst = dst, n = n,
     }))
 end
-
+--TODO: extract slot obtention to another command
 gen_cmd["GetArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local arr = self:c_value(cmd.src_arr)
@@ -1167,6 +1167,7 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
     }))
 end
 
+--TODO: extract slot obtention to another command
 gen_cmd["SetArr"] = function(self, cmd, _func)
     local arr = self:c_value(cmd.src_arr)
     local i   = self:c_value(cmd.src_i)
