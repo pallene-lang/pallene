@@ -289,6 +289,7 @@ function Checker:check_program(prog_ast)
 
             for _, tl_var in ipairs(tl_group) do
                 local loc = tl_var.loc
+                local global_decls = {}
 
                 local last_val = tl_var.values[#tl_var.values]
                 if  last_val._tag == "ast.Exp.CallFunc" or
@@ -308,14 +309,20 @@ function Checker:check_program(prog_ast)
                     typ, exp = toplevel_fun_checker:check_initializer_exp(
                                     decl, exp,
                                     "declaration of module variable %s", name)
-                    local _ = self:add_global(name, typ)
-                    local var = ast.Var.Name(loc, name)
+                    table.insert(global_decls, {decl = decl, typ = typ})
+                    table.insert(exps, exp)
+                end
+
+                for _, global_decl in ipairs(global_decls) do
+                    local _ = self:add_global(global_decl.decl.name,
+                                global_decl.typ)
+                    local var = ast.Var.Name(loc, global_decl.decl.name)
                     toplevel_fun_checker:check_var(var)
                     table.insert(vars, var)
-                    table.insert(exps, exp)
                 end
                 table.insert(toplevel_stats, ast.Stat.Assign(loc, vars, exps))
             end
+
 
         elseif group_kind == "Func" then
 

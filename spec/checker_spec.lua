@@ -63,6 +63,20 @@ describe("Scope analysis: ", function()
             "duplicate toplevel declaration for 'f'")
     end)
 
+    it("forbids multiple toplevel variable declarations with the same name", function()
+        assert_error([[
+            local a, a = 1, 2
+        ]],
+            "duplicate toplevel declaration for 'a'")
+    end)
+
+    it("forbids multiple toplevel variable declarations using same line declaration as variable", function()
+        assert_error([[
+            local a, b = 1, a
+        ]],
+            "variable 'a' is not declared")
+    end)
+
     it("forbids multiple function arguments with the same name", function()
         assert_error([[
             function fn(x: integer, x:string)
