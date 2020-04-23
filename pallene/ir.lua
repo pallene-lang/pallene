@@ -230,9 +230,11 @@ function ir.get_dsts(cmd)
         end
     end
     for _, k in ipairs(dsts_fields) do
-        if cmd[k] and cmd[k][1] ~= false then
+        if cmd[k] then
             for _, dst in ipairs(cmd[k]) do
-                table.insert(dsts, dst)
+                if dst ~= false then
+                    table.insert(dsts, dst)
+                end
             end
         end
     end

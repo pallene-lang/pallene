@@ -27,7 +27,6 @@ local FunChecker
 -- @loc: This is the location of the function call
 -- @call_exp: This is the actual function call
 -- @i: This is the index of the return value of this node
--- @n: This is the total number of return values of the function
 
 --
 --
@@ -207,51 +206,22 @@ local letrec_groups = {
     ["ast.Toplevel.Record"]    = "Type",
 }
 
-function Checker:check_top_level_name(names, name, loc)
-    local old_loc = names[name]
-    if old_loc then
-        scope_error(loc,
-            "duplicate toplevel declaration for '%s', previous one at line %d",
-            name, old_loc.line)
-    end
-    names[name] = loc
-end
-
 function Checker:check_program(prog_ast)
 
     do
         -- Forbid toplevel duplicates
         local names = {}
         for _, tl_node in ipairs(prog_ast) do
-            local tag = tl_node._tag
-
-            if     tag == "ast.Toplevel.Var" then
-                for _, decl in ipairs(tl_node.decls) do
-                    self:check_top_level_name(names, decl.name, decl.loc)
+            local tl_names = ast.toplevel_names(tl_node)
+            local loc = tl_node.loc
+            for _, name in ipairs(tl_names) do
+                local old_loc = names[name]
+                if old_loc then
+                    scope_error(loc,
+                        "duplicate toplevel declaration for '%s', previous " ..
+                        "one at line %d", name, old_loc.line)
                 end
-
-            elseif tag == "ast.Toplevel.Func" then
-                self:check_top_level_name(names, ast.toplevel_name(tl_node),
-                    tl_node.loc)
-
-            elseif tag == "ast.Toplevel.Typealias" then
-                self:check_top_level_name(names, ast.toplevel_name(tl_node),
-                    tl_node.loc)
-
-            elseif tag == "ast.Toplevel.Record" then
-                self:check_top_level_name(names, ast.toplevel_name(tl_node),
-                    tl_node.loc)
-
-            elseif tag == "ast.Toplevel.Import" then
-                self:check_top_level_name(names, ast.toplevel_name(tl_node),
-                    tl_node.loc)
-
-            elseif tag == "ast.Toplevel.Builtin" then
-                self:check_top_level_name(names, ast.toplevel_name(tl_node),
-                    tl_node.loc)
-
-            else
-                error("impossible")
+                names[name] = loc
             end
         end
     end
@@ -321,22 +291,11 @@ function Checker:check_program(prog_ast)
                 local loc = tl_var.loc
 
                 local last_val = tl_var.values[#tl_var.values]
-                if last_val._tag == "ast.Exp.CallFunc" then
-                    -- print(ii(last_val))
-                    last_val = toplevel_fun_checker:check_exp_synthesize(last_val)
-                    if last_val._types and #last_val._types > 1 then
-                        for i = 2, #last_val._types do
-                            local nval= ast.Exp.ExtraRet(last_val.loc, last_val, i,
-                                            #last_val._types)
-                            nval._type = last_val._types[i]
-                            table.insert(tl_var.values, nval)
-                        end
-                    end
-                end
-                if #tl_var.decls ~= #tl_var.values then
-                    type_error(tl_var.loc,
-                        "left-hand side expects %d value(s) but right-hand " ..
-                        "side produces %d value(s)", #tl_var.decls, #tl_var.values)
+                if  last_val._tag == "ast.Exp.CallFunc" or
+                    last_val._tag == "ast.Exp.CallMethod"
+                then
+                    toplevel_fun_checker:expand_function_returns(tl_var.decls,
+                        tl_var.values, last_val)
                 end
 
                 local vars = {}
@@ -439,6 +398,24 @@ function FunChecker:add_local(name, typ)
     return l_id
 end
 
+-- This function expands @rhs using @func_exp if there are missing expressions
+-- (rhs < lhs) and @func_exp has enough return values.
+function FunChecker:expand_function_returns(lhs, rhs, func_exp)
+    local missing_exps = #lhs - #rhs
+
+    func_exp = self:check_exp_synthesize(func_exp)
+    rhs[#rhs] = func_exp
+
+    for i = 2, missing_exps + 1 do
+        if func_exp._types[i] then
+            local exp = ast.Exp.ExtraRet(func_exp.loc, func_exp, i)
+            exp._type = func_exp._types[i]
+            table.insert(rhs, exp)
+        end
+    end
+end
+
+
 function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
 
@@ -463,51 +440,32 @@ function FunChecker:check_function(lambda, func_typ)
     end)
 end
 
-function FunChecker:check_and_declare_var(decl, exp)
-    local typ
-    typ, exp = self:check_initializer_exp(decl,
-        exp, "declaration of local variable %s",
-        decl.name)
-    self:add_local(decl.name, typ)
-    decl._name = self.p.symbol_table:find_symbol(decl.name)
-    return exp
-end
-
 function FunChecker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
-        if #stat.exps == 0 then
-            for i = 1, #stat.decls do
-                local decl = stat.decls[i]
-                stat.exps[i] = self:check_and_declare_var(decl, stat.exps[i])
-            end
-        else
-            local nlast_exp = #stat.exps
-            local last_exp = stat.exps[nlast_exp]
-            for i = 1, #stat.exps do
-                local decl = stat.decls[i]
-                if decl then
-                    stat.exps[i] = self:check_and_declare_var(decl,
-                                        stat.exps[i])
-                end
-            end
-            if last_exp and last_exp._types then
-                for i = 2, #last_exp._types do
-                    local decl = stat.decls[nlast_exp + i - 1]
-                    local exp = ast.Exp.ExtraRet(last_exp.loc, last_exp, i,
-                                    #last_exp._types)
-                    exp._type = last_exp._types[i]
-                    if decl then
-                        exp = self:check_and_declare_var(decl, exp)
-                    end
-                    table.insert(stat.exps, exp)
-                end
-            end
-            if #stat.decls ~= #stat.exps then
-                type_error(stat.loc,
-                    "left-hand side expects %d value(s) but right-hand " ..
-                    "side produces %d value(s)", #stat.decls, #stat.exps)
-            end
+        local typ
+        local local_decls = {}
+        local nlast_exp = #stat.exps
+        local last_exp = stat.exps[nlast_exp]
+
+        if  last_exp and (last_exp._tag == "ast.Exp.CallFunc" or
+            last_exp._tag == "ast.Exp.CallMethod")
+        then
+            self:expand_function_returns(stat.decls, stat.exps, last_exp)
+        end
+
+        for i = 1, #stat.decls do
+            local decl = stat.decls[i]
+            typ, stat.exps[i] = self:check_initializer_exp(decl, stat.exps[i],
+                                    "declaration of local variable %s",
+                                    decl.name)
+            table.insert(local_decls, {decl = decl, typ = typ})
+        end
+
+        for _, local_decl in ipairs(local_decls) do
+            self:add_local(local_decl.decl.name, local_decl.typ)
+            local_decl.decl._name = self.p.symbol_table:find_symbol(
+                                        local_decl.decl.name)
         end
 
     elseif tag == "ast.Stat.Block" then
@@ -572,23 +530,15 @@ function FunChecker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.Assign" then
-        local last_exp = stat.exps[#stat.exps]
-        if last_exp._tag == "ast.Exp.CallFunc" then
-            last_exp = self:check_exp_synthesize(last_exp)
-            if last_exp._types and #last_exp._types > 1 then
-                for i = 2, #last_exp._types do
-                    local nexp = ast.Exp.ExtraRet(last_exp.loc, last_exp, i,
-                                    #last_exp._types)
-                    nexp._type = last_exp._types[i]
-                    table.insert(stat.exps, nexp)
-                end
-            end
-            if #stat.vars ~= #stat.exps then
-                type_error(stat.loc,
-                    "left-hand side expects %d value(s) but right-hand " ..
-                    "side produces %d value(s)", #stat.vars, #stat.exps)
-            end
+        local nlast_exp = #stat.exps
+        local last_exp = stat.exps[nlast_exp]
+
+        if  last_exp and (last_exp._tag == "ast.Exp.CallFunc" or
+            last_exp._tag == "ast.Exp.CallMethod")
+        then
+            self:expand_function_returns(stat.vars, stat.exps, last_exp)
         end
+
         for i = 1, #stat.vars do
             self:check_var(stat.vars[i])
             stat.exps[i] = self:check_exp_verify(stat.exps[i],
@@ -597,8 +547,8 @@ function FunChecker:check_stat(stat)
                 local ntag = stat.vars[i]._name._tag
                 if ntag == "checker.Name.Function" then
                     type_error(stat.loc,
-                        "attempting to assign to toplevel constant function '%s'",
-                        stat.vars[i].name)
+                        "attempting to assign to toplevel constant function " ..
+                        "'%s'", stat.vars[i].name)
                 elseif ntag == "checker.Name.Builtin" then
                     type_error(stat.loc,
                         "attempting to assign to builtin function %s",
@@ -614,17 +564,13 @@ function FunChecker:check_stat(stat)
         local ret_types = self.func.typ.ret_types
         local nlast_exp = #stat.exps
         local last_exp = stat.exps[nlast_exp]
-        if last_exp and last_exp._tag == "ast.Exp.CallFunc" then
-            last_exp = self:check_exp_synthesize(last_exp)
-            if last_exp._types and #last_exp._types > 1 then
-                for i = 2, #last_exp._types do
-                    local nexp = ast.Exp.ExtraRet(last_exp.loc, last_exp, i,
-                                    #last_exp._types)
-                    nexp._type = last_exp._types[i]
-                    table.insert(stat.exps, nexp)
-                end
-            end
+
+        if  last_exp and (last_exp._tag == "ast.Exp.CallFunc" or
+            last_exp._tag == "ast.Exp.CallMethod")
+        then
+            self:expand_function_returns(ret_types, stat.exps, last_exp)
         end
+
         if #stat.exps ~= #ret_types then
             type_error(stat.loc,
                 "returning %d value(s) but function expects %s",
@@ -632,12 +578,6 @@ function FunChecker:check_stat(stat)
         end
 
         for i = 1, #stat.exps do
-            if stat.exps[i]._tag == "ast.Exp.CallFunc" or
-               stat.exps[i]._tag == "ast.Exp.CallMethod" and
-               i ~= #stat.exps
-            then
-                stat.exps[i]._single_ret = true
-            end
             stat.exps[i] = self:check_exp_verify(
                 stat.exps[i], ret_types[i],
                 "return statement")
@@ -913,36 +853,33 @@ function FunChecker:check_exp_synthesize(exp)
         local f_type = exp.exp._type
 
         if f_type._tag == "types.T.Function" then
-            local last_arg = exp.args[#exp.args]
+            local nlast_args = #exp.args
+            local last_arg = exp.args[nlast_args]
+
+            if  last_arg and (last_arg._tag == "ast.Exp.CallFunc" or
+                last_arg._tag == "ast.Exp.CallMethod")
+            then
+                local missing_exps = #f_type.arg_types - #exp.args
+
+                last_arg = self:check_exp_synthesize(last_arg)
+                exp.args[nlast_args] = last_arg
+
+                for i = 2, missing_exps + 1 do
+                    if last_arg._types[i] then
+                        local extra = ast.Exp.ExtraRet(last_arg.loc, last_arg,
+                                            i)
+                        extra._type = last_arg._types[i]
+                        table.insert(exp.args, extra)
+                    end
+                end
+            end
+
             for i = 1, #exp.args do
                 if f_type.arg_types[i] then
                     exp.args[i] = self:check_exp_verify(exp.args[i],
                                     f_type.arg_types[i],
                                     "argument %d of call to function", i)
-                else
-                    type_error(exp.loc,
-                        "function expects %d argument(s) but received %d",
-                        #f_type.arg_types, #exp.args)
                 end
-            end
-            if last_arg and last_arg._types then
-                for i = 2, #last_arg._types do
-                    local narg = #f_type.arg_types - i + 1
-                    local param_type = f_type.arg_types[narg]
-                    local extra_exp = ast.Exp.ExtraRet(last_arg.loc, last_arg,
-                                            i, #last_arg._types)
-                    extra_exp._type = last_arg._types[i]
-                    if param_type then
-                        extra_exp = self:check_exp_verify(extra_exp, param_type,
-                                        "argument %d of call to function", i)
-                        table.insert(exp.args, extra_exp)
-                    else
-                        type_error(exp.loc,
-                            "function expects %d argument(s) but received %d",
-                            #f_type.arg_types, #exp.args)
-                    end
-                end
-
             end
 
             if #f_type.arg_types ~= #exp.args then
@@ -951,15 +888,9 @@ function FunChecker:check_exp_synthesize(exp)
                     #f_type.arg_types, #exp.args)
             end
 
-            if #f_type.ret_types == 1 or
-               (#f_type.ret_types > 1 and exp._single_ret)
-            then
-                exp._type = f_type.ret_types[1]
-
-            elseif #f_type.ret_types > 1 and not exp._single_ret then
+            if #f_type.ret_types > 0 then
                 exp._type  = f_type.ret_types[1]
                 exp._types = f_type.ret_types
-
             else
                 exp._type = types.T.Void()
             end
@@ -977,11 +908,6 @@ function FunChecker:check_exp_synthesize(exp)
         return self:check_exp_verify(exp.exp, dst_t, "cast expression")
 
     elseif tag == "ast.Exp.Paren" then
-        if exp.exp._tag == "ast.Exp.CallFunc" or
-           exp.exp._tag == "ast.Exp.CallMethod"
-        then
-            exp.exp._single_ret = true
-        end
         exp.exp = self:check_exp_synthesize(exp.exp)
         exp._type = exp.exp._type
 
@@ -1064,11 +990,6 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
         error("not implemented yet")
 
     elseif tag == "ast.Exp.Paren" then
-        if exp.exp._tag == "ast.Exp.CallFunc" or
-           exp.exp._tag == "ast.Exp.CallMethod"
-        then
-            exp.exp._single_ret = true
-        end
         exp.exp = self:check_exp_verify(exp.exp, expected_type, errmsg_fmt, ...)
         return exp
 

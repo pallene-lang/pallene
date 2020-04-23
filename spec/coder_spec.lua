@@ -1872,8 +1872,7 @@ describe("Pallene coder /", function()
         setup(compile([[
             typealias point = {x:integer, y:integer}
 
-            local gi = 1
-            local ga: {integer} = {}
+            local gi, ga: {integer} = 1, {}
             function assign_global(): (integer, integer)
                 gi, ga[gi] = gi+1, 20
                 return gi, ga[gi-1]
@@ -1971,6 +1970,11 @@ describe("Pallene coder /", function()
                 return f(), 42
             end
 
+            function func_as_only_exp(): integer
+                local a, b, c = f()
+                return a + b + c
+            end
+
             function func_inside_paren(): integer
                 return (f())
             end
@@ -1997,6 +2001,13 @@ describe("Pallene coder /", function()
                 local a, b = test.func_as_first_return()
                 assert(1  == a)
                 assert(42 == b)
+            ]])
+        end)
+
+        it("works as only expression on a declaration", function()
+            run_test([[
+                local a = test.func_as_only_exp()
+                assert(6 == a)
             ]])
         end)
 

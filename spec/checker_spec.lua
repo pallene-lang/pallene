@@ -457,15 +457,15 @@ describe("Pallene type checker", function()
                 return 1, 2
             end
 
-            function g(x:integer, y:integer): integer
+            function g(x:integer, y:integer, z:integer): integer
                 return x + y
             end
 
             function test(): integer
-                return g(1, f())
+                return g(f())
             end
         ]],
-            "function expects 2 argument(s) but received 3")
+            "function expects 3 argument(s) but received 2")
     end)
 
     it("detects wrong types of arguments to functions", function()

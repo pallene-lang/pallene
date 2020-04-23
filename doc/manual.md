@@ -121,7 +121,7 @@ In Lua 5.4, the default value for this constant is 40 characters.
 
 Function types in Pallene are created with the `->` type constructor.
 For example, `(a, b) -> (c)` is the function type for a function that receives two arguments (the first of type `a` and the second of type `b`) and returns a single value of type `c`.
-If the function receives a single input parameter, or returns a single value, the parenthesis can be omitted from the function type.
+If the function receives a single input parameter, or returns a single value, the parenthesis can be omitted.
 The following are more examples of valid function types:
 
 ```
@@ -243,16 +243,14 @@ Module-local variables are declared with the following syntax:
 local <name> [: type] {, <name> [: type]} = <exp> {, <exp>}
 ```
 
-It is possible to declare multiple variables at once.
-
-The behaviour for expressions that are function calls is the same as in Lua.
+It is possible to declare multiple variables at once. The behaviour for expressions that are function calls is the same as in Lua.
 
 ### Functions
 
 Functions are declared as follows:
 
 ```
-[local] function <name>([<params>])[: [(]<rettypes>[)]]
+[local] function <name>([<params>])[: <rettypes>]
     <body>
 end
 ```
@@ -261,7 +259,7 @@ A `local` function is only visible inside the module it is defined.
 Non-local functions are exported, which means that they are accessible to Lua if it requires the Pallene module.
 
 As with variables, `<name>` can be any valid identifier, but it is a compile-time error to declare two functions with the same name, or a function with the same name as a module variable.
-The return types `<rettypes>` are optional, and if not given it is assumed that the function does not return anything. If two or more return types are present, a parenthesis surrounding `<rettypes>` is obligatory.
+The return types `<rettypes>` are optional, and if not given it is assumed that the function does not return anything. If two or more return types are present, a parenthesis surrounding `<rettypes>` is required.
 
 Parameters are a comma-separated list of `<name>: <type>`.
 Two parameters cannot have the same name.
@@ -371,13 +369,13 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
     toplevelvar ::= local NAME [':' type] {',' NAME [':' type]} '=' explist
 
-    toplevelfunc ::= [local] function NAME '(' [paramlists] ')'  [':' ['('] typelist [')']] block end
+    toplevelfunc ::= [local] function NAME '(' [paramlists] ')'  [':' typelist ] block end
 
     paramlist ::= NAME ':' type {',' NAME ':' type}
 
     type ::= nil | integer | float | boolean | string | any | '{' type '}' | NAME
 
-    typelist ::= type {',' type}
+    typelist ::= type | '(' [type, {',' type}] ')'
 
     block ::= {statement} [returnstat]
 

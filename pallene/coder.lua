@@ -487,13 +487,13 @@ function Coder:call_pallene_function(dsts, f_id, base, xs)
     end
     if dsts and #dsts > 1 then
         for i = 2, #dsts do
-            table.insert(args, "&"..dsts[i])
-        end
-    elseif dsts and #dsts == 1 and #ret_types > 1 then
-        for i = 2, #ret_types do
-            local temp_i = ir.temp_arg_var(func, i)
-            table.insert(temp_args, ctype(ret_types[i]).." temp"..temp_i..";")
-            table.insert(args, "&temp"..temp_i)
+            if dsts[i] then
+                table.insert(args, "&"..dsts[i])
+            else
+                local temp_i = ir.temp_arg_var(func, i)
+                table.insert(temp_args, ctype(ret_types[i]).." temp"..temp_i..";")
+                table.insert(args, "&temp"..temp_i)
+            end
         end
     end
 

@@ -25,16 +25,11 @@ end
 --
 --
 
-local dsts = {} -- list for multiple return functions
-
---
---
---
-
 ToIR = util.Class()
 function ToIR:init(module, func)
     self.module = module
     self.func = func
+    self.func_dsts = {}
 end
 
 function ToIR:convert_stats(cmds, stats)
@@ -168,19 +163,23 @@ function ToIR:convert_stat(cmds, stat)
                 end
             elseif ltyp == "globals" then
                 for dst, src in pairs(t) do
-                    table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, dst._name.id, src))
+                    table.insert(cmds, ir.Cmd.SetGlobal(stat.loc, dst._name.id,
+                        src))
                 end
             elseif ltyp == "brackets" then
                 for _, src in pairs(t) do
-                    table.insert(cmds, ir.Cmd.SetArr(stat.loc, src.src_typ, src.arr, src.k, src.v))
+                    table.insert(cmds, ir.Cmd.SetArr(stat.loc, src.src_typ,
+                        src.arr, src.k, src.v))
                 end
             elseif ltyp == "dots" then
                 for _, src in pairs(t) do
                     local cmd
                     if src.key then
-                        cmd = ir.Cmd.SetTable(stat.loc, src.typ, src.rec, src.key, src.v)
+                        cmd = ir.Cmd.SetTable(stat.loc, src.typ, src.rec,
+                                src.key, src.v)
                     elseif src.field then
-                        cmd = ir.Cmd.SetField(stat.loc, src.typ, src.rec, src.field, src.v)
+                        cmd = ir.Cmd.SetField(stat.loc, src.typ, src.rec,
+                                src.field, src.v)
                     else
                         error("impossible")
                     end
@@ -382,12 +381,7 @@ end
 
 -- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added
 -- to the @cmds list. (If this is a function call, then dst may be false)
--- @return_slot is used when the expression is a function/method call. It
--- informs which return value to use.
--- @is_last is used when the expression is a function/method call. It informs
--- that the current evaluation is the last return value of the function and
--- we can create the entire function call.
-function ToIR:exp_to_assignment(cmds, dst, exp, return_slot, is_last)
+function ToIR:exp_to_assignment(cmds, dst, exp)
     local loc = exp.loc
     local tag = exp._tag
 
@@ -448,19 +442,11 @@ function ToIR:exp_to_assignment(cmds, dst, exp, return_slot, is_last)
         error("not implemented")
 
     elseif tag == "ast.Exp.ExtraRet" then
+        assert(self.func_dsts[exp.call_exp])
+        self.func_dsts[exp.call_exp][exp.i] = dst
         creating_function = true
-        return_slot = exp.i
-        is_last = is_last or exp.i == exp.n
-        self:exp_to_assignment(cmds, dst, exp.call_exp, return_slot, is_last)
 
     elseif tag == "ast.Exp.CallFunc" then
-        creating_function = true
-        if not return_slot then
-            return_slot = 1
-        end
-        if not exp._types then
-            is_last = true
-        end
 
         local function get_xs()
             -- "xs" should be evaluated after "f"
@@ -478,17 +464,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp, return_slot, is_last)
             exp.exp.var._name )
 
         if     cname and cname._tag == "checker.Name.Function" then
-            dsts[return_slot] = dst
-            if is_last then
-                local _dsts = {}
-                for i = 1, #dsts do
-                    _dsts[i] = dsts[i]
+            assert(not self.func_dsts[exp])
+            self.func_dsts[exp] = {}
+            self.func_dsts[exp][1] = dst
+            if exp._types then
+                for i = 2, #exp._types do
+                    self.func_dsts[exp][i] = false
                 end
-                dsts = {}
-                local xs = get_xs()
-                table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, _dsts,
-                    cname.id, xs))
             end
+            local xs = get_xs()
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ,
+                self.func_dsts[exp], cname.id, xs))
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
@@ -520,17 +506,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp, return_slot, is_last)
             end
 
         else
-            dsts[return_slot] = dst
+            assert(not self.func_dsts[exp])
+            self.func_dsts[exp] = {}
+            self.func_dsts[exp][1] = dst
             local f = self:exp_to_value(cmds, exp.exp)
-            if is_last then
-                local _dsts = {}
-                for i = 1, #dsts do
-                    _dsts[i] = dsts[i]
-                end
-                dsts = {}
-                local xs = get_xs()
-                table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, _dsts, f, xs))
-            end
+            local xs = get_xs()
+            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, self.func_dsts[exp],
+                f, xs))
         end
 
     elseif tag == "ast.Exp.CallMethod" then
