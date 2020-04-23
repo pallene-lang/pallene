@@ -866,19 +866,8 @@ function FunChecker:check_exp_synthesize(exp)
             if  last_arg and (last_arg._tag == "ast.Exp.CallFunc" or
                 last_arg._tag == "ast.Exp.CallMethod")
             then
-                local missing_exps = #f_type.arg_types - #exp.args
-
-                last_arg = self:check_exp_synthesize(last_arg)
-                exp.args[nlast_args] = last_arg
-
-                for i = 2, missing_exps + 1 do
-                    if last_arg._types[i] then
-                        local extra = ast.Exp.ExtraRet(last_arg.loc, last_arg,
-                                            i)
-                        extra._type = last_arg._types[i]
-                        table.insert(exp.args, extra)
-                    end
-                end
+                self:expand_function_returns(f_type.arg_types, exp.args,
+                    last_arg)
             end
 
             for i = 1, #exp.args do
