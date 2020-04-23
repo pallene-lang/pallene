@@ -47,7 +47,12 @@ end
 -- @returns A syntactically valid function argument or variable declaration
 --          without the comma or semicolon
 local function c_declaration(typ, name)
-    return string.format("%s %s", ctype(typ), name)
+    local typstr = ctype(typ)
+    if typstr:sub(-1) == "*" then
+        return typstr..name -- Pointers look nicer without a space
+    else
+        return typstr.." "..name
+    end
 end
 
 --
