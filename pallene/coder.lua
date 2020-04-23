@@ -1447,7 +1447,7 @@ gen_cmd["Seq"] = function(self, cmd, func)
     return table.concat(out, "\n")
 end
 
-gen_cmd["Return"] = function(self, cmd) -- check here
+gen_cmd["Return"] = function(self, cmd)
     if #cmd.srcs == 0 then
         return [[ return; ]]
     else
