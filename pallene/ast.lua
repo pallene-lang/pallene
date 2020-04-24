@@ -105,7 +105,6 @@ function ast.toplevel_names(tl_node)
     else
         error("impossible")
     end
-
     return names
 end
 
