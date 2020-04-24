@@ -259,7 +259,8 @@ A `local` function is only visible inside the module it is defined.
 Non-local functions are exported, which means that they are accessible to Lua if it requires the Pallene module.
 
 As with variables, `<name>` can be any valid identifier, but it is a compile-time error to declare two functions with the same name, or a function with the same name as a module variable.
-The return types `<rettypes>` are optional, and if not given it is assumed that the function does not return anything. If two or more return types are present, a parenthesis surrounding `<rettypes>` is required.
+The return types `<rettypes>` are optional, and if not given it is assumed that the function does not return anything.
+If two or more return types are present, a parenthesis surrounding them is required.
 
 Parameters are a comma-separated list of `<name>: <type>`.
 Two parameters cannot have the same name.
@@ -373,7 +374,7 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
     paramlist ::= NAME ':' type {',' NAME ':' type}
 
-    type ::= nil | integer | float | boolean | string | any | '{' type '}' | NAME
+    type ::= nil | integer | float | boolean | string | any | '{' type '}' | typelist '->' typelist | NAME
 
     typelist ::= type | '(' [type, {',' type}] ')'
 

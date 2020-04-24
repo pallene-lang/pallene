@@ -70,9 +70,34 @@ describe("Scope analysis: ", function()
             "duplicate toplevel declaration for 'a'")
     end)
 
-    it("forbids multiple toplevel variable declarations using same line declaration as variable", function()
+    it("ensure toplevel variables are not in scope in their initializers", function()
         assert_error([[
             local a, b = 1, a
+        ]],
+            "variable 'a' is not declared")
+    end)
+
+    it("ensure toplevel variables are not in scope in their initializers", function()
+        assert_error([[
+            local a = a
+        ]],
+            "variable 'a' is not declared")
+    end)
+
+    it("ensure variables are not in scope in their initializers", function()
+        assert_error([[
+            local function f()
+                local a, b = 1, a
+            end
+        ]],
+            "variable 'a' is not declared")
+    end)
+
+    it("ensure variables are not in scope in their initializers", function()
+        assert_error([[
+            local function f()
+                local a = a
+            end
         ]],
             "variable 'a' is not declared")
     end)

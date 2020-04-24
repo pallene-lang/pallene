@@ -1870,79 +1870,191 @@ describe("Pallene coder /", function()
 
     describe("Multiple assignment", function()
         setup(compile([[
-            typealias point = {x:integer, y:integer}
+            typealias TPoint = {x:integer, y:integer}
 
-            local gi, ga: {integer} = 1, {}
-            function assign_global(): (integer, integer)
-                gi, ga[gi] = gi+1, 20
-                return gi, ga[gi-1]
+            record RPoint
+                x: integer
+                y: integer
             end
 
-            function assign_local(): (integer, integer)
+            local gi, ga: {integer} = 1, {}
+            function assign_global(): (integer, {integer})
+                gi, ga[gi] = gi+1, 20
+                return gi, ga
+            end
+
+            function assign_local(): (integer, {integer})
                 local li: integer = 1
                 local la: {integer} = {}
 
                 li, la[li] = li+1, 20
-                return li, la[li-1]
+                return li, la
             end
 
             function assign_bracket(): (integer, integer)
-                local a: {integer} = {1, 2}
+                local a: {integer} = {10, 20}
 
                 a[1], a[2] = a[2], a[1]
                 return a[1], a[2]
             end
 
             function swap(): (integer, integer)
-                local x, y = 1, 2
+                local x, y = 10, 20
                 x, y = y, x
                 return x, y
             end
 
-            function swap_point(): point
-                local p:point = { x = 1, y = 2 }
+            function swap_point(): TPoint
+                local p:TPoint = { x = 10, y = 20 }
                 p.x, p.y = p.y, p.x
                 return p
+            end
+
+            function assign_tables_1(): ({integer}, {integer})
+                local a:{integer}, b:{integer} = {10, 20}, {30, 40}
+                a, a[1] = b, 50
+                return a, b
+            end
+
+            function assign_tables_2(): ({integer}, {integer})
+                local a:{integer}, b:{integer} = {10, 20}, {30, 40}
+                a[1], a = 50, b
+                return a, b
+            end
+
+            function assign_dots_1(): (TPoint, TPoint)
+                local a:TPoint, b:TPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
+                a, a.x, a.y = b, 50, 60
+                return a, b
+            end
+
+            function assign_dots_2(): (TPoint, TPoint)
+                local a:TPoint, b:TPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
+                a.x, a.y, a = 50, 60, b
+                return a, b
+            end
+
+            function assign_recs_1(): (RPoint, RPoint)
+                local a:RPoint, b:RPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
+                a, a.x, a.y = b, 50, 60
+                return a, b
+            end
+
+            function assign_recs_2(): (RPoint, RPoint)
+                local a:RPoint, b:RPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
+                a.x, a.y, a = 50, 60, b
+                return a, b
+            end
+
+            function assign_same_var(): integer
+                local a:integer
+                a, a, a = 10, 20, 30
+                return a
             end
         ]]))
 
         it("preserves evaluation order with local variables", function()
             run_test([[
                 local i, ai = test.assign_local()
-                assert(2 == i)
-                assert(20 == ai)
+                assert(2   == i)
+                assert(20  == ai[1])
+                assert(nil == ai[2])
             ]])
         end)
 
         it("preserves evaluation order with global variables", function()
             run_test([[
                 local i, ai = test.assign_global()
-                assert(2 == i)
-                assert(20 == ai)
+                assert(2   == i)
+                assert(20  == ai[1])
+                assert(nil == ai[2])
             ]])
         end)
 
         it("preserves evaluation order with bracket variables", function()
             run_test([[
                 local i, j = test.assign_bracket()
-                assert(2 == i)
-                assert(1 == j)
+                assert(20 == i)
+                assert(10 == j)
             ]])
         end)
 
         it("preserves evaluation order with dot variables", function()
             run_test([[
                 local p = test.swap_point()
-                assert(2 == p.x)
-                assert(1 == p.y)
+                assert(20 == p.x)
+                assert(10 == p.y)
             ]])
         end)
 
         it("swap variables correctly", function()
             run_test([[
                 local x, y = test.swap()
-                assert(2 == x)
-                assert(1 == y)
+                assert(20 == x)
+                assert(10 == y)
+            ]])
+        end)
+
+        it("use temporary variables correctly on arrays assignments", function()
+            run_test([[
+                local t1 = table.pack(test.assign_tables_1())
+                assert(2     == t1.n)
+                assert(30    == t1[1][1])
+                assert(40    == t1[1][2])
+                assert(t1[1] == t1[2])
+
+                local t2 = table.pack(test.assign_tables_2())
+                assert(2     == t2.n)
+                assert(30    == t2[1][1])
+                assert(40    == t2[1][2])
+                assert(t2[1] == t2[2])
+
+                local t3 = table.pack(test.assign_dots_1())
+                assert(2     == t3.n)
+                assert(30    == t3[1].x)
+                assert(40    == t3[1].y)
+                assert(t3[1] == t3[2])
+
+                local t4 = table.pack(test.assign_dots_2())
+                assert(2     == t4.n)
+                assert(30    == t4[1].x)
+                assert(40    == t4[1].y)
+                assert(t4[1] == t4[2])
+            ]])
+        end)
+
+        it("use temporary variables correctly on tables assignments", function()
+            run_test([[
+                local t1 = table.pack(test.assign_dots_1())
+                assert(2     == t1.n)
+                assert(30    == t1[1].x)
+                assert(40    == t1[1].y)
+                assert(t1[1] == t1[2])
+
+                local t2 = table.pack(test.assign_dots_2())
+                assert(2     == t2.n)
+                assert(30    == t2[1].x)
+                assert(40    == t2[1].y)
+                assert(t2[1] == t2[2])
+            ]])
+        end)
+
+        it("use temporary variables correctly on records assignments", function()
+            run_test([[
+                local r1 = table.pack(test.assign_recs_1())
+                assert(2     == r1.n)
+                assert(r1[1] == r1[2])
+
+                local r2 = table.pack(test.assign_recs_2())
+                assert(2     == r2.n)
+                assert(r2[1] == r2[2])
+            ]])
+        end)
+
+        it("multiple assignment to same variable works correctly", function()
+            run_test([[
+                local a = test.assign_same_var()
+                assert(10 == a)
             ]])
         end)
     end)
@@ -1950,7 +2062,7 @@ describe("Pallene coder /", function()
     describe("Multiple returns", function()
         setup(compile([[
             function f(): (integer, integer, integer)
-                return 1, 2, 3
+                return 10, 20, 30
             end
 
             function g(x:integer, y:integer, z:integer): integer
@@ -1983,40 +2095,41 @@ describe("Pallene coder /", function()
         it("works as function arguments", function()
             run_test([[
                 local a = test.func_as_param()
-                assert(6 == a)
+                assert(60 == a)
             ]])
         end)
 
         it("works as only return value on multiple return", function()
             run_test([[
-                local a, b, c = test.func_as_return()
-                assert(1 == a)
-                assert(2 == b)
-                assert(3 == c)
+                local t = table.pack(test.func_as_return())
+                assert(3  == t.n)
+                assert(10 == t[1])
+                assert(20 == t[2])
+                assert(30 == t[3])
             ]])
         end)
 
         it("works as first return value on multiple return", function()
             run_test([[
-                local a, b = test.func_as_first_return()
-                assert(1  == a)
-                assert(42 == b)
+                local t = table.pack(test.func_as_first_return())
+                assert(2  == t.n)
+                assert(10 == t[1])
+                assert(42 == t[2])
             ]])
         end)
 
         it("works as only expression on a declaration", function()
             run_test([[
                 local a = test.func_as_only_exp()
-                assert(6 == a)
+                assert(60 == a)
             ]])
         end)
 
         it("works inside parenthesis", function()
             run_test([[
-                local a, b, c = test.func_inside_paren()
-                assert(1   == a)
-                assert(nil == b)
-                assert(nil == c)
+                local t = table.pack(test.func_inside_paren())
+                assert(1  == t.n)
+                assert(10 == t[1])
             ]])
         end)
     end)

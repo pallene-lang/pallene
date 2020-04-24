@@ -165,11 +165,11 @@ local ir_cmd_constructors = {
 
     -- Builtin operations
     BuiltinIoWrite    = {"loc",        "src"},
-    BuiltinMathSqrt   = {"loc", "dst", "src"},
-    BuiltinStringChar = {"loc", "dst", "src"},
-    BuiltinStringSub  = {"loc", "dst", "src1", "src2", "src3"},
-    BuiltinToFloat    = {"loc", "dst", "src"},
-    BuiltinType       = {"loc", "dst", "src"},
+    BuiltinMathSqrt   = {"loc", "dsts", "src"},
+    BuiltinStringChar = {"loc", "dsts", "src"},
+    BuiltinStringSub  = {"loc", "dsts", "src1", "src2", "src3"},
+    BuiltinToFloat    = {"loc", "dsts", "src"},
+    BuiltinType       = {"loc", "dsts", "src"},
 
     --
     -- Control flow
