@@ -841,18 +841,16 @@ function FunChecker:check_exp_synthesize(exp)
         if f_type._tag == "types.T.Function" then
             self:expand_function_returns(f_type.arg_types, exp.args)
 
-            for i = 1, #exp.args do
-                if f_type.arg_types[i] then
-                    exp.args[i] = self:check_exp_verify(exp.args[i],
-                                    f_type.arg_types[i],
-                                    "argument %d of call to function", i)
-                end
-            end
-
             if #f_type.arg_types ~= #exp.args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
-                    #f_type.arg_types, #exp.args)
+                        #f_type.arg_types, #exp.args)
+            end
+
+            for i = 1, #exp.args do
+                exp.args[i] = self:check_exp_verify(exp.args[i],
+                                f_type.arg_types[i],
+                                "argument %d of call to function", i)
             end
 
             if #f_type.ret_types > 0 then
