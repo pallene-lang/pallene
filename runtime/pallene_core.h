@@ -102,8 +102,27 @@ int pallene_is_truthy(const TValue *v)
 static inline
 void pallene_setnilvalue(TValue *obj)
 {
-    val_(obj).b = 0;
+    val_(obj).i = 0;
     setnilvalue(obj);
+}
+
+/* Starting with Lua 5.4-rc1, Lua the boolean type now has two variants,
+ * LUA_VTRUE and LUA_VFALSE. The value of the boolean is encoded in the type tag
+ * instead of in the `Value` union. */
+static inline
+int pallene_bvalue(TValue *obj)
+{
+    return ttistrue(obj);
+}
+
+static inline
+void pallene_setbvalue(TValue *obj, int b)
+{
+    if (b) {
+        setbtvalue(obj);
+    } else {
+        setbfvalue(obj);
+    }
 }
 
 /* We must call these write barriers whenever we set "v" as an element of "p",

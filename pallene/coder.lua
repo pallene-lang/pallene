@@ -96,7 +96,7 @@ local function lua_value(typ, src_slot)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
-    elseif tag == "types.T.Boolean"  then tmpl = "bvalue($src)"
+    elseif tag == "types.T.Boolean"  then tmpl = "pallene_bvalue($src)"
     elseif tag == "types.T.Integer"  then tmpl = "ivalue($src)"
     elseif tag == "types.T.Float"    then tmpl = "fltvalue($src)"
     elseif tag == "types.T.String"   then tmpl = "tsvalue($src)"
@@ -123,7 +123,7 @@ local function set_stack_slot(typ, dst_slot, value)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "pallene_setnilvalue($dst);"
-    elseif tag == "types.T.Boolean"  then tmpl = "setbvalue($dst, $src);"
+    elseif tag == "types.T.Boolean"  then tmpl = "pallene_setbvalue($dst, $src);"
     elseif tag == "types.T.Integer"  then tmpl = "setivalue($dst, $src);"
     elseif tag == "types.T.Float"    then tmpl = "setfltvalue($dst, $src);"
     elseif tag == "types.T.String"   then tmpl = "setsvalue(L, $dst, $src);"
