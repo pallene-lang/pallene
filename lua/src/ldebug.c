@@ -31,7 +31,7 @@
 
 
 
-#define noLuaClosure(f)		((f) == NULL || (f)->c.tt == LUA_TCCL)
+#define noLuaClosure(f)		((f) == NULL || (f)->c.tt == LUA_VCCL)
 
 
 /* Active Lua function (given call info) */
@@ -101,7 +101,7 @@ int luaG_getfuncline (const Proto *f, int pc) {
 }
 
 
-static int currentline (CallInfo *ci) {
+static int getcurrentline (CallInfo *ci) {
   return luaG_getfuncline(ci_func(ci)->p, currentpc(ci));
 }
 
@@ -306,7 +306,7 @@ static void collectvalidlines (lua_State *L, Closure *f) {
     Table *t = luaH_new(L);  /* new table to store active lines */
     sethvalue2s(L, L->top, t);  /* push it on stack */
     api_incr_top(L);
-    setbvalue(&v, 1);  /* boolean 'true' to be the value of all indices */
+    setbtvalue(&v);  /* boolean 'true' to be the value of all indices */
     for (i = 0; i < p->sizelineinfo; i++) {  /* for all lines with code */
       currentline = nextline(p, currentline, i);
       luaH_setint(L, t, currentline, &v);  /* table[line] = true */
@@ -339,7 +339,7 @@ static int auxgetinfo (lua_State *L, const char *what, lua_Debug *ar,
         break;
       }
       case 'l': {
-        ar->currentline = (ci && isLua(ci)) ? currentline(ci) : -1;
+        ar->currentline = (ci && isLua(ci)) ? getcurrentline(ci) : -1;
         break;
       }
       case 'u': {
@@ -775,7 +775,7 @@ l_noret luaG_runerror (lua_State *L, const char *fmt, ...) {
   msg = luaO_pushvfstring(L, fmt, argp);  /* format message */
   va_end(argp);
   if (isLua(ci))  /* if Lua function, add source:line information */
-    luaG_addinfo(L, msg, ci_func(ci)->p->source, currentline(ci));
+    luaG_addinfo(L, msg, ci_func(ci)->p->source, getcurrentline(ci));
   luaG_errormsg(L);
 }
 
