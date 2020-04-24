@@ -174,8 +174,8 @@ local function pallene_type_tag(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "LUA_TNIL"
     elseif tag == "types.T.Boolean"  then return "LUA_TBOOLEAN"
-    elseif tag == "types.T.Integer"  then return "LUA_TNUMINT"
-    elseif tag == "types.T.Float"    then return "LUA_TNUMFLT"
+    elseif tag == "types.T.Integer"  then return "LUA_VNUMINT"
+    elseif tag == "types.T.Float"    then return "LUA_VNUMFLT"
     elseif tag == "types.T.String"   then return "LUA_TSTRING"
     elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"

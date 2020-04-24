@@ -20,9 +20,9 @@
 
 const char *pallene_tag_name(int raw_tag)
 {
-    if (raw_tag == LUA_TNUMINT) {
+    if (raw_tag == LUA_VNUMINT) {
         return "integer";
-    } else if (raw_tag == LUA_TNUMFLT) {
+    } else if (raw_tag == LUA_VNUMFLT) {
         return "float";
     } else {
         return ttypename(novariant(raw_tag));
