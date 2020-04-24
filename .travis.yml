@@ -1,17 +1,13 @@
 language: python
+os: linux
 
-matrix:
-  include:
-    - os: linux
-      env:
-        - LUA="lua=5.3"
 cache:
   directories:
     - hrenv
 
 before_install:
   - pip install hererocks
-  - hererocks hrenv -rlatest --$LUA
+  - hererocks hrenv --luarocks=latest --lua=5.3
   - source hrenv/bin/activate
 
 install:
