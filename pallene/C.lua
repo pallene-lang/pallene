@@ -147,7 +147,7 @@ function C.reformat(input)
 
         elseif line:match("^[A-Za-z_][A-Za-z_0-9]*:$") then
             -- Labels are indented halfway
-            nspaces = math.max(0, 4 * depth - 2)
+            nspaces = math.max(0, 4*depth - 2)
 
         else
             -- Regular lines are indented based on {} and ().
