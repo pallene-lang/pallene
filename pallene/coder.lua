@@ -498,28 +498,23 @@ function Coder:call_pallene_function(dsts, f_id, base, xs)
         args = table.concat(args, ", "),
     })
 
-    if #ret_types == 0 then
-        assert(dsts == {} or #dsts == 0 or (#dsts > 0 and dsts[1] == false))
-        return call
+    if dsts[1] then
+        return (util.render([[
+            $temp_args
+            $dst = $call
+        ]], {
+            temp_args = table.concat(temp_args, "\n"),
+            dst = dsts[1],
+            call = call,
+        }))
     else
-        if dsts[1] then
-            return (util.render([[
-                $temp_args
-                $dst = $call
-            ]], {
-                temp_args = table.concat(temp_args, "\n"),
-                dst = dsts[1],
-                call = call,
-            }))
-        else
-            return (util.render([[
-                $temp_args
-                $call
-            ]], {
-                temp_args = table.concat(temp_args, "\n"),
-                call = call,
-            }))
-        end
+        return (util.render([[
+            $temp_args
+            $call
+        ]], {
+            temp_args = table.concat(temp_args, "\n"),
+            call = call,
+        }))
     end
 end
 
