@@ -667,15 +667,14 @@ end
 -- expression, or an inner expression if we are dropping a redundant
 -- type conversion.
 function FunChecker:check_exp_synthesize(exp)
-    local tag = exp._tag
-
     if exp._type then
-        -- Fallthrough
-        -- Expression already synthesized. This occurs when
-        -- expand_function_returns is called. This ensures the work is done
-        -- only once for call function and call method expressions.
+        -- This expression was already type-checked before, probably because of
+        -- expand_function_returns.
+        return exp
+    end
 
-    elseif tag == "ast.Exp.Nil" then
+    local tag = exp._tag
+    if     tag == "ast.Exp.Nil" then
         exp._type = types.T.Nil()
 
     elseif tag == "ast.Exp.Bool" then
