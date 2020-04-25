@@ -94,10 +94,10 @@ function C.reformat(input)
     for line in input:gmatch("([^\n]*)") do
         line = line:match("^ *(.-) *$")
 
-        -- We use tab characters to mark blank lines that should be preserved
-        -- in the output, for presentation purposes. (This trick means that the
-        -- reformat fucntion is still indempotent). However, typing a \t inside
-        -- [[ ]] strings is hard so we also use /**/ as a blank line marker.
+        -- We use tab characters to mark blank lines that should be preserved in
+        -- the output. (This trick allows reformat to be idempotent). However,
+        -- typing a \t inside [[ ]] strings is hard so we also use /**/ as a
+        -- blank line marker.
         if line == "/**/" then
             line = "\t"
         end
