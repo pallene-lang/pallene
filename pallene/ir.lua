@@ -95,18 +95,6 @@ function ir.arg_var(func, i)
     return i
 end
 
-function ir.arg_ret_var(func, i)
-    local nret = #func.typ.ret_types
-    assert(1 <= i and i <= nret)
-    return i
-end
-
-function ir.temp_arg_var(func, i)
-    local nret = #func.typ.ret_types
-    assert(1 <= i and i <= nret)
-    return i
-end
-
 --
 -- Pallene IR
 --

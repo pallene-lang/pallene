@@ -402,8 +402,8 @@ function Coder:pallene_entry_point_declaration(f_id)
         table.insert(args, {decl, comment})
     end
     for i = 2, #ret_types do
-        local v_id = ir.arg_ret_var(func, i)
-        local decl, comment = self:ret_value_as_arg_declaration(v_id,
+        local ret_i = i
+        local decl, comment = self:ret_value_as_arg_declaration(ret_i,
                                 ret_types[i])
         if decl then
             table.insert(args, {decl, comment})
@@ -487,7 +487,7 @@ function Coder:call_pallene_function(dsts, f_id, base, xs)
         if dsts[i] then
             table.insert(args, "&"..dsts[i])
         else
-            local temp_i = ir.temp_arg_var(func, i)
+            local temp_i = i-1
             table.insert(temp_args, c_declaration(ret_types[i], "temp"..temp_i)..";")
             table.insert(args, "&temp"..temp_i)
         end
