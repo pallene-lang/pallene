@@ -1877,6 +1877,14 @@ describe("Pallene coder /", function()
                 y: integer
             end
 
+            function new_rpoint(x:integer, y:integer): RPoint
+                return {x = x, y = y}
+            end
+
+            function get_rpoint_fields(p:RPoint): (integer, integer)
+                return p.x, p.y
+            end
+
             local gi, ga: {integer} = 1, {}
             function assign_global(): (integer, {integer})
                 gi, ga[gi] = gi+1, 20
@@ -1910,39 +1918,33 @@ describe("Pallene coder /", function()
                 return p
             end
 
-            function assign_tables_1(): ({integer}, {integer})
-                local a:{integer}, b:{integer} = {10, 20}, {30, 40}
-                a, a[1] = b, 50
+            function assign_tables_1(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
+                a, a[1] = b, c
                 return a, b
             end
 
-            function assign_tables_2(): ({integer}, {integer})
-                local a:{integer}, b:{integer} = {10, 20}, {30, 40}
-                a[1], a = 50, b
+            function assign_tables_2(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
+                a[1], a = c, b
                 return a, b
             end
 
-            function assign_dots_1(): (TPoint, TPoint)
-                local a:TPoint, b:TPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
-                a, a.x, a.y = b, 50, 60
+            function assign_dots_1(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
+                a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            function assign_dots_2(): (TPoint, TPoint)
-                local a:TPoint, b:TPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
-                a.x, a.y, a = 50, 60, b
+            function assign_dots_2(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
+                a.x, a.y, a = c, d, b
                 return a, b
             end
 
-            function assign_recs_1(): (RPoint, RPoint)
-                local a:RPoint, b:RPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
-                a, a.x, a.y = b, 50, 60
+            function assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+                a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            function assign_recs_2(): (RPoint, RPoint)
-                local a:RPoint, b:RPoint = { x = 10, y = 20 }, { x = 30, y = 40 }
-                a.x, a.y, a = 50, 60, b
+            function assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+                a.x, a.y, a = c, d, b
                 return a, b
             end
 
@@ -1995,59 +1997,87 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("use temporary variables correctly on arrays assignments", function()
+        it("use temporary variables correctly on arrays assignments 1", function()
             run_test([[
-                local t1 = table.pack(test.assign_tables_1())
-                assert(2     == t1.n)
-                assert(30    == t1[1][1])
-                assert(40    == t1[1][2])
-                assert(t1[1] == t1[2])
-
-                local t2 = table.pack(test.assign_tables_2())
-                assert(2     == t2.n)
-                assert(30    == t2[1][1])
-                assert(40    == t2[1][2])
-                assert(t2[1] == t2[2])
-
-                local t3 = table.pack(test.assign_dots_1())
-                assert(2     == t3.n)
-                assert(30    == t3[1].x)
-                assert(40    == t3[1].y)
-                assert(t3[1] == t3[2])
-
-                local t4 = table.pack(test.assign_dots_2())
-                assert(2     == t4.n)
-                assert(30    == t4[1].x)
-                assert(40    == t4[1].y)
-                assert(t4[1] == t4[2])
+                local a, b = {10}, {20}
+                local t = table.pack(test.assign_tables_1(a, b, 30))
+                assert(2  == t.n)
+                assert(b  == t[1])
+                assert(b  == t[2])
+                assert(30 == a[1])
+                assert(20 == b[1])
             ]])
         end)
 
-        it("use temporary variables correctly on tables assignments", function()
+        it("use temporary variables correctly on arrays assignments 2", function()
             run_test([[
-                local t1 = table.pack(test.assign_dots_1())
-                assert(2     == t1.n)
-                assert(30    == t1[1].x)
-                assert(40    == t1[1].y)
-                assert(t1[1] == t1[2])
-
-                local t2 = table.pack(test.assign_dots_2())
-                assert(2     == t2.n)
-                assert(30    == t2[1].x)
-                assert(40    == t2[1].y)
-                assert(t2[1] == t2[2])
+                local a, b = {10}, {20}
+                local t = table.pack(test.assign_tables_2(a, b, 30))
+                assert(2  == t.n)
+                assert(b  == t[1])
+                assert(b  == t[2])
+                assert(30 == a[1])
+                assert(20 == b[1])
             ]])
         end)
 
-        it("use temporary variables correctly on records assignments", function()
+        it("use temporary variables correctly on tables assignments 1", function()
             run_test([[
-                local r1 = table.pack(test.assign_recs_1())
-                assert(2     == r1.n)
-                assert(r1[1] == r1[2])
+                local a, b = {x = 10, y = 20}, {x = 30, y = 40}
+                local t = table.pack(test.assign_dots_1(a, b, 50, 60))
+                assert(2  == t.n)
+                assert(b  == t[1])
+                assert(b  == t[2])
+                assert(50 == a.x)
+                assert(60 == a.y)
+                assert(30 == b.x)
+                assert(40 == b.y)
+            ]])
+        end)
 
-                local r2 = table.pack(test.assign_recs_2())
-                assert(2     == r2.n)
-                assert(r2[1] == r2[2])
+        it("use temporary variables correctly on tables assignments 2", function()
+            run_test([[
+                local a, b = {x = 10, y = 20}, {x = 30, y = 40}
+                local t = table.pack(test.assign_dots_2(a, b, 50, 60))
+                assert(2  == t.n)
+                assert(b  == t[1])
+                assert(b  == t[2])
+                assert(50 == a.x)
+                assert(60 == a.y)
+                assert(30 == b.x)
+                assert(40 == b.y)
+            ]])
+        end)
+
+        it("use temporary variables correctly on records assignments 1", function()
+            run_test([[
+                local a, b = test.new_rpoint(10, 20), test.new_rpoint(30, 40)
+                local t = table.pack(test.assign_recs_1(a, b, 50, 60))
+                local ax, ay = test.get_rpoint_fields(a)
+                local bx, by = test.get_rpoint_fields(b)
+                assert(2  == t.n)
+                assert(b  == t[1])
+                assert(b  == t[2])
+                assert(50 == ax)
+                assert(60 == ay)
+                assert(30 == bx)
+                assert(40 == by)
+            ]])
+        end)
+
+        it("use temporary variables correctly on records assignments 2", function()
+            run_test([[
+                local a, b = test.new_rpoint(10, 20), test.new_rpoint(30, 40)
+                local t = table.pack(test.assign_recs_2(a, b, 50, 60))
+                local ax, ay = test.get_rpoint_fields(a)
+                local bx, by = test.get_rpoint_fields(b)
+                assert(2  == t.n)
+                assert(b  == t[1])
+                assert(b  == t[2])
+                assert(50 == ax)
+                assert(60 == ay)
+                assert(30 == bx)
+                assert(40 == by)
             ]])
         end)
 
