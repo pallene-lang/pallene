@@ -160,16 +160,16 @@ local ir_cmd_constructors = {
 
     -- Functions
     -- (dst is false if the return value is void, or unused)
-    CallStatic  = {"loc", "f_typ", "dsts", "f_id", "srcs"},
+    CallStatic  = {"loc", "f_typ", "dsts",  "f_id", "srcs"},
     CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},
 
     -- Builtin operations
-    BuiltinIoWrite    = {"loc",        "src"},
-    BuiltinMathSqrt   = {"loc", "dsts", "src"},
-    BuiltinStringChar = {"loc", "dsts", "src"},
-    BuiltinStringSub  = {"loc", "dsts", "src1", "src2", "src3"},
-    BuiltinToFloat    = {"loc", "dsts", "src"},
-    BuiltinType       = {"loc", "dsts", "src"},
+    BuiltinIoWrite    = {"loc",         "srcs"},
+    BuiltinMathSqrt   = {"loc", "dsts", "srcs"},
+    BuiltinStringChar = {"loc", "dsts", "srcs"},
+    BuiltinStringSub  = {"loc", "dsts", "srcs"},
+    BuiltinToFloat    = {"loc", "dsts", "srcs"},
+    BuiltinType       = {"loc", "dsts", "srcs"},
 
     --
     -- Control flow
@@ -196,7 +196,7 @@ declare_type("Seq", {
 })
 
 local  src_fields = {
-    "src", "src1", "src2", "src3",
+    "src", "src1", "src2", "srcs",
     "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
     "src_f",
     "condition", "start", "limit", "step" }

@@ -476,25 +476,25 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local bname = cname.name
             if     bname == "io_write" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs[1]))
+                table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs))
             elseif bname == "math_sqrt" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, {dst}, xs[1]))
+                table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, {dst}, xs))
             elseif bname == "string_char" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, {dst}, xs[1]))
+                table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, {dst}, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
             elseif bname == "string_sub" then
                 assert(#xs == 3)
                 table.insert(cmds,
-                    ir.Cmd.BuiltinStringSub(loc, {dst}, xs[1], xs[2], xs[3]))
+                    ir.Cmd.BuiltinStringSub(loc, {dst}, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
             elseif bname == "tofloat" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, {dst}, xs[1]))
+                table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, {dst}, xs))
             elseif bname == "type" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinType(loc, {dst}, xs[1]))
+                table.insert(cmds, ir.Cmd.BuiltinType(loc, {dst}, xs))
             else
                 error("impossible")
             end

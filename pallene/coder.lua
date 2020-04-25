@@ -1390,19 +1390,19 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
 end
 
 gen_cmd["BuiltinIoWrite"] = function(self, cmd, _func)
-    local v = self:c_value(cmd.src)
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 
 gen_cmd["BuiltinMathSqrt"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
-    local v = self:c_value(cmd.src)
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ $dst = sqrt($v); ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinStringChar"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
-    local v = self:c_value(cmd.src)
+    local v = self:c_value(cmd.srcs[1])
     local line = cmd.loc.line
     return util.render([[ $dst = pallene_string_char(L, $v, $line); ]], {
         dst = dst, v = v, line = C.integer(line) })
@@ -1410,22 +1410,22 @@ end
 
 gen_cmd["BuiltinStringSub"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
-    local str = self:c_value(cmd.src1)
-    local i   = self:c_value(cmd.src2)
-    local j   = self:c_value(cmd.src3)
+    local str = self:c_value(cmd.srcs[1])
+    local i   = self:c_value(cmd.srcs[2])
+    local j   = self:c_value(cmd.srcs[3])
     return util.render([[ $dst = pallene_string_sub(L, $str, $i, $j); ]], {
         dst = dst, str = str, i = i, j = j })
 end
 
 gen_cmd["BuiltinToFloat"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
-    local v = self:c_value(cmd.src)
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinType"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
-    local v = self:c_value(cmd.src)
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ $dst = pallene_type_builtin(L, $v); ]], { dst = dst, v = v })
 end
 
