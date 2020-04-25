@@ -32,7 +32,7 @@ For a complete introduction to Lua programming, see the book
 
 <P>
 <SMALL>
-Copyright &copy; 2019 Lua.org, PUC-Rio.
+Copyright &copy; 2020 Lua.org, PUC-Rio.
 Freely available under the terms of the
 <A HREF="http://www.lua.org/license.html">Lua license</A>.
 </SMALL>
@@ -92,14 +92,19 @@ Freely available under the terms of the
 <LI><A HREF="manual.html#4">4 &ndash; The Application Program Interface</A>
 <UL>
 <LI><A HREF="manual.html#4.1">4.1 &ndash; The Stack</A>
-<LI><A HREF="manual.html#4.2">4.2 &ndash; Stack Size</A>
-<LI><A HREF="manual.html#4.3">4.3 &ndash; Valid and Acceptable Indices</A>
-<LI><A HREF="manual.html#4.4">4.4 &ndash; C Closures</A>
-<LI><A HREF="manual.html#4.5">4.5 &ndash; Registry</A>
-<LI><A HREF="manual.html#4.6">4.6 &ndash; Error Handling in C</A>
-<LI><A HREF="manual.html#4.7">4.7 &ndash; Handling Yields in C</A>
-<LI><A HREF="manual.html#4.8">4.8 &ndash; Functions and Types</A>
-<LI><A HREF="manual.html#4.9">4.9 &ndash; The Debug Interface</A>
+<UL>
+<LI><A HREF="manual.html#4.1.1">4.1.1 &ndash; Stack Size</A>
+<LI><A HREF="manual.html#4.1.2">4.1.2 &ndash; Valid and Acceptable Indices</A>
+</UL>
+<LI><A HREF="manual.html#4.2">4.2 &ndash; C Closures</A>
+<LI><A HREF="manual.html#4.3">4.3 &ndash; Registry</A>
+<LI><A HREF="manual.html#4.4">4.4 &ndash; Error Handling in C</A>
+<UL>
+<LI><A HREF="manual.html#4.4.1">4.4.1 &ndash; Status Codes</A>
+</UL>
+<LI><A HREF="manual.html#4.5">4.5 &ndash; Handling Yields in C</A>
+<LI><A HREF="manual.html#4.6">4.6 &ndash; Functions and Types</A>
+<LI><A HREF="manual.html#4.7">4.7 &ndash; The Debug Interface</A>
 </UL>
 <P>
 <LI><A HREF="manual.html#5">5 &ndash; The Auxiliary Library</A>
@@ -324,6 +329,38 @@ Freely available under the terms of the
 <A HREF="manual.html#pdf-utf8.len">utf8.len</A><BR>
 <A HREF="manual.html#pdf-utf8.offset">utf8.offset</A><BR>
 
+<H3><A NAME="metamethods">metamethods</A></H3>
+<P>
+<A HREF="manual.html#2.4">__add</A><BR>
+<A HREF="manual.html#2.4">__band</A><BR>
+<A HREF="manual.html#2.4">__bnot</A><BR>
+<A HREF="manual.html#2.4">__bor</A><BR>
+<A HREF="manual.html#2.4">__bxor</A><BR>
+<A HREF="manual.html#2.4">__call</A><BR>
+<A HREF="manual.html#3.3.8">__close</A><BR>
+<A HREF="manual.html#2.4">__concat</A><BR>
+<A HREF="manual.html#2.4">__div</A><BR>
+<A HREF="manual.html#2.4">__eq</A><BR>
+<A HREF="manual.html#2.5.3">__gc</A><BR>
+<A HREF="manual.html#2.4">__idiv</A><BR>
+<A HREF="manual.html#2.4">__index</A><BR>
+<A HREF="manual.html#2.4">__le</A><BR>
+<A HREF="manual.html#2.4">__len</A><BR>
+<A HREF="manual.html#2.4">__lt</A><BR>
+<A HREF="manual.html#pdf-getmetatable">__metatable</A><BR>
+<A HREF="manual.html#2.4">__mod</A><BR>
+<A HREF="manual.html#2.5.4">__mode</A><BR>
+<A HREF="manual.html#2.4">__mul</A><BR>
+<A HREF="manual.html#luaL_newmetatable">__name</A><BR>
+<A HREF="manual.html#2.4">__newindex</A><BR>
+<A HREF="manual.html#pdf-pairs">__pairs</A><BR>
+<A HREF="manual.html#2.4">__pow</A><BR>
+<A HREF="manual.html#2.4">__shl</A><BR>
+<A HREF="manual.html#2.4">__shr</A><BR>
+<A HREF="manual.html#2.4">__sub</A><BR>
+<A HREF="manual.html#pdf-tostring">__tostring</A><BR>
+<A HREF="manual.html#2.4">__unm</A><BR>
+
 <H3><A NAME="env">environment<BR>variables</A></H3>
 <P>
 <A HREF="manual.html#pdf-LUA_CPATH">LUA_CPATH</A><BR>
@@ -497,6 +534,7 @@ Freely available under the terms of the
 <A HREF="manual.html#luaL_buffinit">luaL_buffinit</A><BR>
 <A HREF="manual.html#luaL_buffinitsize">luaL_buffinitsize</A><BR>
 <A HREF="manual.html#luaL_bufflen">luaL_bufflen</A><BR>
+<A HREF="manual.html#luaL_buffsub">luaL_buffsub</A><BR>
 <A HREF="manual.html#luaL_callmeta">luaL_callmeta</A><BR>
 <A HREF="manual.html#luaL_checkany">luaL_checkany</A><BR>
 <A HREF="manual.html#luaL_checkinteger">luaL_checkinteger</A><BR>
@@ -528,9 +566,9 @@ Freely available under the terms of the
 <A HREF="manual.html#luaL_newmetatable">luaL_newmetatable</A><BR>
 <A HREF="manual.html#luaL_newstate">luaL_newstate</A><BR>
 <A HREF="manual.html#luaL_openlibs">luaL_openlibs</A><BR>
-<A HREF="manual.html#luaL_opt">luaL_opt</A><BR>
 <A HREF="manual.html#luaL_optinteger">luaL_optinteger</A><BR>
 <A HREF="manual.html#luaL_optlstring">luaL_optlstring</A><BR>
+<A HREF="manual.html#luaL_opt">luaL_opt</A><BR>
 <A HREF="manual.html#luaL_optnumber">luaL_optnumber</A><BR>
 <A HREF="manual.html#luaL_optstring">luaL_optstring</A><BR>
 <A HREF="manual.html#luaL_prepbuffer">luaL_prepbuffer</A><BR>
@@ -625,10 +663,10 @@ Freely available under the terms of the
 
 <P CLASS="footer">
 Last update:
-Mon Sep 30 23:54:47 UTC 2019
+Mon Apr 13 17:05:09 UTC 2020
 </P>
 <!--
-Last change: revised for Lua 5.4.0 (beta)
+Last change: revised for Lua 5.4.0 (final)
 -->
 
 </BODY>

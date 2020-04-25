@@ -96,7 +96,7 @@ local function lua_value(typ, src_slot)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
-    elseif tag == "types.T.Boolean"  then tmpl = "bvalue($src)"
+    elseif tag == "types.T.Boolean"  then tmpl = "pallene_bvalue($src)"
     elseif tag == "types.T.Integer"  then tmpl = "ivalue($src)"
     elseif tag == "types.T.Float"    then tmpl = "fltvalue($src)"
     elseif tag == "types.T.String"   then tmpl = "tsvalue($src)"
@@ -123,7 +123,7 @@ local function set_stack_slot(typ, dst_slot, value)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "pallene_setnilvalue($dst);"
-    elseif tag == "types.T.Boolean"  then tmpl = "setbvalue($dst, $src);"
+    elseif tag == "types.T.Boolean"  then tmpl = "pallene_setbvalue($dst, $src);"
     elseif tag == "types.T.Integer"  then tmpl = "setivalue($dst, $src);"
     elseif tag == "types.T.Float"    then tmpl = "setfltvalue($dst, $src);"
     elseif tag == "types.T.String"   then tmpl = "setsvalue(L, $dst, $src);"
@@ -174,8 +174,8 @@ local function pallene_type_tag(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "LUA_TNIL"
     elseif tag == "types.T.Boolean"  then return "LUA_TBOOLEAN"
-    elseif tag == "types.T.Integer"  then return "LUA_TNUMINT"
-    elseif tag == "types.T.Float"    then return "LUA_TNUMFLT"
+    elseif tag == "types.T.Integer"  then return "LUA_VNUMINT"
+    elseif tag == "types.T.Float"    then return "LUA_VNUMFLT"
     elseif tag == "types.T.String"   then return "LUA_TSTRING"
     elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"

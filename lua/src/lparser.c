@@ -1014,7 +1014,8 @@ static void funcargs (LexState *ls, expdesc *f, int line) {
         args.k = VVOID;
       else {
         explist(ls, &args);
-        luaK_setmultret(fs, &args);
+        if (hasmultret(args.k))
+          luaK_setmultret(fs, &args);
       }
       check_match(ls, ')', '(', line);
       break;
@@ -1523,8 +1524,8 @@ static void fixforjump (FuncState *fs, int pc, int dest, int back) {
 */
 static void forbody (LexState *ls, int base, int line, int nvars, int isgen) {
   /* forbody -> DO block */
-  static OpCode forprep[2] = {OP_FORPREP, OP_TFORPREP};
-  static OpCode forloop[2] = {OP_FORLOOP, OP_TFORLOOP};
+  static const OpCode forprep[2] = {OP_FORPREP, OP_TFORPREP};
+  static const OpCode forloop[2] = {OP_FORLOOP, OP_TFORLOOP};
   BlockCnt bl;
   FuncState *fs = ls->fs;
   int prep, endfor;
