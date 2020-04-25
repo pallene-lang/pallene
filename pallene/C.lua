@@ -151,17 +151,9 @@ function C.reformat(input)
 
         else
             -- Regular lines are indented based on {} and ().
-            local delta = count_braces(line)
-
             local unindent_this_line = string.match(line, "^[})]")
             nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
-
-            if     delta > 0 then
-                depth = depth + 1
-            elseif delta < 0 then
-                depth = depth - 1
-            end
-
+            depth = depth + count_braces(line)
             assert(depth >= 0, "Unbalanced indentation. Too many '}'s")
         end
 
