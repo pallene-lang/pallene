@@ -668,7 +668,14 @@ end
 -- type conversion.
 function FunChecker:check_exp_synthesize(exp)
     local tag = exp._tag
-    if     tag == "ast.Exp.Nil" then
+
+    if exp._type then
+        -- Fallthrough
+        -- Expression already synthesized. This occurs when
+        -- expand_function_returns is called. This ensures the work is done
+        -- only once for call function and call method expressions.
+
+    elseif tag == "ast.Exp.Nil" then
         exp._type = types.T.Nil()
 
     elseif tag == "ast.Exp.Bool" then
