@@ -461,10 +461,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             assert(not self.func_dsts[exp])
             self.func_dsts[exp] = {}
             self.func_dsts[exp][1] = dst
-            if exp._types then
-                for i = 2, #exp._types do
-                    self.func_dsts[exp][i] = false
-                end
+            for i = 2, #exp._types do
+                self.func_dsts[exp][i] = false
             end
             local xs = get_xs()
             table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ,

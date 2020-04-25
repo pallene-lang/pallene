@@ -859,12 +859,13 @@ function FunChecker:check_exp_synthesize(exp)
                                 "argument %d of call to function", i)
             end
 
-            if #f_type.ret_types > 0 then
-                exp._type  = f_type.ret_types[1]
-                exp._types = f_type.ret_types
-            else
+            if #f_type.ret_types == 0 then
                 exp._type = types.T.Void()
+            else
+                exp._type  = f_type.ret_types[1]
             end
+            exp._types = f_type.ret_types
+
         else
             type_error(exp.loc,
                 "attempting to call a %s value",
