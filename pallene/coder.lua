@@ -316,6 +316,11 @@ function Coder:c_var(v_id)
     return "x" .. v_id
 end
 
+-- @returns the C return variable name for the variable ret_i
+function Coder:c_ret_var(ret_i)
+    return "ret" .. ret_i
+end
+
 -- @returns the C expression for an ir.Value
 function Coder:c_value(value)
     local tag = value._tag
@@ -355,6 +360,13 @@ function Coder:local_declaration(f_id, v_id)
     return c_declaration(decl.typ, name), comment
 end
 
+-- @returns A syntactically valid return value as argument declaration
+--      for variable v_id and type typ. There is no semicolon and no comment.
+function Coder:ret_value_as_arg_declaration(ret_i, typ)
+    local name = self:c_ret_var(ret_i)
+    return c_declaration(typ, "*"..name), ""
+end
+
 --
 -- # Pallene entry point
 --
@@ -362,6 +374,7 @@ end
 --  - Lua state (L)
 --  - Global upvalues table (G)
 --  - Regular parameters (x1, x2, x3...)
+--  - Output parameters (ret2, ret3, ret4...)
 --
 -- If the function returns no results, it returns void.
 -- Otherwhise it returns its return value. Multiple returns are not implemented
@@ -376,7 +389,6 @@ function Coder:pallene_entry_point_declaration(f_id)
     local func = self.module.functions[f_id]
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
-    assert(#ret_types <= 1)
 
     local ret_type = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
 
@@ -388,6 +400,14 @@ function Coder:pallene_entry_point_declaration(f_id)
         local v_id = ir.arg_var(func, i)
         local decl, comment = self:local_declaration(f_id, v_id)
         table.insert(args, {decl, comment})
+    end
+    for i = 2, #ret_types do
+        local ret_i = i
+        local decl, comment = self:ret_value_as_arg_declaration(ret_i,
+                                ret_types[i])
+        if decl then
+            table.insert(args, {decl, comment})
+        end
     end
 
     local arg_lines = {}
@@ -451,16 +471,26 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dst, f_id, base, xs)
+function Coder:call_pallene_function(dsts, f_id, base, xs)
     local func = self.module.functions[f_id]
     local ret_types = func.typ.ret_types
 
     local args = {}
+    local temp_args = {}
     table.insert(args, "L")
     table.insert(args, "G")
     table.insert(args, base)
     for _, x in ipairs(xs) do
         table.insert(args, x)
+    end
+    for i = 2, #dsts do
+        if dsts[i] then
+            table.insert(args, "&"..dsts[i])
+        else
+            local temp_i = i-1
+            table.insert(temp_args, c_declaration(ret_types[i], "temp"..temp_i)..";")
+            table.insert(args, "&temp"..temp_i)
+        end
     end
 
     local call = util.render([[$name($args);]], {
@@ -468,18 +498,23 @@ function Coder:call_pallene_function(dst, f_id, base, xs)
         args = table.concat(args, ", "),
     })
 
-    if #ret_types == 0 then
-        assert(dst == false)
-        return call
+    if dsts[1] then
+        return (util.render([[
+            $temp_args
+            $dst = $call
+        ]], {
+            temp_args = table.concat(temp_args, "\n"),
+            dst = dsts[1],
+            call = call,
+        }))
     else
-        if dst then
-            return (util.render([[$dst = $call]], {
-                dst = dst,
-                call = call,
-            }))
-        else
-            return call
-        end
+        return (util.render([[
+            $temp_args
+            $call
+        ]], {
+            temp_args = table.concat(temp_args, "\n"),
+            call = call,
+        }))
     end
 end
 
@@ -574,12 +609,7 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, c_declaration(typ, ret)..";")
     end
 
-    local call_pallene
-    if #ret_types == 0 then
-        call_pallene = self:call_pallene_function(false, f_id, "L->top", arg_vars)
-    else
-        call_pallene = self:call_pallene_function(ret_vars[1], f_id, "L->top", arg_vars)
-    end
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars)
 
     local push_results = {}
     for i, typ in ipairs(ret_types) do
@@ -1288,19 +1318,25 @@ gen_cmd["SetField"] = function(self, cmd, _func)
 end
 
 gen_cmd["CallStatic"] = function(self, cmd, func)
-    local dst = cmd.dst and self:c_var(cmd.dst)
+    local dsts = {}
+    for i, dst in ipairs(cmd.dsts) do
+        dsts[i] = dst and self:c_var(dst)
+    end
     local xs = {}
     for _, x in ipairs(cmd.srcs) do
         table.insert(xs, self:c_value(x))
     end
     local top = self:stack_top_at(func, cmd)
-    local call_stats = self:call_pallene_function(dst, cmd.f_id, top, xs)
+    local call_stats = self:call_pallene_function(dsts, cmd.f_id, top, xs)
     return self:wrap_function_call(call_stats)
 end
 
 gen_cmd["CallDyn"] = function(self, cmd, func)
     local f_typ = cmd.f_typ
-    local dst = cmd.dst and self:c_var(cmd.dst)
+    local dsts = {}
+    for i, dst in ipairs(cmd.dsts) do
+        dsts[i] = dst and self:c_var(dst)
+    end
 
     local push_arguments = {}
     table.insert(push_arguments,
@@ -1311,13 +1347,13 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
             self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
-    local dsts = { dst }
     local pop_results = {}
-    for i, typ in ipairs(f_typ.ret_types) do
+    for i = #f_typ.ret_types, 1, -1 do
+        local typ = f_typ.ret_types[i]
         local get_slot
         if dsts[i] then
             get_slot = self:get_stack_slot(
-                typ, dst, "slot", cmd.loc, "return value #%d", i)
+                typ, dsts[i], "slot", cmd.loc, "return value #%d", i)
         else
             get_slot = ""
         end
@@ -1349,42 +1385,42 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
 end
 
 gen_cmd["BuiltinIoWrite"] = function(self, cmd, _func)
-    local v = self:c_value(cmd.src)
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 
 gen_cmd["BuiltinMathSqrt"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dst)
-    local v = self:c_value(cmd.src)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ $dst = sqrt($v); ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinStringChar"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dst)
-    local v = self:c_value(cmd.src)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
     local line = cmd.loc.line
     return util.render([[ $dst = pallene_string_char(L, $v, $line); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
 gen_cmd["BuiltinStringSub"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dst)
-    local str = self:c_value(cmd.src1)
-    local i   = self:c_value(cmd.src2)
-    local j   = self:c_value(cmd.src3)
+    local dst = self:c_var(cmd.dsts[1])
+    local str = self:c_value(cmd.srcs[1])
+    local i   = self:c_value(cmd.srcs[2])
+    local j   = self:c_value(cmd.srcs[3])
     return util.render([[ $dst = pallene_string_sub(L, $str, $i, $j); ]], {
         dst = dst, str = str, i = i, j = j })
 end
 
 gen_cmd["BuiltinToFloat"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dst)
-    local v = self:c_value(cmd.src)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinType"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dst)
-    local v = self:c_value(cmd.src)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
     return util.render([[ $dst = pallene_type_builtin(L, $v); ]], { dst = dst, v = v })
 end
 
@@ -1408,11 +1444,15 @@ gen_cmd["Return"] = function(self, cmd)
     if #cmd.srcs == 0 then
         return [[ return; ]]
     else
-        if #cmd.srcs >= 2 then
-            error("not yet implemented")
+        local returns = {}
+        for i = 2, #cmd.srcs do
+            local src = self:c_value(cmd.srcs[i])
+            table.insert(returns, util.render([[ *$reti = $v; ]],
+                                    { reti = self:c_ret_var(i), v = src }))
         end
         local src1 = self:c_value(cmd.srcs[1])
-        return util.render([[ return $v; ]], { v = src1 })
+        table.insert(returns, util.render([[ return $v; ]], { v = src1 }))
+        return table.concat(returns, "\n")
     end
 end
 

@@ -148,16 +148,16 @@ local ir_cmd_constructors = {
 
     -- Functions
     -- (dst is false if the return value is void, or unused)
-    CallStatic  = {"loc", "f_typ", "dst", "f_id", "srcs"},
-    CallDyn     = {"loc", "f_typ", "dst", "src_f", "srcs"},
+    CallStatic  = {"loc", "f_typ", "dsts",  "f_id", "srcs"},
+    CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},
 
     -- Builtin operations
-    BuiltinIoWrite    = {"loc",        "src"},
-    BuiltinMathSqrt   = {"loc", "dst", "src"},
-    BuiltinStringChar = {"loc", "dst", "src"},
-    BuiltinStringSub  = {"loc", "dst", "src1", "src2", "src3"},
-    BuiltinToFloat    = {"loc", "dst", "src"},
-    BuiltinType       = {"loc", "dst", "src"},
+    BuiltinIoWrite    = {"loc",         "srcs"},
+    BuiltinMathSqrt   = {"loc", "dsts", "srcs"},
+    BuiltinStringChar = {"loc", "dsts", "srcs"},
+    BuiltinStringSub  = {"loc", "dsts", "srcs"},
+    BuiltinToFloat    = {"loc", "dsts", "srcs"},
+    BuiltinType       = {"loc", "dsts", "srcs"},
 
     --
     -- Control flow
@@ -184,7 +184,7 @@ declare_type("Seq", {
 })
 
 local  src_fields = {
-    "src", "src1", "src2", "src3",
+    "src", "src1", "src2",
     "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
     "src_f",
     "condition", "start", "limit", "step" }
@@ -220,7 +220,9 @@ function ir.get_dsts(cmd)
     for _, k in ipairs(dsts_fields) do
         if cmd[k] then
             for _, dst in ipairs(cmd[k]) do
-                table.insert(dsts, dst)
+                if dst ~= false then
+                    table.insert(dsts, dst)
+                end
             end
         end
     end

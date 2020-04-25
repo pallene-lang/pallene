@@ -18,6 +18,22 @@ local Checker
 local FunChecker
 
 --
+--
+--
+
+-- ast.Exp.ExtraRet is a node that represents an extra return value of a
+--     function call. This node is added to keep information about which return
+--     value must be used.
+-- @loc: This is the location of the function call
+-- @call_exp: This is the actual function call
+-- @i: This is the index of the return value of this node
+
+--
+--
+--
+
+
+--
 -- Typecheck
 --
 
@@ -167,9 +183,6 @@ function Checker:from_ast_type(ast_typ)
         return types.T.Table(fields)
 
     elseif tag == "ast.Type.Function" then
-        if #ast_typ.ret_types >= 2 then
-            error("functions with 2+ return values are not yet implemented")
-        end
         local p_types = {}
         for _, p_type in ipairs(ast_typ.arg_types) do
             table.insert(p_types, self:from_ast_type(p_type))
@@ -199,15 +212,17 @@ function Checker:check_program(prog_ast)
         -- Forbid toplevel duplicates
         local names = {}
         for _, tl_node in ipairs(prog_ast) do
-            local name = ast.toplevel_name(tl_node)
+            local tl_names = ast.toplevel_names(tl_node)
             local loc = tl_node.loc
-            local old_loc = names[name]
-            if old_loc then
-                scope_error(loc,
-                    "duplicate toplevel declaration for '%s', previous one at line %d",
-                    name, old_loc.line)
+            for _, name in ipairs(tl_names) do
+                local old_loc = names[name]
+                if old_loc then
+                    scope_error(loc,
+                        "duplicate toplevel declaration for '%s', previous " ..
+                        "one at line %d", name, old_loc.line)
+                end
+                names[name] = loc
             end
-            names[name] = loc
         end
     end
 
@@ -274,17 +289,34 @@ function Checker:check_program(prog_ast)
 
             for _, tl_var in ipairs(tl_group) do
                 local loc = tl_var.loc
-                local value = tl_var.value
-                local name = tl_var.decl.name
-                local typ, exp = toplevel_fun_checker:check_initializer_exp(
-                    tl_var.decl, value,
-                    "declaration of module variable %s", name)
-                local _ = self:add_global(name, typ)
-                local var = ast.Var.Name(loc, name)
-                toplevel_fun_checker:check_var(var)
-                table.insert(toplevel_stats,
-                    ast.Stat.Assign(loc, var, exp))
+
+                toplevel_fun_checker:expand_function_returns(tl_var.decls,
+                    tl_var.values)
+
+                local exps = {}
+                local typs = {}
+                for i = 1, #tl_var.decls do
+                    local decl = tl_var.decls[i]
+                    local exp = tl_var.values[i]
+                    local name = decl.name
+                    local typ
+                    typ, exp = toplevel_fun_checker:check_initializer_exp(
+                                    decl, exp,
+                                    "declaration of module variable %s", name)
+                    exps[i] = exp
+                    typs[i] = typ
+                end
+
+                local vars = {}
+                for i, decl in ipairs(tl_var.decls) do
+                    local _ = self:add_global(decl.name, typs[i])
+                    local var = ast.Var.Name(loc, decl.name)
+                    toplevel_fun_checker:check_var(var)
+                    vars[i] = var
+                end
+                table.insert(toplevel_stats, ast.Stat.Assign(loc, vars, exps))
             end
+
 
         elseif group_kind == "Func" then
 
@@ -367,6 +399,28 @@ function FunChecker:add_local(name, typ)
     return l_id
 end
 
+-- This function expands @rhs using @rhs[#rhs] if there are missing expressions
+-- (rhs < lhs) and @rhs[#rhs] is a function or method call.
+function FunChecker:expand_function_returns(lhs, rhs)
+    local last = rhs[#rhs]
+    if  last and (last._tag == "ast.Exp.CallFunc" or
+        last._tag == "ast.Exp.CallMethod")
+    then
+        local missing_exps = #lhs - #rhs
+
+        last = self:check_exp_synthesize(last)
+        rhs[#rhs] = last
+
+        for i = 2, missing_exps + 1 do
+            if last._types[i] then
+                local exp = ast.Exp.ExtraRet(last.loc, last, i)
+                table.insert(rhs, exp)
+            end
+        end
+    end
+end
+
+
 function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
 
@@ -395,10 +449,22 @@ function FunChecker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
         local typ
-        typ, stat.exp = self:check_initializer_exp(stat.decl, stat.exp,
-            "declaration of local variable %s", stat.decl.name)
-        self:add_local(stat.decl.name, typ)
-        stat.decl._name = self.p.symbol_table:find_symbol(stat.decl.name)
+
+        self:expand_function_returns(stat.decls, stat.exps)
+
+        local typs = {}
+        for i = 1, #stat.decls do
+            local decl = stat.decls[i]
+            typ, stat.exps[i] = self:check_initializer_exp(decl, stat.exps[i],
+                                    "declaration of local variable %s",
+                                    decl.name)
+            typs[i] = typ
+        end
+
+        for i, decl in ipairs(stat.decls) do
+            self:add_local(decl.name, typs[i])
+            decl._name = self.p.symbol_table:find_symbol(decl.name)
+        end
 
     elseif tag == "ast.Stat.Block" then
         self.p.symbol_table:with_block(function()
@@ -462,18 +528,23 @@ function FunChecker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.Assign" then
-        self:check_var(stat.var)
-        stat.exp = self:check_exp_verify(stat.exp, stat.var._type, "assignment")
-        if stat.var._tag == "ast.Var.Name" then
-            local ntag = stat.var._name._tag
-            if ntag == "checker.Name.Function" then
-                type_error(stat.loc,
-                    "attempting to assign to toplevel constant function '%s'",
-                    stat.var.name)
-            elseif ntag == "checker.Name.Builtin" then
-                type_error(stat.loc,
-                    "attempting to assign to builtin function %s",
-                    stat.var.name)
+        self:expand_function_returns(stat.vars, stat.exps)
+
+        for i = 1, #stat.vars do
+            self:check_var(stat.vars[i])
+            stat.exps[i] = self:check_exp_verify(stat.exps[i],
+                stat.vars[i]._type, "assignment")
+            if stat.vars[i]._tag == "ast.Var.Name" then
+                local ntag = stat.vars[i]._name._tag
+                if ntag == "checker.Name.Function" then
+                    type_error(stat.loc,
+                        "attempting to assign to toplevel constant function " ..
+                        "'%s'", stat.vars[i].name)
+                elseif ntag == "checker.Name.Builtin" then
+                    type_error(stat.loc,
+                        "attempting to assign to builtin function %s",
+                        stat.vars[i].name)
+                end
             end
         end
 
@@ -482,7 +553,9 @@ function FunChecker:check_stat(stat)
 
     elseif tag == "ast.Stat.Return" then
         local ret_types = self.func.typ.ret_types
-        assert(#ret_types <= 1)
+
+        self:expand_function_returns(ret_types, stat.exps)
+
         if #stat.exps ~= #ret_types then
             type_error(stat.loc,
                 "returning %d value(s) but function expects %s",
@@ -594,6 +667,12 @@ end
 -- expression, or an inner expression if we are dropping a redundant
 -- type conversion.
 function FunChecker:check_exp_synthesize(exp)
+    if exp._type then
+        -- This expression was already type-checked before, probably because of
+        -- expand_function_returns.
+        return exp
+    end
+
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
         exp._type = types.T.Nil()
@@ -765,22 +844,27 @@ function FunChecker:check_exp_synthesize(exp)
         local f_type = exp.exp._type
 
         if f_type._tag == "types.T.Function" then
+            self:expand_function_returns(f_type.arg_types, exp.args)
+
             if #f_type.arg_types ~= #exp.args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
-                    #f_type.arg_types, #exp.args)
+                        #f_type.arg_types, #exp.args)
             end
-            for i = 1, math.min(#f_type.arg_types, #exp.args) do
-                exp.args[i] = self:check_exp_verify(
-                    exp.args[i], f_type.arg_types[i],
-                    "argument %d of call to function", i)
+
+            for i = 1, #exp.args do
+                exp.args[i] = self:check_exp_verify(exp.args[i],
+                                f_type.arg_types[i],
+                                "argument %d of call to function", i)
             end
-            assert(#f_type.ret_types <= 1)
-            if #f_type.ret_types >= 1 then
-                exp._type = f_type.ret_types[1]
-            else
+
+            if #f_type.ret_types == 0 then
                 exp._type = types.T.Void()
+            else
+                exp._type  = f_type.ret_types[1]
             end
+            exp._types = f_type.ret_types
+
         else
             type_error(exp.loc,
                 "attempting to call a %s value",
@@ -793,6 +877,13 @@ function FunChecker:check_exp_synthesize(exp)
     elseif tag == "ast.Exp.Cast" then
         local dst_t = self.p:from_ast_type(exp.target)
         return self:check_exp_verify(exp.exp, dst_t, "cast expression")
+
+    elseif tag == "ast.Exp.Paren" then
+        exp.exp = self:check_exp_synthesize(exp.exp)
+        exp._type = exp.exp._type
+
+    elseif tag == "ast.Exp.ExtraRet" then
+        exp._type = exp.call_exp._types[exp.i]
 
     else
         error("impossible")
@@ -869,11 +960,14 @@ function FunChecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
     elseif tag == "ast.Exp.Lambda" then
         error("not implemented yet")
 
+    elseif tag == "ast.Exp.Paren" then
+        exp.exp = self:check_exp_verify(exp.exp, expected_type, errmsg_fmt, ...)
+        return exp
+
     else
 
         exp = self:check_exp_synthesize(exp)
         local found_type = exp._type
-
         if types.equals(found_type, expected_type) then
             return exp
         elseif types.consistent(found_type, expected_type) then

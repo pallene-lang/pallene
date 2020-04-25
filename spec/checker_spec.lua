@@ -63,6 +63,45 @@ describe("Scope analysis: ", function()
             "duplicate toplevel declaration for 'f'")
     end)
 
+    it("forbids multiple toplevel variable declarations with the same name", function()
+        assert_error([[
+            local a, a = 1, 2
+        ]],
+            "duplicate toplevel declaration for 'a'")
+    end)
+
+    it("ensure toplevel variables are not in scope in their initializers", function()
+        assert_error([[
+            local a, b = 1, a
+        ]],
+            "variable 'a' is not declared")
+    end)
+
+    it("ensure toplevel variables are not in scope in their initializers", function()
+        assert_error([[
+            local a = a
+        ]],
+            "variable 'a' is not declared")
+    end)
+
+    it("ensure variables are not in scope in their initializers", function()
+        assert_error([[
+            local function f()
+                local a, b = 1, a
+            end
+        ]],
+            "variable 'a' is not declared")
+    end)
+
+    it("ensure variables are not in scope in their initializers", function()
+        assert_error([[
+            local function f()
+                local a = a
+            end
+        ]],
+            "variable 'a' is not declared")
+    end)
+
     it("forbids multiple function arguments with the same name", function()
         assert_error([[
             function fn(x: integer, x:string)
@@ -449,6 +488,23 @@ describe("Pallene type checker", function()
             end
         ]],
             "function expects 2 argument(s) but received 1")
+    end)
+
+    it("detects wrong number of arguments when expanding a function", function()
+        assert_error([[
+            function f(): (integer, integer)
+                return 1, 2
+            end
+
+            function g(x:integer, y:integer, z:integer): integer
+                return x + y
+            end
+
+            function test(): integer
+                return g(f())
+            end
+        ]],
+            "function expects 3 argument(s) but received 2")
     end)
 
     it("detects wrong types of arguments to functions", function()

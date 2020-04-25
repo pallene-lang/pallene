@@ -74,7 +74,7 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast[1].decl.type
+    local type_ast = program_ast[1].decls[1].type
     assert_is_subset(expected_ast, type_ast)
 end
 
@@ -98,7 +98,7 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast[1].value.body.stats[1].exp
+    local exp_ast = program_ast[1].value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -161,7 +161,7 @@ describe("Pallene parser", function()
     it("can parse toplevel var declarations", function()
         assert_program_ast([[ local x=17 ]], {
             { _tag = "ast.Toplevel.Var",
-                decl = { name = "x", type = false } }
+                decls = { { name = "x", type = false } } }
         })
     end)
 
@@ -251,6 +251,35 @@ describe("Pallene parser", function()
                 decl = {
                     name = "bar",
                     type = { arg_types = {}, ret_types = {} } }, },
+        })
+    end)
+
+    it("can parse multiple return expressions", function()
+        assert_statements_ast("return 1, 2, 3", {
+            { _tag = "ast.Stat.Return",
+              exps = { { _tag = "ast.Exp.Integer", value = 1 },
+                       { _tag = "ast.Exp.Integer", value = 2 },
+                       { _tag = "ast.Exp.Integer", value = 3 } } }
+        })
+    end)
+
+    it("can parse multiple declarations", function()
+        assert_statements_ast("local a, b = 1, 2", {
+            { _tag  = "ast.Stat.Decl",
+              decls = { { _tag = "ast.Decl.Decl", name = "a" },
+                        { _tag = "ast.Decl.Decl", name = "b" } },
+              exps  = { { _tag = "ast.Exp.Integer", value = 1 },
+                        { _tag = "ast.Exp.Integer", value = 2 } } }
+        })
+    end)
+
+    it("can parse multiple assignments", function()
+        assert_statements_ast("a, b = 1, 2", {
+            { _tag = "ast.Stat.Assign",
+              exps = { { _tag = "ast.Exp.Integer", value = 1 },
+                        { _tag = "ast.Exp.Integer", value = 2 } },
+              vars = { { _tag = "ast.Var.Name", name = "a" },
+                       { _tag = "ast.Var.Name", name = "b" } } }
         })
     end)
 
@@ -384,7 +413,10 @@ describe("Pallene parser", function()
     end)
 
     it("can parse parenthesized expressions", function()
-        assert_expression_ast("((1))", { _tag = "ast.Exp.Integer", value = 1 })
+        assert_expression_ast("((1))",
+            { _tag = "ast.Exp.Paren",
+                exp = { _tag = "ast.Exp.Paren",
+                    exp = { _tag = "ast.Exp.Integer", value = 1 }}})
     end)
 
     it("can parse table constructors", function()
@@ -462,11 +494,11 @@ describe("Pallene parser", function()
             { _tag = "ast.Stat.Block",
                 stats = {
                     { _tag = "ast.Stat.Decl",
-                        decl = { name = "x" },
-                        exp = { value = 10 } },
+                        decls = { { name = "x" } },
+                        exps = { { value = 10 } } },
                     { _tag = "ast.Stat.Assign",
-                        var = { name = "x" },
-                        exp = { value = 11 } },
+                        vars = { { name = "x" } },
+                        exps = { { value = 11 } } },
                     { _tag = "ast.Stat.Call",
                         call_exp = { _tag = "ast.Exp.CallFunc" } } } },
         })
@@ -482,8 +514,8 @@ describe("Pallene parser", function()
               block = {
                 stats = {
                   { _tag = "ast.Stat.Assign",
-                    exp = { var = { _tag = "ast.Var.Name", name = "i" } },
-                    var = { _tag = "ast.Var.Name", name = "x" } } } },
+                    exps = { { var = { _tag = "ast.Var.Name", name = "i" } } },
+                    vars = { { _tag = "ast.Var.Name", name = "x" } } } } },
               decl = { _tag = "ast.Decl.Decl", name = "i", type = false },
               start =  { _tag = "ast.Exp.Integer", value = 1 },
               limit =  { _tag = "ast.Exp.Integer", value = 2 },
@@ -532,15 +564,15 @@ describe("Pallene parser", function()
         assert_expression_ast([[(1 <= 2) == (4 < 5) == (6 ~= 7)]],
             { op = "==",
                 lhs = { op = "==",
-                    lhs = { op = "<=",
+                    lhs = { _tag = "ast.Exp.Paren", exp = { op = "<=",
                         lhs = { value = 1 },
-                        rhs = { value = 2 } },
-                    rhs = { op = "<",
+                        rhs = { value = 2 } } },
+                    rhs = { _tag = "ast.Exp.Paren", exp = { op = "<",
                         lhs = { value = 4 },
-                        rhs = { value = 5 } } },
-                rhs = { op = "~=",
+                        rhs = { value = 5 } } } },
+                rhs = { _tag = "ast.Exp.Paren", exp = { op = "~=",
                     lhs = { value = 6 },
-                    rhs = { value = 7 } } })
+                    rhs = { value = 7 } } } })
 
         assert_expression_ast([[~~1 ~ 2 << 3 >> 4 | 5 & 6]],
             { op = "|",
@@ -675,12 +707,12 @@ describe("Pallene parser", function()
             print(foo.bar)
             foo.write(a, b, c)
         ]], {
-            { var = {
+            { vars = { {
                 _tag = "ast.Var.Dot",
                 exp = { _tag = "ast.Exp.Var",
                   var = { _tag = "ast.Var.Name", name = "foo" }
-                },
-                name = "bar" } },
+              },
+                name = "bar" } } },
             { call_exp = { args = { { var = {
                 _tag = "ast.Var.Dot",
                 exp = { _tag = "ast.Exp.Var",

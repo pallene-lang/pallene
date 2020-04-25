@@ -26,7 +26,7 @@ declare_type("Type", {
 
 declare_type("Toplevel", {
     Func      = {"loc", "is_local", "decl", "value"},
-    Var       = {"loc", "decl", "value"},
+    Var       = {"loc", "decls", "values"},
     Typealias = {"loc", "name", "type"},
     Record    = {"loc", "name", "field_decls"},
     Import    = {"loc", "local_name", "mod_name"},
@@ -43,8 +43,8 @@ declare_type("Stat", {
     Repeat = {"loc", "block", "condition"},
     If     = {"loc", "condition", "then_", "else_"},
     For    = {"loc", "decl", "start", "limit", "step", "block"},
-    Assign = {"loc", "var", "exp"},
-    Decl   = {"loc", "decl", "exp"},
+    Assign = {"loc", "vars", "exps"},
+    Decl   = {"loc", "decls", "exps"},
     Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
     Break  = {"loc"},
@@ -70,8 +70,9 @@ declare_type("Exp", {
     Unop       = {"loc", "op", "exp"},
     Concat     = {"loc", "exps"},
     Binop      = {"loc", "lhs", "op", "rhs"},
-    Cast       = {"loc", "exp", "target"}
-
+    Cast       = {"loc", "exp", "target"},
+    Paren      = {"loc", "exp"},
+    ExtraRet   = {"loc", "call_exp", "i"}, -- See checker.lua
 })
 
 declare_type("Field", {
@@ -83,24 +84,28 @@ declare_type("Field", {
 -- in parser.lua
 --
 
--- Return the variable name declared by a given toplevel node
-function ast.toplevel_name(tl_node)
+-- Return the variables names declared by a given toplevel node
+function ast.toplevel_names(tl_node)
+    local names = {}
     local tag = tl_node._tag
     if     tag == "ast.Toplevel.Func" then
-        return tl_node.decl.name
+        table.insert(names, tl_node.decl.name)
     elseif tag == "ast.Toplevel.Var" then
-        return tl_node.decl.name
+        for _, decl in ipairs(tl_node.decls) do
+            table.insert(names, decl.name)
+        end
     elseif tag == "ast.Toplevel.Typealias" then
-        return tl_node.name
+        table.insert(names, tl_node.name)
     elseif tag == "ast.Toplevel.Record" then
-        return tl_node.name
+        table.insert(names, tl_node.name)
     elseif tag == "ast.Toplevel.Import" then
-        return tl_node.localname
+        table.insert(names, tl_node.localname)
     elseif tag == "ast.Toplevel.Builtin" then
-        return tl_node.name
+        table.insert(names, tl_node.name)
     else
         error("impossible")
     end
+    return names
 end
 
 return ast
