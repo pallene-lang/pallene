@@ -3,6 +3,8 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+local re = require "relabel"
+
 local C = {}
 --
 -- This module contains some helper functions for generating C code.
@@ -74,6 +76,33 @@ end
 -- Pretty printing
 --
 
+local unquoted = re.compile([[
+    line <- {| item* |}
+    item <- long_comment / line_comment / char_lit / string_lit / brace / .
+
+    long_comment <- "/*" finish_long
+    finish_long  <- "*/" / . finish_long
+
+    line_comment <- "//" .*
+
+    char_lit  <- "'" escaped "'"
+    escaped <- '\'. / .
+
+    string_lit    <- '"' finish_string
+    finish_string <- '"' / escaped finish_string
+
+    brace <- { [{}()] }
+]])
+
+local function count_braces(line)
+    local n = 0
+    for _, c in ipairs(unquoted:match(line)) do
+        if c == "{" or c == "(" then n = n + 1 end
+        if c == "}" or c == ")" then n = n - 1 end
+    end
+    return n
+end
+
 -- This function reformats a string corresponding to a C source file. It allows
 -- us to produce readable C output without having to worry about indentation
 -- while we are generating it.
@@ -83,7 +112,6 @@ end
 --
 --   * Use braces on if statements, while loops, and for loops.
 --   * /**/-style comments must not span multiple lines
---   * Be careful about special characters inside strings and comments
 --   * goto labels must appear on a line by themselves
 --   * Use spaces for indentation instead of tabs
 --
@@ -122,19 +150,15 @@ function C.reformat(input)
             nspaces = math.max(0, 4 * depth - 2)
 
         else
-            -- Otherwise, count braces and parens
-            local without_strings = line:gsub([[\"]], ""):gsub('".-"', "")
-            local without_comments = without_strings:gsub("/%*.-%*/", "")
-                                                    :gsub("//.*", "")
-            local _, n_open  = string.gsub(without_comments, "[{(]", "%1")
-            local _, n_close = string.gsub(without_comments, "[})]", "%1")
-            local unindent_this_line = string.match(line, "^[})]")
+            -- Regular lines are indented based on {} and ().
+            local delta = count_braces(line)
 
+            local unindent_this_line = string.match(line, "^[})]")
             nspaces = 4 * (depth - (unindent_this_line and 1 or 0))
 
-            if     n_open > n_close then
+            if     delta > 0 then
                 depth = depth + 1
-            elseif n_open < n_close then
+            elseif delta < 0 then
                 depth = depth - 1
             end
 
