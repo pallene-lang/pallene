@@ -414,7 +414,6 @@ function FunChecker:expand_function_returns(lhs, rhs)
         for i = 2, missing_exps + 1 do
             if last._types[i] then
                 local exp = ast.Exp.ExtraRet(last.loc, last, i)
-                exp._type = last._types[i]
                 table.insert(rhs, exp)
             end
         end
@@ -877,7 +876,7 @@ function FunChecker:check_exp_synthesize(exp)
         exp._type = exp.exp._type
 
     elseif tag == "ast.Exp.ExtraRet" then
-        -- Fallthrough
+        exp._type = exp.call_exp._types[exp.i]
 
     else
         error("impossible")
