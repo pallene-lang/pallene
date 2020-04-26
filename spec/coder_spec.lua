@@ -2176,14 +2176,14 @@ describe("Pallene coder /", function()
             ]])
         end)
 
-        it("assigns returns values from right to left (1)", function()
+        it("assigns return values from right to left (1)", function()
             run_test([[
                 local x = test.assign_same_var_1()
                 assert(x == 10)
             ]])
         end)
 
-        it("assigns returns values from right to left (2)", function()
+        it("assigns return values from right to left (2)", function()
             run_test([[
                 local y = test.assign_same_var_2()
                 assert(y == 20)
