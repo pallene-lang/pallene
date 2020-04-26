@@ -104,6 +104,15 @@ function ToIR:convert_stat(cmds, stat)
         local exps = stat.exps
         assert(#vars == #exps)
 
+        -- In Lua, the expressions in an assignment are evaluated from left to
+        -- right and all sub-expressions are evaluated before the assignments
+        -- are resolved. Assignments happen from right to left.
+
+        -- In a multiple assignment we have to be careful if we end up with an
+        -- ir.Value that refers to a local variable because that variable can
+        -- potentially be overwritten in another part of the the assignment.
+        -- When that happens we need to save the value to a temporary variable
+        -- before resolving the assignments.
         local function save_if_necessary(exp, i)
             local val = self:exp_to_value(cmds, exp)
             if  val._tag == "ir.Value.LocalVar" then
@@ -158,32 +167,64 @@ function ToIR:convert_stat(cmds, stat)
             end
         end
 
+        -- We'd like to avoid storing the RHS results in temporary variables
+        -- when possible, to keep the generated code short. This depends on the
+        -- kind of expression in the RHS.
+        --
+        --  - If the expression is the rightmost one in the RHS then we are free
+        --    to use exp_to_assignment because this is also the first assignment
+        --    to be resolved. Note that this is always the case in a single
+        --    assignment.
+        --
+        -- The other cases are expressions that are not the rightmost one
+        --
+        --  - If the exp is something simple that can be evaluated with
+        --    exp_to_value then we only need to save it if it is a reference to
+        --    a local variable that is assigned by this the multi-assignment.
+        --    save_if_necessary takes care of this.
+        --
+        --  - If the expression is something more complex that expects to be
+        --    evaluated with exp_to_assignment then we can only use
+        --    exp_to_assignment if the variables that we would be writing to
+        --    will not be read by the expressions that we haven't evaluated yet.
+        --    But I am not sure if optimizing this case is worth the hassle
+        --    because it is expected that if the programmer put a complex
+        --    expression in a multiple assignment then probably it is something
+        --    that wouldn't have worked as a sequence of simple assignments.
         local vals = {}
         for i, exp in ipairs(exps) do
-            vals[i] = save_if_necessary(exp, i)
+            if (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet") and
+                lhss[i]._tag == "to_ir.LHS.Local"
+            then
+                self:exp_to_assignment(cmds, lhss[i].id, exp)
+                vals[i] = false
+            else
+                vals[i] = save_if_necessary(exp, i)
+            end
         end
 
         for i = #stat.vars, 1, -1 do
             local lhs = lhss[i]
             local val = vals[i]
-
-            local cmd
-            local ltag = lhs._tag
-            if     ltag == "to_ir.LHS.Local" then
-                cmd = ir.Cmd.Move(loc, lhs.id, val)
-            elseif ltag == "to_ir.LHS.Global" then
-                cmd = ir.Cmd.SetGlobal(loc, lhs.id, val)
-            elseif ltag == "to_ir.LHS.Array" then
-                cmd = ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val)
-            elseif ltag == "to_ir.LHS.Table" then
-                local str = ir.Value.String(lhs.field)
-                cmd = ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val)
-            elseif ltag == "to_ir.LHS.Record" then
-                cmd = ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val)
-            else
-                error("impossible")
+            if val then
+                local cmd
+                local ltag = lhs._tag
+                if     ltag == "to_ir.LHS.Local" then
+                    cmd = ir.Cmd.Move(loc, lhs.id, val)
+                elseif ltag == "to_ir.LHS.Global" then
+                    cmd = ir.Cmd.SetGlobal(loc, lhs.id, val)
+                elseif ltag == "to_ir.LHS.Array" then
+                    cmd = ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val)
+                elseif ltag == "to_ir.LHS.Table" then
+                    local str = ir.Value.String(lhs.field)
+                    cmd = ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val)
+                elseif ltag == "to_ir.LHS.Record" then
+                    cmd = ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val)
+                else
+                    error("impossible")
+                end
+                table.insert(cmds, cmd)
             end
-            table.insert(cmds, cmd)
         end
 
     elseif tag == "ast.Stat.Decl" then

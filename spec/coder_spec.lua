@@ -2120,6 +2120,19 @@ describe("Pallene coder /", function()
             function func_inside_paren(): integer
                 return (f())
             end
+
+            function assign_same_var_1(): integer
+                local x: integer
+                x, x, x = f()
+                return x
+            end
+
+            function assign_same_var_2(): integer
+                local x: integer
+                local y: integer
+                x, y, y = f()
+                return y
+            end
         ]]))
 
         it("works as function arguments", function()
@@ -2160,6 +2173,20 @@ describe("Pallene coder /", function()
                 local t = table.pack(test.func_inside_paren())
                 assert(1  == t.n)
                 assert(10 == t[1])
+            ]])
+        end)
+
+        it("assigns return values from right to left (1)", function()
+            run_test([[
+                local x = test.assign_same_var_1()
+                assert(x == 10)
+            ]])
+        end)
+
+        it("assigns return values from right to left (2)", function()
+            run_test([[
+                local y = test.assign_same_var_2()
+                assert(y == 20)
             ]])
         end)
     end)
