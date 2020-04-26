@@ -44,17 +44,6 @@ local function ctype(typ)
     end
 end
 
--- @returns A syntactically valid function argument or variable declaration
---          without the comma or semicolon
-local function c_declaration(typ, name)
-    local typstr = ctype(typ)
-    if typstr:sub(-1) == "*" then
-        return typstr..name -- Pointers look nicer without a space
-    else
-        return typstr.." "..name
-    end
-end
-
 --
 --
 --
@@ -355,16 +344,17 @@ end
 --      a local variable or a function argument, there is no semicolon.
 function Coder:local_declaration(f_id, v_id)
     local decl = self.module.functions[f_id].vars[v_id]
+    local ctyp = ctype(decl.typ)
     local name = self:c_var(v_id)
     local comment = decl.name and C.comment(decl.name) or ""
-    return c_declaration(decl.typ, name), comment
+    return C.declaration(ctyp, name), comment
 end
 
 -- @returns A syntactically valid return value as argument declaration
 --      for variable v_id and type typ. There is no semicolon and no comment.
 function Coder:ret_value_as_arg_declaration(ret_i, typ)
     local name = self:c_ret_var(ret_i)
-    return c_declaration(typ, "*"..name), ""
+    return C.declaration(ctype(typ).."*", name), ""
 end
 
 --
@@ -484,7 +474,7 @@ function Coder:call_pallene_function(dsts, f_id, base, xs)
             table.insert(args, "&"..dsts[i])
         else
             local tmp = "temp"..i
-            table.insert(temp_args, c_declaration(ret_types[i], tmp)..";")
+            table.insert(temp_args, C.declaration(ctype(ret_types[i]), tmp)..";")
             table.insert(args, "&"..tmp)
         end
     end
@@ -584,7 +574,7 @@ function Coder:lua_entry_point_definition(f_id)
     for i, typ in ipairs(arg_types) do
         local name = "x"..i
         arg_vars[i] = name
-        arg_decls[i] = c_declaration(typ, name)..";"
+        arg_decls[i] = C.declaration(ctype(typ), name)..";"
     end
 
     local init_args = {}
@@ -602,7 +592,7 @@ function Coder:lua_entry_point_definition(f_id)
     for i, typ in ipairs(ret_types) do
         local ret = string.format("ret%d", i)
         table.insert(ret_vars, ret)
-        table.insert(ret_decls, c_declaration(typ, ret)..";")
+        table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
     local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars)
@@ -804,7 +794,7 @@ function RecordCoder:declarations()
             local typ = self.record_typ.field_types[field_name]
             if not types.is_gc(typ) then
                 local name = self:field_name(field_name)
-                local decl = c_declaration(typ, name)
+                local decl = C.declaration(ctype(typ), name)
                 local cmt = C.comment(field_name)
                 table.insert(field_lines, string.format("%s; %s", decl, cmt))
             end
