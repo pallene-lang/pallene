@@ -111,7 +111,7 @@ end
 local function set_stack_slot(typ, dst_slot, value)
     local tmpl
     local tag = typ._tag
-    if     tag == "types.T.Nil"      then tmpl = "pallene_setnilvalue($dst);"
+    if     tag == "types.T.Nil"      then tmpl = "setnilvalue($dst);"
     elseif tag == "types.T.Boolean"  then tmpl = "pallene_setbvalue($dst, $src);"
     elseif tag == "types.T.Integer"  then tmpl = "setivalue($dst, $src);"
     elseif tag == "types.T.Float"    then tmpl = "setfltvalue($dst, $src);"
@@ -338,23 +338,12 @@ function Coder:c_value(value)
     end
 end
 
--- @returns A syntactically valid function argument or variable declaration
---      for variable v_id from function f_id. If the variable has a name,
---      also includes it, as a C comment. Since this may be used for either
---      a local variable or a function argument, there is no semicolon.
-function Coder:local_declaration(f_id, v_id)
-    local decl = self.module.functions[f_id].vars[v_id]
-    local ctyp = ctype(decl.typ)
-    local name = self:c_var(v_id)
-    local comment = decl.name and C.comment(decl.name) or ""
-    return C.declaration(ctyp, name), comment
-end
-
--- @returns A syntactically valid return value as argument declaration
---      for variable v_id and type typ. There is no semicolon and no comment.
-function Coder:ret_value_as_arg_declaration(ret_i, typ)
-    local name = self:c_ret_var(ret_i)
-    return C.declaration(ctype(typ).."*", name), ""
+-- The information for creating a C local var for a given Pallene local var.
+function Coder:prepare_local_var(func, v_id)
+    local c_name = self:c_var(v_id)
+    local typ    = func.vars[v_id].typ
+    local p_name = func.vars[v_id].name
+    return typ, c_name, (p_name and " "..C.comment(p_name) or "")
 end
 
 --
@@ -382,24 +371,27 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local ret_type = (#ret_types >= 1 and ctype(ret_types[1]) or "void")
 
-    local args = {} -- { {name , comment} }
-    table.insert(args, {"lua_State *L", ""})
-    table.insert(args, {"Udata *G", ""})
-    table.insert(args, {"StackValue *base", ""})
+    local args = {} -- { {ctype, name , comment} }
+    table.insert(args, {"lua_State *" , "L",    ""})
+    table.insert(args, {"Udata *"     , "G",    ""})
+    table.insert(args, {"StackValue *", "base", ""})
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
-        local decl, comment = self:local_declaration(f_id, v_id)
-        table.insert(args, {decl, comment})
+        local typ, c_name, comment = self:prepare_local_var(func, v_id)
+        table.insert(args, {ctype(typ), c_name, comment})
     end
     for i = 2, #ret_types do
-        local decl, comment = self:ret_value_as_arg_declaration(i, ret_types[i])
-        table.insert(args, {decl, comment})
+        local typ  = ret_types[i]
+        local name = self:c_ret_var(i)
+        table.insert(args, {ctype(typ).."*", name, ""})
     end
 
     local arg_lines = {}
     for i, arg in ipairs(args) do
-        local comma = (i < #args) and "," or " "
-        table.insert(arg_lines, string.format("%s%s %s", arg[1], comma, arg[2]))
+        local decl    = C.declaration(arg[1], arg[2])
+        local comma   = (i < #args) and "," or " "
+        local comment = arg[3]
+        table.insert(arg_lines, decl..comma..comment)
     end
 
     return (util.render([[
@@ -434,8 +426,15 @@ function Coder:pallene_entry_point_definition(f_id)
     end
 
     for v_id = #arg_types + 1, #func.vars do
-        local decl, comment = self:local_declaration(f_id, v_id)
-        table.insert(prologue, string.format("%s; %s", decl, comment))
+        -- To avoid -Wmaybe-uninitialized warnings we have to initialize our
+        -- local variables of type "Any". Nils and Booleans only set the type
+        -- tag of the TValue and leave the "._value" field uninitialized and the
+        -- C compiler doesn't like that because it means that a setobj may read
+        -- from uninitialized memory.
+        local typ, c_name, comment = self:prepare_local_var(func, v_id)
+        local decl = C.declaration(ctype(typ), c_name)
+        local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
+        table.insert(prologue, decl..initializer..";"..comment)
     end
 
     local body = self:generate_cmd(func, func.body)

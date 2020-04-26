@@ -91,21 +91,6 @@ int pallene_is_truthy(const TValue *v)
     return !l_isfalse(v);
 }
 
-/* This is a workaround to avoid -Wmaybe-uninitialized warnings with GCC. If we
- * initialize a TValue with setnilvalue and then follow that with a setobj, GCC
- * complains that the setobj might be reading from an uninitialized obj->value_.
- *
- * To placate the compiler we write some bogus data to the value field whenever
- * we would initialize a TValue with nil. In theory this should not have a
- * noticeable performance impact because it only affects nil literals and
- * variables of type nil. */
-static inline
-void pallene_setnilvalue(TValue *obj)
-{
-    val_(obj).i = 0;
-    setnilvalue(obj);
-}
-
 /* Starting with Lua 5.4-rc1, Lua the boolean type now has two variants,
  * LUA_VTRUE and LUA_VFALSE. The value of the boolean is encoded in the type tag
  * instead of in the `Value` union. */
