@@ -4,7 +4,7 @@
 --
 -- How to use Luacheck:
 --    - luarocks install luacheck
---    - luacheck ./pallene ./spec
+--    - luacheck ./pallene ./spec ./examples
 --
 -- For vim integration, I recommend ALE [2]. It supports luacheck out of the box
 -- For other editors such as Sublime, Atom, Emacs, Brackets, and VS Code,

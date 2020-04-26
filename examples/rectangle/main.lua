@@ -3,7 +3,9 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-m = require "examples.rectangle.rectangle"
+local rect = require "examples.rectangle.rectangle"
 local r = { width = 10.5, height = 5.0 }
-result = m.find_area(r)
-print("The area of rectangle with width " .. r.width .. " and height " .. r.height .. " is " .. result .. "!")
+local result = rect.find_area(r)
+print(string.format(
+    "The area of rectangle with width %.2f and height %.2f is %.2f",
+    r.width, r.height, result))
