@@ -1445,7 +1445,7 @@ gen_cmd["Return"] = function(self, cmd)
         return [[ return; ]]
     else
         local returns = {}
-        for i = 2, #cmd.srcs do
+        for i = #cmd.srcs, 2, -1 do
             local src = self:c_value(cmd.srcs[i])
             table.insert(returns, util.render([[ *$reti = $v; ]],
                                     { reti = self:c_ret_var(i), v = src }))
