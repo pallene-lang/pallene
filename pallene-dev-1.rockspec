@@ -33,6 +33,7 @@ build = {
       ["pallene.lexer"] =          "pallene/lexer.lua",
       ["pallene.location"] =       "pallene/location.lua",
       ["pallene.parser"] =         "pallene/parser.lua",
+      ["pallene.print_ir"] =       "pallene/print_ir.lua",
       ["pallene.symtab"] =         "pallene/symtab.lua",
       ["pallene.syntax_errors"] =  "pallene/syntax_errors.lua",
       ["pallene.to_ir"] =          "pallene/to_ir.lua",
