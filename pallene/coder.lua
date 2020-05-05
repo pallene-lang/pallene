@@ -897,9 +897,9 @@ end
 function Coder:wrap_function_call(call_stats)
     return util.render([[
         {
-            StackValue *old_stack = L->stack;
+            ptrdiff_t old_base = savestack(L, base);
             ${call_stats}
-            base = L->stack + (base - old_stack);
+            base = restorestack(L, old_base);
         }
     ]], {
         call_stats = call_stats,
