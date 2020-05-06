@@ -431,7 +431,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     if     tag == "ast.Exp.Initlist" then
         local typ = exp._type
         if     typ._tag == "types.T.Array" then
-            local n = #exp.fields
+            local n = ir.Value.Integer(#exp.fields)
             table.insert(cmds, ir.Cmd.NewArr(loc, dst, n))
             table.insert(cmds, ir.Cmd.CheckGC())
             for i, field in ipairs(exp.fields) do
@@ -443,7 +443,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif typ._tag == "types.T.Table" then
-            local n = #exp.fields
+            local n = ir.Value.Integer(#exp.fields)
             table.insert(cmds, ir.Cmd.NewTable(loc, dst, n))
             table.insert(cmds, ir.Cmd.CheckGC())
             for _, field in ipairs(exp.fields) do
