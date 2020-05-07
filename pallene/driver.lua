@@ -62,7 +62,7 @@ function driver.compile_internal(filename, stop_after)
     end
 
     module, errs = to_ir.convert(module)
-    if stop_after == "to_ir" or not module then
+    if stop_after == "ir" or not module then
         return module, errs
     end
 
