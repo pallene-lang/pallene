@@ -51,7 +51,7 @@ function driver.compile_internal(filename, stop_after)
 
     local prog_ast
     prog_ast, errs = parser.parse(filename, input)
-    if stop_after == "parser" or not prog_ast then
+    if stop_after == "ast" or not prog_ast then
         return prog_ast, errs
     end
 
