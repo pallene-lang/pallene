@@ -82,8 +82,8 @@ void draw(size_t N, size_t M, bool **cells)
 // Place a shape in the grid
 void spawn(
     size_t N, size_t M, bool **cells,
-    size_t Nshape, size_t Mshape, bool **shape,
-    size_t top, size_t left)
+    int Nshape, int Mshape, bool **shape,
+    int top, int left)
 {
     for (int i = 0; i < Nshape; i++) {
         for (int j = 0; j < Mshape; j++) {
@@ -97,11 +97,11 @@ void spawn(
 // Run one step of the simulation.
 void step(size_t N, size_t M, bool **curr_cells, bool **next_cells)
 {
-    for (int i2 = 0; i2 < N; i2++) {
+    for (int i2 = 0; i2 < (int)N; i2++) {
         int i1 = wrap(i2-1, N);
         int i3 = wrap(i2+1, N);
 
-        for (int j2 = 0; j2 < M; j2++) {
+        for (int j2 = 0; j2 < (int)M; j2++) {
             int j1 = wrap(j2-1, M);
             int j3 = wrap(j2+1, M);
 

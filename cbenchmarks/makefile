@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -Wall -Wextra -pedantic -O2 -lm
 
-EXES:=binsearch centroid conway matmul sieve queen
+EXES:=binsearch centroid conway matmul sieve queen nbody
 
 all: $(EXES)
 
