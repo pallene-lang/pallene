@@ -3,8 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-package = require "examples.factorial.factorial"
-
-n = 5
-result = package.factorial(n)
-print("The factorial of " .. n .. " is " .. result .. ".")
+local fac = require "examples.factorial.factorial"
+local n = 5
+local result = fac.factorial(n)
+print(string.format("The factorial of %d is %d.", n, result))
