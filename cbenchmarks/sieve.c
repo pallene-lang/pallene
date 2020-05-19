@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 
     int64_t *primes = NULL;
     size_t nprimes;
-    for (int i = 0; i < nrep; i++) {
+    for (size_t i = 0; i < nrep; i++) {
         free(primes);
         sieve(N, &primes, &nprimes);
     }

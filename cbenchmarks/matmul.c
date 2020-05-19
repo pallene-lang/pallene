@@ -55,11 +55,13 @@ int main(int argc, char **argv)
     }
 
     double **C = NULL;
-    for (int i = 0; i < nrep; i++) {
+    for (size_t i = 0; i < nrep; i++) {
         free(C);
         C = matmul(A, A, N, N, N);
     }
 
     printf("%lu\n", N);
-    printf("%lf\n", C[0][0]);
+    if (N > 0) {
+        printf("%lf\n", C[0][0]);
+    }
 }
