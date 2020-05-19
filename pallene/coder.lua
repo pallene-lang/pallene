@@ -424,6 +424,8 @@ function Coder:pallene_entry_point_definition(f_id)
             slots_needed = C.integer(slots_needed),
         }))
     end
+    table.insert(prologue, self:savestack())
+    table.insert(prologue, "/**/")
 
     for v_id = #arg_types + 1, #func.vars do
         -- To avoid -Wmaybe-uninitialized warnings we have to initialize our
@@ -883,6 +885,17 @@ end
 --
 -- # Call stack managements
 --
+-- We keep a `base` pointer to the start of our call frame and update it every
+-- time the stack is reallocated. The C compiler can't do this optimization by
+-- itself because it assumes that lots of things could change L->stack.
+--
+-- The restorestack function should be called after every function call, when
+-- the stack may potentially have been reallocated.
+--
+-- The savestack function needs to be called before the function calls that may
+-- reallocate the stack. Calling it once in the function prologue works. Don't
+-- worry if the base_offset variable goes unused because the C compiler can
+-- optimize that.
 
 function Coder:stack_top_at(func, cmd)
     local offset = 0
@@ -894,16 +907,12 @@ function Coder:stack_top_at(func, cmd)
     return util.render("base + $offset", { offset = C.integer(offset) })
 end
 
-function Coder:wrap_function_call(call_stats)
-    return util.render([[
-        {
-            StackValue *old_stack = L->stack;
-            ${call_stats}
-            base = L->stack + (base - old_stack);
-        }
-    ]], {
-        call_stats = call_stats,
-    })
+function Coder:savestack()
+    return [[ptrdiff_t base_offset = savestack(L, base);]]
+end
+
+function Coder:restorestack()
+    return [[base = restorestack(L, base_offset);]]
 end
 
 --
@@ -1312,8 +1321,11 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
         table.insert(xs, self:c_value(x))
     end
     local top = self:stack_top_at(func, cmd)
-    local call_stats = self:call_pallene_function(dsts, cmd.f_id, top, xs)
-    return self:wrap_function_call(call_stats)
+
+    local parts = {}
+    table.insert(parts, self:call_pallene_function(dsts, cmd.f_id, top, xs))
+    table.insert(parts, self:restorestack())
+    return table.concat(parts, "\n")
 end
 
 gen_cmd["CallDyn"] = function(self, cmd, func)
@@ -1353,20 +1365,20 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
         }))
     end
 
-    local top = self:stack_top_at(func, cmd)
-    local call_stats = util.render([[
+    return util.render([[
         L->top = $top;
         ${push_arguments}
         lua_call(L, $nargs, $nrets);
         ${pop_results}
+        ${restore_stack}
     ]], {
-        top = top,
+        top = self:stack_top_at(func, cmd),
         push_arguments = table.concat(push_arguments, "\n"),
         pop_results = table.concat(pop_results, "\n"),
         nargs = C.integer(#f_typ.arg_types),
         nrets = C.integer(#f_typ.ret_types),
+        restore_stack = self:restorestack(),
     })
-    return self:wrap_function_call(call_stats)
 end
 
 gen_cmd["BuiltinIoWrite"] = function(self, cmd, _func)
