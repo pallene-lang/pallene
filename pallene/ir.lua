@@ -187,6 +187,7 @@ local  src_fields = {
     "src", "src1", "src2",
     "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
     "src_f",
+    "size_hint",
     "condition", "start", "limit", "step" }
 local srcs_fields = { "srcs" }
 
@@ -234,7 +235,6 @@ local other_fields = {
     "global_id",
     "op",
     "src_typ", "dst_typ", "rec_typ", "f_typ",
-    "size_hint",
     "field_name",
     "f_id",
     "cmds", "then_", "else_",
