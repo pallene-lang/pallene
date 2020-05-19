@@ -62,14 +62,21 @@ function C.float(n)
     end
 end
 
---
--- Comments
--- (The reformater assumes that they are single-line)
-
 function C.comment(str)
-    str = str:gsub("\n", " ")
+    str = str:gsub("\n", " ")  -- (our reformatter expects single-line comments)
     str = str:gsub("%*%/", "")
     return string.format("/* %s */", str)
+end
+
+--
+-- Local variable, function argument and struct member declarations
+--
+
+function C.declaration(ctyp, name)
+    -- Put the *'s next to the name to make the pointers look nice.
+    local non_ptr, ptr = string.match(ctyp, '^(.-)([%s%*]*)$')
+    if ptr ~= "" then ptr = ptr:gsub("%s", "") end
+    return string.format("%s %s%s", non_ptr, ptr, name)
 end
 
 --
