@@ -7,9 +7,9 @@ typedef struct {
     double x, y, z, vx, vy, vz, mass;
 } Body;
 
-static const double PI = 3.141592653589793;
-static const double SOLAR_MASS = 4.0 * PI * PI;
-static const double DAYS_PER_YEAR = 365.24;
+#define PI             3.141592653589793
+#define SOLAR_MASS     (4.0 * PI * PI)
+#define DAYS_PER_YEAR  365.24
 
 #define nbodies 5
 static Body bodies[] = {
