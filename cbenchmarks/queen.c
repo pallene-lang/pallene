@@ -64,6 +64,6 @@ int main(int argc, char **argv)
 
     //
 
-    nqueens(13);
+    nqueens(N);
     return 0;
 }
