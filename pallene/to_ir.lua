@@ -159,30 +159,28 @@ function ToIR:convert_stat(cmds, stat)
             end
         end
 
-        -- We'd like to avoid storing the RHS results in temporary variables
-        -- when possible, to keep the generated code short. This depends on the
-        -- kind of expression in the RHS.
+        -- We'd like to avoid storing the RHS results in temporary variables when possible, to avoid
+        -- cluttering the generated code with too many variables. There are three main cases:
         --
-        --  - If the expression is the rightmost one in the RHS then we are free
-        --    to use exp_to_assignment because this is also the first assignment
-        --    to be resolved. Note that this is always the case in a single
-        --    assignment.
+        --  1) If the expression is the rightmost one in the RHS then we are free to use
+        --  exp_to_assignment because this is also the first assignment to be resolved.
+        --  This is always the case for a single assignment.
         --
-        -- The other cases are expressions that are not the rightmost one
+        -- The other cases are for expressions that are not the rightmost one in the RHS.
         --
-        --  - If the exp is something simple that can be evaluated with
-        --    exp_to_value then we only need to save it if it is a reference to
-        --    a local variable that is assigned by this the multi-assignment.
-        --    save_if_necessary takes care of this.
+        --  2) If the exp is something simple that can be evaluated with exp_to_value then the thing
+        --  that we need to worry about is if we are reading from a local variable that is being
+        --  assigned to in another part of this multi-assignment. We can take care of this with
+        --  save_if_necessary.
         --
-        --  - If the expression is something more complex that expects to be
-        --    evaluated with exp_to_assignment then we can only use
-        --    exp_to_assignment if the variables that we would be writing to
-        --    will not be read by the expressions that we haven't evaluated yet.
-        --    But I am not sure if optimizing this case is worth the hassle
-        --    because it is expected that if the programmer put a complex
-        --    expression in a multiple assignment then probably it is something
-        --    that wouldn't have worked as a sequence of simple assignments.
+        --  3) If the expression is something more complex that expects to be evaluated with
+        --  exp_to_assignment then in theory we could use exp_to_assignment if we could prove that
+        --  it is safe to write to the destination variables at this point in the program, before
+        --  the rest of the RHS has been evaluated. However, we don't bother optimizing this last
+        --  case because if the programmer has written a complicated multiple-assignment then it is
+        --  likely that it isn't something that could have been written as a sequence of single
+        --  assignments. (Our implementation always ends up creating a temporary variable in this
+        --  case because save_if_necessary calls exp_to_value.)
         local vals = {}
         for i, exp in ipairs(exps) do
             local is_last = (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet")

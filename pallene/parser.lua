@@ -428,8 +428,7 @@ local grammar = re.compile([[
     P <- {} => get_loc
 
     -- Create new rules for all our tokens, for the whitespace-skipping magic
-    -- Currently done by hand but this is something that parser-gen should be
-    -- able to do for us.
+    -- I grumply wrote all of these by hand.
 
     SKIP            <- (%SPACE / %COMMENT)
 

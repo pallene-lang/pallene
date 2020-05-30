@@ -734,9 +734,10 @@ function FunChecker:check_exp_synthesize(exp)
         if op == "==" or op == "~=" then
             if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
                (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
+                -- Note: if we implement this then we should use the same logic as luaV_equalobj.
+                -- Don't just cast to float! That is not accurate for large integers.
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
-                -- note: use Lua's implementation of comparison, don't just cast to float
             end
             if not types.equals(t1, t2) then
                 type_error(exp.loc,
@@ -752,7 +753,8 @@ function FunChecker:check_exp_synthesize(exp)
                -- OK
             elseif (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
                    (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
-                -- note: use Lua's implementation of comparison, don't just cast to float
+                -- Note: if we implement this then we should use the same logic as LTintfloat,
+                -- LEintfloat and so on, from lvm.c. Just casting to float is not enough!
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
             else
