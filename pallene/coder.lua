@@ -1455,43 +1455,34 @@ gen_cmd["If"] = function(self, cmd, func)
     local A = (then_ ~= "")
     local B = (else_ ~= "")
 
-    if  A and B then
-        return (util.render([[
+    local tmpl
+    if A and (not B) then
+        tmpl = [[
+            if ($condition) {
+                ${then_}
+            }
+        ]]
+    elseif (not A) and B then
+        tmpl = [[
+            if (!$condition) {
+                ${else_}
+            }
+        ]]
+    else
+        tmpl = [[
             if ($condition) {
                 ${then_}
             } else {
                 ${else_}
             }
-        ]], {
-            condition = condition,
-            then_ = then_,
-            else_ = else_,
-        }))
-
-    elseif A and (not B) then
-        return (util.render([[
-            if ($condition) {
-                ${then_}
-            }
-        ]], {
-            condition = condition,
-            then_ = then_,
-        }))
-
-    elseif (not A) and B then
-        return (util.render([[
-            if (!$condition) {
-                ${else_}
-            }
-        ]], {
-            condition = condition,
-            else_ = else_,
-        }))
-
-    else -- (not A) and (not B)
-        -- ir.Clean does not allow this case.
-        error("impossible")
+        ]]
     end
+
+    return util.render(tmpl, {
+        condition = condition,
+        then_ = then_,
+        else_ = else_,
+    })
 end
 
 gen_cmd["Loop"] = function(self, cmd, func)
