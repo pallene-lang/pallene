@@ -7,8 +7,8 @@ local typedecl = {}
 
 -- Unique tag names:
 --
--- We keep track of all the type tags that we define, so that no two
--- constructors attempt to use the same type tag.
+-- We keep track of all the type tags that we define, so that no two constructors attempt to use the
+-- same type tag.
 
 local existing_tags = {}
 
@@ -30,9 +30,8 @@ local function make_tag(mod_name, type_name, cons_name)
     return tag
 end
 
--- Create a properly-namespaced algebraic datatype. Objects belonging to this
--- type can be pattern matched by inspecting their _tag field. See ast.lua and
--- types.lua for usage examples.
+-- Create a properly-namespaced algebraic datatype. Objects belonging to this type can be pattern
+-- matched by inspecting their _tag field. See ast.lua and types.lua for usage examples.
 --
 -- @param module Module table where the type is being defined
 -- @param mod_name Name of the type's module (only used by tostring)

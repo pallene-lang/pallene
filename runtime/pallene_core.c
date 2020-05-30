@@ -161,8 +161,7 @@ void pallene_grow_array(lua_State *L, Table *arr, unsigned int ui, int line)
         luaL_error(L, "invalid index for Pallene array at line %d", line);
     }
 
-    /* This loop doesn't overflow because i < MAXASIZE and
-     * MAXASIZE is a power of two */
+    /* This loop doesn't overflow because i < MAXASIZE and MAXASIZE is a power of two */
     size_t new_size = 1;
     while (ui >= new_size) {
         new_size *= 2;
@@ -239,11 +238,9 @@ TString* pallene_string_sub(
 
 /* l_strcmp, copied from lvm.c
  *
- * Compare two strings 'ls' x 'rs', returning an integer less-equal-
- * -greater than zero if 'ls' is less-equal-greater than 'rs'.
- * The code is a little tricky because it allows '\0' in the strings
- * and it uses 'strcoll' (to respect locales) for each segments
- * of the strings. */
+ * Compare two strings 'ls' x 'rs', returning an integer less-equal-greater than zero if 'ls' is
+ * less-equal-greater than 'rs'. The code is a little tricky because it allows '\0' in the strings
+ * and it uses 'strcoll' (to respect locales) for each segments of the strings. */
 int pallene_l_strcmp (const TString *ls, const TString *rs) {
   const char *l = getstr(ls);
   size_t ll = tsslen(ls);

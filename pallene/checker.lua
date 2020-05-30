@@ -17,20 +17,12 @@ local checker = {}
 local Checker
 local FunChecker
 
+-- ast.Exp.ExtraRet is a node that represents an extra return value of a function call. This node is
+-- added to keep information about which return value must be used.
 --
---
---
-
--- ast.Exp.ExtraRet is a node that represents an extra return value of a
---     function call. This node is added to keep information about which return
---     value must be used.
 -- @loc: This is the location of the function call
 -- @call_exp: This is the actual function call
 -- @i: This is the index of the return value of this node
-
---
---
---
 
 
 --
@@ -218,25 +210,21 @@ function Checker:check_program(prog_ast)
                 local old_loc = names[name]
                 if old_loc then
                     scope_error(loc,
-                        "duplicate toplevel declaration for '%s', previous " ..
-                        "one at line %d", name, old_loc.line)
+                        "duplicate toplevel declaration for '%s', previous one at line %d",
+                        name, old_loc.line)
                 end
                 names[name] = loc
             end
         end
     end
 
-    -- Add builtins to symbol table.
-    -- (The order does not matter because they are distinct)
+    -- Add builtins to symbol table. (The order does not matter because they are distinct)
     for name, _ in pairs(builtins) do
         self:add_builtin(name)
     end
 
-    -- Add a special entry for $tofloat which can never be shadowed
-    -- and is therefore always visible.
-    self.symbol_table:add_symbol(
-        "$tofloat",
-        checker.Name.Builtin("tofloat"))
+    -- Add a special entry for $tofloat which can never be shadowed and is therefore always visible.
+    self.symbol_table:add_symbol("$tofloat", checker.Name.Builtin("tofloat"))
 
     local toplevel_f_id = self:add_function(
         false,
@@ -301,8 +289,7 @@ function Checker:check_program(prog_ast)
                     local name = decl.name
                     local typ
                     typ, exp = toplevel_fun_checker:check_initializer_exp(
-                                    decl, exp,
-                                    "declaration of module variable %s", name)
+                                    decl, exp, "declaration of module variable %s", name)
                     exps[i] = exp
                     typs[i] = typ
                 end
@@ -399,8 +386,8 @@ function FunChecker:add_local(name, typ)
     return l_id
 end
 
--- This function expands @rhs using @rhs[#rhs] if there are missing expressions
--- (rhs < lhs) and @rhs[#rhs] is a function or method call.
+-- This function expands @rhs using @rhs[#rhs] if there are missing expressions.
+-- That is, if (rhs < lhs) and rhs[#rhs] is a function or method call.
 function FunChecker:expand_function_returns(lhs, rhs)
     local last = rhs[#rhs]
     if  last and (last._tag == "ast.Exp.CallFunc" or
@@ -456,8 +443,7 @@ function FunChecker:check_stat(stat)
         for i = 1, #stat.decls do
             local decl = stat.decls[i]
             typ, stat.exps[i] = self:check_initializer_exp(decl, stat.exps[i],
-                                    "declaration of local variable %s",
-                                    decl.name)
+                                    "declaration of local variable %s", decl.name)
             typs[i] = typ
         end
 
@@ -499,16 +485,14 @@ function FunChecker:check_stat(stat)
         then
             type_error(stat.decl.loc,
                 "expected integer or float but found %s in for-loop control variable '%s'",
-                types.tostring(loop_type),
-                stat.decl.name)
+                types.tostring(loop_type), stat.decl.name)
         end
 
         stat.limit = self:check_exp_verify(stat.limit, loop_type,
             "numeric for-loop limit")
 
         if stat.step then
-            stat.step = self:check_exp_verify(stat.step, loop_type,
-                "numeric for-loop step")
+            stat.step = self:check_exp_verify(stat.step, loop_type, "numeric for-loop step")
         else
             local def_step
             if     loop_type._tag == "types.T.Integer" then
@@ -538,8 +522,8 @@ function FunChecker:check_stat(stat)
                 local ntag = stat.vars[i]._name._tag
                 if ntag == "checker.Name.Function" then
                     type_error(stat.loc,
-                        "attempting to assign to toplevel constant function " ..
-                        "'%s'", stat.vars[i].name)
+                        "attempting to assign to toplevel constant function '%s'",
+                        stat.vars[i].name)
                 elseif ntag == "checker.Name.Builtin" then
                     type_error(stat.loc,
                         "attempting to assign to builtin function %s",
@@ -662,14 +646,12 @@ function FunChecker:coerce_numeric_exp_to_float(exp)
     end
 end
 
--- Infers the type of expression @exp, ignoring the surrounding type context
--- Returns the typechecked expression. This may be either be the original
--- expression, or an inner expression if we are dropping a redundant
--- type conversion.
+-- Infers the type of expression @exp, ignoring the surrounding type context.
+-- Returns the typechecked expression. This may be either be the original expression, or an inner
+-- expression if we are dropping a redundant type conversion.
 function FunChecker:check_exp_synthesize(exp)
     if exp._type then
-        -- This expression was already type-checked before, probably because of
-        -- expand_function_returns.
+        -- This expression was already type-checked before, probably due to expand_function_returns.
         return exp
     end
 
@@ -739,7 +721,8 @@ function FunChecker:check_exp_synthesize(exp)
             local t = inner_exp._type
             if t._tag ~= "types.T.String" then
                 type_error(inner_exp.loc,
-                    "cannot concatenate with %s value", types.tostring(t))
+                    "cannot concatenate with %s value",
+                    types.tostring(t))
             end
         end
         exp._type = types.T.String()
@@ -751,9 +734,10 @@ function FunChecker:check_exp_synthesize(exp)
         if op == "==" or op == "~=" then
             if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
                (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
+                -- Note: if we implement this then we should use the same logic as luaV_equalobj.
+                -- Don't just cast to float! That is not accurate for large integers.
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
-                -- note: use Lua's implementation of comparison, don't just cast to float
             end
             if not types.equals(t1, t2) then
                 type_error(exp.loc,
@@ -769,7 +753,8 @@ function FunChecker:check_exp_synthesize(exp)
                -- OK
             elseif (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
                    (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
-                -- note: use Lua's implementation of comparison, don't just cast to float
+                -- Note: if we implement this then we should use the same logic as LTintfloat,
+                -- LEintfloat and so on, from lvm.c. Just casting to float is not enough!
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
             else
@@ -849,12 +834,11 @@ function FunChecker:check_exp_synthesize(exp)
             if #f_type.arg_types ~= #exp.args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
-                        #f_type.arg_types, #exp.args)
+                    #f_type.arg_types, #exp.args)
             end
 
             for i = 1, #exp.args do
-                exp.args[i] = self:check_exp_verify(exp.args[i],
-                                f_type.arg_types[i],
+                exp.args[i] = self:check_exp_verify(exp.args[i], f_type.arg_types[i],
                                 "argument %d of call to function", i)
             end
 

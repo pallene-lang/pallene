@@ -9,8 +9,7 @@ local typedecl = require "pallene.typedecl"
 -- changes compared to the AST input are that:
 --   * The toplevel is described by a Module node instead of ast.Toplevel nodes
 --   * Function scopes are flattened
---   * The function bodies are first converted to typed AST nodes, and then to
---     low-level Pallene IR.
+--   * The function bodies are first converted to typed AST nodes, and then to low-level Pallene IR.
 --
 -- After typechecking, the body of the functions is still represented by AST
 -- nodes from the parser, except that it annotates some nodes
@@ -20,8 +19,8 @@ local typedecl = require "pallene.typedecl"
 -- The next step after this is converting function bodies to a lower-level
 -- Pallene intermediate representation.
 --  * Function bodies are now represented as a list of Cmd nodes.
---  * The order of evaluation is explicit. Sub-expressions (except for contant
---    values) are lifted out into temporary variables.
+--  * The order of evaluation is explicit. Sub-expressions (except for contant values) are lifted
+--    out into temporary variables.
 --  * Control-flow operations are still represented as nested nodes.
 
 local ir = {}
@@ -301,8 +300,7 @@ end
 
 -- Transform an ir.Cmd, via a mapping function that modifies individual nodes.
 -- Returns the new root node. Child nodes are modified in-place.
--- If the mapping function returns a falsy value, the original version of the
--- node is kept.
+-- If the mapping function returns a falsy value, the original version of the node is kept.
 function ir.map_cmd(root_cmd, f)
     local function go(cmd)
         -- Transform child nodes recursively

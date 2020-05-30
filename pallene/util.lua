@@ -10,13 +10,12 @@ function util.abort(msg)
     os.exit(1)
 end
 
--- Barebones string-based template function for generating C/Lua code. Replaces
--- $VAR and ${VAR} placeholders in the `code` template by the corresponding
--- strings in the `substs` table.
+-- Barebones string-based template function for generating C/Lua code. Replaces $VAR and ${VAR}
+-- placeholders in the `code` template by the corresponding strings in the `substs` table.
 --
--- Don't call this function in tail-call position, wrap the call in parens if
--- necessary. This way if there is an error you will get an accurate line
--- number in the stack trace instead of just "(...tail calls...)"
+-- Don't call this function in tail-call position, wrap the call in parens if necessary. This way if
+-- there is an error you will get an accurate line number in the stack trace instead of just
+-- "(...tail calls...)"
 function util.render(code, substs)
     local err
     local out = string.gsub(code, "%$({?)([A-Za-z_][A-Za-z_0-9]*)(}?)",

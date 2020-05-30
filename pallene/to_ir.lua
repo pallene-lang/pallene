@@ -58,8 +58,7 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(),
-                                ir.Cmd.Break()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
@@ -68,8 +67,7 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stat(body, stat.block)
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(),
-                                ir.Cmd.Nop()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then
@@ -77,10 +75,7 @@ function ToIR:convert_stat(cmds, stat)
         local condBool = self:value_is_truthy(cmds, stat.condition, cond)
         local then_ = {}; self:convert_stat(then_, stat.then_)
         local else_ = {}; self:convert_stat(else_, stat.else_)
-        table.insert(cmds, ir.Cmd.If(
-            stat.loc, condBool,
-            ir.Cmd.Seq(then_),
-            ir.Cmd.Seq(else_)))
+        table.insert(cmds, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Seq(then_), ir.Cmd.Seq(else_)))
 
     elseif tag == "ast.Stat.For" then
         local start = self:exp_to_value(cmds, stat.start)
@@ -94,9 +89,7 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         self:convert_stat(body, stat.block)
 
-        table.insert(cmds, ir.Cmd.For(stat.loc,
-            v, start, limit, step,
-            ir.Cmd.Seq(body)))
+        table.insert(cmds, ir.Cmd.For(stat.loc, v, start, limit, step, ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
@@ -104,15 +97,14 @@ function ToIR:convert_stat(cmds, stat)
         local exps = stat.exps
         assert(#vars == #exps)
 
-        -- In Lua, the expressions in an assignment are evaluated from left to
-        -- right and all sub-expressions are evaluated before the assignments
-        -- are resolved. Assignments happen from right to left.
+        -- In Lua, the expressions in an assignment are evaluated from left to right and all
+        -- sub-expressions are evaluated before the assignments are resolved. Assignments happen
+        -- from right to left.
 
-        -- In a multiple assignment we have to be careful if we end up with an
-        -- ir.Value that refers to a local variable because that variable can
-        -- potentially be overwritten in another part of the the assignment.
-        -- When that happens we need to save the value to a temporary variable
-        -- before resolving the assignments.
+        -- In a multiple assignment we have to be careful if we end up with an ir.Value that refers
+        -- to a local variable because that variable can potentially be overwritten in another part
+        -- of the the assignment.  When that happens we need to save the value to a temporary
+        -- variable before resolving the assignments.
         local function save_if_necessary(exp, i)
             local val = self:exp_to_value(cmds, exp)
             if  val._tag == "ir.Value.LocalVar" then
@@ -167,35 +159,32 @@ function ToIR:convert_stat(cmds, stat)
             end
         end
 
-        -- We'd like to avoid storing the RHS results in temporary variables
-        -- when possible, to keep the generated code short. This depends on the
-        -- kind of expression in the RHS.
+        -- We'd like to avoid storing the RHS results in temporary variables when possible, to avoid
+        -- cluttering the generated code with too many variables. There are three main cases:
         --
-        --  - If the expression is the rightmost one in the RHS then we are free
-        --    to use exp_to_assignment because this is also the first assignment
-        --    to be resolved. Note that this is always the case in a single
-        --    assignment.
+        --  1) If the expression is the rightmost one in the RHS then we are free to use
+        --  exp_to_assignment because this is also the first assignment to be resolved.
+        --  This is always the case for a single assignment.
         --
-        -- The other cases are expressions that are not the rightmost one
+        -- The other cases are for expressions that are not the rightmost one in the RHS.
         --
-        --  - If the exp is something simple that can be evaluated with
-        --    exp_to_value then we only need to save it if it is a reference to
-        --    a local variable that is assigned by this the multi-assignment.
-        --    save_if_necessary takes care of this.
+        --  2) If the exp is something simple that can be evaluated with exp_to_value then the thing
+        --  that we need to worry about is if we are reading from a local variable that is being
+        --  assigned to in another part of this multi-assignment. We can take care of this with
+        --  save_if_necessary.
         --
-        --  - If the expression is something more complex that expects to be
-        --    evaluated with exp_to_assignment then we can only use
-        --    exp_to_assignment if the variables that we would be writing to
-        --    will not be read by the expressions that we haven't evaluated yet.
-        --    But I am not sure if optimizing this case is worth the hassle
-        --    because it is expected that if the programmer put a complex
-        --    expression in a multiple assignment then probably it is something
-        --    that wouldn't have worked as a sequence of simple assignments.
+        --  3) If the expression is something more complex that expects to be evaluated with
+        --  exp_to_assignment then in theory we could use exp_to_assignment if we could prove that
+        --  it is safe to write to the destination variables at this point in the program, before
+        --  the rest of the RHS has been evaluated. However, we don't bother optimizing this last
+        --  case because if the programmer has written a complicated multiple-assignment then it is
+        --  likely that it isn't something that could have been written as a sequence of single
+        --  assignments. (Our implementation always ends up creating a temporary variable in this
+        --  case because save_if_necessary calls exp_to_value.)
         local vals = {}
         for i, exp in ipairs(exps) do
-            if (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet") and
-                lhss[i]._tag == "to_ir.LHS.Local"
-            then
+            local is_last = (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet")
+            if is_last and lhss[i]._tag == "to_ir.LHS.Local" then
                 self:exp_to_assignment(cmds, lhss[i].id, exp)
                 vals[i] = false
             else
@@ -357,8 +346,8 @@ local function type_specific_binop(op, typ1, typ2)
     error("impossible")
 end
 
--- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a
--- fresh variable, and add intermediate computations to the @cmds list.
+-- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a fresh variable, and add
+-- intermediate computations to the @cmds list.
 function ToIR:exp_to_value(cmds, exp, _recursive)
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
@@ -416,8 +405,8 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
     return ir.Value.LocalVar(v)
 end
 
--- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added
--- to the @cmds list. (If this is a function call, then dst may be false)
+-- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added to the @cmds list.
+-- If this is a function call, then dst may be false
 function ToIR:exp_to_assignment(cmds, dst, exp)
     local loc = exp.loc
     local tag = exp._tag
@@ -467,8 +456,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 local f_exp = assert(field_exps[field_name])
                 local dv = ir.Value.LocalVar(dst)
                 local vv = self:exp_to_value(cmds, f_exp)
-                table.insert(cmds,
-                    ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
+                table.insert(cmds, ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
             end
         else
             error("impossible")
@@ -506,8 +494,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 self.func_dsts[exp][i] = false
             end
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ,
-                self.func_dsts[exp], cname.id, xs))
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, self.func_dsts[exp], cname.id, xs))
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
@@ -632,8 +619,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 ir.Cmd.Seq(rhs_cmds)))
 
         else
-            local irop =
-                type_specific_binop(op, exp.lhs._type, exp.rhs._type)
+            local irop = type_specific_binop(op, exp.lhs._type, exp.rhs._type)
             local v1 = self:exp_to_value(cmds, exp.lhs)
             local v2 = self:exp_to_value(cmds, exp.rhs)
             table.insert(cmds, ir.Cmd.Binop(loc, dst, irop, v1, v2))

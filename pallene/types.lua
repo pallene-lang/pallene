@@ -115,10 +115,9 @@ function types.indices(t)
     end
 end
 
--- This helper function implements both the type equality relation and the and
--- the gradual type consistency relation from gradual typing.
--- Gradual type consistency is a relaxed form of equality where the the "any"
--- type is considered to be consistent with all other types.
+-- This helper function implements both the type equality relation and the and the gradual type
+-- consistency relation from gradual typing.  Gradual type consistency is a relaxed form of equality
+-- where the the "any" type is considered to be consistent with all other types.
 local function equivalent(t1, t2, is_gradual)
     assert(is_gradual ~= nil)
     local tag1 = t1._tag
