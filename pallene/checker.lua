@@ -218,8 +218,8 @@ function Checker:check_program(prog_ast)
                 local old_loc = names[name]
                 if old_loc then
                     scope_error(loc,
-                        "duplicate toplevel declaration for '%s', previous " ..
-                        "one at line %d", name, old_loc.line)
+                        "duplicate toplevel declaration for '%s', previous one at line %d",
+                        name, old_loc.line)
                 end
                 names[name] = loc
             end
@@ -234,9 +234,7 @@ function Checker:check_program(prog_ast)
 
     -- Add a special entry for $tofloat which can never be shadowed
     -- and is therefore always visible.
-    self.symbol_table:add_symbol(
-        "$tofloat",
-        checker.Name.Builtin("tofloat"))
+    self.symbol_table:add_symbol("$tofloat", checker.Name.Builtin("tofloat"))
 
     local toplevel_f_id = self:add_function(
         false,
@@ -301,8 +299,7 @@ function Checker:check_program(prog_ast)
                     local name = decl.name
                     local typ
                     typ, exp = toplevel_fun_checker:check_initializer_exp(
-                                    decl, exp,
-                                    "declaration of module variable %s", name)
+                                    decl, exp, "declaration of module variable %s", name)
                     exps[i] = exp
                     typs[i] = typ
                 end
@@ -456,8 +453,7 @@ function FunChecker:check_stat(stat)
         for i = 1, #stat.decls do
             local decl = stat.decls[i]
             typ, stat.exps[i] = self:check_initializer_exp(decl, stat.exps[i],
-                                    "declaration of local variable %s",
-                                    decl.name)
+                                    "declaration of local variable %s", decl.name)
             typs[i] = typ
         end
 
@@ -499,16 +495,14 @@ function FunChecker:check_stat(stat)
         then
             type_error(stat.decl.loc,
                 "expected integer or float but found %s in for-loop control variable '%s'",
-                types.tostring(loop_type),
-                stat.decl.name)
+                types.tostring(loop_type), stat.decl.name)
         end
 
         stat.limit = self:check_exp_verify(stat.limit, loop_type,
             "numeric for-loop limit")
 
         if stat.step then
-            stat.step = self:check_exp_verify(stat.step, loop_type,
-                "numeric for-loop step")
+            stat.step = self:check_exp_verify(stat.step, loop_type, "numeric for-loop step")
         else
             local def_step
             if     loop_type._tag == "types.T.Integer" then
@@ -538,8 +532,8 @@ function FunChecker:check_stat(stat)
                 local ntag = stat.vars[i]._name._tag
                 if ntag == "checker.Name.Function" then
                     type_error(stat.loc,
-                        "attempting to assign to toplevel constant function " ..
-                        "'%s'", stat.vars[i].name)
+                        "attempting to assign to toplevel constant function '%s'",
+                        stat.vars[i].name)
                 elseif ntag == "checker.Name.Builtin" then
                     type_error(stat.loc,
                         "attempting to assign to builtin function %s",
@@ -739,7 +733,8 @@ function FunChecker:check_exp_synthesize(exp)
             local t = inner_exp._type
             if t._tag ~= "types.T.String" then
                 type_error(inner_exp.loc,
-                    "cannot concatenate with %s value", types.tostring(t))
+                    "cannot concatenate with %s value",
+                    types.tostring(t))
             end
         end
         exp._type = types.T.String()
@@ -849,12 +844,11 @@ function FunChecker:check_exp_synthesize(exp)
             if #f_type.arg_types ~= #exp.args then
                 type_error(exp.loc,
                     "function expects %d argument(s) but received %d",
-                        #f_type.arg_types, #exp.args)
+                    #f_type.arg_types, #exp.args)
             end
 
             for i = 1, #exp.args do
-                exp.args[i] = self:check_exp_verify(exp.args[i],
-                                f_type.arg_types[i],
+                exp.args[i] = self:check_exp_verify(exp.args[i], f_type.arg_types[i],
                                 "argument %d of call to function", i)
             end
 

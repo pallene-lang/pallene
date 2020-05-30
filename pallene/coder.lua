@@ -323,16 +323,13 @@ function Coder:c_value(value)
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
         local str = value.value
-        return lua_value(
-            types.T.String(),
-            self:string_upvalue_slot(str))
+        return lua_value(types.T.String(), self:string_upvalue_slot(str))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
     elseif tag == "ir.Value.Function" then
         local f_id = value.id
-        return lua_value(
-            self.module.functions[f_id].typ,
-            self:function_upvalue_slot(f_id))
+        local typ = self.module.functions[f_id].typ
+        return lua_value(typ, self:function_upvalue_slot(f_id))
     else
         error("impossible")
     end
@@ -1444,8 +1441,8 @@ gen_cmd["Return"] = function(self, cmd)
         local returns = {}
         for i = #cmd.srcs, 2, -1 do
             local src = self:c_value(cmd.srcs[i])
-            table.insert(returns, util.render([[ *$reti = $v; ]],
-                                    { reti = self:c_ret_var(i), v = src }))
+            table.insert(returns,
+                util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = src }))
         end
         local src1 = self:c_value(cmd.srcs[1])
         table.insert(returns, util.render([[ return $v; ]], { v = src1 }))

@@ -58,8 +58,7 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(),
-                                ir.Cmd.Break()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
@@ -68,8 +67,7 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stat(body, stat.block)
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(),
-                                ir.Cmd.Nop()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then
@@ -77,10 +75,7 @@ function ToIR:convert_stat(cmds, stat)
         local condBool = self:value_is_truthy(cmds, stat.condition, cond)
         local then_ = {}; self:convert_stat(then_, stat.then_)
         local else_ = {}; self:convert_stat(else_, stat.else_)
-        table.insert(cmds, ir.Cmd.If(
-            stat.loc, condBool,
-            ir.Cmd.Seq(then_),
-            ir.Cmd.Seq(else_)))
+        table.insert(cmds, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Seq(then_), ir.Cmd.Seq(else_)))
 
     elseif tag == "ast.Stat.For" then
         local start = self:exp_to_value(cmds, stat.start)
@@ -94,9 +89,7 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         self:convert_stat(body, stat.block)
 
-        table.insert(cmds, ir.Cmd.For(stat.loc,
-            v, start, limit, step,
-            ir.Cmd.Seq(body)))
+        table.insert(cmds, ir.Cmd.For(stat.loc, v, start, limit, step, ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
@@ -193,9 +186,8 @@ function ToIR:convert_stat(cmds, stat)
         --    that wouldn't have worked as a sequence of simple assignments.
         local vals = {}
         for i, exp in ipairs(exps) do
-            if (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet") and
-                lhss[i]._tag == "to_ir.LHS.Local"
-            then
+            local is_last = (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet")
+            if is_last and lhss[i]._tag == "to_ir.LHS.Local" then
                 self:exp_to_assignment(cmds, lhss[i].id, exp)
                 vals[i] = false
             else
@@ -467,8 +459,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 local f_exp = assert(field_exps[field_name])
                 local dv = ir.Value.LocalVar(dst)
                 local vv = self:exp_to_value(cmds, f_exp)
-                table.insert(cmds,
-                    ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
+                table.insert(cmds, ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
             end
         else
             error("impossible")
@@ -506,8 +497,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 self.func_dsts[exp][i] = false
             end
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ,
-                self.func_dsts[exp], cname.id, xs))
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, self.func_dsts[exp], cname.id, xs))
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
@@ -632,8 +622,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 ir.Cmd.Seq(rhs_cmds)))
 
         else
-            local irop =
-                type_specific_binop(op, exp.lhs._type, exp.rhs._type)
+            local irop = type_specific_binop(op, exp.lhs._type, exp.rhs._type)
             local v1 = self:exp_to_value(cmds, exp.lhs)
             local v2 = self:exp_to_value(cmds, exp.rhs)
             table.insert(cmds, ir.Cmd.Binop(loc, dst, irop, v1, v2))
