@@ -188,7 +188,7 @@ function Coder:test_tag(typ, slot)
     elseif tag == "types.T.Table"    then tmpl = "ttistable($slot)"
     elseif tag == "types.T.Any"    then tmpl = "1"
     elseif tag == "types.T.Record"   then
-        return (util.render([[(ttisfulluserdata($slot) && uvalue($slot)->metatable == hvalue($mt_slot))]], {
+        return (util.render([[pallene_is_record($slot, $mt_slot)]], {
             slot = slot,
             mt_slot = self:metatable_upvalue_slot(typ),
         }))

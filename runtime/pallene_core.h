@@ -91,6 +91,12 @@ int pallene_is_truthy(const TValue *v)
     return !l_isfalse(v);
 }
 
+static inline
+int pallene_is_record(const TValue *v, const TValue *meta_table)
+{
+    return ttisfulluserdata(v) && uvalue(v)->metatable == hvalue(meta_table);
+}
+
 /* Starting with Lua 5.4-rc1, Lua the boolean type now has two variants,
  * LUA_VTRUE and LUA_VFALSE. The value of the boolean is encoded in the type tag
  * instead of in the `Value` union. */
