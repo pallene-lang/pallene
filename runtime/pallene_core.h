@@ -97,9 +97,8 @@ int pallene_is_record(const TValue *v, const TValue *meta_table)
     return ttisfulluserdata(v) && uvalue(v)->metatable == hvalue(meta_table);
 }
 
-/* Starting with Lua 5.4-rc1, Lua the boolean type now has two variants,
- * LUA_VTRUE and LUA_VFALSE. The value of the boolean is encoded in the type tag
- * instead of in the `Value` union. */
+/* Starting with Lua 5.4-rc1, Lua the boolean type now has two variants, LUA_VTRUE and LUA_VFALSE.
+ * The value of the boolean is encoded in the type tag instead of in the `Value` union. */
 static inline
 int pallene_bvalue(TValue *obj)
 {
@@ -116,26 +115,24 @@ void pallene_setbvalue(TValue *obj, int b)
     }
 }
 
-/* We must call these write barriers whenever we set "v" as an element of "p",
- * in order to preserve the color invariants of the incremental GC.
+/* We must call these write barriers whenever we set "v" as an element of "p", in order to preserve
+ * the color invariants of the incremental GC.
  *
- * These implementations are specializations of luaC_barrierback tha check at
- * compile time if the child object is collectible. Additionally, the in this
- * version of the macro "p" and "v" receive internal object pointers (the ones
- * described by ctype()). */
+ * These implementations are specializations of luaC_barrierback that check at compile time if the
+ * child object is collectible. Additionally, the in this version of the macro "p" and "v" receive
+ * internal object pointers (the ones described by ctype()). */
 #define pallene_barrierback_unknown_child(L, p, v) \
     if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v))) { \
-        luaC_barrierback_(L, obj2gco(p));                                  \
+        luaC_barrierback_(L, obj2gco(p));                                 \
     }
 #define pallene_barrierback_collectable_child(L, p, v) \
     if (isblack(obj2gco(p)) && iswhite(obj2gco(v))) { \
         luaC_barrierback_(L, obj2gco(p));             \
     }
 
-/* Lua and Pallene round integer division towards negative infinity, while C
- * rounds towards zero. Here we inline luaV_div, to allow the C compiler to
- * constant-propagate. For an explanation of the algorithm, see the comments
- * for luaV_div. */
+/* Lua and Pallene round integer division towards negative infinity, while C rounds towards zero.
+ * Here we inline luaV_div, to allow the C compiler to constant-propagate. For an explanation of the
+ * algorithm, see the comments for luaV_div. */
 static inline
 lua_Integer pallene_int_divi(
     lua_State *L,
@@ -180,16 +177,14 @@ lua_Integer pallene_int_modi(
     }
 }
 
-/* In C, there is undefined behavior if the shift ammount is negative or is
- * larger than the integer width. On the other hand, Lua and Pallene specify the
- * behavior in these cases (negative means shift in the opposite direction, and
- * large shifts saturate at zero).
+/* In C, there is undefined behavior if the shift ammount is negative or is larger than the integer
+ * width. On the other hand, Lua and Pallene specify the behavior in these cases (negative means
+ * shift in the opposite direction, and large shifts saturate at zero).
  *
- * Most of the time, the shift amount is a compile-time constant, in which case
- * the C compiler should be able to simplify this down to a single shift
- * instruction.  In the dynamic case with unknown "y" this implementation is a
- * little bit faster Lua because we put the most common case under a single
- * level of branching. (~20% speedup) */
+ * Most of the time, the shift amount is a compile-time constant, in which case the C compiler
+ * should be able to simplify this down to a single shift instruction.  In the dynamic case with
+ * unknown "y" this implementation is a little bit faster Lua because we put the most common case
+ * under a single level of branching. (~20% speedup) */
 
 #define PALLENE_NBITS  (sizeof(lua_Integer) * CHAR_BIT)
 
@@ -221,8 +216,8 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 }
 
 
-/* This version of lua_createtable bypasses the Lua stack, and can be inlined
- * and optimized when the allocation size is known at compilation time. */
+/* This version of lua_createtable bypasses the Lua stack, and can be inlined and optimized when the
+ * allocation size is known at compilation time. */
 static inline
 Table *pallene_createtable(lua_State *L, lua_Integer narray, lua_Integer nrec)
 {
@@ -233,9 +228,8 @@ Table *pallene_createtable(lua_State *L, lua_Integer narray, lua_Integer nrec)
     return t;
 }
 
-/* When reading and writing to a Pallene array, we force everything to fit
- * inside the array part of the table. The optimizer and branch predictor prefer
- * when it is this way. */
+/* When reading and writing to a Pallene array, we force everything to fit inside the array part of
+ * the table. The optimizer and branch predictor prefer when it is this way. */
 static inline
 void pallene_renormalize_array(
     lua_State *L,
@@ -249,8 +243,7 @@ void pallene_renormalize_array(
     }
 }
 
-/* These specializations of luaH_getstr and luaH_getshortstr introduce two
- * optimizations:
+/* These specializations of luaH_getstr and luaH_getshortstr introduce two optimizations:
  *   - After inlining, the length of the string is a compile-time constant
  *   - getshortstr's table lookup uses an inline cache. */
 
@@ -273,10 +266,9 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
         else {
             int nx = gnext(n);
             if (nx == 0) {
-                /* It is slightly better to have an invalid cache when we don't
-                 * expect the cache to hit. The code will be faster because
-                 * getstr will jump straight to the key search instead of trying
-                 * to access a cache that we expect to be a miss. */
+                /* It is slightly better to have an invalid cache when we don't expect the cache to
+                 * hit. The code will be faster because getstr will jump straight to the key search
+                 * instead of trying to access a cache that we expect to be a miss. */
                 *cache = UINT_MAX;
                 return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
             }
@@ -295,17 +287,13 @@ TValue *pallene_getstr(size_t len, Table *t, TString *key, size_t *cache)
     }
 }
 
-/* To avoid looping infinitely due to integer overflow, Lua 5.4 carefully
- * computes the number of iterations before starting the loop (see OP_FORPREP).
- *
- * The code that implements this behavior does not look like a regular C for
- * loop, so to help improve the readability of the generated C code we hide it
- * behind the following set of macros. Note that some of the open braces in the
- * BEGIN macro are only closed in the END macro, so they must always be used
- * together.
- *
- * We assume that the C compiler will be able to optimize the common case where
- * the step parameter is a compile-time constant. */
+/* To avoid looping infinitely due to integer overflow, Lua 5.4 carefully computes the number of
+ * iterations before starting the loop (see OP_FORPREP). The code that implements this behavior does
+ * not look like a regular C for loop, so to help improve the readability of the generated C code we
+ * hide it behind the following set of macros. Note that some of the open braces in the BEGIN macro
+ * are only closed in the END macro, so they must always be used together. We assume that the C
+ * compiler will be able to optimize the common case where the step parameter is a compile-time
+ * constant. */
 
 #define PALLENE_INT_FOR_LOOP_BEGIN(i, A, B, C) \
     { \

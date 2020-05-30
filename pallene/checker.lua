@@ -17,20 +17,12 @@ local checker = {}
 local Checker
 local FunChecker
 
+-- ast.Exp.ExtraRet is a node that represents an extra return value of a function call. This node is
+-- added to keep information about which return value must be used.
 --
---
---
-
--- ast.Exp.ExtraRet is a node that represents an extra return value of a
---     function call. This node is added to keep information about which return
---     value must be used.
 -- @loc: This is the location of the function call
 -- @call_exp: This is the actual function call
 -- @i: This is the index of the return value of this node
-
---
---
---
 
 
 --
@@ -226,14 +218,12 @@ function Checker:check_program(prog_ast)
         end
     end
 
-    -- Add builtins to symbol table.
-    -- (The order does not matter because they are distinct)
+    -- Add builtins to symbol table. (The order does not matter because they are distinct)
     for name, _ in pairs(builtins) do
         self:add_builtin(name)
     end
 
-    -- Add a special entry for $tofloat which can never be shadowed
-    -- and is therefore always visible.
+    -- Add a special entry for $tofloat which can never be shadowed and is therefore always visible.
     self.symbol_table:add_symbol("$tofloat", checker.Name.Builtin("tofloat"))
 
     local toplevel_f_id = self:add_function(
@@ -396,8 +386,8 @@ function FunChecker:add_local(name, typ)
     return l_id
 end
 
--- This function expands @rhs using @rhs[#rhs] if there are missing expressions
--- (rhs < lhs) and @rhs[#rhs] is a function or method call.
+-- This function expands @rhs using @rhs[#rhs] if there are missing expressions.
+-- That is, if (rhs < lhs) and rhs[#rhs] is a function or method call.
 function FunChecker:expand_function_returns(lhs, rhs)
     local last = rhs[#rhs]
     if  last and (last._tag == "ast.Exp.CallFunc" or
@@ -656,14 +646,12 @@ function FunChecker:coerce_numeric_exp_to_float(exp)
     end
 end
 
--- Infers the type of expression @exp, ignoring the surrounding type context
--- Returns the typechecked expression. This may be either be the original
--- expression, or an inner expression if we are dropping a redundant
--- type conversion.
+-- Infers the type of expression @exp, ignoring the surrounding type context.
+-- Returns the typechecked expression. This may be either be the original expression, or an inner
+-- expression if we are dropping a redundant type conversion.
 function FunChecker:check_exp_synthesize(exp)
     if exp._type then
-        -- This expression was already type-checked before, probably because of
-        -- expand_function_returns.
+        -- This expression was already type-checked before, probably due to expand_function_returns.
         return exp
     end
 

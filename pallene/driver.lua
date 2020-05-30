@@ -30,8 +30,7 @@ local function check_source_filename(argv0, file_name, expected_ext)
 end
 
 --
--- Run AST and IR passes, up-to and including the specified pass.
--- This is meant for unit tests.
+-- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
 --
 function driver.compile_internal(filename, stop_after)
     stop_after = stop_after or "optimize"
@@ -119,8 +118,8 @@ for i = 1, #compiler_steps do
 end
 
 --
--- Compile an input file with extension [input_ext] to an output file of type
--- [output_ext]. Erases any intermediate files that are produced along the way.
+-- Compile an input file with extension [input_ext] to an output file of type [output_ext].
+-- Erases any intermediate files that are produced along the way.
 --
 -- Example:
 --    compile("pln", "so", "foo.pln") --> outputs "foo.so"

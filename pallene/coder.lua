@@ -126,9 +126,8 @@ local function set_stack_slot(typ, dst_slot, value)
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
--- Set a TValue* slot that belongs to some heap object (array, record, etc)
--- Needs to receive a pointer to the parent object, because of the GC write
--- barrier. See comments in pallene_core.h.
+-- Set a TValue* slot that belongs to some heap object (array, record, etc). Needs to receive a
+-- pointer to the parent object, because of the GC write barrier. See comments in pallene_core.h.
 local function set_heap_slot(typ, dst_slot, value, parent)
     local lines = {}
     table.insert(lines, set_stack_slot(typ, dst_slot, value))
@@ -196,10 +195,9 @@ function Coder:test_tag(typ, slot)
     return (util.render(tmpl, {slot = slot}))
 end
 
--- Raise an error if the given table contains a metatable. Pallene would rather
--- raise an error in these cases instead of invoking the metatable operations,
--- which may impair program optimization even if they are never called.
---
+-- Raise an error if the given table contains a metatable. Pallene would rather raise an error in
+-- these cases instead of invoking the metatable operations, which may impair program optimization
+-- even if they are never called.
 local function check_no_metatable(src, loc)
     return (util.render([[
         if ($src->metatable) {
@@ -211,9 +209,8 @@ local function check_no_metatable(src, loc)
     }))
 end
 
--- Convert a Lua value to a Pallene value, performing a tag check.
--- Make sure to use the appropriate function depending on if this Lua value is
--- coming from the Lua stack or a Lua table.
+-- Convert a Lua value to a Pallene value, performing a tag check. Make sure to use the appropriate
+-- function depending on whether this Lua value is coming from the Lua stack or a Lua table.
 --
 -- typ: expected type
 -- dst: Pallene output variable
@@ -266,8 +263,8 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
     table.insert(parts,
         self:get_stack_slot(typ, dst, slot, loc, description_fmt, ...))
 
-    -- Lua calls the __index metamethod when it reads from an empty field. We
-    -- want to avoid that in Pallene, so we raise an error instead.
+    -- Lua calls the __index metamethod when it reads from an empty field. We want to avoid that in
+    -- Pallene, so we raise an error instead.
     if typ._tag == "types.T.Any" or typ._tag == "types.T.Nil" then
         table.insert(parts, util.render([[
             if (isempty($slot)) {
@@ -279,9 +276,9 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
         }))
     end
 
-    -- Another tricky thing about holes in Lua 5.4 is that they actually contain
-    -- "empty", a special of nil. When reading them, they must be converted to
-    -- regular nils, just like how the "rawget" function in lapi.c does.
+    -- Another tricky thing about holes in Lua 5.4 is that they actually contain "empty", a special
+    -- of nil. When reading them, they must be converted to regular nils, just like how the "rawget"
+    -- function in lapi.c does.
     if typ._tag == "types.T.Any" then
         table.insert(parts, util.render([[
             if (isempty($slot)) {
@@ -425,11 +422,10 @@ function Coder:pallene_entry_point_definition(f_id)
     table.insert(prologue, "/**/")
 
     for v_id = #arg_types + 1, #func.vars do
-        -- To avoid -Wmaybe-uninitialized warnings we have to initialize our
-        -- local variables of type "Any". Nils and Booleans only set the type
-        -- tag of the TValue and leave the "._value" field uninitialized and the
-        -- C compiler doesn't like that because it means that a setobj may read
-        -- from uninitialized memory.
+        -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
+        -- "Any". Nils and Booleans only set the type tag of the TValue and leave the "._value"
+        -- field uninitialized and the C compiler doesn't like that because it means that a setobj
+        -- may read from uninitialized memory.
         local typ, c_name, comment = self:prepare_local_var(func, v_id)
         local decl = C.declaration(ctype(typ), c_name)
         local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
@@ -547,11 +543,10 @@ function Coder:lua_entry_point_definition(f_id)
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
 
-    -- We unconditionally initialize the G userdata here, in case one of the tag
-    -- checking tests needs to use it. We don't bother to make this
-    -- initialization conditional because in the case that really matters (small
-    -- leaf functions that don't use G) the C compiler can optimize this read
-    -- away after inlining the Pallene entry point.
+    -- We unconditionally initialize the G userdata here, in case one of the tag checking tests
+    -- needs to use it. We don't bother to make this initialization conditional because in the case
+    -- that really matters (small leaf functions that don't use G) the C compiler can optimize this
+    -- read away after inlining the Pallene entry point.
     local init_global_userdata = [[
         CClosure *func = clCvalue(s2v(base));
         Udata *G = uvalue(&func->upvalue[0]);
@@ -633,9 +628,8 @@ end
 --
 -- # Global coder
 --
--- This section of the program is responsible for keeping track of the
--- "global" values in the module that need to be seen from every function.
--- We store them in the uservalues of an userdata object.
+-- This section of the program is responsible for keeping track of the "global" values in the module
+-- that need to be seen from every function. We store them in the uservalues of an userdata object.
 
 typedecl.declare(coder, "coder", "Upvalue", {
     Metatable = {"typ"},
@@ -882,17 +876,16 @@ end
 --
 -- # Call stack managements
 --
--- We keep a `base` pointer to the start of our call frame and update it every
--- time the stack is reallocated. The C compiler can't do this optimization by
--- itself because it assumes that lots of things could change L->stack.
+-- We keep a `base` pointer to the start of our call frame and update it every time the stack is
+-- reallocated. The C compiler can't do this optimization by itself because it assumes that lots of
+-- things could change L->stack.
 --
--- The restorestack function should be called after every function call, when
--- the stack may potentially have been reallocated.
+-- The restorestack function should be called after every function call, when the stack may
+-- potentially have been reallocated.
 --
--- The savestack function needs to be called before the function calls that may
--- reallocate the stack. Calling it once in the function prologue works. Don't
--- worry if the base_offset variable goes unused because the C compiler can
--- optimize that.
+-- The savestack function needs to be called before the function calls that may reallocate the
+-- stack. Calling it once in the function prologue works. Don't worry if the base_offset variable
+-- goes unused because the C compiler can optimize that.
 
 function Coder:stack_top_at(func, cmd)
     local offset = 0

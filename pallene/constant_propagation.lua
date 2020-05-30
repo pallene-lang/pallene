@@ -23,9 +23,8 @@ end
 
 -- Replaces toplevel constant variables by their respetive values.
 --
--- Currently assumes that the toplevel constant variable is initialized with a
--- constant literal. Does not currently recognize non-trivial constant
--- expressions as being constant.
+-- Currently assumes that the toplevel constant variable is initialized with a constant literal.
+-- Does not currently recognize non-trivial constant expressions as being constant.
 function constant_propagation.run(module)
 
     local n_globals = #module.globals
@@ -38,9 +37,8 @@ function constant_propagation.run(module)
     end
 
     do
-        -- DFS traversal to find SetGlobal instructions with a constant
-        -- initializer. We ignore the instructions inside If, Loop, and For
-        -- statements, since those might be skipped.
+        -- DFS traversal to find SetGlobal instructions with a constant initializer. We ignore the
+        -- instructions inside If, Loop, and For statements, since those might be skipped.
         local stack = { module.functions[1].body }
         while #stack > 0 do
             local cmd = table.remove(stack)
@@ -83,8 +81,8 @@ function constant_propagation.run(module)
         end
     end
 
-    -- 3) Find out which constant globals should be propagated, and which
-    --    unused constant globals should be simply eliminated.
+    -- 3) Find out which constant globals should be propagated, and which unused constant globals
+    -- should be simply eliminated.
 
     local n_new_globals = 0
     local new_global_id = {} -- { g_id => g_id? }
@@ -97,8 +95,7 @@ function constant_propagation.run(module)
         end
     end
 
-    -- 4) Propagate the constant globals, and rename the existing ones
-    -- accordingly
+    -- 4) Propagate the constant globals, and rename the existing ones accordingly
 
     for _, func in ipairs(module.functions) do
         func.body = ir.map_cmd(func.body, function(cmd)

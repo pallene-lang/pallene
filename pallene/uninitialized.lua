@@ -28,29 +28,24 @@ local function new_loop()
     return { is_infinite = true, uninit = {} }
 end
 
--- This function detects when variables are used before being initialized, and
--- when control flows to the end of a non-void function without returning.
---
--- The analysis is fundamentally a dataflow one, but we exploit the structured
--- control flow to finish it into a single pass. In the end it sort of looks like
--- an abstract interpretation.
---
--- The analysis assumes that both branches of an if statement can be taken. Make
--- sure that you call ir.clean first, so that it does the right thing in the
+-- This function detects when variables are used before being initialized, and when control flows to
+-- the end of a non-void function without returning. The analysis is fundamentally a dataflow one,
+-- but we exploit the structured control flow to finish it into a single pass. In the end it sort of
+-- looks like an abstract interpretation. The analysis assumes that both branches of an if statement
+-- can be taken. Make sure that you call ir.clean first, so that it does the right thing in the
 -- presence of `while true` loops.
 --
--- `uninit` is the set of variables that are potentially uninitialized just
--- before the command executes. We take the liberty of mutating this set
--- in-place, so make a copy beforehand if you need to.
+-- `uninit` is the set of variables that are potentially uninitialized just before the command
+-- executes. We take the liberty of mutating this set in-place, so make a copy beforehand if you
+-- need to.
 --
--- If we are inside a loop, `loop` models what will happen once we break
--- out of the loop. `loop.is_infinite` is true if think the loop will surely
--- loop forever. `loop.uninit` is the set of potentially uninitialized variables
--- after the loop.
+-- If we are inside a loop, `loop` models what will happen once we break out of the loop.
+-- `loop.is_infinite` is true if think the loop will surely loop forever. `loop.uninit` is the set
+-- of potentially uninitialized variables after the loop.
 --
--- If the execution can possibly fall through to the next command, returns
--- `true` and the updated set of uninitialized variables. Returns false if
--- the execution unconditionally jumps or gets stuck in an infinite loop.
+-- If the execution can possibly fall through to the next command, returns `true` and the updated
+-- set of uninitialized variables. Returns false if the execution unconditionally jumps or gets
+-- stuck in an infinite loop.
 --
 local function test(cmd, uninit, loop)
 

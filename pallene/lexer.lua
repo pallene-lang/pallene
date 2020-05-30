@@ -6,17 +6,15 @@
 --
 -- This module exports lpeg patterns that can lex Pallene source code.
 --
--- The lexer follows the "longest match" rule and for any given input there
--- will be at most one token that matches it. For example, lexer.LE matches
--- the start of "<=bla" but lexer.LT doesn't. This should mean that you don't
--- need to worry about what token comes first in a PEG ordered choice or about
--- the lexer splitting words in the middle (such as "localx" being parsed as
--- "local" "x").
+-- The lexer follows the "longest match" rule and for any given input there will be at most one
+-- token that matches it. For example, lexer.LE matches the start of "<=bla" but lexer.LT doesn't.
+-- This should mean that you don't need to worry about what token comes first in a PEG ordered
+-- choice or about the lexer splitting words in the middle (such as "localx" being parsed as "local"
+-- "x").
 --
--- The exported tokens are in ALLCAPS, to play nice with the "re"-style grammars
--- from parser-gen: it can only refer to our tokens if we use alphabetical
--- identifiers and it expects terminals to be uppercase and non-terminals to be
--- lowercase.
+-- The exported tokens are in ALLCAPS, to play nice with the "re"-style grammars from parser-gen: it
+-- can only refer to our tokens if we use alphabetical identifiers and it expects terminals to be
+-- uppercase and non-terminals to be lowercase.
 
 local lpeg = require "lpeglabel"
 
@@ -33,11 +31,10 @@ local lexer = {}
 -- Numbers
 --
 
--- This very general pattern matches both integer and floating point numbers,
--- in either decimal or hexadecimal notation, as well as a bunch of invalid
--- stuff. We use tonumber in the end to find out which is which. This pattern
--- is intentionally more general than the one that Lua uses to avoid allowing
--- weird things such as `1337require`.
+-- This very general pattern matches both integer and floating point numbers, in either decimal or
+-- hexadecimal notation, as well as a bunch of invalid stuff. We use tonumber in the end to find out
+-- which is which. This pattern is intentionally more general than the one that Lua uses to avoid
+-- allowing weird things such as `1337require`.
 local number_start = P(".")^-1 * R("09")
 local expo = S("EePp") * S("+-")^-1
 local possible_number = (expo + R("09", "AZ", "az") + ".")^1
@@ -101,8 +98,7 @@ do
                 return open_str == close_str
             end)
 
-    -- A sequence of up to 3 decimal digits
-    -- representing a non-negative integer less than 256
+    -- A sequence of up to 3 decimal digits representing a non-negative integer less than 256
     local decimal_escape = P("1") * R("09") * R("09") +
         P("2") * R("04") * R("09") +
         P("2") * P("5") * R("05") +

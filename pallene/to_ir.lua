@@ -97,15 +97,14 @@ function ToIR:convert_stat(cmds, stat)
         local exps = stat.exps
         assert(#vars == #exps)
 
-        -- In Lua, the expressions in an assignment are evaluated from left to
-        -- right and all sub-expressions are evaluated before the assignments
-        -- are resolved. Assignments happen from right to left.
+        -- In Lua, the expressions in an assignment are evaluated from left to right and all
+        -- sub-expressions are evaluated before the assignments are resolved. Assignments happen
+        -- from right to left.
 
-        -- In a multiple assignment we have to be careful if we end up with an
-        -- ir.Value that refers to a local variable because that variable can
-        -- potentially be overwritten in another part of the the assignment.
-        -- When that happens we need to save the value to a temporary variable
-        -- before resolving the assignments.
+        -- In a multiple assignment we have to be careful if we end up with an ir.Value that refers
+        -- to a local variable because that variable can potentially be overwritten in another part
+        -- of the the assignment.  When that happens we need to save the value to a temporary
+        -- variable before resolving the assignments.
         local function save_if_necessary(exp, i)
             local val = self:exp_to_value(cmds, exp)
             if  val._tag == "ir.Value.LocalVar" then
@@ -349,8 +348,8 @@ local function type_specific_binop(op, typ1, typ2)
     error("impossible")
 end
 
--- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a
--- fresh variable, and add intermediate computations to the @cmds list.
+-- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a fresh variable, and add
+-- intermediate computations to the @cmds list.
 function ToIR:exp_to_value(cmds, exp, _recursive)
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
@@ -408,8 +407,8 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
     return ir.Value.LocalVar(v)
 end
 
--- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added
--- to the @cmds list. (If this is a function call, then dst may be false)
+-- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added to the @cmds list.
+-- If this is a function call, then dst may be false
 function ToIR:exp_to_assignment(cmds, dst, exp)
     local loc = exp.loc
     local tag = exp._tag

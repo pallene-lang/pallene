@@ -13,9 +13,8 @@ local lexer = require "pallene.lexer"
 local location = require "pallene.location"
 local syntax_errors = require "pallene.syntax_errors"
 
--- File name of the file that is currently being parsed.
--- Since this is a global the parser is not reentrant but we couldn't think of
--- a better way yet. (If only lpeg.re had Carg...)
+-- File name of the file that is currently being parsed. Since this is a global the parser is not
+-- reentrant but we couldn't think of a better way yet. (If only lpeg.re had Carg...)
 local THIS_FILENAME = nil
 
 --
@@ -93,8 +92,8 @@ function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
 end
 
 function defs.nil_exp(pos--[[, s ]])
-    -- We can't call ast.Exp.Nil directly in the parser because we
-    -- need to drop the string capture that comes in the second argument.
+    -- We can't call ast.Exp.Nil directly in the parser because we need to drop the string capture
+    -- that comes in the second argument.
     return ast.Exp.Nil(pos)
 end
 
@@ -174,8 +173,8 @@ function defs.fold_unops(pos, unops, exp)
     return exp
 end
 
--- We represent the suffix of an expression by a function that receives the
--- base expression and returns a full expression including the suffix.
+-- We represent the suffix of an expression by a function that receives the base expression and
+-- returns a full expression including the suffix.
 
 function defs.suffix_func_call(pos, args)
     return function(exp)

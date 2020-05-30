@@ -80,8 +80,7 @@ declare_type("Field", {
 })
 
 --
--- note: the following functions are why we need `if type(conss) == "table"`
--- in parser.lua
+-- note: the following functions are why we need `if type(conss) == "table"` in parser.lua
 --
 
 -- Return the variables names declared by a given toplevel node

@@ -3,12 +3,13 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local re = require "relabel"
-
-local C = {}
 --
 -- This module contains some helper functions for generating C code.
 --
+
+local re = require "relabel"
+
+local C = {}
 
 --
 -- Conversions from Lua values to C literals
@@ -41,11 +42,10 @@ function C.boolean(b)
 end
 
 function C.float(n)
-    -- 17 decimal digits should be able to accurately represent any IEE-754
-    -- double-precision floating point number except for NaN and infinities.
-    -- The HUGE_VAL macro is a part of math.h. For more info, please see the
-    -- quotefloat function in lstrlib.c, tostringbuff in lobject.c, and
-    -- https://stackoverflow.com/a/21162120
+    -- 17 decimal digits should be able to accurately represent any IEE-754 double-precision
+    -- floating point number except for NaN and infinities. The HUGE_VAL macro is a part of math.h.
+    -- For more info, please see the quotefloat function in lstrlib.c, tostringbuff in lobject.c,
+    -- and https://stackoverflow.com/a/21162120
     if n ~= n then
         error("NaN cannot be round-tripped")
     elseif n == math.huge then
@@ -110,12 +110,11 @@ local function count_braces(line)
     return n
 end
 
--- This function reformats a string corresponding to a C source file. It allows
--- us to produce readable C output without having to worry about indentation
--- while we are generating it.
+-- This function reformats a string corresponding to a C source file. It allows us to produce
+-- readable C output without having to worry about indentation while we are generating it.
 --
--- The algorithm is not very clever, so you must follow some rules if you want
--- to get good-looking results:
+-- The algorithm is not very clever, so you must follow some rules if you want to get good-looking
+-- results:
 --
 --   * Use braces on if statements, while loops, and for loops.
 --   * /**/-style comments must not span multiple lines
