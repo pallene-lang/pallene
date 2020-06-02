@@ -652,8 +652,10 @@ function Coder:init_upvalues()
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.String" then
                     local str = v.value
-                    table.insert(self.upvalues, coder.Upvalue.String(str))
-                    self.upvalue_of_string[str] = #self.upvalues
+                    if not self.upvalue_of_string[str] then
+                        table.insert(self.upvalues, coder.Upvalue.String(str))
+                        self.upvalue_of_string[str] = #self.upvalues
+                    end
                 end
             end
         end
