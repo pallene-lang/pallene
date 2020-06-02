@@ -83,7 +83,15 @@ declare_type("Field", {
 -- note: the following functions are why we need `if type(conss) == "table"` in parser.lua
 --
 
--- Return the variables names declared by a given toplevel node
+-- Returns a sequence containing the variable names declared by the specified
+-- toplevel node.
+--
+-- The following nodes will result in a sequence with one element.
+--     ast.Toplevel.Func, ast.Toplevel.Typealias, ast.Toplevel.Typealias,
+--     ast.Toplevel.Record, ast.Toplevel.Import, and ast.Toplevel.Builtin 
+-- The following nodes will result in a sequence with one or more elements.
+--     ast.Toplevel.Var
+-- 
 function ast.toplevel_names(tl_node)
     local names = {}
     local tag = tl_node._tag

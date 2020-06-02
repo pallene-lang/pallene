@@ -201,24 +201,29 @@ local letrec_groups = {
 function Checker:check_program(prog_ast)
 
     do
-        -- Forbid toplevel duplicates
+        -- Forbid top-level duplicates
+        --
+        -- Retrieve the names for all the top-level components such as functions,
+        -- imports, builtins and variables. Construct an auxillary table with name and location
+        -- as key and value, respectively. If the current name already exists in the auxillary
+        -- table, report an error.
         local names = {}
-        for _, tl_node in ipairs(prog_ast) do
-            local tl_names = ast.toplevel_names(tl_node)
-            local loc = tl_node.loc
-            for _, name in ipairs(tl_names) do
-                local old_loc = names[name]
-                if old_loc then
-                    scope_error(loc,
+        for _, top_level_node in ipairs(prog_ast) do
+            local top_level_names = ast.toplevel_names(top_level_node)
+            local location = top_level_node.loc
+            for _, name in ipairs(top_level_names) do
+                local old_location = names[name]
+                if old_location then
+                    scope_error(location,
                         "duplicate toplevel declaration for '%s', previous one at line %d",
-                        name, old_loc.line)
+                        name, old_location.line)
                 end
-                names[name] = loc
+                names[name] = location
             end
         end
     end
 
-    -- Add builtins to symbol table. (The order does not matter because they are distinct)
+    -- Add builtins to symbol table. (The order does not matter because they are distinct.)
     for name, _ in pairs(builtins) do
         self:add_builtin(name)
     end
