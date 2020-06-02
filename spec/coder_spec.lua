@@ -1645,6 +1645,10 @@ describe("Pallene coder /", function()
                 local tofloat = 1.0
                 return (x + tofloat)
             end
+
+            function duplicate_parameter(x: integer, x:integer) : integer
+                return x
+            end
         ]]))
 
         it("local variable doesn't shadow its type annotation", function()
@@ -1665,6 +1669,10 @@ describe("Pallene coder /", function()
 
         it("tofloat in coercions doesn't get shadowed", function()
             run_test([[ assert( 21.0 == test.tofloat_shadowing(20) ) ]])
+        end)
+
+        it("allows functions with repeated argument names", function()
+            run_test([[ assert( 20 == test.duplicate_parameter(10, 20) )]])
         end)
     end)
 

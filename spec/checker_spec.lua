@@ -102,14 +102,6 @@ describe("Scope analysis: ", function()
             "variable 'a' is not declared")
     end)
 
-    it("forbids multiple function arguments with the same name", function()
-        assert_error([[
-            function fn(x: integer, x:string)
-            end
-        ]],
-            "function has multiple parameters named 'x'")
-    end)
-
     it("forbids typealias to non-existent type", function()
         assert_error([[
             typealias point = foo
