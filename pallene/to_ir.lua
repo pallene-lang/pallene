@@ -38,7 +38,7 @@ ToIR = util.Class()
 function ToIR:init(module, func)
     self.module = module
     self.func = func
-    self.func_dsts = {}
+    self.dsts_of_call = {} -- { ast.Exp => { var_id } }
 end
 
 function ToIR:convert_stats(cmds, stats)
@@ -466,8 +466,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         error("not implemented")
 
     elseif tag == "ast.Exp.ExtraRet" then
-        assert(self.func_dsts[exp.call_exp])
-        self.func_dsts[exp.call_exp][exp.i] = dst
+        assert(self.dsts_of_call[exp.call_exp])
+        self.dsts_of_call[exp.call_exp][exp.i] = dst
 
     elseif tag == "ast.Exp.CallFunc" then
 
@@ -487,14 +487,14 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             exp.exp.var._name )
 
         if     cname and cname._tag == "checker.Name.Function" then
-            assert(not self.func_dsts[exp])
-            self.func_dsts[exp] = {}
-            self.func_dsts[exp][1] = dst
+            assert(not self.dsts_of_call[exp])
+            self.dsts_of_call[exp] = {}
+            self.dsts_of_call[exp][1] = dst
             for i = 2, #exp._types do
-                self.func_dsts[exp][i] = false
+                self.dsts_of_call[exp][i] = false
             end
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, self.func_dsts[exp], cname.id, xs))
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, self.dsts_of_call[exp], cname.id, xs))
 
         elseif cname and cname._tag == "checker.Name.Builtin" then
             local xs = get_xs()
@@ -526,13 +526,12 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         else
-            assert(not self.func_dsts[exp])
-            self.func_dsts[exp] = {}
-            self.func_dsts[exp][1] = dst
+            assert(not self.dsts_of_call[exp])
+            self.dsts_of_call[exp] = {}
+            self.dsts_of_call[exp][1] = dst
             local f = self:exp_to_value(cmds, exp.exp)
             local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, self.func_dsts[exp],
-                f, xs))
+            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, self.dsts_of_call[exp], f, xs))
         end
 
     elseif tag == "ast.Exp.CallMethod" then
