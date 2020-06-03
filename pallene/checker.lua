@@ -638,11 +638,10 @@ function FunChecker:check_var(var)
         elseif cname._tag == "checker.Name.Builtin" then
             var._type = builtins[cname.name].typ
         elseif cname._tag == "checker.Name.Module" then
-            -- We ignore just the module name for now.
             -- The type for a module is a table.
             var._type = builtin_modules[cname.name]
         else
-            error("Control should not reach here. Cannot handle: cname._tag == " .. cname._tag)
+            error("Unexpected condition: cname._tag == " .. cname._tag)
         end
 
     elseif tag == "ast.Var.Dot" then
@@ -660,7 +659,6 @@ function FunChecker:check_var(var)
                 var.name, types.tostring(ind_type))
         end
         var._type = field_type
-
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
         local arr_type = var.t._type
