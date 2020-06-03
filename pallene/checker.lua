@@ -53,25 +53,34 @@ function checker.check(prog_ast)
     end
 end
 
-local function checker_error(loc, fmt, ...)
-    local err_msg = location.format_error(loc, fmt, ...)
-    coroutine.yield(err_msg)
+-- Usually if an error is produced with `assert()` or `error()` then it is
+-- a compiler bug. User-facing errors such as syntax errors and
+-- type checking errors are reported in a different way. The actual
+-- method employed is kind of tricky. Since Lua does not have a clean
+-- try-catch functionality we use coroutines to do that job.
+-- You can see this in the `checker.check()` function but you do
+-- not need to know how it works. You just need to know that calling
+-- `scope_error()` or `type_error()` will exit the type checking routine
+-- and report a Pallene compilation error.
+local function checker_error(loc, format, ...)
+    local error_message = location.format_error(loc, format, ...)
+    coroutine.yield(error_message)
 end
 
-local function scope_error(loc, fmt, ...)
-    return checker_error(loc, ("scope error: " .. fmt), ...)
+local function scope_error(location, format, ...)
+    return checker_error(location, ("scope error: " .. format), ...)
 end
 
-local function type_error(loc, fmt, ...)
-    return checker_error(loc, ("type error: " .. fmt), ...)
+local function type_error(location, format, ...)
+    return checker_error(location, ("type error: " .. format), ...)
 end
 
-local function check_type_is_condition(exp, err_fmt, ...)
+local function check_type_is_condition(exp, format, ...)
     local typ = exp._type
     if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Any" then
         type_error(exp.loc,
             "expression passed to %s has type %s. Expected boolean or any.",
-            string.format(err_fmt, ...),
+            string.format(format, ...),
             types.tostring(typ))
     end
 end
@@ -198,6 +207,29 @@ local letrec_groups = {
     ["ast.Toplevel.Record"]    = "Type",
 }
 
+-- The parser is responsible for creating the AST. However, the checker
+-- may modify the AST by adding new AST nodes. Here are a few legitimate
+-- reasons:
+-- 1. We add explicit `ast.Exp.Cast` nodes where there is an implicit
+--    upcast or downcast.
+-- 2. We insert `ast.Exp.ExtraRet` nodes to represent additional return
+--    values from functions.
+-- 3. We insert an explicit `tofloat` node in some arithmetic operations.
+--    For example, when we add an integer to a floating point number we
+--    insert a call to the `tofloat()` builtin to convert the integer
+--    to a float.
+-- 4. We convert qualified identifiers such as `io.write` from `ast.Var.Dot` to
+--    a flat `ast.Var.Name`.
+--
+--
+-- In the AST, unions tagged with `the ast.Var` refer to things that can appear
+-- on the left-hand side of an assignment. That is, variable names such as
+-- `foo` (`ast.Var.Name`), bracketed expressions such as `foo[i]` (`ast.Var.Bracket`)
+-- and qualified names such as `foo.bar` (`ast.Var.Dot`).
+-- In a union tagged as `ast.Stat.Assign`, the `vars` field refers to the `ast.Var`
+-- nodes in the left-hand-side of the assignment statement. Since Pallene has multiple
+-- assignments there may be one or more of those nodes.
+--
 function Checker:check_program(prog_ast)
 
     do
@@ -412,13 +444,28 @@ function FunChecker:expand_function_returns(lhs, rhs)
     end
 end
 
-
 function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
+
+    -- Check for duplicate parameter names.
+    --
+    -- Add each parameter name to the `names` set. If the current name already
+    -- exists in the set, report an error.
+    do
+        local names = {}
+        for _, name in ipairs(lambda.arg_names) do
+            if names[name] then
+                scope_error(lambda.loc,
+                    "function has multiple parameters named '%s'", name)
+            end
+            names[name] = true
+        end
+    end
+
     self.p.symbol_table:with_block(function()
-        for i, typ in ipairs(func_typ.arg_types) do
+        for i, parameter_type in ipairs(func_typ.arg_types) do
             local name = lambda.arg_names[i]
-            self:add_local(name, typ)
+            self:add_local(name, parameter_type)
         end
         local body = self.func.body
         self:check_stat(body)
