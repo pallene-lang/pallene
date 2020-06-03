@@ -433,9 +433,9 @@ function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
 
     self.p.symbol_table:with_block(function()
-        for i, parameter_type in ipairs(func_typ.arg_types) do
-            local name = lambda.arg_names[i]
-            self:add_local(name, parameter_type)
+        for i, typ in ipairs(func_typ.arg_types) do
+            local name = lambda.arg_decls[i].name
+            self:add_local(name, typ)
         end
         local body = self.func.body
         self:check_stat(body)

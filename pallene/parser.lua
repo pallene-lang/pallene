@@ -78,17 +78,15 @@ function defs.opt_list(x)
 end
 
 function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
-    local arg_names = {}
     local arg_types = {}
     for i, decl in ipairs(params) do
-        arg_names[i] = decl.name
         arg_types[i] = decl.type
     end
     local func_typ = ast.Type.Function(loc, arg_types, ret_types)
     return ast.Toplevel.Func(
         loc, is_local,
         ast.Decl.Decl(loc, name, func_typ),
-        ast.Exp.Lambda(loc, arg_names, block))
+        ast.Exp.Lambda(loc, params, block))
 end
 
 function defs.nil_exp(pos--[[, s ]])
