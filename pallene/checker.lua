@@ -487,8 +487,8 @@ function FunChecker:check_stat(stat)
     elseif tag == "ast.Stat.For" then
 
         local loop_type
-        loop_type, stat.start = self:check_initializer_exp(stat.decl, stat.start,
-            "numeric for-loop initializer")
+        loop_type, stat.start =
+            self:check_initializer_exp(stat.decl, stat.start, "numeric for-loop initializer")
 
         if  loop_type._tag ~= "types.T.Integer" and
             loop_type._tag ~= "types.T.Float"
@@ -498,22 +498,18 @@ function FunChecker:check_stat(stat)
                 types.tostring(loop_type), stat.decl.name)
         end
 
-        stat.limit = self:check_exp_verify(stat.limit, loop_type,
-            "numeric for-loop limit")
-
-        if stat.step then
-            stat.step = self:check_exp_verify(stat.step, loop_type, "numeric for-loop step")
-        else
-            local def_step
+        if not stat.step then
             if     loop_type._tag == "types.T.Integer" then
-                def_step = ast.Exp.Integer(stat.limit.loc, 1)
+                stat.step = ast.Exp.Integer(stat.limit.loc, 1)
             elseif loop_type._tag == "types.T.Float" then
-                def_step = ast.Exp.Float(stat.limit.loc, 1.0)
+                stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
             else
                 error("impossible")
             end
-            stat.step = self:check_exp_synthesize(def_step)
         end
+
+        stat.limit = self:check_exp_verify(stat.limit, loop_type, "numeric for-loop limit")
+        stat.step = self:check_exp_verify(stat.step, loop_type, "numeric for-loop step")
 
         self.p.symbol_table:with_block(function()
             self:add_local(stat.decl.name, loop_type)
