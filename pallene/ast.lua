@@ -30,7 +30,6 @@ declare_type("Toplevel", {
     Typealias = {"loc", "name", "type"},
     Record    = {"loc", "name", "field_decls"},
     Import    = {"loc", "local_name", "mod_name"},
-    Builtin   = {"loc", "name"},
 })
 
 declare_type("Decl", {

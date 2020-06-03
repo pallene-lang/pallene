@@ -5,23 +5,20 @@
 
 local typedecl = require "pallene.typedecl"
 
--- This IR is produced as a result of typechecking the parser's AST. The main
--- changes compared to the AST input are that:
---   * The toplevel is described by a Module node instead of ast.Toplevel nodes
---   * Function scopes are flattened
---   * The function bodies are first converted to typed AST nodes, and then to low-level Pallene IR.
+-- Pallene IR is a lower level representation of Pallene that is easier for the optimizer and the
+-- coder generator to work with.
 --
--- After typechecking, the body of the functions is still represented by AST
--- nodes from the parser, except that it annotates some nodes
---   * _name : in Decl.Decl and Var.Name nodes; checker.Name
---   * _type : in ast.Exp and ast.Var nodes; types.T
+-- * Each module is represented as an ir.Module
+-- * Functions, global variables, records, etc are identified by a numeric ID.
+-- * Function scopes are flat and local variables are identified by a numeric ID.
+-- * Function bodies are represented by ir.Cmd nodes.
 --
--- The next step after this is converting function bodies to a lower-level
--- Pallene intermediate representation.
---  * Function bodies are now represented as a list of Cmd nodes.
---  * The order of evaluation is explicit. Sub-expressions (except for contant values) are lifted
---    out into temporary variables.
---  * Control-flow operations are still represented as nested nodes.
+-- There is no expression-level nesting. an ir.Value can only be a variable name or a literal
+-- constant. Nested subexpressions are converted into multiple commands, using temporary variables.
+--
+-- There is stil some statement-level nesting, with if.Cmd.Loop, ir.Cmd.If, etc. We think that
+-- structured control flow is easier to reason about then an unstructured control flow graph built
+-- around basic blocks and gotos.
 
 local ir = {}
 
@@ -45,13 +42,13 @@ function ir.VarDecl(name, typ)
     }
 end
 
-function ir.Function(loc, name, typ, body)
+function ir.Function(loc, name, typ)
     return {
         loc = loc,           -- Location
         name = name,         -- string
         typ = typ,           -- Type
         vars = {},           -- list of ir.VarDecl
-        body = body,         -- ast.Stat, or list of ir.Cmd
+        body = false,        -- list of ir.Cmd
     }
 end
 
@@ -64,8 +61,8 @@ function ir.add_record_type(module, typ)
     return #module.record_types
 end
 
-function ir.add_function(module, loc, name, typ, body)
-    table.insert(module.functions, ir.Function(loc, name, typ, body))
+function ir.add_function(module, loc, name, typ)
+    table.insert(module.functions, ir.Function(loc, name, typ))
     return #module.functions
 end
 
