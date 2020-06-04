@@ -48,7 +48,7 @@ function ir.Function(loc, name, typ)
         name = name,         -- string
         typ = typ,           -- Type
         vars = {},           -- list of ir.VarDecl
-        body = false,        -- list of ir.Cmd
+        body = false,        -- ir.Cmd
     }
 end
 
