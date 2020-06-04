@@ -16,7 +16,7 @@ install:
   - luarocks make # This installs necessary runtime dependencies
 
 before_script:
-  - make linux-noreadline
+  - make -j4 linux-noreadline
 
 script:
   - ./lint-project
