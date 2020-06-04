@@ -115,20 +115,16 @@ void pallene_setbvalue(TValue *obj, int b)
     }
 }
 
-/* We must call these write barriers whenever we set "v" as an element of "p", in order to preserve
- * the color invariants of the incremental GC.
- *
- * These implementations are specializations of luaC_barrierback that check at compile time if the
- * child object is collectible. Additionally, the in this version of the macro "p" and "v" receive
- * internal object pointers (the ones described by ctype()). */
-#define pallene_barrierback_unknown_child(L, p, v) \
-    if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v))) { \
-        luaC_barrierback_(L, obj2gco(p));                                 \
+/* We must call a GC write barrier whenever we set "v" as an element of "p", in order to preserve
+ * the color invariants of the incremental GC. This function is a specialization of luaC_barrierback
+ * for when we already know the type of the child object and have an untagged pointer to it. */
+static inline
+void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v)
+{
+    if (isblack(p) && iswhite(v)) {
+        luaC_barrierback_(L, p);
     }
-#define pallene_barrierback_collectable_child(L, p, v) \
-    if (isblack(obj2gco(p)) && iswhite(obj2gco(v))) { \
-        luaC_barrierback_(L, obj2gco(p));             \
-    }
+}
 
 /* Lua and Pallene round integer division towards negative infinity, while C rounds towards zero.
  * Here we inline luaV_div, to allow the C compiler to constant-propagate. For an explanation of the

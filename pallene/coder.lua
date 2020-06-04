@@ -126,8 +126,8 @@ local function set_stack_slot(typ, dst_slot, value)
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
--- Set a TValue* slot that belongs to some heap object (array, record, etc). Needs to receive a
--- pointer to the parent object, because of the GC write barrier. See comments in pallene_core.h.
+-- Set a TValue* slot that belongs to some heap object (array, record, etc).
+-- Must receive a pointer to the parent object, due to the GC write barrier.
 local function set_heap_slot(typ, dst_slot, value, parent)
     local lines = {}
     table.insert(lines, set_stack_slot(typ, dst_slot, value))
@@ -135,9 +135,9 @@ local function set_heap_slot(typ, dst_slot, value, parent)
     if types.is_gc(typ) then
         local tmpl
         if typ._tag == "types.T.Any" or typ._tag == "types.T.Function" then
-            tmpl = [[pallene_barrierback_unknown_child(L, $p, &$v); ]]
+            tmpl = "luaC_barrierback(L, obj2gco($p), &$v);"
         else
-            tmpl = [[pallene_barrierback_collectable_child(L, $p, $v); ]]
+            tmpl = "pallene_barrierback_unboxed(L, obj2gco($p), obj2gco($v));"
         end
         table.insert(lines, util.render(tmpl, { p = parent, v = value }))
     end
