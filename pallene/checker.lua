@@ -11,7 +11,6 @@ local symtab = require "pallene.symtab"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
-local builtin_modules = require "pallene.builtin_modules"
 
 local checker = {}
 
@@ -63,25 +62,25 @@ end
 -- not need to know how it works. You just need to know that calling
 -- `scope_error()` or `type_error()` will exit the type checking routine
 -- and report a Pallene compilation error.
-local function checker_error(error_location, format, ...)
-    local error_message = location.format_error(error_location, format, ...)
+local function checker_error(loc, fmt, ...)
+    local error_message = location.format_error(loc, fmt, ...)
     coroutine.yield(error_message)
 end
 
-local function scope_error(error_location, format, ...)
-    return checker_error(error_location, ("scope error: " .. format), ...)
+local function scope_error(loc, fmt, ...)
+    return checker_error(loc, ("scope error: " .. fmt), ...)
 end
 
-local function type_error(error_location, format, ...)
-    return checker_error(error_location, ("type error: " .. format), ...)
+local function type_error(loc, fmt, ...)
+    return checker_error(loc, ("type error: " .. fmt), ...)
 end
 
-local function check_type_is_condition(exp, format, ...)
+local function check_type_is_condition(exp, fmt, ...)
     local typ = exp._type
     if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Any" then
         type_error(exp.loc,
             "expression passed to %s has type %s. Expected boolean or any.",
-            string.format(format, ...),
+            string.format(fmt, ...),
             types.tostring(typ))
     end
 end
@@ -261,11 +260,11 @@ function Checker:check_program(prog_ast)
     end
 
     -- Add builtins to symbol table. (The order does not matter because they are distinct.)
-    for name, _ in pairs(builtins) do
+    for name, _ in pairs(builtins.functions) do
         self:add_builtin(name)
     end
 
-    for name in pairs(builtin_modules) do
+    for name in pairs(builtins.modules) do
         self:add_module(name)
     end
 
@@ -636,12 +635,12 @@ function FunChecker:check_var(var)
         elseif cname._tag == "checker.Name.Function" then
             var._type = self.p.module.functions[cname.id].typ
         elseif cname._tag == "checker.Name.Builtin" then
-            var._type = builtins[cname.name].typ
+            var._type = builtins.functions[cname.name].typ
         elseif cname._tag == "checker.Name.Module" then
             -- The type for a module is a table.
-            var._type = builtin_modules[cname.name]
+            var._type = builtins.modules[cname.name]
         else
-            error("Unexpected condition: cname._tag == " .. cname._tag)
+            error("impossible")
         end
 
     elseif tag == "ast.Var.Dot" then
