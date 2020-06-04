@@ -19,7 +19,7 @@ before_script:
   - make linux-noreadline
 
 script:
-  - luacheck ./pallene ./spec ./examples
+  - ./lint-project
   - busted -o gtest -v ./spec
 
 

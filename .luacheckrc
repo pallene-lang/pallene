@@ -2,16 +2,20 @@
 
 -- Luacheck configuration file [1]
 --
--- How to use Luacheck:
---    - luarocks install luacheck
---    - luacheck ./pallene ./spec ./examples
+-- Please install Luacheck to your system with Luarocks:
+--
+--    luarocks install luacheck
+--
+-- To run Luackeck, please use our lint-project script:
+--
+--    ./lint-project
 --
 -- For vim integration, I recommend ALE [2]. It supports luacheck out of the box
 -- For other editors such as Sublime, Atom, Emacs, Brackets, and VS Code,
 -- consult the instructions in the Luacheck documentation [3].
 --
 -- [1] https://luacheck.readthedocs.io/en/stable/config.html
--- [2] https://github.com/w0rp/ale
+-- [2] https://github.com/dense-analysis/ale
 -- [3] https://github.com/mpeterv/luacheck#editor-support
 
 ignore = {
