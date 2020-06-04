@@ -24,13 +24,25 @@ builtins.functions = {
     ["io.write"] = {
         name = "io.write",
         typ = T.Function({ T.String() }, {})
+    },
+    ["math.sqrt"] = {
+        name = "math.sqrt",
+        typ = T.Function({ T.Float() }, { T.Float() }),
+    },
+    ["str.char"] = {
+        name = "str.char",
+        typ = T.Function({ T.Integer() }, { T.String() })
+    },
+    ["str.sub"] = {
+        name = "str.sub",
+        typ = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() }),
     }
 }
 
 builtins.modules = {
-    io = {
-
-    }
+    io = true,
+    math = true,
+    str = true
 }
 
 return builtins

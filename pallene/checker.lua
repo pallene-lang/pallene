@@ -646,7 +646,7 @@ function FunChecker:check_var(var)
             error("impossible")
         end
 
-        print(inspect(var))
+        -- print(inspect(var))
 
     elseif tag == "ast.Var.Dot" then
         -- print(inspect(var))
