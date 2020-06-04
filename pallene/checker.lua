@@ -11,6 +11,7 @@ local symtab = require "pallene.symtab"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
+local inspect = require "inspect"
 
 local checker = {}
 
@@ -343,7 +344,7 @@ function Checker:check_program(prog_ast)
                 for i, decl in ipairs(tl_var.decls) do
                     local _ = self:add_global(decl.name, typs[i])
                     local var = ast.Var.Name(loc, decl.name)
-                    toplevel_fun_checker:check_var(var)
+                    var = toplevel_fun_checker:check_var(var)
                     vars[i] = var
                 end
                 table.insert(toplevel_stats, ast.Stat.Assign(loc, vars, exps))
@@ -563,7 +564,7 @@ function FunChecker:check_stat(stat)
         self:expand_function_returns(stat.vars, stat.exps)
 
         for i = 1, #stat.vars do
-            self:check_var(stat.vars[i])
+            stat.vars[i] = self:check_var(stat.vars[i])
             stat.exps[i] = self:check_exp_verify(stat.exps[i],
                 stat.vars[i]._type, "assignment")
             if stat.vars[i]._tag == "ast.Var.Name" then
@@ -620,6 +621,8 @@ end
 function FunChecker:check_var(var)
     local tag = var._tag
     if     tag == "ast.Var.Name" then
+        -- print(inspect(var))
+        -- print('------------')
         local cname = self.p.symbol_table:find_symbol(var.name)
         if not cname then
             scope_error(var.loc, "variable '%s' is not declared", var.name)
@@ -638,26 +641,44 @@ function FunChecker:check_var(var)
             var._type = builtins.functions[cname.name].typ
         elseif cname._tag == "checker.Name.Module" then
             -- The type for a module is a table.
-            var._type = builtins.modules[cname.name]
+           var._type = builtins.modules[cname.name]
         else
             error("impossible")
         end
 
+        print(inspect(var))
+
     elseif tag == "ast.Var.Dot" then
-        var.exp = self:check_exp_synthesize(var.exp)
-        local ind_type = var.exp._type
-        if not types.is_indexable(ind_type) then
-            type_error(var.loc,
-                "trying to access a member of value of type '%s'",
-                types.tostring(ind_type))
+        -- print(inspect(var))
+        -- print('---------------------')
+        if builtins.modules[var.exp.var.name] ~= nil then
+            local module_name = var.exp.var.name
+            local function_name = var.name
+            local internal_name = module_name .. "." .. function_name
+            local cname = self.p.symbol_table:find_symbol(internal_name)
+            return {
+                _name = cname,
+                _tag = "ast.Var.Name",
+                loc = var.exp.loc,
+                name = var.exp.var.name .. '.' .. var.name,
+                _type = builtins.functions[internal_name].typ
+            }
+        else
+            var.exp = self:check_exp_synthesize(var.exp)
+            local ind_type = var.exp._type
+            if not types.is_indexable(ind_type) then
+                type_error(var.loc,
+                    "trying to access a member of value of type '%s'",
+                    types.tostring(ind_type))
+            end
+            local field_type = types.indices(ind_type)[var.name]
+            if not field_type then
+                type_error(var.loc,
+                    "field '%s' not found in type '%s'",
+                    var.name, types.tostring(ind_type))
+            end
+            var._type = field_type
         end
-        local field_type = types.indices(ind_type)[var.name]
-        if not field_type then
-            type_error(var.loc,
-                "field '%s' not found in type '%s'",
-                var.name, types.tostring(ind_type))
-        end
-        var._type = field_type
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
         local arr_type = var.t._type
@@ -674,6 +695,7 @@ function FunChecker:check_var(var)
     else
         error("impossible")
     end
+    return var
 end
 
 local function is_numeric_type(typ)
@@ -731,7 +753,7 @@ function FunChecker:check_exp_synthesize(exp)
             "missing type hint for lambda")
 
     elseif tag == "ast.Exp.Var" then
-        self:check_var(exp.var)
+        exp.var = self:check_var(exp.var)
         exp._type = exp.var._type
 
     elseif tag == "ast.Exp.Unop" then

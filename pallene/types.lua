@@ -206,7 +206,9 @@ function types.consistent(t1, t2)
     return equivalent(t1, t2, true)
 end
 
+local inspect = require 'inspect'
 function types.tostring(t)
+    print(inspect(t))
     local tag = t._tag
     if     tag == "types.T.Any"         then return "any"
     elseif tag == "types.T.Void"        then return "void"

@@ -9,6 +9,10 @@ local T = types.T
 local builtins = {}
 
 builtins.functions = {
+    io_write = {
+        name = "io.write",
+        typ = T.Function({ T.String() }, {})
+    },
     tofloat = {
         name = "tofloat",
         typ = T.Function({ T.Integer() }, { T.Float() }),
@@ -16,19 +20,16 @@ builtins.functions = {
     type = {
         name = "type",
         typ = T.Function({ T.Any() }, { T.String() })
+    },
+    ["io.write"] = {
+        name = "io.write",
+        typ = T.Function({ T.String() }, {})
     }
 }
 
 builtins.modules = {
-    io = T.Table {
-        write = T.Function({ T.String() }, {}),
-    },
-    math = T.Table {
-        sqrt = T.Function({ T.Float() }, { T.Float() }),
-    },
-    string = T.Table {
-        char = T.Function({ T.Integer() }, { T.String() }),
-        sub = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() }),
+    io = {
+
     }
 }
 

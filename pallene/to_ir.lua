@@ -500,7 +500,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local xs = get_xs()
 
             local bname = cname.name
-            if     bname == "io_write" then
+            if     bname == "io.write" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs))
             elseif bname == "math_sqrt" then
