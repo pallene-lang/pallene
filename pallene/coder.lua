@@ -1328,12 +1328,10 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     end
 
     local push_arguments = {}
-    table.insert(push_arguments,
-        self:push_to_stack(f_typ, self:c_value(cmd.src_f)))
+    table.insert(push_arguments, self:push_to_stack(f_typ, self:c_value(cmd.src_f)))
     for i = 1, #f_typ.arg_types do
         local typ = f_typ.arg_types[i]
-        table.insert(push_arguments,
-            self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
+        table.insert(push_arguments, self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
     local pop_results = {}

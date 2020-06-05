@@ -561,68 +561,72 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
     elseif tag == "ast.Exp.CallFunc" then
 
-        local function get_xs()
-            -- "xs" should be evaluated after "f"
-            local xs = {}
-            for i, arg_exp in ipairs(exp.args) do
-                xs[i] = self:exp_to_value(cmds, arg_exp)
-            end
-            return xs
-        end
-
         local f_typ = exp.exp._type
         local cname = (
             exp.exp._tag == "ast.Exp.Var" and
             exp.exp.var._tag == "ast.Var.Name" and
             exp.exp.var._name )
 
-        if     cname and cname._tag == "checker.Name.Function" then
-            local f_id = assert(self.fun_id_of_decl[cname.decl])
-            assert(not self.dsts_of_call[exp])
-            self.dsts_of_call[exp] = {}
-            self.dsts_of_call[exp][1] = dst
-            for i = 2, #exp._types do
-                self.dsts_of_call[exp][i] = false
-            end
-            local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, self.dsts_of_call[exp], f_id, xs))
+        -- Prepare the list of destination variables.
+        -- If this is a function with multiple return values then dsts[2]..dsts[N] will be
+        -- initialized later, by ExtraRet. Unused return values are represented by `false`.
+        assert(not self.dsts_of_call[exp])
+        local dsts = {}
+        dsts[1] = dst
+        for i = 2, #exp._types do
+            dsts[i] = false
+        end
+        self.dsts_of_call[exp] = dsts
 
-        elseif cname and cname._tag == "checker.Name.Builtin" then
-            local xs = get_xs()
+        -- Evaluate the function call expression
+        local f_val
+        if  cname and (
+                cname._tag == "checker.Name.Builtin" or
+                cname._tag == "checker.Name.Function") then
+            f_val = false
+        else
+            f_val = self:exp_to_value(cmds, exp.exp)
+        end
 
+        -- Evaluate the function arguments
+        local xs = {}
+        for i, arg_exp in ipairs(exp.args) do
+            xs[i] = self:exp_to_value(cmds, arg_exp)
+        end
+
+        -- Generate the function call command
+        if     cname and cname._tag == "checker.Name.Builtin" then
             local bname = cname.name
             if     bname == "io.write" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs))
             elseif bname == "math.sqrt" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, {dst}, xs))
+                table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, dsts, xs))
             elseif bname == "string_.char" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, {dst}, xs))
+                table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, dsts, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
             elseif bname == "string_.sub" then
                 assert(#xs == 3)
-                table.insert(cmds,
-                    ir.Cmd.BuiltinStringSub(loc, {dst}, xs))
+                table.insert(cmds, ir.Cmd.BuiltinStringSub(loc, dsts, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
             elseif bname == "tofloat" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, {dst}, xs))
+                table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, dsts, xs))
             elseif bname == "type" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinType(loc, {dst}, xs))
+                table.insert(cmds, ir.Cmd.BuiltinType(loc, dsts, xs))
             else
                 error("impossible")
             end
 
+        elseif cname and cname._tag == "checker.Name.Function" then
+            local f_id = assert(self.fun_id_of_decl[cname.decl])
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_id, xs))
+
         else
-            assert(not self.dsts_of_call[exp])
-            self.dsts_of_call[exp] = {}
-            self.dsts_of_call[exp][1] = dst
-            local f = self:exp_to_value(cmds, exp.exp)
-            local xs = get_xs()
-            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, self.dsts_of_call[exp], f, xs))
+            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
         end
 
     elseif tag == "ast.Exp.CallMethod" then
