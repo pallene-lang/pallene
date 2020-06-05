@@ -686,7 +686,7 @@ describe("Pallene type checker", function()
     it("typechecks io.write (error)", function()
         assert_error([[
             function f()
-                io_write(17)
+                io.write(17)
             end
         ]],
             "expected string but found integer in argument 1")

@@ -11,7 +11,7 @@ end
 local WIDTH = 60
 
 local function print_fasta_header(id: string, desc: string)
-    io_write(">" .. id .. " " .. desc .. "\n")
+    io.write(">" .. id .. " " .. desc .. "\n")
 end
 
 function repeat_fasta(id: string, desc: string, alu: string, n: integer)
@@ -29,13 +29,13 @@ function repeat_fasta(id: string, desc: string, alu: string, n: integer)
     local start = 0 -- (This index is 0-based bacause of the % operator)
     for _ = 1, lines do
         local stop = start + WIDTH
-        io_write(string_sub(aluwrap, start+1, stop))
-        io_write("\n")
+        io.write(string_sub(aluwrap, start+1, stop))
+        io.write("\n")
         start = stop % alusize
     end
     if last_line > 0 then
-        io_write(string_sub(aluwrap, start+1, start + last_line))
-        io_write("\n")
+        io.write(string_sub(aluwrap, start+1, start + last_line))
+        io.write("\n")
     end
 end
 
@@ -74,14 +74,14 @@ function random_fasta(id: string, desc: string, frequencies: {{any}}, n: integer
         local ix = linear_search(probs, random(1.0))
         local c = letters[ix]
 
-        io_write(c)
+        io.write(c)
         col = col + 1
         if col >= WIDTH then
-            io_write("\n")
+            io.write("\n")
             col = 0
         end
     end
     if col > 0 then
-        io_write("\n")
+        io.write("\n")
     end
 end

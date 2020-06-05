@@ -506,7 +506,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "math.sqrt" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, {dst}, xs))
-            elseif bname == "str.char" then
+            elseif bname == "string_.char" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, {dst}, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())

@@ -621,8 +621,6 @@ end
 function FunChecker:check_var(var)
     local tag = var._tag
     if     tag == "ast.Var.Name" then
-        -- print(inspect(var))
-        -- print('------------')
         local cname = self.p.symbol_table:find_symbol(var.name)
         if not cname then
             scope_error(var.loc, "variable '%s' is not declared", var.name)
@@ -646,11 +644,7 @@ function FunChecker:check_var(var)
             error("impossible")
         end
 
-        -- print(inspect(var))
-
     elseif tag == "ast.Var.Dot" then
-        -- print(inspect(var))
-        -- print('---------------------')
         if builtins.modules[var.exp.var.name] ~= nil then
             local module_name = var.exp.var.name
             local function_name = var.name

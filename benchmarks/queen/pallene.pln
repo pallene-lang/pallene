@@ -18,15 +18,15 @@ local function printsolution (N: integer, a:{integer})
     local ai = a[i]
     for j = 1, N do
       if ai == j then
-        io_write("X")
+        io.write("X")
       else
-        io_write("-")
+        io.write("-")
       end
-      io_write(" ")
+      io.write(" ")
     end
-    io_write("\n")
+    io.write("\n")
   end
-  io_write("\n")
+  io.write("\n")
 end
 
 

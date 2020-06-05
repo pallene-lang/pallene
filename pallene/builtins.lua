@@ -29,8 +29,8 @@ builtins.functions = {
         name = "math.sqrt",
         typ = T.Function({ T.Float() }, { T.Float() }),
     },
-    ["str.char"] = {
-        name = "str.char",
+    ["string_.char"] = {
+        name = "string_.char",
         typ = T.Function({ T.Integer() }, { T.String() })
     },
     ["str.sub"] = {
