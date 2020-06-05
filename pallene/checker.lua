@@ -198,8 +198,7 @@ function Checker:from_ast_type(ast_typ)
         local fields = {}
         for _, field in ipairs(ast_typ.fields) do
             if fields[field.name] then
-                type_error(ast_typ.loc, "duplicate field '%s' in table",
-                           field.name)
+                type_error(ast_typ.loc, "duplicate field '%s' in table", field.name)
             end
             fields[field.name] = self:from_ast_type(field.type)
         end
@@ -234,10 +233,10 @@ function Checker:check_program(prog_ast)
     do
         -- Forbid top-level duplicates
         --
-        -- Retrieve the names for all the top-level components such as functions,
-        -- imports, builtins and variables. Construct an auxillary table with name and location
-        -- as key and value, respectively. If the current name already exists in the auxillary
-        -- table, report an error.
+        -- To avoid ambiguities that could happen if the programmer tried to export multiple
+        -- functions with the same name, we give a compilation error if there is more than one
+        -- definition in the toplevel with the same name. We might be able to get rid of this
+        -- restriction if we change the syntax for exporting functions. Please see issue #184.
         local names = {}
         for _, top_level_node in ipairs(prog_ast) do
             local top_level_names = ast.toplevel_names(top_level_node)
