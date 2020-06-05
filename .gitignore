@@ -9,7 +9,3 @@ lua/src/luac
 cbenchmarks/*
 !cbenchmarks/*.c
 !cbenchmarks/makefile
-
-test.pln
-test.so
-test.lua

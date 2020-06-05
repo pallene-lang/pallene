@@ -5,6 +5,14 @@
 
 local typedecl = require "pallene.typedecl"
 
+-- In the AST, unions tagged with `the ast.Var` refer to things that can appear
+-- on the left-hand side of an assignment. That is, variable names such as
+-- `foo` (`ast.Var.Name`), bracketed expressions such as `foo[i]` (`ast.Var.Bracket`)
+-- and qualified names such as `foo.bar` (`ast.Var.Dot`).
+-- In a union tagged as `ast.Stat.Assign`, the `vars` field refers to the `ast.Var`
+-- nodes in the left-hand-side of the assignment statement. Since Pallene has multiple
+-- assignments there may be one or more of those nodes.
+
 local ast = {}
 
 local function declare_type(type_name, cons)
@@ -85,13 +93,6 @@ declare_type("Field", {
 
 -- Returns a sequence containing the variable names declared by the specified
 -- toplevel node.
---
--- The following nodes will result in a sequence with one element.
---     ast.Toplevel.Func, ast.Toplevel.Typealias, ast.Toplevel.Typealias,
---     ast.Toplevel.Record, ast.Toplevel.Import, and ast.Toplevel.Builtin 
--- The following nodes will result in a sequence with one or more elements.
---     ast.Toplevel.Var
--- 
 function ast.toplevel_names(tl_node)
     local names = {}
     local tag = tl_node._tag

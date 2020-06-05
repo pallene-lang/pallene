@@ -212,29 +212,6 @@ local letrec_groups = {
     ["ast.Toplevel.Record"]    = "Type",
 }
 
--- The parser is responsible for creating the AST. However, the checker
--- may modify the AST by adding new AST nodes. Here are a few legitimate
--- reasons:
--- 1. We add explicit `ast.Exp.Cast` nodes where there is an implicit
---    upcast or downcast.
--- 2. We insert `ast.Exp.ExtraRet` nodes to represent additional return
---    values from functions.
--- 3. We insert an explicit `tofloat` node in some arithmetic operations.
---    For example, when we add an integer to a floating point number we
---    insert a call to the `tofloat()` builtin to convert the integer
---    to a float.
--- 4. We convert qualified identifiers such as `io.write` from `ast.Var.Dot` to
---    a flat `ast.Var.Name`.
---
---
--- In the AST, unions tagged with `the ast.Var` refer to things that can appear
--- on the left-hand side of an assignment. That is, variable names such as
--- `foo` (`ast.Var.Name`), bracketed expressions such as `foo[i]` (`ast.Var.Bracket`)
--- and qualified names such as `foo.bar` (`ast.Var.Dot`).
--- In a union tagged as `ast.Stat.Assign`, the `vars` field refers to the `ast.Var`
--- nodes in the left-hand-side of the assignment statement. Since Pallene has multiple
--- assignments there may be one or more of those nodes.
---
 function Checker:check_program(prog_ast)
 
     do
