@@ -9,10 +9,6 @@ local T = types.T
 local builtins = {}
 
 builtins.functions = {
-    io_write = {
-        name = "io.write",
-        typ = T.Function({ T.String() }, {})
-    },
     tofloat = {
         name = "tofloat",
         typ = T.Function({ T.Integer() }, { T.Float() }),

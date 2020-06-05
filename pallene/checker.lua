@@ -638,8 +638,11 @@ function FunChecker:check_var(var)
         elseif cname._tag == "checker.Name.Builtin" then
             var._type = builtins.functions[cname.name].typ
         elseif cname._tag == "checker.Name.Module" then
-            -- The type for a module is a table.
-           var._type = builtins.modules[cname.name]
+            -- Module names can appear only in the dot notation.
+            -- For example, a statement like `local x = io` is illegal.
+            type_error(var.loc,
+                    "cannot reference module name '%s' without dot notation",
+                    var.name)
         else
             error("impossible")
         end
