@@ -510,7 +510,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, {dst}, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
-            elseif bname == "str.sub" then
+            elseif bname == "string_.sub" then
                 assert(#xs == 3)
                 table.insert(cmds,
                     ir.Cmd.BuiltinStringSub(loc, {dst}, xs))

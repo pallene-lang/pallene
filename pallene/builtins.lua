@@ -29,8 +29,8 @@ builtins.functions = {
         name = "string_.char",
         typ = T.Function({ T.Integer() }, { T.String() })
     },
-    ["str.sub"] = {
-        name = "str.sub",
+    ["string_.sub"] = {
+        name = "string_.sub",
         typ = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() }),
     }
 }
@@ -38,7 +38,7 @@ builtins.functions = {
 builtins.modules = {
     io = true,
     math = true,
-    str = true
+    string_ = true
 }
 
 return builtins

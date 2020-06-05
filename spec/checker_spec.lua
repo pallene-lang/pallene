@@ -692,10 +692,19 @@ describe("Pallene type checker", function()
         "expected string but found integer in argument 1")
     end)
 
-    it("checks assignment of modules to variables", function()
+    it("checks assignment variables to modules", function()
         assert_error([[
             function f()
                 local x = io
+            end
+        ]],
+        "cannot reference module name 'io' without dot notation")
+    end)
+
+    it("checks assignment of modules", function()
+        assert_error([[
+            function f()
+                io = 1
             end
         ]],
         "cannot reference module name 'io' without dot notation")

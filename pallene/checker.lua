@@ -641,25 +641,29 @@ function FunChecker:check_var(var)
             -- Module names can appear only in the dot notation.
             -- For example, a statement like `local x = io` is illegal.
             type_error(var.loc,
-                    "cannot reference module name '%s' without dot notation",
-                    var.name)
+                "cannot reference module name '%s' without dot notation",
+                var.name)
         else
             error("impossible")
         end
 
     elseif tag == "ast.Var.Dot" then
-        if builtins.modules[var.exp.var.name] ~= nil then
+        if var.exp._tag == "ast.Exp.Var" and builtins.modules[var.exp.var.name] then
             local module_name = var.exp.var.name
             local function_name = var.name
             local internal_name = module_name .. "." .. function_name
-            local cname = self.p.symbol_table:find_symbol(internal_name)
-            return {
-                _name = cname,
-                _tag = "ast.Var.Name",
-                loc = var.exp.loc,
-                name = var.exp.var.name .. '.' .. var.name,
-                _type = builtins.functions[internal_name].typ
-            }
+
+            local target = builtins.functions[internal_name]
+            if target then
+                local cname = self.p.symbol_table:find_symbol(internal_name)
+                local flat_var = ast.Var.Name(var.exp.loc, internal_name)
+                flat_var._name = cname
+                flat_var._type = target.typ
+                var = flat_var
+            else
+                type_error(var.loc,
+                    "unknown function '%s'", internal_name)
+            end
         else
             var.exp = self:check_exp_synthesize(var.exp)
             local ind_type = var.exp._type
