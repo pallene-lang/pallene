@@ -11,7 +11,6 @@ local symtab = require "pallene.symtab"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
-local inspect = require "inspect"
 
 local checker = {}
 

@@ -1,4 +1,0 @@
-function main()
---function sub_(s: string, i: integer, j: integer): string
-	math.sqrt(2.0)
-end
