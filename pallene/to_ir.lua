@@ -43,7 +43,28 @@ function ToIR:enter_function(f_id)
     -- These are re-initialized each time.
     self.func = self.module.functions[f_id]
     self.loc_id_of_decl = {} -- { ast.Decl => integer }
+    self.call_exps      = {} -- { ast.Exp.CallFunc }
     self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
+end
+
+function ToIR:exit_function(cmds)
+    -- Create temporary destination variables for any unused function return values.
+    for _, call_exp in ipairs(self.call_exps) do
+        local dsts = self.dsts_of_call[call_exp]
+        for i = 1, #dsts do
+            if not dsts[i] then
+                local typ = assert(call_exp._types[i])
+                dsts[i] = ir.add_local(self.func, "$unused_ret", typ)
+            end
+        end
+    end
+
+    self.func.body = ir.Cmd.Seq(cmds)
+
+    self.func           = nil
+    self.loc_id_of_decl = nil
+    self.call_exps      = nil
+    self.dsts_of_call   = nil
 end
 
 function ToIR:convert_toplevel(prog_ast)
@@ -104,7 +125,7 @@ function ToIR:convert_toplevel(prog_ast)
                 end
             end
         end
-        self.func.body = ir.Cmd.Seq(cmds)
+        self:exit_function(cmds)
     end
 
     -- Convert the regular functions
@@ -121,11 +142,11 @@ function ToIR:convert_toplevel(prog_ast)
 
            local cmds = {}
            self:convert_stat(cmds, exp.body)
-           self.func.body = ir.Cmd.Seq(cmds)
+           self:exit_function(cmds)
        end
-   end
+    end
 
-   return self.module
+    return self.module
 end
 
 
@@ -569,13 +590,16 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         -- Prepare the list of destination variables.
         -- If this is a function with multiple return values then dsts[2]..dsts[N] will be
-        -- initialized later, by ExtraRet. Unused return values are represented by `false`.
+        -- initialized later, by ExtraRet.
         assert(not self.dsts_of_call[exp])
         local dsts = {}
-        dsts[1] = dst
-        for i = 2, #exp._types do
+        for i = 1, #exp._types do
             dsts[i] = false
         end
+        if dst then
+            dsts[1] = dst
+        end
+        table.insert(self.call_exps, exp)
         self.dsts_of_call[exp] = dsts
 
         -- Evaluate the function call expression
