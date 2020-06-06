@@ -32,7 +32,7 @@ function benchlib.prepare_benchmark(lua_path, benchmark_path, extra_params)
     if ext == "pln" or ext == "c" then
         local so_name = "benchmarks/" .. test_dir .. "/" .. basename .. ".so"
         assert(util.execute(string.format(
-            "make --quiet -f benchmarks/makefile %s",
+            "make --quiet -f benchmarks/Makefile %s",
             util.shell_quote(so_name))))
     elseif ext == "lua" then
         -- Nothing to do
