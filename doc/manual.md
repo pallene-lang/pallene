@@ -363,29 +363,38 @@ local x2 : integer = ns[4] -- run-time error
 Here is the complete syntax of Pallene in extended BNF.
 As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
-    program ::= {toplevelrecord} {toplevelvar} {toplevelfunc}
+    program ::= {toplevelrecord | topleveltypealias | toplevelvar | toplevelfunc}
 
     toplevelrecord ::= record Name {recordfield} end
     recordfield ::= NAME ':' type [';']
 
+    topleveltypealias ::= typealias NAME = type
+
     toplevelvar ::= local NAME [':' type] {',' NAME [':' type]} '=' explist
 
-    toplevelfunc ::= [local] function NAME '(' [paramlists] ')'  [':' typelist ] block end
+    toplevelfunc ::= [local] function NAME '(' [paramlist] ')'  [':' typelist ] block end
 
     paramlist ::= NAME ':' type {',' NAME ':' type}
 
-    type ::= nil | integer | float | boolean | string | any | '{' type '}' | typelist '->' typelist | NAME
+    type ::= nil | integer | float | boolean | string | any
+             | NAME
+             | '{' type '}'
+             | '{' [tabletypefields] }'
+             | typelist '->' typelist
+
+    tabletypefields ::= NAME ':' type { ',' NAME ':' type}
 
     typelist ::= type | '(' [type, {',' type}] ')'
 
     block ::= {statement} [returnstat]
 
     statement ::=  ';' |
-        var '=' exp |
+        varlist '=' explist |
         function_call |
         do block end |
         while exp do block end |
         repeat block until exp |
+        break |
         if exp then block {elseif exp then block} [else block] end |
         for NAME [':' type] '=' exp ',' exp [',' exp] do block end |
         local name [':' type] '=' exp
@@ -394,15 +403,16 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
     var ::=  NAME | exp '[' exp ']' | exp '.' Name
 
-    exp ::= nil | false | true | NUMBER | STRING | initlist | exp as type |
-        unop exp | exp binop exp | funccall | '(' exp ')' | exp '.' NAME
+    exp ::= nil | false | true | NUMBER | STRING | initlist | exp as type
+        | unop exp | exp binop exp | '(' exp ')'
+        | NAME | exp '[' exp ']' | exp '.' NAME | funccall
 
+    varlist ::= var {',' var}
     explist ::= exp {',' exp}
 
     funccall ::= exp funcargs
 
     funcargs ::= '(' [explist] ')' | initlist | STRING
-    explist ::= exp {',' exp}
 
     initlist ::= '{' fieldlist '}'
     fieldlist ::= [ field {fieldsep field} [fieldsep] ]
