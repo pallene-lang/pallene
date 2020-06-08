@@ -30,7 +30,6 @@ declare_type("Toplevel", {
     Typealias = {"loc", "name", "type"},
     Record    = {"loc", "name", "field_decls"},
     Import    = {"loc", "local_name", "mod_name"},
-    Builtin   = {"loc", "name"},
 })
 
 declare_type("Decl", {
@@ -64,7 +63,7 @@ declare_type("Exp", {
     Float      = {"loc", "value"},
     String     = {"loc", "value"},
     Initlist   = {"loc", "fields"},
-    Lambda     = {"loc", "arg_names", "body"},
+    Lambda     = {"loc", "arg_decls", "body"},
     CallFunc   = {"loc", "exp", "args"},
     CallMethod = {"loc", "exp", "method", "args"},
     Var        = {"loc", "var"},

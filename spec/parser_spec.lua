@@ -184,7 +184,7 @@ describe("Pallene parser", function()
                             { _tag = "ast.Type.Float" }, }, } },
                 value = {
                     _tag = "ast.Exp.Lambda",
-                    arg_names  = {},
+                    arg_decls  = {},
                     body = {
                         _tag = "ast.Stat.Block",
                         stats = {} } } },
@@ -205,7 +205,7 @@ describe("Pallene parser", function()
                             { _tag = "ast.Type.Float" }, }, } },
                 value = {
                     _tag = "ast.Exp.Lambda",
-                    arg_names = { "x" },
+                    arg_decls = { { name = "x" } },
                     body = {
                         _tag = "ast.Stat.Block",
                         stats = {} } } },
@@ -227,7 +227,7 @@ describe("Pallene parser", function()
                             { _tag = "ast.Type.Float" }, }, } },
                 value = {
                     _tag = "ast.Exp.Lambda",
-                    arg_names = { "x", "y" },
+                    arg_decls = { { name = "x" }, { name = "y" } },
                     body = {
                         _tag = "ast.Stat.Block",
                         stats = {} } } },

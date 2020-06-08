@@ -54,13 +54,13 @@ function driver.compile_internal(filename, stop_after)
         return prog_ast, errs
     end
 
-    local module
-    module, errs = checker.check(prog_ast)
-    if stop_after == "checker" or not module then
-        return module, errs
+    prog_ast, errs = checker.check(prog_ast)
+    if stop_after == "checker" or not prog_ast then
+        return prog_ast, errs
     end
 
-    module, errs = to_ir.convert(module)
+    local module
+    module, errs = to_ir.convert(prog_ast)
     if stop_after == "ir" or not module then
         return module, errs
     end
