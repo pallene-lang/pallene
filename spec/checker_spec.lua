@@ -680,15 +680,33 @@ describe("Pallene type checker", function()
                 f = g
             end
         ]],
-            "attempting to assign to toplevel constant function 'f'")
+        "attempting to assign to toplevel constant function 'f'")
     end)
 
     it("typechecks io.write (error)", function()
         assert_error([[
             function f()
-                io_write(17)
+                io.write(17)
             end
         ]],
-            "expected string but found integer in argument 1")
+        "expected string but found integer in argument 1")
+    end)
+
+    it("checks assignment variables to modules", function()
+        assert_error([[
+            function f()
+                local x = io
+            end
+        ]],
+        "cannot reference module name 'io' without dot notation")
+    end)
+
+    it("checks assignment of modules", function()
+        assert_error([[
+            function f()
+                io = 1
+            end
+        ]],
+        "cannot reference module name 'io' without dot notation")
     end)
 end)

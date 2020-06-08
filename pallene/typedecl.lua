@@ -3,6 +3,30 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- Pallene uses a lot of tagged unions / variant records. In Lua we represent
+-- them as tables with a `_tag` field that is an unique string. Since there are
+-- so many of them, we made a helper function to help construct these objects,
+-- which resides in this module.
+--
+-- For example, inside the `ast` module there is the following block of code:
+-- ```
+-- declare_type("Var", {
+--     Name    = {"loc", "name"},
+--     Bracket = {"loc", "t", "k"},
+--     Dot     = {"loc", "exp", "name"}
+-- })
+-- ```
+-- and what it does is create three functions, `ast.Var.Name`, `ast.Var.Bracket`, and `ast.Var.Dot`.
+-- 
+-- The `ast.Var.Name` function receives two parameters (the source code location and the name) and
+-- returns a table that looks like this:
+-- ```
+-- {
+--     _tag = "ast.Var.Name",
+--     loc = loc,
+--     name = name,
+-- }
+-- ```
 local typedecl = {}
 
 -- Unique tag names:
@@ -31,7 +55,7 @@ local function make_tag(mod_name, type_name, cons_name)
 end
 
 -- Create a properly-namespaced algebraic datatype. Objects belonging to this type can be pattern
--- matched by inspecting their _tag field. See ast.lua and types.lua for usage examples.
+-- matched by inspecting their _tag field. See `ast.lua` and `types.lua` for usage examples.
 --
 -- @param module Module table where the type is being defined
 -- @param mod_name Name of the type's module (only used by tostring)

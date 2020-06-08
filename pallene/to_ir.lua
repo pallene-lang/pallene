@@ -500,17 +500,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local xs = get_xs()
 
             local bname = cname.name
-            if     bname == "io_write" then
+            if     bname == "io.write" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs))
-            elseif bname == "math_sqrt" then
+            elseif bname == "math.sqrt" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, {dst}, xs))
-            elseif bname == "string_char" then
+            elseif bname == "string_.char" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, {dst}, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
-            elseif bname == "string_sub" then
+            elseif bname == "string_.sub" then
                 assert(#xs == 3)
                 table.insert(cmds,
                     ir.Cmd.BuiltinStringSub(loc, {dst}, xs))

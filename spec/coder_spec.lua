@@ -1383,7 +1383,7 @@ describe("Pallene coder /", function()
     describe("I/O", function()
         setup(compile([[
             function write(s:string)
-                io_write(s)
+                io.write(s)
             end
         ]]))
 
@@ -1415,7 +1415,7 @@ describe("Pallene coder /", function()
     describe("math.sqrt builtin", function()
         setup(compile([[
             function square_root(x: float): float
-                return math_sqrt(x)
+                return math.sqrt(x)
             end
         ]]))
 
@@ -1447,7 +1447,7 @@ describe("Pallene coder /", function()
     describe("string.char builtin", function()
         setup(compile([[
             function chr(x: integer): string
-                return string_char(x)
+                return string_.char(x)
             end
         ]]))
 
@@ -1481,7 +1481,7 @@ describe("Pallene coder /", function()
     describe("string.sub builtin", function()
         setup(compile([[
             function sub(s: string, i: integer, j: integer): string
-                return string_sub(s, i, j)
+                return string_.sub(s, i, j)
             end
         ]]))
 

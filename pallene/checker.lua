@@ -53,9 +53,18 @@ function checker.check(prog_ast)
     end
 end
 
+-- Usually if an error is produced with `assert()` or `error()` then it is
+-- a compiler bug. User-facing errors such as syntax errors and
+-- type checking errors are reported in a different way. The actual
+-- method employed is kind of tricky. Since Lua does not have a clean
+-- try-catch functionality we use coroutines to do that job.
+-- You can see this in the `checker.check()` function but you do
+-- not need to know how it works. You just need to know that calling
+-- `scope_error()` or `type_error()` will exit the type checking routine
+-- and report a Pallene compilation error.
 local function checker_error(loc, fmt, ...)
-    local err_msg = location.format_error(loc, fmt, ...)
-    coroutine.yield(err_msg)
+    local error_message = location.format_error(loc, fmt, ...)
+    coroutine.yield(error_message)
 end
 
 local function scope_error(loc, fmt, ...)
@@ -66,12 +75,12 @@ local function type_error(loc, fmt, ...)
     return checker_error(loc, ("type error: " .. fmt), ...)
 end
 
-local function check_type_is_condition(exp, err_fmt, ...)
+local function check_type_is_condition(exp, fmt, ...)
     local typ = exp._type
     if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Any" then
         type_error(exp.loc,
             "expression passed to %s has type %s. Expected boolean or any.",
-            string.format(err_fmt, ...),
+            string.format(fmt, ...),
             types.tostring(typ))
     end
 end
@@ -85,11 +94,12 @@ local function declare_type(type_name, cons)
 end
 
 declare_type("Name", {
-    Type     = {"typ"},
-    Local    = {"id"},
-    Global   = {"id"},
-    Function = {"id"},
-    Builtin  = {"name"},
+    Type     = { "typ" },
+    Local    = { "id" },
+    Global   = { "id" },
+    Function = { "id" },
+    Builtin  = { "name" },
+    Module   = { "name" }
 })
 
 --
@@ -127,6 +137,9 @@ function Checker:add_builtin(name)
     self.symbol_table:add_symbol(name, checker.Name.Builtin(name))
 end
 
+function Checker:add_module(name)
+    self.symbol_table:add_symbol(name, checker.Name.Module(name))
+end
 
 function Checker:from_ast_type(ast_typ)
     local tag = ast_typ._tag
@@ -201,26 +214,35 @@ local letrec_groups = {
 function Checker:check_program(prog_ast)
 
     do
-        -- Forbid toplevel duplicates
+        -- Forbid top-level duplicates
+        --
+        -- Retrieve the names for all the top-level components such as functions,
+        -- imports, builtins and variables. Construct an auxillary table with name and location
+        -- as key and value, respectively. If the current name already exists in the auxillary
+        -- table, report an error.
         local names = {}
-        for _, tl_node in ipairs(prog_ast) do
-            local tl_names = ast.toplevel_names(tl_node)
-            local loc = tl_node.loc
-            for _, name in ipairs(tl_names) do
-                local old_loc = names[name]
-                if old_loc then
-                    scope_error(loc,
+        for _, top_level_node in ipairs(prog_ast) do
+            local top_level_names = ast.toplevel_names(top_level_node)
+            local node_location = top_level_node.loc
+            for _, name in ipairs(top_level_names) do
+                local old_location = names[name]
+                if old_location then
+                    scope_error(node_location,
                         "duplicate toplevel declaration for '%s', previous one at line %d",
-                        name, old_loc.line)
+                        name, old_location.line)
                 end
-                names[name] = loc
+                names[name] = node_location
             end
         end
     end
 
-    -- Add builtins to symbol table. (The order does not matter because they are distinct)
-    for name, _ in pairs(builtins) do
+    -- Add builtins to symbol table. (The order does not matter because they are distinct.)
+    for name, _ in pairs(builtins.functions) do
         self:add_builtin(name)
+    end
+
+    for name in pairs(builtins.modules) do
+        self:add_module(name)
     end
 
     -- Add a special entry for $tofloat which can never be shadowed and is therefore always visible.
@@ -298,7 +320,7 @@ function Checker:check_program(prog_ast)
                 for i, decl in ipairs(tl_var.decls) do
                     local _ = self:add_global(decl.name, typs[i])
                     local var = ast.Var.Name(loc, decl.name)
-                    toplevel_fun_checker:check_var(var)
+                    var = toplevel_fun_checker:check_var(var)
                     vars[i] = var
                 end
                 table.insert(toplevel_stats, ast.Stat.Assign(loc, vars, exps))
@@ -407,13 +429,13 @@ function FunChecker:expand_function_returns(lhs, rhs)
     end
 end
 
-
 function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
+
     self.p.symbol_table:with_block(function()
-        for i, typ in ipairs(func_typ.arg_types) do
+        for i, parameter_type in ipairs(func_typ.arg_types) do
             local name = lambda.arg_names[i]
-            self:add_local(name, typ)
+            self:add_local(name, parameter_type)
         end
         local body = self.func.body
         self:check_stat(body)
@@ -503,7 +525,7 @@ function FunChecker:check_stat(stat)
         self:expand_function_returns(stat.vars, stat.exps)
 
         for i = 1, #stat.vars do
-            self:check_var(stat.vars[i])
+            stat.vars[i] = self:check_var(stat.vars[i])
             stat.exps[i] = self:check_exp_verify(stat.exps[i],
                 stat.vars[i]._type, "assignment")
             if stat.vars[i]._tag == "ast.Var.Name" then
@@ -574,27 +596,52 @@ function FunChecker:check_var(var)
         elseif cname._tag == "checker.Name.Function" then
             var._type = self.p.module.functions[cname.id].typ
         elseif cname._tag == "checker.Name.Builtin" then
-            var._type = builtins[cname.name].typ
-               else
+            var._type = builtins.functions[cname.name]
+        elseif cname._tag == "checker.Name.Module" then
+            -- Module names can appear only in the dot notation.
+            -- For example, a statement like `local x = io` is illegal.
+            type_error(var.loc,
+                "cannot reference module name '%s' without dot notation",
+                var.name)
+        else
             error("impossible")
         end
 
     elseif tag == "ast.Var.Dot" then
-        var.exp = self:check_exp_synthesize(var.exp)
-        local ind_type = var.exp._type
-        if not types.is_indexable(ind_type) then
-            type_error(var.loc,
-                "trying to access a member of value of type '%s'",
-                types.tostring(ind_type))
-        end
-        local field_type = types.indices(ind_type)[var.name]
-        if not field_type then
-            type_error(var.loc,
-                "field '%s' not found in type '%s'",
-                var.name, types.tostring(ind_type))
-        end
-        var._type = field_type
+        if var.exp._tag == "ast.Exp.Var" and
+           var.exp.var._tag == "ast.Var.Name" and
+           builtins.modules[var.exp.var.name] then
+            local module_name = var.exp.var.name
+            local function_name = var.name
+            local internal_name = module_name .. "." .. function_name
 
+            local typ = builtins.functions[internal_name]
+            if typ then
+                local cname = self.p.symbol_table:find_symbol(internal_name)
+                local flat_var = ast.Var.Name(var.exp.loc, internal_name)
+                flat_var._name = cname
+                flat_var._type = typ
+                var = flat_var
+            else
+                type_error(var.loc,
+                    "unknown function '%s'", internal_name)
+            end
+        else
+            var.exp = self:check_exp_synthesize(var.exp)
+            local ind_type = var.exp._type
+            if not types.is_indexable(ind_type) then
+                type_error(var.loc,
+                    "trying to access a member of value of type '%s'",
+                    types.tostring(ind_type))
+            end
+            local field_type = types.indices(ind_type)[var.name]
+            if not field_type then
+                type_error(var.loc,
+                    "field '%s' not found in type '%s'",
+                    var.name, types.tostring(ind_type))
+            end
+            var._type = field_type
+        end
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
         local arr_type = var.t._type
@@ -611,6 +658,7 @@ function FunChecker:check_var(var)
     else
         error("impossible")
     end
+    return var
 end
 
 local function is_numeric_type(typ)
@@ -668,7 +716,7 @@ function FunChecker:check_exp_synthesize(exp)
             "missing type hint for lambda")
 
     elseif tag == "ast.Exp.Var" then
-        self:check_var(exp.var)
+        exp.var = self:check_var(exp.var)
         exp._type = exp.var._type
 
     elseif tag == "ast.Exp.Unop" then
@@ -976,6 +1024,5 @@ function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
         end
     end
 end
-
 
 return checker

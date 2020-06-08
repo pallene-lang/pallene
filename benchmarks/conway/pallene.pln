@@ -34,7 +34,7 @@ function draw(N:integer, M:integer, cells:{{integer}})
         end
         out = out .. "|\n"
     end
-    io_write(out)
+    io.write(out)
 end
 
 -- Place a shape in the grid

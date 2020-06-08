@@ -62,7 +62,7 @@ For example, `local x: float = 0` is a type error; you should use `0.0` instead.
 Pallene also has a `string` type, for Lua strings.
 The syntax for string literals is the same as in Lua.
 
-Currently, the only supported operations for Pallene strings are concatenation with the `..` operator and printing strings to stdout with `io_write`.
+Currently, the only supported operations for Pallene strings are concatenation with the `..` operator and printing strings to stdout with `io.write`.
 
 ### Arrays
 

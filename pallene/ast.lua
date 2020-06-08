@@ -50,6 +50,7 @@ declare_type("Stat", {
     Break  = {"loc"},
 })
 
+-- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
 declare_type("Var", {
     Name    = {"loc", "name"},
     Bracket = {"loc", "t", "k"},
@@ -83,7 +84,8 @@ declare_type("Field", {
 -- note: the following functions are why we need `if type(conss) == "table"` in parser.lua
 --
 
--- Return the variables names declared by a given toplevel node
+-- Returns a sequence containing the variable names declared by the specified
+-- toplevel node.
 function ast.toplevel_names(tl_node)
     local names = {}
     local tag = tl_node._tag
