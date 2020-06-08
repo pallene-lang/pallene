@@ -625,7 +625,9 @@ function FunChecker:check_var(var)
         end
 
     elseif tag == "ast.Var.Dot" then
-        if var.exp._tag == "ast.Exp.Var" and builtins.modules[var.exp.var.name] then
+        if var.exp._tag == "ast.Exp.Var" and
+           var.exp.var._tag == "ast.Var.Name" and
+           builtins.modules[var.exp.var.name] then
             local module_name = var.exp.var.name
             local function_name = var.name
             local internal_name = module_name .. "." .. function_name
