@@ -1478,7 +1478,7 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("string_.sub builtin", function()
+    describe("string.sub builtin", function()
         setup(compile([[
             function sub(s: string, i: integer, j: integer): string
                 return string_.sub(s, i, j)
