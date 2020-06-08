@@ -1,2 +1,2 @@
 #!/bin/sh
-luacheck pallene/ spec/ examples/
+luacheck pallene/ spec/ examples/ "$@"
