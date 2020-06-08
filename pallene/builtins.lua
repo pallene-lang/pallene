@@ -9,30 +9,12 @@ local T = types.T
 local builtins = {}
 
 builtins.functions = {
-    tofloat = {
-        name = "tofloat",
-        typ = T.Function({ T.Integer() }, { T.Float() }),
-    },
-    type = {
-        name = "type",
-        typ = T.Function({ T.Any() }, { T.String() })
-    },
-    ["io.write"] = {
-        name = "io.write",
-        typ = T.Function({ T.String() }, {})
-    },
-    ["math.sqrt"] = {
-        name = "math.sqrt",
-        typ = T.Function({ T.Float() }, { T.Float() }),
-    },
-    ["string_.char"] = {
-        name = "string_.char",
-        typ = T.Function({ T.Integer() }, { T.String() })
-    },
-    ["string_.sub"] = {
-        name = "string_.sub",
-        typ = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() }),
-    }
+    tofloat = T.Function({ T.Integer() }, { T.Float() }),
+    type = T.Function({ T.Any() }, { T.String() }),
+    ["io.write"] = T.Function({ T.String() }, {}),
+    ["math.sqrt"] = T.Function({ T.Float() }, { T.Float() }),
+    ["string_.char"] = T.Function({ T.Integer() }, { T.String() }),
+    ["string_.sub"] = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() })
 }
 
 builtins.modules = {

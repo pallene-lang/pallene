@@ -1444,7 +1444,7 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("string_.char builtin", function()
+    describe("string.char builtin", function()
         setup(compile([[
             function chr(x: integer): string
                 return string_.char(x)

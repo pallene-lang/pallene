@@ -433,10 +433,6 @@ end
 function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
 
-    -- Check for duplicate parameter names.
-    --
-    -- Add each parameter name to the `names` set. If the current name already
-    -- exists in the set, report an error.
     do
         local names = {}
         for _, name in ipairs(lambda.arg_names) do
@@ -555,7 +551,6 @@ function FunChecker:check_stat(stat)
                         "attempting to assign to builtin function %s",
                         stat.vars[i].name)
                 end
-                -- TODO: Add checker.Name.Module to prevent module assignment
             end
         end
 
@@ -613,7 +608,7 @@ function FunChecker:check_var(var)
         elseif cname._tag == "checker.Name.Function" then
             var._type = self.p.module.functions[cname.id].typ
         elseif cname._tag == "checker.Name.Builtin" then
-            var._type = builtins.functions[cname.name].typ
+            var._type = builtins.functions[cname.name]
         elseif cname._tag == "checker.Name.Module" then
             -- Module names can appear only in the dot notation.
             -- For example, a statement like `local x = io` is illegal.
@@ -632,12 +627,12 @@ function FunChecker:check_var(var)
             local function_name = var.name
             local internal_name = module_name .. "." .. function_name
 
-            local target = builtins.functions[internal_name]
-            if target then
+            local typ = builtins.functions[internal_name]
+            if typ then
                 local cname = self.p.symbol_table:find_symbol(internal_name)
                 local flat_var = ast.Var.Name(var.exp.loc, internal_name)
                 flat_var._name = cname
-                flat_var._type = target.typ
+                flat_var._type = typ
                 var = flat_var
             else
                 type_error(var.loc,
@@ -1041,6 +1036,5 @@ function FunChecker:check_initializer_exp(decl, exp, err_fmt, ...)
         end
     end
 end
-
 
 return checker
