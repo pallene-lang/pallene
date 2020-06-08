@@ -432,17 +432,6 @@ end
 function FunChecker:check_function(lambda, func_typ)
     assert(lambda._tag == "ast.Exp.Lambda")
 
-    do
-        local names = {}
-        for _, name in ipairs(lambda.arg_names) do
-            if names[name] then
-                scope_error(lambda.loc,
-                    "function has multiple parameters named '%s'", name)
-            end
-            names[name] = true
-        end
-    end
-
     self.p.symbol_table:with_block(function()
         for i, parameter_type in ipairs(func_typ.arg_types) do
             local name = lambda.arg_names[i]
