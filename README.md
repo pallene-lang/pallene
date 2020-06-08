@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/pallene-lang/pallene.svg?branch=master)](https://travis-ci.org/pallene-lang/pallene)
 
 Pallene is a statically typed, ahead-of-time-compiled sister language to
-[Lua](https://www.lua.org), with a focus on performance. It is also a 
+[Lua](https://www.lua.org), with a focus on performance. It is also a
 [friendly fork](http://lua-users.org/lists/lua-l/2018-09/msg00255.html) of the
 [Titan](https://www.github.com/titan-lang/titan) language.
 
@@ -30,7 +30,7 @@ Pallene requires Lua 5.3 to be installed on your system.
 You can either install it [from source](https://www.lua.org/ftp/) or via the package manager for your Linux distro.
 If you install via the package manager then make sure to also install the Lua headers, which are often in a separate "development" package.
 
-After Lua 5.3 is installed, download the source code of LuaRocks from 
+After Lua 5.3 is installed, download the source code of LuaRocks from
 [https://github.com/luarocks/luarocks/releases](https://github.com/luarocks/luarocks/releases). Follow
 the build instructions appropriate for your platform and install it on your system.
 
@@ -53,7 +53,7 @@ If you use the --local flag when installing packages from Luarocks, you may
 also need to configure the appropriate environment variables on your terminal configuration file.
 If you are using bash you can do (as stated in `luarocks --help path`):
 ```sh
-$ echo 'eval `luarocks path`' >> ~/.bashrc 
+$ echo 'eval `luarocks path`' >> ~/.bashrc
 ```
 For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
 
@@ -83,7 +83,7 @@ make macosx         # for MacOS
 
 To compile a `foo.pln` file to a `foo.so` module call `pallenec` as follows.
 
-Note: Your current working directory must be the root of this repository, due to 
+Note: Your current working directory must be the root of this repository, due to
 [Bug #16](https://github.com/pallene-lang/pallene/issues/16).
 
 
@@ -129,21 +129,21 @@ We use Busted to run our test suite. It can be installed using LuaRocks:
 $ luarocks install --local busted
 ```
 
-To run the test suite, just run busted on the root directory of this repository:
+To run the test suite, run the ./test-project script in this project's root directory:
 
 ```sh
-$ busted                       # Run all tests
-$ busted spec/parser_spec.lua  # Run just one of the test suite files
+$ ./test-project                       # Run all tests
+$ ./test-project spec/parser_spec.lua  # Run just one of the test suite files
 ```
 
-If you are debugging an unhandled exception in a test case, there are some
-helpful flags that you can pass to the busted command:
+The ./test-project script accepts the same command-line flags as `busted`.
+If you are debugging an unhandled exception in a test case, the following ones might help:
 
-Flag             | Effect
----------------- | --------------------------------------------------------
-busted -v        | Verbose output, including the stack trace
-busted --no-k    | Stop running tests after the first error
-busted -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
+Flag                     | Effect
+------------------------ | --------------------------------------------------------
+./test-project -v        | Verbose output, including the stack trace
+./test-project -k        | Run all tests even if some tests are failing
+./test-project -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
 
 ### Running the benchmarks suite
 

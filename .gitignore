@@ -9,3 +9,7 @@ lua/src/luac
 cbenchmarks/*
 !cbenchmarks/*.c
 !cbenchmarks/makefile
+
+# Files from the Pallene test suite
+# These can appear if the test runner is abruptly interrupted with SIGINT
+__test__*
