@@ -131,6 +131,19 @@ describe("Pallene type checker", function()
         os.remove("__test__.pln")
     end)
 
+    it('catches incompatible function type assignments', function()
+        assert_error([[
+            function f(a: integer, b: float): float
+                return 3.14
+            end
+
+            function test(g: () -> integer)
+                g = f
+            end
+        ]],
+        "expected function type () -> (integer) but found function type (integer, float) -> (float) in assignment")
+    end)
+
     it("detects when a non-type is used in a type variable", function()
         assert_error([[
             function fn()
