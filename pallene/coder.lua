@@ -452,11 +452,8 @@ function Coder:pallene_entry_point_definition(f_id)
 end
 
 function Coder:call_pallene_function(dsts, f_id, base, xs)
-    local func = self.module.functions[f_id]
-    local ret_types = func.typ.ret_types
 
     local args = {}
-    local temp_args = {}
     table.insert(args, "L")
     table.insert(args, "G")
     table.insert(args, base)
@@ -464,13 +461,7 @@ function Coder:call_pallene_function(dsts, f_id, base, xs)
         table.insert(args, x)
     end
     for i = 2, #dsts do
-        if dsts[i] then
-            table.insert(args, "&"..dsts[i])
-        else
-            local tmp = "temp"..i
-            table.insert(temp_args, C.declaration(ctype(ret_types[i]), tmp)..";")
-            table.insert(args, "&"..tmp)
-        end
+        table.insert(args, "&"..dsts[i])
     end
 
     local call = util.render([[$name($args);]], {
@@ -479,22 +470,9 @@ function Coder:call_pallene_function(dsts, f_id, base, xs)
     })
 
     if dsts[1] then
-        return (util.render([[
-            $temp_args
-            $dst = $call
-        ]], {
-            temp_args = table.concat(temp_args, "\n"),
-            dst = dsts[1],
-            call = call,
-        }))
+        return dsts[1].." = "..call
     else
-        return (util.render([[
-            $temp_args
-            $call
-        ]], {
-            temp_args = table.concat(temp_args, "\n"),
-            call = call,
-        }))
+        return call
     end
 end
 
@@ -1328,24 +1306,16 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     end
 
     local push_arguments = {}
-    table.insert(push_arguments,
-        self:push_to_stack(f_typ, self:c_value(cmd.src_f)))
+    table.insert(push_arguments, self:push_to_stack(f_typ, self:c_value(cmd.src_f)))
     for i = 1, #f_typ.arg_types do
         local typ = f_typ.arg_types[i]
-        table.insert(push_arguments,
-            self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
+        table.insert(push_arguments, self:push_to_stack(typ, self:c_value(cmd.srcs[i])))
     end
 
     local pop_results = {}
     for i = #f_typ.ret_types, 1, -1 do
         local typ = f_typ.ret_types[i]
-        local get_slot
-        if dsts[i] then
-            get_slot = self:get_stack_slot(
-                typ, dsts[i], "slot", cmd.loc, "return value #%d", i)
-        else
-            get_slot = ""
-        end
+        local get_slot = self:get_stack_slot(typ, dsts[i], "slot", cmd.loc, "return value #%d", i)
         table.insert(pop_results, util.render([[
             {
                 L->top--;

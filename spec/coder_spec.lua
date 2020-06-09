@@ -208,6 +208,11 @@ describe("Pallene coder /", function()
                 return 17
             end
 
+            function ignore_return_builtin(): integer
+                math.sqrt(1.0)
+                return 18
+            end
+
         ]]))
 
         it("no parameters", function()
@@ -241,6 +246,10 @@ describe("Pallene coder /", function()
 
         it("unused return value", function()
             run_test([[ assert(17 == test.ignore_return()) ]])
+        end)
+
+        it("unused return value (builtin function)", function()
+            run_test([[ assert(18 == test.ignore_return_builtin()) ]])
         end)
 
         -- Errors
@@ -311,13 +320,6 @@ describe("Pallene coder /", function()
             function callf(x:integer): integer
                 return f(x)
             end
-
-            ---------
-
-            function ignore_return(g: ()->integer): boolean
-                g()
-                return true
-            end
         ]]))
 
         it("Object identity", function()
@@ -357,13 +359,6 @@ describe("Pallene coder /", function()
                     "wrong type for return value #1, "..
                     "expected integer but found string",
                     nil, true))
-            ]])
-        end)
-
-        it("Does not type check ignored return values", function()
-            run_test([[
-                local f = function() return "hello" end
-                assert(true == test.ignore_return(f))
             ]])
         end)
     end)
