@@ -206,6 +206,14 @@ function types.consistent(t1, t2)
     return equivalent(t1, t2, true)
 end
 
+local function join_type_list(list)
+    local auxilary = {}
+    for _, item in pairs(list) do
+        auxilary[#auxilary + 1] = types.tostring(item)
+    end
+    return table.concat(auxilary, ", ")
+end
+
 function types.tostring(t)
     local tag = t._tag
     if     tag == "types.T.Any"         then return "any"
@@ -216,7 +224,8 @@ function types.tostring(t)
     elseif tag == "types.T.Float"       then return "float"
     elseif tag == "types.T.String"      then return "string"
     elseif tag == "types.T.Function" then
-        return "function" -- TODO implement
+        return string.format("function type (%s) -> (%s)",
+            join_type_list(t.arg_types), join_type_list(t.ret_types))
     elseif tag == "types.T.Array" then
         return "{ " .. types.tostring(t.elem) .. " }"
     elseif tag == "types.T.Table" then
