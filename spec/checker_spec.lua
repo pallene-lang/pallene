@@ -709,7 +709,6 @@ describe("Pallene type checker", function()
     end)
 
     it("catches assignment to builtin (with wrong type)", function ()
-        pending("Issue #232")
         assert_error([[
             function f(x: integer)
             end

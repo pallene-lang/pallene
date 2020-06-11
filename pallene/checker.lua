@@ -467,7 +467,6 @@ function Checker:check_stat(stat)
 
         for i = 1, #stat.vars do
             stat.vars[i] = self:check_var(stat.vars[i])
-            stat.exps[i] = self:check_exp_verify(stat.exps[i], stat.vars[i]._type, "assignment")
             if stat.vars[i]._tag == "ast.Var.Name" then
                 local ntag = stat.vars[i]._name._tag
                 if ntag == "checker.Name.Function" then
@@ -480,6 +479,7 @@ function Checker:check_stat(stat)
                         stat.vars[i].name)
                 end
             end
+            stat.exps[i] = self:check_exp_verify(stat.exps[i], stat.vars[i]._type, "assignment")
         end
 
     elseif tag == "ast.Stat.Call" then
