@@ -696,6 +696,31 @@ describe("Pallene type checker", function()
         "attempting to assign to toplevel constant function 'f'")
     end)
 
+    it("catches assignment to builtin (with correct type)", function ()
+        assert_error([[
+            function f(x: string)
+            end
+
+            function g()
+                io.write = f
+            end
+        ]],
+        "attempting to assign to builtin function io.write")
+    end)
+
+    it("catches assignment to builtin (with wrong type)", function ()
+        pending("Issue #232")
+        assert_error([[
+            function f(x: integer)
+            end
+
+            function g()
+                io.write = f
+            end
+        ]],
+        "attempting to assign to builtin function io.write")
+    end)
+
     it("typechecks io.write (error)", function()
         assert_error([[
             function f()

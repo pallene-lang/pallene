@@ -465,17 +465,19 @@ function Checker:check_stat(stat)
     elseif tag == "ast.Stat.Assign" then
         self:expand_function_returns(stat.vars, stat.exps)
 
-        for i, var in ipairs(stat.vars) do
+        for i = 1, #stat.vars do
             stat.vars[i] = self:check_var(stat.vars[i])
-            stat.exps[i] = self:check_exp_verify(stat.exps[i], var._type, "assignment")
-            if var._tag == "ast.Var.Name" then
-                local ntag = var._name._tag
+            stat.exps[i] = self:check_exp_verify(stat.exps[i], stat.vars[i]._type, "assignment")
+            if stat.vars[i]._tag == "ast.Var.Name" then
+                local ntag = stat.vars[i]._name._tag
                 if ntag == "checker.Name.Function" then
                     type_error(stat.loc,
-                        "attempting to assign to toplevel constant function '%s'", var.name)
+                        "attempting to assign to toplevel constant function '%s'",
+                        stat.vars[i].name)
                 elseif ntag == "checker.Name.Builtin" then
                     type_error(stat.loc,
-                        "attempting to assign to builtin function %s", var.name)
+                        "attempting to assign to builtin function %s",
+                        stat.vars[i].name)
                 end
             end
         end
@@ -852,6 +854,10 @@ end
 -- errmsg_fmt: format string describing where we got @expected_type from
 -- ... : arguments to the "errmsg_fmt" format string
 function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
+    if not expected_type then
+        error("expected_type is required")
+    end
+
     local tag = exp._tag
     if tag == "ast.Exp.Initlist" then
 
