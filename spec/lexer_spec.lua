@@ -69,12 +69,14 @@ describe("Pallene lexer", function()
 
     it("can lex some keywords", function()
         assert_lex("and", {"AND"}, {})
+        assert_lex("export", {"EXPORT"}, {})
     end)
 
     it("can lex keywords that contain other keywords", function()
         assert_lex("if",     {"IF"},     {})
         assert_lex("else",   {"ELSE"},   {})
         assert_lex("elseif", {"ELSEIF"}, {})
+        assert_lex("export", {"EXPORT"}, {})
     end)
 
     it("does not generate semantic values for keywords", function()
