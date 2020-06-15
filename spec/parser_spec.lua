@@ -236,7 +236,7 @@ describe("Pallene parser", function()
 
     it("allows ommiting the optional return type annotation", function ()
         assert_program_ast([[
-            function foo()
+            export function foo()
             end
             local function bar()
             end
