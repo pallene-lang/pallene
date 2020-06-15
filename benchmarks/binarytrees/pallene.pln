@@ -1,4 +1,4 @@
-function BottomUpTree(depth: integer): {any}
+export function BottomUpTree(depth: integer): {any}
     if depth > 0 then
         depth = depth - 1
         local left  = BottomUpTree(depth)
@@ -9,7 +9,7 @@ function BottomUpTree(depth: integer): {any}
     end
 end
 
-function ItemCheck(tree: {any}): integer
+export function ItemCheck(tree: {any}): integer
     if tree[1] then
         return 1 + ItemCheck(tree[1]) + ItemCheck(tree[2])
     else
@@ -17,7 +17,7 @@ function ItemCheck(tree: {any}): integer
     end
 end
 
-function Stress(mindepth: integer, maxdepth: integer, depth: integer): {integer}
+export function Stress(mindepth: integer, maxdepth: integer, depth: integer): {integer}
     local iterations = 1 << (maxdepth - depth + mindepth)
     local check = 0
     for _ = 1, iterations do

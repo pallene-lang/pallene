@@ -3,10 +3,10 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-function add(a: any, b: any): integer
+export function add(a: any, b: any): integer
     return (a as integer) + (b as integer)
 end
 
-function subtract(a: any, b: any): float
+export function subtract(a: any, b: any): float
     return (a as float) - (b as float)
 end

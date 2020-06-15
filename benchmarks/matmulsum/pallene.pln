@@ -1,7 +1,7 @@
-function matmul(A: {{float}}, B:{{float}}): float
+export function matmul(A: {{float}}, B:{{float}}): float
     local s = 0.0
     local NI = #A
-    local NK = #B 
+    local NK = #B
     local NJ = #B[1]
     for k = 1, NK do
         local Bk = B[k]

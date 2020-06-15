@@ -3,7 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-function sum(array: { float }): float
+export function sum(array: { float }): float
     local result = 0.0
     for i = 1, #array do
         result = result + array[i]

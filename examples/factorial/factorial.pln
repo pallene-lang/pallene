@@ -3,7 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-function factorial(n: integer): integer
+export function factorial(n: integer): integer
     if n <= 1 then
         return 1
     else

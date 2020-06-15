@@ -14,7 +14,7 @@ local function print_fasta_header(id: string, desc: string)
     io.write(">" .. id .. " " .. desc .. "\n")
 end
 
-function repeat_fasta(id: string, desc: string, alu: string, n: integer)
+export function repeat_fasta(id: string, desc: string, alu: string, n: integer)
     print_fasta_header(id, desc)
 
     local alusize = #alu
@@ -48,7 +48,7 @@ local function linear_search(ps: {float}, p: float): integer
     return 1
 end
 
-function random_fasta(id: string, desc: string, frequencies: {{any}}, n: integer)
+export function random_fasta(id: string, desc: string, frequencies: {{any}}, n: integer)
     print_fasta_header(id, desc)
 
     -- Prepare the cummulative probability table
