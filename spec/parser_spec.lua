@@ -89,7 +89,7 @@ end
 
 local function expression_test_program(s)
     return (util.render([[
-        function foo(): nil
+        export function foo(): nil
             x = ${EXPR}
         end
     ]], { EXPR = s }))
@@ -113,7 +113,7 @@ end
 
 local function statements_test_program(s)
     return (util.render([[
-        function foo(): nil
+        export function foo(): nil
             ${STATS}
         end
     ]], { STATS = s }))
@@ -859,12 +859,12 @@ describe("Pallene parser", function()
 
     it("does not allow identifiers that are type names", function()
         assert_program_syntax_error([[
-            function integer()
+            export function integer()
             end
         ]], "Expected a function name after 'function'.")
 
         assert_program_syntax_error([[
-            function f()
+            export function f()
                 local integer: integer = 10
             end
         ]], "Expected variable declaration after 'local'.")
@@ -878,34 +878,34 @@ describe("Pallene parser", function()
     it("uses specific error labels for some errors", function()
 
         assert_program_syntax_error([[
-            function () : int
+            export function () : int
             end
         ]], "Expected a function name after 'function'.")
 
         assert_program_syntax_error([[
-            function foo : int
+            export function foo : int
             end
         ]], "Expected '(' for the parameter list.")
 
         assert_program_syntax_error([[
-            function foo ( : int
+            export function foo ( : int
             end
         ]], "Expected ')' to close the parameter list.")
 
         assert_program_syntax_error([[
-            function foo () :
+            export function foo () :
                 local x = 3
             end
         ]], "Expected a type in function declaration.")
 
         assert_program_syntax_error([[
-            function foo () : int
+            export function foo () : int
               local x = 3
               return x
         ]], "Expected 'end' to close the function body.")
 
         assert_program_syntax_error([[
-            function foo(x, y) : int
+            export function foo(x, y) : int
             end
         ]], "Expected ':' after parameter name.")
 
@@ -955,12 +955,12 @@ describe("Pallene parser", function()
         ]], "Expected the name of a module after 'import'.")
 
         assert_program_syntax_error([[
-            function foo (a:int, ) : int
+            export function foo (a:int, ) : int
             end
         ]], "Expected a variable name after ','.")
 
         assert_program_syntax_error([[
-            function foo (a: ) : int
+            export function foo (a: ) : int
             end
         ]], "Expected a type name after ':'.")
 
@@ -1000,7 +1000,7 @@ describe("Pallene parser", function()
         ]], "Expected a type name after ':'.")
 
         assert_program_syntax_error([[
-            function f ( x : int) : string
+            export function f ( x : int) : string
                 do
                 return "42"
         ]], "Expected 'end' to close block.")
@@ -1168,7 +1168,7 @@ describe("Pallene parser", function()
 
     it("catches break statements outside loops", function()
         assert_program_syntax_error([[
-            function fn()
+            export function fn()
                 break
             end
         ]], "break statement outside loop")
@@ -1176,7 +1176,7 @@ describe("Pallene parser", function()
 
     it("catches break statements outside loops but inside other statements", function()
         assert_program_syntax_error([[
-            function fn(x:boolean)
+            export function fn(x:boolean)
                 do
                     if x then
                         break

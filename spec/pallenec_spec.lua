@@ -3,7 +3,7 @@ local util = require "pallene.util"
 describe("pallenec", function()
     before_each(function()
         util.set_file_contents("__test__.pln", [[
-            function f(x:integer): integer
+            export function f(x:integer): integer
                 return x + 17
             end
         ]])

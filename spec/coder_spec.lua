@@ -379,7 +379,7 @@ describe("Pallene coder /", function()
             local name, op, typ, rtyp = test[1], test[2], test[3], test[4]
 
             pallene_code[i] = util.render([[
-                function $name (x: $typ): $rtyp
+                export function $name (x: $typ): $rtyp
                     return $op x
                 end
             ]], {
@@ -516,7 +516,7 @@ describe("Pallene coder /", function()
                 test[1], test[2], test[3], test[4], test[5]
 
             pallene_code[i] = util.render([[
-                function $name (x: $typ1, y:$typ2): $rtyp
+                export function $name (x: $typ1, y:$typ2): $rtyp
                     return x ${op} y
                 end
             ]], {
@@ -551,15 +551,15 @@ describe("Pallene coder /", function()
 
     describe("Nil equality", function()
         setup(compile([[
-            function eq_nil(x: nil, y: nil): boolean
+            export function eq_nil(x: nil, y: nil): boolean
                 return x == y
             end
 
-            function ne_nil(x: nil, y: nil): boolean
+            export function ne_nil(x: nil, y: nil): boolean
                 return x ~= y
             end
 
-            function eq_any(x: any, y: any): boolean
+            export function eq_any(x: any, y: any): boolean
                 return x == y
             end
         ]]))
@@ -664,10 +664,11 @@ describe("Pallene coder /", function()
             local name, typ, value = test[1], test[2], test[3]
 
             pallene_code[i] = util.render([[
-                function from_${name}(x: ${typ}): any
+                export function from_${name}(x: ${typ}): any
                     return (x as any)
                 end
-                function to_${name}(x: any): ${typ}
+
+                export function to_${name}(x: any): ${typ}
                     return (x as ${typ})
                 end
             ]], {

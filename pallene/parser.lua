@@ -249,7 +249,8 @@ local grammar = re.compile([[
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
 
-    modifier        <- (LOCAL / EXPORT)                            -> opt_bool
+    modifier        <- LOCAL -> to_true
+                     / EXPORT -> to_false
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
                            IMPORT^ImportImport
