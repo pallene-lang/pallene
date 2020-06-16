@@ -55,12 +55,12 @@ describe("Scope analysis: ", function()
             "variable 'x' is not declared")
     end)
 
-    it("forbids multiple toplevel declarations with the same name", function()
+    it("forbids multiple toplevel declarations with the same name for exported functions", function()
         assert_error([[
-            local function f() end
-            local function f() end
+            export function f() end
+            export function f() end
         ]],
-            "duplicate toplevel declaration for 'f'")
+            "duplicate exported function 'f', previous one at line 1")
     end)
 
     it("forbids multiple toplevel variable declarations with the same name", function()
