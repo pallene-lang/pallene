@@ -235,8 +235,7 @@ function Checker:check_program(prog_ast)
         --
         -- To avoid ambiguities that could happen if the programmer tried to export multiple
         -- functions with the same name, we give a compilation error if there is more than one
-        -- definition in the toplevel with the same name. We might be able to get rid of this
-        -- restriction if we change the syntax for exporting functions. Please see issue #184.
+        -- definition in the toplevel with the same name.
         local names = {}
         for _, top_level_node in ipairs(prog_ast) do
             local top_level_names = ast.toplevel_names(top_level_node)
@@ -246,10 +245,6 @@ function Checker:check_program(prog_ast)
                 if old_location then
                     if top_level_node._tag == "ast.Toplevel.Func" or
                         top_level_node._tag == "ast.Toplevel.Var" then
-                        -- temorary fix
-                        if top_level_node.is_local == nil then
-                            top_level_node.is_local = true
-                        end
                         if not top_level_node.is_local then
                             scope_error(node_location,
                                 "duplicate export '%s', previous one at line %d",
