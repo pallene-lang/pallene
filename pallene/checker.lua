@@ -244,16 +244,17 @@ function Checker:check_program(prog_ast)
             for _, name in ipairs(top_level_names) do
                 local old_location = names[name]
                 if old_location then
-                    if top_level_node._tag == "ast.Toplevel.Func" then
+                    if top_level_node._tag == "ast.Toplevel.Func" or
+                        top_level_node._tag == "ast.Toplevel.Var" then
+                        -- temorary fix
+                        if top_level_node.is_local == nil then
+                            top_level_node.is_local = true
+                        end
                         if not top_level_node.is_local then
                             scope_error(node_location,
-                                "duplicate exported function '%s', previous one at line %d",
+                                "duplicate export '%s', previous one at line %d",
                                 name, old_location.line)
                         end
-                    else
-                        scope_error(node_location,
-                            "duplicate toplevel declaration for '%s', previous one at line %d",
-                            name, old_location.line)
                     end
                 end
                 names[name] = node_location
