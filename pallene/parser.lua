@@ -236,11 +236,11 @@ local grammar = re.compile([[
                            / toplevelrecord
                            / import )* |} !.
 
-    toplevelfunc    <- (P  modifier FUNCTION NAME^NameFunc
+    toplevelfunc    <- (P  export_or_local FUNCTION NAME^NameFunc
                            LPAREN^LParPList paramlist RPAREN^RParPList
                            rettypeopt block END^EndFunc)         -> toplevel_func
 
-    toplevelvar     <- (P  modifier decllist ASSIGN^AssignVar
+    toplevelvar     <- (P  export_or_local decllist ASSIGN^AssignVar
                            !IMPORT explist1^ExpVarDec)           -> ToplevelVar
 
     typealias       <- (P  TYPEALIAS NAME^NameTypeAlias ASSIGN^AssignTypeAlias
@@ -249,7 +249,7 @@ local grammar = re.compile([[
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
 
-    modifier        <- LOCAL -> to_true
+    export_or_local <- LOCAL -> to_true
                      / EXPORT -> to_false
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport

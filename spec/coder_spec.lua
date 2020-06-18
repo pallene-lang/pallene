@@ -1611,6 +1611,62 @@ describe("Pallene coder /", function()
 
             ------
 
+            local a, a = 5, 3
+
+            ------
+
+            export function f(): integer
+                return 19
+            end
+
+            local function f(): integer
+                return 53
+            end
+
+            ------
+
+            export function g(): integer
+                return 83
+            end
+
+            local g : string = 'preets'
+
+            ------
+
+            export h : string = 'madyanam'
+
+            local function h(): integer
+                return 1216
+            end
+
+            ------
+
+            export i : string = 'baby'
+
+            local i : string = 'yoda'
+
+            ------
+
+            export function toplevel_local_f(): integer
+                return f()
+            end
+
+            export function toplevel_local_g_type(): string
+                return type(g)
+            end
+
+            export function toplevel_local_h_type(): string
+                return type(h)
+            end
+
+            export function toplevel_local_i(): string
+                return i
+            end
+
+            export function toplevel_local_a(): integer
+                return a
+            end
+
             export function local_type(): integer
                 local Point: Point = { x=1, y=2 }
                 return Point.x
@@ -1646,6 +1702,36 @@ describe("Pallene coder /", function()
                 return x
             end
         ]]))
+
+        it("exported functions that are locally shadowed should be visible ouside the module", function ()
+            run_test([[ assert('function' == type(test.g)) ]])
+            run_test([[ assert(19 == test.f()) ]])
+        end)
+
+        pending("exported variables that are locally shadowed should be visible outside the module", function ()
+            run_test([[ assert('baby' == test.i) ]])
+            run_test([[ assert('string' == type(test.h)) ]])
+        end)
+
+        it("local top-level variable shadows toplevel exported variable", function ()
+            run_test([[ assert('yoda' == test.toplevel_local_i()) ]])
+        end)
+
+        it("local top-level function shadows toplevel exported variable", function ()
+            run_test([[ assert('function' == test.toplevel_local_h_type()) ]])
+        end)
+
+        it("local top-level variable shadows toplevel exported function", function ()
+            run_test([[ assert('string' == test.toplevel_local_g_type()) ]])
+        end)
+
+        it("local top-level function shadows toplevel exported function", function ()
+            run_test([[ assert(53 == test.toplevel_local_f()) ]])
+        end)
+
+        it("local top-level variable is shadowed by the latest declaration", function ()
+            run_test([[ assert(3 == test.toplevel_local_a()) ]])
+        end)
 
         it("local variable doesn't shadow its type annotation", function()
             run_test([[ assert( 1 == test.local_type() ) ]])

@@ -63,13 +63,13 @@ describe("Scope analysis: ", function()
             "duplicate export 'f', previous one at line 1")
     end)
 
-    -- Shouldn't this be removed?
-    -- it("forbids multiple toplevel variable declarations with the same name", function()
-    --     assert_error([[
-    --         local a, a = 1, 2
-    --     ]],
-    --         "duplicate toplevel declaration for 'a'")
-    -- end)
+    pending("forbids multiple toplevel declarations with the same name for exported function and variable", function()
+        assert_error([[
+            export function f() end
+            export f = 1
+        ]],
+            "duplicate export 'f', previous one at line 1")
+    end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
         assert_error([[
