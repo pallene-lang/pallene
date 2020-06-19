@@ -2,7 +2,7 @@ local ALIVE = "*"
 local DEAD  = " "
 
 -- Create a new grid for the simulation.
-function new_canvas(N:integer, M:integer): {{integer}}
+export function new_canvas(N:integer, M:integer): {{integer}}
     local t:{{integer}} = {}
     for i = 1, N do
         local line : {integer} = {}
@@ -15,12 +15,12 @@ function new_canvas(N:integer, M:integer): {{integer}}
 end
 
 -- Our grid has a toroidal topology with wraparound
-function wrap(i:integer, N:integer): integer
+export function wrap(i:integer, N:integer): integer
     return (i - 1) % N + 1
 end
 
 -- Print the grid to stdout.
-function draw(N:integer, M:integer, cells:{{integer}})
+export function draw(N:integer, M:integer, cells:{{integer}})
     local out = "" -- accumulate to reduce flicker
     for i = 1, N do
         local cellsi = cells[i]
@@ -38,7 +38,7 @@ function draw(N:integer, M:integer, cells:{{integer}})
 end
 
 -- Place a shape in the grid
-function spawn(N:integer, M:integer, cells:{{integer}}, shape:{{integer}},
+export function spawn(N:integer, M:integer, cells:{{integer}}, shape:{{integer}},
 top:integer, left:integer)
     for i = 1, #shape do
         local ci = wrap(i+top-1, N)
@@ -52,7 +52,7 @@ top:integer, left:integer)
 end
 
 -- Run one step of the simulation.
-function step(N:integer, M:integer, curr_cells:{{integer}},
+export function step(N:integer, M:integer, curr_cells:{{integer}},
 next_cells:{{integer}}) : ()
     for i2 = 1, N do
         local i1 = wrap(i2-1, N)

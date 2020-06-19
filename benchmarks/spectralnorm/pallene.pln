@@ -38,7 +38,7 @@ local function MultiplyAtAv(N: integer, v: {float}, out: {float})
     MultiplyAtv(N, u, out)
 end
 
-function Approximate(N: integer): float
+export function Approximate(N: integer): float
     -- Create unit vector
     local u: {float} = {}
     for i = 1, N do

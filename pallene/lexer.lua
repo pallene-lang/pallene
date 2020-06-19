@@ -171,7 +171,7 @@ local keywords = {
     "and", "break", "do", "else", "elseif", "end", "for", "false",
     "function", "goto", "if", "in", "local", "nil", "not", "or",
     "repeat", "return", "then", "true", "until", "while", "import",
-    "record", "as", "typealias",
+    "record", "as", "typealias", "export",
 
     "boolean", "integer", "float", "string", "any"
 }

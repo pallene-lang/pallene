@@ -1,4 +1,4 @@
-function sieve(N: integer): {integer}
+export function sieve(N: integer): {integer}
     local is_prime: {boolean} = {}
     is_prime[1] = false
     for n: integer = 2, N do

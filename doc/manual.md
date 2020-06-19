@@ -297,7 +297,7 @@ end
 
 Unlike languages like C or Java, Pallene does not require type annotations on every variable.
 It uses a bidirectional type-checking system that is able to infer the types of almost all variables and expressions.
-Roughly speaking, you must include type annotations for the parameters and return types of toplevel functions, and almost everything else can be inferred from that.
+Roughly speaking, you must include type annotations for the parameters and return types of top-level functions, and almost everything else can be inferred from that.
 For example, notice how the `sum_floats` from the Brief Overview section does not include a type annotation for the `result` and `i` variables.
 
 If a local variable declaration doesn't have an initializer, it must have a type annotation:
@@ -357,6 +357,24 @@ insert(ns, "boom!")
 local x1 : integer = ns[1]
 local x2 : integer = ns[4] -- run-time error
 ```
+
+## Exporting top-level components
+
+The `export` keyword can be used to export top-level components such as variables and functions from a Pallene module.
+The keyword `export` can be used in the same places where the `local` keyword can be used.
+Every top-level component declaration should have either `local` or `export` modifier because Pallene does not support global variables.
+
+In the following example, we export `foo` and `name` from our module.
+```lua
+export function foo(x: integer): integer
+    return x + 1
+end
+
+export name: string = "Hello"
+```
+
+You can export on top-level components from a Pallene module.
+Further, it is an error to export the same name twice.
 
 ## The Complete Syntax of Pallene
 

@@ -1,4 +1,4 @@
-function fannkuch(N: integer): {integer}
+export function fannkuch(N: integer): {integer}
 
     local initial_perm : {integer} = {}
     for i = 1, N do

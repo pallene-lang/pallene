@@ -43,7 +43,7 @@ describe("Pallene coder /", function()
 
     describe("Exported functions /", function()
         setup(compile([[
-                  function f(): integer return 10 end
+            export function f(): integer return 10 end
             local function g(): integer return 11 end
         ]]))
 
@@ -57,15 +57,15 @@ describe("Pallene coder /", function()
 
     describe("Literals /", function()
         setup(compile([[
-            function f_nil(): nil          return nil  end
-            function f_true(): boolean     return true end
-            function f_false(): boolean    return false end
-            function f_integer(): integer  return 17 end
-            function f_float(): float      return 3.14 end
-            function f_string(): string    return "Hello World" end
-            function pi(): float           return 3.141592653589793 end
-            function e(): float            return 2.718281828459045 end
-            function one_half(): float     return 1.0 / 2.0 end
+            export function f_nil(): nil          return nil  end
+            export function f_true(): boolean     return true end
+            export function f_false(): boolean    return false end
+            export function f_integer(): integer  return 17 end
+            export function f_float(): float      return 3.14 end
+            export function f_string(): string    return "Hello World" end
+            export function pi(): float           return 3.141592653589793 end
+            export function e(): float            return 2.718281828459045 end
+            export function one_half(): float     return 1.0 / 2.0 end
         ]]))
 
         it("nil", function()
@@ -112,11 +112,11 @@ describe("Pallene coder /", function()
 
     describe("Variables /", function()
         setup(compile([[
-            function fst(x:integer, y:integer): integer return x end
-            function snd(x:integer, y:integer): integer return y end
+            export function fst(x:integer, y:integer): integer return x end
+            export function snd(x:integer, y:integer): integer return y end
 
             local n = 0
-            function next_n(): integer
+            export function next_n(): integer
                 n = n + 1
                 return n
             end
@@ -140,37 +140,37 @@ describe("Pallene coder /", function()
 
     describe("Function calls /", function()
         setup(compile([[
-            function f0(): integer
+            export function f0(): integer
                 return 17
             end
 
-            function g0(): integer
+            export function g0(): integer
                 return f0()
             end
 
             -----------
 
-            function f1(x:integer): integer
+            export function f1(x:integer): integer
                 return x
             end
 
-            function g1(x:integer): integer
+            export function g1(x:integer): integer
                 return f1(x)
             end
 
             -----------
 
-            function f2(x:integer, y:integer): integer
+            export function f2(x:integer, y:integer): integer
                 return x+y
             end
 
-            function g2(x:integer, y:integer): integer
+            export function g2(x:integer, y:integer): integer
                 return f2(x, y)
             end
 
             -----------
 
-            function gcd(a:integer, b:integer): integer
+            export function gcd(a:integer, b:integer): integer
                 if b == 0 then
                    return a
                 else
@@ -180,7 +180,7 @@ describe("Pallene coder /", function()
 
             -----------
 
-            function even(x: integer): boolean
+            export function even(x: integer): boolean
                 if x == 0 then
                     return true
                 else
@@ -188,7 +188,7 @@ describe("Pallene coder /", function()
                 end
             end
 
-            function odd(x: integer): boolean
+            export function odd(x: integer): boolean
                 if x == 0 then
                     return false
                 else
@@ -198,17 +198,17 @@ describe("Pallene coder /", function()
 
             -----------
 
-            function skip_a() end
-            function skip_b() skip_a(); skip_a() end
+            export function skip_a() end
+            export function skip_b() skip_a(); skip_a() end
 
             -----------
 
-            function ignore_return(): integer
+            export function ignore_return(): integer
                 even(1)
                 return 17
             end
 
-            function ignore_return_builtin(): integer
+            export function ignore_return_builtin(): integer
                 math.sqrt(1.0)
                 return 18
             end
@@ -289,16 +289,16 @@ describe("Pallene coder /", function()
 
     describe("First class functions /", function()
         setup(compile([[
-            function inc(x:integer): integer   return x + 1   end
-            function dec(x:integer): integer   return x - 1   end
+            export function inc(x:integer): integer   return x + 1   end
+            export function dec(x:integer): integer   return x - 1   end
 
-            function get_inc(): integer->integer
+            export function get_inc(): integer->integer
                 return inc
             end
 
             --------
 
-            function call(
+            export function call(
                 f : integer -> integer,
                 x : integer
             ) :  integer
@@ -309,15 +309,15 @@ describe("Pallene coder /", function()
 
             local f: integer->integer = inc
 
-            function setf(g:integer->integer): ()
+            export function setf(g:integer->integer): ()
                 f = g
             end
 
-            function getf(): integer->integer
+            export function getf(): integer->integer
                 return f
             end
 
-            function callf(x:integer): integer
+            export function callf(x:integer): integer
                 return f(x)
             end
         ]]))
@@ -379,7 +379,7 @@ describe("Pallene coder /", function()
             local name, op, typ, rtyp = test[1], test[2], test[3], test[4]
 
             pallene_code[i] = util.render([[
-                function $name (x: $typ): $rtyp
+                export function $name (x: $typ): $rtyp
                     return $op x
                 end
             ]], {
@@ -516,7 +516,7 @@ describe("Pallene coder /", function()
                 test[1], test[2], test[3], test[4], test[5]
 
             pallene_code[i] = util.render([[
-                function $name (x: $typ1, y:$typ2): $rtyp
+                export function $name (x: $typ1, y:$typ2): $rtyp
                     return x ${op} y
                 end
             ]], {
@@ -551,15 +551,15 @@ describe("Pallene coder /", function()
 
     describe("Nil equality", function()
         setup(compile([[
-            function eq_nil(x: nil, y: nil): boolean
+            export function eq_nil(x: nil, y: nil): boolean
                 return x == y
             end
 
-            function ne_nil(x: nil, y: nil): boolean
+            export function ne_nil(x: nil, y: nil): boolean
                 return x ~= y
             end
 
-            function eq_any(x: any, y: any): boolean
+            export function eq_any(x: any, y: any): boolean
                 return x == y
             end
         ]]))
@@ -592,7 +592,7 @@ describe("Pallene coder /", function()
                 y: float
             end
 
-            function points(): {Point}
+            export function points(): {Point}
                 return {
                     { x = 1.0, y = 2.0 },
                     { x = 1.0, y = 2.0 },
@@ -600,11 +600,11 @@ describe("Pallene coder /", function()
                 }
             end
 
-            function eq_point(p: Point, q: Point): boolean
+            export function eq_point(p: Point, q: Point): boolean
                 return p == q
             end
 
-            function ne_point(p: Point, q: Point): boolean
+            export function ne_point(p: Point, q: Point): boolean
                 return p ~= q
             end
         ]]))
@@ -651,7 +651,7 @@ describe("Pallene coder /", function()
         local record_decls = [[
             record Empty
             end
-            function new_empty(): Empty
+            export function new_empty(): Empty
                 return {}
             end
         ]]
@@ -664,10 +664,11 @@ describe("Pallene coder /", function()
             local name, typ, value = test[1], test[2], test[3]
 
             pallene_code[i] = util.render([[
-                function from_${name}(x: ${typ}): any
+                export function from_${name}(x: ${typ}): any
                     return (x as any)
                 end
-                function to_${name}(x: any): ${typ}
+
+                export function to_${name}(x: any): ${typ}
                     return (x as ${typ})
                 end
             ]], {
@@ -719,7 +720,7 @@ describe("Pallene coder /", function()
 
     describe("Statements /", function()
         setup(compile([[
-            function stat_blocks(): integer
+            export function stat_blocks(): integer
                 local a = 1
                 local b = 2
                 do
@@ -730,7 +731,7 @@ describe("Pallene coder /", function()
                 return a + b
             end
 
-            function sign(x: integer) : integer
+            export function sign(x: integer) : integer
                 if x < 0 then
                     return -1
                 elseif x == 0 then
@@ -740,14 +741,14 @@ describe("Pallene coder /", function()
                 end
             end
 
-            function abs(x: integer) : integer
+            export function abs(x: integer) : integer
                 if x >= 0 then
                     return x
                 end
                 return -x
             end
 
-            function factorial_while(n: integer): integer
+            export function factorial_while(n: integer): integer
                 local r = 1
                 while n > 0 do
                     r = r * n
@@ -756,7 +757,7 @@ describe("Pallene coder /", function()
                 return r
             end
 
-            function factorial_int_for_inc(n: integer): integer
+            export function factorial_int_for_inc(n: integer): integer
                 local res = 1
                 for i = 1, n do
                     res = res * i
@@ -764,7 +765,7 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            function factorial_int_for_dec(n: integer): integer
+            export function factorial_int_for_dec(n: integer): integer
                 local res = 1
                 for i = n, 1, -1 do
                     res = res * i
@@ -772,7 +773,7 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            function factorial_float_for_inc(n: float): float
+            export function factorial_float_for_inc(n: float): float
                 local res = 1.0
                 for i = 1.0, n do
                     res = res * i
@@ -780,7 +781,7 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            function factorial_float_for_dec(n: float): float
+            export function factorial_float_for_dec(n: float): float
                 local res = 1.0
                 for i = n, 1.0, -1.0 do
                     res = res * i
@@ -788,7 +789,7 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            function repeat_until(): integer
+            export function repeat_until(): integer
                 local x = 0
                 repeat
                     x = x + 1
@@ -797,17 +798,17 @@ describe("Pallene coder /", function()
                 return x
             end
 
-            function break_while() : integer
+            export function break_while() : integer
                 while true do break end
                 return 17
             end
 
-            function break_repeat() : integer
+            export function break_repeat() : integer
                 repeat break until false
                 return 17
             end
 
-            function break_for(): integer
+            export function break_for(): integer
                 local x = 0
                 for i = 1, 10 do
                     x = x + i
@@ -816,7 +817,7 @@ describe("Pallene coder /", function()
                 return x
             end
 
-            function nested_break(x:boolean): integer
+            export function nested_break(x:boolean): integer
                 while true do
                     while true do
                         break
@@ -892,35 +893,35 @@ describe("Pallene coder /", function()
 
     describe("Arrays /", function()
         setup(compile([[
-            function newarr(): {integer}
+            export function newarr(): {integer}
                 return {10,20,30}
             end
 
-            function len(xs:{integer}): integer
+            export function len(xs:{integer}): integer
                 return #xs
             end
 
-            function geti(arr: {integer}, i: integer): integer
+            export function geti(arr: {integer}, i: integer): integer
                 return arr[i]
             end
 
-            function seti(arr: {integer}, i: integer, v: integer)
+            export function seti(arr: {integer}, i: integer, v: integer)
                 arr[i] = v
             end
 
-            function insert(xs: {any}, v:any): ()
+            export function insert(xs: {any}, v:any): ()
                 xs[#xs + 1] = v
             end
 
-            function remove(xs: {any}): ()
+            export function remove(xs: {any}): ()
                 xs[#xs] = nil
             end
 
-            function getany(xs: {any}, i:integer): any
+            export function getany(xs: {any}, i:integer): any
                 return xs[i]
             end
 
-            function getnil(xs: {nil}, i: integer): nil
+            export function getnil(xs: {nil}, i: integer): nil
                 return xs[i]
             end
         ]]))
@@ -1069,43 +1070,43 @@ describe("Pallene coder /", function()
         setup(compile([[
             typealias point = {x: integer, y: integer}
 
-            function newpoint(): point
+            export function newpoint(): point
                 return {x = 10, y = 20}
             end
 
-            function getx(p: point): integer
+            export function getx(p: point): integer
                 return p.x
             end
 
-            function gety(p: point): integer
+            export function gety(p: point): integer
                 return p.y
             end
 
-            function setx(p: point, v: integer)
+            export function setx(p: point, v: integer)
                 p.x = v
             end
 
-            function sety(p: point, v: integer)
+            export function sety(p: point, v: integer)
                 p.y = v
             end
 
-            function getany(t: {x: any}): any
+            export function getany(t: {x: any}): any
                 return t.x
             end
 
-            function setany(t: {x: any}, v: any)
+            export function setany(t: {x: any}, v: any)
                 t.x = v
             end
 
-            function getnil(t: {x: nil}): nil
+            export function getnil(t: {x: nil}): nil
                 return t.x
             end
 
-            function setnil(t: {x: nil})
+            export function setnil(t: {x: nil})
                 t.x = nil
             end
 
-            function getmax(t: {]].. maxlenfield ..[[: integer}): integer
+            export function getmax(t: {]].. maxlenfield ..[[: integer}): integer
                 return t.]].. maxlenfield ..[[
             end
         ]]))
@@ -1190,7 +1191,7 @@ describe("Pallene coder /", function()
 
     describe("Strings", function()
         setup(compile([[
-            function len(s:string): integer
+            export function len(s:string): integer
                 return #s
             end
         ]]))
@@ -1207,9 +1208,9 @@ describe("Pallene coder /", function()
             typealias Float = float
             typealias FLOAT = float
 
-            function Float2float(x: Float): float return x end
-            function float2Float(x: float): Float return x end
-            function Float2FLOAT(x: Float): FLOAT return x end
+            export function Float2float(x: Float): float return x end
+            export function float2Float(x: float): Float return x end
+            export function Float2FLOAT(x: Float): FLOAT return x end
 
             record point
                 x: Float
@@ -1218,15 +1219,15 @@ describe("Pallene coder /", function()
             typealias Point = point
             typealias Points = {Point}
 
-            function newPoint(x: Float): Point
+            export function newPoint(x: Float): Point
                 return {x = x}
             end
 
-            function get(p: Point): FLOAT
+            export function get(p: Point): FLOAT
                 return p.x
             end
 
-            function addPoint(ps: Points, p: Point)
+            export function addPoint(ps: Points, p: Point)
                 ps[#ps + 1] = p
             end
         ]]))
@@ -1263,23 +1264,23 @@ describe("Pallene coder /", function()
                 y: {integer}
             end
 
-            function make_foo(x: integer, y: {integer}): Foo
+            export function make_foo(x: integer, y: {integer}): Foo
                 return { x = x, y = y }
             end
 
-            function get_x(foo: Foo): integer
+            export function get_x(foo: Foo): integer
                 return foo.x
             end
 
-            function set_x(foo: Foo, x: integer)
+            export function set_x(foo: Foo, x: integer)
                 foo.x = x
             end
 
-            function get_y(foo: Foo): {integer}
+            export function get_y(foo: Foo): {integer}
                 return foo.y
             end
 
-            function set_y(foo: Foo, y: {integer})
+            export function set_y(foo: Foo, y: {integer})
                 foo.y = y
             end
 
@@ -1287,7 +1288,7 @@ describe("Pallene coder /", function()
                 x: integer
             end
 
-            function make_prim(x: integer): Prim
+            export function make_prim(x: integer): Prim
                 return { x = x }
             end
 
@@ -1295,14 +1296,14 @@ describe("Pallene coder /", function()
                 x: {integer}
             end
 
-            function make_gc(x: {integer}): Gc
+            export function make_gc(x: {integer}): Gc
                 return { x = x }
             end
 
             record Empty
             end
 
-            function make_empty(): Empty
+            export function make_empty(): Empty
                 return {}
             end
         ]]))
@@ -1377,7 +1378,7 @@ describe("Pallene coder /", function()
 
     describe("I/O", function()
         setup(compile([[
-            function write(s:string)
+            export function write(s:string)
                 io.write(s)
             end
         ]]))
@@ -1392,7 +1393,7 @@ describe("Pallene coder /", function()
 
     describe("tofloat builtin", function()
         setup(compile([[
-            function itof(x:integer): float
+            export function itof(x:integer): float
                 return tofloat(x)
             end
         ]]))
@@ -1409,7 +1410,7 @@ describe("Pallene coder /", function()
 
     describe("math.sqrt builtin", function()
         setup(compile([[
-            function square_root(x: float): float
+            export function square_root(x: float): float
                 return math.sqrt(x)
             end
         ]]))
@@ -1441,7 +1442,7 @@ describe("Pallene coder /", function()
 
     describe("string.char builtin", function()
         setup(compile([[
-            function chr(x: integer): string
+            export function chr(x: integer): string
                 return string_.char(x)
             end
         ]]))
@@ -1475,7 +1476,7 @@ describe("Pallene coder /", function()
 
     describe("string.sub builtin", function()
         setup(compile([[
-            function sub(s: string, i: integer, j: integer): string
+            export function sub(s: string, i: integer, j: integer): string
                 return string_.sub(s, i, j)
             end
         ]]))
@@ -1494,23 +1495,23 @@ describe("Pallene coder /", function()
 
     describe("any", function()
         setup(compile([[
-            function id(x:any): any
+            export function id(x:any): any
                 return x
             end
 
-            function call(f:any->any, x:any): any
+            export function call(f:any->any, x:any): any
                 return f(x)
             end
 
-            function read(xs:{any}, i:integer): any
+            export function read(xs:{any}, i:integer): any
                 return xs[i]
             end
 
-            function write(xs:{any}, i:integer, x:any): ()
+            export function write(xs:{any}, i:integer, x:any): ()
                 xs[i] = x
             end
 
-            function if_any(x:any): boolean
+            export function if_any(x:any): boolean
                 if x then
                     return true
                 else
@@ -1518,7 +1519,7 @@ describe("Pallene coder /", function()
                 end
             end
 
-            function while_any(x:any): integer
+            export function while_any(x:any): integer
                 local out = 0
                 while x do
                     out = out + 1
@@ -1527,7 +1528,7 @@ describe("Pallene coder /", function()
                 return out
             end
 
-            function repeat_any(x:any): integer
+            export function repeat_any(x:any): integer
                 local out = 0
                 repeat
                     out = out + 1
@@ -1610,17 +1611,73 @@ describe("Pallene coder /", function()
 
             ------
 
-            function local_type(): integer
+            local a, a = 5, 3
+
+            ------
+
+            export function f(): integer
+                return 19
+            end
+
+            local function f(): integer
+                return 53
+            end
+
+            ------
+
+            export function g(): integer
+                return 83
+            end
+
+            local g : string = 'preets'
+
+            ------
+
+            export h : string = 'madyanam'
+
+            local function h(): integer
+                return 1216
+            end
+
+            ------
+
+            export i : string = 'baby'
+
+            local i : string = 'yoda'
+
+            ------
+
+            export function toplevel_local_f(): integer
+                return f()
+            end
+
+            export function toplevel_local_g_type(): string
+                return type(g)
+            end
+
+            export function toplevel_local_h_type(): string
+                return type(h)
+            end
+
+            export function toplevel_local_i(): string
+                return i
+            end
+
+            export function toplevel_local_a(): integer
+                return a
+            end
+
+            export function local_type(): integer
                 local Point: Point = { x=1, y=2 }
                 return Point.x
             end
 
-            function local_initializer(): integer
+            export function local_initializer(): integer
                 local x = x + 1
                 return x
             end
 
-            function for_type_annotation(): integer
+            export function for_type_annotation(): integer
                 local res = 0
                 for y:y = 1, 10 do
                     res = res + y
@@ -1628,7 +1685,7 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            function for_initializer(): integer
+            export function for_initializer(): integer
                 local res = 0
                 for x = x + 1, x + 100, x-7 do
                     res = res + 1
@@ -1636,15 +1693,45 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            function tofloat_shadowing(x:integer) : float
+            export function tofloat_shadowing(x:integer) : float
                 local tofloat = 1.0
                 return (x + tofloat)
             end
 
-            function duplicate_parameter(x: integer, x:integer) : integer
+            export function duplicate_parameter(x: integer, x:integer) : integer
                 return x
             end
         ]]))
+
+        it("exported functions that are locally shadowed should be visible ouside the module", function ()
+            run_test([[ assert('function' == type(test.g)) ]])
+            run_test([[ assert(19 == test.f()) ]])
+        end)
+
+        pending("exported variables that are locally shadowed should be visible outside the module", function ()
+            run_test([[ assert('baby' == test.i) ]])
+            run_test([[ assert('string' == type(test.h)) ]])
+        end)
+
+        it("local top-level variable shadows toplevel exported variable", function ()
+            run_test([[ assert('yoda' == test.toplevel_local_i()) ]])
+        end)
+
+        it("local top-level function shadows toplevel exported variable", function ()
+            run_test([[ assert('function' == test.toplevel_local_h_type()) ]])
+        end)
+
+        it("local top-level variable shadows toplevel exported function", function ()
+            run_test([[ assert('string' == test.toplevel_local_g_type()) ]])
+        end)
+
+        it("local top-level function shadows toplevel exported function", function ()
+            run_test([[ assert(53 == test.toplevel_local_f()) ]])
+        end)
+
+        it("local top-level variable is shadowed by the latest declaration", function ()
+            run_test([[ assert(3 == test.toplevel_local_a()) ]])
+        end)
 
         it("local variable doesn't shadow its type annotation", function()
             run_test([[ assert( 1 == test.local_type() ) ]])
@@ -1673,7 +1760,7 @@ describe("Pallene coder /", function()
 
     describe("Non-constant toplevel initializers", function()
         setup(compile([[
-            function f(): integer
+            export function f(): integer
                 return 10
             end
 
@@ -1683,23 +1770,23 @@ describe("Pallene coder /", function()
             local x4: {integer} = { x1 }
             local x5: {x: integer} = { x = x1 }
 
-            function get_x1(): integer
+            export function get_x1(): integer
                 return x1
             end
 
-            function get_x2(): integer
+            export function get_x2(): integer
                 return x2
             end
 
-            function get_x3(): integer
+            export function get_x3(): integer
                 return x3
             end
 
-            function get_x4(): {integer}
+            export function get_x4(): {integer}
                 return x4
             end
 
-            function get_x5(): {x: integer}
+            export function get_x5(): {x: integer}
                 return x5
             end
         ]]))
@@ -1720,7 +1807,7 @@ describe("Pallene coder /", function()
 
     describe("Nested for loops", function()
         setup(compile([[
-            function mul(n: integer, m:integer) : integer
+            export function mul(n: integer, m:integer) : integer
                 local ret = 0
                 for i = 1, n do
                     for j = 1, m do
@@ -1751,7 +1838,7 @@ describe("Pallene coder /", function()
                 return counter
             end
 
-            function next(): integer
+            export function next(): integer
                 x = inc()
                 return counter
             end
@@ -1768,7 +1855,7 @@ describe("Pallene coder /", function()
 
     describe("Uninitialized variables", function()
         setup(compile([[
-            function sign(x: integer): integer
+            export function sign(x: integer): integer
                 local ret: integer
                 if     x  < 0 then
                     ret = -1
@@ -1780,7 +1867,7 @@ describe("Pallene coder /", function()
                 return ret
             end
 
-            function non_breaking_loop(): integer
+            export function non_breaking_loop(): integer
                 local i = 1
                 while true do
                     if i == 42 then return i end
@@ -1788,7 +1875,7 @@ describe("Pallene coder /", function()
                 end
             end
 
-            function initialize_inside_loop(): integer
+            export function initialize_inside_loop(): integer
                 local x: integer
                 repeat
                     x = 17
@@ -1820,7 +1907,7 @@ describe("Pallene coder /", function()
 
     describe("For loop integer overflow", function()
         setup(compile([[
-            function loop(A: integer, B: integer, C: integer): {integer}
+            export function loop(A: integer, B: integer, C: integer): {integer}
                 local xs: {integer} = {}
                 for i = A, B, C do
                     xs[#xs+1] = i
@@ -1880,21 +1967,21 @@ describe("Pallene coder /", function()
                 y: integer
             end
 
-            function new_rpoint(x:integer, y:integer): RPoint
+            export function new_rpoint(x:integer, y:integer): RPoint
                 return {x = x, y = y}
             end
 
-            function get_rpoint_fields(p:RPoint): (integer, integer)
+            export function get_rpoint_fields(p:RPoint): (integer, integer)
                 return p.x, p.y
             end
 
             local gi, ga: {integer} = 1, {}
-            function assign_global(): (integer, {integer})
+            export function assign_global(): (integer, {integer})
                 gi, ga[gi] = gi+1, 20
                 return gi, ga
             end
 
-            function assign_local(): (integer, {integer})
+            export function assign_local(): (integer, {integer})
                 local li: integer = 1
                 local la: {integer} = {}
 
@@ -1902,56 +1989,56 @@ describe("Pallene coder /", function()
                 return li, la
             end
 
-            function assign_bracket(): (integer, integer)
+            export function assign_bracket(): (integer, integer)
                 local a: {integer} = {10, 20}
 
                 a[1], a[2] = a[2], a[1]
                 return a[1], a[2]
             end
 
-            function swap(): (integer, integer)
+            export function swap(): (integer, integer)
                 local x, y = 10, 20
                 x, y = y, x
                 return x, y
             end
 
-            function swap_point(): TPoint
+            export function swap_point(): TPoint
                 local p:TPoint = { x = 10, y = 20 }
                 p.x, p.y = p.y, p.x
                 return p
             end
 
-            function assign_tables_1(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
+            export function assign_tables_1(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
                 a, a[1] = b, c
                 return a, b
             end
 
-            function assign_tables_2(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
+            export function assign_tables_2(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
                 a[1], a = c, b
                 return a, b
             end
 
-            function assign_dots_1(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
+            export function assign_dots_1(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
                 a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            function assign_dots_2(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
+            export function assign_dots_2(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
                 a.x, a.y, a = c, d, b
                 return a, b
             end
 
-            function assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+            export function assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
                 a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            function assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+            export function assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
                 a.x, a.y, a = c, d, b
                 return a, b
             end
 
-            function assign_same_var(): integer
+            export function assign_same_var(): integer
                 local a:integer
                 a, a, a = 10, 20, 30
                 return a
@@ -2094,43 +2181,43 @@ describe("Pallene coder /", function()
 
     describe("Multiple returns", function()
         setup(compile([[
-            function f(): (integer, integer, integer)
+            export function f(): (integer, integer, integer)
                 return 10, 20, 30
             end
 
-            function g(x:integer, y:integer, z:integer): integer
+            export function g(x:integer, y:integer, z:integer): integer
                 return x + y + z
             end
 
-            function func_as_param(): integer
+            export function func_as_param(): integer
                 local a = g(f())
                 return a
             end
 
-            function func_as_return(): (integer, integer, integer)
+            export function func_as_return(): (integer, integer, integer)
                 return f()
             end
 
-            function func_as_first_return(): (integer, integer)
+            export function func_as_first_return(): (integer, integer)
                 return f(), 42
             end
 
-            function func_as_only_exp(): integer
+            export function func_as_only_exp(): integer
                 local a, b, c = f()
                 return a + b + c
             end
 
-            function func_inside_paren(): integer
+            export function func_inside_paren(): integer
                 return (f())
             end
 
-            function assign_same_var_1(): integer
+            export function assign_same_var_1(): integer
                 local x: integer
                 x, x, x = f()
                 return x
             end
 
-            function assign_same_var_2(): integer
+            export function assign_same_var_2(): integer
                 local x: integer
                 local y: integer
                 x, y, y = f()

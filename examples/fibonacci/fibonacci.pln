@@ -3,7 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-function fibonacci(N: integer): { integer }
+export function fibonacci(N: integer): { integer }
     local result: { integer } = {}
     local a, b = 0, 1
     for i = 1, N do

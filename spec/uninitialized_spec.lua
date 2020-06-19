@@ -24,14 +24,14 @@ describe("Uninitialized variable analysis: ", function()
 
     it("empty function", function()
         assert_error([[
-            function fn(): integer
+            export function fn(): integer
             end
         ]], missing_return)
     end)
 
     it("missing return in elseif", function()
         assert_error([[
-            function getval(a:integer): integer
+            export function getval(a:integer): integer
                 if a == 1 then
                     return 10
                 elseif a == 2 then
@@ -44,7 +44,7 @@ describe("Uninitialized variable analysis: ", function()
 
     it("missing return in deep elseif", function()
         assert_error([[
-            function getval(a:integer): integer
+            export function getval(a:integer): integer
                 if a == 1 then
                     return 10
                 elseif a == 2 then
@@ -64,7 +64,7 @@ describe("Uninitialized variable analysis: ", function()
 
     it("catches use of uninitialized variable", function()
         assert_error([[
-            function foo(): integer
+            export function foo(): integer
                 local x:integer
                 return x
             end
@@ -73,7 +73,7 @@ describe("Uninitialized variable analysis: ", function()
 
     it("assumes that loops might not execute", function()
         assert_error([[
-            function foo(cond: boolean): integer
+            export function foo(cond: boolean): integer
                 local x: integer
                 while cond do
                     x = 0

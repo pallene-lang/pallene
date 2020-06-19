@@ -21,7 +21,7 @@ describe("Scope analysis: ", function()
 
     it("forbids variables from being used before they are defined", function()
         assert_error([[
-            function fn(): nil
+            export function fn(): nil
                 x = 17
                 local x = 18
             end
@@ -31,7 +31,7 @@ describe("Scope analysis: ", function()
 
     it("forbids type variables from being used before they are defined", function()
         assert_error([[
-            function fn(p: Point): integer
+            export function fn(p: Point): integer
                 return p.x
             end
 
@@ -45,7 +45,7 @@ describe("Scope analysis: ", function()
 
     it("do-end limits variable scope", function()
         assert_error([[
-            function fn(): nil
+            export function fn(): nil
                 do
                     local x = 17
                 end
@@ -55,19 +55,20 @@ describe("Scope analysis: ", function()
             "variable 'x' is not declared")
     end)
 
-    it("forbids multiple toplevel declarations with the same name", function()
+    it("forbids multiple toplevel declarations with the same name for exported functions", function()
         assert_error([[
-            local function f() end
-            local function f() end
+            export function f() end
+            export function f() end
         ]],
-            "duplicate toplevel declaration for 'f'")
+            "duplicate export 'f', previous one at line 1")
     end)
 
-    it("forbids multiple toplevel variable declarations with the same name", function()
+    pending("forbids multiple toplevel declarations with the same name for exported function and variable", function()
         assert_error([[
-            local a, a = 1, 2
+            export function f() end
+            export f = 1
         ]],
-            "duplicate toplevel declaration for 'a'")
+            "duplicate export 'f', previous one at line 1")
     end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
@@ -133,11 +134,11 @@ describe("Pallene type checker", function()
 
     it('catches incompatible function type assignments', function()
         assert_error([[
-            function f(a: integer, b: float): float
+            export function f(a: integer, b: float): float
                 return 3.14
             end
 
-            function test(g: () -> integer)
+            export function test(g: () -> integer)
                 g = f
             end
         ]],
@@ -146,7 +147,7 @@ describe("Pallene type checker", function()
 
     it("detects when a non-type is used in a type variable", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local foo: integer = 10
                 local bar: foo = 11
             end
@@ -160,7 +161,7 @@ describe("Pallene type checker", function()
                 x: integer
                 y: integer
             end
-            function fn()
+            export function fn()
                 local bar: integer = Point
             end
         ]],
@@ -169,7 +170,7 @@ describe("Pallene type checker", function()
 
     it("catches table type with repeated fields", function()
         assert_error([[
-            function fn(t: {x: float, x: integer}) end
+            export function fn(t: {x: float, x: integer}) end
         ]],
             "duplicate field 'x' in table")
     end)
@@ -177,14 +178,14 @@ describe("Pallene type checker", function()
     it("allows tables with fields with more than LUAI_MAXSHORTLEN chars", function()
         local field = string.rep('a', 41)
         local module, _ = run_checker([[
-            function f(t: {]].. field ..[[: float}) end
+            export function f(t: {]].. field ..[[: float}) end
         ]])
         assert.truthy(module)
     end)
 
     it("catches array expression in indexing is not an array", function()
         assert_error([[
-            function fn(x: integer)
+            export function fn(x: integer)
                 x[1] = 2
             end
         ]],
@@ -193,7 +194,7 @@ describe("Pallene type checker", function()
 
     it("catches wrong use of length operator", function()
         assert_error([[
-            function fn(x: integer): integer
+            export function fn(x: integer): integer
                 return #x
             end
         ]],
@@ -202,7 +203,7 @@ describe("Pallene type checker", function()
 
     it("catches wrong use of unary minus", function()
         assert_error([[
-            function fn(x: boolean): boolean
+            export function fn(x: boolean): boolean
                 return -x
             end
         ]],
@@ -211,7 +212,7 @@ describe("Pallene type checker", function()
 
     it("catches wrong use of bitwise not", function()
         assert_error([[
-            function fn(x: boolean): boolean
+            export function fn(x: boolean): boolean
                 return ~x
             end
         ]],
@@ -220,7 +221,7 @@ describe("Pallene type checker", function()
 
     it("catches wrong use of boolean not", function()
         assert_error([[
-            function fn(): boolean
+            export function fn(): boolean
                 return not nil
             end
         ]],
@@ -229,7 +230,7 @@ describe("Pallene type checker", function()
 
     it("catches mismatching types in locals", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local i: integer = 1
                 local s: string = "foo"
                 s = i
@@ -240,7 +241,7 @@ describe("Pallene type checker", function()
 
     it("requires a type annotation for an uninitialized variable", function()
         assert_error([[
-            function fn(): integer
+            export function fn(): integer
                 local x
                 x = 10
                 return x
@@ -250,7 +251,7 @@ describe("Pallene type checker", function()
 
     it("catches mismatching types in arguments", function()
         assert_error([[
-            function fn(i: integer, s: string): integer
+            export function fn(i: integer, s: string): integer
                 s = i
             end
         ]],
@@ -259,7 +260,7 @@ describe("Pallene type checker", function()
 
     it("forbids empty array (without type annotation)", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local xs = {}
             end
         ]],
@@ -268,7 +269,7 @@ describe("Pallene type checker", function()
 
     it("forbids non-empty array (without type annotation)", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local xs = {10, 20, 30}
             end
         ]],
@@ -277,7 +278,7 @@ describe("Pallene type checker", function()
 
     it("forbids array initializers with a table part", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local xs: {integer} = {10, 20, 30, x=17}
             end
         ]],
@@ -286,7 +287,7 @@ describe("Pallene type checker", function()
 
     it("forbids wrong type in array initializer", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local xs: {integer} = {10, "hello"}
             end
         ]],
@@ -299,7 +300,7 @@ describe("Pallene type checker", function()
             assert_error([[
                 record Point x: float; y:float end
 
-                function f(): float
+                export function f(): float
                     local p ]].. typ ..[[ = ]].. code ..[[
                 end
             ]], err)
@@ -341,7 +342,7 @@ describe("Pallene type checker", function()
 
     it("forbids type hints that are not array, tables, or records", function()
         assert_error([[
-            function fn()
+            export function fn()
                 local p: string = { 10, 20, 30 }
             end
         ]],
@@ -350,7 +351,7 @@ describe("Pallene type checker", function()
 
     it("requires while statement conditions to be boolean", function()
         assert_error([[
-            function fn(x:integer): integer
+            export function fn(x:integer): integer
                 while x do
                     return 10
                 end
@@ -362,7 +363,7 @@ describe("Pallene type checker", function()
 
     it("requires repeat statement conditions to be boolean", function()
         assert_error([[
-            function fn(x:integer): integer
+            export function fn(x:integer): integer
                 repeat
                     return 10
                 until x
@@ -374,7 +375,7 @@ describe("Pallene type checker", function()
 
     it("requires if statement conditions to be boolean", function()
         assert_error([[
-            function fn(x:integer): integer
+            export function fn(x:integer): integer
                 if x then
                     return 10
                 else
@@ -387,7 +388,7 @@ describe("Pallene type checker", function()
 
     it("ensures numeric 'for' variable has number type", function()
         assert_error([[
-            function fn(x: integer, s: string): integer
+            export function fn(x: integer, s: string): integer
                 for i: string = "hello", 10, 2 do
                     x = x + i
                 end
@@ -399,7 +400,7 @@ describe("Pallene type checker", function()
 
     it("catches 'for' errors in the start expression", function()
         assert_error([[
-            function fn(x: integer, s: string): integer
+            export function fn(x: integer, s: string): integer
                 for i:integer = s, 10, 2 do
                     x = x + i
                 end
@@ -411,7 +412,7 @@ describe("Pallene type checker", function()
 
     it("catches 'for' errors in the limit expression", function()
         assert_error([[
-            function fn(x: integer, s: string): integer
+            export function fn(x: integer, s: string): integer
                 for i = 1, s, 2 do
                     x = x + i
                 end
@@ -423,7 +424,7 @@ describe("Pallene type checker", function()
 
     it("catches 'for' errors in the step expression", function()
         assert_error([[
-            function fn(x: integer, s: string): integer
+            export function fn(x: integer, s: string): integer
                 for i = 1, 10, s do
                     x = x + i
                 end
@@ -435,7 +436,7 @@ describe("Pallene type checker", function()
 
     it("detects too many return values", function()
         assert_error([[
-            function f(): ()
+            export function f(): ()
                 return 1
             end
         ]],
@@ -444,7 +445,7 @@ describe("Pallene type checker", function()
 
     it("detects too few return values", function()
         assert_error([[
-            function f(): integer
+            export function f(): integer
                 return
             end
         ]],
@@ -453,7 +454,7 @@ describe("Pallene type checker", function()
 
     it("detects when a function returns the wrong type", function()
         assert_error([[
-            function fn(): integer
+            export function fn(): integer
                 return "hello"
             end
         ]],
@@ -474,7 +475,7 @@ describe("Pallene type checker", function()
 
     it("detects attempts to call non-functions", function()
         assert_error([[
-            function fn(): integer
+            export function fn(): integer
                 local i: integer = 0
                 i()
             end
@@ -484,11 +485,11 @@ describe("Pallene type checker", function()
 
     it("detects wrong number of arguments to functions", function()
         assert_error([[
-            function f(x: integer, y: integer): integer
+            export function f(x: integer, y: integer): integer
                 return x + y
             end
 
-            function g(): integer
+            export function g(): integer
                 return f(1)
             end
         ]],
@@ -497,15 +498,15 @@ describe("Pallene type checker", function()
 
     it("detects wrong number of arguments when expanding a function", function()
         assert_error([[
-            function f(): (integer, integer)
+            export function f(): (integer, integer)
                 return 1, 2
             end
 
-            function g(x:integer, y:integer, z:integer): integer
+            export function g(x:integer, y:integer, z:integer): integer
                 return x + y
             end
 
-            function test(): integer
+            export function test(): integer
                 return g(f())
             end
         ]],
@@ -514,11 +515,11 @@ describe("Pallene type checker", function()
 
     it("detects wrong types of arguments to functions", function()
         assert_error([[
-            function f(x: integer, y: integer): integer
+            export function f(x: integer, y: integer): integer
                 return x + y
             end
 
-            function g(): integer
+            export function g(): integer
                 return f(1.0, 2.0)
             end
         ]],
@@ -530,7 +531,7 @@ describe("Pallene type checker", function()
             local err_msg = string.format(
                 "cannot concatenate with %s value", typ)
             local test_program = util.render([[
-                function fn(x : $typ) : string
+                export function fn(x : $typ) : string
                     return "hello " .. x
                 end
             ]], { typ = typ })
@@ -564,7 +565,7 @@ describe("Pallene type checker", function()
                         not (t1 == "float" and t2 == "integer")
                     then
                         optest("cannot compare $t1 and $t2 using $op", [[
-                            function fn(a: $t1, b: $t2): boolean
+                            export function fn(a: $t1, b: $t2): boolean
                                 return a $op b
                              end
                         ]], {
@@ -586,7 +587,7 @@ describe("Pallene type checker", function()
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
        "$dir hand side of '$op' has type $t", [[
-                        function fn(x: $t1, y: $t2) : boolean
+                        export function fn(x: $t1, y: $t2) : boolean
                             return x $op y
                         end
                     ]], { op = op, t = t, dir = dir, t1 = t1, t2=t2 })
@@ -605,7 +606,7 @@ describe("Pallene type checker", function()
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
         "$dir hand side of bitwise expression is a $t instead of an integer", [[
-                        function fn(a: $t1, b: $t2): integer
+                        export function fn(a: $t1, b: $t2): integer
                             return a $op b
                         end
                     ]], { op = op, t = t, dir = dir, t1 = t1, t2 = t2 })
@@ -624,7 +625,7 @@ describe("Pallene type checker", function()
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
         "$dir hand side of arithmetic expression is a $t instead of a number", [[
-                        function fn(a: $t1, b: $t2) : float
+                        export function fn(a: $t1, b: $t2) : float
                             return a $op b
                         end
                     ]], { op = op, t = t, dir = dir, t1 = t1, t2 = t2} )
@@ -638,7 +639,7 @@ describe("Pallene type checker", function()
             assert_error([[
                 record Point x: float; y:float end
 
-                function f(p: ]].. typ ..[[): float
+                export function f(p: ]].. typ ..[[): float
                     ]].. code ..[[
                 end
             ]], err)
@@ -675,7 +676,7 @@ describe("Pallene type checker", function()
             for _, t2 in ipairs(typs) do
                 if t1 ~= t2 then
                     optest("expected $t2 but found $t1 in cast expression", [[
-                        function fn(a: $t1) : $t2
+                        export function fn(a: $t1) : $t2
                             return a as $t2
                         end
                     ]], { t1 = t1, t2 = t2 })
@@ -686,10 +687,10 @@ describe("Pallene type checker", function()
 
     it("catches assignment to function", function ()
         assert_error([[
-            function f()
+            export function f()
             end
 
-            function g()
+            export function g()
                 f = g
             end
         ]],
@@ -698,10 +699,10 @@ describe("Pallene type checker", function()
 
     it("catches assignment to builtin (with correct type)", function ()
         assert_error([[
-            function f(x: string)
+            export function f(x: string)
             end
 
-            function g()
+            export function g()
                 io.write = f
             end
         ]],
@@ -710,10 +711,10 @@ describe("Pallene type checker", function()
 
     it("catches assignment to builtin (with wrong type)", function ()
         assert_error([[
-            function f(x: integer)
+            export function f(x: integer)
             end
 
-            function g()
+            export function g()
                 io.write = f
             end
         ]],
@@ -722,7 +723,7 @@ describe("Pallene type checker", function()
 
     it("typechecks io.write (error)", function()
         assert_error([[
-            function f()
+            export function f()
                 io.write(17)
             end
         ]],
@@ -731,7 +732,7 @@ describe("Pallene type checker", function()
 
     it("checks assignment variables to modules", function()
         assert_error([[
-            function f()
+            export function f()
                 local x = io
             end
         ]],
@@ -740,7 +741,7 @@ describe("Pallene type checker", function()
 
     it("checks assignment of modules", function()
         assert_error([[
-            function f()
+            export function f()
                 io = 1
             end
         ]],
