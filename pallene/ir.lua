@@ -16,7 +16,7 @@ local typedecl = require "pallene.typedecl"
 -- There is no expression-level nesting. an ir.Value can only be a variable name or a literal
 -- constant. Nested subexpressions are converted into multiple commands, using temporary variables.
 --
--- There is stil some statement-level nesting, with if.Cmd.Loop, ir.Cmd.If, etc. We think that
+-- There is still some statement-level nesting, with if.Cmd.Loop, ir.Cmd.If, etc. We think that
 -- structured control flow is easier to reason about then an unstructured control flow graph built
 -- around basic blocks and gotos.
 
@@ -28,10 +28,11 @@ end
 
 function ir.Module()
     return {
-        record_types = {}, -- list of Type
-        functions    = {}, -- list of ir.Function
-        globals      = {}, -- list of ir.VarDecl
-        exports      = {}, -- list of function ids
+        record_types       = {}, -- list of Type
+        functions          = {}, -- list of ir.Function
+        globals            = {}, -- list of ir.VarDecl
+        exported_functions = {}, -- list of function ids
+        exported_globals   = {}, -- list of variable ids
     }
 end
 
@@ -71,8 +72,12 @@ function ir.add_global(module, name, typ)
     return #module.globals
 end
 
-function ir.add_export(module, f_id)
-    table.insert(module.exports, f_id)
+function ir.add_exported_function(module, f_id)
+    table.insert(module.exported_functions, f_id)
+end
+
+function ir.add_exported_global(module, g_id)
+    table.insert(module.exported_globals, g_id)
 end
 
 --

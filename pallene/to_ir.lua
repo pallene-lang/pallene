@@ -105,7 +105,12 @@ function ToIR:convert_toplevel(prog_ast)
         if     tag == "ast.Toplevel.Func" then
             local f_id = self.fun_id_of_decl[tl_node.decl]
             if not tl_node.is_local then
-                ir.add_export(self.module, f_id)
+                ir.add_exported_function(self.module, f_id)
+            end
+        elseif tag == "ast.Toplevel.Var" then
+            local g_id = self.glb_id_of_decl[tl_node.decl]
+            if not tl_node.is_local then
+                ir.add_exported_global(self.module, g_id)
             end
         end
     end

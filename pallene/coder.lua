@@ -492,7 +492,7 @@ function Coder:init_closures()
     for f_id in pairs(self.upvalue_of_function) do
         table.insert(f_ids, f_id)
     end
-    for _, f_id in ipairs(self.module.exports) do
+    for _, f_id in ipairs(self.module.exported_functions) do
         table.insert(f_ids, f_id)
     end
     table.sort(f_ids) -- For determinism
@@ -1627,7 +1627,7 @@ function Coder:generate_luaopen_function()
 
 
     local init_exports = {}
-    for _, f_id in ipairs(self.module.exports) do
+    for _, f_id in ipairs(self.module.exported_functions) do
         local name = self.module.functions[f_id].name
         table.insert(init_exports, util.render([[
             lua_pushstring(L, ${name});
