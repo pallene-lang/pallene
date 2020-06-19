@@ -1640,6 +1640,19 @@ function Coder:generate_luaopen_function()
         }))
     end
 
+    for _, g_id in ipairs(self.module.exported_globals) do
+        local name = self.module.globals[g_id].name
+        table.insert(init_exports, util.render([[
+            lua_pushstring(L, ${name});
+            lua_getiuservalue(L, globals, $ix);
+            lua_settable(L, export_table);
+            /**/
+        ]], {
+            name = C.string(name),
+            ix = C.integer(self.upvalue_of_global[g_id]),
+        }))
+    end
+
     return (util.render([[
         int ${name}(lua_State *L)
         {
