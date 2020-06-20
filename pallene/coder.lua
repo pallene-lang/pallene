@@ -617,7 +617,6 @@ function Coder:init_upvalues()
     -- Functions
 
     local closures = {}
-    table.insert(closures, 1) -- $init
     for _, func in ipairs(self.module.functions) do
         for cmd in ir.iter(func.body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
@@ -1551,7 +1550,7 @@ function Coder:generate_module()
 
     table.insert(out, section_comment("Exports"))
     for f_id = 1, #self.module.functions do
-        if self.upvalue_of_function[f_id] then
+        if f_id == 1 or self.upvalue_of_function[f_id] then
             table.insert(out, self:lua_entry_point_definition(f_id))
         end
     end
@@ -1599,10 +1598,11 @@ function Coder:generate_luaopen_function()
     end
 
     local init_initializers = util.render([[
-        lua_getiuservalue(L, globals, $ix);
+        lua_pushvalue(L, globals);
+        lua_pushcclosure(L, ${init_function}, 1);
         lua_call(L, 0, 0);
     ]], {
-        ix = C.integer(assert(self.upvalue_of_function[1])),
+        init_function = self:lua_entry_point_name(1),
     })
 
     local init_exports = {}
