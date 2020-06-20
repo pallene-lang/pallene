@@ -645,8 +645,10 @@ function Coder:init_upvalues()
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.Function" then
                     local f_id = v.id
-                    table.insert(self.upvalues, coder.Upvalue.Function(f_id))
-                    self.upvalue_of_function[f_id] = #self.upvalues
+                    if not self.upvalue_of_function[f_id] then
+                        table.insert(self.upvalues, coder.Upvalue.Function(f_id))
+                        self.upvalue_of_function[f_id] = #self.upvalues
+                    end
                 end
             end
         end
