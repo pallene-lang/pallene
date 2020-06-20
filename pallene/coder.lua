@@ -1562,23 +1562,23 @@ end
 
 function Coder:generate_luaopen_function()
 
-    local init_upvalues = {}
+    local init_constants = {}
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
         if tag ~= "coder.Upvalue.Global" then
             if     tag == "coder.Upvalue.Metatable" then
-                table.insert(init_upvalues, [[
+                table.insert(init_constants, [[
                     lua_newtable(L);
                     lua_pushstring(L, "__metatable");
                     lua_pushboolean(L, 0);
                     lua_settable(L, -3); ]])
             elseif tag == "coder.Upvalue.String" then
-                table.insert(init_upvalues, util.render([[
+                table.insert(init_constants, util.render([[
                     lua_pushstring(L, $str);]], {
                         str = C.string(upv.str)
                     }))
             elseif tag == "coder.Upvalue.Function" then
-                table.insert(init_upvalues, util.render([[
+                table.insert(init_constants, util.render([[
                     lua_pushvalue(L, globals);
                     lua_pushcclosure(L, ${entry_point}, 1);
                 ]], {
@@ -1589,7 +1589,7 @@ function Coder:generate_luaopen_function()
                 error("impossible")
             end
 
-            table.insert(init_upvalues, util.render([[
+            table.insert(init_constants, util.render([[
                 lua_setiuservalue(L, globals, $ix);
                 /**/
             ]], {
@@ -1598,14 +1598,12 @@ function Coder:generate_luaopen_function()
         end
     end
 
-    table.insert(init_upvalues, util.render([[
-        // Run toplevel statements & initialize globals
+    local init_initializers = util.render([[
         lua_getiuservalue(L, globals, $ix);
         lua_call(L, 0, 0);
     ]], {
         ix = C.integer(assert(self.upvalue_of_function[1])),
-    }))
-
+    })
 
     local init_exports = {}
     for _, f_id in ipairs(self.module.exported_functions) do
@@ -1640,36 +1638,37 @@ function Coder:generate_luaopen_function()
             luaL_checkversion(L);
 
             /**/
+            /* Constants */
+            /**/
 
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
+            /**/
+            ${init_constants}
 
             /**/
-
-            lua_newtable(L);
-            int export_table = lua_gettop(L);
-
-            /**/
-            /* Global values */
+            /* Variables & Initializers */
             /**/
 
-            ${init_upvalues}
+            ${init_initializers}
 
             /**/
             /* Exports */
             /**/
 
-            ${init_exports}
-
+            lua_newtable(L);
+            int export_table = lua_gettop(L);
             /**/
-
+            ${init_exports}
+            /**/
             lua_pushvalue(L, export_table);
             return 1;
         }
     ]], {
         name = "luaopen_" .. self.modname,
         n_upvalues = C.integer(#self.upvalues),
-        init_upvalues = table.concat(init_upvalues, "\n"),
+        init_constants = table.concat(init_constants, "\n"),
+        init_initializers = init_initializers,
         init_exports  = table.concat(init_exports, "\n"),
     }))
 end
