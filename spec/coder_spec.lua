@@ -1708,7 +1708,7 @@ describe("Pallene coder /", function()
             run_test([[ assert(19 == test.f()) ]])
         end)
 
-        pending("exported variables that are locally shadowed should be visible outside the module", function ()
+        it("exported variables that are locally shadowed should be visible outside the module", function ()
             run_test([[ assert('baby' == test.i) ]])
             run_test([[ assert('string' == type(test.h)) ]])
         end)
