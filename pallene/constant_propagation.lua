@@ -89,22 +89,24 @@ function constant_propagation.run(module)
         is_exported[g_id] = true
     end
 
-    local n_new_globals = 0
+    local new_globals = {}
     local new_global_id = {} -- { g_id => g_id? }
     for i = 1, n_globals do
         if constant_initializer[i] and not is_exported[i] and (n_reads[i] == 0 or n_writes[i] == 1) then
             new_global_id[i] = false
         else
-            n_new_globals = n_new_globals + 1
-            new_global_id[i] = n_new_globals
+            table.insert(new_globals, module.globals[i])
+            new_global_id[i] = #new_globals
         end
     end
+
+    -- 4) Propagate the constant globals, and rename the existing ones accordingly
 
     for i, g_id in ipairs(module.exported_globals) do
         module.exported_globals[i] = assert(new_global_id[g_id])
     end
 
-    -- 4) Propagate the constant globals, and rename the existing ones accordingly
+    module.globals = new_globals
 
     for _, func in ipairs(module.functions) do
         func.body = ir.map_cmd(func.body, function(cmd)
