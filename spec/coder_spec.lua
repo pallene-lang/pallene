@@ -2,12 +2,11 @@ local driver = require "pallene.driver"
 local util = require "pallene.util"
 
 local function compile(pallene_code)
-    return function()
+    setup(function()
         assert(util.set_file_contents("__test__.pln", pallene_code))
-        local ok, errors =
-            driver.compile("pallenec-tests", "pln", "so", "__test__.pln")
+        local ok, errors = driver.compile("pallenec-tests", "pln", "so", "__test__.pln")
         assert(ok, errors[1])
-    end
+    end)
 end
 
 local function run_test(test_script)
@@ -36,16 +35,16 @@ describe("Pallene coder /", function()
     teardown(cleanup)
 
     describe("Empty program /", function()
-        setup(compile(""))
+        compile("")
 
         it("compiles", function() end)
     end)
 
     describe("Exported functions /", function()
-        setup(compile([[
+        compile([[
             export function f(): integer return 10 end
             local function g(): integer return 11 end
-        ]]))
+        ]])
 
         it("does not export local functions", function()
             run_test([[
@@ -56,7 +55,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Literals /", function()
-        setup(compile([[
+        compile([[
             export function f_nil(): nil          return nil  end
             export function f_true(): boolean     return true end
             export function f_false(): boolean    return false end
@@ -66,7 +65,7 @@ describe("Pallene coder /", function()
             export function pi(): float           return 3.141592653589793 end
             export function e(): float            return 2.718281828459045 end
             export function one_half(): float     return 1.0 / 2.0 end
-        ]]))
+        ]])
 
         it("nil", function()
             run_test([[ assert(nil == test.f_nil()) ]])
@@ -111,7 +110,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Variables /", function()
-        setup(compile([[
+        compile([[
             export function fst(x:integer, y:integer): integer return x end
             export function snd(x:integer, y:integer): integer return y end
 
@@ -120,7 +119,7 @@ describe("Pallene coder /", function()
                 n = n + 1
                 return n
             end
-        ]]))
+        ]])
 
         it("local variables", function()
             run_test([[
@@ -139,7 +138,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Function calls /", function()
-        setup(compile([[
+        compile([[
             export function f0(): integer
                 return 17
             end
@@ -213,7 +212,7 @@ describe("Pallene coder /", function()
                 return 18
             end
 
-        ]]))
+        ]])
 
         it("no parameters", function()
             run_test([[ assert(17 == test.g0()) ]])
@@ -288,7 +287,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("First class functions /", function()
-        setup(compile([[
+        compile([[
             export function inc(x:integer): integer   return x + 1   end
             export function dec(x:integer): integer   return x - 1   end
 
@@ -320,7 +319,7 @@ describe("Pallene coder /", function()
             export function callf(x:integer): integer
                 return f(x)
             end
-        ]]))
+        ]])
 
         it("Object identity", function()
             run_test([[
@@ -402,7 +401,7 @@ describe("Pallene coder /", function()
             })
         end
 
-        setup(compile(table.concat(pallene_code, "\n")))
+        compile(table.concat(pallene_code, "\n"))
 
         for _, test in ipairs(tests) do
             local name = test[1]
@@ -541,7 +540,7 @@ describe("Pallene coder /", function()
             })
         end
 
-        setup(compile(table.concat(pallene_code, "\n")))
+        compile(table.concat(pallene_code, "\n"))
 
         for _, test in ipairs(tests) do
              local name = test[1]
@@ -550,7 +549,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Nil equality", function()
-        setup(compile([[
+        compile([[
             export function eq_nil(x: nil, y: nil): boolean
                 return x == y
             end
@@ -562,7 +561,7 @@ describe("Pallene coder /", function()
             export function eq_any(x: any, y: any): boolean
                 return x == y
             end
-        ]]))
+        ]])
 
         it("==", function()
             run_test([[
@@ -586,7 +585,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Record equality", function()
-        setup(compile([[
+        compile([[
             record Point
                 x: float
                 y: float
@@ -607,7 +606,7 @@ describe("Pallene coder /", function()
             export function ne_point(p: Point, q: Point): boolean
                 return p ~= q
             end
-        ]]))
+        ]])
 
         it("==", function()
             run_test([[
@@ -693,10 +692,10 @@ describe("Pallene coder /", function()
             })
         end
 
-        setup(compile(
+        compile(
             record_decls .. "\n" ..
             table.concat(pallene_code, "\n")
-        ))
+        )
 
         for _, test in ipairs(tests) do
             local name = test[1]
@@ -719,7 +718,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Statements /", function()
-        setup(compile([[
+        compile([[
             export function stat_blocks(): integer
                 local a = 1
                 local b = 2
@@ -833,7 +832,7 @@ describe("Pallene coder /", function()
                 return 40
             end
 
-        ]]))
+        ]])
 
         it("Block, Assign, Decl", function()
             run_test([[ assert(4 == test.stat_blocks()) ]])
@@ -892,7 +891,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Arrays /", function()
-        setup(compile([[
+        compile([[
             export function newarr(): {integer}
                 return {10,20,30}
             end
@@ -924,7 +923,7 @@ describe("Pallene coder /", function()
             export function getnil(xs: {nil}, i: integer): nil
                 return xs[i]
             end
-        ]]))
+        ]])
 
         it("literals", function()
             run_test([[
@@ -1067,7 +1066,7 @@ describe("Pallene coder /", function()
     describe("Tables /", function()
         local maxlenfield = string.rep('a', 40)
 
-        setup(compile([[
+        compile([[
             typealias point = {x: integer, y: integer}
 
             export function newpoint(): point
@@ -1109,7 +1108,7 @@ describe("Pallene coder /", function()
             export function getmax(t: {]].. maxlenfield ..[[: integer}): integer
                 return t.]].. maxlenfield ..[[
             end
-        ]]))
+        ]])
 
         it("has literals", function()
             run_test([[
@@ -1190,11 +1189,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("Strings", function()
-        setup(compile([[
+        compile([[
             export function len(s:string): integer
                 return #s
             end
-        ]]))
+        ]])
 
         it("length operator (#)", function()
             run_test([[ assert( 0 == test.len("")) ]])
@@ -1204,7 +1203,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Typealias", function()
-        setup(compile([[
+        compile([[
             typealias Float = float
             typealias FLOAT = float
 
@@ -1230,7 +1229,7 @@ describe("Pallene coder /", function()
             export function addPoint(ps: Points, p: Point)
                 ps[#ps + 1] = p
             end
-        ]]))
+        ]])
 
         it("converts between typealiases of the same type", function()
             run_test([[
@@ -1258,7 +1257,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Records", function()
-        setup(compile([[
+        compile([[
             record Foo
                 x: integer
                 y: {integer}
@@ -1306,7 +1305,7 @@ describe("Pallene coder /", function()
             export function make_empty(): Empty
                 return {}
             end
-        ]]))
+        ]])
 
         it("create records", function()
             run_test([[
@@ -1377,11 +1376,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("I/O", function()
-        setup(compile([[
+        compile([[
             export function write(s:string)
                 io.write(s)
             end
-        ]]))
+        ]])
 
         it("io.write works", function()
             run_test([[
@@ -1392,11 +1391,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("tofloat builtin", function()
-        setup(compile([[
+        compile([[
             export function itof(x:integer): float
                 return tofloat(x)
             end
-        ]]))
+        ]])
 
         it("works", function()
             run_test([[
@@ -1409,11 +1408,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("math.sqrt builtin", function()
-        setup(compile([[
+        compile([[
             export function square_root(x: float): float
                 return math.sqrt(x)
             end
-        ]]))
+        ]])
 
         it("works on positive numbers", function()
             run_test([[
@@ -1441,11 +1440,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("string.char builtin", function()
-        setup(compile([[
+        compile([[
             export function chr(x: integer): string
                 return string_.char(x)
             end
-        ]]))
+        ]])
 
         it("works on normal characters", function()
             run_test([[
@@ -1475,11 +1474,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("string.sub builtin", function()
-        setup(compile([[
+        compile([[
             export function sub(s: string, i: integer, j: integer): string
                 return string_.sub(s, i, j)
             end
-        ]]))
+        ]])
 
         it("work", function()
             run_test([[
@@ -1494,7 +1493,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("any", function()
-        setup(compile([[
+        compile([[
             export function id(x:any): any
                 return x
             end
@@ -1538,7 +1537,7 @@ describe("Pallene coder /", function()
                 until x
                 return out
             end
-        ]]))
+        ]])
 
         --
         -- All of these have a separate branch for the "any" and the non-"any"
@@ -1598,11 +1597,11 @@ describe("Pallene coder /", function()
     end)
 
     describe("Corner cases of exporting variables", function ()
-        setup(compile([[
+        compile([[
             local z = 10
             export x = 2000
             local x = 300
-        ]]))
+        ]])
 
         it("ensure that when globals are optimized away, the variables being exported are the right ones", function ()
             run_test([[ assert(2000 == test.x) ]])
@@ -1610,7 +1609,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Corner cases of scoping", function()
-        setup(compile([[
+        compile([[
             record Point
                 x: integer
                 y: integer
@@ -1720,7 +1719,7 @@ describe("Pallene coder /", function()
             export function duplicate_parameter(x: integer, x:integer) : integer
                 return x
             end
-        ]]))
+        ]])
 
         it("ensure that local variables are not exported", function ()
             run_test([[ assert(nil == test.j) ]])
@@ -1786,7 +1785,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Non-constant toplevel initializers", function()
-        setup(compile([[
+        compile([[
             export function f(): integer
                 return 10
             end
@@ -1816,7 +1815,7 @@ describe("Pallene coder /", function()
             export function get_x5(): {x: integer}
                 return x5
             end
-        ]]))
+        ]])
 
         it("", function()
             run_test([[
@@ -1833,7 +1832,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Nested for loops", function()
-        setup(compile([[
+        compile([[
             export function mul(n: integer, m:integer) : integer
                 local ret = 0
                 for i = 1, n do
@@ -1843,7 +1842,7 @@ describe("Pallene coder /", function()
                 end
                 return ret
             end
-        ]]))
+        ]])
 
         it("", function()
             run_test([[
@@ -1855,7 +1854,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Constant propagation", function()
-        setup(compile([[
+        compile([[
             local x = 0 -- never read from
             local step = 1
             local counter = 0
@@ -1869,7 +1868,7 @@ describe("Pallene coder /", function()
                 x = inc()
                 return counter
             end
-        ]]))
+        ]])
 
         it("preserves assignment side-effects", function()
             run_test([[
@@ -1881,7 +1880,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Uninitialized variables", function()
-        setup(compile([[
+        compile([[
             export function sign(x: integer): integer
                 local ret: integer
                 if     x  < 0 then
@@ -1909,7 +1908,7 @@ describe("Pallene coder /", function()
                 until true
                 return x
             end
-        ]]))
+        ]])
 
         it("can be used", function()
             run_test([[
@@ -1933,7 +1932,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("For loop integer overflow", function()
-        setup(compile([[
+        compile([[
             export function loop(A: integer, B: integer, C: integer): {integer}
                 local xs: {integer} = {}
                 for i = A, B, C do
@@ -1941,7 +1940,7 @@ describe("Pallene coder /", function()
                 end
                 return xs
             end
-        ]]))
+        ]])
 
         it("int loop avoids overflow", function()
             run_test([[
@@ -1986,7 +1985,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Multiple assignment", function()
-        setup(compile([[
+        compile([[
             typealias TPoint = {x:integer, y:integer}
 
             record RPoint
@@ -2070,7 +2069,7 @@ describe("Pallene coder /", function()
                 a, a, a = 10, 20, 30
                 return a
             end
-        ]]))
+        ]])
 
         it("preserves evaluation order with local variables", function()
             run_test([[
@@ -2207,7 +2206,7 @@ describe("Pallene coder /", function()
     end)
 
     describe("Multiple returns", function()
-        setup(compile([[
+        compile([[
             export function f(): (integer, integer, integer)
                 return 10, 20, 30
             end
@@ -2250,7 +2249,7 @@ describe("Pallene coder /", function()
                 x, y, y = f()
                 return y
             end
-        ]]))
+        ]])
 
         it("works as function arguments", function()
             run_test([[
