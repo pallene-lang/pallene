@@ -366,7 +366,7 @@ local grammar = re.compile([[
     e11             <- (P  {| unop* |}  e12)                     -> fold_unops
     e12             <- (P  castexp (op12 e11^OpExp)?)            -> binop_right
 
-    suffixedexp     <- (prefixexp {| expsuffix+ |})              -> fold_suffixes
+    suffixedexp     <- (prefixexp {| expsuffix* |})              -> fold_suffixes
 
     expsuffix       <- (P  funcargs)                             -> suffix_func_call
                      / (P  COLON NAME^NameColonExpSuf
@@ -390,10 +390,8 @@ local grammar = re.compile([[
                      / (P  STRINGLIT)                            -> ExpString
                      / initlist                                  -- produces Exp
                      / suffixedexp                               -- produces Exp
-                     / prefixexp                                 -- produces Exp
 
     var             <- (suffixedexp => exp_is_var)               -> exp_to_var
-                     / (P  NAME !expsuffix)                      -> name_exp -> exp_to_var
 
     funcargs        <- (LPAREN explist0 RPAREN^RParFuncArgs)     -- produces {Exp}
                      / {| initlist |}                            -- produces {Exp}
