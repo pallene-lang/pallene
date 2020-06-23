@@ -1,11 +1,10 @@
-local driver = require "pallene.driver"
 local util = require "pallene.util"
 
 local function compile(pallene_code)
     setup(function()
         assert(util.set_file_contents("__test__.pln", pallene_code))
-        local ok, errors = driver.compile("pallenec-tests", "pln", "so", "__test__.pln")
-        assert(ok, errors[1])
+        local ok, _, _, errmsg = util.outputs_of_execute("./pallenec __test__.pln")
+        if not ok then error(errmsg) end
     end)
 end
 
