@@ -6,6 +6,11 @@ local function compile(pallene_code)
         local ok, _, _, errmsg = util.outputs_of_execute("./pallenec __test__.pln")
         if not ok then error(errmsg) end
     end)
+
+    it("does not crash the #prettyprinter", function()
+        local ok, _, _, errmsg = util.outputs_of_execute("./pallenec --print-ir __test__.pln")
+        if not ok then error(errmsg) end
+    end)
 end
 
 local function run_test(test_script)
