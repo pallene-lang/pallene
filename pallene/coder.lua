@@ -70,10 +70,6 @@ function Coder:init(module, modname)
     self.gc = {} -- (see gc.compute_stack_slots)
     self.max_lua_call_stack_usage = {} -- func => integer
     self:init_gc()
-
-    self.closures = {}      -- list of f_id
-    self.closure_index = {} -- fid => index in closures lis
-    self:init_closures()
 end
 
 --
@@ -484,27 +480,6 @@ end
 --
 -- The first upvalue should be the module's global userdata object.
 
-
--- Computes a list of function ids that need a Lua entry point
-function Coder:init_closures()
-    local f_ids = {}
-    table.insert(f_ids, 1) -- $init function
-    for f_id in pairs(self.upvalue_of_function) do
-        table.insert(f_ids, f_id)
-    end
-    for _, f_id in ipairs(self.module.exported_functions) do
-        table.insert(f_ids, f_id)
-    end
-    table.sort(f_ids) -- For determinism
-
-    for _, f_id in ipairs(f_ids) do
-        if not self.closure_index[f_id] then
-            table.insert(self.closures, f_id)
-            self.closure_index[f_id] = #self.closures
-        end
-    end
-end
-
 function Coder:lua_entry_point_name(f_id)
     return string.format("function_%02d_lua", f_id)
 end
@@ -640,15 +615,27 @@ function Coder:init_upvalues()
     end
 
     -- Functions
+
+    local closures = {}
     for _, func in ipairs(self.module.functions) do
         for cmd in ir.iter(func.body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.Function" then
-                    local f_id = v.id
-                    table.insert(self.upvalues, coder.Upvalue.Function(f_id))
-                    self.upvalue_of_function[f_id] = #self.upvalues
+                    table.insert(closures, v.id)
                 end
             end
+        end
+    end
+    for _, f_id in ipairs(self.module.exported_functions) do
+        table.insert(closures, f_id)
+    end
+
+    table.sort(closures) -- For determinism
+
+    for _, f_id in ipairs(closures) do
+        if not self.upvalue_of_function[f_id] then
+            table.insert(self.upvalues, coder.Upvalue.Function(f_id))
+            self.upvalue_of_function[f_id] = #self.upvalues
         end
     end
 
@@ -1562,8 +1549,10 @@ function Coder:generate_module()
     end
 
     table.insert(out, section_comment("Exports"))
-    for _, f_id in ipairs(self.closures) do
-        table.insert(out, self:lua_entry_point_definition(f_id))
+    for f_id = 1, #self.module.functions do
+        if f_id == 1 or self.upvalue_of_function[f_id] then
+            table.insert(out, self:lua_entry_point_definition(f_id))
+        end
     end
     table.insert(out, self:generate_luaopen_function())
 
@@ -1572,46 +1561,34 @@ end
 
 function Coder:generate_luaopen_function()
 
-    local init_closures = {}
-    for ix, f_id in ipairs(self.closures) do
-        local entry_point = self:lua_entry_point_name(f_id)
-        table.insert(init_closures, util.render([[
-            lua_pushvalue(L, globals);
-            lua_pushcclosure(L, ${entry_point}, 1);
-            lua_seti(L, closures, $ix);
-            /**/
-        ]], {
-            entry_point = entry_point,
-            ix = C.integer(ix),
-        }))
-    end
-
-
-    local init_upvalues = {}
+    local init_constants = {}
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
         if tag ~= "coder.Upvalue.Global" then
             if     tag == "coder.Upvalue.Metatable" then
-                table.insert(init_upvalues, [[
+                table.insert(init_constants, [[
                     lua_newtable(L);
                     lua_pushstring(L, "__metatable");
                     lua_pushboolean(L, 0);
                     lua_settable(L, -3); ]])
             elseif tag == "coder.Upvalue.String" then
-                table.insert(init_upvalues, util.render([[
+                table.insert(init_constants, util.render([[
                     lua_pushstring(L, $str);]], {
                         str = C.string(upv.str)
                     }))
             elseif tag == "coder.Upvalue.Function" then
-                table.insert(init_upvalues, util.render([[
-                    lua_geti(L, closures, $ix); ]], {
-                        ix = C.integer(self.closure_index[upv.f_id])
-                    }))
+                table.insert(init_constants, util.render([[
+                    lua_pushvalue(L, globals);
+                    lua_pushcclosure(L, ${entry_point}, 1);
+                ]], {
+                    entry_point = self:lua_entry_point_name(upv.f_id),
+                    ix = C.integer(self.upvalue_of_function[upv.f_id]),
+                }))
             else
                 error("impossible")
             end
 
-            table.insert(init_upvalues, util.render([[
+            table.insert(init_constants, util.render([[
                 lua_setiuservalue(L, globals, $ix);
                 /**/
             ]], {
@@ -1619,24 +1596,26 @@ function Coder:generate_luaopen_function()
             }))
         end
     end
-    table.insert(init_upvalues, [[
-        // Run toplevel statements & initialize globals
-        lua_geti(L, closures, 1);
-        lua_call(L, 0, 0);
-    ]])
 
+    local init_initializers = util.render([[
+        lua_pushvalue(L, globals);
+        lua_pushcclosure(L, ${init_function}, 1);
+        lua_call(L, 0, 0);
+    ]], {
+        init_function = self:lua_entry_point_name(1),
+    })
 
     local init_exports = {}
     for _, f_id in ipairs(self.module.exported_functions) do
         local name = self.module.functions[f_id].name
         table.insert(init_exports, util.render([[
             lua_pushstring(L, ${name});
-            lua_geti(L, closures, $ix);
+            lua_getiuservalue(L, globals, $ix);
             lua_settable(L, export_table);
             /**/
         ]], {
             name = C.string(name),
-            ix = C.integer(self.closure_index[f_id]),
+            ix = C.integer(self.upvalue_of_function[f_id]),
         }))
     end
 
@@ -1659,49 +1638,37 @@ function Coder:generate_luaopen_function()
             luaL_checkversion(L);
 
             /**/
+            /* Constants */
+            /**/
 
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
+            /**/
+            ${init_constants}
 
             /**/
-
-            lua_createtable(L, $n_closures, 0);
-            int closures = lua_gettop(L);
-
+            /* Variables & Initializers */
             /**/
 
-            lua_newtable(L);
-            int export_table = lua_gettop(L);
-
-            /**/
-            /* Closures */
-            /**/
-
-            ${init_closures}
-
-            /**/
-            /* Global values */
-            /**/
-
-            ${init_upvalues}
+            ${init_initializers}
 
             /**/
             /* Exports */
             /**/
 
-            ${init_exports}
-
+            lua_newtable(L);
+            int export_table = lua_gettop(L);
             /**/
-
+            ${init_exports}
+            /**/
             lua_pushvalue(L, export_table);
             return 1;
         }
     ]], {
         name = "luaopen_" .. self.modname,
-        n_closures = C.integer(#self.closures),
         n_upvalues = C.integer(#self.upvalues),
-        init_closures = table.concat(init_closures, "\n"),
-        init_upvalues = table.concat(init_upvalues, "\n"),
+        init_constants = table.concat(init_constants, "\n"),
+        init_initializers = init_initializers,
         init_exports  = table.concat(init_exports, "\n"),
     }))
 end
