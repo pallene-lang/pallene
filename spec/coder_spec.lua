@@ -1597,8 +1597,19 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("Corner cases of scoping", function()
+    describe("Corner cases of exporting variables", function ()
+        setup(compile([[
+            local z = 10
+            export x = 2000
+            local x = 300
+        ]]))
 
+        it("ensure that when globals are optimized away, the variables being exported are the right ones", function ()
+            run_test([[ assert(2000 == test.x) ]])
+        end)
+    end)
+
+    describe("Corner cases of scoping", function()
         setup(compile([[
             record Point
                 x: integer
@@ -1644,6 +1655,14 @@ describe("Pallene coder /", function()
             export i : string = 'baby'
 
             local i : string = 'yoda'
+
+            ------
+
+            local j : integer = 5319
+
+            ------
+
+            export k : string = "How you doin'?"
 
             ------
 
@@ -1703,12 +1722,20 @@ describe("Pallene coder /", function()
             end
         ]]))
 
+        it("ensure that local variables are not exported", function ()
+            run_test([[ assert(nil == test.j) ]])
+        end)
+
+        it("ensure that exported variables are not optimized out", function ()
+            run_test([[ assert("How you doin'?" == test.k) ]])
+        end)
+
         it("exported functions that are locally shadowed should be visible ouside the module", function ()
             run_test([[ assert('function' == type(test.g)) ]])
             run_test([[ assert(19 == test.f()) ]])
         end)
 
-        pending("exported variables that are locally shadowed should be visible outside the module", function ()
+        it("exported variables that are locally shadowed should be visible outside the module", function ()
             run_test([[ assert('baby' == test.i) ]])
             run_test([[ assert('string' == type(test.h)) ]])
         end)

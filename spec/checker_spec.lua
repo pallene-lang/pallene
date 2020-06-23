@@ -63,7 +63,7 @@ describe("Scope analysis: ", function()
             "duplicate export 'f', previous one at line 1")
     end)
 
-    pending("forbids multiple toplevel declarations with the same name for exported function and variable", function()
+    it("forbids multiple toplevel declarations with the same name for exported function and variable", function()
         assert_error([[
             export function f() end
             export f = 1

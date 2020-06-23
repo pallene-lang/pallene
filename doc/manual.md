@@ -376,6 +376,40 @@ export name: string = "Hello"
 You can export on top-level components from a Pallene module.
 Further, it is an error to export the same name twice.
 
+
+When variables are exported from a module, only the initial values are exported.
+Therefore, any changes made to the variable from within the module after the export, will not be reflected outside.
+You could over come this limitation (or perhaps a feature), using tables.
+For example, if the exported value is a table then the contents of the table may change and that will be seen outside.
+But if you are exporting a string or number variable, any subsequent changes will remain unseen outside the module.
+
+This is an intended behavior.
+In fact, it is analogous to what happens if you define a Lua module like this:
+```lua
+local x = 10
+
+local function f()
+    return x
+end
+
+return { x = x, f = f }
+```
+
+In Lua you can also create modules in a way that lets the variables be monkey-patched.
+```
+local m = {}
+
+m.x = 10
+
+function m.f()
+    return m.x
+end
+
+return m
+```
+
+But we do not use this pattern in Pallene because it is harder to optimize function calls if they can be monkey-patched.
+
 ## The Complete Syntax of Pallene
 
 Here is the complete syntax of Pallene in extended BNF.
