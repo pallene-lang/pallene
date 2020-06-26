@@ -60,7 +60,16 @@ describe("Scope analysis: ", function()
             export function f() end
             export function f() end
         ]],
-            "duplicate export 'f', previous one at line 1")
+            "duplicate toplevel 'f', previous one at line 1")
+    end)
+
+    it("forbids multiple toplevel declaration", function()
+        assert_error([[
+            local f = 1
+            local function f()
+            end
+        ]],
+            "duplicate toplevel 'f', previous one at line 1")
     end)
 
     it("forbids multiple toplevel declarations with the same name for exported function and variable", function()
@@ -68,7 +77,7 @@ describe("Scope analysis: ", function()
             export function f() end
             export f = 1
         ]],
-            "duplicate export 'f', previous one at line 1")
+            "duplicate toplevel 'f', previous one at line 1")
     end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
