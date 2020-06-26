@@ -1597,13 +1597,17 @@ describe("Pallene coder /", function()
 
     describe("Corner cases of exporting variables", function ()
         compile([[
-            local z = 10
-            export x = 2000
-            local x = 300
+            local  a = 10
+            export b = 20
+            local  c = 30
+            export d = 40
         ]])
 
         it("ensure that when globals are optimized away, the variables being exported are the right ones", function ()
-            run_test([[ assert(2000 == test.x) ]])
+            run_test([[ assert(nil == test.a) ]])
+            run_test([[ assert(20 == test.b) ]])
+            run_test([[ assert(nil == test.c) ]])
+            run_test([[ assert(40 == test.d) ]])
         end)
     end)
 
@@ -1620,42 +1624,6 @@ describe("Pallene coder /", function()
 
             ------
 
-            local a, a = 5, 3
-
-            ------
-
-            export function f(): integer
-                return 19
-            end
-
-            local function f(): integer
-                return 53
-            end
-
-            ------
-
-            export function g(): integer
-                return 83
-            end
-
-            local g : string = 'preets'
-
-            ------
-
-            export h : string = 'madyanam'
-
-            local function h(): integer
-                return 1216
-            end
-
-            ------
-
-            export i : string = 'baby'
-
-            local i : string = 'yoda'
-
-            ------
-
             local j : integer = 5319
 
             ------
@@ -1663,26 +1631,6 @@ describe("Pallene coder /", function()
             export k : string = "How you doin'?"
 
             ------
-
-            export function toplevel_local_f(): integer
-                return f()
-            end
-
-            export function toplevel_local_g_type(): string
-                return type(g)
-            end
-
-            export function toplevel_local_h_type(): string
-                return type(h)
-            end
-
-            export function toplevel_local_i(): string
-                return i
-            end
-
-            export function toplevel_local_a(): integer
-                return a
-            end
 
             export function local_type(): integer
                 local Point: Point = { x=1, y=2 }
@@ -1722,40 +1670,6 @@ describe("Pallene coder /", function()
 
         it("ensure that local variables are not exported", function ()
             run_test([[ assert(nil == test.j) ]])
-        end)
-
-        it("ensure that exported variables are not optimized out", function ()
-            run_test([[ assert("How you doin'?" == test.k) ]])
-        end)
-
-        it("exported functions that are locally shadowed should be visible ouside the module", function ()
-            run_test([[ assert('function' == type(test.g)) ]])
-            run_test([[ assert(19 == test.f()) ]])
-        end)
-
-        it("exported variables that are locally shadowed should be visible outside the module", function ()
-            run_test([[ assert('baby' == test.i) ]])
-            run_test([[ assert('string' == type(test.h)) ]])
-        end)
-
-        it("local top-level variable shadows toplevel exported variable", function ()
-            run_test([[ assert('yoda' == test.toplevel_local_i()) ]])
-        end)
-
-        it("local top-level function shadows toplevel exported variable", function ()
-            run_test([[ assert('function' == test.toplevel_local_h_type()) ]])
-        end)
-
-        it("local top-level variable shadows toplevel exported function", function ()
-            run_test([[ assert('string' == test.toplevel_local_g_type()) ]])
-        end)
-
-        it("local top-level function shadows toplevel exported function", function ()
-            run_test([[ assert(53 == test.toplevel_local_f()) ]])
-        end)
-
-        it("local top-level variable is shadowed by the latest declaration", function ()
-            run_test([[ assert(3 == test.toplevel_local_a()) ]])
         end)
 
         it("local variable doesn't shadow its type annotation", function()

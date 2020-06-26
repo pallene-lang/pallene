@@ -233,9 +233,9 @@ function Checker:check_program(prog_ast)
     do
         -- Forbid top-level duplicates
         --
-        -- To avoid ambiguities that could happen if the programmer tried to export multiple
-        -- functions with the same name, we give a compilation error if there is more than one
-        -- definition in the toplevel with the same name.
+        -- To avoid ambiguities that could happen if the programmer tried to declare
+        -- multiple toplevel entities with the same name, we give a compilation
+        -- error.
         local names = {}
         for _, top_level_node in ipairs(prog_ast) do
             local top_level_names = ast.toplevel_names(top_level_node)
@@ -243,14 +243,9 @@ function Checker:check_program(prog_ast)
             for _, name in ipairs(top_level_names) do
                 local old_location = names[name]
                 if old_location then
-                    if top_level_node._tag == "ast.Toplevel.Func" or
-                        top_level_node._tag == "ast.Toplevel.Var" then
-                        if not top_level_node.is_local then
-                            scope_error(node_location,
-                                "duplicate export '%s', previous one at line %d",
-                                name, old_location.line)
-                        end
-                    end
+                    scope_error(node_location,
+                        "duplicate toplevel '%s', previous one at line %d",
+                        name, old_location.line)
                 end
                 names[name] = node_location
             end
