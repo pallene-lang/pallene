@@ -133,33 +133,45 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
 
     local mod_name = string.gsub(base_name, "/", "_")
 
-    local first_step = step_index[input_ext]  or error("invalid extension")
-    local last_step  = step_index[output_ext] or error("invalid extension")
-    assert(first_step < last_step, "impossible order")
+    local ok, errs
+    if output_ext == "lua" then
+        print(input_file_name)
+        local input = assert(io.open(input_file_name, "r"))
+        local content = input:read("*all")
+        input:close()
 
-    local file_names = {}
-    for i = first_step, last_step do
-        local step = compiler_steps[i]
-        if (i == first_step or i == last_step) then
-            file_names[i] = base_name .. "." .. step.name
-        else
-            file_names[i] = os.tmpname()
+        local output = io.open(base_name .. "." .. output_ext, "w+")
+        output:write(content)
+        output:close()
+
+        ok = true
+    else
+        local first_step = step_index[input_ext]  or error("invalid extension")
+        local last_step  = step_index[output_ext] or error("invalid extension")
+        assert(first_step < last_step, "impossible order")
+
+        local file_names = {}
+        for i = first_step, last_step do
+            local step = compiler_steps[i]
+            if (i == first_step or i == last_step) then
+                file_names[i] = base_name .. "." .. step.name
+            else
+                file_names[i] = os.tmpname()
+            end
+        end
+
+        for i = first_step, last_step-1 do
+            local f = compiler_steps[i].f
+            local src = file_names[i]
+            local out = file_names[i+1]
+            ok, errs = f(src, out, mod_name)
+            if not ok then break end
+        end
+
+        for i = first_step+1, last_step-1 do
+            os.remove(file_names[i])
         end
     end
-
-    local ok, errs
-    for i = first_step, last_step-1 do
-        local f = compiler_steps[i].f
-        local src = file_names[i]
-        local out = file_names[i+1]
-        ok, errs = f(src, out, mod_name)
-        if not ok then break end
-    end
-
-    for i = first_step+1, last_step-1 do
-        os.remove(file_names[i])
-    end
-
     return ok, errs
 end
 
