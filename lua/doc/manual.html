@@ -346,38 +346,56 @@ of its first upvalue; see <a href="#lua_setupvalue"><code>lua_setupvalue</code><
 <h2>2.3 &ndash; <a name="2.3">Error Handling</a></h2>
 
 <p>
-Because Lua is an embedded extension language,
-all Lua actions start from C&nbsp;code in the host program
-calling a function from the Lua library.
-(When you use Lua standalone,
-the <code>lua</code> application is the host program.)
-Whenever an error occurs during
-the compilation or execution of a Lua chunk,
-control returns to the host,
-which can take appropriate measures
-(such as printing an error message).
+Several operations in Lua can <em>raise</em> an error.
+An error interrupts the normal flow of the program,
+which can continue by <em>catching</em> the error.
 
 
 <p>
-Lua code can explicitly generate an error by calling the
+Lua code can explicitly raise an error by calling the
 <a href="#pdf-error"><code>error</code></a> function.
-If you need to catch errors in Lua,
-you can use <a href="#pdf-pcall"><code>pcall</code></a> or <a href="#pdf-xpcall"><code>xpcall</code></a>
-to call a given function in <em>protected mode</em>.
+(This function never returns.)
+
+
+<p>
+To catch errors in Lua,
+you can do a <em>protected call</em>,
+using <a href="#pdf-pcall"><code>pcall</code></a> (or <a href="#pdf-xpcall"><code>xpcall</code></a>).
+The function <a href="#pdf-pcall"><code>pcall</code></a> calls a given function in <em>protected mode</em>.
+Any error while running the function stops its execution,
+and control returns immediately to <code>pcall</code>,
+which returns a status code.
+
+
+<p>
+Because Lua is an embedded extension language,
+Lua code starts running by a call
+from C&nbsp;code in the host program.
+(When you use Lua standalone,
+the <code>lua</code> application is the host program.)
+Usually, this call is protected;
+so, when an otherwise unprotected error occurs during
+the compilation or execution of a Lua chunk,
+control returns to the host,
+which can take appropriate measures,
+such as printing an error message.
 
 
 <p>
 Whenever there is an error,
-an <em>error object</em> (also called an <em>error message</em>)
+an <em>error object</em>
 is propagated with information about the error.
 Lua itself only generates errors whose error object is a string,
 but programs may generate errors with
 any value as the error object.
 It is up to the Lua program or its host to handle such error objects.
+For historical reasons,
+an error object is often called an <em>error message</em>,
+even though it does not have to be a string.
 
 
 <p>
-When you use <a href="#pdf-xpcall"><code>xpcall</code></a> or <a href="#lua_pcall"><code>lua_pcall</code></a>,
+When you use <a href="#pdf-xpcall"><code>xpcall</code></a> (or <a href="#lua_pcall"><code>lua_pcall</code></a>, in C)
 you may give a <em>message handler</em>
 to be called in case of errors.
 This function is called with the original error object
@@ -713,10 +731,30 @@ This means that
 you do not have to worry about allocating memory for new objects
 or freeing it when the objects are no longer needed.
 Lua manages memory automatically by running
-a <em>garbage collector</em> to collect all <em>dead objects</em>
-(that is, objects that are no longer accessible from Lua).
+a <em>garbage collector</em> to collect all <em>dead</em> objects.
 All memory used by Lua is subject to automatic management:
 strings, tables, userdata, functions, threads, internal structures, etc.
+
+
+<p>
+An object is considered <em>dead</em>
+as soon as the collector can be sure the object
+will not be accessed again in the normal execution of the program.
+("Normal execution" here excludes finalizers,
+which can resurrect dead objects (see <a href="#2.5.3">&sect;2.5.3</a>),
+and excludes also operations using the debug library.)
+Note that the time when the collector can be sure that an object
+is dead may not coincide with the programmer's expectations.
+The only guarantees are that Lua will not collect an object
+that may still be accessed in the normal execution of the program,
+and it will eventually collect an object
+that is inaccessible from Lua.
+(Here,
+<em>inaccessible from Lua</em> means that neither a variable nor
+another live object refer to the object.)
+Because Lua has no knowledge about C&nbsp;code,
+it never collects objects accessible through the registry (see <a href="#4.3">&sect;4.3</a>),
+which includes the global environment (see <a href="#2.2">&sect;2.2</a>).
 
 
 <p>
@@ -851,7 +889,7 @@ and, using the C&nbsp;API,
 for full userdata (see <a href="#2.4">&sect;2.4</a>).
 These metamethods, called <em>finalizers</em>,
 are called when the garbage collector detects that the
-corresponding table or userdata is unreachable.
+corresponding table or userdata is dead.
 Finalizers allow you to coordinate Lua's garbage collection
 with external resource management such as closing files,
 network or database connections,
@@ -870,7 +908,7 @@ the object will not be marked for finalization.
 
 
 <p>
-When a marked object becomes unreachable,
+When a marked object becomes dead,
 it is not collected immediately by the garbage collector.
 Instead, Lua puts it in a list.
 After the collection,
@@ -903,10 +941,10 @@ However, if the finalizer stores the object in some global place
 then the resurrection is permanent.
 Moreover, if the finalizer marks a finalizing object for finalization again,
 its finalizer will be called again in the next cycle where the
-object is unreachable.
+object is dead.
 In any case,
 the object memory is freed only in a GC cycle where
-the object is unreachable and not marked for finalization.
+the object is dead and not marked for finalization.
 
 
 <p>
@@ -3181,6 +3219,9 @@ For such errors, Lua does not call the message handler.
 
 <li><b><a name="pdf-LUA_YIELD"><code>LUA_YIELD</code></a>: </b> the thread (coroutine) yields.</li>
 
+<li><b><a name="pdf-LUA_ERRFILE"><code>LUA_ERRFILE</code></a>: </b> a file-related error;
+e.g., it cannot open or read the file.</li>
+
 </ul><p>
 These constants are defined in the header file <code>lua.h</code>.
 
@@ -3796,7 +3837,7 @@ This function does not pop the Lua function from the stack.
 <pre>int lua_error (lua_State *L);</pre>
 
 <p>
-Generates a Lua error,
+Raises a Lua error,
 using the value on the top of the stack as the error object.
 This function does a long jump,
 and therefore never returns
@@ -5198,8 +5239,9 @@ Returns 0 if the userdata does not have that value.
 <pre>int lua_setmetatable (lua_State *L, int index);</pre>
 
 <p>
-Pops a table from the stack and
-sets it as the new metatable for the value at the given index.
+Pops a table or <b>nil</b> from the stack and
+sets that value as the new metatable for the value at the given index.
+(<b>nil</b> means no metatable.)
 
 
 <p>
@@ -5827,7 +5869,7 @@ If <code>source</code> starts with a '<code>@</code>',
 it means that the function was defined in a file where
 the file name follows the '<code>@</code>'.
 If <code>source</code> starts with a '<code>=</code>',
-the remainder of its contents describe the source in a user-dependent manner.
+the remainder of its contents describes the source in a user-dependent manner.
 Otherwise,
 the function was defined in a string where
 <code>source</code> is that string.
@@ -6606,7 +6648,7 @@ plus the final string on its top.
 <pre>char *luaL_buffaddr (luaL_Buffer *B);</pre>
 
 <p>
-Returns the address of the current contents of buffer <code>B</code>
+Returns the address of the current content of buffer <code>B</code>
 (see <a href="#luaL_Buffer"><code>luaL_Buffer</code></a>).
 Note that any addition to the buffer may invalidate this address.
 
@@ -6633,7 +6675,7 @@ the buffer must be declared as a variable.
 <pre>size_t luaL_bufflen (luaL_Buffer *B);</pre>
 
 <p>
-Returns the length of the current contents of buffer <code>B</code>
+Returns the length of the current content of buffer <code>B</code>
 (see <a href="#luaL_Buffer"><code>luaL_Buffer</code></a>).
 
 
@@ -6852,8 +6894,8 @@ It is defined as the following macro:
 <pre>
      (luaL_loadfile(L, filename) || lua_pcall(L, 0, LUA_MULTRET, 0))
 </pre><p>
-It returns false if there are no errors
-or true in case of errors.
+It returns <a href="#pdf-LUA_OK"><code>LUA_OK</code></a> if there are no errors,
+or an error code in case of errors (see <a href="#4.4.1">&sect;4.4.1</a>).
 
 
 
@@ -6870,8 +6912,8 @@ It is defined as the following macro:
 <pre>
      (luaL_loadstring(L, str) || lua_pcall(L, 0, LUA_MULTRET, 0))
 </pre><p>
-It returns false if there are no errors
-or true in case of errors.
+It returns <a href="#pdf-LUA_OK"><code>LUA_OK</code></a> if there are no errors,
+or an error code in case of errors (see <a href="#4.4.1">&sect;4.4.1</a>).
 
 
 
@@ -7071,10 +7113,8 @@ The string <code>mode</code> works as in the function <a href="#lua_load"><code>
 
 
 <p>
-This function returns the same results as <a href="#lua_load"><code>lua_load</code></a>,
-but it has an extra error code <a name="pdf-LUA_ERRFILE"><code>LUA_ERRFILE</code></a>
-for file-related errors
-(e.g., it cannot open or read the file).
+This function returns the same results as <a href="#lua_load"><code>lua_load</code></a>
+or <a href="#pdf-LUA_ERRFILE"><code>LUA_ERRFILE</code></a> for file-related errors.
 
 
 <p>
@@ -7329,6 +7369,17 @@ where you can copy a string to be added to buffer <code>B</code>
 After copying the string into this space you must call
 <a href="#luaL_addsize"><code>luaL_addsize</code></a> with the size of the string to actually add
 it to the buffer.
+
+
+
+
+
+<hr><h3><a name="luaL_pushfail"><code>luaL_pushfail</code></a></h3><p>
+<span class="apii">[-0, +1, &ndash;]</span>
+<pre>void luaL_pushfail (lua_State *L);</pre>
+
+<p>
+Pushes the <b>fail</b> value onto the stack (see <a href="#6">&sect;6</a>).
 
 
 
@@ -7729,7 +7780,7 @@ implementations for some of its facilities.
 
 
 <p>
-Calls <a href="#pdf-error"><code>error</code></a> if
+Raises an error if
 the value of its argument <code>v</code> is false (i.e., <b>nil</b> or <b>false</b>);
 otherwise, returns all its arguments.
 In case of error,
@@ -7813,9 +7864,9 @@ and some of these options.
 
 <p>
 <hr><h3><a name="pdf-dofile"><code>dofile ([filename])</code></a></h3>
-Opens the named file and executes its contents as a Lua chunk.
+Opens the named file and executes its content as a Lua chunk.
 When called without arguments,
-<code>dofile</code> executes the contents of the standard input (<code>stdin</code>).
+<code>dofile</code> executes the content of the standard input (<code>stdin</code>).
 Returns all values returned by the chunk.
 In case of errors, <code>dofile</code> propagates the error
 to its caller.
@@ -7826,8 +7877,7 @@ to its caller.
 
 <p>
 <hr><h3><a name="pdf-error"><code>error (message [, level])</code></a></h3>
-Terminates the last protected function called
-and returns <code>message</code> as the error object.
+Raises an error (see <a href="#2.3">&sect;2.3</a>) with @{message} as the error object.
 This function never returns.
 
 
@@ -10126,18 +10176,18 @@ all bits (pseudo)random.
 
 
 <p>
+This function uses the <code>xoshiro256**</code> algorithm to produce
+pseudo-random 64-bit integers,
+which are the results of calls with argument&nbsp;0.
+Other results (ranges and floats)
+are unbiased extracted from these integers.
+
+
+<p>
 Lua initializes its pseudo-random generator with the equivalent of
 a call to <a href="#pdf-math.randomseed"><code>math.randomseed</code></a> with no arguments,
 so that <code>math.random</code> should generate
 different sequences of results each time the program runs.
-
-
-<p>
-The results from this function have good statistical qualities,
-but they are not cryptographically secure.
-(For instance, there are no guarantees that it is hard
-to predict future results based on the observation of
-some previous results.)
 
 
 
@@ -11605,7 +11655,7 @@ not a float.
 Literal decimal integer constants that overflow are read as floats,
 instead of wrapping around.
 You can use hexadecimal notation for such constants if you
-want the old bevhavior
+want the old behavior
 (reading them as integers with wrap around).
 </li>
 
@@ -11666,6 +11716,17 @@ An extra parameter in these functions makes them more permissive.
 The options "<code>setpause</code>" and "<code>setstepmul</code>"
 of the function <a href="#pdf-collectgarbage"><code>collectgarbage</code></a> are deprecated.
 You should use the new option "<code>incremental</code>" to set them.
+</li>
+
+<li>
+The function <a href="#pdf-io.lines"><code>io.lines</code></a> now returns four values,
+instead of just one.
+That can be a problem when it is used as the sole
+argument to another function that has optional parameters,
+such as in <code>load(io.lines(filename, "L"))</code>.
+To fix that issue,
+you can wrap the call into parentheses,
+to adjust its number of results to one.
 </li>
 
 </ul>
@@ -11825,7 +11886,7 @@ and LiteralString, see <a href="#3.1">&sect;3.1</a>.)
 
 <P CLASS="footer">
 Last update:
-Wed Apr 15 13:05:26 UTC 2020
+Thu Jun 18 16:10:16 UTC 2020
 </P>
 <!--
 Last change: revised for Lua 5.4.0 (final)
