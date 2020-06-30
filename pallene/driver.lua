@@ -135,14 +135,9 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
 
     local ok, errs
     if output_ext == "lua" then
-        print(input_file_name)
-        local input = assert(io.open(input_file_name, "r"))
-        local content = input:read("*all")
-        input:close()
-
-        local output = io.open(base_name .. "." .. output_ext, "w+")
-        output:write(content)
-        output:close()
+        assert(input_ext == "pln")
+        local contents = assert(util.get_file_contents(input_file_name))
+        assert(util.set_file_contents(base_name .. "." .. output_ext, contents))
 
         ok = true
     else
