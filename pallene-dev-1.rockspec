@@ -41,6 +41,7 @@ build = {
       ["pallene.types"] =          "pallene/types.lua",
       ["pallene.uninitialized"] =  "pallene/uninitialized.lua",
       ["pallene.util"] =           "pallene/util.lua",
+      ["pallene.translator"] =     "pallene/translator.lua",
    },
    install = {
       bin = {

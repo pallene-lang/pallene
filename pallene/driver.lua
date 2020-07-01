@@ -11,6 +11,7 @@ local parser = require "pallene.parser"
 local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
+local translator = require "pallene.translator"
 
 local driver = {}
 
@@ -51,32 +52,32 @@ function driver.compile_internal(filename, stop_after)
     local prog_ast
     prog_ast, errs = parser.parse(filename, input)
     if stop_after == "ast" or not prog_ast then
-        return prog_ast, errs
+        return prog_ast, errs, input
     end
 
     prog_ast, errs = checker.check(prog_ast)
     if stop_after == "checker" or not prog_ast then
-        return prog_ast, errs
+        return prog_ast, errs, input
     end
 
     local module
     module, errs = to_ir.convert(prog_ast)
     if stop_after == "ir" or not module then
-        return module, errs
+        return module, errs, input
     end
 
     module, errs = uninitialized.verify_variables(module)
     if stop_after == "uninitialized" or not module then
-        return module, errs
+        return module, errs, input
     end
 
     module, errs = constant_propagation.run(module)
     if stop_after == "constant_propagation" or not module then
-        return module, errs
+        return module, errs, input
     end
 
     if stop_after == "optimize" or not module then
-        return module, {}
+        return module, {}, input
     end
 
     error("impossible")
@@ -136,8 +137,10 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
     local ok, errs
     if output_ext == "lua" then
         assert(input_ext == "pln")
-        local contents = assert(util.get_file_contents(input_file_name))
-        assert(util.set_file_contents(base_name .. "." .. output_ext, contents))
+        local module, errs, input = driver.compile_internal(input_file_name)
+        local translation = translator.translate(input, module)
+
+        assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
 
         ok = true
     else
