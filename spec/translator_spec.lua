@@ -22,19 +22,18 @@ end
 describe("Pallene to Lua translator", function ()
     teardown(cleanup)
 
-
     it("empty input should result in an empty result", function ()
         assert_translation("", "")
     end)
 
     it("copies the input to the output file as is", function ()
         assert_translation([[
-            function print(text: string)
+            local function print(text: string)
                 io.write(text .. "\n")
             end
         ]],
         [[
-            function print(text: string)
+            local function print(text: string)
                 io.write(text .. "\n")
             end
         ]])

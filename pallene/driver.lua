@@ -137,8 +137,8 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
     local ok, errs
     if output_ext == "lua" then
         assert(input_ext == "pln")
-        local module, errs, input = driver.compile_internal(input_file_name)
-        local translation = translator.translate(input, module)
+        local ast, errs, input = driver.compile_internal(input_file_name, "checker")
+        local translation = translator.translate(input, ast)
 
         assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
 
