@@ -17,7 +17,7 @@
 -- })
 -- ```
 -- and what it does is create three functions, `ast.Var.Name`, `ast.Var.Bracket`, and `ast.Var.Dot`.
--- 
+--
 -- The `ast.Var.Name` function receives two parameters (the source code location and the name) and
 -- returns a table that looks like this:
 -- ```
@@ -68,7 +68,9 @@ function typedecl.declare(module, mod_name, type_name, constructors)
         local function cons(...)
             local args = table.pack(...)
             if args.n ~= #fields then
-                error("wrong number of arguments for " .. cons_name)
+                error(string.format(
+                    "wrong number of arguments for %s. Expected %d but received %d.",
+                    cons_name, #fields, args.n))
             end
             local node = { _tag = tag }
             for i, field in ipairs(fields) do
