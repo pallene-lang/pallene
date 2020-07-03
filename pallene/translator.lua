@@ -25,7 +25,10 @@ end
 function translator.translate(input, ast)
     for _, node in pairs(ast) do
         if node._tag == "ast.Toplevel.Var" then
-            translate_tl_var(node)
+            local start = node.decls[1].type_start.col
+            local stop = node.decls[1].type_end.col
+            print(input:sub(1, start - 1) .. string.rep(' ', stop - start)
+                .. input:sub(stop))
         end
     end
     print('--------------------')

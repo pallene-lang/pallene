@@ -68,6 +68,7 @@ function typedecl.declare(module, mod_name, type_name, constructors)
         local function cons(...)
             local args = table.pack(...)
             if args.n ~= #fields then
+                print(require('inspect')(args))
                 error(string.format(
                     "wrong number of arguments for %s. Expected %d but received %d.",
                     cons_name, #fields, args.n))
