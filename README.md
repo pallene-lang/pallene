@@ -22,8 +22,15 @@ install its Lua library dependencies and compile its run-time library.
 Before you build Pallene, you need to install a C compiler (e.g. `gcc`) and `make` on your system.
 Ubuntu users can run the following commands to install these tools.
 ```
-sudo apt-get update
-sudo apt-get install build-essential
+sudo apt update
+sudo apt install build-essential
+```
+
+If you are on Linux, we also recommend that you install the Readline library.
+
+```sh
+sudo apt install libreadline-dev # for Ubuntu & Debian-based distros
+sudo dnf install readline-devel  # for Fedora
 ```
 
 Pallene requires Lua 5.3 to be installed on your system.
@@ -40,10 +47,9 @@ configure LuaRocks to use Lua 5.3. You can use the following command to configur
 LuaRocks to use Lua 5.3 when compiling it:
 `./configure --lua-version=5.3`
 
-### Installing dependencies
+### Installing Lua dependencies
 
-The easiest way to install the dependencies for the Pallene compiler is through
-the [LuaRocks](http://luarocks.org) package manager:
+The easiest way to install these dependencies is with the [LuaRocks](http://luarocks.org) package manager:
 
 ```sh
 $ luarocks install --local --only-deps pallene-dev-1.rockspec
@@ -56,14 +62,6 @@ If you are using bash you can do (as stated in `luarocks --help path`):
 $ echo 'eval `luarocks path`' >> ~/.bashrc
 ```
 For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
-
-If you want to use Pallene on Linux we also recommend installing the `readline`
-library:
-
-```sh
-$ sudo apt install libreadline-dev # for Ubuntu & Debian-based distros
-$ sudo dnf install readline-devel  # for Fedora
-```
 
 ### Compiling the runtime libraries
 
