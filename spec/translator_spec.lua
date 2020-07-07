@@ -39,6 +39,28 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    pending("Keep newlines that appear inside type annotations", function ()
+        assert_translation([[
+            local xs:
+                integer = 10
+        ]],
+        [[
+            local xs 
+                        = 10
+        ]])
+    end)
+
+    pending("Keep comments that appear inside type annotations", function ()
+        assert_translation([[
+            local xs: -- This is a comment.
+                integer = 10
+        ]],
+        [[
+            local xs  -- This is a comment.
+                        = 10
+        ]])
+    end)
+
     pending("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()
