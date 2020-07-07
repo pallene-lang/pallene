@@ -30,80 +30,78 @@ local function check_source_filename(argv0, file_name, expected_ext)
     return name
 end
 
---
--- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
---
-function driver.compile_internal(filename, stop_after)
-    stop_after = stop_after or "optimize"
-    local err, errs
+function driver.load_input(filename)
+    local input, err = false, nil
 
     local base_name
     base_name, err = check_source_filename("pallenec test", filename, "pln")
-    if not base_name then
-        return false, {err}
+    if base_name then
+        input, err = util.get_file_contents(filename)
     end
+    return input, err
+end
 
-    local input
-    input, err = util.get_file_contents(filename)
-    if not input then
-        return false, {err}
-    end
+--
+-- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
+--
+function driver.compile_internal(filename, input, stop_after)
+    stop_after = stop_after or "optimize"
 
-    local prog_ast
-    prog_ast, errs = parser.parse(filename, input)
+    local prog_ast, errs = parser.parse(filename, input)
     if stop_after == "ast" or not prog_ast then
-        return prog_ast, errs, input
+        return prog_ast, errs
     end
 
     prog_ast, errs = checker.check(prog_ast)
     if stop_after == "checker" or not prog_ast then
-        return prog_ast, errs, input
+        return prog_ast, errs
     end
 
     local module
     module, errs = to_ir.convert(prog_ast)
     if stop_after == "ir" or not module then
-        return module, errs, input
+        return module, errs
     end
 
     module, errs = uninitialized.verify_variables(module)
     if stop_after == "uninitialized" or not module then
-        return module, errs, input
+        return module, errs
     end
 
     module, errs = constant_propagation.run(module)
     if stop_after == "constant_propagation" or not module then
-        return module, errs, input
+        return module, errs
     end
 
     if stop_after == "optimize" or not module then
-        return module, {}, input
+        return module, {}
     end
 
     error("impossible")
 end
 
 local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
-    local ok, err, errs
+    local ok, err, errs, input = false, nil, {}, nil
 
-    local module
-    module, errs = driver.compile_internal(pallene_filename)
-    if not module then
-        return false, errs
+    input, err = driver.load_input(pallene_filename)
+    if err then
+        errs = { err }
+    else
+        local module
+        module, errs = driver.compile_internal(pallene_filename, input)
+        if module then
+            local c_code
+            c_code, errs = coder.generate(module, mod_name)
+            if c_code then
+                ok, err = util.set_file_contents(c_filename, c_code)
+                if not ok then
+                    errs = { err }
+                end
+            end
+        end
     end
 
-    local c_code
-    c_code, errs = coder.generate(module, mod_name)
-    if not c_code then
-        return c_code, errs
-    end
-
-    ok, err = util.set_file_contents(c_filename, c_code)
-    if not ok then
-        return ok, {err}
-    end
-
-    return true, {}
+    return ok, errs
 end
 
 local compiler_steps = {
@@ -134,15 +132,22 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
 
     local mod_name = string.gsub(base_name, "/", "_")
 
-    local ok, errs
+    local ok, errs = false, nil
     if output_ext == "lua" then
         assert(input_ext == "pln")
-        local ast, errs, input = driver.compile_internal(input_file_name, "checker")
-        local translation = translator.translate(input, ast)
 
-        assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
+        local input, err = driver.load_input(input_file_name)
+        if err then
+            errs = { err }
+        else
+            local prog_ast
+            prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
+            local translation = translator.translate(input, prog_ast)
 
-        ok = true
+            assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
+
+            ok = true
+        end
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")

@@ -264,7 +264,7 @@ local grammar = re.compile([[
     param           <- (P  NAME P COLON^ParamSemicolon
                            type^TypeDecl P)                        -> DeclDecl
 
-    decl            <- (P  NAME (P COLON type^TypeDecl)?  P -> opt)   -> DeclDecl
+    decl            <- (P  NAME (P COLON type^TypeDecl)? P -> opt)   -> DeclDecl
 
     simpletype      <- (P  NIL)                                  -> TypeNil
                      / (P  BOOLEAN)                              -> TypeBoolean

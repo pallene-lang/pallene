@@ -22,8 +22,8 @@ local function translate_tl_var(node)
     io.write('\n')
 end
 
-function translator.translate(input, ast)
-    for _, node in pairs(ast) do
+function translator.translate(input, prog_ast)
+    for _, node in pairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
             local start = node.decls[1].type_start.col
             local stop = node.decls[1].type_end.col
@@ -32,7 +32,7 @@ function translator.translate(input, ast)
         end
     end
     print('--------------------')
-    print(require('inspect')(ast))
+    print(require('inspect')(prog_ast))
     return input
 end
 
