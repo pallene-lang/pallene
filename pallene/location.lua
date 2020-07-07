@@ -54,17 +54,18 @@ local function get_line_number(subject, pos)
     return line, col
 end
 
-function location.new(file_name, line, col)
+function location.new(file_name, line, col, pos)
     return {
         file_name = file_name,
         line = line,
-        col = col
+        col = col,
+        pos = pos
     }
 end
 
 function location.from_pos(file_name, source, pos)
     local line, col = get_line_number(source, pos)
-    return location.new(file_name, line, col)
+    return location.new(file_name, line, col, pos)
 end
 
 function location.show_line(loc)

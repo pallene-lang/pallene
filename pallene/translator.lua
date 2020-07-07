@@ -28,10 +28,24 @@ local function add_previous(input, partials, start_index, stop_index)
     return stop_index
 end
 
+-- TODO: Added test case for newlines, space, and tabs.
+
 local function add_whitespace(input, partials, start_index, stop_index)
-    local partial = string.rep(' ', stop_index - start_index)
-    -- TODO: Correctly handle newlines
-    table.insert(partials, partial)
+    local p = start_index
+    local q = start_index
+    while q <= stop_index do
+        if input:sub(q, q) == "\n" then
+            local partial = string.rep(" ", q - p - 1)
+            table.insert(partials, partial)
+            table.insert(partials, "\n")
+            p = q + 2
+        end
+        q = q + 1
+    end
+    local final_partial = string.rep(" ", q - p)
+    table.insert(partials, final_partial)
+    print(stop_index)
+
     return stop_index
 end
 
@@ -40,11 +54,12 @@ function translator.translate(input, prog_ast)
     local last_index = 1
     for _, node in pairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
-            local start = node.decls[1].type_start.col
-            local stop = node.decls[1].type_end.col
+            local start = node.decls[1].type_start.pos
+            local stop = node.decls[1].type_end.pos
             
             last_index = add_previous(input, partials, last_index, start - 1)
-            last_index = add_whitespace(input, partials, start, stop)
+            last_index = add_whitespace(input, partials, start, stop - 1)
+            print(last_index)
         end
     end
     -- Whatever characters that were not included in the partials should be added.
