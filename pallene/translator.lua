@@ -22,18 +22,39 @@ local function translate_tl_var(node)
     io.write('\n')
 end
 
+local function add_previous(input, partials, start_index, stop_index)
+    local partial = input:sub(start_index, stop_index)
+    table.insert(partials, partial)
+    return stop_index
+end
+
+local function add_whitespace(input, partials, start_index, stop_index)
+    local partial = string.rep(' ', stop_index - start_index)
+    -- TODO: Correctly handle newlines
+    table.insert(partials, partial)
+    return stop_index
+end
+
 function translator.translate(input, prog_ast)
+    local partials = {}
+    local last_index = 1
     for _, node in pairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
             local start = node.decls[1].type_start.col
             local stop = node.decls[1].type_end.col
-            print(input:sub(1, start - 1) .. string.rep(' ', stop - start)
-                .. input:sub(stop))
+            
+            last_index = add_previous(input, partials, last_index, start - 1)
+            last_index = add_whitespace(input, partials, start, stop)
         end
     end
+    -- Whatever characters that were not included in the partials should be added.
+    local final_partial = input:sub(last_index)
+    table.insert(partials, final_partial)
+    
     print('--------------------')
     print(require('inspect')(prog_ast))
-    return input
+
+    return table.concat(partials, "")
 end
 
 return translator
