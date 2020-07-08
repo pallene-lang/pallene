@@ -28,7 +28,7 @@ local function add_previous(input, partials, start_index, stop_index)
     return stop_index
 end
 
--- TODO: Added test case for newlines, space, and tabs.
+-- TODO: Added test case for newlines, space, comments, and tabs.
 
 local function add_whitespace(input, partials, start_index, stop_index)
     local p = start_index
@@ -44,12 +44,13 @@ local function add_whitespace(input, partials, start_index, stop_index)
     end
     local final_partial = string.rep(" ", q - p)
     table.insert(partials, final_partial)
-    print(stop_index)
 
     return stop_index
 end
 
-function translator.translate(input, prog_ast)
+function translator.translate(input, prog_ast)        
+    print(require('inspect')(prog_ast))
+
     local partials = {}
     local last_index = 1
     for _, node in pairs(prog_ast) do
@@ -59,15 +60,12 @@ function translator.translate(input, prog_ast)
             
             last_index = add_previous(input, partials, last_index, start - 1)
             last_index = add_whitespace(input, partials, start, stop - 1)
-            print(last_index)
         end
     end
     -- Whatever characters that were not included in the partials should be added.
-    local final_partial = input:sub(last_index)
-    table.insert(partials, final_partial)
-    
-    print('--------------------')
-    print(require('inspect')(prog_ast))
+    -- local final_partial = input:sub(last_index)
+    -- table.insert(partials, final_partial)
+    add_previous(input, partials, last_index, nil)
 
     return table.concat(partials, "")
 end
