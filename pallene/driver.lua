@@ -31,7 +31,7 @@ local function check_source_filename(argv0, file_name, expected_ext)
 end
 
 function driver.load_input(filename)
-    local input, err = false, nil
+    local input, err
 
     local base_name
     base_name, err = check_source_filename("pallenec test", filename, "pln")
@@ -81,7 +81,7 @@ function driver.compile_internal(filename, input, stop_after)
 end
 
 local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
-    local ok, err, errs, input = false, nil, {}, nil
+    local ok, err, errs, input
 
     input, err = driver.load_input(pallene_filename)
     if err then

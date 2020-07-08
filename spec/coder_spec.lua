@@ -4,7 +4,9 @@ local function compile(pallene_code)
     setup(function()
         assert(util.set_file_contents("__test__.pln", pallene_code))
         local ok, _, _, errmsg = util.outputs_of_execute("./pallenec __test__.pln")
-        if not ok then error(errmsg) end
+        if not ok then
+            error(errmsg)
+        end
     end)
 
     it("does not crash the #prettyprinter", function()

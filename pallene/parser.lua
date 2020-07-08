@@ -85,7 +85,7 @@ function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
     local func_typ = ast.Type.Function(loc, arg_types, ret_types)
     return ast.Toplevel.Func(
         loc, is_local,
-        ast.Decl.Decl(loc, name, func_typ),
+        ast.Decl.Decl(loc, name, nil, func_typ, nil),
         ast.Exp.Lambda(loc, params, block))
 end
 

@@ -3,7 +3,7 @@ local util = require 'pallene.util'
 
 local function run_uninitialized(code)
     assert(util.set_file_contents("__test__.pln", code))
-    local module, errs = driver.compile_internal("__test__.pln", "uninitialized")
+    local module, errs = driver.compile_internal("__test__.pln", code, "uninitialized")
     return module, table.concat(errs, "\n")
 end
 

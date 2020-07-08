@@ -41,7 +41,12 @@ local function process_item(item, path)
 end
 
 local function compile_internal(filename, stop_after)
-    local out, errs = driver.compile_internal(filename, stop_after)
+    local input, err = driver.load_input(filename)
+    if err then
+        util.abort(err)
+    end
+
+    local out, errs = driver.compile_internal(filename, input, stop_after)
     if not out then
         util.abort(table.concat(errs, "\n"))
     end
@@ -50,8 +55,14 @@ local function compile_internal(filename, stop_after)
 end
 
 local function pretty_print_ir(filename)
-    local module, errs = driver.compile_internal(filename, "ir")
-    if not module then util.abort(table.concat(errs, "\n")) end
+    local input, err = driver.load_input(filename)
+    if err then
+        util.abort(err)
+    end
+    local module, errs = driver.compile_internal(filename, input, "ir")
+    if not module then
+        util.abort(table.concat(errs, "\n"))
+    end
     io.stdout:write(print_ir(module))
 end
 
