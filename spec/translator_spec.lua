@@ -11,7 +11,7 @@ end
 local function assert_translation(pallene_code, expected)
     compile(pallene_code)
     local contents = util.get_file_contents("__test__.lua")
-    assert.are.same(contents, expected)
+    assert.are.same(expected, contents)
 end
 
 local function cleanup()
@@ -26,20 +26,44 @@ describe("Pallene to Lua translator", function ()
         assert_translation("", "")
     end)
 
-    it("copies the input to the output file as is", function ()
+    it("copy the program as is when there are no type annotations", function ()
         assert_translation([[
-            local function print(text: string)
-                io.write(text .. "\n")
+            local i = 10
+            local function print_hello()
+                -- This is a comment.
+                -- This is another line comment.
+                io.write("Hello, world!")
             end
         ]],
         [[
-            local function print(text: string)
-                io.write(text .. "\n")
+            local i = 10
+            local function print_hello()
+                -- This is a comment.
+                -- This is another line comment.
+                io.write("Hello, world!")
             end
         ]])
     end)
 
-    pending("Keep newlines that appear inside type annotations", function ()
+    it("Remove type annotations from a top-level variable", function ()
+        assert_translation([[
+            local xs: integer = 10
+        ]],
+        [[
+            local xs          = 10
+        ]])
+    end)
+
+    it("Remove type annotations from top-level variables", function ()
+        assert_translation([[
+            local a: integer, b: integer, c: string = 5, 3, 'Marshall Mathers'
+        ]],
+        [[
+            local a         , b         , c         = 5, 3, 'Marshall Mathers'
+        ]])
+    end)
+
+    it("Keep newlines that appear after the colon in a top-level variable type annotation", function ()
         assert_translation([[
             local xs:
                 integer = 10
@@ -50,7 +74,53 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Keep comments that appear inside type annotations", function ()
+    pending("Keep newlines that appear inside a top-level variable type annotation", function ()
+        assert_translation([[
+            local xs: {
+                integer
+            } = 10
+        ]],
+        [[
+            local xs
+
+              = 10
+        ]])
+    end)
+
+    pending("Keep tabs that appear in a top-level variable type annotation", function ()
+        assert_translation(
+            "    local xs:\t\n" ..
+            "    \t    integer = 10\n",
+
+            "    local xs \t\n" ..
+            "    \t            = 10\n")
+    end)
+
+    pending("Keep return carriages that appear in a top-level variable type annotation", function ()
+        assert_translation(
+            "    local xs:\r\n" ..
+            "    \r    integer = 10\n",
+
+            "    local xs \r\n" ..
+            "    \r            = 10\n")
+    end)
+
+    it("Keep newlines that appear inside a top-level variable type annotations", function ()
+        assert_translation([[
+            local a:
+                integer, b:
+                    string, c:
+                        integer = 53, 'Madyanam', 19
+        ]],
+        [[
+            local a 
+                       , b 
+                          , c 
+                                = 53, 'Madyanam', 19
+        ]])
+    end)
+
+    pending("Keep comments that appear inside a top-level variable type annotation", function ()
         assert_translation([[
             local xs: -- This is a comment.
                 integer = 10

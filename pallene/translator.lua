@@ -16,8 +16,6 @@ function Translator:add_previous(input, stop_index)
     self.last_index = stop_index + 1
 end
 
--- TODO: Added test case for newlines, space, comments, and tabs.
-
 function Translator:add_whitespace(input, start_index, stop_index)
     self:add_previous(input, start_index - 1)
 
@@ -25,10 +23,10 @@ function Translator:add_whitespace(input, start_index, stop_index)
     local q = start_index
     while q <= stop_index do
         if input:sub(q, q) == "\n" then
-            local partial = string.rep(" ", q - p - 1)
+            local partial = string.rep(" ", q - p)
             table.insert(self.partials, partial)
             table.insert(self.partials, "\n")
-            p = q + 2
+            p = q + 1
         end
         q = q + 1
     end
@@ -38,9 +36,7 @@ function Translator:add_whitespace(input, start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
-function translator.translate(input, prog_ast)        
-    -- print(require('inspect')(prog_ast))
-
+function translator.translate(input, prog_ast)
     local instance = Translator:new()
 
     for _, node in ipairs(prog_ast) do

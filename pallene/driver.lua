@@ -33,7 +33,7 @@ end
 function driver.load_input(path)
     local base_name, err = check_source_filename("pallenec test", path, "pln")
     if not base_name then
-        return base_name, err
+        return false, err
     end
     return util.get_file_contents(path)
 end
@@ -78,27 +78,29 @@ function driver.compile_internal(filename, input, stop_after)
 end
 
 local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
-    local ok, err, errs, input
-
-    input, err = driver.load_input(pallene_filename)
-    if err then
-        errs = { err }
-    else
-        local module
-        module, errs = driver.compile_internal(pallene_filename, input)
-        if module then
-            local c_code
-            c_code, errs = coder.generate(module, mod_name)
-            if c_code then
-                ok, err = util.set_file_contents(c_filename, c_code)
-                if not ok then
-                    errs = { err }
-                end
-            end
-        end
+    local input, err = driver.load_input(pallene_filename)
+    if not input then
+        return false, { err }
     end
 
-    return ok, errs
+    local module, errs = driver.compile_internal(pallene_filename, input)
+    if not module then
+        return false, errs
+    end
+
+    local c_code
+    c_code, errs = coder.generate(module, mod_name)
+    if not c_code then
+        return false, errs
+    end
+
+    local ok
+    ok, err = util.set_file_contents(c_filename, c_code)
+    if not ok then
+        return false, { err }
+    end
+
+    return true, {}
 end
 
 local compiler_steps = {
@@ -122,6 +124,26 @@ end
 --    compile("pln", "c", "foo.pln")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)      --> outputs "foo.so"
 --
+
+local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
+    assert(input_ext == "pln")
+
+    local input, err = driver.load_input(input_file_name)
+    if not input then
+        return false, { err }
+    end
+
+    local prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
+    if not prog_ast then
+        return false, errs
+    end
+
+    local translation = translator.translate(input, prog_ast)
+    assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
+
+    return true, {}
+end
+
 function driver.compile(argv0, input_ext, output_ext, input_file_name)
     local base_name, err =
         check_source_filename(argv0, input_file_name, input_ext)
@@ -129,22 +151,8 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
 
     local mod_name = string.gsub(base_name, "/", "_")
 
-    local ok, errs = false, nil
     if output_ext == "lua" then
-        assert(input_ext == "pln")
-
-        local input, err = driver.load_input(input_file_name)
-        if err then
-            errs = { err }
-        else
-            local prog_ast
-            prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
-            local translation = translator.translate(input, prog_ast)
-
-            assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
-
-            ok = true
-        end
+        return compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")
@@ -160,6 +168,7 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
             end
         end
 
+        local ok, errs
         for i = first_step, last_step-1 do
             local f = compiler_steps[i].f
             local src = file_names[i]
@@ -171,8 +180,9 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
         for i = first_step+1, last_step-1 do
             os.remove(file_names[i])
         end
+
+        return ok, errs
     end
-    return ok, errs
 end
 
 return driver
