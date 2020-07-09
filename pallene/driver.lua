@@ -30,15 +30,12 @@ local function check_source_filename(argv0, file_name, expected_ext)
     return name
 end
 
-function driver.load_input(filename)
-    local input, err
-
-    local base_name
-    base_name, err = check_source_filename("pallenec test", filename, "pln")
-    if base_name then
-        input, err = util.get_file_contents(filename)
+function driver.load_input(path)
+    local base_name, err = check_source_filename("pallenec test", path, "pln")
+    if not base_name then
+        return base_name, err
     end
-    return input, err
+    return util.get_file_contents(path)
 end
 
 --
