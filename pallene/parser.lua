@@ -85,7 +85,7 @@ function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
     local func_typ = ast.Type.Function(loc, arg_types, ret_types)
     return ast.Toplevel.Func(
         loc, is_local,
-        ast.Decl.Decl(loc, name, func_typ),
+        ast.Decl.Decl(loc, name, false, func_typ, false),
         ast.Exp.Lambda(loc, params, block))
 end
 
@@ -261,10 +261,10 @@ local grammar = re.compile([[
 
     paramlist       <- {| (param (COMMA param^DeclParList)*)? |} -- produces {Decl}
 
-    param           <- (P  NAME COLON^ParamSemicolon
-                           type^TypeDecl)                        -> DeclDecl
+    param           <- (P  NAME P COLON^ParamSemicolon
+                           type^TypeDecl P)                        -> DeclDecl
 
-    decl            <- (P  NAME (COLON type^TypeDecl)? -> opt)   -> DeclDecl
+    decl            <- (P  NAME P ((COLON type^TypeDecl)? -> opt) P)   -> DeclDecl
 
     simpletype      <- (P  NIL)                                  -> TypeNil
                      / (P  BOOLEAN)                              -> TypeBoolean
@@ -297,12 +297,12 @@ local grammar = re.compile([[
     tablefields     <- {| tablefield (fieldsep tablefield)*
                           fieldsep? |}                           -- produces {Decl}
 
-    tablefield      <- (P  NAME COLON type^TypeTableField)       -> DeclDecl
+    tablefield      <- (P  NAME P COLON type^TypeTableField P)       -> DeclDecl
 
     recordfields    <- {| recordfield* |}                        -- produces {Decl}
 
-    recordfield     <- (P  NAME COLON^ColonRecordField
-                           type^TypeRecordField SEMICOLON?)      -> DeclDecl
+    recordfield     <- (P  NAME P COLON^ColonRecordField
+                           type^TypeRecordField P SEMICOLON?)      -> DeclDecl
 
     block           <- (P  {| statement* returnstat? |})         -> StatBlock
 

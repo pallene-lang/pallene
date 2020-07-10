@@ -33,7 +33,7 @@ declare_type("Toplevel", {
 })
 
 declare_type("Decl", {
-    Decl = {"loc", "name", "type"},
+    Decl = {"loc", "name", "col_loc", "type", "end_loc"},
 })
 
 declare_type("Stat", {

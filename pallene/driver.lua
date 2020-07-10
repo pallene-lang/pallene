@@ -11,6 +11,7 @@ local parser = require "pallene.parser"
 local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
+local translator = require "pallene.translator"
 
 local driver = {}
 
@@ -29,27 +30,21 @@ local function check_source_filename(argv0, file_name, expected_ext)
     return name
 end
 
+function driver.load_input(path)
+    local base_name, err = check_source_filename("pallenec test", path, "pln")
+    if not base_name then
+        return false, err
+    end
+    return util.get_file_contents(path)
+end
+
 --
 -- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
 --
-function driver.compile_internal(filename, stop_after)
+function driver.compile_internal(filename, input, stop_after)
     stop_after = stop_after or "optimize"
-    local err, errs
 
-    local base_name
-    base_name, err = check_source_filename("pallenec test", filename, "pln")
-    if not base_name then
-        return false, {err}
-    end
-
-    local input
-    input, err = util.get_file_contents(filename)
-    if not input then
-        return false, {err}
-    end
-
-    local prog_ast
-    prog_ast, errs = parser.parse(filename, input)
+    local prog_ast, errs = parser.parse(filename, input)
     if stop_after == "ast" or not prog_ast then
         return prog_ast, errs
     end
@@ -83,10 +78,12 @@ function driver.compile_internal(filename, stop_after)
 end
 
 local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
-    local ok, err, errs
+    local input, err = driver.load_input(pallene_filename)
+    if not input then
+        return false, { err }
+    end
 
-    local module
-    module, errs = driver.compile_internal(pallene_filename)
+    local module, errs = driver.compile_internal(pallene_filename, input)
     if not module then
         return false, errs
     end
@@ -94,12 +91,13 @@ local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
     local c_code
     c_code, errs = coder.generate(module, mod_name)
     if not c_code then
-        return c_code, errs
+        return false, errs
     end
 
+    local ok
     ok, err = util.set_file_contents(c_filename, c_code)
     if not ok then
-        return ok, {err}
+        return false, { err }
     end
 
     return true, {}
@@ -126,6 +124,26 @@ end
 --    compile("pln", "c", "foo.pln")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)      --> outputs "foo.so"
 --
+
+local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
+    assert(input_ext == "pln")
+
+    local input, err = driver.load_input(input_file_name)
+    if not input then
+        return false, { err }
+    end
+
+    local prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
+    if not prog_ast then
+        return false, errs
+    end
+
+    local translation = translator.translate(input, prog_ast)
+    assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
+
+    return true, {}
+end
+
 function driver.compile(argv0, input_ext, output_ext, input_file_name)
     local base_name, err =
         check_source_filename(argv0, input_file_name, input_ext)
@@ -133,34 +151,38 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
 
     local mod_name = string.gsub(base_name, "/", "_")
 
-    local first_step = step_index[input_ext]  or error("invalid extension")
-    local last_step  = step_index[output_ext] or error("invalid extension")
-    assert(first_step < last_step, "impossible order")
+    if output_ext == "lua" then
+        return compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
+    else
+        local first_step = step_index[input_ext]  or error("invalid extension")
+        local last_step  = step_index[output_ext] or error("invalid extension")
+        assert(first_step < last_step, "impossible order")
 
-    local file_names = {}
-    for i = first_step, last_step do
-        local step = compiler_steps[i]
-        if (i == first_step or i == last_step) then
-            file_names[i] = base_name .. "." .. step.name
-        else
-            file_names[i] = os.tmpname()
+        local file_names = {}
+        for i = first_step, last_step do
+            local step = compiler_steps[i]
+            if (i == first_step or i == last_step) then
+                file_names[i] = base_name .. "." .. step.name
+            else
+                file_names[i] = os.tmpname()
+            end
         end
-    end
 
-    local ok, errs
-    for i = first_step, last_step-1 do
-        local f = compiler_steps[i].f
-        local src = file_names[i]
-        local out = file_names[i+1]
-        ok, errs = f(src, out, mod_name)
-        if not ok then break end
-    end
+        local ok, errs
+        for i = first_step, last_step-1 do
+            local f = compiler_steps[i].f
+            local src = file_names[i]
+            local out = file_names[i+1]
+            ok, errs = f(src, out, mod_name)
+            if not ok then break end
+        end
 
-    for i = first_step+1, last_step-1 do
-        os.remove(file_names[i])
-    end
+        for i = first_step+1, last_step-1 do
+            os.remove(file_names[i])
+        end
 
-    return ok, errs
+        return ok, errs
+    end
 end
 
 return driver

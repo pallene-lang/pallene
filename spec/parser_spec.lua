@@ -33,9 +33,9 @@ end
 -- Assertions for full programs
 --
 
-local function parse(program_str)
-    assert(util.set_file_contents("__test__.pln", program_str))
-    return driver.compile_internal("__test__.pln", "ast")
+local function parse(code)
+    assert(util.set_file_contents("__test__.pln", code))
+    return driver.compile_internal("__test__.pln", code, "ast")
 end
 
 local function assert_parses_successfuly(program_str)
