@@ -1,3 +1,8 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 local util = require "pallene.util"
 
 local translator = {}
@@ -44,7 +49,7 @@ function translator.translate(input, prog_ast)
             for _, decl in ipairs(node.decls) do
                 local start = decl.col_loc.pos
                 local stop = decl.end_loc.pos
-                
+
                 instance:add_whitespace(input, start, stop - 1)
             end
         end
