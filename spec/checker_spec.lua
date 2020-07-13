@@ -2,7 +2,7 @@ local driver = require 'pallene.driver'
 local util = require 'pallene.util'
 
 local function run_checker(code)
-    assert(util.set_file_contents("__test__.pln", code))
+    -- "__test__.pln" does not exist on disk. The name is only used for error messages.
     local module, errs = driver.compile_internal("__test__.pln", code, "checker")
     return module, table.concat(errs, "\n")
 end
@@ -14,10 +14,6 @@ local function assert_error(code, expected_err)
 end
 
 describe("Scope analysis: ", function()
-
-    teardown(function()
-        os.remove("__test__.pln")
-    end)
 
     it("forbids variables from being used before they are defined", function()
         assert_error([[
@@ -136,10 +132,6 @@ describe("Scope analysis: ", function()
 end)
 
 describe("Pallene type checker", function()
-
-    teardown(function()
-        os.remove("__test__.pln")
-    end)
 
     it('catches incompatible function type assignments', function()
         assert_error([[
