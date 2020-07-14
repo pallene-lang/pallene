@@ -250,7 +250,8 @@ local grammar = re.compile([[
                            END^EndRecord)                        -> ToplevelRecord
 
     export_or_local <- LOCAL -> to_true
-                     / EXPORT -> to_false
+                    / EXPORT -> to_false
+
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
                            IMPORT^ImportImport

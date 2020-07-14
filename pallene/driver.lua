@@ -125,6 +125,18 @@ end
 --    compile("c", "so", "foo.c)      --> outputs "foo.so"
 --
 
+function driver.translate(input_file_name, input)
+    local prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
+
+    if not prog_ast then
+        return false, errs
+    end
+
+    local translation = translator.translate(input, prog_ast)
+
+    return translation, {}
+end
+
 local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
     assert(input_ext == "pln")
 
@@ -133,14 +145,12 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
         return false, { err }
     end
 
-    local prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
-    if not prog_ast then
+    local translation, errs = driver.translate(input_file_name, input)
+    if not translation then
         return false, errs
     end
 
-    local translation = translator.translate(input, prog_ast)
     assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
-
     return true, {}
 end
 
