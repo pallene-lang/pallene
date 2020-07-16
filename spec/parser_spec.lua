@@ -167,6 +167,39 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[ x=17 ]], "Syntax Error")
     end)
 
+    it("cannot define function without export or local modifier", function()
+        assert_program_syntax_error([[
+            function f() : integer
+                return 5319
+            end
+        ]],
+        "Expected 'local' or 'export' modifier in function definition.")
+    end)
+
+    it("last function without export or local modifier", function()
+        assert_program_syntax_error([[
+            export function a()
+            end
+
+            function f() : integer
+                return 5319
+            end
+        ]],
+        "Expected 'local' or 'export' modifier in function definition.")
+    end)
+
+    it("first function without export or local modifier", function()
+        assert_program_syntax_error([[
+            function a()
+            end
+
+            export function f() : integer
+                return 5319
+            end
+        ]],
+        "Expected 'local' or 'export' modifier in function definition.")
+    end)
+
     it("can parse toplevel function declarations", function()
         assert_program_ast([[
             local function fA() : float

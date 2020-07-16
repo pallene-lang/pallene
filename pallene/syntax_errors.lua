@@ -175,6 +175,8 @@ local errors = {
     AssignNotToVar = "Expected a valid lvalue in the left side of assignment but found a regular expression.",
 
     CastMissingType = "Expected a type for the cast expression.",
+
+    LocalOrExportRequired = "Expected 'local' or 'export' modifier in function definition."
 }
 
 syntax_errors.errors = errors

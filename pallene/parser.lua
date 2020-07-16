@@ -234,7 +234,8 @@ local grammar = re.compile([[
                            / toplevelvar
                            / typealias
                            / toplevelrecord
-                           / import )* |} !.
+                           / import
+                           / FUNCTION %{LocalOrExportRequired})* |} !.
 
     toplevelfunc    <- (P  export_or_local FUNCTION NAME^NameFunc
                            LPAREN^LParPList paramlist RPAREN^RParPList
