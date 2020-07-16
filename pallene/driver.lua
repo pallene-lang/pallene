@@ -139,8 +139,8 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     end
 
     local translation = translator.translate(input, prog_ast)
-    assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
 
+    assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
     return true, {}
 end
 

@@ -230,11 +230,15 @@ end
 local grammar = re.compile([[
 
     program         <-  SKIP*
-                        {| ( toplevelfunc
+                        {|
+                           ( toplevelfunc
                            / toplevelvar
                            / typealias
                            / toplevelrecord
-                           / import )* |} !.
+                           / import
+                           / FUNCTION %{LocalOrExportRequiredFunction}
+                           / NAME (ASSIGN / COMMA) %{LocalOrExportRequiredVariable} )*
+                        |} !.
 
     toplevelfunc    <- (P  export_or_local FUNCTION NAME^NameFunc
                            LPAREN^LParPList paramlist RPAREN^RParPList
@@ -250,7 +254,8 @@ local grammar = re.compile([[
                            END^EndRecord)                        -> ToplevelRecord
 
     export_or_local <- LOCAL -> to_true
-                     / EXPORT -> to_false
+                    / EXPORT -> to_false
+
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
                            IMPORT^ImportImport

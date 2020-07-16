@@ -14,6 +14,13 @@ local function assert_translation(pallene_code, expected)
     assert.are.same(expected, contents)
 end
 
+local function assert_translation_error(pallene_code, expected)
+    assert(util.set_file_contents("__test__.pln", pallene_code))
+    local ok, _, _, actual = util.outputs_of_execute("./pallenec __test__.pln --emit-lua")
+    assert.is_false(ok)
+    assert.match(expected, actual, 1, true)
+end
+
 local function cleanup()
     os.remove("__test__.pln")
     os.remove("__test__.lua")
@@ -21,6 +28,21 @@ end
 
 describe("Pallene to Lua translator", function ()
     teardown(cleanup)
+
+    it("Missing end keyword in function definition (syntax error)", function ()
+        assert_translation_error([[
+            local function f() : integer
+        ]],
+        "Expected 'end' to close the function body.")
+    end)
+
+    it("Unknown type (semantic error)", function ()
+        assert_translation_error([[
+            local function f() : unknown
+            end
+        ]],
+        "type 'unknown' is not declared")
+    end)
 
     it("empty input should result in an empty result", function ()
         assert_translation("", "")
