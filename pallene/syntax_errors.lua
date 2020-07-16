@@ -176,7 +176,9 @@ local errors = {
 
     CastMissingType = "Expected a type for the cast expression.",
 
-    LocalOrExportRequired = "Expected 'local' or 'export' modifier in function definition."
+    LocalOrExportRequiredFunction = "Expected 'local' or 'export' modifier in function definition.",
+
+    LocalOrExportRequiredVariable = "Expected 'local' or 'export' modifier in variable declaration."
 }
 
 syntax_errors.errors = errors

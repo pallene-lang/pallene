@@ -164,7 +164,8 @@ describe("Pallene parser", function()
     end)
 
     it("does not allow global variables", function()
-        assert_program_syntax_error([[ x=17 ]], "Syntax Error")
+        assert_program_syntax_error([[ x=17 ]],
+            "Expected 'local' or 'export' modifier in variable declaration.")
     end)
 
     it("cannot define function without export or local modifier", function()
@@ -198,6 +199,20 @@ describe("Pallene parser", function()
             end
         ]],
         "Expected 'local' or 'export' modifier in function definition.")
+    end)
+
+    it("toplevel variable declaration without export or local modifier", function()
+        assert_program_syntax_error([[
+            a,m="s","r"
+        ]],
+        "Expected 'local' or 'export' modifier in variable declaration.")
+    end)
+
+    it("toplevel variable declaration without export or local modifier (without comma)", function()
+        assert_program_syntax_error([[
+            a="s"
+        ]],
+        "Expected 'local' or 'export' modifier in variable declaration.")
     end)
 
     it("can parse toplevel function declarations", function()

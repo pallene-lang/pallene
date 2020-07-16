@@ -134,16 +134,11 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     end
 
     local prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
-
     if not prog_ast then
         return false, errs
     end
 
     local translation = translator.translate(input, prog_ast)
-
-    if not translation then
-        return false, errs
-    end
 
     assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
     return true, {}
