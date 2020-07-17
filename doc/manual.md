@@ -410,6 +410,49 @@ return m
 
 But we do not use this pattern in Pallene because it is harder to optimize function calls if they can be monkey-patched.
 
+## Pallene to Lua translator
+
+Pallene is a statically typed, ahead-of-time-compiled sister language to Lua, with a focus on
+performance.
+Programmers can use Pallene instead of C modules and LuaJIT to improve and gain a predictable run-time performance.
+Pallene achieves this by translating a statically typed compilation unit into a C source file, which is implicitly compiled in the background.
+However, there are situations where removal of type annotations are useful.
+ * The main premise of Pallene is that it is compatible with Lua.
+   This compatibility is defined as removing type annotations from a Pallene program results in transforming it into a Lua program.
+   A Pallene to Lua translator will allow us to check whether this property is still valid.
+ * Provides greater portability, interoperability and integration with existing Lua codebase and tools.
+ * The Pallene developers could check if the unit tests are obeying the "gradual guarantee".
+ * In the benchmarks that do not use LuaJIT features, we could generate the Lua version of the code from the Pallene version.
+
+With the help of the Pallene to Lua translator, users can remove Pallene type annotations to
+generate plain Lua.
+Pallene type annotations can be removed by extending the backend of the Pallene compiler to
+generate Lua.
+
+You can run the compiler with the flag `--emit-lua` flag to cause the compiler to generate plain Lua instead of C.
+
+Consider the following example written in Pallene.
+```
+function sum(values: { float }): float
+    local s: float = 0.0
+    for i = 1, #values do
+        s = s + values[i]
+    end
+    return s
+end
+```
+
+For the above example, the Pallene to Lua translator produces the following Lua program.
+```lua
+function sum(values)
+    local s = 0.0
+    for i = 1, #values do
+        s = s + values[i]
+    end
+    return s
+end
+```
+
 ## The Complete Syntax of Pallene
 
 Here is the complete syntax of Pallene in extended BNF.
