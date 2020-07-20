@@ -251,7 +251,7 @@ local grammar = re.compile([[
                            type^TypeTypeAlias P)                   -> ToplevelTypealias
 
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
-                           END^EndRecord)                        -> ToplevelRecord
+                           END^EndRecord P)                        -> ToplevelRecord
 
     export_or_local <- LOCAL -> to_true
                     / EXPORT -> to_false

@@ -267,6 +267,33 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    it("Remove records", function ()
+        assert_translation([[
+            local function b()
+            end
+
+            record Point
+                x: integer
+                y: integer
+            end
+
+            local function f()
+            end
+        ]],
+        [[
+            local function b()
+            end
+
+                        
+                          
+                          
+               
+
+            local function f()
+            end
+        ]])
+    end)
+
     pending("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()

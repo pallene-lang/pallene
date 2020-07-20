@@ -68,7 +68,10 @@ function translator.translate(input, prog_ast)
                 end
             end
         elseif node._tag == "ast.Toplevel.Typealias" then
-            -- Remove the type annotation but exclude the next token.
+            -- Remove the type alias but exclude the next token.
+            instance:add_whitespace(input, node.loc.pos, node.end_loc.pos - 1)
+        elseif node._tag == "ast.Toplevel.Record" then
+            -- Remove the record but exclude the next token.
             instance:add_whitespace(input, node.loc.pos, node.end_loc.pos - 1)
         end
     end

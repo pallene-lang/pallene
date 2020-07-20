@@ -28,7 +28,7 @@ declare_type("Toplevel", {
     Func      = {"loc", "is_local", "decl", "value"},
     Var       = {"loc", "is_local", "decls", "values"},
     Typealias = {"loc", "name", "type", "end_loc"},
-    Record    = {"loc", "name", "field_decls"},
+    Record    = {"loc", "name", "field_decls", "end_loc"},
     Import    = {"loc", "local_name", "mod_name"},
 })
 
