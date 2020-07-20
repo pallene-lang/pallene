@@ -1,3 +1,6 @@
+-- The expected translations contain spaces, which is what the translator is expected to do when
+-- removing type annotations. Please do not delete them, otherwise the tests will fail.
+
 local util = require "pallene.util"
 
 local function compile(pallene_code)
@@ -96,20 +99,20 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Keep newlines that appear inside a top-level variable type annotation", function ()
+    it("Keep newlines that appear inside a top-level variable type annotation", function ()
         assert_translation([[
-            local xs: {
+            local a: {
                 integer
-            } = 10
+            } = { 5, 3, 19 }
         ]],
         [[
-            local xs
-
-              = 10
+            local a   
+                       
+              = { 5, 3, 19 }
         ]])
     end)
 
-    pending("Keep tabs that appear in a top-level variable type annotation", function ()
+    it("Keep tabs that appear in a top-level variable type annotation", function ()
         assert_translation(
             "    local xs:\t\n" ..
             "    \t    integer = 10\n",
@@ -118,7 +121,7 @@ describe("Pallene to Lua translator", function ()
             "    \t            = 10\n")
     end)
 
-    pending("Keep return carriages that appear in a top-level variable type annotation", function ()
+    it("Keep return carriages that appear in a top-level variable type annotation", function ()
         assert_translation(
             "    local xs:\r\n" ..
             "    \r    integer = 10\n",
@@ -127,7 +130,7 @@ describe("Pallene to Lua translator", function ()
             "    \r            = 10\n")
     end)
 
-    it("Keep newlines that appear inside a top-level variable type annotations", function ()
+    it("Keep newlines that appear after colons in top-level variable type annotations", function ()
         assert_translation([[
             local a:
                 integer, b:
@@ -142,7 +145,7 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Keep comments that appear inside a top-level variable type annotation", function ()
+    it("Keep comments that appear after the colon in a top-level variable type annotation", function ()
         assert_translation([[
             local xs: -- This is a comment.
                 integer = 10
@@ -150,6 +153,170 @@ describe("Pallene to Lua translator", function ()
         [[
             local xs  -- This is a comment.
                         = 10
+        ]])
+    end)
+
+    pending("Keep comments that appear inside in a top-level variable type annotation", function ()
+        assert_translation([[
+            local xs: { -- This is a comment.
+                integer -- This is another comment.
+            } = { 5, 3, 19 }
+        ]],
+        [[
+            local xs    -- This is a comment.
+                        -- This is another comment.
+              = { 5, 3, 19 }
+        ]])
+    end)
+
+    it("Remove type annotations from top-level function parameters", function ()
+        assert_translation([[
+            local function f(x: integer, y: integer)
+            end
+        ]],
+        [[
+            local function f(x         , y         )
+            end
+        ]])
+    end)
+
+    it("Remove type annotations from local variable declarations", function ()
+        assert_translation([[
+            local function f()
+                local i : integer = 5
+            end
+        ]],
+        [[
+            local function f()
+                local i           = 5
+            end
+        ]])
+    end)
+
+    it("Remove type annotations when multiple variables are declared together", function ()
+        assert_translation([[
+            local function f()
+                local a : string, m : string = "preets", "yoda"
+            end
+        ]],
+        [[
+            local function f()
+                local a         , m          = "preets", "yoda"
+            end
+        ]])
+    end)
+
+    it("Remove type annotations when multiple variables are declared together", function ()
+        assert_translation([[
+            local function f()
+                local a, m : string = "preets", "yoda"
+            end
+        ]],
+        [[
+            local function f()
+                local a, m          = "preets", "yoda"
+            end
+        ]])
+    end)
+
+    it("Remove simple type aliases", function ()
+        assert_translation([[
+            local function a()
+            end
+            
+            typealias int = integer
+
+            local function b()
+            end
+        ]],
+        [[
+            local function a()
+            end
+            
+                                   
+
+            local function b()
+            end
+        ]])
+    end)
+
+    it("Remove multiline type aliases", function ()
+        assert_translation([[
+            local function a()
+            end
+
+            typealias point = {
+                x: integer,
+                y: integer
+            }
+
+            local function b()
+            end
+        ]],
+        [[
+            local function a()
+            end
+
+                               
+                           
+                          
+             
+
+            local function b()
+            end
+        ]])
+    end)
+
+    it("Remove records", function ()
+        assert_translation([[
+            local function b()
+            end
+
+            record Point
+                x: integer
+                y: integer
+            end
+
+            local function f()
+            end
+        ]],
+        [[
+            local function b()
+            end
+
+                        
+                          
+                          
+               
+
+            local function f()
+            end
+        ]])
+    end)
+
+    it("Remove return type", function ()
+        assert_translation([[
+            local function a() : integer
+                return 0
+            end
+        ]],
+        [[
+            local function a()          
+                return 0
+            end
+        ]])
+    end)
+
+    it("Remove return types", function ()
+        assert_translation([[
+            local function a() : ( integer, string )
+                return 0, "Kush"
+            end
+        ]],
+        [[
+            local function a()                      
+                return 0, "Kush"
+            end
         ]])
     end)
 

@@ -34,6 +34,8 @@ end
 function translator.translate(input, prog_ast)
     local instance = Translator:new()
 
+    print(require("inspect")(prog_ast))
+
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
             for _, decl in ipairs(node.decls) do
@@ -44,6 +46,39 @@ function translator.translate(input, prog_ast)
                     instance:add_whitespace(input, decl.type.loc.pos, decl.end_loc.pos - 1)
                 end
             end
+        elseif node._tag == "ast.Toplevel.Func" then
+            -- Remove type annotations from function parameters.
+            for _, arg_decl in ipairs(node.value.arg_decls) do
+                -- Type annotations are mandatory for function parameters.
+                -- Remove the colon but retain any adjacent comment to the right.
+                instance:add_whitespace(input, arg_decl.col_loc.pos, arg_decl.col_loc.pos)
+                -- Remove the type annotation but exclude the next token.
+                instance:add_whitespace(input, arg_decl.type.loc.pos, arg_decl.end_loc.pos - 1)
+            end
+
+            -- Remove type annotations from the return type, which is optional. However, `rt_col_loc`
+            -- and `rt_end_loc` are always set. Therefore, it is safe to replace without any checks.
+            instance:add_whitespace(input, node.rt_col_loc.pos, node.rt_end_loc.pos - 1)
+
+            -- Remove type annotations from local declarations.
+            for _, statement in ipairs(node.value.body.stats) do
+                if statement._tag == "ast.Stat.Decl" then
+                    for _, decl in ipairs(statement.decls) do
+                        if decl.type then
+                            -- Remove the colon but retain any adjacent comment to the right.
+                            instance:add_whitespace(input, decl.col_loc.pos, decl.col_loc.pos)
+                            -- Remove the type annotation but exclude the next token.
+                            instance:add_whitespace(input, decl.type.loc.pos, decl.end_loc.pos - 1)
+                        end
+                    end
+                end
+            end
+        elseif node._tag == "ast.Toplevel.Typealias" then
+            -- Remove the type alias but exclude the next token.
+            instance:add_whitespace(input, node.loc.pos, node.end_loc.pos - 1)
+        elseif node._tag == "ast.Toplevel.Record" then
+            -- Remove the record but exclude the next token.
+            instance:add_whitespace(input, node.loc.pos, node.end_loc.pos - 1)
         end
     end
     -- Whatever characters that were not included in the partials should be added.

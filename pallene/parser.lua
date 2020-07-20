@@ -77,7 +77,7 @@ function defs.opt_list(x)
     end
 end
 
-function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
+function defs.toplevel_func(loc, is_local, name, params, rt_col_loc, ret_types, rt_end_loc, block)
     local arg_types = {}
     for i, decl in ipairs(params) do
         arg_types[i] = decl.type
@@ -86,7 +86,7 @@ function defs.toplevel_func(loc, is_local, name, params, ret_types, block)
     return ast.Toplevel.Func(
         loc, is_local,
         ast.Decl.Decl(loc, name, false, func_typ, false),
-        ast.Exp.Lambda(loc, params, block))
+        ast.Exp.Lambda(loc, params, block), rt_col_loc, rt_end_loc)
 end
 
 function defs.nil_exp(pos--[[, s ]])
@@ -242,20 +242,19 @@ local grammar = re.compile([[
 
     toplevelfunc    <- (P  export_or_local FUNCTION NAME^NameFunc
                            LPAREN^LParPList paramlist RPAREN^RParPList
-                           rettypeopt block END^EndFunc)         -> toplevel_func
+                           P rettypeopt P block END^EndFunc)         -> toplevel_func
 
     toplevelvar     <- (P  export_or_local decllist ASSIGN^AssignVar
                            !IMPORT explist1^ExpVarDec)           -> ToplevelVar
 
     typealias       <- (P  TYPEALIAS NAME^NameTypeAlias ASSIGN^AssignTypeAlias
-                           type^TypeTypeAlias)                   -> ToplevelTypealias
+                           type^TypeTypeAlias P)                   -> ToplevelTypealias
 
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
-                           END^EndRecord)                        -> ToplevelRecord
+                           END^EndRecord P)                        -> ToplevelRecord
 
     export_or_local <- LOCAL -> to_true
                     / EXPORT -> to_false
-
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
                            IMPORT^ImportImport
