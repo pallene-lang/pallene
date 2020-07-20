@@ -219,6 +219,54 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    it("Remove simple type aliases", function ()
+        assert_translation([[
+            local function a()
+            end
+            
+            typealias int = integer
+
+            local function b()
+            end
+        ]],
+        [[
+            local function a()
+            end
+            
+                                   
+
+            local function b()
+            end
+        ]])
+    end)
+
+    it("Remove multiline type aliases", function ()
+        assert_translation([[
+            local function a()
+            end
+
+            typealias point = {
+                x: integer,
+                y: integer
+            }
+
+            local function b()
+            end
+        ]],
+        [[
+            local function a()
+            end
+
+                               
+                           
+                          
+             
+
+            local function b()
+            end
+        ]])
+    end)
+
     pending("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()
