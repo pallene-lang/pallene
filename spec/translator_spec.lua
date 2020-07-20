@@ -180,6 +180,45 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    it("Remove type annotations from local variable declarations", function ()
+        assert_translation([[
+            local function f()
+                local i : integer = 5
+            end
+        ]],
+        [[
+            local function f()
+                local i           = 5
+            end
+        ]])
+    end)
+
+    it("Remove type annotations when multiple variables are declared together", function ()
+        assert_translation([[
+            local function f()
+                local a : string, m : string = "preets", "yoda"
+            end
+        ]],
+        [[
+            local function f()
+                local a         , m          = "preets", "yoda"
+            end
+        ]])
+    end)
+
+    it("Remove type annotations when multiple variables are declared together", function ()
+        assert_translation([[
+            local function f()
+                local a, m : string = "preets", "yoda"
+            end
+        ]],
+        [[
+            local function f()
+                local a, m          = "preets", "yoda"
+            end
+        ]])
+    end)
+
     pending("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()
