@@ -45,12 +45,27 @@ function translator.translate(input, prog_ast)
                 end
             end
         elseif node._tag == "ast.Toplevel.Func" then
+            -- Remove type annotations from function parameters.
             for _, arg_decl in ipairs(node.value.arg_decls) do
                 -- Type annotations are mandatory for function parameters.
                 -- Remove the colon but retain any adjacent comment to the right.
                 instance:add_whitespace(input, arg_decl.col_loc.pos, arg_decl.col_loc.pos)
                 -- Remove the type annotation but exclude the next token.
                 instance:add_whitespace(input, arg_decl.type.loc.pos, arg_decl.end_loc.pos - 1)
+            end
+
+            -- Remove type annotations from local declarations.
+            for _, statement in ipairs(node.value.body.stats) do
+                if statement._tag == "ast.Stat.Decl" then
+                    for _, decl in ipairs(statement.decls) do
+                        if decl.type then
+                            -- Remove the colon but retain any adjacent comment to the right.
+                            instance:add_whitespace(input, decl.col_loc.pos, decl.col_loc.pos)
+                            -- Remove the type annotation but exclude the next token.
+                            instance:add_whitespace(input, decl.type.loc.pos, decl.end_loc.pos - 1)
+                        end
+                    end
+                end
             end
         end
     end
