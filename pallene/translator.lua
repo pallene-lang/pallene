@@ -67,6 +67,9 @@ function translator.translate(input, prog_ast)
                     end
                 end
             end
+        elseif node._tag == "ast.Toplevel.Typealias" then
+            -- Remove the type annotation but exclude the next token.
+            instance:add_whitespace(input, node.loc.pos, node.end_loc.pos - 1)
         end
     end
     -- Whatever characters that were not included in the partials should be added.

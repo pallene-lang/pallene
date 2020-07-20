@@ -248,14 +248,13 @@ local grammar = re.compile([[
                            !IMPORT explist1^ExpVarDec)           -> ToplevelVar
 
     typealias       <- (P  TYPEALIAS NAME^NameTypeAlias ASSIGN^AssignTypeAlias
-                           type^TypeTypeAlias)                   -> ToplevelTypealias
+                           type^TypeTypeAlias P)                   -> ToplevelTypealias
 
     toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
                            END^EndRecord)                        -> ToplevelRecord
 
     export_or_local <- LOCAL -> to_true
                     / EXPORT -> to_false
-
 
     import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
                            IMPORT^ImportImport
