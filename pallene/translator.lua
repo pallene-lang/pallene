@@ -34,6 +34,8 @@ end
 function translator.translate(input, prog_ast)
     local instance = Translator:new()
 
+    print(require("inspect")(prog_ast))
+
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
             for _, decl in ipairs(node.decls) do
@@ -53,6 +55,10 @@ function translator.translate(input, prog_ast)
                 -- Remove the type annotation but exclude the next token.
                 instance:add_whitespace(input, arg_decl.type.loc.pos, arg_decl.end_loc.pos - 1)
             end
+
+            -- Remove type annotations from the return type, which is optional. However, `rt_col_loc`
+            -- and `rt_end_loc` are always set. Therefore, it is safe to replace without any checks.
+            instance:add_whitespace(input, node.rt_col_loc.pos, node.rt_end_loc.pos - 1)
 
             -- Remove type annotations from local declarations.
             for _, statement in ipairs(node.value.body.stats) do

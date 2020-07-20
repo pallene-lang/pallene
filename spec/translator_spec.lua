@@ -294,6 +294,32 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    it("Remove return type", function ()
+        assert_translation([[
+            local function a() : integer
+                return 0
+            end
+        ]],
+        [[
+            local function a()          
+                return 0
+            end
+        ]])
+    end)
+
+    it("Remove return types", function ()
+        assert_translation([[
+            local function a() : ( integer, string )
+                return 0, "Kush"
+            end
+        ]],
+        [[
+            local function a()                      
+                return 0, "Kush"
+            end
+        ]])
+    end)
+
     pending("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()
