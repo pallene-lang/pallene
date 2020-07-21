@@ -67,9 +67,18 @@ end
 function translator.translate(input, prog_ast)
     local instance = Translator:new()
     local exports = {}
+    print(require("inspect")(prog_ast))
 
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
+            -- Add the variables to the export sequence if they are declared with the `export`
+            -- modifier.
+            if not node.is_local then
+                for _, decl in ipairs(node.decls) do
+                    table.insert(exports, decl.name)
+                end
+            end
+
             for _, decl in ipairs(node.decls) do
                 if decl.type then
                     -- Remove the colon but retain any adjacent comment to the right.
