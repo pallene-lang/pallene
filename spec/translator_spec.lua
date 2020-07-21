@@ -320,6 +320,67 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    it("Generate return statement for exported variable", function ()
+        assert_translation(
+            "export i : integer = 0",
+
+            "local  i           = 0\n" ..
+            "return {\n" ..
+            "    i = i,\n" ..
+            "}\n")
+    end)
+
+    it("Generate return statement for exported function", function ()
+        assert_translation(
+            "export function f() end",
+            "local  function f() end\nreturn {\n    f = f,\n}\n")
+    end)
+
+    it("Generate the same return statement for both exported functions and variables", function ()
+        assert_translation(
+            "export i : integer = 0\n" ..
+            "\n" ..
+            "export function f()\n" ..
+            "end",
+
+            "local  i           = 0\n" ..
+            "\n" ..
+            "local  function f()\n" ..
+            "end\n" ..
+            "return {\n" ..
+            "    i = i,\n" ..
+            "    f = f,\n" ..
+            "}\n")
+    end)
+
+    it("Do not include local symbols in the module return statement", function ()
+        assert_translation(
+            "export i : integer = 0\n" ..
+            "\n" ..
+            "export function a()\n" ..
+            "end\n" ..
+            "\n" ..
+            "local function s()\n" ..
+            "end\n" ..
+            "\n" ..
+            "local j : { integer } = { 1, 2, 3 }",
+
+            "local  i           = 0\n" ..
+            "\n" ..
+            "local  function a()\n" ..
+            "end\n" ..
+            "\n" ..
+            "local function s()\n" ..
+            "end\n" ..
+            "\n" ..
+            "local j               = { 1, 2, 3 }" ..
+            "\n" ..
+            "return {\n" ..
+            "    i = i,\n" ..
+            "    a = a,\n" ..
+            "}\n")
+    end)
+
     pending("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()
