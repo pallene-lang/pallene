@@ -936,7 +936,7 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[
             export function foo ( : int
             end
-        ]], "Expected ')' to close the parameter list.")
+        ]], "Missing ')' or unexpected token before ')' in parameter list.")
 
         assert_program_syntax_error([[
             export function foo () :
@@ -994,7 +994,7 @@ describe("Pallene parser", function()
 
         assert_program_syntax_error([[
             local bola = import ('bola'
-        ]], "Expected ')' to close import declaration.")
+        ]], "Missing ')' or unexpected token before ')' in import declaration.")
 
         assert_program_syntax_error([[
             local bola = import
@@ -1028,7 +1028,7 @@ describe("Pallene parser", function()
             "Expected type after ','")
 
         assert_type_syntax_error([[ (a, b -> b  ]],
-            "Expected ')' to close type list")
+            "Missing ')' or unexpected token before ')' in type list.")
 
         assert_type_syntax_error([[ (a, b) -> = nil ]],
             "Expected return types after `->` to finish the function type")
@@ -1194,16 +1194,16 @@ describe("Pallene parser", function()
             "Expected an expression after '('.")
 
         assert_expression_syntax_error([[ (42 ]],
-            "Expected ')'to match '('.")
+             "Missing ')' to match '(' or unexpected token before the ')'.")
 
         assert_expression_syntax_error([[ f(42 ]],
-            "Expected ')' to match '('.")
+             "Missing ')' or unexpected token before ')' in function call.")
 
         assert_expression_syntax_error([[ f(42,) ]],
             "Expected an expression after ','.")
 
         assert_expression_syntax_error([[ y{42 ]],
-            "Expected '{' to match '}'.")
+             "Missing '}' or unexpected token before '}' in table constructor.")
 
         assert_expression_syntax_error([[ y{42,,} ]],
             "Expected an expression after ',' or ';'.")
