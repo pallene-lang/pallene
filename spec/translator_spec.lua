@@ -404,31 +404,29 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Remove type annotations", function ()
+    it("Remove any type annotation", function ()
         assert_translation([[
             local xs: {any} = {10, "hello", 3.14}
 
-            function f(x: any, y: any): integer
-                return (x as integer) + (y as integer)
+            local function f(x: any, y: any): any
             end
         ]],
         [[
-            local xs = { 10, "hello", 3.14 }
+            local xs        = {10, "hello", 3.14}
 
-            function f(x, y)
-                return x + y
+            local function f(x     , y     )     
             end
         ]])
     end)
 
-    pending("Remove function shapes", function ()
+    it("Remove function shapes", function ()
         assert_translation([[
             local function invoke(x: (integer, integer) -> (float, float)): (float, float)
                 return x(1, 2)
             end
         ]],
         [[
-            local function invoke(x)
+            local function invoke(x                                      )                
                 return x(1, 2)
             end
         ]])
@@ -447,20 +445,7 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Remove type aliases", function ()
-        assert_translation([[
-            typealias point = {
-                x: integer,
-                y: integer
-            }
-            local p: point = { x = 10, y = 20 }
-        ]],
-        [[
-            local p = { x = 10, y = 20 }
-        ]])
-    end)
-
-    pending("Keep the strings quotes as is", function ()
+    it("Keep the strings quotes as is", function ()
         assert_translation([[
             local function print_hello()
                 io.write('Hello, ')
@@ -475,94 +460,59 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Remove return type annotations", function ()
+    it("Remove return type annotations", function ()
         assert_translation([[
-            local function get_numbers() : { integer, integer }
+            local function get_numbers() : ( integer, integer )
                 return 53, 519
             end
         ]],
         [[
-            local function get_numbers()
+            local function get_numbers()                       
                 return 53, 519
             end
         ]])
     end)
 
-    pending("Remove parameter and return type annotations", function ()
+    it("Remove parameter and return type annotations", function ()
         assert_translation([[
             local function add(x: integer, y: integer) : integer
                 return x + y
             end
         ]],
         [[
-            local function add(x, y)
+            local function add(x         , y         )          
                 return x + y
             end
         ]])
     end)
 
-    pending("Remove local variable type annotations.", function ()
+    it("Remove local variable type annotations.", function ()
         assert_translation([[
-            local function add()
+            local function f()
                 local x: integer = 10
                 local y: integer = 20
                 local z: integer = x + y
             end
         ]],
         [[
-            local function add()
-                local x = 10
-                local y = 20
-                local z = x + y
+            local function f()
+                local x          = 10
+                local y          = 20
+                local z          = x + y
             end
         ]])
     end)
 
-    pending("Exported functions will be made local, but added to the table returned.", function ()
+    it("Expressions are copied as is", function ()
         assert_translation([[
-            export function add(x: integer, y: integer) : integer
-                return x + y
-            end
-        ]],
-        [[
-            --
-            local function add(x, y)
-                return x + y
-            end
-
-            return {
-                add = add
-            }
-        ]])
-    end)
-
-    pending("Exported variables will be made local, but added to the table returned.", function ()
-        assert_translation([[
-            export x : integer = 83
-        ]],
-        [[
-            local x = 83
-
-            return {
-                x = x
-            }
-        ]])
-    end)
-
-    pending("Expressions are copied as is", function ()
-        assert_translation([[
-            export function expression()
-                local x = (1 + 2) * (100 / 30) or true
+            local function expression()
+                local x = (1 + 2) * (100 / 30)
             end
         ]],
         [[
             local function expression()
-                local x = (1 + 2) * (100 / 30) or true
+                local x = (1 + 2) * (100 / 30)
             end
-
-            return {
-                expression = expression
-            }
         ]])
     end)
 
@@ -577,7 +527,7 @@ describe("Pallene to Lua translator", function ()
         ]],
         [[
             local function count()
-                local i = 1
+                local i           = 1
                 while i <= 10 do
                     i = i + 1
                 end
@@ -587,26 +537,24 @@ describe("Pallene to Lua translator", function ()
 
     it("Do Statement", function ()
         assert_translation([[
-            local function example()
+            local function f()
                 local i : integer = 10
                 do
                     local i : integer = 20
                 end
-                return i
             end
         ]],
         [[
-            local function example()
-                local i = 10
+            local function f()
+                local i           = 10
                 do
-                    local i = 20
+                    local i           = 20
                 end
-                return i
             end
         ]])
     end)
 
-    pending("If statement", function ()
+    it("If statement", function ()
         assert_translation([[
             local function is_even(n: integer): boolean
                 if (n % 2) == 0 then
@@ -617,7 +565,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function is_even(n)
+            local function is_even(n         )         
                 if (n % 2) == 0 then
                     return true
                 else
@@ -627,18 +575,16 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("For statement", function ()
+    it("For statement", function ()
         assert_translation([[
-            local function print_strings(strings: {string})
-                for s : string in strings do
-                    io.write(s .. '\n')
+            local function f()
+                for i : integer = 1, 10 do
                 end
             end
         ]],
         [[
-            local function print_strings(strings)
-                for s in strings do
-                    io.write(s .. '\n')
+            local function f()
+                for i           = 1, 10 do
                 end
             end
         ]])

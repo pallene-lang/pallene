@@ -146,7 +146,7 @@ function translator.translate(input, prog_ast)
     end
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
-    instance:add_exports(exports)
+    instance:add_exports()
 
     return table.concat(instance.partials, "")
 end
