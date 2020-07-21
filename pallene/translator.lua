@@ -76,6 +76,15 @@ function Translator:add_exports()
     end
 end
 
+function Translator:translate_var_decl(decl)
+    if decl.type then
+        -- Remove the colon but retain any adjacent comment to the right.
+        self:add_whitespace(decl.col_loc.pos, decl.col_loc.pos)
+        -- Remove the type annotation but exclude the next token.
+        self:add_whitespace(decl.type.loc.pos, decl.end_loc.pos - 1)
+    end
+end
+
 function Translator:translate_tl_variables(node)
     -- Add the variables to the export sequence if they are declared with the `export`
     -- modifier.
@@ -87,12 +96,7 @@ function Translator:translate_tl_variables(node)
     end
 
     for _, decl in ipairs(node.decls) do
-        if decl.type then
-            -- Remove the colon but retain any adjacent comment to the right.
-            self:add_whitespace(decl.col_loc.pos, decl.col_loc.pos)
-            -- Remove the type annotation but exclude the next token.
-            self:add_whitespace(decl.type.loc.pos, decl.end_loc.pos - 1)
-        end
+        self:translate_var_decl(decl)
     end
 end
 
@@ -104,11 +108,7 @@ function Translator:translate_tl_function(node)
 
     -- Remove type annotations from function parameters.
     for _, arg_decl in ipairs(node.value.arg_decls) do
-        -- Type annotations are mandatory for function parameters.
-        -- Remove the colon but retain any adjacent comment to the right.
-        self:add_whitespace(arg_decl.col_loc.pos, arg_decl.col_loc.pos)
-        -- Remove the type annotation but exclude the next token.
-        self:add_whitespace(arg_decl.type.loc.pos, arg_decl.end_loc.pos - 1)
+        self:translate_var_decl(arg_decl)
     end
 
     -- Remove type annotations from the return type, which is optional. However, `rt_col_loc`
@@ -119,13 +119,10 @@ function Translator:translate_tl_function(node)
     for _, statement in ipairs(node.value.body.stats) do
         if statement._tag == "ast.Stat.Decl" then
             for _, decl in ipairs(statement.decls) do
-                if decl.type then
-                    -- Remove the colon but retain any adjacent comment to the right.
-                    self:add_whitespace(decl.col_loc.pos, decl.col_loc.pos)
-                    -- Remove the type annotation but exclude the next token.
-                    self:add_whitespace(decl.type.loc.pos, decl.end_loc.pos - 1)
-                end
+                self:translate_var_decl(decl)
             end
+        elseif statement._tag == "ast.Stat.For" then
+            self:translate_var_decl(statement.decl)
         end
     end
 end

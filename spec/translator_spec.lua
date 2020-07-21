@@ -566,7 +566,7 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("While statements", function ()
+    it("While statements", function ()
         assert_translation([[
             local function count()
                 local i : integer = 1
@@ -585,7 +585,7 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Do Statement", function ()
+    it("Do Statement", function ()
         assert_translation([[
             local function example()
                 local i : integer = 10
