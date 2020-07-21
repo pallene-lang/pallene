@@ -53,6 +53,16 @@ function Translator:add_whitespace(input, start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
+function Translator:add_local(input, start_index, stop_index)
+    self:add_previous(input, start_index - 1)
+    -- The export keyword is six characters long, whereas the local keyword is five characters
+    -- long. Therefore, we pad the keyword with a space. We could add the space to the left, too.
+    -- But it seems more "natural" on the right.
+    table.insert(self.partials, "local ")
+
+    self.last_index = stop_index
+end
+
 function Translator:add_exports(exports)
     if #exports > 0 then
         table.insert(self.partials, "\nreturn {\n")
@@ -67,13 +77,13 @@ end
 function translator.translate(input, prog_ast)
     local instance = Translator:new()
     local exports = {}
-    print(require("inspect")(prog_ast))
 
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
             -- Add the variables to the export sequence if they are declared with the `export`
             -- modifier.
             if not node.is_local then
+                instance:add_local(input, node.loc.pos, node.mod_end_loc.pos - 1)
                 for _, decl in ipairs(node.decls) do
                     table.insert(exports, decl.name)
                 end
@@ -89,7 +99,7 @@ function translator.translate(input, prog_ast)
             end
         elseif node._tag == "ast.Toplevel.Func" then
             if not node.is_local then
-                instance:add_whitespace(input, node.loc.pos, node.mod_end_loc.pos - 1)
+                instance:add_local(input, node.loc.pos, node.mod_end_loc.pos - 1)
                 table.insert(exports, node.decl.name)
             end
 
