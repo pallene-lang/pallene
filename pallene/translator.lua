@@ -35,12 +35,15 @@ function Translator:init()
 end
 
 function Translator:add_previous(input, stop_index)
+    assert(self.last_index <= stop_index + 1)
     local partial = input:sub(self.last_index, stop_index)
     table.insert(self.partials, partial)
     self.last_index = stop_index + 1
 end
 
 function Translator:add_whitespace(input, start_index, stop_index)
+    assert(self.last_index <= start_index)
+    assert(start_index <= stop_index+1)
     self:add_previous(input, start_index - 1)
 
     local region = input:sub(start_index, stop_index)
