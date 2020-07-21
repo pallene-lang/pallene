@@ -37,7 +37,7 @@ local errors = {
 
     LParPList = "Expected '(' for the parameter list.",
 
-    RParPList = "Expected ')' to close the parameter list.",
+    RParPList = "Missing ')' or unexpected token before ')' in parameter list.",
 
     TypeFunc = "Expected a type in function declaration.",
 
@@ -72,7 +72,7 @@ local errors = {
 
     StringLParImport = "Expected the name of a module after '('.",
 
-    RParImport = "Expected ')' to close import declaration.",
+    RParImport = "Missing ')' or unexpected token before ')' in import declaration.",
 
     StringImport = "Expected the name of a module after 'import'.",
 
@@ -88,7 +88,7 @@ local errors = {
 
     TypelistType = "Expected type after ','.",
 
-    RParenTypelist = "Expected ')' to close type list.",
+    RParenTypelist = "Missing ')' or unexpected token before ')' in type list.",
 
     TypeReturnTypes = "Expected return types after `->` to finish the function type.",
 
@@ -158,15 +158,15 @@ local errors = {
 
     ExpSimpleExp = "Expected an expression after '('.",
 
-    RParSimpleExp = "Expected ')'to match '('.",
+    RParSimpleExp = "Missing ')' to match '(' or unexpected token before the ')'.",
 
-    RParFuncArgs = "Expected ')' to match '('.",
+    RParFuncArgs = "Missing ')' or unexpected token before ')' in function call.",
 
     ExpExpList = "Expected an expression after ','.",
 
     VarVarList = "Expected an assignable after ','.",
 
-    RCurlyInitList = "Expected '{' to match '}'.",
+    RCurlyInitList = "Missing '}' or unexpected token before '}' in table constructor.",
 
     ExpFieldList = "Expected an expression after ',' or ';'.",
 
