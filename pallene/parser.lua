@@ -77,14 +77,15 @@ function defs.opt_list(x)
     end
 end
 
-function defs.toplevel_func(loc, is_local, name, params, rt_col_loc, ret_types, rt_end_loc, block)
+function defs.toplevel_func(loc, is_local, mod_end_loc, name, params, rt_col_loc, ret_types,
+    rt_end_loc, block)
     local arg_types = {}
     for i, decl in ipairs(params) do
         arg_types[i] = decl.type
     end
     local func_typ = ast.Type.Function(loc, arg_types, ret_types)
     return ast.Toplevel.Func(
-        loc, is_local,
+        loc, is_local, mod_end_loc,
         ast.Decl.Decl(loc, name, false, func_typ, false),
         ast.Exp.Lambda(loc, params, block), rt_col_loc, rt_end_loc)
 end
@@ -240,7 +241,7 @@ local grammar = re.compile([[
                            / NAME (ASSIGN / COMMA) %{LocalOrExportRequiredVariable} )*
                         |} !.
 
-    toplevelfunc    <- (P  export_or_local FUNCTION NAME^NameFunc
+    toplevelfunc    <- (P  export_or_local P FUNCTION NAME^NameFunc
                            LPAREN^LParPList paramlist RPAREN^RParPList
                            P rettypeopt P block END^EndFunc)         -> toplevel_func
 

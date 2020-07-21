@@ -53,10 +53,20 @@ function Translator:add_whitespace(input, start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
+function Translator:add_exports(exports)
+    if #exports > 0 then
+        table.insert(self.partials, "\nreturn {\n")
+        for _, export in ipairs(exports) do
+            local pair = string.format("    %s = %s,\n", export, export)
+            table.insert(self.partials, pair)
+        end
+        table.insert(self.partials, "}\n")
+    end
+end
+
 function translator.translate(input, prog_ast)
     local instance = Translator:new()
-
-    print(require("inspect")(prog_ast))
+    local exports = {}
 
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Var" then
@@ -69,6 +79,11 @@ function translator.translate(input, prog_ast)
                 end
             end
         elseif node._tag == "ast.Toplevel.Func" then
+            if not node.is_local then
+                instance:add_whitespace(input, node.loc.pos, node.mod_end_loc.pos - 1)
+                table.insert(exports, node.decl.name)
+            end
+
             -- Remove type annotations from function parameters.
             for _, arg_decl in ipairs(node.value.arg_decls) do
                 -- Type annotations are mandatory for function parameters.
@@ -105,6 +120,8 @@ function translator.translate(input, prog_ast)
     end
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(input, #input)
+
+    instance:add_exports(exports)
 
     return table.concat(instance.partials, "")
 end
