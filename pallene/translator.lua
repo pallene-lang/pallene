@@ -85,6 +85,32 @@ function Translator:translate_decl(decl)
     end
 end
 
+function Translator:translate_exp(exp)
+    local tag = exp._tag
+
+    if tag == "ast.Exp.Unop" then
+        self:translate_exp(exp.exp)
+    elseif tag == "ast.Exp.Concat" then
+        for _, inner_exp in ipairs(exp.exps) do
+            self:translate_exp(inner_exp)
+        end
+    elseif tag == "ast.Exp.Binop" then
+        self:translate_exp(exp.lhs)
+        exp.rhs = self:translate_exp(exp.rhs)
+    elseif tag == "ast.Exp.CallFunc" then
+        self:translate_exp(exp.exp)
+        for i = 1, #exp.args do
+            self:translate_exp(exp.args[i])
+        end
+    elseif tag == "ast.Exp.Cast" then
+        if exp.target_start_loc then
+            self:add_whitespace(exp.target_start_loc.pos, exp.target_end_loc.pos - 1)
+        end
+    elseif tag == "ast.Exp.Paren" then
+        self:translate_exp(exp.exp)
+    end
+end
+
 function Translator:translate_stat(stat)
     if stat._tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
@@ -96,6 +122,9 @@ function Translator:translate_stat(stat)
         for _, s in ipairs(stat.stats) do
             self:translate_stat(s)
         end
+    elseif stat._tag == "ast.Stat.While" then
+        print(require("inspect")(stat.condition))
+        self:translate_exp(stat.condition)
     end
 end
 
@@ -112,6 +141,10 @@ function Translator:translate_toplevel(node)
 
         for _, decl in ipairs(node.decls) do
             self:translate_decl(decl)
+        end
+
+        for _, value in ipairs(node.values) do
+            self:translate_exp(value)
         end
     elseif node._tag == "ast.Toplevel.Func" then
         if not node.is_local then
@@ -140,6 +173,8 @@ end
 
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
+
+    print(require('inspect')(prog_ast))
 
     for _, node in ipairs(prog_ast) do
         instance:translate_toplevel(node)
