@@ -77,7 +77,8 @@ function defs.opt_list(x)
     end
 end
 
-function defs.toplevel_func(loc, is_local, name, params, rt_col_loc, ret_types, rt_end_loc, block)
+function defs.toplevel_func(loc, is_local, name, params, rt_col_loc, ret_types,
+    rt_end_loc, block)
     local arg_types = {}
     for i, decl in ipairs(params) do
         arg_types[i] = decl.type
