@@ -794,34 +794,33 @@ function Checker:check_exp_synthesize(exp)
         exp.exp = self:check_exp_synthesize(exp.exp)
         local f_type = exp.exp._type
 
-        if f_type._tag == "types.T.Function" then
-            self:expand_function_returns(f_type.arg_types, exp.args)
-
-            if #f_type.arg_types ~= #exp.args then
-                type_error(exp.loc,
-                    "function expects %d argument(s) but received %d",
-                    #f_type.arg_types, #exp.args)
-            end
-
-            for i = 1, #exp.args do
-                exp.args[i] =
-                    self:check_exp_verify(
-                        exp.args[i], f_type.arg_types[i],
-                        "argument %d of call to function", i)
-            end
-
-            if #f_type.ret_types == 0 then
-                exp._type = types.T.Void()
-            else
-                exp._type  = f_type.ret_types[1] or types.T.Void()
-            end
-            exp._types = f_type.ret_types
-
-        else
+        if f_type._tag ~= "types.T.Function" then
             type_error(exp.loc,
                 "attempting to call a %s value",
                 types.tostring(exp.exp._type))
         end
+
+        self:expand_function_returns(f_type.arg_types, exp.args)
+
+        if #f_type.arg_types ~= #exp.args then
+            type_error(exp.loc,
+                "function expects %d argument(s) but received %d",
+                #f_type.arg_types, #exp.args)
+        end
+
+        for i = 1, #exp.args do
+            exp.args[i] =
+                self:check_exp_verify(
+                    exp.args[i], f_type.arg_types[i],
+                    "argument %d of call to function", i)
+        end
+
+        if #f_type.ret_types == 0 then
+            exp._type = types.T.Void()
+        else
+            exp._type  = f_type.ret_types[1] or types.T.Void()
+        end
+        exp._types = f_type.ret_types
 
     elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
