@@ -172,6 +172,13 @@ function defs.fold_unops(pos, unops, exp)
     return exp
 end
 
+function defs.fold_casts(pos, exp, types)
+    for _, typ in ipairs(types) do
+        exp = ast.Exp.Cast(pos, exp, typ)
+    end
+    return exp
+end
+
 -- We represent the suffix of an expression by a function that receives the base expression and
 -- returns a full expression including the suffix.
 
@@ -369,7 +376,8 @@ local grammar = re.compile([[
     e9              <- (P  {| e10 (op9  e10^OpExp)* |})          -> fold_binop_left
     e10             <- (P  {| e11 (op10 e11^OpExp)* |})          -> fold_binop_left
     e11             <- (P  {| unop* |}  e12)                     -> fold_unops
-    e12             <- (P  castexp (op12 e11^OpExp)?)            -> binop_right
+    e12             <- (P  e13 (op12 e11^OpExp)?)                -> binop_right
+    e13             <- (P  simpleexp {| (AS type^CastType)* |})  -> fold_casts
 
     suffixedexp     <- (prefixexp {| expsuffix* |})              -> fold_suffixes
 
@@ -383,10 +391,6 @@ local grammar = re.compile([[
     prefixexp       <- (P  NAME)                                 -> name_exp
                      / (P LPAREN exp^ExpSimpleExp
                                RPAREN^RParSimpleExp)             -> ExpParen
-
-
-    castexp         <- (P  simpleexp AS type^CastMissingType)    -> ExpCast
-                     / simpleexp                                 -- produces Exp
 
     simpleexp       <- (P  NIL)                                  -> nil_exp
                      / (P  FALSE -> to_false)                    -> ExpBool

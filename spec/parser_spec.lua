@@ -907,6 +907,16 @@ describe("Pallene parser", function()
                 _tag = "ast.Exp.Cast",
                 exp = { _tag = "ast.Exp.Var" },
                 target = { _tag = "ast.Type.Integer" } }})
+
+        assert_expression_ast([[ 1 as integer as any ]],
+            { _tag = "ast.Exp.Cast",
+                target = { _tag = "ast.Type.Any" },
+                exp = {
+                    _tag = "ast.Exp.Cast",
+                    target = { _tag = "ast.Type.Integer" },
+                    exp = {
+                        _tag = "ast.Exp.Integer"
+                    }}})
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()
