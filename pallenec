@@ -35,6 +35,10 @@ local function compile(in_ext, out_ext)
 end
 
 local function process_item(item, path)
+    if type(path[#path]) == 'string' and string.match(path[#path], ".*loc$") then
+        return string.format("%d:%d", item.line, item.col)
+    end
+
     if path[#path] ~= inspect.METATABLE and path[#path] ~= "loc" then
         return item
     end
