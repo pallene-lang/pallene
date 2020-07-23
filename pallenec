@@ -75,7 +75,7 @@ if args.emit_c    then table.insert(flags, "--emit-c") end
 if args.emit_asm  then table.insert(flags, "--emit-asm") end
 if args.compile_c then table.insert(flags, "--compile-c") end
 if args.dump      then table.insert(flags, "--dump") end
-if args.print_ir  then table.insert(flags, "--print_ir") end
+if args.print_ir  then table.insert(flags, "--print-ir") end
 if args.emit_lua  then table.insert(flags, "--emit-lua") end
 
 if #flags >= 2 then
