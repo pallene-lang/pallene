@@ -26,8 +26,7 @@ local util = require "pallene.util"
 -- We also make some adjustments to the AST:
 --
 --   * We convert qualified identifiers such as `io.write` from ast.Var.Dot to a flat ast.Var.Name.
---   * We add explicit ast.Exp.Cast nodes where there is an implicit upcast or downcast.
---   * We remove redundant ast.Exp.Cast nodes.
+--   * We insert explicit ast.Exp.Cast nodes where there is an implicit upcast or downcast.
 --   * We insert ast.Exp.ExtraRet nodes to represent additional return values from functions.
 --   * We insert an explicit call to tofloat in some arithmetic operations. For example int + float.
 --   * We add an explicit +1 or +1.0 step in numeric for loops without a loop step.
@@ -795,41 +794,54 @@ function Checker:check_exp_synthesize(exp)
         exp.exp = self:check_exp_synthesize(exp.exp)
         local f_type = exp.exp._type
 
-        if f_type._tag == "types.T.Function" then
-            self:expand_function_returns(f_type.arg_types, exp.args)
-
-            if #f_type.arg_types ~= #exp.args then
-                type_error(exp.loc,
-                    "function expects %d argument(s) but received %d",
-                    #f_type.arg_types, #exp.args)
-            end
-
-            for i = 1, #exp.args do
-                exp.args[i] =
-                    self:check_exp_verify(
-                        exp.args[i], f_type.arg_types[i],
-                        "argument %d of call to function", i)
-            end
-
-            if #f_type.ret_types == 0 then
-                exp._type = types.T.Void()
-            else
-                exp._type  = f_type.ret_types[1] or types.T.Void()
-            end
-            exp._types = f_type.ret_types
-
-        else
+        if f_type._tag ~= "types.T.Function" then
             type_error(exp.loc,
                 "attempting to call a %s value",
                 types.tostring(exp.exp._type))
         end
 
+        self:expand_function_returns(f_type.arg_types, exp.args)
+
+        if #f_type.arg_types ~= #exp.args then
+            type_error(exp.loc,
+                "function expects %d argument(s) but received %d",
+                #f_type.arg_types, #exp.args)
+        end
+
+        for i = 1, #exp.args do
+            exp.args[i] =
+                self:check_exp_verify(
+                    exp.args[i], f_type.arg_types[i],
+                    "argument %d of call to function", i)
+        end
+
+        if #f_type.ret_types == 0 then
+            exp._type = types.T.Void()
+        else
+            exp._type  = f_type.ret_types[1] or types.T.Void()
+        end
+        exp._types = f_type.ret_types
+
     elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
 
     elseif tag == "ast.Exp.Cast" then
-        local dst_t = self:from_ast_type(exp.target)
-        return self:check_exp_verify(exp.exp, dst_t, "cast expression")
+        exp._type = self:from_ast_type(exp.target)
+        exp.exp = self:check_exp_verify(exp.exp, exp._type, "cast expression")
+
+        -- We check the child expression with verify instead of synthesize because Pallene cases
+        -- also act as type annotations for things like empty array literals: ({} as {value}).
+        -- However, this means that the call to verify almost always inserts a redundant cast node.
+        -- To keep the --dump-checker output clean, we get rid of it.  By the way, the Pallene to
+        -- Lua translator cares that we remove the inner one instead of the outer one because the
+        -- outer one has source locations and the inner one doesn't.
+        while
+            exp.exp._tag == 'ast.Exp.Cast' and
+            exp.exp.target == false and
+            types.equals(exp.exp._type, exp._type)
+        do
+            exp.exp = exp.exp.exp
+        end
 
     elseif tag == "ast.Exp.Paren" then
         exp.exp = self:check_exp_synthesize(exp.exp)
