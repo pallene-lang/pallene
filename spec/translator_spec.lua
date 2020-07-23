@@ -432,7 +432,31 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Remove casts", function ()
+    it("Remove casts from toplevel variables", function ()
+        assert_translation([[
+            local i: any = 1
+            local j: integer = i as integer
+        ]],
+        [[
+            local i      = 1
+            local j          = i           
+        ]])
+    end)
+
+    it("Remove redundant casts from toplevel variables", function ()
+        assert_translation([[
+            local i: any = 1
+            local j: integer = i as integer
+            local k: integer = (j as integer) + 1
+        ]],
+        [[
+            local i      = 1
+            local j          = i           
+            local k          = (j           ) + 1
+        ]])
+    end)
+
+    pending("Remove casts from function calls", function ()
         assert_translation([[
             local function print_string(value:any)
                 io.write(value as string)

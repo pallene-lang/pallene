@@ -96,11 +96,11 @@ function Translator:translate_exp(exp)
         end
     elseif tag == "ast.Exp.Binop" then
         self:translate_exp(exp.lhs)
-        exp.rhs = self:translate_exp(exp.rhs)
+        self:translate_exp(exp.rhs)
     elseif tag == "ast.Exp.CallFunc" then
         self:translate_exp(exp.exp)
-        for i = 1, #exp.args do
-            self:translate_exp(exp.args[i])
+        for _, arg in ipairs(exp.args) do
+            self:translate_exp(arg)
         end
     elseif tag == "ast.Exp.Cast" then
         if exp.target_start_loc then
