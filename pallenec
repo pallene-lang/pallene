@@ -28,11 +28,8 @@ local function pallenec_abort(fmt, ...)
 end
 
 local function compile(in_ext, out_ext)
-    local ok, errs = driver.compile(
-        compiler_name, in_ext, out_ext, args.source_file)
-    if not ok then
-        util.abort(table.concat(errs, "\n"))
-    end
+    local ok, errs = driver.compile(compiler_name, in_ext, out_ext, args.source_file)
+    if not ok then util.abort(table.concat(errs, "\n")) end
 end
 
 local inspect_opts = {
@@ -54,27 +51,22 @@ local inspect_opts = {
 
 local function dump(filename, stop_after)
     local input, err = driver.load_input(filename)
-    if err then
-        util.abort(err)
-    end
+    if err then util.abort(err) end
 
     local out, errs = driver.compile_internal(filename, input, stop_after)
-    if not out then
-        util.abort(table.concat(errs, "\n"))
-    end
+    if not out then util.abort(table.concat(errs, "\n")) end
+
     print(inspect(out, inspect_opts))
     util.abort(string.format("Exit after %s step", stop_after))
 end
 
 local function pretty_print_ir(filename)
     local input, err = driver.load_input(filename)
-    if not input then
-        util.abort(err)
-    end
+    if not input then util.abort(err) end
+
     local module, errs = driver.compile_internal(filename, input, "ir")
-    if not module then
-        util.abort(table.concat(errs, "\n"))
-    end
+    if not module then util.abort(table.concat(errs, "\n")) end
+
     io.stdout:write(print_ir(module))
 end
 
