@@ -57,7 +57,7 @@ local function dump(filename, stop_after)
     if not out then util.abort(table.concat(errs, "\n")) end
 
     print(inspect(out, inspect_opts))
-    util.abort(string.format("Exit after %s step", stop_after))
+    print(string.format("Exit after %s step", stop_after))
 end
 
 local function pretty_print_ir(filename)
