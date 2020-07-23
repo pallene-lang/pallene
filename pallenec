@@ -52,7 +52,7 @@ local inspect_opts = {
     end
 }
 
-local function compile_internal(filename, stop_after)
+local function dump(filename, stop_after)
     local input, err = driver.load_input(filename)
     if err then
         util.abort(err)
@@ -95,7 +95,7 @@ if     #flags == 0    then compile("pln", "so")
 elseif args.emit_c    then compile("pln", "c")
 elseif args.emit_asm  then compile("c",   "s")
 elseif args.compile_c then compile("c" ,  "so")
-elseif args.dump      then compile_internal(args.source_file, args.dump)
+elseif args.dump      then dump(args.source_file, args.dump)
 elseif args.print_ir  then pretty_print_ir(args.source_file)
 elseif args.emit_lua  then compile("pln", "lua")
 else
