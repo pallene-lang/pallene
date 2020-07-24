@@ -70,7 +70,7 @@ declare_type("Exp", {
     Unop       = {"loc", "op", "exp"},
     Concat     = {"loc", "exps"},
     Binop      = {"loc", "lhs", "op", "rhs"},
-    Cast       = {"loc", "exp", "target"},
+    Cast       = {"loc", "exp", "target", "target_end_loc"},
     Paren      = {"loc", "exp"},
     ExtraRet   = {"loc", "call_exp", "i"}, -- See checker.lua
 })

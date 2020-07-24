@@ -432,15 +432,331 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
-    pending("Remove casts", function ()
+    it("Remove casts from initializer list", function ()
         assert_translation([[
-            local function print_string(value:any)
-                io.write(value as string)
+            typealias point = {
+                x: integer,
+                y: integer
+            }
+            local i: any = 1
+            local p: point = { x = i as integer, y = i as integer }
+        ]],
+        [[
+                               
+                           
+                          
+             
+            local i      = 1
+            local p        = { x = i           , y = i            }
+        ]])
+    end)
+
+    it("Remove casts from toplevel variables", function ()
+        assert_translation([[
+            local i: any = 1
+            local j: integer = i as integer
+        ]],
+        [[
+            local i      = 1
+            local j          = i           
+        ]])
+    end)
+
+    it("Remove redundant casts from toplevel variables", function ()
+        assert_translation([[
+            local i: any = 1
+            local j: integer = i as integer
+            local k: integer = (j as integer) + 1
+        ]],
+        [[
+            local i      = 1
+            local j          = i           
+            local k          = (j           ) + 1
+        ]])
+    end)
+
+    it("Remove casts from if condition", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                if k as boolean then
+                end
             end
         ]],
         [[
-            local function print_string(value)
-                io.write(value)
+            local k      = 1
+
+            local function f()
+                if k            then
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from if body", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                if true then
+                    local j: boolean = k as boolean
+                end
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                if true then
+                    local j          = k           
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from else if condition", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                if false then
+                    -- Nothing
+                elseif k as boolean then
+                    -- Nothing
+                end
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                if false then
+                    -- Nothing
+                elseif k            then
+                    -- Nothing
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from else if body", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                if false then
+                    -- Nothing
+                elseif true then
+                    local j: integer = k as integer
+                end
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                if false then
+                    -- Nothing
+                elseif true then
+                    local j          = k           
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from else body", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                if false then
+                    -- Nothing
+                else
+                    local j: integer = k as integer
+                end
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                if false then
+                    -- Nothing
+                else
+                    local j          = k           
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from repeat condition", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                repeat
+                    -- Nothing
+                until k as boolean
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                repeat
+                    -- Nothing
+                until k           
+            end
+        ]])
+    end)
+
+    it("Remove casts from repeat body", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                repeat
+                    local j: integer = k as integer
+                until true
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                repeat
+                    local j          = k           
+                until true
+            end
+        ]])
+    end)
+
+    it("Remove casts from for expressions", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                for j: integer = k as integer, k as integer + 10, k as integer do
+                    -- Nothing
+                end
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                for j          = k           , k            + 10, k            do
+                    -- Nothing
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from for body", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                for j: integer = 1, 10 do
+                    local m: integer = k as integer
+                end
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                for j          = 1, 10 do
+                    local m          = k           
+                end
+            end
+        ]])
+    end)
+
+    it("Remove casts from assignments", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                k, k = k as integer, k as boolean
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                k, k = k           , k           
+            end
+        ]])
+    end)
+
+    it("Remove casts in nested casts", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                k = ((k as integer) as integer)
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                k = ((k           )           )
+            end
+        ]])
+    end)
+
+    it("Remove casts from local variable declarations", function ()
+        assert_translation([[
+            local k: any = 1
+
+            local function f()
+                local j: integer = k as integer
+            end
+        ]],
+        [[
+            local k      = 1
+
+            local function f()
+                local j          = k           
+            end
+        ]])
+    end)
+
+    it("Remove casts from function calls", function ()
+        assert_translation([[
+            local k: any = "Madyanam"
+
+            local function f()
+                io.write(k as string)
+            end
+        ]],
+        [[
+            local k      = "Madyanam"
+
+            local function f()
+                io.write(k          )
+            end
+        ]])
+    end)
+
+    it("Remove casts from function calls", function ()
+        assert_translation([[
+            local name1: any = "Anushka"
+            local name2: any = "Samuel"
+
+            local function get_names(): (string, string)
+                return name1 as string, name2 as string
+            end
+        ]],
+        [[
+            local name1      = "Anushka"
+            local name2      = "Samuel"
+
+            local function get_names()                  
+                return name1          , name2          
             end
         ]])
     end)

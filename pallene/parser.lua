@@ -174,10 +174,11 @@ function defs.fold_unops(matches, exp)
 end
 
 function defs.fold_casts(exp, matches)
-    for i = 1, #matches, 2 do
-        local pos = matches[i]
-        local typ = matches[i+1]
-        exp = ast.Exp.Cast(pos, exp, typ)
+    for i = 1, #matches, 3 do
+        local target_start_loc = matches[i]
+        local target = matches[i + 1]
+        local target_end_loc = matches[i + 2]
+        exp = ast.Exp.Cast(target_start_loc, exp, target, target_end_loc)
     end
     return exp
 end
@@ -380,7 +381,7 @@ local grammar = re.compile([[
     e10             <- (e11 {| (P op10 e11^OpExp)* |})           -> fold_binop_left
     e11             <- ({| (P unop)* |}  e12)                    -> fold_unops
     e12             <- (e13 (P op12 e11^OpExp)?)                 -> binop_right
-    e13             <- (simpleexp {| (P AS type^CastType)* |})   -> fold_casts
+    e13             <- (simpleexp {| (P AS type^CastType P)* |}) -> fold_casts
 
     suffixedexp     <- (prefixexp {| expsuffix* |})              -> fold_suffixes
 
