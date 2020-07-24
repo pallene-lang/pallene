@@ -957,7 +957,7 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
         if types.equals(found_type, expected_type) then
             return exp
         elseif types.consistent(found_type, expected_type) then
-            local cast = ast.Exp.Cast(exp, exp.loc, false, false)
+            local cast = ast.Exp.Cast(exp.loc, exp, false, false)
             cast._type = expected_type
             return cast
         else

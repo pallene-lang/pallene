@@ -178,7 +178,7 @@ function defs.fold_casts(exp, matches)
         local target_start_loc = matches[i]
         local target = matches[i + 1]
         local target_end_loc = matches[i + 2]
-        exp = ast.Exp.Cast(exp, target_start_loc, target, target_end_loc)
+        exp = ast.Exp.Cast(target_start_loc, exp, target, target_end_loc)
     end
     return exp
 end

@@ -85,6 +85,20 @@ function Translator:translate_decl(decl)
     end
 end
 
+function Translator:translate_var(exp)
+    local tag = exp.var._tag
+    if tag == "ast.Var.Name" then
+        -- Nothing
+    elseif tag == "ast.Var.Bracket" then
+        self:translate_exp(exp.t)
+        self:translate_exp(exp.k)
+    elseif tag == "ast.Var.Dot" then
+        self:translate_exp(exp.exp)
+    else
+        error("impossible")
+    end
+end
+
 function Translator:translate_exp(exp)
     local tag = exp._tag
 
@@ -105,7 +119,7 @@ function Translator:translate_exp(exp)
     elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
     elseif tag == "ast.Exp.Var" then
-        -- Nothing
+        self:translate_var(exp)
     elseif tag == "ast.Exp.Unop" then
         self:translate_exp(exp.exp)
     elseif tag == "ast.Exp.Concat" then
