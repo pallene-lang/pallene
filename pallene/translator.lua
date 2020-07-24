@@ -103,7 +103,8 @@ function Translator:translate_exp(exp)
             self:translate_exp(arg)
         end
     elseif tag == "ast.Exp.Cast" then
-        if exp.target_start_loc then
+        self:translate_exp(exp.exp)
+        if exp.target then
             self:add_whitespace(exp.target_start_loc.pos, exp.target_end_loc.pos - 1)
         end
     elseif tag == "ast.Exp.Paren" then
@@ -112,19 +113,57 @@ function Translator:translate_exp(exp)
 end
 
 function Translator:translate_stat(stat)
-    if stat._tag == "ast.Stat.Decl" then
-        for _, decl in ipairs(stat.decls) do
-            self:translate_decl(decl)
-        end
-    elseif stat._tag == "ast.Stat.For" then
-        self:translate_decl(stat.decl)
-    elseif stat._tag == "ast.Stat.Block" then
+    if stat._tag == "ast.Stat.Block" then
         for _, s in ipairs(stat.stats) do
             self:translate_stat(s)
         end
     elseif stat._tag == "ast.Stat.While" then
-        print(require("inspect")(stat.condition))
         self:translate_exp(stat.condition)
+        self:translate_stat(stat.block)
+    elseif stat._tag == "ast.Stat.Repeat" then
+        self:translate_stat(stat.block)
+        self:translate_exp(stat.condition)
+    elseif stat._tag == "ast.Stat.If" then
+        local clause = stat
+        while clause do
+            if clause._tag == "ast.Stat.Block" then
+                self:translate_stat(clause)
+                clause = nil
+            else
+                self:translate_exp(clause.condition)
+                self:translate_stat(clause.then_)
+                clause = clause.else_
+            end
+        end
+    elseif stat._tag == "ast.Stat.For" then
+        self:translate_decl(stat.decl)
+        self:translate_exp(stat.start)
+        self:translate_exp(stat.limit)
+        if stat.step then
+            self:translate_exp(stat.step)
+        end
+        self:translate_stat(stat.block)
+    elseif stat._tag == "ast.Stat.Assign" then
+        for _, exp in ipairs(stat.exps) do
+            self:translate_exp(exp)
+        end
+    elseif stat._tag == "ast.Stat.Decl" then
+        for _, decl in ipairs(stat.decls) do
+            self:translate_decl(decl)
+        end
+        for _, exp in ipairs(stat.exps) do
+            self:translate_exp(exp)
+        end
+    elseif stat._tag == "ast.Stat.Call" then
+        self:translate_exp(stat.call_exp)
+    elseif stat._tag == "ast.Stat.Return" then
+        for _, exp in ipairs(stat.exps) do
+            self:translate_exp(exp)
+        end
+    elseif stat._tag == "ast.Stat.Break" then
+        -- Nothing
+    else
+        error("impossible")
     end
 end
 
@@ -174,7 +213,7 @@ end
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
 
-    print(require('inspect')(prog_ast))
+    -- print(require('inspect')(prog_ast))
 
     for _, node in ipairs(prog_ast) do
         instance:translate_toplevel(node)
