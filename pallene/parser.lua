@@ -49,14 +49,6 @@ function defs.to_false()
     return false
 end
 
-function defs.opt_ret_type(_pos, x)
-    if not x then
-        return { }
-    else
-        return x
-    end
-end
-
 function defs.opt(x)
     if x == "" then
         return false
@@ -273,7 +265,7 @@ local grammar = re.compile([[
                           (LPAREN STRINGLIT^StringLParImport RPAREN^RParImport /
                           STRINGLIT^StringImport))               -> ToplevelImport
 
-    rettypeopt      <- (P  (COLON rettype^TypeFunc)?)            -> opt_ret_type
+    rettypeopt      <- (COLON rettype^TypeFunc)?                 -> opt_list
 
     paramlist       <- {| (param (COMMA param^DeclParList)*)? |} -- produces {Decl}
 
