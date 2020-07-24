@@ -70,9 +70,9 @@ declare_type("Exp", {
     Unop       = {"loc", "op", "exp"},
     Concat     = {"loc", "exps"},
     Binop      = {"loc", "lhs", "op", "rhs"},
-    Cast       = {"exp", "target_start_loc", "target", "target_end_loc"},
+    Cast       = {"exp", "loc", "target", "target_end_loc"},
     Paren      = {"loc", "exp"},
-ExtraRet   = {"loc", "call_exp", "i"}, -- See checker.lua
+    ExtraRet   = {"loc", "call_exp", "i"}, -- See checker.lua
 })
 
 declare_type("Field", {

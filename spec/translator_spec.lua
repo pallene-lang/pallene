@@ -432,6 +432,25 @@ describe("Pallene to Lua translator", function ()
         ]])
     end)
 
+    it("Remove casts from initializer list", function ()
+        assert_translation([[
+            typealias point = {
+                x: integer,
+                y: integer
+            }
+            local i: any = 1
+            local p: point = { x = i as integer, y = i as integer }
+        ]],
+        [[
+                               
+                           
+                          
+             
+            local i      = 1
+            local p        = { x = i           , y = i            }
+        ]])
+    end)
+
     it("Remove casts from toplevel variables", function ()
         assert_translation([[
             local i: any = 1
@@ -453,19 +472,6 @@ describe("Pallene to Lua translator", function ()
             local i      = 1
             local j          = i           
             local k          = (j           ) + 1
-        ]])
-    end)
-
-    pending("Remove casts from function calls", function ()
-        assert_translation([[
-            local function print_string(value:any)
-                io.write(value as string)
-            end
-        ]],
-        [[
-            local function print_string(value)
-                io.write(value)
-            end
         ]])
     end)
 

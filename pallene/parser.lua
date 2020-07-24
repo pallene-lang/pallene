@@ -381,7 +381,7 @@ local grammar = re.compile([[
     e10             <- (e11 {| (P op10 e11^OpExp)* |})           -> fold_binop_left
     e11             <- ({| (P unop)* |}  e12)                    -> fold_unops
     e12             <- (e13 (P op12 e11^OpExp)?)                 -> binop_right
-    e13             <- (simpleexp {| (P AS type^CastType P)* |})   -> fold_casts
+    e13             <- (simpleexp {| (P AS type^CastType P)* |}) -> fold_casts
 
     suffixedexp     <- (prefixexp {| expsuffix* |})              -> fold_suffixes
 
