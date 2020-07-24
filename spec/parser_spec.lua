@@ -886,14 +886,37 @@ describe("Pallene parser", function()
     end)
 
     it("can parse cast expressions", function()
+
         assert_expression_ast([[ foo as integer ]],
-            { _tag = "ast.Exp.Cast", exp = { _tag = "ast.Exp.Var" }, target = { _tag = "ast.Type.Integer" } })
+            { _tag = "ast.Exp.Cast",
+                exp = { _tag = "ast.Exp.Var" },
+                target = { _tag = "ast.Type.Integer" } })
+
         assert_expression_ast([[ a.b[1].c as integer ]],
-            { _tag = "ast.Exp.Cast", exp = { _tag = "ast.Exp.Var" }, target = { _tag = "ast.Type.Integer" } })
+            { _tag = "ast.Exp.Cast",
+                exp = { _tag = "ast.Exp.Var" },
+                target = { _tag = "ast.Type.Integer" } })
+
         assert_expression_ast([[ foo as { integer } ]],
-            { _tag = "ast.Exp.Cast", exp = { _tag = "ast.Exp.Var" }, target = { _tag = "ast.Type.Array" } })
+            { _tag = "ast.Exp.Cast",
+                exp = { _tag = "ast.Exp.Var" },
+                target = { _tag = "ast.Type.Array" } })
+
         assert_expression_ast([[ 2 + foo as integer ]],
-            { rhs = { _tag = "ast.Exp.Cast", exp = { _tag = "ast.Exp.Var" }, target = { _tag = "ast.Type.Integer" } }})
+            { rhs = {
+                _tag = "ast.Exp.Cast",
+                exp = { _tag = "ast.Exp.Var" },
+                target = { _tag = "ast.Type.Integer" } }})
+
+        assert_expression_ast([[ 1 as integer as any ]],
+            { _tag = "ast.Exp.Cast",
+                target = { _tag = "ast.Type.Any" },
+                exp = {
+                    _tag = "ast.Exp.Cast",
+                    target = { _tag = "ast.Type.Integer" },
+                    exp = {
+                        _tag = "ast.Exp.Integer"
+                    }}})
     end)
 
     it("does not allow parentheses in the LHS of an assignment", function()

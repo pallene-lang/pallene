@@ -125,18 +125,18 @@ function defs.elseif_(pos, exp, block)
     return { pos = pos, exp = exp, block = block }
 end
 
-function defs.fold_binop_left(pos, matches)
-    local lhs = matches[1]
-    for i = 2, #matches, 2 do
-        local op  = matches[i]
-        local rhs = matches[i+1]
-        lhs = ast.Exp.Binop(pos, lhs, op, rhs)
+function defs.fold_binop_left(exp, matches)
+    for i = 1, #matches, 3 do
+        local pos = matches[i]
+        local op  = matches[i+1]
+        local rhs = matches[i+2]
+        exp = ast.Exp.Binop(pos, exp, op, rhs)
     end
-    return lhs
+    return exp
 end
 
 -- Should this go on a separate constant propagation pass?
-function defs.binop_concat(pos, lhs, op, rhs)
+function defs.binop_concat(lhs, pos, op, rhs)
     if op then
         if rhs._tag == "ast.Exp.Concat" then
             table.insert(rhs.exps, 1, lhs)
@@ -156,7 +156,7 @@ function defs.binop_concat(pos, lhs, op, rhs)
     end
 end
 
-function defs.binop_right(pos, lhs, op, rhs)
+function defs.binop_right(lhs, pos, op, rhs)
     if op then
         return ast.Exp.Binop(pos, lhs, op, rhs)
     else
@@ -164,10 +164,20 @@ function defs.binop_right(pos, lhs, op, rhs)
     end
 end
 
-function defs.fold_unops(pos, unops, exp)
-    for i = #unops, 1, -1 do
-        local op = unops[i]
+function defs.fold_unops(matches, exp)
+    for i = #matches, 1, -2 do
+        local op  = matches[i]
+        local pos = matches[i-1]
         exp = ast.Exp.Unop(pos, op, exp)
+    end
+    return exp
+end
+
+function defs.fold_casts(exp, matches)
+    for i = 1, #matches, 2 do
+        local pos = matches[i]
+        local typ = matches[i+1]
+        exp = ast.Exp.Cast(pos, exp, typ)
     end
     return exp
 end
@@ -358,18 +368,19 @@ local grammar = re.compile([[
     op12            <- ( POW -> '^' )
 
     exp             <- e1
-    e1              <- (P  {| e2  (op1  e2^OpExp)* |})           -> fold_binop_left
-    e2              <- (P  {| e3  (op2  e3^OpExp)* |})           -> fold_binop_left
-    e3              <- (P  {| e4  (op3  e4^OpExp)* |})           -> fold_binop_left
-    e4              <- (P  {| e5  (op4  e5^OpExp)* |})           -> fold_binop_left
-    e5              <- (P  {| e6  (op5  e6^OpExp)* |})           -> fold_binop_left
-    e6              <- (P  {| e7  (op6  e7^OpExp)* |})           -> fold_binop_left
-    e7              <- (P  {| e8  (op7  e8^OpExp)* |})           -> fold_binop_left
-    e8              <- (P     e9  (op8  e8^OpExp)?)              -> binop_concat
-    e9              <- (P  {| e10 (op9  e10^OpExp)* |})          -> fold_binop_left
-    e10             <- (P  {| e11 (op10 e11^OpExp)* |})          -> fold_binop_left
-    e11             <- (P  {| unop* |}  e12)                     -> fold_unops
-    e12             <- (P  castexp (op12 e11^OpExp)?)            -> binop_right
+    e1              <- (e2  {| (P op1  e2^OpExp)*  |})           -> fold_binop_left
+    e2              <- (e3  {| (P op2  e3^OpExp)*  |})           -> fold_binop_left
+    e3              <- (e4  {| (P op3  e4^OpExp)*  |})           -> fold_binop_left
+    e4              <- (e5  {| (P op4  e5^OpExp)*  |})           -> fold_binop_left
+    e5              <- (e6  {| (P op5  e6^OpExp)*  |})           -> fold_binop_left
+    e6              <- (e7  {| (P op6  e7^OpExp)*  |})           -> fold_binop_left
+    e7              <- (e8  {| (P op7  e8^OpExp)*  |})           -> fold_binop_left
+    e8              <- (e9  (P op8  e8^OpExp)?)                  -> binop_concat
+    e9              <- (e10 {| (P op9  e10^OpExp)* |})           -> fold_binop_left
+    e10             <- (e11 {| (P op10 e11^OpExp)* |})           -> fold_binop_left
+    e11             <- ({| (P unop)* |}  e12)                    -> fold_unops
+    e12             <- (e13 (P op12 e11^OpExp)?)                 -> binop_right
+    e13             <- (simpleexp {| (P AS type^CastType)* |})   -> fold_casts
 
     suffixedexp     <- (prefixexp {| expsuffix* |})              -> fold_suffixes
 
@@ -383,10 +394,6 @@ local grammar = re.compile([[
     prefixexp       <- (P  NAME)                                 -> name_exp
                      / (P LPAREN exp^ExpSimpleExp
                                RPAREN^RParSimpleExp)             -> ExpParen
-
-
-    castexp         <- (P  simpleexp AS type^CastMissingType)    -> ExpCast
-                     / simpleexp                                 -- produces Exp
 
     simpleexp       <- (P  NIL)                                  -> nil_exp
                      / (P  FALSE -> to_false)                    -> ExpBool
