@@ -4,10 +4,9 @@ source = {
    url = "git+https://github.com/pallene-lang/pallene"
 }
 description = {
-   summary = "Initial prototype of the Pallene compiler",
+   summary = "Pallene compiler",
    detailed = [[
-      Initial prototype of the Pallene compiler.
-   ]],
+Compiler for the Pallene programming language.]],
    homepage = "http://github.com/pallene-lang/pallene",
    license = "MIT"
 }
