@@ -41,7 +41,7 @@ end
 --
 -- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
 --
-function driver.compile_internal(filename, input, stop_after)
+function driver.compile_internal(filename, input, stop_after, opt_passes)
     stop_after = stop_after or "optimize"
 
     local prog_ast, errs = parser.parse(filename, input)
@@ -60,14 +60,18 @@ function driver.compile_internal(filename, input, stop_after)
         return module, errs
     end
 
-    module, errs = uninitialized.verify_variables(module)
-    if stop_after == "uninitialized" or not module then
-        return module, errs
+    if stop_after ~= "optimize" or opt_passes["uninitialized"] then
+        module, errs = uninitialized.verify_variables(module)
+        if stop_after == "uninitialized" or not module then
+            return module, errs
+        end
     end
 
-    module, errs = constant_propagation.run(module)
-    if stop_after == "constant_propagation" or not module then
-        return module, errs
+    if stop_after ~= "optimize" or opt_passes["constant_propagation"] then
+        module, errs = constant_propagation.run(module)
+        if stop_after == "constant_propagation" or not module then
+            return module, errs
+        end
     end
 
     if stop_after == "optimize" or not module then
@@ -77,13 +81,13 @@ function driver.compile_internal(filename, input, stop_after)
     error("impossible")
 end
 
-local function compile_pallene_to_c(pallene_filename, c_filename, mod_name)
+local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_passes)
     local input, err = driver.load_input(pallene_filename)
     if not input then
         return false, { err }
     end
 
-    local module, errs = driver.compile_internal(pallene_filename, input)
+    local module, errs = driver.compile_internal(pallene_filename, input, nil, opt_passes)
     if not module then
         return false, errs
     end
@@ -144,7 +148,7 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     return true, {}
 end
 
-function driver.compile(argv0, input_ext, output_ext, input_file_name)
+function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_passes)
     local base_name, err =
         check_source_filename(argv0, input_file_name, input_ext)
     if not base_name then return false, {err} end
@@ -173,7 +177,7 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name)
             local f = compiler_steps[i].f
             local src = file_names[i]
             local out = file_names[i+1]
-            ok, errs = f(src, out, mod_name)
+            ok, errs = f(src, out, mod_name, opt_passes)
             if not ok then break end
         end
 
