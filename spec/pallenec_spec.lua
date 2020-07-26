@@ -44,14 +44,8 @@ describe("pallenec", function()
     end)
 
     it("Can detect conflicting arguments", function()
-        local ok, err, _, abortMsg = util.outputs_of_execute("./pallenec --emit-c --emit-asm __test__.pln")
+        local ok, err, _, abort_msg = util.outputs_of_execute("./pallenec --emit-c --emit-asm __test__.pln")
         assert.is_false(ok, err)
-        assert.equals([[Usage: pallenec
-       ([--emit-c] | [--emit-asm] | [--emit-lua] | [--compile-c] | [--print-ir] | [--dump {ast,checker,ir,uninitialized,constant_propagation}])
-       [-h] <source_file>
-       [--optimizations [{uninitialized,constant_propagation}] ...]
-
-Error: option '--emit-asm' can not be used together with option '--emit-c'
-]], abortMsg)
+        assert(string.find(abort_msg, "Error: option '--emit-asm' can not be used together with option '--emit-c'", nil, true))
     end)
 end)
