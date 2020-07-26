@@ -60,11 +60,9 @@ function driver.compile_internal(filename, input, stop_after, opt_passes)
         return module, errs
     end
 
-    if stop_after ~= "optimize" or opt_passes["uninitialized"] then
-        module, errs = uninitialized.verify_variables(module)
-        if stop_after == "uninitialized" or not module then
-            return module, errs
-        end
+    module, errs = uninitialized.verify_variables(module)
+    if stop_after == "uninitialized" or not module then
+        return module, errs
     end
 
     if stop_after ~= "optimize" or opt_passes["constant_propagation"] then

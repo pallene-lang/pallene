@@ -9,7 +9,7 @@ local util = require "pallene.util"
 
 -- List of optimizations that the Pallene compiler does. If a new optimization is made,
 -- it should be added to this table.
-local all_opt_passes = {"uninitialized", "constant_propagation"}
+local all_opt_passes = {"constant_propagation"}
 
 -- List of compiler passes that are available. If a new optimization is made,
 -- it should be added to this table.
@@ -76,14 +76,6 @@ local function pretty_print_ir(filename)
     io.stdout:write(print_ir(module))
 end
 
-local flags = 0
-if args.emit_c    then flags = flags + 1 end
-if args.emit_asm  then flags = flags + 1 end
-if args.compile_c then flags = flags + 1 end
-if args.dump      then flags = flags + 1 end
-if args.print_ir  then flags = flags + 1 end
-if args.emit_lua  then flags = flags + 1 end
-
 local opt_passes = {}
 if args.optimizations then
     for _, opt in ipairs(args.optimizations) do
@@ -95,13 +87,11 @@ else
     end
 end
 
-if     flags == 0     then compile("pln", "so", opt_passes)
-elseif args.emit_c    then compile("pln", "c", opt_passes)
+if     args.emit_c    then compile("pln", "c", opt_passes)
 elseif args.emit_asm  then compile("c",   "s")
 elseif args.compile_c then compile("c" ,  "so")
 elseif args.dump      then dump(args.source_file, args.dump)
 elseif args.print_ir  then pretty_print_ir(args.source_file)
 elseif args.emit_lua  then compile("pln", "lua")
-else
-    error("impossible")
+else                       compile("pln", "so", opt_passes)
 end
