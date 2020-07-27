@@ -190,6 +190,22 @@ function Translator:translate_stat(stat)
     end
 end
 
+function Translator:erase_mrf_modifier(start_index, is_local)
+    self:add_previous(start_index - 1)
+    local new_index
+    if is_local then
+        new_index = self.last_index + 5
+    else
+        new_index = self.last_index + 6
+    end
+    self.last_index = new_index
+end
+
+function Translator:handle_mrf_name(start_index, name)
+    self:add_previous(start_index - 1)
+    self.last_index = start_index + #name
+end
+
 function Translator:translate_toplevel(node)
     if node._tag == "ast.Toplevel.Var" then
         -- Add the variables to the export sequence if they are declared with the `export`
@@ -209,10 +225,19 @@ function Translator:translate_toplevel(node)
             self:translate_exp(value)
         end
     elseif node._tag == "ast.Toplevel.Func" then
+        self:erase_mrf_modifier(node.loc.pos, node.is_local)
+        -- The semicolon tokens ensures that the previous token is not touched by the `local` keyword.
+        -- Also, we do not have to append a space character because the modifier is always followed
+        -- by a whitespace.
+        local name = node.decl.name
+        table.insert(self.partials, string.format("; local %s; %s =", name, name))
+
         if not node.is_local then
-            self:add_local(node.loc.pos)
-            table.insert(self.exports, node.decl.name)
+            -- self:add_local(node.loc.pos)
+            table.insert(self.exports, name)
         end
+
+        self:handle_mrf_name(node.name_loc.pos, name)
 
         -- Remove type annotations from function parameters.
         for _, arg_decl in ipairs(node.value.arg_decls) do
