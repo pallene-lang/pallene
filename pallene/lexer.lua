@@ -3,233 +3,247 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
---
--- This module exports lpeg patterns that can lex Pallene source code.
---
--- The lexer follows the "longest match" rule and for any given input there will be at most one
--- token that matches it. For example, lexer.LE matches the start of "<=bla" but lexer.LT doesn't.
--- This should mean that you don't need to worry about what token comes first in a PEG ordered
--- choice or about the lexer splitting words in the middle (such as "localx" being parsed as "local"
--- "x").
---
--- The exported tokens are in ALLCAPS, to play nice with the "re"-style grammars from parser-gen: it
--- can only refer to our tokens if we use alphabetical identifiers and it expects terminals to be
--- uppercase and non-terminals to be lowercase.
+local lpeg = require "lpeg"
+local re = require "re"
+local util = require "pallene.util"
 
-local lpeg = require "lpeglabel"
+local P = lpeg.P
+local RE = re.compile
 
-lpeg.locale(lpeg)
+-----------------------------
 
-local P, R, S = lpeg.P, lpeg.R, lpeg.S
-local C, Cb, Cg, Ct, Cmt, Cc = lpeg.C, lpeg.Cb, lpeg.Cg, lpeg.Ct, lpeg.Cmt,
-    lpeg.Cc
-local T = lpeg.T
+local one_char = P(1)
 
-local lexer = {}
+local space = RE"[ \t\n\v\f\r]+"
+local newline = P"\n\r" + P"\r\n" + P"\n" + P"\r" -- See inclinenumber in llex.c
 
---
--- Numbers
---
+local comment_line = RE"[^\n\r]*" * newline^-1
 
--- This very general pattern matches both integer and floating point numbers, in either decimal or
--- hexadecimal notation, as well as a bunch of invalid stuff. We use tonumber in the end to find out
--- which is which. This pattern is intentionally more general than the one that Lua uses to avoid
--- allowing weird things such as `1337require`.
-local number_start = P(".")^-1 * R("09")
-local expo = S("EePp") * S("+-")^-1
-local possible_number = (expo + R("09", "AZ", "az") + ".")^1
-local good_number = Cmt(possible_number, function(_, i, s)
-    local n = tonumber(s)
-    if n then
-        return i, n
-    else
-        return false
-    end
-end)
-lexer.NUMBER = #number_start * (good_number + T("MalformedNumber"))
+local longstring_open    = P("[") * P("=")^0 * P("[")
+local longstring_close   = P("]") * P("=")^0 * P("]")
+local longstring_content = (P(1) - longstring_close)^1
 
---
--- Strings
---
+local string_delimiter  = RE"[\"\']"
+local string_hex_number = RE"[0-9A-Fa-f][0-9A-Fa-f]"
+local string_dec_number = RE"[0-9][0-9]?[0-9]?"
+local string_u_number   = RE"[0-9A-Fa-f]+"
+local string_content    = RE"[^\"\'\n\r\\]+"
 
--- Lua's definition of a linebreak (used when skipping them inside strings)
-local line_break =
-    P("\n\r") +
-    P("\r\n") +
-    P("\n") +
-    P("\r")
-
-local long_string
-do
-    local equals = P("=")^0
-    local open  = P("[") * Cg(equals, "open")  * P("[") * line_break^-1
-    local close = P("]") * Cg(equals, "close") * P("]")
-
-    local matching_close =
-        close * Cmt( Cb("open") * Cb("close"),
-            function(_source, _i, openstr, closestr)
-                return openstr == closestr
-            end)
-
-    local contents = (-matching_close * P(1)) ^0
-
-    long_string = (
-        open * (
-            C(contents) * close +
-            T("UnclosedLongString")
-        )
-    ) / function(contents_str)
-            -- hide the group captures
-            return contents_str
-        end
-end
-
-local short_string
-do
-
-    local delimiter = P('"') + P("'")
-
-    local open  = Cg(delimiter, "open")
-    local close = Cg(delimiter, "close")
-
-    local matching_close =
-        close * Cmt( Cb("open")* Cb("close"),
-            function(_source, _i, open_str, close_str)
-                return open_str == close_str
-            end)
-
-    -- A sequence of up to 3 decimal digits representing a non-negative integer less than 256
-    local decimal_escape = P("1") * R("09") * R("09") +
-        P("2") * R("04") * R("09") +
-        P("2") * P("5") * R("05") +
-        P("0") * R("09") * R("09") +
-        R("09") * R("09") * -R("09")  +
-        R("09") * -R("09") +
-        R("09") * T("MalformedEscape_decimal")
-
-    local escape_sequence = P("\\") * (
-        (-P(1) * T("UnclosedShortString")) +
-        (P("a")  / "\a") +
-        (P("b")  / "\b") +
-        (P("f")  / "\f") +
-        (P("n")  / "\n") +
-        (P("r")  / "\r") +
-        (P("t")  / "\t") +
-        (P("v")  / "\v") +
-        (P("\\") / "\\") +
-        (P("\'") / "\'") +
-        (P("\"") / "\"") +
-        (line_break / "\n") +
-        C(decimal_escape) / tonumber / string.char +
-        (P("u") * (P("{") * C(R("09", "af", "AF")^0) * P("}") * Cc(16) +
-            T("MalformedEscape_u"))) / tonumber / utf8.char +
-        (P("x") * (C(R("09", "af", "AF") * R("09", "af", "AF")) * Cc(16) +
-            T("MalformedEscape_x"))) / tonumber / string.char +
-        (P("z") * lpeg.space^0) +
-        T("InvalidEscape")
-    )
-
-    local part = (
-        (S("\n\r") * T("UnclosedShortString")) +
-        escape_sequence +
-        (C(P(1)))
-    )
-
-    local contents = (-matching_close * part)^0
-
-    short_string = (
-        open * (
-            Ct(contents) * close +
-            T("UnclosedShortString")
-        )
-    ) / function(parts) return table.concat(parts) end
-end
-
-lexer.STRINGLIT = short_string + long_string
-
---
--- Spaces and Comments
---
-
-lexer.SPACE = S(" \t\n\v\f\r")^1
-
-local comment_start = P("--")
-local short_comment = comment_start * (P(1) - P("\n"))^0 * P("\n")^-1
-local long_comment  = comment_start * long_string / function() end
-
-lexer.COMMENT = long_comment + short_comment
-
---
--- Keywords and names
---
-
-local id_start = P("_") + R("AZ", "az")
-local id_rest  = P("_") + R("AZ", "az", "09")
-local possible_name = id_start * id_rest^0
-
-local keywords = {
-    "and", "break", "do", "else", "elseif", "end", "for", "false",
-    "function", "goto", "if", "in", "local", "nil", "not", "or",
-    "repeat", "return", "then", "true", "until", "while", "import",
-    "record", "as", "typealias", "export",
-
-    "boolean", "integer", "float", "string", "any"
+local string_escapes = {
+    ["a"] = "\a",  ["b"] = "\b", ["f"] = "\f",  ["n"] = "\n",  ["r"] = "\r",
+    ["t"] = "\t",  ["v"] = "\v", ["\\"] = "\\", ["\'"] = "\'", ["\""] = "\"",
 }
 
-for _, keyword in ipairs(keywords) do
-    lexer[keyword:upper()] = P(keyword) * -id_rest
-end
+local possible_number = RE[[
+      [0][Xx] ([Pp][+-]? / [.0-9A-Fa-f])* /
+    [.]?[0-9] ([Ee][+-]? / [.0-9A-Fa-f])*]] -- See read_numeral in llex.c
 
+local identifier = RE"[_A-Za-z][_A-Za-z0-9]*"
 local is_keyword = {}
-for _, keyword in ipairs(keywords) do
-    is_keyword[keyword] = true
+do
+    local strs = [[
+        and break do else elseif end for false function goto if in local nil not or repeat return
+        then true until while   any as boolean export float string import integer record typealias
+    ]]
+    for s in string.gmatch(strs, "%S+") do
+        is_keyword[s] = true
+    end
 end
 
-lexer.NAME = Cmt(C(possible_name), function(_, pos, s)
-    if not is_keyword[s] then
-        return pos, s
+local symbol = P(false)
+do
+    -- Ordered by decreasing length, to follow the longest match rule.
+    local strs = "... .. // << >> == ~= <= >= :: -> + - * / % ^ & | ~  < > = ( ) [ ] { } ; , . :"
+    for s in string.gmatch(strs, "%S+") do
+        symbol = symbol + P(s)
+    end
+end
+
+-----------------------------
+
+local Lexer = util.Class()
+
+function Lexer:init(input)
+    self.input   = input  -- Source code string
+    self.pos     = 1      -- Absolute position in the input
+    self.line    = 1      -- Line number for error messages
+    self.col     = 1      -- Column number for error messages
+    self.matched = false  -- Last matched substring
+end
+
+-- If the given pattern matches, updates the lexer state and returns true. Otherwise, returns false.
+-- The pattern can be either an LPEG pattern or a literal string.
+local pattern_cache = {}
+function Lexer:try(pat)
+    if type(pat) == "string" then
+        if not pattern_cache[pat] then pattern_cache[pat] = P(pat) end
+        pat = pattern_cache[pat]
+    end
+    assert(lpeg.type(pat) == "pattern")
+
+    local new_pos = pat:match(self.input, self.pos)
+    if new_pos then
+        self.matched = string.sub(self.input, self.pos, new_pos - 1)
+        local i = 1
+        while true do
+            local j = newline:match(self.matched, i)
+            if not j then break end
+            self.line = self.line + 1
+            self.col  = 1
+            i = j
+        end
+        self.col = self.col + #self.matched - i + 1
+        self.pos = new_pos
+        return true
     else
         return false
     end
-end)
-
---
--- Symbolic tokens
---
-
-local symbols = {
-    -- Lua:
-    ADD  = "+",  SUB   = "-",  MUL = "*", MOD = "%",
-    DIV  = "/",  IDIV  = "//", POW = "^", LEN = "#",
-    BAND = "&",  BXOR  = "~",  BOR = "|",
-    SHL  = "<<", SHR   = ">>", CONCAT = "..",
-    EQ = "==", LT = "<",  GT = ">",
-    NE = "~=", LE = "<=", GE = ">=",
-    ASSIGN = "=",
-    LPAREN   = "(", RPAREN   = ")",
-    LBRACKET = "[", RBRACKET = "]",
-    LCURLY   = "{", RCURLY   = "}",
-    SEMICOLON = ";", COMMA = ",",
-    DOT = ".", DOTS = "...", DBLCOLON = "::",
-    -- Pallene:
-    COLON = ":",
-    RARROW = "->",
-}
-
--- Enforce the longest match rule among the symbolic tokens.
-for token_name, symbol in pairs(symbols) do -- token_name?
-    local pat = P(symbol)
-    for _ , symbol_2 in pairs(symbols) do
-        if #symbol < #symbol_2 and symbol == string.sub(symbol_2, 1, #symbol) then
-            pat = pat - P(symbol_2)
-        end
-    end
-    lexer[token_name] = pat
 end
 
--- Enforce the longest match rule when a symbolic token is a prefix of a non-symbolic one.
-lexer.DOT      = lexer.DOT      - (P(".") * R("09"))
-lexer.LBRACKET = lexer.LBRACKET - (P("[") * P("=")^0 * P("["))
-lexer.SUB      = lexer.SUB      - P("--")
+function Lexer:read_short_string(delimiter)
+    local parts = {}
+    while true do
+        if self:try(string_delimiter) then
+            if self.matched == delimiter then
+                break
+            else
+                table.insert(parts, self.matched)
+            end
 
-return lexer
+        elseif self:try(string_content) then
+            table.insert(parts, self.matched)
+
+        elseif self:try("\\") then
+
+            if self:try(newline)
+                then table.insert(parts, "\n")
+
+            elseif self:try(string_dec_number) then
+                local n = tonumber(self.matched)
+                if n < 256 then
+                    table.insert(parts, string.char(n))
+                else
+                    return false, "Decimal escape sequence is too large"
+                end
+
+            elseif self:try("x") then
+                if self:try(string_hex_number) then
+                    local n = assert(tonumber(self.matched, 16))
+                    table.insert(parts, string.char(n))
+                else
+                    return false, "\\x escape sequences must have exactly two hexadecimal digits"
+                end
+
+            elseif self:try("u") then
+                if not self:try("{") then
+                    return false, "Expected '{' after \\u"
+                end
+                if not self:try(string_u_number) then
+                    return false, "Expected one or more hexadecimal digits after '{'"
+                end
+                local n = assert(tonumber(self.matched, 16))
+                if n >= (1<<31) then
+                    return false, string.format("Unicode number %s is too large", self.matched)
+                end
+                if not self:try("}") then
+                    return false, "Expected '}' to close the \\u escape sequence"
+                end
+                table.insert(parts, utf8.char(n))
+
+            elseif self:try("z") then
+                self:try(space)
+
+            elseif self:try(one_char) then
+                local s = string_escapes[self.matched]
+                if s then
+                    table.insert(parts, s)
+                else
+                    return false, string.format("Invalid escape sequence %s", "\\"..self.matched)
+                end
+
+            else
+                return false, "Unfinished escape sequence"
+            end
+
+        else
+            return false, "Unclosed string"
+        end
+    end
+    return table.concat(parts)
+end
+
+function Lexer:read_long_string(delimiter_length)
+    self:try(newline)
+    local parts = {}
+    while true do
+        if self:try(longstring_close) then
+            if #self.matched == delimiter_length then
+                break
+            else
+                table.insert(parts, self.matched)
+            end
+
+        elseif self:try(longstring_content) then
+            table.insert(parts, self.matched)
+
+        else
+            return false
+        end
+    end
+    return table.concat(parts)
+end
+
+function Lexer:next()
+
+    while true do
+        if self:try(space) then
+            -- skip
+        elseif self:try("--") then
+            if self:try(longstring_open) then
+                local s = self:read_long_string(#self.matched)
+                if not s then return false, "Unclosed long comment" end
+            else
+                self:try(comment_line)
+            end
+        else
+            break
+        end
+    end
+
+    if self:try(string_delimiter) then
+        local s, err = self:read_short_string(self.matched)
+        if not s then return false, err end
+        return "STRING", s
+
+    elseif self:try(longstring_open) then
+        local s = self:read_long_string(#self.matched)
+        if not s then return false, "Unclosed long string" end
+        return "STRING", s
+
+    elseif self:try(possible_number) then
+        local n = tonumber(self.matched)
+        if n then
+            return "NUMBER", n
+        else
+            return false, string.format("Invalid numeric literal %q", self.matched)
+        end
+
+    elseif self:try(symbol) then -- Must try this after numbers, because of '.'
+        return self.matched
+
+    elseif self:try(identifier) then
+        if is_keyword[self.matched] then
+            return self.matched
+        else
+            return "NAME", self.matched
+        end
+
+    elseif self:try(one_char) then
+        return false, string.format("Unexpected character %q", self.matched)
+
+    else
+        return "EOF"
+    end
+end
+
+return Lexer

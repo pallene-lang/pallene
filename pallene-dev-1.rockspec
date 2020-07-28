@@ -12,7 +12,7 @@ Compiler for the Pallene programming language.]],
 }
 dependencies = {
    "lua >= 5.3",
-   "lpeglabel >= 1.5.0",
+   "lpeg >= 1.0",
    "inspect >= 3.1.0",
    "argparse >= 0.7.0",
    "luafilesystem >= 1.7.0",

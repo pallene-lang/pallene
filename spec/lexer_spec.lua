@@ -1,56 +1,22 @@
-local lexer = require 'pallene.lexer'
-local lpeg = require 'lpeglabel'
-
-local function table_extend(t1, t2)
-    table.move(t2, 1, #t2, #t1+1, t1)
-end
+local Lexer = require 'pallene.lexer'
 
 -- Find out how the lexer lexes a given string.
--- Produces an error message if the string cannot be lexed or if there
--- are multiple ways to lex it.
 local function run_lexer(source)
-    local all_matched_tokens = {}
-    local all_captures = {}
+    local tokens   = {}
+    local captures = {}
 
-    local i = 1
-    while i <= #source do
-
-        local found_token = nil
-        local found_captures = nil
-        local found_j = nil
-
-        for tokname, tokpat in pairs(lexer) do
-            local a, b = lpeg.match(lpeg.Ct(tokpat) * lpeg.Cp(), source, i)
-            if a then
-                local captures, j = a, b
-                if i == j then
-                    return string.format(
-                        "error: token %s matched the empty string",
-                        tokname)
-                elseif found_token then
-                    return string.format(
-                        "error: multiple matching tokens: %s %s",
-                         found_token, tokname)
-                else
-                    found_token = tokname
-                    found_captures = captures
-                    found_j = j
-                end
-            elseif b and b ~= 'fail' then
-                return { err = b }
-            end
+    local lexer = Lexer.new(source)
+    while true do
+        local tok, value = lexer:next()
+        if not tok then
+            return { err = value }
+        elseif tok == "EOF" then
+            return { tokens = tokens, captures = captures }
+        else
+            table.insert(tokens, tok)
+            if value ~= nil then table.insert(captures, value) end
         end
-
-        if not found_token then
-            return "error: lexer got stuck"
-        end
-
-        table.insert(all_matched_tokens, found_token)
-        table_extend(all_captures, found_captures)
-        i = found_j
     end
-
-    return { tokens = all_matched_tokens, captures = all_captures }
 end
 
 local function assert_lex(source, expected_tokens, expected_captures)
@@ -68,21 +34,21 @@ end
 describe("Pallene lexer", function()
 
     it("can lex some keywords", function()
-        assert_lex("and", {"AND"}, {})
-        assert_lex("export", {"EXPORT"}, {})
+        assert_lex("and", {"and"}, {})
+        assert_lex("export", {"export"}, {})
     end)
 
     it("can lex keywords that contain other keywords", function()
-        assert_lex("if",     {"IF"},     {})
-        assert_lex("else",   {"ELSE"},   {})
-        assert_lex("elseif", {"ELSEIF"}, {})
-        assert_lex("export", {"EXPORT"}, {})
+        assert_lex("if",     {"if"},     {})
+        assert_lex("else",   {"else"},   {})
+        assert_lex("elseif", {"elseif"}, {})
+        assert_lex("export", {"export"}, {})
     end)
 
     it("does not generate semantic values for keywords", function()
-        assert_lex("nil",   {"NIL"},   {})
-        assert_lex("true",  {"TRUE"},  {})
-        assert_lex("false", {"FALSE"}, {})
+        assert_lex("nil",   {"nil"},   {})
+        assert_lex("true",  {"true"},  {})
+        assert_lex("false", {"false"}, {})
     end)
 
     it("can lex some identifiers", function()
@@ -98,17 +64,17 @@ describe("Pallene lexer", function()
     end)
 
     it("can lex sequences of symbols without spaces", function()
-        assert_lex("+++", {"ADD", "ADD", "ADD"}, {})
-        assert_lex(".",   {"DOT"},               {})
-        assert_lex("..",  {"CONCAT"},            {})
-        assert_lex("...", {"DOTS"},              {})
-        assert_lex("<==", {"LE", "ASSIGN"},      {})
-        assert_lex("---", {"COMMENT"},           {})
-        assert_lex("///", {"IDIV", "DIV"},       {})
-        assert_lex("~=",  {"NE"},                {})
-        assert_lex("~~=", {"BXOR", "NE"},        {})
-        assert_lex("->-", {"RARROW", "SUB"},     {})
-        assert_lex("-->", {"COMMENT"},           {})
+        assert_lex("+++", {"+", "+", "+"}, {})
+        assert_lex(".",   {"."},           {})
+        assert_lex("..",  {".."},          {})
+        assert_lex("...", {"..."},         {})
+        assert_lex("<==", {"<=", "="},     {})
+        assert_lex("///", {"//", "/"},     {})
+        assert_lex("~=",  {"~="},          {})
+        assert_lex("~~=", {"~", "~="},     {})
+        assert_lex("->-", {"->", "-"},     {})
+        assert_lex("---", {},              {})
+        assert_lex("-->", {},              {})
     end)
 
     it("can lex some integers", function()
@@ -130,166 +96,161 @@ describe("Pallene lexer", function()
     end)
 
     it("does the right thing with dots touching numbers", function()
-        assert_lex(".1",   {"NUMBER"},           {.1})
-        assert_lex("..2",  {"CONCAT", "NUMBER"}, {2})
-        assert_lex("...3", {"DOTS", "NUMBER"},   {3})
-        assert_lex("4.",   {"NUMBER"},           {4})
+        assert_lex(".1",   {"NUMBER"},        {.1})
+        assert_lex("..2",  {"..", "NUMBER"},  {2})
+        assert_lex("...3", {"...", "NUMBER"}, {3})
+        assert_lex("4.",   {"NUMBER"},        {4.})
     end)
 
-    it("rejects invalid numeric literals ", function()
-        assert_error("1abcdef", "MalformedNumber")
-        assert_error("1.2.3.4", "MalformedNumber")
-        assert_error("1e",      "MalformedNumber")
-        assert_error("1e2e3",   "MalformedNumber")
-        assert_error("1p5",     "MalformedNumber")
-        assert_error(".1.",     "MalformedNumber")
-        assert_error("4..",     "MalformedNumber")
+    it("rejects invalid numeric literals", function()
+        assert_error("1abcdef", 'Invalid numeric literal "1abcdef"')
+        assert_error("1.2.3.4", 'Invalid numeric literal "1.2.3.4"')
+        assert_error("1e",      'Invalid numeric literal "1e"')
+        assert_error("1e2e3",   'Invalid numeric literal "1e2e3"')
+        assert_error(".1.",     'Invalid numeric literal ".1."')
+        assert_error("4..",     'Invalid numeric literal "4.."')
+    end)
 
-        -- This is actually accepted by Lua (!)
-        assert_error("local x = 1337require",        "MalformedNumber")
+    it("rejects numbers adjacent to a-f", function()
+        assert_error("1337collectgarbage", 'Invalid numeric literal "1337c"')
+    end)
 
-        -- This is rejected by Lua ('c' is an hexdigit)
-        assert_error("local x = 1337collectgarbage", "MalformedNumber")
+    it("allows numbers adjacent to g-z", function()
+        assert_lex("1337require", {"NUMBER", "NAME"}, {1337, "require"})
+        assert_lex("1p5",         {"NUMBER", "NAME"}, {1, "p5"})
+    end)
+
+    it("correctly parses 0xe+1", function()
+        assert_lex("0xe+1", {"NUMBER", "+", "NUMBER"}, {0xe, 1})
     end)
 
     it("can lex some short strings", function()
-        assert_lex([[""]], {"STRINGLIT"}, {""})
-        assert_lex([["asdf"]], {"STRINGLIT"}, {"asdf"})
+        assert_lex([[""]],     {"STRING"}, {""})
+        assert_lex([["asdf"]], {"STRING"}, {"asdf"})
     end)
 
     it("doesn't eat the spaces inside a string", function()
-        assert_lex([[" asdf  "]], {"STRINGLIT"}, {" asdf  "})
+        assert_lex([[" asdf  "]], {"STRING"}, {" asdf  "})
     end)
 
     it("can lex short strings containg quotes", function()
-        assert_lex([["O'Neil"]],    {"STRINGLIT"}, {"O\'Neil"})
-        assert_lex([['aa"bb"cc']],  {"STRINGLIT"}, {"aa\"bb\"cc"})
+        assert_lex([["O'Neil"]],    {"STRING"}, {"O\'Neil"})
+        assert_lex([['aa"bb"cc']],  {"STRING"}, {"aa\"bb\"cc"})
     end)
 
     it("can lex short strings containing escape sequences", function()
-        assert_lex([["\a\b\f\n\r\t\v\\\'\""]], {"STRINGLIT"}, {"\a\b\f\n\r\t\v\\\'\""})
+        assert_lex([["\a\b\f\n\r\t\v\\\'\""]], {"STRING"}, {"\a\b\f\n\r\t\v\\\'\""})
     end)
 
     it("can lex short strings containing escaped newlines", function()
-        assert_lex('"A\\\nB"',   {"STRINGLIT"}, {"A\nB"})
-        assert_lex('"A\\\rB"',   {"STRINGLIT"}, {"A\nB"})
-        assert_lex('"A\\\n\rB"', {"STRINGLIT"}, {"A\nB"})
-        assert_lex('"A\\\r\nB"', {"STRINGLIT"}, {"A\nB"})
+        assert_lex('"A\\\nB"',   {"STRING"}, {"A\nB"})
+        assert_lex('"A\\\rB"',   {"STRING"}, {"A\nB"})
+        assert_lex('"A\\\n\rB"', {"STRING"}, {"A\nB"})
+        assert_lex('"A\\\r\nB"', {"STRING"}, {"A\nB"})
     end)
 
     it("can lex short strings containing decimal escapes", function()
-        assert_lex('"A\\9B"',   {"STRINGLIT"}, {"A\tB"})
-        assert_lex('"A\\10B"',  {"STRINGLIT"}, {"A\nB"})
-        assert_lex('"A\\100B"', {"STRINGLIT"}, {"AdB"})
-        assert_lex('"A\\1000B"', {"STRINGLIT"}, {"Ad0B"})
+        assert_lex('"A\\9B"',    {"STRING"}, {"A\tB"})
+        assert_lex('"A\\10B"',   {"STRING"}, {"A\nB"})
+        assert_lex('"A\\100B"',  {"STRING"}, {"AdB"})
+        assert_lex('"A\\1000B"', {"STRING"}, {"Ad0B"})
     end)
 
     it("can lex short strings containing hex escapes", function()
-        assert_lex('"A\\x09B"', {"STRINGLIT"}, {"A\tB"})
-        assert_lex('"A\\x0AB"', {"STRINGLIT"}, {"A\nB"})
-        assert_lex('"A\\x64B"', {"STRINGLIT"}, {"AdB"})
+        assert_lex('"A\\x09B"', {"STRING"}, {"A\tB"})
+        assert_lex('"A\\x0AB"', {"STRING"}, {"A\nB"})
+        assert_lex('"A\\x64B"', {"STRING"}, {"AdB"})
     end)
 
     it("can lex short strings containing utf-8 escapes", function()
-        assert_lex('"A\\u{9}B"',  {"STRINGLIT"}, {"A\tB"})
-        assert_lex('"A\\u{A}B"',  {"STRINGLIT"}, {"A\nB"})
-        assert_lex('"A\\u{64}B"', {"STRINGLIT"}, {"AdB"})
+        assert_lex('"A\\u{9}B"',  {"STRING"}, {"A\tB"})
+        assert_lex('"A\\u{A}B"',  {"STRING"}, {"A\nB"})
+        assert_lex('"A\\u{64}B"', {"STRING"}, {"AdB"})
     end)
 
     it("rejects invalid string escape sequences", function()
-        assert_error([["\o"]],     "InvalidEscape")
+        assert_error([["\o"]], "Invalid escape sequence \\o")
     end)
 
     it("rejects invalid decimal escapes", function()
-        assert_error([["\555"]], "MalformedEscape_decimal")
+        assert_error([["\256"]], "Decimal escape sequence is too large")
+        assert_error([["\555"]], "Decimal escape sequence is too large")
     end)
 
     it("allows digits after decimal escape", function ()
-        assert_lex('"\\12340"', {"STRINGLIT"}, {"{40"})
+        assert_lex('"\\12340"', {"STRING"}, {"{40"})
     end)
 
     it("rejects invalid hexadecimal escapes", function()
-        assert_error([["\x"]],     "MalformedEscape_x")
-        assert_error([["\xa"]],    "MalformedEscape_x")
-        assert_error([["\xag"]],   "MalformedEscape_x")
+        assert_error([["\x"]],     "\\x escape sequences must have exactly two hexadecimal digits")
+        assert_error([["\xa"]],    "\\x escape sequences must have exactly two hexadecimal digits")
+        assert_error([["\xag"]],   "\\x escape sequences must have exactly two hexadecimal digits")
     end)
 
     it("rejects invalid unicode escapes", function()
-        assert_error([["\u"]],     "MalformedEscape_u")
-        assert_error([["\u{"]],    "MalformedEscape_u")
-        assert_error([["\u{ab1"]], "MalformedEscape_u")
-        assert_error([["\u{ag}"]], "MalformedEscape_u")
+        assert_error([["\u"]],     "Expected '{' after \\u")
+        assert_error([["\u{"]],    "Expected one or more hexadecimal digits after '{'")
+        assert_error([["\u{ab1"]], "Expected '}' to close the \\u escape sequence")
+        assert_error([["\u{ag}"]], "Expected '}' to close the \\u escape sequence")
     end)
 
-    it("rejects unclosed strings", function()
-        assert_error('"\'',       "UnclosedShortString")
-        assert_error('"A',        "UnclosedShortString")
+    it("rejects unclosed short strings", function()
+        assert_error('"\'',       "Unclosed string")
+        assert_error('"A',        "Unclosed string")
 
-        assert_error('"A\n',      "UnclosedShortString")
-        assert_error('"A\r',      "UnclosedShortString")
-        assert_error('"A\\\n\nB', "UnclosedShortString")
-        assert_error('"A\\\r\rB', "UnclosedShortString")
+        assert_error('"A\n',      "Unclosed string")
+        assert_error('"A\r',      "Unclosed string")
+        assert_error('"A\\\n\nB', "Unclosed string")
+        assert_error('"A\\\r\rB', "Unclosed string")
 
-        assert_error('"\\"',      "UnclosedShortString")
+        assert_error('"\\"',      "Unclosed string")
+    end)
 
-        assert_error("[[]",   "UnclosedLongString")
-        assert_error("[[]=]", "UnclosedLongString")
+    it("rejects unclosed long strings", function()
+        assert_error("[[]",   "Unclosed long string")
+        assert_error("[[]=]", "Unclosed long string")
     end)
 
     it("can lex some long strings", function()
-        assert_lex("[[abc\\o\\x\"\'def]]", {"STRINGLIT"}, {"abc\\o\\x\"\'def"})
-        assert_lex("[[ ]===] ]]",          {"STRINGLIT"}, {" ]===] "})
+        assert_lex("[[abc\\o\\x\"\'def]]", {"STRING"}, {"abc\\o\\x\"\'def"})
+        assert_lex("[[ ]===] ]]",          {"STRING"}, {" ]===] "})
     end)
 
     it("can lex long strings with overlaping close brackets", function()
-        assert_lex("[==[ Hi ]]]]=]==]", {"STRINGLIT"}, {" Hi ]]]]="})
+        assert_lex("[==[ Hi ]]]]=]==]", {"STRING"}, {" Hi ]]]]="})
     end)
 
     it("can lex long strings touching square brackets", function()
-        assert_lex("[[[a]]]", {"STRINGLIT", "RBRACKET"}, {"[a"})
-        assert_lex("[  [[a]]]", {"LBRACKET", "SPACE", "STRINGLIT", "RBRACKET"}, {"a"})
+        assert_lex("[[[a]]]", {"STRING", "]"}, {"[a"})
+        assert_lex("[  [[a]]]", {"[", "STRING", "]"}, {"a"})
     end)
 
     it("ignores newlines at the start of a long string", function()
-        assert_lex("[[\nhello]]",   {"STRINGLIT"}, {"hello"})
-        assert_lex("[[\rhello]]",   {"STRINGLIT"}, {"hello"})
-        assert_lex("[[\n\rhello]]", {"STRINGLIT"}, {"hello"})
-        assert_lex("[[\r\nhello]]", {"STRINGLIT"}, {"hello"})
-        assert_lex("[[\n\nhello]]", {"STRINGLIT"}, {"\nhello"})
-        assert_lex("[[\r\rhello]]", {"STRINGLIT"}, {"\rhello"})
+        assert_lex("[[\nhello]]",   {"STRING"}, {"hello"})
+        assert_lex("[[\rhello]]",   {"STRING"}, {"hello"})
+        assert_lex("[[\n\rhello]]", {"STRING"}, {"hello"})
+        assert_lex("[[\r\nhello]]", {"STRING"}, {"hello"})
+        assert_lex("[[\n\nhello]]", {"STRING"}, {"\nhello"})
+        assert_lex("[[\r\rhello]]", {"STRING"}, {"\rhello"})
     end)
 
     it("can lex some short comments", function()
-        assert_lex("if--then\nelse", {"IF", "COMMENT", "ELSE"}, {})
+        assert_lex("if--then\nelse", {"if", "else"}, {})
     end)
 
     it("can lex short comments that go until the end of the file", function()
-        assert_lex("--aaaa", {"COMMENT"}, {})
+        assert_lex("--aaaa", {}, {})
     end)
 
-    it("can lex long some comments", function()
-        assert_lex("if--[[a\n\n\n]]else", {"IF", "COMMENT", "ELSE"}, {})
-
-        assert_lex(
-            "--[[\n" ..
-            "return 1\n" ..
-            "--]]",
-            {"COMMENT"}, {}
-        )
-
-        assert_lex(
-            "---[[\n" ..
-            "return 1\n" ..
-            "--]]",
-            {"COMMENT", "RETURN", "SPACE", "NUMBER", "SPACE", "COMMENT"}, {1}
-        )
-
+    it("can lex long comments", function()
+        assert_lex("if--[[a\n\n\n]]else", {"if", "else"}, {})
+        assert_lex("--[[\nreturn 1\n--]]10", {"NUMBER"}, {10})
+        assert_lex("---[[\nreturn 1\n--]]10", {"return", "NUMBER"}, {1})
     end)
 
     it("can lex some programs", function()
         assert_lex("local x: float = 10.0",
-            {"LOCAL", "SPACE", "NAME", "COLON", "SPACE", "FLOAT",
-             "SPACE", "ASSIGN", "SPACE", "NUMBER"},
+            {"local", "NAME", ":", "float", "=", "NUMBER"},
             {"x", 10.0})
     end)
 end)
