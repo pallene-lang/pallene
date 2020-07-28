@@ -23,6 +23,11 @@ local util = require "pallene.util"
 -- formatting in the original input is preserved, which means the error messages always point to
 -- the same location in both Pallene and Lua code.
 --
+-- Since shadowing top-level components is a syntax error in Pallene, the translator can generate
+-- all the forward references at the beginning of the module. This design allows us to not worry
+-- about finding empty lines, lines with comments, and so on to correctly translate mutually recursive
+-- function groups.
+--
 
 local translator = {}
 
@@ -33,6 +38,7 @@ function Translator:init(input)
     self.last_index = 1 -- integer
     self.partials = {} -- list of strings
     self.exports = {} -- list of strings
+    self.functions = {} -- list of strings
     return self
 end
 
@@ -190,6 +196,22 @@ function Translator:translate_stat(stat)
     end
 end
 
+function Translator:erase_mrf_modifier(start_index, is_local)
+    self:add_previous(start_index - 1)
+
+    -- We could add 5 and 6 to the last index to remove the modifier. However, using constants would
+    -- means that we are assuming that the current string position contains a "local" if `is_local`
+    -- is true and an "export" if `is_local` is false. This would be valid if we carefully call
+    -- erase_mrf_modifier at just the right moment. However, if we make small changes to the translator
+    -- or to the Pallene syntax then this logic might not hold anymore. Therefore, we implement a more
+    -- robust solution via `string.match`.
+    if is_local then
+        self.last_index = assert(string.match(self.input, "^local()", self.last_index)) + 1
+    else
+        self.last_index = assert(string.match(self.input, "^export()", self.last_index)) + 1
+    end
+end
+
 function Translator:translate_toplevel(node)
     if node._tag == "ast.Toplevel.Var" then
         -- Add the variables to the export sequence if they are declared with the `export`
@@ -209,9 +231,15 @@ function Translator:translate_toplevel(node)
             self:translate_exp(value)
         end
     elseif node._tag == "ast.Toplevel.Func" then
+        self:erase_mrf_modifier(node.loc.pos, node.is_local)
+        -- The semicolon tokens ensures that the previous token is not touched by the `local` keyword.
+        -- Also, we do not have to append a space character because the modifier is always followed
+        -- by a whitespace.
+        local name = node.decl.name
+        table.insert(self.functions, name)
+
         if not node.is_local then
-            self:add_local(node.loc.pos)
-            table.insert(self.exports, node.decl.name)
+            table.insert(self.exports, name)
         end
 
         -- Remove type annotations from function parameters.
@@ -233,6 +261,48 @@ function Translator:translate_toplevel(node)
     end
 end
 
+function Translator:add_forward_declarations()
+    if #self.functions > 0 then
+        local auxillary = {}
+
+        -- Since there is at least one function, we can safely assume that there is at least one
+        -- partial.
+        assert(#self.partials >= 1)
+
+        -- Find the range at which the initial space characters exist, if any.
+        local p = 0
+        local first_partial = self.partials[1]
+        while first_partial:sub(p + 1, p + 1) == " " do
+            p = p + 1
+        end
+
+        -- Insert the initial space characters before generating the forward declarations.
+        if p > 0 then
+            local initial_space = first_partial:sub(1, p)
+            table.insert(auxillary, initial_space)
+        end
+
+        table.insert(auxillary, "local ")
+        for i, name in ipairs(self.functions) do
+            table.insert(auxillary, name)
+            if i + 1 <= #self.functions then
+                table.insert(auxillary, ", ")
+            end
+        end
+        table.insert(auxillary, ";")
+
+        local after_space = first_partial:sub(p + 1)
+        table.insert(auxillary, after_space)
+
+        -- We have already inserted the first partial. Therefore skip it.
+        for i = 2, #self.partials do
+            local partial = self.partials[i]
+            table.insert(auxillary, partial)
+        end
+        self.partials = auxillary
+    end
+end
+
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
 
@@ -242,6 +312,7 @@ function translator.translate(input, prog_ast)
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
     instance:add_exports()
+    instance:add_forward_declarations()
 
     return table.concat(instance.partials)
 end

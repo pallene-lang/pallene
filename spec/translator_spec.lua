@@ -61,8 +61,8 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local i = 10
-            local function print_hello()
+            local print_hello;local i = 10
+            function print_hello()
                 -- This is a comment.
                 -- This is another line comment.
                 io.write("Hello, world!")
@@ -175,7 +175,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f(x         , y         )
+            local f;function f(x         , y         )
             end
         ]])
     end)
@@ -187,7 +187,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f()
+            local f;function f()
                 local i           = 5
             end
         ]])
@@ -200,7 +200,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f()
+            local f;function f()
                 local a         , m          = "preets", "yoda"
             end
         ]])
@@ -213,7 +213,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f()
+            local f;function f()
                 local a, m          = "preets", "yoda"
             end
         ]])
@@ -230,12 +230,12 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function a()
+            local a, b;function a()
             end
             
                                    
 
-            local function b()
+            function b()
             end
         ]])
     end)
@@ -254,7 +254,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function a()
+            local a, b;function a()
             end
 
                                
@@ -262,14 +262,14 @@ describe("Pallene to Lua translator", function ()
                           
              
 
-            local function b()
+            function b()
             end
         ]])
     end)
 
     it("Remove records", function ()
         assert_translation([[
-            local function b()
+            local function a()
             end
 
             record Point
@@ -277,11 +277,11 @@ describe("Pallene to Lua translator", function ()
                 y: integer
             end
 
-            local function f()
+            local function b()
             end
         ]],
         [[
-            local function b()
+            local a, b;function a()
             end
 
                         
@@ -289,7 +289,7 @@ describe("Pallene to Lua translator", function ()
                           
                
 
-            local function f()
+            function b()
             end
         ]])
     end)
@@ -301,7 +301,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function a()          
+            local a;function a()          
                 return 0
             end
         ]])
@@ -314,7 +314,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function a()                      
+            local a;function a()                      
                 return 0, "Kush"
             end
         ]])
@@ -333,7 +333,7 @@ describe("Pallene to Lua translator", function ()
     it("Generate return statement for exported function", function ()
         assert_translation(
             "export function f() end",
-            "local  function f() end\nreturn {\n    f = f,\n}\n")
+            "local f;function f() end\nreturn {\n    f = f,\n}\n")
     end)
 
     it("Generate the same return statement for both exported functions and variables", function ()
@@ -343,9 +343,9 @@ describe("Pallene to Lua translator", function ()
             "export function f()\n" ..
             "end",
 
-            "local  i           = 0\n" ..
+            "local f;local  i           = 0\n" ..
             "\n" ..
-            "local  function f()\n" ..
+            "function f()\n" ..
             "end\n" ..
             "return {\n" ..
             "    i = i,\n" ..
@@ -365,12 +365,12 @@ describe("Pallene to Lua translator", function ()
             "\n" ..
             "local j : { integer } = { 1, 2, 3 }",
 
-            "local  i           = 0\n" ..
+            "local a, s;local  i           = 0\n" ..
             "\n" ..
-            "local  function a()\n" ..
+            "function a()\n" ..
             "end\n" ..
             "\n" ..
-            "local function s()\n" ..
+            "function s()\n" ..
             "end\n" ..
             "\n" ..
             "local j               = { 1, 2, 3 }" ..
@@ -381,7 +381,7 @@ describe("Pallene to Lua translator", function ()
             "}\n")
     end)
 
-    pending("Mutually recursive functions (infinite)", function ()
+    it("Mutually recursive functions (infinite)", function ()
         assert_translation([[
             local function a()
                 b()
@@ -392,13 +392,11 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local a, b
-
-            local function a()
+            local a, b;function a()
                 b()
             end
 
-            local function b()
+            function b()
                 a()
             end
         ]])
@@ -412,9 +410,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local xs        = {10, "hello", 3.14}
+            local f;local xs        = {10, "hello", 3.14}
 
-            local function f(x     , y     )     
+            function f(x     , y     )     
             end
         ]])
     end)
@@ -426,7 +424,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function invoke(x                                      )                
+            local invoke;function invoke(x                                      )                
                 return x(1, 2)
             end
         ]])
@@ -485,9 +483,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 if k            then
                 end
             end
@@ -505,9 +503,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 if true then
                     local j          = k           
                 end
@@ -528,9 +526,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 if false then
                     -- Nothing
                 elseif k            then
@@ -553,9 +551,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 if false then
                     -- Nothing
                 elseif true then
@@ -578,9 +576,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 if false then
                     -- Nothing
                 else
@@ -601,9 +599,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 repeat
                     -- Nothing
                 until k           
@@ -622,9 +620,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 repeat
                     local j          = k           
                 until true
@@ -643,9 +641,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 for j          = k           , k            + 10, k            do
                     -- Nothing
                 end
@@ -664,9 +662,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 for j          = 1, 10 do
                     local m          = k           
                 end
@@ -683,9 +681,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 k, k = k           , k           
             end
         ]])
@@ -700,9 +698,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 k = ((k           )           )
             end
         ]])
@@ -717,9 +715,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = 1
+            local f;local k      = 1
 
-            local function f()
+            function f()
                 local j          = k           
             end
         ]])
@@ -734,9 +732,9 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local k      = "Madyanam"
+            local f;local k      = "Madyanam"
 
-            local function f()
+            function f()
                 io.write(k          )
             end
         ]])
@@ -752,10 +750,10 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local name1      = "Anushka"
+            local get_names;local name1      = "Anushka"
             local name2      = "Samuel"
 
-            local function get_names()                  
+            function get_names()                  
                 return name1          , name2          
             end
         ]])
@@ -769,7 +767,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function print_hello()
+            local print_hello;function print_hello()
                 io.write('Hello, ')
                 io.write("world!")
             end
@@ -783,7 +781,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function get_numbers()                       
+            local get_numbers;function get_numbers()                       
                 return 53, 519
             end
         ]])
@@ -796,7 +794,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function add(x         , y         )          
+            local add;function add(x         , y         )          
                 return x + y
             end
         ]])
@@ -811,7 +809,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f()
+            local f;function f()
                 local x          = 10
                 local y          = 20
                 local z          = x + y
@@ -821,14 +819,10 @@ describe("Pallene to Lua translator", function ()
 
     it("Expressions are copied as is", function ()
         assert_translation([[
-            local function expression()
-                local x = (1 + 2) * (100 / 30)
-            end
+            local x = (1 + 2) * (100 / 30)
         ]],
         [[
-            local function expression()
-                local x = (1 + 2) * (100 / 30)
-            end
+            local x = (1 + 2) * (100 / 30)
         ]])
     end)
 
@@ -842,7 +836,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function count()
+            local count;function count()
                 local i           = 1
                 while i <= 10 do
                     i = i + 1
@@ -861,7 +855,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f()
+            local f;function f()
                 local i           = 10
                 do
                     local i           = 20
@@ -881,7 +875,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function is_even(n         )         
+            local is_even;function is_even(n         )         
                 if (n % 2) == 0 then
                     return true
                 else
@@ -899,7 +893,7 @@ describe("Pallene to Lua translator", function ()
             end
         ]],
         [[
-            local function f()
+            local f;function f()
                 for i           = 1, 10 do
                 end
             end
