@@ -192,6 +192,7 @@ describe("Pallene lexer", function()
         assert_error([["\u{"]],    "Expected one or more hexadecimal digits after '{'")
         assert_error([["\u{ab1"]], "Expected '}' to close the \\u escape sequence")
         assert_error([["\u{ag}"]], "Expected '}' to close the \\u escape sequence")
+        assert_error([["\u{80000000}"]], "UTF-8 value is too large")
     end)
 
     it("rejects unclosed short strings", function()

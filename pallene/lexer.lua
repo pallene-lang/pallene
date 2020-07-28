@@ -142,13 +142,15 @@ function Lexer:read_short_string(delimiter)
                     return false, "Expected one or more hexadecimal digits after '{'"
                 end
                 local n = assert(tonumber(self.matched, 16))
-                if n >= (1<<31) then
-                    return false, string.format("Unicode number %s is too large", self.matched)
-                end
                 if not self:try("}") then
                     return false, "Expected '}' to close the \\u escape sequence"
                 end
-                table.insert(parts, utf8.char(n))
+
+                if n < (1<<31) then
+                    table.insert(parts, utf8.char(n))
+                else
+                    return false, "UTF-8 value is too large"
+                end
 
             elseif self:try("z") then
                 self:try(space)
