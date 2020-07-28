@@ -267,7 +267,26 @@ end
 
 function Translator:add_forward_declarations()
     if #self.functions > 0 then
-        local auxillary = { "local " }
+        local auxillary = {}
+
+        -- Since there is at least one function, we can safely assume that there is at least one
+        -- partial.
+        assert(#self.partials >= 1)
+
+        -- Find the range at which the initial space characters exist, if any.
+        local p = 0
+        local first_partial = self.partials[1]
+        while first_partial:sub(p + 1, p + 1) == " " do
+            p = p + 1
+        end
+
+        -- Insert the initial space characters before generating the forward declarations.
+        if p > 0 then
+            local initial_space = first_partial:sub(1, p)
+            table.insert(auxillary, initial_space)
+        end
+
+        table.insert(auxillary, "local ")
         for i, name in ipairs(self.functions) do
             table.insert(auxillary, name)
             if i + 1 <= #self.functions then
@@ -276,7 +295,12 @@ function Translator:add_forward_declarations()
         end
         table.insert(auxillary, "; ")
 
-        for _, partial in ipairs(self.partials) do
+        local after_space = first_partial:sub(p + 1)
+        table.insert(auxillary, after_space)
+
+        -- We have already inserted the first partial. Therefore skip it.
+        for i = 2, #self.partials do
+            local partial = self.partials[i]
             table.insert(auxillary, partial)
         end
         self.partials = auxillary
