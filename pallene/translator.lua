@@ -198,18 +198,18 @@ end
 
 function Translator:erase_mrf_modifier(start_index, is_local)
     self:add_previous(start_index - 1)
-    local new_index
-    if is_local then
-        new_index = self.last_index + 5
-    else
-        new_index = self.last_index + 6
-    end
-    self.last_index = new_index
-end
 
-function Translator:handle_mrf_name(start_index, name)
-    self:add_previous(start_index - 1)
-    self.last_index = start_index + #name
+    -- We could add 5 and 6 to the last index to remove the modifier. However, using constants would
+    -- means that we are assuming that the current string position contains a "local" if `is_local`
+    -- is true and an "export" if `is_local` is false. This would be valid if we carefully call
+    -- erase_mrf_modifier at just the right moment. However, if we make small changes to the translator
+    -- or to the Pallene syntax then this logic might not hold anymore. Therefore, we implement a more
+    -- robust solution via `string.match`.
+    if is_local then
+        self.last_index = assert(string.match(self.input, "^local()", self.last_index)) + 1
+    else
+        self.last_index = assert(string.match(self.input, "^export()", self.last_index)) + 1
+    end
 end
 
 function Translator:translate_toplevel(node)
@@ -237,14 +237,10 @@ function Translator:translate_toplevel(node)
         -- by a whitespace.
         local name = node.decl.name
         table.insert(self.functions, name)
-        table.insert(self.partials, name .. " =")
 
         if not node.is_local then
-            -- self:add_local(node.loc.pos)
             table.insert(self.exports, name)
         end
-
-        self:handle_mrf_name(node.name_loc.pos, name)
 
         -- Remove type annotations from function parameters.
         for _, arg_decl in ipairs(node.value.arg_decls) do
@@ -293,7 +289,7 @@ function Translator:add_forward_declarations()
                 table.insert(auxillary, ", ")
             end
         end
-        table.insert(auxillary, "; ")
+        table.insert(auxillary, ";")
 
         local after_space = first_partial:sub(p + 1)
         table.insert(auxillary, after_space)
