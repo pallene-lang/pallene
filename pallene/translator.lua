@@ -23,6 +23,11 @@ local util = require "pallene.util"
 -- formatting in the original input is preserved, which means the error messages always point to
 -- the same location in both Pallene and Lua code.
 --
+-- Since shadowing top-level components is a syntax error in Pallene, the translator can generate
+-- all the forward references at the beginning of the module. This design allows us to not worry
+-- about finding empty lines, lines with comments, and so on to correctly translate mutually recursive
+-- function groups.
+--
 
 local translator = {}
 
@@ -33,6 +38,7 @@ function Translator:init(input)
     self.last_index = 1 -- integer
     self.partials = {} -- list of strings
     self.exports = {} -- list of strings
+    self.functions = {} -- list of strings
     return self
 end
 
@@ -230,7 +236,8 @@ function Translator:translate_toplevel(node)
         -- Also, we do not have to append a space character because the modifier is always followed
         -- by a whitespace.
         local name = node.decl.name
-        table.insert(self.partials, string.format("; local %s; %s =", name, name))
+        table.insert(self.functions, name)
+        table.insert(self.partials, name .. " =")
 
         if not node.is_local then
             -- self:add_local(node.loc.pos)
@@ -258,6 +265,24 @@ function Translator:translate_toplevel(node)
     end
 end
 
+function Translator:add_forward_declarations()
+    if #self.functions > 0 then
+        local auxillary = { "local " }
+        for i, name in ipairs(self.functions) do
+            table.insert(auxillary, name)
+            if i + 1 <= #self.functions then
+                table.insert(auxillary, ", ")
+            end
+        end
+        table.insert(auxillary, "; ")
+
+        for _, partial in ipairs(self.partials) do
+            table.insert(auxillary, partial)
+        end
+        self.partials = auxillary
+    end
+end
+
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
 
@@ -267,6 +292,7 @@ function translator.translate(input, prog_ast)
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
     instance:add_exports()
+    instance:add_forward_declarations()
 
     return table.concat(instance.partials)
 end
