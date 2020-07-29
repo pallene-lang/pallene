@@ -95,10 +95,16 @@ function Translator:translate_var(exp)
     if tag == "ast.Var.Name" then
         -- Nothing
     elseif tag == "ast.Var.Bracket" then
-        self:translate_exp(exp.t)
-        self:translate_exp(exp.k)
+        if exp.t then
+            self:translate_exp(exp.t)
+        end
+        if exp.k then
+            self:translate_exp(exp.k)
+        end
     elseif tag == "ast.Var.Dot" then
-        self:translate_exp(exp.exp)
+        if exp.exp then
+            self:translate_exp(exp.exp)
+        end
     else
         error("impossible")
     end
@@ -175,20 +181,27 @@ function Translator:translate_stat(stat)
         self:translate_stat(stat.block)
     elseif stat._tag == "ast.Stat.Assign" then
         for _, exp in ipairs(stat.exps) do
-            self:translate_exp(exp)
+            if exp then
+                self:translate_exp(exp)
+            end
         end
     elseif stat._tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
             self:translate_decl(decl)
         end
+
         for _, exp in ipairs(stat.exps) do
-            self:translate_exp(exp)
+            if exp then
+                self:translate_exp(exp)
+            end
         end
     elseif stat._tag == "ast.Stat.Call" then
         self:translate_exp(stat.call_exp)
     elseif stat._tag == "ast.Stat.Return" then
         for _, exp in ipairs(stat.exps) do
-            self:translate_exp(exp)
+            if exp then
+                self:translate_exp(exp)
+            end
         end
     elseif stat._tag == "ast.Stat.Break" then
         -- Nothing
@@ -262,6 +275,8 @@ function Translator:translate_toplevel(node)
 end
 
 function Translator:add_forward_declarations(prog_ast)
+    table.insert(self.partials, "local string_ = string;")
+
     local functions = {}
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Func" then
@@ -277,6 +292,9 @@ function Translator:add_forward_declarations(prog_ast)
 end
 
 function translator.translate(input, prog_ast)
+
+    print(require("inspect")(prog_ast))
+
     local instance = Translator.new(input)
 
     instance:add_forward_declarations(prog_ast)

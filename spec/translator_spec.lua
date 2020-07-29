@@ -2,6 +2,7 @@
 -- removing type annotations. Please do not delete them, otherwise the tests will fail.
 
 local util = require "pallene.util"
+local execution_tests = require "spec.execution_tests"
 
 local function compile(pallene_code)
     assert(util.set_file_contents("__test__.pln", pallene_code))
@@ -9,21 +10,6 @@ local function compile(pallene_code)
     if not ok then
         error(error_message)
     end
-end
-
-local function run_test(test_script)
-    util.set_file_contents("__test__script__.lua", util.render([[
-        local test = require "__test__"
-        ${TEST_SCRIPT}
-    ]], {
-        TEST_SCRIPT = test_script
-    }))
-    assert(util.execute("./lua/src/lua __test__script__.lua > __test__output__.txt"))
-end
-
-local function assert_test_output(expected)
-    local output = assert(util.get_file_contents("__test__output__.txt"))
-    assert.are.same(expected, output)
 end
 
 local function assert_translation(pallene_code, expected)
@@ -990,20 +976,7 @@ end
     end)
 end)
 
-describe("Test translator output / #translator_output / ", function ()
+describe("#lua_backend /", function ()
     teardown(cleanup_run)
-
-    it("Hello world", function ()
-        compile([[
-            export function print_hello()
-                io.write("Hello, world!")
-            end
-        ]])
-
-        run_test([[
-            test.print_hello()
-        ]])
-
-        assert_test_output("Hello, world!")
-    end)
+    execution_tests.run(compile, 'lua', describe, it, assert)
 end)
