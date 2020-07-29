@@ -4,15 +4,14 @@ source = {
    url = "git+https://github.com/pallene-lang/pallene"
 }
 description = {
-   summary = "Initial prototype of the Pallene compiler",
+   summary = "Pallene compiler",
    detailed = [[
-      Initial prototype of the Pallene compiler.
-   ]],
+Compiler for the Pallene programming language.]],
    homepage = "http://github.com/pallene-lang/pallene",
    license = "MIT"
 }
 dependencies = {
-   "lua ~> 5.3",
+   "lua >= 5.3",
    "lpeglabel >= 1.5.0",
    "inspect >= 3.1.0",
    "argparse >= 0.7.0",
