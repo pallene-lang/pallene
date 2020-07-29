@@ -38,7 +38,6 @@ function Translator:init(input)
     self.last_index = 1 -- integer
     self.partials = {} -- list of strings
     self.exports = {} -- list of strings
-    self.functions = {} -- list of strings
     return self
 end
 
@@ -236,7 +235,6 @@ function Translator:translate_toplevel(node)
         -- Also, we do not have to append a space character because the modifier is always followed
         -- by a whitespace.
         local name = node.decl.name
-        table.insert(self.functions, name)
 
         if not node.is_local then
             table.insert(self.exports, name)
@@ -261,58 +259,31 @@ function Translator:translate_toplevel(node)
     end
 end
 
-function Translator:add_forward_declarations()
-    if #self.functions > 0 then
-        local auxillary = {}
-
-        -- Since there is at least one function, we can safely assume that there is at least one
-        -- partial.
-        assert(#self.partials >= 1)
-
-        -- Find the range at which the initial space characters exist, if any.
-        local p = 0
-        local first_partial = self.partials[1]
-        while first_partial:sub(p + 1, p + 1) == " " do
-            p = p + 1
+function Translator:add_forward_declarations(prog_ast)
+    local functions = {}
+    for _, node in ipairs(prog_ast) do
+        if node._tag == "ast.Toplevel.Func" then
+            table.insert(functions, node.decl.name)
         end
+    end
 
-        -- Insert the initial space characters before generating the forward declarations.
-        if p > 0 then
-            local initial_space = first_partial:sub(1, p)
-            table.insert(auxillary, initial_space)
-        end
-
-        table.insert(auxillary, "local ")
-        for i, name in ipairs(self.functions) do
-            table.insert(auxillary, name)
-            if i + 1 <= #self.functions then
-                table.insert(auxillary, ", ")
-            end
-        end
-        table.insert(auxillary, ";")
-
-        local after_space = first_partial:sub(p + 1)
-        table.insert(auxillary, after_space)
-
-        -- We have already inserted the first partial. Therefore skip it.
-        for i = 2, #self.partials do
-            local partial = self.partials[i]
-            table.insert(auxillary, partial)
-        end
-        self.partials = auxillary
+    if #functions > 0 then
+        table.insert(self.partials, "local ")
+        table.insert(self.partials, table.concat(functions, ", "))
+        table.insert(self.partials, ";")
     end
 end
 
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
 
+    instance:add_forward_declarations(prog_ast)
     for _, node in ipairs(prog_ast) do
         instance:translate_toplevel(node)
     end
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
     instance:add_exports()
-    instance:add_forward_declarations()
 
     return table.concat(instance.partials)
 end
