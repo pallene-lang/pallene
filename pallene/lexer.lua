@@ -52,7 +52,7 @@ end
 
 local symbol = P(false)
 do
-    -- Ordered by decreasing length, to follow the longest match rule.
+    -- Ordered by decreasing length, to prioritize the longest match.
     local strs = "... .. // << >> == ~= <= >= :: -> + - * / % ^ & | ~  < > = ( ) [ ] { } ; , . :"
     for s in string.gmatch(strs, "%S+") do
         symbol = symbol + P(s)
@@ -197,22 +197,19 @@ end
 
 function Lexer:next()
 
-    while true do
-        if self:try(space) then
-            -- skip
-        elseif self:try("--") then
-            if self:try(longstring_open) then
-                local s = self:read_long_string(#self.matched)
-                if not s then return false, "Unclosed long comment" end
-            else
-                self:try(comment_line)
-            end
-        else
-            break
-        end
-    end
+    if self:try(space) then
+        return self:next()
 
-    if self:try(string_delimiter) then
+    elseif self:try("--") then
+        if self:try(longstring_open) then
+            local s = self:read_long_string(#self.matched)
+            if not s then return false, "Unclosed long comment" end
+        else
+            self:try(comment_line)
+        end
+        return self:next()
+
+    elseif self:try(string_delimiter) then
         local s, err = self:read_short_string(self.matched)
         if not s then return false, err end
         return "STRING", s
