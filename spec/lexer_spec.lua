@@ -1,4 +1,4 @@
-local Lexer = require 'pallene.lexer'
+local Lexer = require 'pallene.Lexer'
 
 -- Find out how the lexer lexes a given string.
 local function run_lexer(source)
