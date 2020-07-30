@@ -143,6 +143,8 @@ function Translator:translate_exp(exp)
         self:translate_exp(exp.exp)
     elseif tag == "ast.Exp.ExtraRet" then
         -- Since `ExtraRet` is imaginary, we ignore it.
+    elseif tag == "ast.Exp.ToFloat" then
+        self:translate_exp(exp.exp)
     else
         error(tag .. " impossible")
     end

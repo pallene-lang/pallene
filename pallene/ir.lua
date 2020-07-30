@@ -123,6 +123,7 @@ local ir_cmd_constructors = {
     Unop       = {"loc", "dst", "op", "src"},
     Binop      = {"loc", "dst", "op", "src1", "src2"},
     Concat     = {"loc", "dst", "srcs"},
+    ToFloat    = {"loc", "dst", "src"},
 
     --- Dynamic Value
     ToDyn      = {"loc", "src_typ", "dst", "src"},
@@ -157,7 +158,6 @@ local ir_cmd_constructors = {
     BuiltinMathSqrt   = {"loc", "dsts", "srcs"},
     BuiltinStringChar = {"loc", "dsts", "srcs"},
     BuiltinStringSub  = {"loc", "dsts", "srcs"},
-    BuiltinToFloat    = {"loc", "dsts", "srcs"},
     BuiltinType       = {"loc", "dsts", "srcs"},
 
     --

@@ -72,7 +72,8 @@ declare_type("Exp", {
     Binop      = {"loc", "lhs", "op", "rhs"},
     Cast       = {"loc", "exp", "target", "target_end_loc"},
     Paren      = {"loc", "exp"},
-    ExtraRet   = {"loc", "call_exp", "i"}, -- See checker.lua
+    ExtraRet   = {"loc", "call_exp", "i"}, -- Inserted by checker.lua
+    ToFloat    = {"loc", "exp"},           -- Inserted by checker.lua
 })
 
 declare_type("Field", {

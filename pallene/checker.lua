@@ -258,9 +258,6 @@ function Checker:check_program(prog_ast)
         self:add_module(name)
     end
 
-    -- Add a special entry for "tofloat" that can never be shadowed.
-    self:add_builtin("$tofloat", "tofloat")
-
     -- Group mutually-recursive definitions
     local tl_groups = {}
     do
@@ -603,9 +600,7 @@ function Checker:coerce_numeric_exp_to_float(exp)
     if     tag == "types.T.Float" then
         return exp
     elseif tag == "types.T.Integer" then
-        local loc = exp.loc
-        local tofloat = ast.Exp.Var(loc, ast.Var.Name(loc, "$tofloat"))
-        return self:check_exp_synthesize(ast.Exp.CallFunc(loc, tofloat, {exp}))
+        return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
     else
         error("impossible")
     end
@@ -848,6 +843,10 @@ function Checker:check_exp_synthesize(exp)
 
     elseif tag == "ast.Exp.ExtraRet" then
         exp._type = exp.call_exp._types[exp.i]
+
+    elseif tag == "ast.Exp.ToFloat" then
+        assert(exp.exp._type._tag == "types.T.Integer")
+        exp._type = types.T.Float()
 
     else
         error("impossible")

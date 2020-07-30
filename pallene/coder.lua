@@ -1085,6 +1085,12 @@ gen_cmd["Concat"] = function(self, cmd, _func)
     }))
 end
 
+gen_cmd["ToFloat"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local v = self:c_value(cmd.src)
+    return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
+end
+
 gen_cmd["ToDyn"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local src = self:c_value(cmd.src)
@@ -1355,12 +1361,6 @@ gen_cmd["BuiltinStringSub"] = function(self, cmd, _func)
     local j   = self:c_value(cmd.srcs[3])
     return util.render([[ $dst = pallene_string_sub(L, $str, $i, $j); ]], {
         dst = dst, str = str, i = i, j = j })
-end
-
-gen_cmd["BuiltinToFloat"] = function(self, cmd, _func)
-    local dst = self:c_var(cmd.dsts[1])
-    local v = self:c_value(cmd.srcs[1])
-    return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinType"] = function(self, cmd, _func)

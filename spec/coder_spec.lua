@@ -1396,23 +1396,6 @@ describe("Pallene coder /", function()
         end)
     end)
 
-    describe("tofloat builtin", function()
-        compile([[
-            export function itof(x:integer): float
-                return tofloat(x)
-            end
-        ]])
-
-        it("works", function()
-            run_test([[
-                local x_i = 1
-                local x_f = test.itof(x_i)
-                assert("float" == math.type(x_f))
-                assert(1.0 == x_f)
-            ]])
-        end)
-    end)
-
     describe("math.sqrt builtin", function()
         compile([[
             export function square_root(x: float): float
@@ -1665,11 +1648,6 @@ describe("Pallene coder /", function()
                 return res
             end
 
-            export function tofloat_shadowing(x:integer) : float
-                local tofloat = 1.0
-                return (x + tofloat)
-            end
-
             export function duplicate_parameter(x: integer, x:integer) : integer
                 return x
             end
@@ -1693,10 +1671,6 @@ describe("Pallene coder /", function()
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
-        end)
-
-        it("tofloat in coercions doesn't get shadowed", function()
-            run_test([[ assert( 21.0 == test.tofloat_shadowing(20) ) ]])
         end)
 
         it("allows functions with repeated argument names", function()

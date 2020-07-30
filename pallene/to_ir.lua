@@ -642,9 +642,6 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 assert(#xs == 3)
                 table.insert(cmds, ir.Cmd.BuiltinStringSub(loc, dsts, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
-            elseif bname == "tofloat" then
-                assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinToFloat(loc, dsts, xs))
             elseif bname == "type" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinType(loc, dsts, xs))
@@ -767,6 +764,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 error("impossible")
             end
         end
+
+    elseif tag == "ast.Exp.ToFloat" then
+        local v = self:exp_to_value(cmds, exp.exp)
+        table.insert(cmds, ir.Cmd.ToFloat(loc, dst, v))
 
     else
         use_exp_to_value = true
