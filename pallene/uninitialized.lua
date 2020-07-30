@@ -4,7 +4,6 @@
 -- SPDX-License-Identifier: MIT
 
 local ir = require "pallene.ir"
-local location = require "pallene.location"
 
 local uninitialized = {}
 
@@ -163,13 +162,13 @@ function uninitialized.verify_variables(module)
             if not reported_variables[v] then
                 reported_variables[v] = true
                 local name = assert(func.vars[v].name)
-                table.insert(errors, location.format_error(cmd.loc,
+                table.insert(errors, cmd.loc:format_error(
                         "error: variable '%s' is used before being initialized", name))
             end
         end
 
         if falls_through and nret > 0 then
-            table.insert(errors, location.format_error(func.loc,
+            table.insert(errors, func.loc:format_error(
                 "control reaches end of function with non-empty return type"))
         end
     end

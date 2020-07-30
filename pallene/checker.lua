@@ -5,7 +5,6 @@
 
 local ast = require "pallene.ast"
 local builtins = require "pallene.builtins"
-local location = require "pallene.location"
 local symtab = require "pallene.symtab"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
@@ -73,7 +72,7 @@ end
 -- `scope_error()` or `type_error()` will exit the type checking routine
 -- and report a Pallene compilation error.
 local function checker_error(loc, fmt, ...)
-    local error_message = location.format_error(loc, fmt, ...)
+    local error_message = loc:format_error(fmt, ...)
     coroutine.yield(error_message)
 end
 

@@ -1,10 +1,10 @@
-local location = require "pallene.location"
+local Location = require "pallene.Location"
 
 local function check_get_line_number(text, line_numbers)
     for i = 1, #line_numbers do
         local expected_line = line_numbers[i][1]
         local expected_col  = line_numbers[i][2]
-        local loc = location.from_pos("(location_spec)", text, i)
+        local loc = Location.from_pos("(location_spec)", text, i)
         assert.same(expected_line, loc.line)
         assert.same(expected_col,  loc.col)
     end

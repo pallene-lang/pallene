@@ -6,7 +6,6 @@
 local C = require "pallene.C"
 local gc = require "pallene.gc"
 local ir = require "pallene.ir"
-local location = require "pallene.location"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
@@ -400,7 +399,7 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local name_comment = func.name
     if func.loc then
-        name_comment = name_comment .. " " .. location.show_line(func.loc)
+        name_comment = name_comment .. " " .. func.loc:show_line()
     end
 
     local prologue = {}
