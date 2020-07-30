@@ -5,7 +5,7 @@ local function run_lexer(source)
     local tokens   = {}
     local captures = {}
 
-    local lexer = Lexer.new(source)
+    local lexer = Lexer.new('(lexer spec)', source)
     while true do
         local tok, value = lexer:next()
         if not tok then

@@ -5,12 +5,13 @@
 
 local lpeg = require "lpeg"
 local re = require "re"
+local Location = require "pallene.Location"
 local util = require "pallene.util"
 
-local P = lpeg.P
-local RE = re.compile
-
 -----------------------------
+
+local P  = lpeg.P
+local RE = re.compile
 
 local one_char = P(1)
 
@@ -63,12 +64,13 @@ end
 
 local Lexer = util.Class()
 
-function Lexer:init(input)
-    self.input   = input  -- Source code string
-    self.pos     = 1      -- Absolute position in the input
-    self.line    = 1      -- Line number for error messages
-    self.col     = 1      -- Column number for error messages
-    self.matched = false  -- Last matched substring
+function Lexer:init(file_name, input)
+    self.file_name = file_name  -- Source code file name
+    self.input     = input      -- Source code string
+    self.pos       = 1          -- Absolute position in the input
+    self.line      = 1          -- Line number for error messages
+    self.col       = 1          -- Column number for error messages
+    self.matched   = false      -- Last matched substring
 end
 
 -- If the given pattern matches, updates the lexer state and returns true. Otherwise, returns false.
@@ -195,10 +197,10 @@ function Lexer:read_long_string(delimiter_length)
     return table.concat(parts)
 end
 
-function Lexer:next()
+function Lexer:_next()
 
     if self:try(space) then
-        return self:next()
+        return "SPACE"
 
     elseif self:try("--") then
         if self:try(longstring_open) then
@@ -207,7 +209,7 @@ function Lexer:next()
         else
             self:try(comment_line)
         end
-        return self:next()
+        return "COMMENT"
 
     elseif self:try(string_delimiter) then
         local s, err = self:read_short_string(self.matched)
@@ -242,6 +244,25 @@ function Lexer:next()
 
     else
         return "EOF"
+    end
+end
+
+--
+-- Get the next token, ignoring whitespace and comments
+--
+-- Success: returns name, semantic value, start location
+-- Failure: returns false, error message
+--
+function Lexer:next()
+    while true do
+        local loc = Location.new(self.file_name, self.line, self.col, self.pos)
+        local name, val = self:_next()
+        if not name then
+            return false, val
+        end
+        if name ~= "SPACE" and name ~= "COMMENT" then
+            return name, val, loc
+        end
     end
 end
 
