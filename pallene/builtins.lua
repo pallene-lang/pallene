@@ -9,8 +9,7 @@ local T = types.T
 local builtins = {}
 
 builtins.functions = {
-    tofloat = T.Function({ T.Integer() }, { T.Float() }),
-    type = T.Function({ T.Any() }, { T.String() }),
+    ["type"] = T.Function({ T.Any() }, { T.String() }),
     ["io.write"] = T.Function({ T.String() }, {}),
     ["math.sqrt"] = T.Function({ T.Float() }, { T.Float() }),
     ["string_.char"] = T.Function({ T.Integer() }, { T.String() }),
