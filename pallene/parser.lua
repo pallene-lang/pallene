@@ -10,7 +10,7 @@ local inspect = require "inspect"
 
 local ast = require "pallene.ast"
 local lexer = require "pallene.lexer"
-local location = require "pallene.location"
+local Location = require "pallene.Location"
 local syntax_errors = require "pallene.syntax_errors"
 
 -- File name of the file that is currently being parsed. Since this is a global the parser is not
@@ -38,7 +38,7 @@ for type_name, conss in pairs(ast) do
 end
 
 function defs.get_loc(s, pos)
-    return true, location.from_pos(THIS_FILENAME, s, pos)
+    return true, Location.from_pos(THIS_FILENAME, s, pos)
 end
 
 function defs.to_true()
@@ -515,7 +515,7 @@ local grammar = re.compile([[
 ]], defs)
 
 local function syntax_error(loc, err_msg)
-    return location.format_error(loc, "syntax error: %s", err_msg)
+    return loc:format_error("syntax error: %s", err_msg)
 end
 
 local function find_breaks_outside_loops(root_stat)
@@ -548,7 +548,7 @@ function parser.parse(file_name, input)
     THIS_FILENAME = nil
 
     if not prog_ast then
-        local loc = location.from_pos(file_name, input, errpos)
+        local loc = Location.from_pos(file_name, input, errpos)
         local errors = { syntax_error(loc, syntax_errors.errors[err]) }
         return false, errors
     end

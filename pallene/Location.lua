@@ -3,8 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
--- A Location datatype representing a point in a source code file
-local location = {}
+local util = require "pallene.util"
 
 -- @param xs An ordered sequence of comparable items
 -- @param v A value comparable to the items in the list
@@ -54,30 +53,37 @@ local function get_line_number(subject, pos)
     return line, col
 end
 
-function location.new(file_name, line, col, pos)
-    return {
-        file_name = file_name,
-        line = line,
-        col = col,
-        pos = pos
-    }
+--
+-- A datattype representing a point in a source code file
+--
+local Location = util.Class()
+
+function Location:init(file_name, line, col, pos)
+    self.file_name = file_name
+    self.line = line
+    self.col = col
+    self.pos = pos
 end
 
-function location.from_pos(file_name, source, pos)
+function Location.from_pos(file_name, source, pos) -- alternate constructor
     local line, col = get_line_number(source, pos)
-    return location.new(file_name, line, col, pos)
+    return Location.new(file_name, line, col, pos)
 end
 
-function location.show_line(loc)
-    return string.format("%s:%d", loc.file_name, loc.line)
+function Location:show_line()
+    return string.format("%s:%d", self.file_name, self.line)
 end
 
-function location.show_line_col(loc)
-    return string.format("%s:%d:%d", loc.file_name, loc.line, loc.col)
+function Location:show_line_col()
+    return string.format("%s:%d:%d", self.file_name, self.line, self.col)
 end
 
-function location.format_error(loc, fmt, ...)
-    return location.show_line_col(loc) .. ": " .. string.format(fmt, ...)
+function Location:__tostring()
+    return string.format("%d:%d", self.line, self.col)
 end
 
-return location
+function Location:format_error(fmt, ...)
+    return self:show_line_col() .. ": " .. string.format(fmt, ...)
+end
+
+return Location
