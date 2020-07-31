@@ -7,14 +7,14 @@ local function run_lexer(source)
 
     local lexer = Lexer.new('(lexer spec)', source)
     while true do
-        local tok, value = lexer:next()
+        local tok, err = lexer:next()
         if not tok then
-            return { err = value }
-        elseif tok == "EOF" then
+            return { err = err }
+        elseif tok.name == "EOF" then
             return { tokens = tokens, captures = captures }
         else
-            table.insert(tokens, tok)
-            if value ~= nil then table.insert(captures, value) end
+            table.insert(tokens, tok.name)
+            if tok.value ~= nil then table.insert(captures, tok.value) end
         end
     end
 end

@@ -250,7 +250,7 @@ end
 --
 -- Get the next token, ignoring whitespace and comments
 --
--- Success: returns name, semantic value, start location
+-- Success: returns a table containing token name, semantic value, start location
 -- Failure: returns false, error message
 --
 function Lexer:next()
@@ -261,7 +261,7 @@ function Lexer:next()
             return false, val
         end
         if name ~= "SPACE" and name ~= "COMMENT" then
-            return name, val, loc
+            return { name = name, value = val, loc = loc }
         end
     end
 end
