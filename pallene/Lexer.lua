@@ -8,7 +8,11 @@ local re = require "re"
 local Location = require "pallene.Location"
 local util = require "pallene.util"
 
------------------------------
+-- This module implements the Pallene lexer, which is loosely based on the Lua lexer from llex.c.
+-- In particular, we also reuse most of the error messages. One small difference is that we don't
+-- write the "near xxx" when a lexer error happens inside a string, because that info is redundant
+-- with the column numbers that we provide and Lua doesn't. Another difference is that we raise an
+-- error if we encounter an unexpected symbol, instead of punting that to the parser.
 
 local P  = lpeg.P
 local RE = re.compile
@@ -25,7 +29,7 @@ local longstring_close   = P("]") * P("=")^0 * P("]")
 local longstring_content = (P(1) - longstring_close)^1
 
 local string_delimiter  = RE"[\"\']"
-local string_hex_number = RE"[0-9A-Fa-f][0-9A-Fa-f]"
+local string_hex_number = RE"[0-9A-Fa-f][0-9A-Fa-f]?"
 local string_dec_number = RE"[0-9][0-9]?[0-9]?"
 local string_u_number   = RE"[0-9A-Fa-f]+"
 local string_content    = RE"[^\"\'\n\r\\]+"
@@ -73,7 +77,7 @@ function Lexer:init(file_name, input)
     self.matched   = false      -- Last matched substring
 end
 
--- If the given pattern matches, updates the lexer state and returns true. Otherwise, returns false.
+-- If the given pattern matches, move the lexer forward and set self.matched.
 -- The pattern can be either an LPEG pattern or a literal string.
 local pattern_cache = {}
 function Lexer:try(pat)
@@ -125,34 +129,33 @@ function Lexer:read_short_string(delimiter)
                 if n < 256 then
                     table.insert(parts, string.char(n))
                 else
-                    return false, "Decimal escape sequence is too large"
+                    return false, "decimal escape sequence too large"
                 end
 
             elseif self:try("x") then
-                if self:try(string_hex_number) then
+                if self:try(string_hex_number) and #self.matched == 2 then
                     local n = assert(tonumber(self.matched, 16))
                     table.insert(parts, string.char(n))
                 else
-                    return false, "\\x escape sequences must have exactly two hexadecimal digits"
+                    return false, "hexadecimal digit expected"
                 end
 
             elseif self:try("u") then
                 if not self:try("{") then
-                    return false, "Expected '{' after \\u"
+                    return false, "missing '{'"
                 end
                 if not self:try(string_u_number) then
-                    return false, "Expected one or more hexadecimal digits after '{'"
+                    return false, "hexadecimal digit expected"
                 end
-                local n = assert(tonumber(self.matched, 16))
+                local n = tonumber(self.matched, 16)
+                if #self.matched > 8 or n >= 0x7fffffff then
+                    return false, "UTF-8 value too large"
+                end
                 if not self:try("}") then
-                    return false, "Expected '}' to close the \\u escape sequence"
+                    return false, "missing '}'"
                 end
 
-                if n < (1<<31) then
-                    table.insert(parts, utf8.char(n))
-                else
-                    return false, "UTF-8 value is too large"
-                end
+                table.insert(parts, utf8.char(n))
 
             elseif self:try("z") then
                 self:try(space)
@@ -162,21 +165,21 @@ function Lexer:read_short_string(delimiter)
                 if s then
                     table.insert(parts, s)
                 else
-                    return false, string.format("Invalid escape sequence %s", "\\"..self.matched)
+                    return false, string.format("invalid escape sequence '\\%s'", self.matched)
                 end
-
             else
-                return false, "Unfinished escape sequence"
+                return false, "unfinished string"
             end
 
         else
-            return false, "Unclosed string"
+            return false, "unfinished string"
         end
     end
     return table.concat(parts)
 end
 
 function Lexer:read_long_string(delimiter_length, what)
+    local firstline = self.line
     self:try(newline)
     local parts = {}
     while true do
@@ -191,7 +194,7 @@ function Lexer:read_long_string(delimiter_length, what)
             table.insert(parts, self.matched)
 
         else
-            return false, string.format("Unclosed %s", what)
+            return false, string.format("unfinished %s (starting at line %d)", what, firstline)
         end
     end
     return table.concat(parts)
@@ -226,7 +229,7 @@ function Lexer:_next()
         if n then
             return "NUMBER", n
         else
-            return false, string.format("Invalid numeric literal %q", self.matched)
+            return false, string.format("malformed number near '%s'", self.matched)
         end
 
     elseif self:try(symbol) then -- Must try this after numbers, because of '.'
@@ -240,7 +243,10 @@ function Lexer:_next()
         end
 
     elseif self:try(one_char) then
-        return false, string.format("Unexpected character %q", self.matched)
+        local what = (string.match(self.matched, "%g")
+            and string.format("'%s'", self.matched)
+            or  string.format("<\\%d>", string.byte(self.matched)))
+        return false, string.format("unexpected symbol near %s", what)
 
     else
         return "EOF"
