@@ -255,7 +255,7 @@ end
 --
 function Lexer:next()
     while true do
-        local loc = Location.new(self.file_name, self.line, self.col, self.pos)
+        local loc = self:loc()
         local name, val = self:_next()
         if not name then
             return false, val
@@ -264,6 +264,10 @@ function Lexer:next()
             return { name = name, value = val, loc = loc }
         end
     end
+end
+
+function Lexer:loc()
+    return Location.new(self.file_name, self.line, self.col, self.pos)
 end
 
 return Lexer
