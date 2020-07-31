@@ -9,7 +9,7 @@ local function compile(pallene_code)
             error(errmsg)
         end
     end)
-+
+
     it("does not crash the #prettyprinter", function()
         local ok, _, _, errmsg = util.outputs_of_execute("./pallenec --print-ir __test__.pln")
         if not ok then error(errmsg) end

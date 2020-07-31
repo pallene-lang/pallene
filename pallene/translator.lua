@@ -90,21 +90,15 @@ function Translator:translate_decl(decl)
     end
 end
 
-function Translator:translate_var(exp)
-    local tag = exp.var._tag
+function Translator:translate_var(var)
+    local tag = var._tag
     if tag == "ast.Var.Name" then
         -- Nothing
     elseif tag == "ast.Var.Bracket" then
-        if exp.t then
-            self:translate_exp(exp.t)
-        end
-        if exp.k then
-            self:translate_exp(exp.k)
-        end
+        self:translate_exp(var.t)
+        self:translate_exp(var.k)
     elseif tag == "ast.Var.Dot" then
-        if exp.exp then
-            self:translate_exp(exp.exp)
-        end
+        self:translate_exp(var.exp)
     else
         error("impossible")
     end
@@ -130,7 +124,7 @@ function Translator:translate_exp(exp)
     elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
     elseif tag == "ast.Exp.Var" then
-        self:translate_var(exp)
+        self:translate_var(exp.var)
     elseif tag == "ast.Exp.Unop" then
         self:translate_exp(exp.exp)
     elseif tag == "ast.Exp.Concat" then
@@ -181,9 +175,7 @@ function Translator:translate_stat(stat)
         self:translate_stat(stat.block)
     elseif stat._tag == "ast.Stat.Assign" then
         for _, exp in ipairs(stat.exps) do
-            if exp then
-                self:translate_exp(exp)
-            end
+            self:translate_exp(exp)
         end
     elseif stat._tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
@@ -191,17 +183,13 @@ function Translator:translate_stat(stat)
         end
 
         for _, exp in ipairs(stat.exps) do
-            if exp then
-                self:translate_exp(exp)
-            end
+            self:translate_exp(exp)
         end
     elseif stat._tag == "ast.Stat.Call" then
         self:translate_exp(stat.call_exp)
     elseif stat._tag == "ast.Stat.Return" then
         for _, exp in ipairs(stat.exps) do
-            if exp then
-                self:translate_exp(exp)
-            end
+            self:translate_exp(exp)
         end
     elseif stat._tag == "ast.Stat.Break" then
         -- Nothing
@@ -292,9 +280,6 @@ function Translator:add_forward_declarations(prog_ast)
 end
 
 function translator.translate(input, prog_ast)
-
-    print(require("inspect")(prog_ast))
-
     local instance = Translator.new(input)
 
     instance:add_forward_declarations(prog_ast)

@@ -2,20 +2,39 @@ local util = require "pallene.util"
 
 local execution_tests = {}
 
-local function run_test(test_script)
-    util.set_file_contents("__test__script__.lua", util.render([[
-        local test = require "__test__"
-        ${TEST_SCRIPT}
-    ]], {
-        TEST_SCRIPT = test_script
-    }))
-    assert(util.execute("./lua/src/lua __test__script__.lua > __test__output__.txt"))
-end
-
 function execution_tests.run(compile, backend, describe, it, assert)
     local assert_test_output = function (expected)
         local output = assert(util.get_file_contents("__test__output__.txt"))
         assert.are.same(expected, output)
+    end
+
+    local run_test = function (test_script)
+        local final_script = util.render([[
+            local test = require "__test__"
+
+            local function assert_pallene_error(message, target, ...)
+                if $backend == "c" then
+                    local ok, err = pcall(target, ...)
+                    assert(not ok)
+                    assert(string.find(err, message, nil, true))
+                end
+            end
+
+            local function assert_is_pallene_record(x)
+                if $backend == "c" then
+                    assert("userdata" == type(x))
+                else
+                    assert("table" == type(x))
+                end
+            end
+
+            ${TEST_SCRIPT}
+        ]], {
+            TEST_SCRIPT = test_script,
+            backend = string.format("%q", backend)
+        })
+        util.set_file_contents("__test__script__.lua", final_script)
+        assert(util.execute("./lua/src/lua __test__script__.lua > __test__output__.txt"))
     end
 
     describe("Empty program /", function()
@@ -237,39 +256,28 @@ function execution_tests.run(compile, backend, describe, it, assert)
 
         -- Errors
 
-        if backend == "c" then
-            it("missing arguments", function()
-                run_test([[
-                    local ok, err = pcall(test.g1)
-                    assert(string.find(err,
-                        "wrong number of arguments to function 'g1', " ..
-                        "expected 1 but received 0",
-                        nil, true))
-                ]])
-            end)
+        it("missing arguments", function()
+            run_test([[
+                assert_pallene_error("wrong number of arguments to function 'g1', expected 1 but received 0",
+                    test.g1)
+            ]])
+        end)
 
-            it("too many arguments", function()
-                run_test([[
-                    local ok, err = pcall(test.g1, 10, 20)
-                    assert(string.find(err,
-                        "wrong number of arguments to function 'g1', " ..
-                        "expected 1 but received 2",
-                        nil, true))
-                ]])
-            end)
+        it("too many arguments", function()
+            run_test([[
+                assert_pallene_error("wrong number of arguments to function 'g1', expected 1 but received 2",
+                    test.g1, 10, 20)
+            ]])
+        end)
 
-            it("type of argument", function()
-                -- Also sees if error messages say "float" and "integer"
-                -- instead of "number"
-                run_test([[
-                    local ok, err = pcall(test.g1, 3.14)
-                    assert(string.find(err,
-                        "wrong type for argument 'x', " ..
-                        "expected integer but found float",
-                        nil, true))
-                ]])
-            end)
-        end
+        it("type of argument", function()
+            -- Also sees if error messages say "float" and "integer"
+            -- instead of "number"
+            run_test([[
+                assert_pallene_error("wrong type for argument 'x', expected integer but found float",
+                    test.g1, 3.14)
+            ]])
+        end)
     end)
 
     describe("First class functions /", function()
@@ -335,19 +343,14 @@ function execution_tests.run(compile, backend, describe, it, assert)
             ]])
         end)
 
-        if backend == "c" then
-            it("Type-checks Lua functions", function()
-                run_test([[
-                    local f = function(x) return "hello" end
-                    local ok, err = pcall(test.call, f, 0)
-                    assert(not ok)
-                    assert(string.find(err,
-                        "wrong type for return value #1, "..
-                        "expected integer but found string",
-                        nil, true))
-                ]])
-            end)
-        end
+        it("Type-checks Lua functions", function()
+            run_test([[
+                local f = function(x) return "hello" end
+                assert_pallene_error("wrong type for return value #1, expected integer but found string",
+                    test.call, f, 0)
+
+            ]])
+        end)
     end)
 
     describe("Unary Operators /", function()
@@ -695,16 +698,11 @@ function execution_tests.run(compile, backend, describe, it, assert)
             it("any->" .. name, function() run_test(test_from[name]) end)
         end
 
-        if backend == "c" then
-            it("detects downcast error", function()
-                run_test([[
-                    local ok, err = pcall(test.to_integer, "hello")
-                    assert(not ok)
-                    assert(string.find(err,
-                        "wrong type for downcasted value", nil, true))
-                ]])
-            end)
-        end
+        it("detects downcast error", function()
+            run_test([[
+                assert_pallene_error("wrong type for downcasted value", test.to_integer, "hello")
+            ]])
+        end)
     end)
 
     describe("Statements /", function()
@@ -953,18 +951,12 @@ function execution_tests.run(compile, backend, describe, it, assert)
             ]])
         end)
 
-        if backend == "c" then
-            it("checks type tags in get", function()
-                run_test([[
-                    local arr = {10, 20, "hello"}
-
-                    local ok, err = pcall(test.geti, arr, 3)
-                    assert(not ok)
-                    assert(
-                        string.find(err, "wrong type for array element", nil, true))
-                ]])
-            end)
-        end
+        it("checks type tags in get", function()
+            run_test([[
+                local arr = {10, 20, "hello"}
+                assert_pallene_error("wrong type for array element", test.geti, arr, 3)
+            ]])
+        end)
 
         it("insert", function()
             run_test([[
@@ -995,26 +987,15 @@ function execution_tests.run(compile, backend, describe, it, assert)
             ]])
         end)
 
-        if backend == "c" then
-            it("out-of bounds get is a tag error", function()
-                run_test([[
-                    local arr = {10, 20, 30}
-
-                    local ok, err = pcall(test.geti, arr, 0)
-                    assert(not ok)
-                    assert(string.find(err, "invalid index", nil, true))
-
-                    local ok, err = pcall(test.geti, arr, 4)
-                    assert(not ok)
-                    assert(string.find(err, "wrong type for array element", nil, true))
-
-                    table.remove(arr)
-                    local ok, err = pcall(test.geti, arr, 3)
-                    assert(not ok)
-                    assert(string.find(err, "wrong type for array element", nil, true))
-                ]])
-            end)
-        end
+        it("out-of bounds get is a tag error", function()
+            run_test([[
+                local arr = {10, 20, 30}
+                assert_pallene_error("invalid index", test.geti, arr, 0)
+                assert_pallene_error("wrong type for array element", test.geti, arr, 4)
+                table.remove(arr)
+                assert_pallene_error("wrong type for array element", test.geti, arr, 3)
+            ]])
+        end)
 
         it("{nil}: in-bounds get nil", function()
             run_test([[ assert(nil == test.getnil({10, nil, 30}, 2)) ]])
@@ -1032,31 +1013,25 @@ function execution_tests.run(compile, backend, describe, it, assert)
             run_test([[ assert(nil == test.getany({10, nil, 30}, 2)) ]])
         end)
 
-        if backend == "c" then
-            it("{any}: out-of-bounds get nil", function()
-                run_test([[ assert(nil == test.getany({10, nil, 30}, 4)) ]])
-            end)
+        it("{any}: out-of-bounds get nil", function()
+            run_test([[ assert(nil == test.getany({10, nil, 30}, 4)) ]])
+        end)
 
-            it("length operator rejects arrays with a metatable", function()
-                run_test([[
-                    local arr = {}
-                    setmetatable(arr, { __len = function(self) return 42 end })
-                    local ok, err = pcall(test.len, arr)
-                    assert(not ok)
-                    assert(string.find(err, "must not have a metatable", nil, true))
-                ]])
-            end)
+        it("length operator rejects arrays with a metatable", function()
+            run_test([[
+                local arr = {}
+                setmetatable(arr, { __len = function(self) return 42 end })
+                assert_pallene_error("must not have a metatable", test.len, arr)
+            ]])
+        end)
 
-            it("indexing operator rejects arrays with a metatable", function()
-                run_test([[
-                    local arr = {}
-                    setmetatable(arr, { __index = function(self, k) return 42 end })
-                    local ok, err = pcall(test.getany, arr, 1)
-                    assert(not ok)
-                    assert(string.find(err, "must not have a metatable", nil, true))
-                ]])
-            end)
-        end
+        it("indexing operator rejects arrays with a metatable", function()
+            run_test([[
+                local arr = {}
+                setmetatable(arr, { __index = function(self, k) return 42 end })
+                assert_pallene_error("must not have a metatable", test.getany, arr, 1)
+            ]])
+        end)
     end)
 
     describe("Tables /", function()
@@ -1146,17 +1121,12 @@ function execution_tests.run(compile, backend, describe, it, assert)
             ]])
         end)
 
-        if backend == "c" then
-            it("checks type tags in get", function()
-                run_test([[
-                    local p = {x = 10, y = "hello"}
-                    local ok, err = pcall(test.gety, p)
-                    assert(not ok)
-                    assert(
-                        string.find(err, "wrong type for table field", nil, true))
-                ]])
-            end)
-        end
+        it("checks type tags in get", function()
+            run_test([[
+                local p = {x = 10, y = "hello"}
+                assert_pallene_error("wrong type for table field", test.gety, p)
+            ]])
+        end)
 
         it("works with fields with the max length", function()
             run_test([[
@@ -1165,27 +1135,21 @@ function execution_tests.run(compile, backend, describe, it, assert)
             ]])
         end)
 
-        if backend == "c" then
-            it("table field access rejects tables with a metatable", function()
-                run_test([[
-                    local tab = {}
-                    setmetatable(tab, { __index = function(self, k) return 42 end })
-                    local ok, err = pcall(test.getany, tab)
-                    assert(not ok)
-                    assert(string.find(err, "must not have a metatable", nil, true))
-                ]])
-            end)
+        it("table field access rejects tables with a metatable", function()
+            run_test([[
+                local tab = {}
+                setmetatable(tab, { __index = function(self, k) return 42 end })
+                assert_pallene_error("must not have a metatable", test.getany, tab)
+            ]])
+        end)
 
-            it("table field access rejects tables with a metatable", function()
-                run_test([[
-                    local tab = {}
-                    setmetatable(tab, { __index = function(self, k) return 42 end })
-                    local ok, err = pcall(test.getnil, tab)
-                    assert(not ok)
-                    assert(string.find(err, "must not have a metatable", nil, true))
-                ]])
-            end)
-        end
+        it("table field access rejects tables with a metatable", function()
+            run_test([[
+                local tab = {}
+                setmetatable(tab, { __index = function(self, k) return 42 end })
+                assert_pallene_error("must not have a metatable", test.getnil, tab)
+            ]])
+        end)
     end)
 
     describe("Strings", function()
@@ -1307,14 +1271,12 @@ function execution_tests.run(compile, backend, describe, it, assert)
             end
         ]])
 
-        if backend == "c" then
-            it("create records", function()
-                run_test([[
-                    local foo = test.make_foo(123, {})
-                    assert("userdata" == type(foo))
-                ]])
-            end)
-        end
+        it("create records", function()
+            run_test([[
+                local x = test.make_foo(123, {})
+                assert_is_pallene_record(x)
+            ]])
+        end)
 
         it("get/set primitive fields in pallene", function()
             run_test([[
@@ -1336,44 +1298,43 @@ function execution_tests.run(compile, backend, describe, it, assert)
             ]])
         end)
 
+        it("create records with only primitive fields", function()
+            run_test([[
+                local x = test.make_prim(123)
+                assert_is_pallene_record(x)
+            ]])
+        end)
+
+        it("create records with only gc fields", function()
+            run_test([[
+                local x = test.make_gc({})
+                assert_is_pallene_record(x)
+            ]])
+        end)
+
+        it("create empty records", function()
+            run_test([[
+                local x = test.make_empty()
+                assert_is_pallene_record(x)
+            ]])
+        end)
+
+        it("check record tags", function()
+            -- TODO: change this message to mention the relevant record types
+            -- instead of only saying "userdata"
+            run_test([[
+                local prim = test.make_prim(123)
+                assert_pallene_error("expected userdata but found userdata", test.get_x, prim)
+            ]])
+        end)
+
+        -- The follow test case is special. Therefore, we manually check the backend we are testing
+        -- before executing it.
         if backend == "c" then
-            it("create records with only primitive fields", function()
-                run_test([[
-                    local x = test.make_prim(123)
-                    assert("userdata" == type(x))
-                ]])
-            end)
-
-            it("create records with only gc fields", function()
-                run_test([[
-                    local x = test.make_gc({})
-                    assert("userdata" == type(x))
-                ]])
-            end)
-
-            it("create empty records", function()
-                run_test([[
-                    local x = test.make_empty()
-                    assert("userdata" == type(x))
-                ]])
-            end)
-
             it("protect record metatables", function()
                 run_test([[
                     local x = test.make_prim(123)
                     assert(getmetatable(x) == false)
-                ]])
-            end)
-
-            it("check record tags", function()
-                -- TODO: change this message to mention the relevant record types
-                -- instead of only saying "userdata"
-                run_test([[
-                    local prim = test.make_prim(123)
-                    local ok, err = pcall(test.get_x, prim)
-                    assert(not ok)
-                    assert(string.find(err, "expected userdata but found userdata",
-                            nil, true))
                 ]])
             end)
         end
@@ -1393,25 +1354,6 @@ function execution_tests.run(compile, backend, describe, it, assert)
             assert_test_output("Hello:)World")
         end)
     end)
-
-    if backend == "c" then
-        describe("tofloat builtin", function()
-            compile([[
-                export function itof(x:integer): float
-                    return tofloat(x)
-                end
-            ]])
-
-            it("works", function()
-                run_test([[
-                    local x_i = 1
-                    local x_f = test.itof(x_i)
-                    assert("float" == math.type(x_f))
-                    assert(1.0 == x_f)
-                ]])
-            end)
-        end)
-    end
 
     describe("math.sqrt builtin", function()
         compile([[
@@ -1665,11 +1607,6 @@ function execution_tests.run(compile, backend, describe, it, assert)
                 return res
             end
 
-            export function tofloat_shadowing(x:integer) : float
-                local tofloat = 1.0
-                return (x + tofloat)
-            end
-
             export function duplicate_parameter(x: integer, x:integer) : integer
                 return x
             end
@@ -1693,10 +1630,6 @@ function execution_tests.run(compile, backend, describe, it, assert)
 
         it("for loop variable scope doesn't shadow its initializers", function()
             run_test([[ assert( 34 == test.for_initializer() ) ]])
-        end)
-
-        it("tofloat in coercions doesn't get shadowed", function()
-            run_test([[ assert( 21.0 == test.tofloat_shadowing(20) ) ]])
         end)
 
         it("allows functions with repeated argument names", function()
