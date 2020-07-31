@@ -176,7 +176,7 @@ function Lexer:read_short_string(delimiter)
     return table.concat(parts)
 end
 
-function Lexer:read_long_string(delimiter_length)
+function Lexer:read_long_string(delimiter_length, what)
     self:try(newline)
     local parts = {}
     while true do
@@ -191,7 +191,7 @@ function Lexer:read_long_string(delimiter_length)
             table.insert(parts, self.matched)
 
         else
-            return false
+            return false, string.format("Unclosed %s", what)
         end
     end
     return table.concat(parts)
@@ -204,8 +204,8 @@ function Lexer:_next()
 
     elseif self:try("--") then
         if self:try(longstring_open) then
-            local s = self:read_long_string(#self.matched)
-            if not s then return false, "Unclosed long comment" end
+            local s, err = self:read_long_string(#self.matched, "long comment")
+            if not s then return false, err end
         else
             self:try(comment_line)
         end
@@ -217,8 +217,8 @@ function Lexer:_next()
         return "STRING", s
 
     elseif self:try(longstring_open) then
-        local s = self:read_long_string(#self.matched)
-        if not s then return false, "Unclosed long string" end
+        local s, err = self:read_long_string(#self.matched, "long string")
+        if not s then return false, err end
         return "STRING", s
 
     elseif self:try(possible_number) then
