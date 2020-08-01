@@ -7,6 +7,7 @@ local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
 local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
+local Lexer = require "pallene.Lexer"
 local parser = require "pallene.parser"
 local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
@@ -53,7 +54,7 @@ driver.list_of_compiler_passes = {"ast", "checker", "ir", "uninitialized", "cons
 function driver.compile_internal(filename, input, stop_after, opt_level)
     stop_after = stop_after or "optimize"
 
-    local prog_ast, errs = parser.parse(filename, input)
+    local prog_ast, errs = parser.parse(Lexer.new(filename, input))
     if stop_after == "ast" or not prog_ast then
         return prog_ast, errs
     end

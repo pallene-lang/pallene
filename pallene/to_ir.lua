@@ -104,11 +104,11 @@ function ToIR:convert_toplevel(prog_ast)
         local tag = tl_node._tag
         if     tag == "ast.Toplevel.Func" then
             local f_id = self.fun_id_of_decl[tl_node.decl]
-            if not tl_node.is_local then
+            if tl_node.visibility == "export" then
                 ir.add_exported_function(self.module, f_id)
             end
         elseif tag == "ast.Toplevel.Var" then
-            if not tl_node.is_local then
+            if tl_node.visibility == "export" then
                 for _, decl in ipairs(tl_node.decls) do
                     local g_id = self.glb_id_of_decl[decl]
                     ir.add_exported_global(self.module, g_id)
@@ -542,6 +542,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             table.insert(cmds, ir.Cmd.NewArr(loc, dst, n))
             table.insert(cmds, ir.Cmd.CheckGC())
             for i, field in ipairs(exp.fields) do
+                assert(field._tag == "ast.Field.List")
                 local av = ir.Value.LocalVar(dst)
                 local iv = ir.Value.Integer(i)
                 local vv = self:exp_to_value(cmds, field.exp)
@@ -554,6 +555,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             table.insert(cmds, ir.Cmd.NewTable(loc, dst, n))
             table.insert(cmds, ir.Cmd.CheckGC())
             for _, field in ipairs(exp.fields) do
+                assert(field._tag == "ast.Field.Rec")
                 local tv = ir.Value.LocalVar(dst)
                 local kv = ir.Value.String(field.name)
                 local vv = self:exp_to_value(cmds, field.exp)

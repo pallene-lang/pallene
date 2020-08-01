@@ -3,581 +3,742 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+local ast = require "pallene.ast"
+local util = require "pallene.util"
+
+-- This module implements the Pallene parser. It is loosely based on the Lua parser from lparser.c,
+-- including the error messages. We use an LL(2) grammar, which requires one extra token of
+-- lookahead.
+
+local Parser = util.Class()
+
+function Parser:init(lexer)
+    self.lexer = lexer
+    self.loop_depth = 0
+    self.prev = false -- Token
+    self.next = false -- Token
+    self.look = false -- Token
+    self:advance(); self:advance()
+    assert(self.next)
+    assert(self.look)
+end
+
+function Parser:advance()
+    local err
+    self.prev = self.next
+    self.next = self.look
+    self.look, err = self.lexer:next()
+    if not self.look then
+        self:syntax_error(self.lexer:loc(), err)
+    end
+end
+
+-- Check the next token without consuming it
+function Parser:peek(name)
+    assert(self.next.name)
+    return (name == self.next.name)
+end
+
+-- Check the next-next token without consuming it
+function Parser:doublepeek(name)
+    assert(self.look.name)
+    return (name == self.look.name)
+end
+
+-- Success: returns true, advances parser
+-- Failure: returns false
+function Parser:try(name)
+    if self:peek(name) then
+        self:advance()
+        return true
+    else
+        return false
+    end
+end
+
+-- [e]xpect one token.
+-- If the optional open_name is provided, it means we are a closing token ({}, (), do end, etc).
+function Parser:e(name, open_tok)
+    if self:try(name) then
+        return self.prev.value
+    else
+        if open_tok then
+            self:missing_close_token_error(name, open_tok)
+        else
+            self:wrong_token_error(name)
+        end
+    end
+end
+
+function Parser:loop_begin()
+    self.loop_depth = self.loop_depth + 1
+end
+
+function Parser:loop_end()
+    self.loop_depth = self.loop_depth - 1
+end
+
+--
+-- Toplevel
+--
+
+function Parser:Program()
+    local tls = {}
+    while not self:peek("EOF") do
+        table.insert(tls, self:Toplevel())
+    end
+    return tls
+end
+
+function Parser:Toplevel()
+    if self:try("typealias") then
+        local start_tok = self.prev
+        local name = self:e("NAME")
+        local _    = self:e("=")
+        local typ  = self:Type()
+        return ast.Toplevel.Typealias(start_tok.loc, name, typ, self.next.loc)
+
+    elseif self:try("record") then
+        local start_tok = self.prev
+        local name   = self:e("NAME")
+        local fields = {}
+        while self:peek("NAME") do
+            local decl = self:Decl()
+            if not decl.type then self:e(":") end
+            local _ = self:FieldSep()
+            table.insert(fields, decl)
+        end
+        self:e("end", start_tok)
+        return ast.Toplevel.Record(start_tok.loc, name, fields, self.next.loc)
+
+    else
+        local visibility_tok
+        if self:try("local") or self:try("export") then
+            visibility_tok = self.prev
+        else
+            visibility_tok = false
+        end
+
+        if self:try("function") then
+            local start_tok = self.prev
+            local name      = self:e("NAME")
+            local _         = self:e("("); local paren_tok = self.prev
+            local params    = self:DeclList()
+            local _         = self:e(")", paren_tok)
+            local rt_col_tok = self.next
+            local ret_types = self:try(":") and self:RetTypes() or {}
+            local rt_end_tok = self.next
+            local block     = self:Block()
+            local _         = self:e("end", start_tok)
+
+            if not visibility_tok then
+                self:syntax_error(start_tok.loc,
+                    "Function declarations must have a 'local' or 'export' modifier")
+            end
+
+            for _, decl in ipairs(params) do
+                if not decl.type then
+                    self:syntax_error(decl.loc,
+                        "Parameter '%s' is missing a type annotation", decl.name)
+                end
+            end
+
+            local arg_types = {}
+            for i, decl in ipairs(params) do
+                arg_types[i] = decl.type
+            end
+            local func_typ = ast.Type.Function(visibility_tok.loc, arg_types, ret_types)
+
+            return ast.Toplevel.Func(
+                visibility_tok.loc, visibility_tok.name,
+                ast.Decl.Decl(visibility_tok.loc, name, false, func_typ, false),
+                ast.Exp.Lambda(visibility_tok.loc, params, block),
+                rt_col_tok.loc, rt_end_tok.loc)
+
+        elseif self:peek("NAME") then
+            local decls = self:DeclList(); assert(#decls > 0)
+            local _     = self:e("=")
+            local exps  = self:ExpList1();
+
+            if not visibility_tok then
+                self:syntax_error(decls[1].loc,
+                    "Variable declarations must have a 'local' or 'export' modifier")
+            end
+
+            return ast.Toplevel.Var(visibility_tok.loc, visibility_tok.name, decls, exps)
+
+        else
+            if visibility_tok then
+                self:e("NAME");
+                error("unreachable")
+            else
+                self:unexpected_token_error("a toplevel declaration")
+            end
+        end
+    end
+end
+
+--
+-- Types
+--
+
+function Parser:Type()
+    if self:peek("(") then
+        local loc = self.next.loc
+        local aa  = self:TypeList()
+        local _   = self:e("->");
+        local bb  = self:RetTypes()
+        return ast.Type.Function(loc, aa, bb)
+    else
+        local a = self:SimpleType()
+        if self:try("->") then
+            local bb  = self:RetTypes()
+            return ast.Type.Function(a.loc, {a}, bb)
+        else
+            return a
+        end
+    end
+end
+
+function Parser:TypeList()
+    local _        = self:e("(");
+    local open_tok = self.prev
+
+    local ts = {}
+    if not self:peek(")") then
+        table.insert(ts, self:Type())
+        while self:try(",") do
+            table.insert(ts, self:Type())
+        end
+    end
+    self:e(")", open_tok)
+
+    return ts
+end
+
+function Parser:RetTypes()
+    if self:peek("(") then
+        local loc = self.next.loc
+        local aa = self:TypeList()
+        if self:try("->") then
+            local bb  = self:RetTypes()
+            return { ast.Type.Function(loc, aa, bb) }
+        else
+            return aa
+        end
+    else
+        return { self:Type() }
+    end
+end
+
+function Parser:SimpleType()
+    if     self:try("nil")     then return ast.Type.Nil     (self.prev.loc)
+    elseif self:try("boolean") then return ast.Type.Boolean (self.prev.loc)
+    elseif self:try("integer") then return ast.Type.Integer (self.prev.loc)
+    elseif self:try("float")   then return ast.Type.Float   (self.prev.loc)
+    elseif self:try("string")  then return ast.Type.String  (self.prev.loc)
+    elseif self:try("any")     then return ast.Type.Any     (self.prev.loc)
+    elseif self:try("NAME")    then return ast.Type.Name    (self.prev.loc, self.prev.value)
+    elseif self:try("{") then
+        local open_tok = self.prev
+        if self:peek("}") or (self:peek("NAME") and self:doublepeek(":")) then
+            local fields = {}
+            repeat
+                if self:peek("}") then break end
+                local name = self:e("NAME")
+                local _    = self:e(":")
+                local typ  = self:Type()
+                table.insert(fields, { name = name, type = typ })
+            until not self:FieldSep()
+            self:e("}", open_tok)
+            return ast.Type.Table(open_tok.loc, fields)
+
+        else
+            local typ = self:Type()
+            local _ = self:e("}", open_tok)
+            return ast.Type.Array(open_tok.loc, typ)
+        end
+    else
+        self:unexpected_token_error("a type")
+    end
+end
+
+--
+-- Decls
+--
+
+function Parser:Decl()
+    local name = self:e("NAME")
+    local loc  = self.prev.loc
+    if self:try(":") then
+        local cloc = self.prev.loc
+        local typ  = self:Type()
+        return ast.Decl.Decl(loc, name, cloc, typ, self.next.loc)
+    else
+        return ast.Decl.Decl(loc, name, false, false, false)
+    end
+end
+
+function Parser:DeclList()
+    local decls = {}
+    if self:peek("NAME") then
+        table.insert(decls, self:Decl())
+        while self:try(",") do
+            table.insert(decls, self:Decl())
+        end
+    end
+    return decls
+end
+
+--
+-- Statements
+--
+
+function Parser:block_follow()
+    return self:peek("end") or
+           self:peek("else") or
+           self:peek("elseif") or
+           self:peek("until")
+end
+
+function Parser:Block()
+    local start_tok = self.next
+    local stats = {}
+    while true do
+        while self:try(";") do --[[skip empty statement]] end
+        if self:block_follow() then break end
+        local stat = self:Stat()
+        local _    = self:try(";")
+        table.insert(stats, stat)
+        if stat._tag == "ast.Stat.Return" then
+            break
+        end
+    end
+    return ast.Stat.Block(start_tok.loc, stats)
+end
+
+function Parser:Stat()
+    if self:try("do") then
+        local start_tok = self.prev
+        local body = self:Block()
+        local _    = self:e("end", start_tok)
+        return body
+
+    elseif self:try("while") then
+        local start_tok = self.prev
+        local cond = self:Exp()
+        local _    = self:e("do"); self:loop_begin()
+        local body = self:Block()
+        local _    = self:e("end", start_tok); self:loop_end()
+        return ast.Stat.While(start_tok.loc, cond, body)
+
+    elseif self:try("repeat") then
+        local start_tok = self.prev
+        self:loop_begin()
+        local body = self:Block()
+        local _    = self:e("until", start_tok); self:loop_end()
+        local cond = self:Exp()
+        return ast.Stat.Repeat(start_tok.loc, body, cond)
+
+    elseif self:try("if") then
+        local start_tok = self.prev
+        local texp  = self:Exp()
+        local _     = self:e("then")
+        local tbody = self:Block()
+
+        local eifs = {}
+        while self:try("elseif") do
+            local eiloc = self.prev.loc
+            local eiexp  = self:Exp()
+            local _      = self:e("then")
+            local eibody = self:Block()
+            table.insert(eifs, {eiloc, eiexp, eibody})
+        end
+
+        local ebody
+        if self:try("else") then
+            ebody = self:Block()
+        else
+            ebody = ast.Stat.Block(false, {})
+        end
+
+        self:e("end", start_tok)
+
+        for i = #eifs, 1, -1 do
+            local eif = eifs[i]
+            ebody = ast.Stat.If(eif[1], eif[2], eif[3], ebody)
+        end
+        return ast.Stat.If(start_tok.loc, texp, tbody, ebody)
+
+    elseif self:try("for") then
+        local start_tok = self.prev
+        local decl1  = self:Decl()
+
+        if self:try("=") then
+            local start = self:Exp()
+            local _     = self:e(",")
+            local limit = self:Exp()
+            local step  = self:try(",") and self:Exp()
+            local _     = self:e("do"); self:loop_begin()
+            local body  = self:Block()
+            local _     = self:e("end", start_tok); self:loop_end()
+            return ast.Stat.For(start_tok.loc, decl1, start, limit, step, body)
+
+        elseif self:peek(",") or self:peek("in") then
+            local decls = {decl1}
+            while self:try(",") do
+                table.insert(decls, self:Decl())
+            end
+            local _    = self:e("in")
+            local exps = self:ExpList1()
+            local _    = self:e("do"); self:loop_begin()
+            local body = self:Block()
+            local _    = self:e("end", start_tok); self:loop_end()
+            self:syntax_error(start_tok.loc, "for-in loops are not implemented yet")
+            return ast.Stat.ForIn(start_tok.loc, decls, exps, body)
+
+        else
+            self:unexpected_token_error("a for loop")
+
+        end
+
+    elseif self:try("local") then
+        local start_tok = self.prev
+        local decls = self:DeclList()
+        if #decls == 0 then self:e("NAME") end
+        local exps  = self:try("=") and self:ExpList1() or {}
+        return ast.Stat.Decl(start_tok.loc, decls, exps)
+
+    elseif self:try("break") then
+        if self.loop_depth > 0 then
+            return ast.Stat.Break(self.prev.loc)
+        else
+            self:syntax_error(self.prev.loc, "break statement outside of a loop")
+        end
+
+    elseif self:try("return") then
+        local start_tok = self.prev
+        if self:peek(";") or self:block_follow() then
+            return ast.Stat.Return(start_tok.loc, {})
+        else
+            return ast.Stat.Return(start_tok.loc, self:ExpList1())
+        end
+
+    else
+        -- Assignment or function call
+        local exp = self:SuffixedExp(true)
+        if self:peek("=") or self:peek(",") then
+            local lhs = { self:to_var(exp) }
+            while self:try(",") do
+                table.insert(lhs, self:to_var(self:SuffixedExp(false)))
+            end
+            local _ = self:e("=")
+            local rhs = self:ExpList1()
+            return ast.Stat.Assign(lhs[1].loc, lhs, rhs)
+
+        else
+            if exp._tag == "ast.Exp.CallFunc" or exp._tag == "ast.Exp.CallMethod" then
+                return ast.Stat.Call(exp.loc, exp)
+            else
+                self:syntax_error_here("Expression is not a function call")
+            end
+        end
+    end
+end
+
+--
+-- Vars
+--
+
+-- Can this expression appear in an assignment position?
+function Parser:to_var(exp)
+    if exp._tag == "ast.Exp.Var" then
+        return exp.var
+    else
+        self:syntax_error_here("This expression is not an lvalue")
+    end
+end
+
+--
+-- Expressions
+--
+
+function Parser:PrimaryExp(is_statement)
+    if self:try("NAME") then
+        return ast.Exp.Var(self.prev.loc, ast.Var.Name(self.prev.loc, self.prev.value))
+
+    elseif self:try("(") then
+        local start_tok = self.prev
+        local exp = self:Exp()
+        local _   = self:e(")", start_tok)
+        return ast.Exp.Paren(start_tok.loc, exp)
+
+    else
+        if is_statement then
+            self:unexpected_token_error("a statement")
+        else
+            self:unexpected_token_error("an expression")
+        end
+    end
+end
+
+function Parser:SuffixedExp(is_statement)
+    local exp = self:PrimaryExp(is_statement)
+    while true do
+        if self:try(".") then
+            local start_tok = self.prev
+            local name = self:e("NAME")
+            exp = ast.Exp.Var(start_tok.loc, ast.Var.Dot(start_tok.loc, exp, name))
+
+        elseif self:try("[") then
+            local start_tok = self.prev
+            local iexp = self:Exp()
+            local _    = self:e("]", start_tok)
+            exp = ast.Exp.Var(start_tok.loc, ast.Var.Bracket(start_tok.loc, exp, iexp))
+
+        elseif self:try(":") then
+            local name = self:e("NAME")
+            local args = self:FuncArgs()
+            exp = ast.Exp.CallMethod(exp.loc, exp, name, args)
+
+        elseif self:peek("(") or self:peek("STRING") or self:peek("{") then
+            local args = self:FuncArgs()
+            exp = ast.Exp.CallFunc(exp.loc, exp, args)
+
+        else
+            return exp
+        end
+    end
+end
+
+function Parser:FuncArgs()
+    if self:peek("STRING") or self:peek("{") then
+        return { self:SimpleExp() }
+    else
+        local _ = self:e("("); local open_tok = self.prev
+        local exps = self:peek(")") and {} or self:ExpList1()
+        local _ = self:e(")", open_tok)
+        return exps
+    end
+end
+
+function Parser:SimpleExp()
+    if     self:try("NUMBER") then
+        local n   = self.prev.value
+        if     math.type(n) == "integer" then return ast.Exp.Integer(self.prev.loc, n)
+        elseif math.type(n) == "float"   then return ast.Exp.Float(self.prev.loc, n)
+        else error("impossible") end
+
+    elseif self:try("STRING") then return ast.Exp.String(self.prev.loc, self.prev.value)
+    elseif self:try("nil")    then return ast.Exp.Nil(self.prev.loc)
+    elseif self:try("true")   then return ast.Exp.Bool(self.prev.loc, true)
+    elseif self:try("false")  then return ast.Exp.Bool(self.prev.loc, false)
+    elseif self:try("...")    then error("not implemented yet")
+    elseif self:try("{") then
+        local open_tok = self.prev
+        local fields = {}
+        repeat
+            if self:peek("}") then break end
+            table.insert(fields, self:Field())
+        until not self:FieldSep()
+        self:e("}", open_tok)
+        return ast.Exp.Initlist(open_tok.loc, fields)
+
+    else
+        return self:SuffixedExp(false)
+    end
+end
+
+function Parser:CastExp()
+    local exp = self:SimpleExp()
+    while self:try("as") do
+        local op_tok = self.prev
+        local typ  = self:Type()
+        exp = ast.Exp.Cast(op_tok.loc, exp, typ, self.next.loc)
+    end
+    return exp
+end
+
+local precedence_levels = {
+    [14] = "^",
+  --[13] = reserved for "^"
+  --[12] = unary operators
+    [11] = "* % / //",
+    [10] = "+ -",
+    [ 9] = "..",
+  --[ 8] = reserved for ".."
+    [ 7] = "<< >>",
+    [ 6] = "&",
+    [ 5] = "~",
+    [ 4] = "|",
+    [ 3] = "== ~= < > <= >=",
+    [ 2] = "and",
+    [ 1] = "or",
+}
+local unary_precedence = 12
+local is_right_associative = {
+    ["^"]  = true,
+    [".."] = true,
+}
+
+local precedence  = {} -- op => integer
+for n, opstr in pairs(precedence_levels) do
+    for op in opstr:gmatch("%S+") do
+        precedence[op] = n
+    end
+end
+
+-- subexpr -> (castexp | unop subexpr) { binop subexpr }
+-- where 'binop' is any binary operator with a priority higher than 'limit'
+function Parser:SubExp(limit)
+
+    local exp
+    if self:try("not") or self:try("-") or self:try("~") or self:try("#") then
+        local op   = self.prev
+        local uexp = self:SubExp(unary_precedence)
+        exp = ast.Exp.Unop(op.loc, op.name, uexp)
+    else
+        exp = self:CastExp()
+    end
+
+    while true do
+        local op = self.next
+        local prec = precedence[op.name]
+        if not prec or prec <= limit then
+            break
+        end
+
+        local _ = self:e(op.name)
+        local bexp = self:SubExp(is_right_associative[op.name] and prec-1 or prec)
+        if op.name == ".." then
+            if bexp._tag == "ast.Exp.Concat" then
+                exp = ast.Exp.Concat(op.loc, {exp, table.unpack(bexp.exps) })
+            else
+                exp = ast.Exp.Concat(op.loc, {exp, bexp})
+            end
+        else
+            exp = ast.Exp.Binop(op.loc, exp, op.name, bexp)
+        end
+    end
+
+    return exp
+end
+
+function Parser:Exp()
+    return self:SubExp(0)
+end
+
+function Parser:ExpList1()
+    local exps = {}
+    table.insert(exps, self:Exp())
+    while self:try(",") do
+        table.insert(exps, assert(self:Exp()))
+    end
+    return exps
+end
+
+--
+-- Table fields
+--
+
+function Parser:Field()
+    if self:peek("NAME") and self:doublepeek("=") then
+        local start_tok = self.next
+        local name = self:e("NAME")
+        local _    = self:e("=")
+        local exp  = self:Exp()
+        return ast.Field.Rec(start_tok.loc, name, exp)
+    else
+        local exp = self:Exp()
+        return ast.Field.List(exp.loc, exp)
+    end
+end
+
+function Parser:FieldSep()
+    return self:try(",") or self:try(";")
+end
+
+--
+-- Syntax errors
+--
+
+
+function Parser:describe_token_name(name)
+    if     name == "EOF"    then return "end of the file"
+    elseif name == "NUMBER" then return "number"
+    elseif name == "STRING" then return "string"
+    elseif name == "NAME"   then return "a name"
+    else
+        assert(not string.match(name, "^[A-Z]+$"))
+        return string.format("'%s'", name)
+    end
+end
+
+function Parser:describe_token(tok)
+    if tok.name == "NAME" then
+        return string.format("'%s'", tok.value)
+    else
+        return self:describe_token_name(tok.name)
+    end
+end
+
+function Parser:syntax_error(loc, fmt, ...)
+    coroutine.yield(loc:format_error(fmt, ...) .. ".")
+end
+
+function Parser:syntax_error_here(explanation)
+    local where = self:describe_token(self.next)
+    self:syntax_error(self.next.loc, "Syntax error before %s. %s", where, explanation)
+end
+
+function Parser:unexpected_token_error(non_terminal)
+    local where = self:describe_token(self.next)
+    self:syntax_error(self.next.loc, "Unexpected %s while trying to parse %s", where, non_terminal)
+end
+
+function Parser:wrong_token_error(expected_name)
+    local what  = self:describe_token_name(expected_name)
+    local where = self:describe_token(self.next)
+    self:syntax_error(self.next.loc, "Expected %s before %s", what, where)
+end
+
+function Parser:missing_close_token_error(expected_name, open_tok)
+    if self.next.loc.line == open_tok.loc.line then
+        self:wrong_token_error(expected_name)
+    else
+        local what  = self:describe_token_name(expected_name)
+        local owhat = self:describe_token_name(open_tok.name)
+        local where = self:describe_token(self.next)
+        self:syntax_error(self.next.loc,
+            "Expected %s before %s, to close the %s at line %d",
+            what, where, owhat, open_tok.loc.line)
+    end
+end
+
+--
+-- Public interface
+--
+
 local parser = {}
 
-local re = require "relabel"
-local inspect = require "inspect"
-
-local ast = require "pallene.ast"
-local lexer = require "pallene.lexer"
-local Location = require "pallene.Location"
-local syntax_errors = require "pallene.syntax_errors"
-
--- File name of the file that is currently being parsed. Since this is a global the parser is not
--- reentrant but we couldn't think of a better way yet. (If only lpeg.re had Carg...)
-local THIS_FILENAME = nil
-
---
--- Functions used by the PEG grammar
---
-
-local defs = {}
-
-for token_name, token_pat in pairs(lexer) do
-    defs[token_name] = token_pat
-end
-
-for type_name, conss in pairs(ast) do
-    if type(conss) == "table" then
-        for tag, cons in pairs(conss) do
-            local name = type_name .. tag
-            assert(not defs[name])
-            defs[name] = cons
-        end
-    end
-end
-
-function defs.get_loc(s, pos)
-    return true, Location.from_pos(THIS_FILENAME, s, pos)
-end
-
-function defs.to_true()
-    return true
-end
-
-function defs.to_false()
-    return false
-end
-
-function defs.opt(x)
-    if x == "" then
-        return false
-    else
-        return x
-    end
-end
-
-function defs.opt_bool(x)
-    return x ~= ""
-end
-
-function defs.opt_list(x)
-    if x == "" then
-        return {}
-    else
-        return x
-    end
-end
-
-function defs.toplevel_func(loc, is_local, name, params, rt_col_loc, ret_types,
-    rt_end_loc, block)
-    local arg_types = {}
-    for i, decl in ipairs(params) do
-        arg_types[i] = decl.type
-    end
-    local func_typ = ast.Type.Function(loc, arg_types, ret_types)
-    return ast.Toplevel.Func(
-        loc, is_local,
-        ast.Decl.Decl(loc, name, false, func_typ, false),
-        ast.Exp.Lambda(loc, params, block), rt_col_loc, rt_end_loc)
-end
-
-function defs.nil_exp(pos--[[, s ]])
-    -- We can't call ast.Exp.Nil directly in the parser because we need to drop the string capture
-    -- that comes in the second argument.
-    return ast.Exp.Nil(pos)
-end
-
-function defs.number_exp(pos, n)
-    if math.type(n) == "integer" then
-        return ast.Exp.Integer(pos, n)
-    elseif math.type(n) == "float" then
-        return ast.Exp.Float(pos, n)
-    else
-        error("impossible")
-    end
-end
-
-function defs.name_exp(pos, name)
-    return ast.Exp.Var(pos, ast.Var.Name(pos, name))
-end
-
-function defs.if_stat(pos, exp, block, else_ifs, else_opt)
-    local else_ = else_opt or ast.Stat.Block(pos, {})
-
-    for i = #else_ifs, 1, -1 do
-        local e = else_ifs[i]
-        else_ = ast.Stat.If(e.pos, e.exp, e.block, else_)
-    end
-
-    return ast.Stat.If(pos, exp, block, else_)
-end
-
-function defs.elseif_(pos, exp, block)
-    return { pos = pos, exp = exp, block = block }
-end
-
-function defs.fold_binop_left(exp, matches)
-    for i = 1, #matches, 3 do
-        local pos = matches[i]
-        local op  = matches[i+1]
-        local rhs = matches[i+2]
-        exp = ast.Exp.Binop(pos, exp, op, rhs)
-    end
-    return exp
-end
-
--- Should this go on a separate constant propagation pass?
-function defs.binop_concat(lhs, pos, op, rhs)
-    if op then
-        if rhs._tag == "ast.Exp.Concat" then
-            table.insert(rhs.exps, 1, lhs)
-            return rhs
-        elseif (lhs._tag == "ast.Exp.String" or
-            lhs._tag == "ast.Exp.Integer" or
-            lhs._tag == "ast.Exp.Float") and
-            (rhs._tag == "ast.Exp.String" or
-            rhs._tag == "ast.Exp.Integer" or
-            rhs._tag == "ast.Exp.Float") then
-            return ast.Exp.String(pos, lhs.value .. rhs.value)
+function parser.parse(lexer)
+    local co = coroutine.create(function()
+        return Parser.new(lexer):Program()
+    end)
+    local ok, value = coroutine.resume(co)
+    if ok then
+        if coroutine.status(co) == "dead" then
+            local prog_ast = value
+            return prog_ast, {}
         else
-            return ast.Exp.Concat(pos, { lhs, rhs })
+            local compiler_error_msg = value
+            return false, { compiler_error_msg }
         end
     else
-        return lhs
+        local unhandled_exception_msg = value
+        local stack_trace = debug.traceback(co)
+        error(unhandled_exception_msg .. "\n" .. stack_trace)
     end
-end
-
-function defs.binop_right(lhs, pos, op, rhs)
-    if op then
-        return ast.Exp.Binop(pos, lhs, op, rhs)
-    else
-        return lhs
-    end
-end
-
-function defs.fold_unops(matches, exp)
-    for i = #matches, 1, -2 do
-        local op  = matches[i]
-        local pos = matches[i-1]
-        exp = ast.Exp.Unop(pos, op, exp)
-    end
-    return exp
-end
-
-function defs.fold_casts(exp, matches)
-    for i = 1, #matches, 3 do
-        local target_start_loc = matches[i]
-        local target = matches[i + 1]
-        local target_end_loc = matches[i + 2]
-        exp = ast.Exp.Cast(target_start_loc, exp, target, target_end_loc)
-    end
-    return exp
-end
-
--- We represent the suffix of an expression by a function that receives the base expression and
--- returns a full expression including the suffix.
-
-function defs.suffix_func_call(pos, args)
-    return function(exp)
-        return ast.Exp.CallFunc(pos, exp,  args)
-    end
-end
-
-function defs.suffix_method_call(pos, name, args)
-    return function(exp)
-        return ast.Exp.CallMethod(pos, exp, name, args)
-    end
-end
-
-function defs.suffix_bracket(pos, index)
-    return function(exp)
-        return ast.Exp.Var(pos, ast.Var.Bracket(pos, exp, index))
-    end
-end
-
-function defs.suffix_dot(pos, name)
-    return function(exp)
-        return ast.Exp.Var(pos, ast.Var.Dot(pos, exp, name))
-    end
-end
-
-function defs.fold_suffixes(exp, suffixes)
-    for i = 1, #suffixes do
-        local suf = suffixes[i]
-        exp = suf(exp)
-    end
-    return exp
-end
-
-function defs.exp_to_var(exp)
-    return exp.var
-end
-
-function defs.exp_is_var(_, pos, exp)
-    if exp._tag == "ast.Exp.Var" then
-        return pos, exp
-    else
-        return false
-    end
-end
-
-function defs.exp_is_call(_, pos, exp)
-    if exp._tag == "ast.Exp.CallFunc" or
-       exp._tag == "ast.Exp.CallMethod" then
-        return pos, exp
-    else
-        return false
-    end
-end
-
-local grammar = re.compile([[
-
-    program         <-  SKIP*
-                        {|
-                           ( toplevelfunc
-                           / toplevelvar
-                           / typealias
-                           / toplevelrecord
-                           / import
-                           / FUNCTION %{LocalOrExportRequiredFunction}
-                           / NAME (ASSIGN / COMMA) %{LocalOrExportRequiredVariable} )*
-                        |} !.
-
-    toplevelfunc    <- (P  export_or_local FUNCTION NAME^NameFunc
-                           LPAREN^LParPList paramlist RPAREN^RParPList
-                           P rettypeopt P block END^EndFunc)         -> toplevel_func
-
-    toplevelvar     <- (P  export_or_local decllist ASSIGN^AssignVar
-                           !IMPORT explist1^ExpVarDec)           -> ToplevelVar
-
-    typealias       <- (P  TYPEALIAS NAME^NameTypeAlias ASSIGN^AssignTypeAlias
-                           type^TypeTypeAlias P)                   -> ToplevelTypealias
-
-    toplevelrecord  <- (P  RECORD NAME^NameRecord recordfields
-                           END^EndRecord P)                        -> ToplevelRecord
-
-    export_or_local <- LOCAL -> to_true
-                    / EXPORT -> to_false
-
-    import          <- (P  LOCAL NAME^NameImport ASSIGN^AssignImport
-                           IMPORT^ImportImport
-                          (LPAREN STRINGLIT^StringLParImport RPAREN^RParImport /
-                          STRINGLIT^StringImport))               -> ToplevelImport
-
-    rettypeopt      <- (COLON rettype^TypeFunc)?                 -> opt_list
-
-    paramlist       <- {| (param (COMMA param^DeclParList)*)? |} -- produces {Decl}
-
-    param           <- (P  NAME P COLON^ParamSemicolon
-                           type^TypeDecl P)                        -> DeclDecl
-
-    decl            <- (P  NAME P ((COLON type^TypeDecl)? -> opt) P)   -> DeclDecl
-
-    simpletype      <- (P  NIL)                                  -> TypeNil
-                     / (P  BOOLEAN)                              -> TypeBoolean
-                     / (P  INTEGER)                              -> TypeInteger
-                     / (P  FLOAT)                                -> TypeFloat
-                     / (P  STRING)                               -> TypeString
-                     / (P  ANY)                                  -> TypeAny
-                     / (P  NAME)                                 -> TypeName
-                     / (P  LCURLY tablefields RCURLY^RCurlyType) -> TypeTable
-                     / (P  LCURLY type^TypeType
-                           RCURLY^RCurlyType)                    -> TypeArray
-
-    typelist        <- ( LPAREN
-                         {| (type (COMMA type^TypelistType)*)? |}
-                         RPAREN^RParenTypelist )                 -- produces {Type}
-
-    rettype         <- {| (P  typelist RARROW
-                            rettype^TypeReturnTypes)             -> TypeFunction |}
-                     / {| (P  {| simpletype |} RARROW
-                             rettype^TypeReturnTypes)            -> TypeFunction |}
-                     / typelist
-                     / {| simpletype |}
-
-    type            <- (P  typelist RARROW
-                           rettype^TypeReturnTypes)              -> TypeFunction
-                     / (P  {| simpletype |} RARROW
-                           rettype^TypeReturnTypes)              -> TypeFunction
-                     / simpletype
-
-    tablefields     <- {| tablefield (fieldsep tablefield)*
-                          fieldsep? |}                           -- produces {Decl}
-
-    tablefield      <- (P  NAME P COLON type^TypeTableField P)       -> DeclDecl
-
-    recordfields    <- {| recordfield* |}                        -- produces {Decl}
-
-    recordfield     <- (P  NAME P COLON^ColonRecordField
-                           type^TypeRecordField P SEMICOLON?)      -> DeclDecl
-
-    block           <- (P  {| statement* returnstat? |})         -> StatBlock
-
-    statement       <- (SEMICOLON)                               -- ignore
-                     / (DO block END^EndBlock)                   -- produces StatBlock
-                     / (P  WHILE exp^ExpWhile DO^DoWhile
-                                 block END^EndWhile)             -> StatWhile
-                     / (P  REPEAT block UNTIL^UntilRepeat
-                                      exp^ExpRepeat)             -> StatRepeat
-                     / (P  IF exp^ExpIf THEN^ThenIf block
-                           elseifstats elseopt END^EndIf)        -> if_stat
-                     / (P  FOR decl^DeclFor
-                           ASSIGN^AssignFor exp^Exp1For
-                           COMMA^CommaFor exp^Exp2For
-                           (COMMA exp^Exp3For)?                  -> opt
-                           DO^DoFor block END^EndFor)            -> StatFor
-                     / (P  LOCAL decllist^DeclLocal
-                            (ASSIGN
-                                explist1^ExpLocal)? -> opt_list) -> StatDecl
-                     / (P  BREAK)                                -> StatBreak
-                     / (P  varlist ASSIGN^AssignAssign
-                               explist1^ExpAssign)               -> StatAssign
-                     / &(exp ASSIGN) %{AssignNotToVar}
-                     / (P  (suffixedexp => exp_is_call))         -> StatCall
-                     / &exp %{ExpStat}
-
-    elseifstats     <- {| elseifstat* |}                         -- produces {elseif}
-
-    elseifstat      <- (P  ELSEIF exp^ExpElseIf
-                           THEN^ThenElseIf block)                -> elseif_
-
-    elseopt         <- (ELSE block)?                             -> opt
-
-    returnstat      <- (P  RETURN explist0 SEMICOLON?)           -> StatReturn
-
-    op1             <- ( OR -> 'or' )
-    op2             <- ( AND -> 'and' )
-    op3             <- ( EQ -> '==' / NE -> '~=' / LT -> '<' /
-                         GT -> '>'  / LE -> '<=' / GE -> '>=' )
-    op4             <- ( BOR -> '|' )
-    op5             <- ( BXOR -> '~' )
-    op6             <- ( BAND -> '&' )
-    op7             <- ( SHL -> '<<' / SHR -> '>>' )
-    op8             <- ( CONCAT -> '..' )
-    op9             <- ( ADD -> '+' / SUB -> '-' )
-    op10            <- ( MUL -> '*' / MOD -> '%%' / DIV -> '/' / IDIV -> '//' )
-    unop            <- ( NOT -> 'not' / LEN -> '#' / NEG -> '-' / BNEG -> '~' )
-    op12            <- ( POW -> '^' )
-
-    exp             <- e1
-    e1              <- (e2  {| (P op1  e2^OpExp)*  |})           -> fold_binop_left
-    e2              <- (e3  {| (P op2  e3^OpExp)*  |})           -> fold_binop_left
-    e3              <- (e4  {| (P op3  e4^OpExp)*  |})           -> fold_binop_left
-    e4              <- (e5  {| (P op4  e5^OpExp)*  |})           -> fold_binop_left
-    e5              <- (e6  {| (P op5  e6^OpExp)*  |})           -> fold_binop_left
-    e6              <- (e7  {| (P op6  e7^OpExp)*  |})           -> fold_binop_left
-    e7              <- (e8  {| (P op7  e8^OpExp)*  |})           -> fold_binop_left
-    e8              <- (e9  (P op8  e8^OpExp)?)                  -> binop_concat
-    e9              <- (e10 {| (P op9  e10^OpExp)* |})           -> fold_binop_left
-    e10             <- (e11 {| (P op10 e11^OpExp)* |})           -> fold_binop_left
-    e11             <- ({| (P unop)* |}  e12)                    -> fold_unops
-    e12             <- (e13 (P op12 e11^OpExp)?)                 -> binop_right
-    e13             <- (simpleexp {| (P AS type^CastType P)* |}) -> fold_casts
-
-    suffixedexp     <- (prefixexp {| expsuffix* |})              -> fold_suffixes
-
-    expsuffix       <- (P  funcargs)                             -> suffix_func_call
-                     / (P  COLON NAME^NameColonExpSuf
-                                 funcargs^FuncArgsExpSuf)        -> suffix_method_call
-                     / (P  LBRACKET exp^ExpExpSuf
-                                RBRACKET^RBracketExpSuf)         -> suffix_bracket
-                     / (P  DOT NAME^NameDotExpSuf)               -> suffix_dot
-
-    prefixexp       <- (P  NAME)                                 -> name_exp
-                     / (P LPAREN exp^ExpSimpleExp
-                               RPAREN^RParSimpleExp)             -> ExpParen
-
-    simpleexp       <- (P  NIL)                                  -> nil_exp
-                     / (P  FALSE -> to_false)                    -> ExpBool
-                     / (P  TRUE -> to_true)                      -> ExpBool
-                     / (P  NUMBER)                               -> number_exp
-                     / (P  STRINGLIT)                            -> ExpString
-                     / initlist                                  -- produces Exp
-                     / suffixedexp                               -- produces Exp
-
-    var             <- (suffixedexp => exp_is_var)               -> exp_to_var
-
-    funcargs        <- (LPAREN explist0 RPAREN^RParFuncArgs)     -- produces {Exp}
-                     / {| initlist |}                            -- produces {Exp}
-                     / {| (P  STRINGLIT) -> ExpString |}         -- produces {Exp}
-
-    explist0         <- {| (exp (COMMA exp^ExpExpList)*)? |}     -- produces {Exp}
-
-    explist1         <- {| exp (COMMA exp^ExpExpList)* |}        -- produces {Exp}
-
-    varlist         <- {| var (COMMA var^VarVarList)* |}         -- produces {Var}
-
-    decllist         <- {| decl (COMMA decl^DeclDeclList)* |}    -- produces {Decl}
-
-    initlist        <- (P  LCURLY {| fieldlist? |}
-                                  RCURLY^RCurlyInitList)         -> ExpInitlist
-
-    fieldlist       <- (field
-                        (fieldsep
-                         (field /
-                          !RCURLY %{ExpFieldList}))*
-                        fieldsep?)                          -- produces Field...
-
-    field           <- (P  (NAME ASSIGN)? -> opt exp)       -> FieldField
-
-    fieldsep        <- SEMICOLON / COMMA
-
-    --
-    -- Get current position
-    --
-
-    P <- {} => get_loc
-
-    -- Create new rules for all our tokens, for the whitespace-skipping magic
-    -- I grumply wrote all of these by hand.
-
-    SKIP            <- (%SPACE / %COMMENT)
-
-    AND             <- %AND SKIP*
-    BREAK           <- %BREAK SKIP*
-    DO              <- %DO SKIP*
-    ELSE            <- %ELSE SKIP*
-    ELSEIF          <- %ELSEIF SKIP*
-    END             <- %END SKIP*
-    FALSE           <- %FALSE SKIP*
-    FOR             <- %FOR SKIP*
-    FUNCTION        <- %FUNCTION SKIP*
-    GOTO            <- %GOTO SKIP*
-    IF              <- %IF SKIP*
-    IN              <- %IN SKIP*
-    LOCAL           <- %LOCAL SKIP*
-    EXPORT          <- %EXPORT SKIP*
-    NIL             <- %NIL SKIP*
-    NOT             <- %NOT SKIP*
-    OR              <- %OR SKIP*
-    RECORD          <- %RECORD SKIP*
-    REPEAT          <- %REPEAT SKIP*
-    RETURN          <- %RETURN SKIP*
-    THEN            <- %THEN SKIP*
-    TRUE            <- %TRUE SKIP*
-    UNTIL           <- %UNTIL SKIP*
-    WHILE           <- %WHILE SKIP*
-    IMPORT          <- %IMPORT SKIP*
-    AS              <- %AS SKIP*
-    TYPEALIAS       <- %TYPEALIAS SKIP*
-
-    BOOLEAN         <- %BOOLEAN SKIP*
-    INTEGER         <- %INTEGER SKIP*
-    FLOAT           <- %FLOAT SKIP*
-    STRING          <- %STRING SKIP*
-    ANY             <- %ANY SKIP*
-
-    ADD             <- %ADD SKIP*
-    SUB             <- %SUB SKIP*
-    MUL             <- %MUL SKIP*
-    MOD             <- %MOD SKIP*
-    DIV             <- %DIV SKIP*
-    IDIV            <- %IDIV SKIP*
-    POW             <- %POW SKIP*
-    LEN             <- %LEN SKIP*
-    BAND            <- %BAND SKIP*
-    BXOR            <- %BXOR SKIP*
-    BOR             <- %BOR SKIP*
-    SHL             <- %SHL SKIP*
-    SHR             <- %SHR SKIP*
-    CONCAT          <- %CONCAT SKIP*
-    EQ              <- %EQ SKIP*
-    LT              <- %LT SKIP*
-    GT              <- %GT SKIP*
-    NE              <- %NE SKIP*
-    LE              <- %LE SKIP*
-    GE              <- %GE SKIP*
-    ASSIGN          <- %ASSIGN SKIP*
-    LPAREN          <- %LPAREN SKIP*
-    RPAREN          <- %RPAREN SKIP*
-    LBRACKET        <- %LBRACKET SKIP*
-    RBRACKET        <- %RBRACKET SKIP*
-    LCURLY          <- %LCURLY SKIP*
-    RCURLY          <- %RCURLY SKIP*
-    SEMICOLON       <- %SEMICOLON SKIP*
-    COMMA           <- %COMMA SKIP*
-    DOT             <- %DOT SKIP*
-    DOTS            <- %DOTS SKIP*
-    DBLCOLON        <- %DBLCOLON SKIP*
-    COLON           <- %COLON SKIP*
-    RARROW          <- %RARROW SKIP*
-
-    NUMBER          <- %NUMBER SKIP*
-    STRINGLIT       <- %STRINGLIT SKIP*
-    NAME            <- %NAME SKIP*
-
-    -- Synonyms
-
-    NEG             <- SUB
-    BNEG            <- BXOR
-
-]], defs)
-
-local function syntax_error(loc, err_msg)
-    return loc:format_error("syntax error: %s", err_msg)
-end
-
-local function find_breaks_outside_loops(root_stat)
-    local bad_breaks = {}
-    local function find_errors(stat)
-        local tag = stat._tag
-        if     tag == "ast.Stat.Break" then
-            table.insert(bad_breaks, stat)
-        elseif tag == "ast.Stat.Block" then
-            for i = 1, #stat.stats do
-                find_errors(stat.stats[i])
-            end
-        elseif tag == "ast.Stat.If" then
-            find_errors(stat.then_)
-            find_errors(stat.else_)
-        end
-    end
-    find_errors(root_stat)
-    return bad_breaks
-end
-
-
-function parser.parse(file_name, input)
-    -- Abort if someone calls this non-reentrant parser recursively
-    assert(type(file_name) == "string")
-    assert(THIS_FILENAME == nil)
-
-    THIS_FILENAME = file_name
-    local prog_ast, err, errpos = grammar:match(input)
-    THIS_FILENAME = nil
-
-    if not prog_ast then
-        local loc = Location.from_pos(file_name, input, errpos)
-        local errors = { syntax_error(loc, syntax_errors.errors[err]) }
-        return false, errors
-    end
-
-    local break_errors = {}
-    for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == "ast.Toplevel.Func" then
-            local body = tl_node.value.body
-            for _, stat in ipairs(find_breaks_outside_loops(body)) do
-                table.insert(break_errors,
-                    syntax_error(stat.loc, "break statement outside loop"))
-            end
-        end
-    end
-    if #break_errors > 0 then
-        return false, break_errors
-    end
-
-    return prog_ast, {}
-end
-
-function parser.pretty_print_ast(prog_ast)
-    return inspect(prog_ast, {
-        process = function(item, path)
-            if path[#path] ~= inspect.METATABLE then
-                return item
-            end
-        end
-    })
 end
 
 return parser

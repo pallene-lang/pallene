@@ -872,41 +872,48 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
 
         if expected_type._tag == "types.T.Array" then
             for _, field in ipairs(exp.fields) do
-                if field.name then
+                local ftag = field._tag
+                if ftag == "ast.Field.Rec" then
                     type_error(field.loc,
                         "named field '%s' in array initializer",
                         field.name)
+                elseif ftag == "ast.Field.List" then
+                    field.exp = self:check_exp_verify(
+                        field.exp, expected_type.elem,
+                        "array initializer")
+                else
+                    error("impossible")
                 end
-                field.exp = self:check_exp_verify(
-                    field.exp, expected_type.elem,
-                    "array initializer")
             end
 
         elseif types.is_indexable(expected_type) then
             local initialized_fields = {}
             for _, field in ipairs(exp.fields) do
-                if not field.name then
+                local ftag = field._tag
+                if ftag == "ast.Field.List" then
                     type_error(field.loc,
                         "table initializer has array part")
-                end
+                elseif ftag == "ast.Field.Rec" then
+                    if initialized_fields[field.name] then
+                        type_error(field.loc,
+                            "duplicate field '%s' in table initializer",
+                            field.name)
+                    end
+                    initialized_fields[field.name] = true
 
-                if initialized_fields[field.name] then
-                    type_error(field.loc,
-                        "duplicate field '%s' in table initializer",
-                        field.name)
-                end
-                initialized_fields[field.name] = true
+                    local field_type = types.indices(expected_type)[field.name]
+                    if not field_type then
+                        type_error(field.loc,
+                            "invalid field '%s' in table initializer for %s",
+                            field.name, types.tostring(expected_type))
+                    end
 
-                local field_type = types.indices(expected_type)[field.name]
-                if not field_type then
-                    type_error(field.loc,
-                        "invalid field '%s' in table initializer for %s",
-                        field.name, types.tostring(expected_type))
+                    field.exp = self:check_exp_verify(
+                        field.exp, field_type,
+                        "table initializer")
+                else
+                    error("impossible")
                 end
-
-                field.exp = self:check_exp_verify(
-                    field.exp, field_type,
-                    "table initializer")
             end
 
             for field_name, _ in pairs(types.indices(expected_type)) do

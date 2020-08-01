@@ -34,7 +34,6 @@ build = {
       ["pallene.parser"] =         "pallene/parser.lua",
       ["pallene.print_ir"] =       "pallene/print_ir.lua",
       ["pallene.symtab"] =         "pallene/symtab.lua",
-      ["pallene.syntax_errors"] =  "pallene/syntax_errors.lua",
       ["pallene.to_ir"] =          "pallene/to_ir.lua",
       ["pallene.typedecl"] =       "pallene/typedecl.lua",
       ["pallene.types"] =          "pallene/types.lua",
