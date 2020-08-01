@@ -41,7 +41,12 @@ end
 --
 -- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
 --
-function driver.compile_internal(filename, input, stop_after, opt_passes)
+-- @stop_after is used by the test suite and the --dump compiler option. It ensures that the
+-- Pallene compiler stops at the desired step.
+--
+-- @opt_level is used here to enable or disable Pallene optimizations. Follows GCC convention of
+-- level "0" being no optimization. Currently, every other level will enable Pallene optimizations.
+function driver.compile_internal(filename, input, stop_after, opt_level)
     stop_after = stop_after or "optimize"
 
     local prog_ast, errs = parser.parse(filename, input)
@@ -65,7 +70,7 @@ function driver.compile_internal(filename, input, stop_after, opt_passes)
         return module, errs
     end
 
-    if stop_after ~= "optimize" or opt_passes["constant_propagation"] then
+    if opt_level ~= "0" then
         module, errs = constant_propagation.run(module)
         if stop_after == "constant_propagation" or not module then
             return module, errs
@@ -79,13 +84,13 @@ function driver.compile_internal(filename, input, stop_after, opt_passes)
     error("impossible")
 end
 
-local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_passes)
+local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_level)
     local input, err = driver.load_input(pallene_filename)
     if not input then
         return false, { err }
     end
 
-    local module, errs = driver.compile_internal(pallene_filename, input, nil, opt_passes)
+    local module, errs = driver.compile_internal(pallene_filename, input, nil, opt_level)
     if not module then
         return false, errs
     end
@@ -146,7 +151,7 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     return true, {}
 end
 
-function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_passes)
+function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_level)
     local base_name, err =
         check_source_filename(argv0, input_file_name, input_ext)
     if not base_name then return false, {err} end
@@ -175,7 +180,7 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_passe
             local f = compiler_steps[i].f
             local src = file_names[i]
             local out = file_names[i+1]
-            ok, errs = f(src, out, mod_name, opt_passes)
+            ok, errs = f(src, out, mod_name, opt_level)
             if not ok then break end
         end
 

@@ -7,9 +7,10 @@ local driver = require "pallene.driver"
 local print_ir = require "pallene.print_ir"
 local util = require "pallene.util"
 
--- List of optimizations that the Pallene compiler does. If a new optimization is made,
--- it should be added to this table.
-local all_opt_passes = {"constant_propagation"}
+-- These are levels of optimization for the Pallene compiler and C compiler.
+-- i.e. -O0 disables both C compiler and Pallene optimizations.
+-- NOTE: *For C compiler only* this option may be overridden  using the CFLAGS environment variable.
+local opt_passes_list = {"0", "1", "2", "3", "s", "fast", "g"}
 
 -- List of compiler passes that are available. If a new optimization is made,
 -- it should be added to this table.
@@ -25,16 +26,17 @@ p:mutex(
     p:flag("--print-ir", "Show a human-readable version of the program's IR"),
     p:option("--dump", "Print the result of an internal compiler pass"):choices(dump_passes)
 )
-p:option("--optimizations", "Pallene optimizations to be executed. If no optimization is listed, none is executed."):args("*")
-    :choices(all_opt_passes)
+p:option("-O", "Optimization level"):args("1"):choices(opt_passes_list):default("2")
 local args = p:parse()
+
+local opt_level = args.O
 
 -- For compilation errors that don't happen inside a source file.
 -- Inspired by gcc, eg. "gcc: fatal error: no input files".
 local compiler_name = arg[0]
 
-local function compile(in_ext, out_ext, opt_passes)
-    local ok, errs = driver.compile(compiler_name, in_ext, out_ext, args.source_file, opt_passes)
+local function compile(in_ext, out_ext)
+    local ok, errs = driver.compile(compiler_name, in_ext, out_ext, args.source_file, opt_level)
     if not ok then util.abort(table.concat(errs, "\n")) end
 end
 
@@ -59,7 +61,7 @@ local function dump(filename, stop_after)
     local input, err = driver.load_input(filename)
     if err then util.abort(err) end
 
-    local out, errs = driver.compile_internal(filename, input, stop_after)
+    local out, errs = driver.compile_internal(filename, input, stop_after, opt_level)
     if not out then util.abort(table.concat(errs, "\n")) end
 
     print(inspect(out, inspect_opts))
@@ -76,22 +78,11 @@ local function pretty_print_ir(filename)
     io.stdout:write(print_ir(module))
 end
 
-local opt_passes = {}
-if args.optimizations then
-    for _, opt in ipairs(args.optimizations) do
-        opt_passes[opt] = true
-    end
-else
-    for _, opt in ipairs(all_opt_passes) do
-        opt_passes[opt] = true
-    end
-end
-
-if     args.emit_c    then compile("pln", "c", opt_passes)
+if     args.emit_c    then compile("pln", "c")
 elseif args.emit_asm  then compile("c",   "s")
 elseif args.compile_c then compile("c" ,  "so")
 elseif args.dump      then dump(args.source_file, args.dump)
 elseif args.print_ir  then pretty_print_ir(args.source_file)
 elseif args.emit_lua  then compile("pln", "lua")
-else                       compile("pln", "so", opt_passes)
+else                       compile("pln", "so")
 end

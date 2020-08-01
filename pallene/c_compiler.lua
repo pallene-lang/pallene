@@ -13,6 +13,7 @@ c_compiler.CFLAGS_BASE = "-std=c99 -g -fPIC"
 c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
 c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.S_FLAGS = "-fverbose-asm"
+c_compiler.USER_CFlAGS = os.getenv("CFLAGS") or ""
 
 local function get_uname()
     local ok, err, uname = util.outputs_of_execute("uname -s")
@@ -38,13 +39,16 @@ local function run_cc(args)
     return true, {}
 end
 
-function c_compiler.compile_c_to_s(in_filename, out_filename)
+-- The third argument is the mod_name, which is not used by c_compiler.compile_c_to_s
+function c_compiler.compile_c_to_s(in_filename, out_filename, _, opt_level)
     return run_cc({
         c_compiler.CPPFLAGS,
         c_compiler.CFLAGS_BASE,
         c_compiler.CFLAGS_WARN,
         c_compiler.CFLAGS_OPT,
         c_compiler.S_FLAGS,
+        opt_level and "-O"..opt_level or "",
+        c_compiler.USER_CFlAGS,
         "-x c",
         "-o", util.shell_quote(out_filename),
         "-S", util.shell_quote(in_filename),
