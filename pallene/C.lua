@@ -7,7 +7,7 @@
 -- This module contains some helper functions for generating C code.
 --
 
-local re = require "relabel"
+local re = require "re"
 
 local C = {}
 
