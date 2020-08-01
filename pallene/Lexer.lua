@@ -53,7 +53,7 @@ end
 local symbol = P(false)
 do
     -- Ordered by decreasing length, to prioritize the longest match.
-    local strs = "... .. // << >> == ~= <= >= :: -> + - * / % ^ & | ~  < > = ( ) [ ] { } ; , . :"
+    local strs = "... .. // << >> == ~= <= >= :: -> + - * / % ^ & | ~ # < > = ( ) [ ] { } ; , . :"
     for s in string.gmatch(strs, "%S+") do
         symbol = symbol + P(s)
     end
