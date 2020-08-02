@@ -316,18 +316,20 @@ function Parser:block_follow()
 end
 
 function Parser:Block(start)
+    local loc = start and start.loc or false
     local stats = {}
-    while true do
-        while self:try(";") do --[[skip empty statement]] end
-        if self:block_follow() then break end
-        local stat = self:Stat()
-        local _    = self:try(";")
-        table.insert(stats, stat)
-        if stat._tag == "ast.Stat.Return" then
-            break
+    while not self:block_follow() do
+        if self:try(";") then
+            -- skip empty statement
+        else
+            local stat = self:Stat()
+            local _    = self:try(";")
+            table.insert(stats, stat)
+            if stat._tag == "ast.Stat.Return" then
+                break
+            end
         end
     end
-    local loc = start and start.loc or false
     return ast.Stat.Block(loc, stats)
 end
 
