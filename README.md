@@ -96,6 +96,24 @@ interpreter (again, see [Bug #16](https://github.com/pallene-lang/pallene/issues
 $ ./lua/src/lua -l foo
 ```
 
+It is possible to change compiler optimization level, for the Pallene compiler and C compiler. Here are some examples:
+
+```sh
+# execute no optimization (Pallene and C compiler)
+$ ./pallenec test.pln -O0
+
+# execute Pallene compiler optimizations and C compiler level 3 optimizations
+$ ./pallenec test.pln -O3
+
+# execute no optimizations for Pallene compiler but executes C compiler level 2 optimizations
+$ env CFLAGS="-O2" ./pallenec test.pln -O0
+
+# execute all default optimizations (same as -O2)
+$ ./pallenec test.pln
+```
+
+**Note**: For the C compiler only, the setting set using `CFLAGS` override the setting set by flag `-O`.
+
 For more compiler options, see `./pallenec --help`
 
 ## Developing Pallene
