@@ -77,12 +77,16 @@ function Lexer:init(file_name, input)
     self.matched   = false      -- Last matched substring
 end
 
+function Lexer:loc()
+    return Location.new(self.file_name, self.line, self.col, self.pos)
+end
+
 -- If the given pattern matches, move the lexer forward and set self.matched.
 -- The pattern can be either an LPEG pattern or a literal string.
 local pattern_cache = {}
 function Lexer:try(pat)
     if type(pat) == "string" then
-        if not pattern_cache[pat] then pattern_cache[pat] = P(pat) end
+        if not pattern_cache[pat] then pattern_cache[pat] = lpeg.P(pat) end
         pat = pattern_cache[pat]
     end
     assert(lpeg.type(pat) == "pattern")
@@ -270,10 +274,6 @@ function Lexer:next()
             return { name = name, value = val, loc = loc }
         end
     end
-end
-
-function Lexer:loc()
-    return Location.new(self.file_name, self.line, self.col, self.pos)
 end
 
 return Lexer
