@@ -29,7 +29,6 @@ declare_type("Toplevel", {
     Var       = {"loc", "visibility", "decls", "values"},
     Typealias = {"loc", "name", "type", "end_loc"},
     Record    = {"loc", "name", "field_decls", "end_loc"},
-    Import    = {"loc", "local_name", "mod_name"},
 })
 
 declare_type("Decl", {
@@ -100,8 +99,6 @@ function ast.toplevel_names(tl_node)
         table.insert(names, tl_node.name)
     elseif tag == "ast.Toplevel.Record" then
         table.insert(names, tl_node.name)
-    elseif tag == "ast.Toplevel.Import" then
-        table.insert(names, tl_node.localname)
     elseif tag == "ast.Toplevel.Builtin" then
         table.insert(names, tl_node.name)
     else

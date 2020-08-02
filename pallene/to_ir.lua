@@ -91,9 +91,6 @@ function ToIR:convert_toplevel(prog_ast)
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
 
-        elseif tag == "ast.Toplevel.Import" then
-            -- skip
-
         else
             error("impossible")
         end

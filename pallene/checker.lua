@@ -219,7 +219,6 @@ function Checker:from_ast_type(ast_typ)
 end
 
 local letrec_groups = {
-    ["ast.Toplevel.Import"]    = "Import",
     ["ast.Toplevel.Var"]       = "Var",
     ["ast.Toplevel.Func"]      = "Func",
     ["ast.Toplevel.Typealias"] = "Type",
