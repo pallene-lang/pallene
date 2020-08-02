@@ -23,7 +23,7 @@ end
 function Parser:_advance()
     local tok, err = self.lexer:next()
     if not tok then
-        self:syntax_error(self.lexer:loc(), err)
+        self:syntax_error(self.lexer:loc(), "%s", err)
     end
     local ret = self.next
     self.next = self.look
@@ -489,11 +489,8 @@ function Parser:PrimaryExp(is_statement)
         return ast.Exp.Paren(open.loc, exp)
 
     else
-        if is_statement then
-            self:unexpected_token_error("a statement")
-        else
-            self:unexpected_token_error("an expression")
-        end
+        local what = (is_statement and "a statement" or "an expression")
+        self:unexpected_token_error(what)
     end
 end
 
