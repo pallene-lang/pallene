@@ -311,8 +311,7 @@ function Parser:block_follow()
            self:peek("until")
 end
 
-function Parser:Block(start)
-    local loc = start and start.loc or false
+function Parser:Block()
     local stats = {}
     while not self:block_follow() do
         if self:try(";") then
@@ -326,27 +325,27 @@ function Parser:Block(start)
             end
         end
     end
-    return ast.Stat.Block(loc, stats)
+    return ast.Stat.Block(false, stats)
 end
 
 function Parser:Stat()
     if self:peek("do") then
         local start = self:e()
-        local body  = self:Block(start)
+        local body  = self:Block()
         local _     = self:e("end", start)
         return body
 
     elseif self:peek("while") then
         local start = self:e()
         local cond  = self:Exp()
-        local open  = self:e("do");     self:loop_begin()
-        local body  = self:Block(open); self:loop_end()
+        local _     = self:e("do"); self:loop_begin()
+        local body  = self:Block(); self:loop_end()
         local _     = self:e("end", start)
         return ast.Stat.While(start.loc, cond, body)
 
     elseif self:peek("repeat") then
-        local start = self:e();          self:loop_begin()
-        local body  = self:Block(start); self:loop_end()
+        local start = self:e();     self:loop_begin()
+        local body  = self:Block(); self:loop_end()
         local _     = self:e("until", start);
         local cond  = self:Exp()
         return ast.Stat.Repeat(start.loc, body, cond)
@@ -354,22 +353,21 @@ function Parser:Stat()
     elseif self:peek("if") then
         local if_start = self:e()
         local if_exp   = self:Exp()
-        local if_then  = self:e("then")
-        local if_body  = self:Block(if_then)
+        local _        = self:e("then")
+        local if_body  = self:Block()
 
         local eifs = {}
         while self:peek("elseif") do
             local ei_start = self:e()
             local ei_exp   = self:Exp()
-            local ei_then  = self:e("then")
-            local ei_body  = self:Block(ei_then)
+            local _        = self:e("then")
+            local ei_body  = self:Block()
             table.insert(eifs, {ei_start.loc, ei_exp, ei_body})
         end
 
         local e_body
-        if self:peek("else") then
-            local e_else = self:e()
-            e_body = self:Block(e_else)
+        if self:try("else") then
+            e_body = self:Block()
         else
             e_body = ast.Stat.Block(false, {})
         end
@@ -391,8 +389,8 @@ function Parser:Stat()
             local _     = self:e(",")
             local limit = self:Exp()
             local step  = self:try(",") and self:Exp()
-            local open  = self:e("do");     self:loop_begin()
-            local body  = self:Block(open); self:loop_end()
+            local _     = self:e("do"); self:loop_begin()
+            local body  = self:Block(); self:loop_end()
             local _     = self:e("end", start)
             return ast.Stat.For(start.loc, decl1, init, limit, step, body)
 
@@ -403,8 +401,8 @@ function Parser:Stat()
             end
             local _    = self:e("in")
             local exps = self:ExpList1()
-            local open = self:e("do");     self:loop_begin()
-            local body = self:Block(open); self:loop_end()
+            local _    = self:e("do"); self:loop_begin()
+            local body = self:Block(); self:loop_end()
             local _    = self:e("end", start)
             self:syntax_error(start.loc, "for-in loops are not implemented yet")
             return ast.Stat.ForIn(start.loc, decls, exps, body)
