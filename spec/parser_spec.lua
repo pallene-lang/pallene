@@ -165,7 +165,7 @@ describe("Pallene parser", function()
 
     it("does not allow global variables", function()
         assert_program_syntax_error([[ x=17 ]],
-            "Variable declarations must have a 'local' or 'export' modifier.")
+            "Variable declarations must have a 'local' or 'export' modifier")
     end)
 
     it("cannot define function without export or local modifier", function()
@@ -174,7 +174,7 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Function declarations must have a 'local' or 'export' modifier.")
+        "Function declarations must have a 'local' or 'export' modifier")
     end)
 
     it("last function without export or local modifier", function()
@@ -186,7 +186,7 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Function declarations must have a 'local' or 'export' modifier.")
+        "Function declarations must have a 'local' or 'export' modifier")
     end)
 
     it("first function without export or local modifier", function()
@@ -198,21 +198,21 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Function declarations must have a 'local' or 'export' modifier.")
+        "Function declarations must have a 'local' or 'export' modifier")
     end)
 
     it("toplevel variable declaration without export or local modifier", function()
         assert_program_syntax_error([[
             a,m="s","r"
         ]],
-        "Variable declarations must have a 'local' or 'export' modifier.")
+        "Variable declarations must have a 'local' or 'export' modifier")
     end)
 
     it("toplevel variable declaration without export or local modifier (without comma)", function()
         assert_program_syntax_error([[
             a="s"
         ]],
-        "Variable declarations must have a 'local' or 'export' modifier.")
+        "Variable declarations must have a 'local' or 'export' modifier")
     end)
 
     it("can parse toplevel function declarations", function()
@@ -592,13 +592,13 @@ describe("Pallene parser", function()
         assert_statements_syntax_error([[
             return 10
             return 11
-        ]], "Expected 'end' before 'return', to close the 'function' at line 1.")
+        ]], "Expected 'end' before 'return', to close the 'function' at line 1")
     end)
 
     it("does not allow extra semicolons after a return", function()
         assert_statements_syntax_error([[
             return;;
-        ]], "Expected 'end' before ';', to close the 'function' at line 1.")
+        ]], "Expected 'end' before ';', to close the 'function' at line 1")
     end)
 
     it("can parse binary and unary operators", function()
@@ -900,7 +900,7 @@ describe("Pallene parser", function()
 
     it("does not allow parentheses in the LHS of an assignment", function()
         assert_statements_syntax_error([[ local (x) = 42 ]],
-            "Expected a name before '('.")
+            "Expected a name before '('")
         assert_statements_syntax_error([[ (x) = 42 ]],
             "This expression is not an lvalue")
     end)
@@ -909,13 +909,13 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[
             export function integer()
             end
-        ]], "Expected a name before 'integer'.")
+        ]], "Expected a name before 'integer'")
 
         assert_program_syntax_error([[
             export function f()
                 local integer: integer = 10
             end
-        ]], "Expected a name before 'integer'.")
+        ]], "Expected a name before 'integer'")
     end)
 
     it("doesn't allow using a primitive type as a record", function()
@@ -928,73 +928,73 @@ describe("Pallene parser", function()
         assert_program_syntax_error([[
             export function () : int
             end
-        ]], "Expected a name before '('.")
+        ]], "Expected a name before '('")
 
         assert_program_syntax_error([[
             export function foo : int
             end
-        ]], "Expected '(' before ':'.")
+        ]], "Expected '(' before ':'")
 
         assert_program_syntax_error([[
             export function foo ( : int
             end
-        ]], "Expected ')' before ':'.")
+        ]], "Expected ')' before ':'")
 
         assert_program_syntax_error([[
             export function foo () :
                 local x = 3
             end
-        ]], "Unexpected 'local' while trying to parse a type.")
+        ]], "Unexpected 'local' while trying to parse a type")
 
         assert_program_syntax_error([[
             export function foo () : int
               local x = 3
               return x
-        ]], "Expected 'end' before end of the file, to close the 'function' at line 1.")
+        ]], "Expected 'end' before end of the file, to close the 'function' at line 1")
 
         assert_program_syntax_error([[
             export function foo(x, y) : int
             end
-        ]], "Parameter 'x' is missing a type annotation.")
+        ]], "Parameter 'x' is missing a type annotation")
 
         assert_program_syntax_error([[
             local x 3
-        ]], "Expected '=' before number.")
+        ]], "Expected '=' before number")
 
         assert_program_syntax_error([[
             local x =
-        ]], "Unexpected end of the file while trying to parse an expression.")
+        ]], "Unexpected end of the file while trying to parse an expression")
 
         assert_program_syntax_error([[
             record
-        ]], "Expected a name before end of the file.")
+        ]], "Expected a name before end of the file")
 
         assert_program_syntax_error([[
             typealias
-        ]], "Expected a name before end of the file.")
+        ]], "Expected a name before end of the file")
 
         assert_program_syntax_error([[
             typealias point
-        ]], "Expected '=' before end of the file.")
+        ]], "Expected '=' before end of the file")
 
         assert_program_syntax_error([[
             typealias point =
-        ]], "Unexpected end of the file while trying to parse a type.")
+        ]], "Unexpected end of the file while trying to parse a type")
 
         assert_program_syntax_error([[
             record A
                 x : int
-        ]], "Expected 'end' before end of the file, to close the 'record' at line 1.")
+        ]], "Expected 'end' before end of the file, to close the 'record' at line 1")
 
         assert_program_syntax_error([[
             export function foo (a:int, ) : int
             end
-        ]], "Expected a name before ')'.")
+        ]], "Expected a name before ')'")
 
         assert_program_syntax_error([[
             export function foo (a: ) : int
             end
-        ]], "Unexpected ')' while trying to parse a type.")
+        ]], "Unexpected ')' while trying to parse a type")
 
         assert_type_syntax_error([[ {int ]],
             "Expected '}'")
@@ -1004,10 +1004,10 @@ describe("Pallene parser", function()
 
         assert_type_syntax_error([[
             {a: }
-        ]], "Unexpected '}' while trying to parse a type.")
+        ]], "Unexpected '}' while trying to parse a type")
 
         assert_type_syntax_error([[ (a,,,) -> b ]],
-            "Unexpected ',' while trying to parse a type.")
+            "Unexpected ',' while trying to parse a type")
 
         assert_type_syntax_error([[ (a, b -> b  ]],
             "Expected ')'")
@@ -1019,169 +1019,169 @@ describe("Pallene parser", function()
             record A
                 x  int
             end
-        ]], "Expected ':' before 'int'.")
+        ]], "Expected ':' before 'int'")
 
         assert_program_syntax_error([[
             record A
                 x : function
             end
-        ]], "Unexpected 'function' while trying to parse a type.")
+        ]], "Unexpected 'function' while trying to parse a type")
 
         assert_program_syntax_error([[
             export function f ( x : int) : string
                 do
                 return "42"
-        ]], "Expected 'end' before end of the file, to close the 'do' at line 2.")
+        ]], "Expected 'end' before end of the file, to close the 'do' at line 2")
 
         assert_statements_syntax_error([[
             while do
                 x = x - 1
             end
-        ]], "Unexpected 'do' while trying to parse an expression.")
+        ]], "Unexpected 'do' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             while x > 3
                 x = x - 1
             end
-        ]], "Expected 'do' before 'x'.")
+        ]], "Expected 'do' before 'x'")
 
         assert_statements_syntax_error([[
             while x > 3 do
                 x = x - 1
                 return 42
             return 41
-        ]], "Expected 'end' before 'return', to close the 'while' at line 2.")
+        ]], "Expected 'end' before 'return', to close the 'while' at line 2")
 
         assert_statements_syntax_error([[
             repeat
                 x = x - 1
             end
-        ]], "Expected 'until' before 'end', to close the 'repeat' at line 2.")
+        ]], "Expected 'until' before 'end', to close the 'repeat' at line 2")
 
         assert_statements_syntax_error([[
             repeat
                 x = x - 1
             until
-        ]], "Unexpected 'end' while trying to parse an expression.")
+        ]], "Unexpected 'end' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             if then
                 x = x - 1
             end
-        ]], "Unexpected 'then' while trying to parse an expression.")
+        ]], "Unexpected 'then' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             if x > 10
                 x = x - 1
             end
-        ]], "Expected 'then' before 'x'.")
+        ]], "Expected 'then' before 'x'")
 
         assert_statements_syntax_error([[
             if x > 10 then
                 x = x - 1
                 return 42
             return 41
-        ]], "Expected 'end' before 'return', to close the 'if' at line 2.")
+        ]], "Expected 'end' before 'return', to close the 'if' at line 2")
 
         assert_statements_syntax_error([[
             for = 1, 10 do
             end
-        ]], "Expected a name before '='.")
+        ]], "Expected a name before '='")
 
         assert_statements_syntax_error([[
             for x  1, 10 do
             end
-        ]], "Unexpected number while trying to parse a for loop.")
+        ]], "Unexpected number while trying to parse a for loop")
 
         assert_statements_syntax_error([[
             for x = , 10 do
             end
-        ]], "Unexpected ',' while trying to parse an expression.")
+        ]], "Unexpected ',' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             for x = 1 10 do
             end
-        ]], "Expected ',' before number.")
+        ]], "Expected ',' before number")
 
         assert_statements_syntax_error([[
             for x = 1, do
             end
-        ]], "Unexpected 'do' while trying to parse an expression.")
+        ]], "Unexpected 'do' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             for x = 1, 10, do
             end
-        ]], "Unexpected 'do' while trying to parse an expression.")
+        ]], "Unexpected 'do' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             for x = 1, 10, 1
             end
-        ]], "Expected 'do' before 'end'.")
+        ]], "Expected 'do' before 'end'")
 
         assert_statements_syntax_error([[
             for x = 1, 10, 1 do
                 return 42
             return 41
-        ]], "Expected 'end' before 'return', to close the 'for' at line 2.")
+        ]], "Expected 'end' before 'return', to close the 'for' at line 2")
 
         assert_statements_syntax_error([[
             local = 3
-        ]], "Expected a name before '='.")
+        ]], "Expected a name before '='")
 
         assert_statements_syntax_error([[
             local x =
-        ]], "Unexpected 'end' while trying to parse an expression.")
+        ]], "Unexpected 'end' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             x =
-        ]], "Unexpected 'end' while trying to parse an expression.")
+        ]], "Unexpected 'end' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             if x > 1 then
                 x = x - 1
             elseif then
             end
-        ]], "Unexpected 'then' while trying to parse an expression.")
+        ]], "Unexpected 'then' while trying to parse an expression")
 
         assert_statements_syntax_error([[
             if x > 1 then
                 x = x - 1
             elseif x > 0
             end
-        ]], "Expected 'then' before 'end'.")
+        ]], "Expected 'then' before 'end'")
 
         assert_expression_syntax_error([[ 1 + ]],
-            "Unexpected 'end' while trying to parse an expression.")
+            "Unexpected 'end' while trying to parse an expression")
 
         assert_expression_syntax_error([[ obj:() ]],
-            "Expected a name before '('.")
+            "Expected a name before '('")
 
         assert_expression_syntax_error([[ obj:f + 1 ]],
-            "Expected '(' before '+'.")
+            "Expected '(' before '+'")
 
         assert_expression_syntax_error([[ y[] ]],
-            "Unexpected ']' while trying to parse an expression.")
+            "Unexpected ']' while trying to parse an expression")
 
         assert_expression_syntax_error([[ y[1 ]],
-            "Expected ']' before 'end'.")
+            "Expected ']' before 'end'")
 
         assert_expression_syntax_error([[ y.() ]],
-            "Expected a name before '('.")
+            "Expected a name before '('")
 
         assert_expression_syntax_error([[ () ]],
-            "Unexpected ')' while trying to parse an expression.")
+            "Unexpected ')' while trying to parse an expression")
 
         assert_expression_syntax_error([[ (42 ]],
-            "Expected ')' before 'end'.")
+            "Expected ')' before 'end'")
 
         assert_expression_syntax_error([[ f(42 ]],
-            "Expected ')' before 'end'.")
+            "Expected ')' before 'end'")
 
         assert_expression_syntax_error([[ f(42,) ]],
-            "Unexpected ')' while trying to parse an expression.")
+            "Unexpected ')' while trying to parse an expression")
 
         assert_expression_syntax_error([[ y{42 ]],
-            "Expected '}' before 'end'.")
+            "Expected '}' before 'end'")
 
         assert_expression_syntax_error([[ y{42,,} ]],
             "Unexpected ',' while trying to parse an expression")

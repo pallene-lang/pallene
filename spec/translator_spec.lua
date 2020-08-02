@@ -44,7 +44,7 @@ describe("Pallene to Lua translator / #translator", function ()
         assert_translation_error([[
             local function f() : integer
         ]],
-        "Unexpected end of the file while trying to parse a statement.")
+        "Unexpected end of the file while trying to parse a statement")
     end)
 
     it("Unknown type (semantic error)", function ()

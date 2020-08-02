@@ -716,7 +716,7 @@ function Parser:describe_token(tok)
 end
 
 function Parser:syntax_error(loc, fmt, ...)
-    coroutine.yield(loc:format_error(fmt, ...) .. ".")
+    coroutine.yield(loc:format_error(fmt, ...))
 end
 
 function Parser:forced_syntax_error(expected_name)
