@@ -21,14 +21,14 @@ function Parser:init(lexer)
 end
 
 function Parser:_advance()
-    local err
-    local tok = self.next
-    self.next = self.look
-    self.look, err = self.lexer:next()
-    if not self.look then
+    local tok, err = self.lexer:next()
+    if not tok then
         self:syntax_error(self.lexer:loc(), err)
     end
-    return tok
+    local ret = self.next
+    self.next = self.look
+    self.look = tok
+    return ret
 end
 
 -- Check the next token without consuming it
