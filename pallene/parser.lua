@@ -15,58 +15,57 @@ local Parser = util.Class()
 function Parser:init(lexer)
     self.lexer = lexer
     self.loop_depth = 0
-    self.prev = false -- Token
     self.next = false -- Token
     self.look = false -- Token
     self:advance(); self:advance()
-    assert(self.next)
-    assert(self.look)
 end
 
 function Parser:advance()
     local err
-    self.prev = self.next
+    local tok = self.next
     self.next = self.look
     self.look, err = self.lexer:next()
     if not self.look then
         self:syntax_error(self.lexer:loc(), err)
     end
+    return tok
 end
 
 -- Check the next token without consuming it
 function Parser:peek(name)
+    assert(name)
     assert(self.next.name)
     return (name == self.next.name)
 end
 
 -- Check the next-next token without consuming it
 function Parser:doublepeek(name)
+    assert(name)
     assert(self.look.name)
     return (name == self.look.name)
 end
 
--- Success: returns true, advances parser
--- Failure: returns false
+-- Tries to match a token with the given name.
 function Parser:try(name)
+    assert(name)
+    assert(name ~= "EOF")
     if self:peek(name) then
-        self:advance()
-        return true
+        return self:advance()
     else
         return false
     end
 end
 
--- [e]xpect one token.
--- If the optional open_name is provided, it means we are a closing token ({}, (), do end, etc).
+-- [E]xpect a token of a given type.
+-- If the name is not provided, match whatever token we just peek-ed.
+-- If the optional open_tok is provided then we are matching a closing token ({}, (), do end, etc).
 function Parser:e(name, open_tok)
-    if self:try(name) then
-        return self.prev.value
+    name = name or self.next.name
+    local tok = self:try(name)
+    if tok then
+        return tok
     else
-        if open_tok then
-            self:missing_close_token_error(name, open_tok)
-        else
-            self:wrong_token_error(name)
-        end
+        self:wrong_token_error(name, open_tok)
     end
 end
 
@@ -91,48 +90,48 @@ function Parser:Program()
 end
 
 function Parser:Toplevel()
-    if self:try("typealias") then
-        local start_tok = self.prev
-        local name = self:e("NAME")
-        local _    = self:e("=")
-        local typ  = self:Type()
-        return ast.Toplevel.Typealias(start_tok.loc, name, typ, self.next.loc)
+    if self:peek("typealias") then
+        local start = self:e()
+        local id    = self:e("NAME")
+        local _     = self:e("=")
+        local typ   = self:Type()
+        return ast.Toplevel.Typealias(start.loc, id.value, typ, self.next.loc)
 
-    elseif self:try("record") then
-        local start_tok = self.prev
-        local name   = self:e("NAME")
+    elseif self:peek("record") then
+        local start  = self:e()
+        local id     = self:e("NAME")
         local fields = {}
         while self:peek("NAME") do
             local decl = self:Decl()
-            if not decl.type then self:e(":") end
+            if not decl.type then self:forced_syntax_error(":") end
             local _ = self:FieldSep()
             table.insert(fields, decl)
         end
-        self:e("end", start_tok)
-        return ast.Toplevel.Record(start_tok.loc, name, fields, self.next.loc)
+        self:e("end", start)
+        return ast.Toplevel.Record(start.loc, id.value, fields, self.next.loc)
 
     else
-        local visibility_tok
-        if self:try("local") or self:try("export") then
-            visibility_tok = self.prev
+        local visibility
+        if self:peek("local") or self:peek("export") then
+            visibility = self:e()
         else
-            visibility_tok = false
+            visibility = false
         end
 
-        if self:try("function") then
-            local start_tok = self.prev
-            local name      = self:e("NAME")
-            local _         = self:e("("); local paren_tok = self.prev
-            local params    = self:DeclList()
-            local _         = self:e(")", paren_tok)
-            local rt_col_tok = self.next
-            local ret_types = self:try(":") and self:RetTypes() or {}
-            local rt_end_tok = self.next
-            local block     = self:Block()
-            local _         = self:e("end", start_tok)
+        if self:peek("function") then
+            local start    = self:e()
+            local id       = self:e("NAME")
+            local oparen   = self:e("(")
+            local params   = self:DeclList()
+            local _        = self:e(")", oparen)
+            local rt_colon = self.next.loc
+            local rt_types = self:try(":") and self:RetTypes() or {}
+            local rt_end   = self.next.loc
+            local block    = self:Block()
+            local _        = self:e("end", start)
 
-            if not visibility_tok then
-                self:syntax_error(start_tok.loc,
+            if not visibility then
+                self:syntax_error(start.loc,
                     "Function declarations must have a 'local' or 'export' modifier")
             end
 
@@ -147,30 +146,29 @@ function Parser:Toplevel()
             for i, decl in ipairs(params) do
                 arg_types[i] = decl.type
             end
-            local func_typ = ast.Type.Function(visibility_tok.loc, arg_types, ret_types)
+            local func_typ = ast.Type.Function(visibility.loc, arg_types, rt_types)
 
             return ast.Toplevel.Func(
-                visibility_tok.loc, visibility_tok.name,
-                ast.Decl.Decl(visibility_tok.loc, name, false, func_typ, false),
-                ast.Exp.Lambda(visibility_tok.loc, params, block),
-                rt_col_tok.loc, rt_end_tok.loc)
+                visibility.loc, visibility.name,
+                ast.Decl.Decl(visibility.loc, id.value, false, func_typ, false),
+                ast.Exp.Lambda(visibility.loc, params, block),
+                rt_colon, rt_end)
 
         elseif self:peek("NAME") then
             local decls = self:DeclList(); assert(#decls > 0)
             local _     = self:e("=")
             local exps  = self:ExpList1();
 
-            if not visibility_tok then
+            if not visibility then
                 self:syntax_error(decls[1].loc,
                     "Variable declarations must have a 'local' or 'export' modifier")
             end
 
-            return ast.Toplevel.Var(visibility_tok.loc, visibility_tok.name, decls, exps)
+            return ast.Toplevel.Var(visibility.loc, visibility.name, decls, exps)
 
         else
-            if visibility_tok then
-                self:e("NAME");
-                error("unreachable")
+            if visibility then
+                self:forced_syntax_error("NAME")
             else
                 self:unexpected_token_error("a toplevel declaration")
             end
@@ -201,18 +199,15 @@ function Parser:Type()
 end
 
 function Parser:TypeList()
-    local _        = self:e("(");
-    local open_tok = self.prev
-
     local ts = {}
+    local open = self:e("(");
     if not self:peek(")") then
         table.insert(ts, self:Type())
         while self:try(",") do
             table.insert(ts, self:Type())
         end
     end
-    self:e(")", open_tok)
-
+    self:e(")", open)
     return ts
 end
 
@@ -232,31 +227,51 @@ function Parser:RetTypes()
 end
 
 function Parser:SimpleType()
-    if     self:try("nil")     then return ast.Type.Nil     (self.prev.loc)
-    elseif self:try("boolean") then return ast.Type.Boolean (self.prev.loc)
-    elseif self:try("integer") then return ast.Type.Integer (self.prev.loc)
-    elseif self:try("float")   then return ast.Type.Float   (self.prev.loc)
-    elseif self:try("string")  then return ast.Type.String  (self.prev.loc)
-    elseif self:try("any")     then return ast.Type.Any     (self.prev.loc)
-    elseif self:try("NAME")    then return ast.Type.Name    (self.prev.loc, self.prev.value)
-    elseif self:try("{") then
-        local open_tok = self.prev
+    if self:peek("nil") then
+        local tok = self:e()
+        return ast.Type.Nil(tok.loc)
+
+    elseif self:peek("boolean") then
+        local tok = self:e()
+        return ast.Type.Boolean(tok.loc)
+
+    elseif self:peek("integer") then
+        local tok = self:e()
+        return ast.Type.Integer(tok.loc)
+
+    elseif self:peek("float") then
+        local tok = self:e()
+        return ast.Type.Float(tok.loc)
+
+    elseif self:peek("string") then
+        local tok = self:e()
+        return ast.Type.String(tok.loc)
+
+    elseif self:peek("any") then
+        local tok = self:e()
+        return ast.Type.Any(tok.loc)
+
+    elseif self:peek("NAME") then
+        local tok = self:e()
+        return ast.Type.Name(tok.loc, tok.value)
+
+    elseif self:peek("{") then
+        local open = self:e()
         if self:peek("}") or (self:peek("NAME") and self:doublepeek(":")) then
             local fields = {}
             repeat
                 if self:peek("}") then break end
-                local name = self:e("NAME")
-                local _    = self:e(":")
-                local typ  = self:Type()
-                table.insert(fields, { name = name, type = typ })
+                local id  = self:e("NAME")
+                local _   = self:e(":")
+                local typ = self:Type()
+                table.insert(fields, { name = id.value, type = typ })
             until not self:FieldSep()
-            self:e("}", open_tok)
-            return ast.Type.Table(open_tok.loc, fields)
-
+            self:e("}", open)
+            return ast.Type.Table(open.loc, fields)
         else
             local typ = self:Type()
-            local _ = self:e("}", open_tok)
-            return ast.Type.Array(open_tok.loc, typ)
+            local _   = self:e("}", open)
+            return ast.Type.Array(open.loc, typ)
         end
     else
         self:unexpected_token_error("a type")
@@ -268,14 +283,13 @@ end
 --
 
 function Parser:Decl()
-    local name = self:e("NAME")
-    local loc  = self.prev.loc
-    if self:try(":") then
-        local cloc = self.prev.loc
-        local typ  = self:Type()
-        return ast.Decl.Decl(loc, name, cloc, typ, self.next.loc)
+    local id = self:e("NAME")
+    if self:peek(":") then
+        local colon = self:e()
+        local typ   = self:Type()
+        return ast.Decl.Decl(id.loc, id.value, colon.loc, typ, self.next.loc)
     else
-        return ast.Decl.Decl(loc, name, false, false, false)
+        return ast.Decl.Decl(id.loc, id.value, false, false, false)
     end
 end
 
@@ -301,8 +315,7 @@ function Parser:block_follow()
            self:peek("until")
 end
 
-function Parser:Block()
-    local start_tok = self.next
+function Parser:Block(start)
     local stats = {}
     while true do
         while self:try(";") do --[[skip empty statement]] end
@@ -314,75 +327,76 @@ function Parser:Block()
             break
         end
     end
-    return ast.Stat.Block(start_tok.loc, stats)
+    local loc = start and start.loc or false
+    return ast.Stat.Block(loc, stats)
 end
 
 function Parser:Stat()
-    if self:try("do") then
-        local start_tok = self.prev
-        local body = self:Block()
-        local _    = self:e("end", start_tok)
+    if self:peek("do") then
+        local start = self:e()
+        local body  = self:Block(start)
+        local _     = self:e("end", start)
         return body
 
-    elseif self:try("while") then
-        local start_tok = self.prev
-        local cond = self:Exp()
-        local _    = self:e("do"); self:loop_begin()
-        local body = self:Block()
-        local _    = self:e("end", start_tok); self:loop_end()
-        return ast.Stat.While(start_tok.loc, cond, body)
+    elseif self:peek("while") then
+        local start = self:e()
+        local cond  = self:Exp()
+        local open  = self:e("do");     self:loop_begin()
+        local body  = self:Block(open); self:loop_end()
+        local _     = self:e("end", start)
+        return ast.Stat.While(start.loc, cond, body)
 
-    elseif self:try("repeat") then
-        local start_tok = self.prev
-        self:loop_begin()
-        local body = self:Block()
-        local _    = self:e("until", start_tok); self:loop_end()
-        local cond = self:Exp()
-        return ast.Stat.Repeat(start_tok.loc, body, cond)
+    elseif self:peek("repeat") then
+        local start = self:e();          self:loop_begin()
+        local body  = self:Block(start); self:loop_end()
+        local _     = self:e("until", start);
+        local cond  = self:Exp()
+        return ast.Stat.Repeat(start.loc, body, cond)
 
-    elseif self:try("if") then
-        local start_tok = self.prev
-        local texp  = self:Exp()
-        local _     = self:e("then")
-        local tbody = self:Block()
+    elseif self:peek("if") then
+        local if_start = self:e()
+        local if_exp   = self:Exp()
+        local if_then  = self:e("then")
+        local if_body  = self:Block(if_then)
 
         local eifs = {}
-        while self:try("elseif") do
-            local eiloc = self.prev.loc
-            local eiexp  = self:Exp()
-            local _      = self:e("then")
-            local eibody = self:Block()
-            table.insert(eifs, {eiloc, eiexp, eibody})
+        while self:peek("elseif") do
+            local ei_start = self:e()
+            local ei_exp   = self:Exp()
+            local ei_then  = self:e("then")
+            local ei_body  = self:Block(ei_then)
+            table.insert(eifs, {ei_start.loc, ei_exp, ei_body})
         end
 
-        local ebody
-        if self:try("else") then
-            ebody = self:Block()
+        local e_body
+        if self:peek("else") then
+            local e_else = self:e()
+            e_body = self:Block(e_else)
         else
-            ebody = ast.Stat.Block(false, {})
+            e_body = ast.Stat.Block(false, {})
         end
 
-        self:e("end", start_tok)
+        self:e("end", if_start)
 
         for i = #eifs, 1, -1 do
             local eif = eifs[i]
-            ebody = ast.Stat.If(eif[1], eif[2], eif[3], ebody)
+            e_body = ast.Stat.If(eif[1], eif[2], eif[3], e_body)
         end
-        return ast.Stat.If(start_tok.loc, texp, tbody, ebody)
+        return ast.Stat.If(if_start.loc, if_exp, if_body, e_body)
 
-    elseif self:try("for") then
-        local start_tok = self.prev
-        local decl1  = self:Decl()
+    elseif self:peek("for") then
+        local start = self:e()
+        local decl1 = self:Decl()
 
         if self:try("=") then
-            local start = self:Exp()
+            local init  = self:Exp()
             local _     = self:e(",")
             local limit = self:Exp()
             local step  = self:try(",") and self:Exp()
-            local _     = self:e("do"); self:loop_begin()
-            local body  = self:Block()
-            local _     = self:e("end", start_tok); self:loop_end()
-            return ast.Stat.For(start_tok.loc, decl1, start, limit, step, body)
+            local open  = self:e("do");     self:loop_begin()
+            local body  = self:Block(open); self:loop_end()
+            local _     = self:e("end", start)
+            return ast.Stat.For(start.loc, decl1, init, limit, step, body)
 
         elseif self:peek(",") or self:peek("in") then
             local decls = {decl1}
@@ -391,37 +405,37 @@ function Parser:Stat()
             end
             local _    = self:e("in")
             local exps = self:ExpList1()
-            local _    = self:e("do"); self:loop_begin()
-            local body = self:Block()
-            local _    = self:e("end", start_tok); self:loop_end()
-            self:syntax_error(start_tok.loc, "for-in loops are not implemented yet")
-            return ast.Stat.ForIn(start_tok.loc, decls, exps, body)
+            local open = self:e("do");     self:loop_begin()
+            local body = self:Block(open); self:loop_end()
+            local _    = self:e("end", start)
+            self:syntax_error(start.loc, "for-in loops are not implemented yet")
+            return ast.Stat.ForIn(start.loc, decls, exps, body)
 
         else
             self:unexpected_token_error("a for loop")
 
         end
 
-    elseif self:try("local") then
-        local start_tok = self.prev
-        local decls = self:DeclList()
-        if #decls == 0 then self:e("NAME") end
+    elseif self:peek("local") then
+        local start = self:e()
+        local decls = self:DeclList(); if #decls == 0 then self:forced_syntax_error("NAME") end
         local exps  = self:try("=") and self:ExpList1() or {}
-        return ast.Stat.Decl(start_tok.loc, decls, exps)
+        return ast.Stat.Decl(start.loc, decls, exps)
 
-    elseif self:try("break") then
+    elseif self:peek("break") then
+        local start = self:e()
         if self.loop_depth > 0 then
-            return ast.Stat.Break(self.prev.loc)
+            return ast.Stat.Break(start.loc)
         else
-            self:syntax_error(self.prev.loc, "break statement outside of a loop")
+            self:syntax_error(start.loc, "break statement outside of a loop")
         end
 
-    elseif self:try("return") then
-        local start_tok = self.prev
+    elseif self:peek("return") then
+        local start = self:e()
         if self:peek(";") or self:block_follow() then
-            return ast.Stat.Return(start_tok.loc, {})
+            return ast.Stat.Return(start.loc, {})
         else
-            return ast.Stat.Return(start_tok.loc, self:ExpList1())
+            return ast.Stat.Return(start.loc, self:ExpList1())
         end
 
     else
@@ -432,9 +446,9 @@ function Parser:Stat()
             while self:try(",") do
                 table.insert(lhs, self:to_var(self:SuffixedExp(false)))
             end
-            local _ = self:e("=")
+            local op  = self:e("=")
             local rhs = self:ExpList1()
-            return ast.Stat.Assign(lhs[1].loc, lhs, rhs)
+            return ast.Stat.Assign(op.loc, lhs, rhs)
 
         else
             if exp._tag == "ast.Exp.CallFunc" or exp._tag == "ast.Exp.CallMethod" then
@@ -464,14 +478,15 @@ end
 --
 
 function Parser:PrimaryExp(is_statement)
-    if self:try("NAME") then
-        return ast.Exp.Var(self.prev.loc, ast.Var.Name(self.prev.loc, self.prev.value))
+    if self:peek("NAME") then
+        local id = self:e()
+        return ast.Exp.Var(id.loc, ast.Var.Name(id.loc, id.value))
 
-    elseif self:try("(") then
-        local start_tok = self.prev
-        local exp = self:Exp()
-        local _   = self:e(")", start_tok)
-        return ast.Exp.Paren(start_tok.loc, exp)
+    elseif self:peek("(") then
+        local open = self:e()
+        local exp  = self:Exp()
+        local _    = self:e(")", open)
+        return ast.Exp.Paren(open.loc, exp)
 
     else
         if is_statement then
@@ -485,21 +500,22 @@ end
 function Parser:SuffixedExp(is_statement)
     local exp = self:PrimaryExp(is_statement)
     while true do
-        if self:try(".") then
-            local start_tok = self.prev
-            local name = self:e("NAME")
-            exp = ast.Exp.Var(start_tok.loc, ast.Var.Dot(start_tok.loc, exp, name))
+        if self:peek(".") then
+            local start = self:e()
+            local id    = self:e("NAME")
+            exp = ast.Exp.Var(start.loc, ast.Var.Dot(start.loc, exp, id.value))
 
-        elseif self:try("[") then
-            local start_tok = self.prev
-            local iexp = self:Exp()
-            local _    = self:e("]", start_tok)
-            exp = ast.Exp.Var(start_tok.loc, ast.Var.Bracket(start_tok.loc, exp, iexp))
+        elseif self:peek("[") then
+            local start = self:e()
+            local index = self:Exp()
+            local _     = self:e("]", start)
+            exp = ast.Exp.Var(start.loc, ast.Var.Bracket(start.loc, exp, index))
 
-        elseif self:try(":") then
-            local name = self:e("NAME")
+        elseif self:peek(":") then
+            local _    = self:e()
+            local id   = self:e("NAME")
             local args = self:FuncArgs()
-            exp = ast.Exp.CallMethod(exp.loc, exp, name, args)
+            exp = ast.Exp.CallMethod(exp.loc, exp, id.value, args)
 
         elseif self:peek("(") or self:peek("STRING") or self:peek("{") then
             local args = self:FuncArgs()
@@ -515,34 +531,48 @@ function Parser:FuncArgs()
     if self:peek("STRING") or self:peek("{") then
         return { self:SimpleExp() }
     else
-        local _ = self:e("("); local open_tok = self.prev
+        local open = self:e("(")
         local exps = self:peek(")") and {} or self:ExpList1()
-        local _ = self:e(")", open_tok)
+        local _    = self:e(")", open)
         return exps
     end
 end
 
 function Parser:SimpleExp()
-    if     self:try("NUMBER") then
-        local n   = self.prev.value
-        if     math.type(n) == "integer" then return ast.Exp.Integer(self.prev.loc, n)
-        elseif math.type(n) == "float"   then return ast.Exp.Float(self.prev.loc, n)
+    if     self:peek("NUMBER") then
+        local id = self:e()
+        if     math.type(id.value) == "integer" then return ast.Exp.Integer(id.loc, id.value)
+        elseif math.type(id.value) == "float"   then return ast.Exp.Float(id.loc, id.value)
         else error("impossible") end
 
-    elseif self:try("STRING") then return ast.Exp.String(self.prev.loc, self.prev.value)
-    elseif self:try("nil")    then return ast.Exp.Nil(self.prev.loc)
-    elseif self:try("true")   then return ast.Exp.Bool(self.prev.loc, true)
-    elseif self:try("false")  then return ast.Exp.Bool(self.prev.loc, false)
-    elseif self:try("...")    then error("not implemented yet")
-    elseif self:try("{") then
-        local open_tok = self.prev
+    elseif self:peek("STRING") then
+        local tok = self:e()
+        return ast.Exp.String(tok.loc, tok.value)
+
+    elseif self:peek("nil") then
+        local tok = self:e()
+        return ast.Exp.Nil(tok.loc)
+
+    elseif self:peek("true") then
+        local tok = self:e()
+        return ast.Exp.Bool(tok.loc, true)
+
+    elseif self:peek("false") then
+        local tok = self:e()
+        return ast.Exp.Bool(tok.loc, false)
+
+    elseif self:peek("...") then
+        error("not implemented yet")
+
+    elseif self:peek("{") then
+        local open = self:e()
         local fields = {}
         repeat
             if self:peek("}") then break end
             table.insert(fields, self:Field())
         until not self:FieldSep()
-        self:e("}", open_tok)
-        return ast.Exp.Initlist(open_tok.loc, fields)
+        self:e("}", open)
+        return ast.Exp.Initlist(open.loc, fields)
 
     else
         return self:SuffixedExp(false)
@@ -551,22 +581,24 @@ end
 
 function Parser:CastExp()
     local exp = self:SimpleExp()
-    while self:try("as") do
-        local op_tok = self.prev
-        local typ  = self:Type()
-        exp = ast.Exp.Cast(op_tok.loc, exp, typ, self.next.loc)
+    while self:peek("as") do
+        local op  = self:e()
+        local typ = self:Type()
+        exp = ast.Exp.Cast(op.loc, exp, typ, self.next.loc)
     end
     return exp
 end
 
-local precedence_levels = {
+local unary_ops_list = "not - ~ #"
+local right_ops_list = "^ .."
+local binops_list = {
     [14] = "^",
-  --[13] = reserved for "^"
-  --[12] = unary operators
+  --[13] = reserved for '^'
+  --[12] = reserved for unary operators
     [11] = "* % / //",
     [10] = "+ -",
     [ 9] = "..",
-  --[ 8] = reserved for ".."
+  --[ 8] = reserved for '..'
     [ 7] = "<< >>",
     [ 6] = "&",
     [ 5] = "~",
@@ -575,16 +607,21 @@ local precedence_levels = {
     [ 2] = "and",
     [ 1] = "or",
 }
-local unary_precedence = 12
-local is_right_associative = {
-    ["^"]  = true,
-    [".."] = true,
-}
 
-local precedence  = {} -- op => integer
-for n, opstr in pairs(precedence_levels) do
-    for op in opstr:gmatch("%S+") do
-        precedence[op] = n
+local is_unary_operator    = {} -- op => bool
+local is_right_associative = {} -- op => bool
+local binop_precedence = {} -- op => integer
+local unary_precedence = 12
+
+for op in unary_ops_list:gmatch("%S+") do
+    is_unary_operator[op] = true
+end
+for op in right_ops_list:gmatch("%S+") do
+    is_right_associative[op] = true
+end
+for prec, ops_str in pairs(binops_list) do
+    for op in ops_str:gmatch("%S+") do
+        binop_precedence[op] = prec
     end
 end
 
@@ -593,8 +630,8 @@ end
 function Parser:SubExp(limit)
 
     local exp
-    if self:try("not") or self:try("-") or self:try("~") or self:try("#") then
-        local op   = self.prev
+    if is_unary_operator[self.next.name] then
+        local op   = self:e()
         local uexp = self:SubExp(unary_precedence)
         exp = ast.Exp.Unop(op.loc, op.name, uexp)
     else
@@ -602,13 +639,12 @@ function Parser:SubExp(limit)
     end
 
     while true do
-        local op = self.next
-        local prec = precedence[op.name]
+        local prec = binop_precedence[self.next.name]
         if not prec or prec <= limit then
             break
         end
 
-        local _ = self:e(op.name)
+        local op   = self:e()
         local bexp = self:SubExp(is_right_associative[op.name] and prec-1 or prec)
         if op.name == ".." then
             if bexp._tag == "ast.Exp.Concat" then
@@ -643,11 +679,10 @@ end
 
 function Parser:Field()
     if self:peek("NAME") and self:doublepeek("=") then
-        local start_tok = self.next
-        local name = self:e("NAME")
+        local id   = self:e("NAME")
         local _    = self:e("=")
         local exp  = self:Exp()
-        return ast.Field.Rec(start_tok.loc, name, exp)
+        return ast.Field.Rec(id.loc, id.value, exp)
     else
         local exp = self:Exp()
         return ast.Field.List(exp.loc, exp)
@@ -686,6 +721,11 @@ function Parser:syntax_error(loc, fmt, ...)
     coroutine.yield(loc:format_error(fmt, ...) .. ".")
 end
 
+function Parser:forced_syntax_error(expected_name)
+    self:e(expected_name)
+    error("unreachable")
+end
+
 function Parser:syntax_error_here(explanation)
     local where = self:describe_token(self.next)
     self:syntax_error(self.next.loc, "Syntax error before %s. %s", where, explanation)
@@ -696,21 +736,15 @@ function Parser:unexpected_token_error(non_terminal)
     self:syntax_error(self.next.loc, "Unexpected %s while trying to parse %s", where, non_terminal)
 end
 
-function Parser:wrong_token_error(expected_name)
+function Parser:wrong_token_error(expected_name, open_tok)
+    local loc   = self.next.loc
     local what  = self:describe_token_name(expected_name)
     local where = self:describe_token(self.next)
-    self:syntax_error(self.next.loc, "Expected %s before %s", what, where)
-end
-
-function Parser:missing_close_token_error(expected_name, open_tok)
-    if self.next.loc.line == open_tok.loc.line then
-        self:wrong_token_error(expected_name)
+    if not open_tok or loc.line == open_tok.loc.line then
+        self:syntax_error(loc, "Expected %s before %s", what, where)
     else
-        local what  = self:describe_token_name(expected_name)
         local owhat = self:describe_token_name(open_tok.name)
-        local where = self:describe_token(self.next)
-        self:syntax_error(self.next.loc,
-            "Expected %s before %s, to close the %s at line %d",
+        self:syntax_error(loc, "Expected %s before %s, to close the %s at line %d",
             what, where, owhat, open_tok.loc.line)
     end
 end
