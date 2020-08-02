@@ -17,10 +17,10 @@ function Parser:init(lexer)
     self.loop_depth = 0
     self.next = false -- Token
     self.look = false -- Token
-    self:advance(); self:advance()
+    self:_advance(); self:_advance()
 end
 
-function Parser:advance()
+function Parser:_advance()
     local err
     local tok = self.next
     self.next = self.look
@@ -50,7 +50,7 @@ function Parser:try(name)
     assert(name)
     assert(name ~= "EOF")
     if self:peek(name) then
-        return self:advance()
+        return self:_advance()
     else
         return false
     end
