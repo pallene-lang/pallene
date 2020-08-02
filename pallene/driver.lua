@@ -70,7 +70,7 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
         return module, errs
     end
 
-    if opt_level ~= "0" then
+    if opt_level > 0 then
         module, errs = constant_propagation.run(module)
         if stop_after == "constant_propagation" or not module then
             return module, errs

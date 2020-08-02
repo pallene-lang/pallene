@@ -10,7 +10,7 @@ local util = require "pallene.util"
 -- These are levels of optimization for the Pallene compiler and C compiler.
 -- i.e. -O0 disables both C compiler and Pallene optimizations.
 -- NOTE: *For C compiler only* this option may be overridden  using the CFLAGS environment variable.
-local opt_passes_list = {"0", "1", "2", "3", "s", "fast", "g"}
+local opt_passes_list = {"0", "1", "2", "3"}
 
 -- List of compiler passes that are available. If a new optimization is made,
 -- it should be added to this table.
@@ -26,7 +26,7 @@ p:mutex(
     p:flag("--print-ir", "Show a human-readable version of the program's IR"),
     p:option("--dump", "Print the result of an internal compiler pass"):choices(dump_passes)
 )
-p:option("-O", "Optimization level"):args("1"):choices(opt_passes_list):default("2")
+p:option("-O", "Optimization level"):convert(tonumber):args(1):choices(opt_passes_list):default(2)
 local args = p:parse()
 
 local opt_level = args.O
