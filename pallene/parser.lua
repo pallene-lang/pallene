@@ -167,11 +167,7 @@ function Parser:Toplevel()
             return ast.Toplevel.Var(visibility.loc, visibility.name, decls, exps)
 
         else
-            if visibility then
-                self:forced_syntax_error("NAME")
-            else
-                self:unexpected_token_error("a toplevel declaration")
-            end
+            self:unexpected_token_error("a toplevel declaration")
         end
     end
 end
