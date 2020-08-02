@@ -719,7 +719,7 @@ describe("Pallene parser", function()
     it("only allows call expressions as statements", function()
         assert_statements_syntax_error([[
             (f)
-        ]], "Expression is not a function call")
+        ]], "This expression in a statement position is not a function call")
 
         assert_statements_syntax_error([[
             1 + 1
@@ -1131,10 +1131,6 @@ describe("Pallene parser", function()
         assert_statements_syntax_error([[
             local x =
         ]], "Unexpected 'end' while trying to parse an expression.")
-
-        assert_statements_syntax_error([[
-            x
-        ]], "Expression is not a function call.")
 
         assert_statements_syntax_error([[
             x =

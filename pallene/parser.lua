@@ -454,7 +454,8 @@ function Parser:Stat()
             if exp._tag == "ast.Exp.CallFunc" or exp._tag == "ast.Exp.CallMethod" then
                 return ast.Stat.Call(exp.loc, exp)
             else
-                self:syntax_error_here("Expression is not a function call")
+                self:syntax_error(exp.loc,
+                    "This expression in a statement position is not a function call")
             end
         end
     end
@@ -469,7 +470,7 @@ function Parser:to_var(exp)
     if exp._tag == "ast.Exp.Var" then
         return exp.var
     else
-        self:syntax_error_here("This expression is not an lvalue")
+        self:syntax_error(exp.loc, "This expression is not an lvalue")
     end
 end
 
@@ -721,11 +722,6 @@ end
 function Parser:forced_syntax_error(expected_name)
     self:e(expected_name)
     error("unreachable")
-end
-
-function Parser:syntax_error_here(explanation)
-    local where = self:describe_token(self.next)
-    self:syntax_error(self.next.loc, "Syntax error before %s. %s", where, explanation)
 end
 
 function Parser:unexpected_token_error(non_terminal)
