@@ -104,7 +104,7 @@ function Parser:Toplevel()
         while self:peek("NAME") do
             local decl = self:Decl()
             if not decl.type then self:forced_syntax_error(":") end
-            local _ = self:FieldSep()
+            local _ = self:try(";")
             table.insert(fields, decl)
         end
         self:e("end", start)
