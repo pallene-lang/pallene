@@ -973,13 +973,13 @@ end
 function Checker:check_initializer_exp(decl, exp, err_fmt, ...)
     if decl.type then
         decl._type = self:from_ast_type(decl.type)
-        if exp then
+        if exp ~= nil then
             return self:check_exp_verify(exp, decl._type, err_fmt, ...)
         else
-            return false
+            return nil
         end
     else
-        if exp then
+        if exp ~= nil then
             local e = self:check_exp_synthesize(exp)
             decl._type = e._type
             return e
