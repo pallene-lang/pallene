@@ -6,5 +6,5 @@
 # you need to press Ctrl-C multiple times and one of those Ctrl-C's will likely kill the busted
 # process itself, meaning that the "teardown" routines are not run. On the other hand, with
 # --no-keep-going we only need to press Ctrl-C once and busted usually gets to exit gracefully.
-
+export CFLAGS=-O0
 busted --no-keep-going "$@"
