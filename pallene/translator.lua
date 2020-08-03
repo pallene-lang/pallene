@@ -90,15 +90,15 @@ function Translator:translate_decl(decl)
     end
 end
 
-function Translator:translate_var(exp)
-    local tag = exp.var._tag
+function Translator:translate_var(var)
+    local tag = var._tag
     if tag == "ast.Var.Name" then
         -- Nothing
     elseif tag == "ast.Var.Bracket" then
-        self:translate_exp(exp.t)
-        self:translate_exp(exp.k)
+        self:translate_exp(var.t)
+        self:translate_exp(var.k)
     elseif tag == "ast.Var.Dot" then
-        self:translate_exp(exp.exp)
+        self:translate_exp(var.exp)
     else
         error("impossible")
     end
@@ -124,7 +124,7 @@ function Translator:translate_exp(exp)
     elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
     elseif tag == "ast.Exp.Var" then
-        self:translate_var(exp)
+        self:translate_var(exp.var)
     elseif tag == "ast.Exp.Unop" then
         self:translate_exp(exp.exp)
     elseif tag == "ast.Exp.Concat" then
@@ -181,6 +181,7 @@ function Translator:translate_stat(stat)
         for _, decl in ipairs(stat.decls) do
             self:translate_decl(decl)
         end
+
         for _, exp in ipairs(stat.exps) do
             self:translate_exp(exp)
         end
@@ -262,6 +263,8 @@ function Translator:translate_toplevel(node)
 end
 
 function Translator:add_forward_declarations(prog_ast)
+    table.insert(self.partials, "local string_ = string;")
+
     local functions = {}
     for _, node in ipairs(prog_ast) do
         if node._tag == "ast.Toplevel.Func" then

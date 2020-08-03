@@ -2,6 +2,7 @@
 -- removing type annotations. Please do not delete them, otherwise the tests will fail.
 
 local util = require "pallene.util"
+local execution_tests = require "spec.execution_tests"
 
 local function compile(pallene_code)
     assert(util.set_file_contents("__test__.pln", pallene_code))
@@ -14,7 +15,7 @@ end
 local function assert_translation(pallene_code, expected)
     compile(pallene_code)
     local contents = util.get_file_contents("__test__.lua")
-    assert.are.same(expected, contents)
+    assert.are.same("local string_ = string;" .. expected, contents)
 end
 
 local function assert_translation_error(pallene_code, expected)
@@ -29,7 +30,14 @@ local function cleanup()
     os.remove("__test__.lua")
 end
 
-describe("Pallene to Lua translator", function ()
+local function cleanup_run()
+    os.remove("__test__.pln")
+    os.remove("__test__.lua")
+    os.remove("__test__script__.lua")
+    os.remove("__test__output__.txt")
+end
+
+describe("Pallene to Lua translator / #translator", function ()
     teardown(cleanup)
 
     it("Missing end keyword in function definition (syntax error)", function ()
@@ -47,7 +55,7 @@ describe("Pallene to Lua translator", function ()
         "type 'unknown' is not declared")
     end)
 
-    it("empty input should result in an empty result", function ()
+    it("empty input results in an empty result", function ()
         assert_translation("", "")
     end)
 
@@ -966,4 +974,9 @@ local f;function f()
 end
 ]])
     end)
+end)
+
+describe("#lua_backend /", function ()
+    teardown(cleanup_run)
+    execution_tests.run(compile, 'lua', describe, it, assert)
 end)
