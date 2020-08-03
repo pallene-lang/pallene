@@ -583,39 +583,40 @@ function Parser:CastExp()
     return exp
 end
 
-local unary_ops_list = "not - ~ #"
-local right_ops_list = "^ .."
-local binops_list = {
-    [14] = "^",
-  --[13] = reserved for '^'
-  --[12] = reserved for unary operators
-    [11] = "* % / //",
-    [10] = "+ -",
-    [ 9] = "..",
-  --[ 8] = reserved for '..'
-    [ 7] = "<< >>",
-    [ 6] = "&",
-    [ 5] = "~",
-    [ 4] = "|",
-    [ 3] = "== ~= < > <= >=",
-    [ 2] = "and",
-    [ 1] = "or",
-}
-
 local is_unary_operator    = {} -- op => bool
 local is_right_associative = {} -- op => bool
 local binop_precedence = {} -- op => integer
 local unary_precedence = 12
+do
+    local unary_ops = "not - ~ #"
+    local right_ops = "^ .."
+    local binops = {
+        [14] = "^",
+      --[13] = reserved for '^'
+      --[12] = reserved for unary operators
+        [11] = "* % / //",
+        [10] = "+ -",
+        [ 9] = "..",
+      --[ 8] = reserved for '..'
+        [ 7] = "<< >>",
+        [ 6] = "&",
+        [ 5] = "~",
+        [ 4] = "|",
+        [ 3] = "== ~= < > <= >=",
+        [ 2] = "and",
+        [ 1] = "or",
+    }
 
-for op in unary_ops_list:gmatch("%S+") do
-    is_unary_operator[op] = true
-end
-for op in right_ops_list:gmatch("%S+") do
-    is_right_associative[op] = true
-end
-for prec, ops_str in pairs(binops_list) do
-    for op in ops_str:gmatch("%S+") do
-        binop_precedence[op] = prec
+    for op in string.gmatch(unary_ops, "%S+") do
+        is_unary_operator[op] = true
+    end
+    for op in string.gmatch(right_ops, "%S+") do
+        is_right_associative[op] = true
+    end
+    for prec, ops_str in pairs(binops) do
+        for op in string.gmatch(ops_str, "%S+") do
+            binop_precedence[op] = prec
+        end
     end
 end
 
