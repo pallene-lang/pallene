@@ -29,10 +29,10 @@ local longstring_close   = P("]") * P("=")^0 * P("]")
 local longstring_content = (P(1) - longstring_close)^1
 
 local string_delimiter  = RE"[\"\']"
+local string_content    = RE"[^\"\'\n\r\\]+"
 local string_hex_number = RE"[0-9A-Fa-f][0-9A-Fa-f]?"
 local string_dec_number = RE"[0-9][0-9]?[0-9]?"
 local string_u_number   = RE"[0-9A-Fa-f]+"
-local string_content    = RE"[^\"\'\n\r\\]+"
 
 local string_escapes = {
     ["a"] = "\a",  ["b"] = "\b", ["f"] = "\f",  ["n"] = "\n",  ["r"] = "\r",
@@ -124,7 +124,6 @@ function Lexer:read_short_string(delimiter)
             table.insert(parts, self.matched)
 
         elseif self:try("\\") then
-
             if self:try(newline)
                 then table.insert(parts, "\n")
 
@@ -205,7 +204,6 @@ function Lexer:read_long_string(delimiter_length, what)
 end
 
 function Lexer:_next()
-
     if self:try(space) then
         return "SPACE"
 
@@ -257,12 +255,10 @@ function Lexer:_next()
     end
 end
 
---
 -- Get the next token, ignoring whitespace and comments
 --
 -- Success: returns a table containing token name, semantic value, start location
 -- Failure: returns false, error message
---
 function Lexer:next()
     while true do
         local loc = self:loc()

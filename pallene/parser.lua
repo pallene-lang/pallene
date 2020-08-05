@@ -194,19 +194,6 @@ function Parser:Type()
     end
 end
 
-function Parser:TypeList()
-    local ts = {}
-    local open = self:e("(");
-    if not self:peek(")") then
-        table.insert(ts, self:Type())
-        while self:try(",") do
-            table.insert(ts, self:Type())
-        end
-    end
-    self:e(")", open)
-    return ts
-end
-
 function Parser:RetTypes()
     if self:peek("(") then
         local loc = self.next.loc
@@ -220,6 +207,19 @@ function Parser:RetTypes()
     else
         return { self:Type() }
     end
+end
+
+function Parser:TypeList()
+    local ts = {}
+    local open = self:e("(");
+    if not self:peek(")") then
+        table.insert(ts, self:Type())
+        while self:try(",") do
+            table.insert(ts, self:Type())
+        end
+    end
+    self:e(")", open)
+    return ts
 end
 
 function Parser:SimpleType()
@@ -623,7 +623,6 @@ end
 -- subexpr -> (castexp | unop subexpr) { binop subexpr }
 -- where 'binop' is any binary operator with a priority higher than 'limit'
 function Parser:SubExp(limit)
-
     local exp
     if is_unary_operator[self.next.name] then
         local op   = self:e()
