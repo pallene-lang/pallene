@@ -128,7 +128,7 @@ function Lexer:read_short_string(delimiter)
                 then table.insert(parts, "\n")
 
             elseif self:try(string_dec_number) then
-                local n = tonumber(self.matched)
+                local n = assert(tonumber(self.matched, 10))
                 if n < 256 then
                     table.insert(parts, string.char(n))
                 else
