@@ -25,11 +25,10 @@ declare_type("Type", {
 })
 
 declare_type("Toplevel", {
-    Func      = {"loc", "is_local", "decl", "value", "rt_col_loc", "rt_end_loc"},
-    Var       = {"loc", "is_local", "decls", "values"},
+    Func      = {"loc", "visibility", "decl", "value", "rt_col_loc", "rt_end_loc"},
+    Var       = {"loc", "visibility", "decls", "values"},
     Typealias = {"loc", "name", "type", "end_loc"},
     Record    = {"loc", "name", "field_decls", "end_loc"},
-    Import    = {"loc", "local_name", "mod_name"},
 })
 
 declare_type("Decl", {
@@ -77,7 +76,8 @@ declare_type("Exp", {
 })
 
 declare_type("Field", {
-    Field = {"loc", "name", "exp"},
+    List = {"loc", "exp"},
+    Rec  = {"loc", "name", "exp"},
 })
 
 --
@@ -99,8 +99,6 @@ function ast.toplevel_names(tl_node)
         table.insert(names, tl_node.name)
     elseif tag == "ast.Toplevel.Record" then
         table.insert(names, tl_node.name)
-    elseif tag == "ast.Toplevel.Import" then
-        table.insert(names, tl_node.localname)
     elseif tag == "ast.Toplevel.Builtin" then
         table.insert(names, tl_node.name)
     else

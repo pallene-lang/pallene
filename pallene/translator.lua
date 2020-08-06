@@ -82,7 +82,7 @@ function Translator:add_exports()
 end
 
 function Translator:translate_decl(decl)
-    if decl.type then
+    if decl.col_loc then
         -- Remove the colon but retain any adjacent comment to the right.
         self:add_whitespace(decl.col_loc.pos, decl.col_loc.pos)
         -- Remove the type annotation but exclude the next token.
@@ -112,7 +112,7 @@ function Translator:translate_exp(exp)
         -- Nothing
     elseif tag == "ast.Exp.Initlist" then
         for _, field in ipairs(exp.fields) do
-            self:translate_exp(field.exp)
+            self:translate_field(field)
         end
     elseif tag == "ast.Exp.Lambda" then
         error("not implemented")
@@ -147,6 +147,17 @@ function Translator:translate_exp(exp)
         self:translate_exp(exp.exp)
     else
         error(tag .. " impossible")
+    end
+end
+
+function Translator:translate_field(field)
+    local tag = field._tag
+    if tag == "ast.Field.List" then
+        self:translate_exp(field.exp)
+    elseif tag == "ast.Field.Rec" then
+        self:translate_exp(field.exp)
+    else
+        error("impossible")
     end
 end
 
@@ -198,19 +209,16 @@ function Translator:translate_stat(stat)
     end
 end
 
-function Translator:erase_mrf_modifier(start_index, is_local)
+function Translator:erase_mrf_modifier(start_index, visibility)
     self:add_previous(start_index - 1)
 
-    -- We could add 5 and 6 to the last index to remove the modifier. However, using constants would
-    -- means that we are assuming that the current string position contains a "local" if `is_local`
-    -- is true and an "export" if `is_local` is false. This would be valid if we carefully call
-    -- erase_mrf_modifier at just the right moment. However, if we make small changes to the translator
-    -- or to the Pallene syntax then this logic might not hold anymore. Therefore, we implement a more
-    -- robust solution via `string.match`.
-    if is_local then
+    print("!$!", string.sub(self.input, self.last_index, 10))
+    if visibility == "local" then
         self.last_index = assert(string.match(self.input, "^local()", self.last_index)) + 1
-    else
+    elseif visibility == "export" then
         self.last_index = assert(string.match(self.input, "^export()", self.last_index)) + 1
+    else
+        error("impossible")
     end
 end
 
@@ -218,7 +226,7 @@ function Translator:translate_toplevel(node)
     if node._tag == "ast.Toplevel.Var" then
         -- Add the variables to the export sequence if they are declared with the `export`
         -- modifier.
-        if not node.is_local then
+        if node.visibility == "export" then
             self:add_local(node.loc.pos)
             for _, decl in ipairs(node.decls) do
                 table.insert(self.exports, decl.name)
@@ -233,13 +241,13 @@ function Translator:translate_toplevel(node)
             self:translate_exp(value)
         end
     elseif node._tag == "ast.Toplevel.Func" then
-        self:erase_mrf_modifier(node.loc.pos, node.is_local)
+        self:erase_mrf_modifier(node.loc.pos, node.visibility)
         -- The semicolon tokens ensures that the previous token is not touched by the `local` keyword.
         -- Also, we do not have to append a space character because the modifier is always followed
         -- by a whitespace.
         local name = node.decl.name
 
-        if not node.is_local then
+        if node.visibility == "export" then
             table.insert(self.exports, name)
         end
 
