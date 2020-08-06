@@ -165,7 +165,7 @@ describe("Pallene parser", function()
 
     it("does not allow global variables", function()
         assert_program_syntax_error([[ x=17 ]],
-            "Variable declarations must have a 'local' or 'export' modifier")
+            "Toplevel variable declarations must have a 'local' or 'export' modifier")
     end)
 
     it("cannot define function without export or local modifier", function()
@@ -174,7 +174,7 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Function declarations must have a 'local' or 'export' modifier")
+        "Toplevel function declarations must have a 'local' or 'export' modifier")
     end)
 
     it("last function without export or local modifier", function()
@@ -186,7 +186,7 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Function declarations must have a 'local' or 'export' modifier")
+        "Toplevel function declarations must have a 'local' or 'export' modifier")
     end)
 
     it("first function without export or local modifier", function()
@@ -198,21 +198,21 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Function declarations must have a 'local' or 'export' modifier")
+        "Toplevel function declarations must have a 'local' or 'export' modifier")
     end)
 
     it("toplevel variable declaration without export or local modifier", function()
         assert_program_syntax_error([[
             a,m="s","r"
         ]],
-        "Variable declarations must have a 'local' or 'export' modifier")
+        "Toplevel variable declarations must have a 'local' or 'export' modifier")
     end)
 
     it("toplevel variable declaration without export or local modifier (without comma)", function()
         assert_program_syntax_error([[
             a="s"
         ]],
-        "Variable declarations must have a 'local' or 'export' modifier")
+        "Toplevel variable declarations must have a 'local' or 'export' modifier")
     end)
 
     it("can parse toplevel function declarations", function()

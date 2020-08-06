@@ -134,7 +134,7 @@ function Parser:Toplevel()
 
             if not visibility then
                 self:syntax_error(start.loc,
-                    "Function declarations must have a 'local' or 'export' modifier")
+                    "Toplevel function declarations must have a 'local' or 'export' modifier")
             end
 
             for _, decl in ipairs(params) do
@@ -163,7 +163,7 @@ function Parser:Toplevel()
 
             if not visibility then
                 self:syntax_error(decls[1].loc,
-                    "Variable declarations must have a 'local' or 'export' modifier")
+                    "Toplevel variable declarations must have a 'local' or 'export' modifier")
             end
 
             return ast.Toplevel.Var(visibility.loc, visibility.name, decls, exps)
