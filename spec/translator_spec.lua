@@ -42,7 +42,7 @@ describe("Pallene to Lua translator / #translator", function ()
 
     it("Missing end keyword in function definition (syntax error)", function ()
         assert_translation_error([[
-            local function f() : integer
+            local function f(): integer
         ]],
         "Unexpected end of the file while trying to parse a statement")
     end)
@@ -79,23 +79,23 @@ end
 ]])
     end)
 
-    it("Remove type annotations from a top-level variable", function ()
+    it("Remove #type annotations from a top-level variable", function ()
         assert_translation(
 [[
 local xs: integer = 10
 ]],
 [[
-local xs          = 10
+local xs = 10
 ]])
     end)
 
-    it("Remove type annotations from top-level variables", function ()
+    it("Remove #type annotations from top-level variables", function ()
         assert_translation(
 [[
 local a: integer, b: integer, c: string = 5, 3, 'Marshall Mathers'
 ]],
 [[
-local a         , b         , c         = 5, 3, 'Marshall Mathers'
+local a, b, c = 5, 3, 'Marshall Mathers'
 ]])
     end)
 
@@ -106,8 +106,8 @@ local xs:
     integer = 10
 ]],
 [[
-local xs 
-            = 10
+local xs
+ = 10
 ]])
     end)
 
@@ -119,28 +119,22 @@ local a: {
 } = { 5, 3, 19 }
 ]],
 [[
-local a   
-           
-  = { 5, 3, 19 }
+local a
+
+ = { 5, 3, 19 }
 ]])
     end)
 
     it("Keep tabs that appear in a top-level variable type annotation", function ()
         assert_translation(
-            "    local xs:\t\n" ..
-            "    \t    integer = 10\n",
-
-            "    local xs \t\n" ..
-            "    \t            = 10\n")
+            "local xs:\tinteger = 10\n",
+            "local xs = 10\n")
     end)
 
     it("Keep return carriages that appear in a top-level variable type annotation", function ()
         assert_translation(
-            "    local xs:\r\n" ..
-            "    \r    integer = 10\n",
-
-            "    local xs \r\n" ..
-            "    \r            = 10\n")
+            "local xs:\rinteger = 10\n",
+            "local xs\r = 10\n")
     end)
 
     it("Keep newlines that appear after colons in top-level variable type annotations", function ()
@@ -152,10 +146,10 @@ local a:
             integer = 53, 'Madyanam', 19
 ]],
 [[
-local a 
-           , b 
-              , c 
-                    = 53, 'Madyanam', 19
+local a
+, b
+, c
+ = 53, 'Madyanam', 19
 ]])
     end)
 
@@ -166,8 +160,8 @@ local xs: -- This is a comment.
     integer = 10
 ]],
 [[
-local xs  -- This is a comment.
-            = 10
+local xs
+ = 10
 ]])
     end)
 
@@ -192,7 +186,7 @@ local function f(x: integer, y: integer)
 end
 ]],
 [[
-local f;function f(x         , y         )
+local f;function f(x, y)
 end
 ]])
     end)
@@ -201,12 +195,12 @@ end
         assert_translation(
 [[
 local function f()
-    local i : integer = 5
+    local i: integer = 5
 end
 ]],
 [[
 local f;function f()
-    local i           = 5
+    local i = 5
 end
 ]])
     end)
@@ -215,12 +209,12 @@ end
         assert_translation(
 [[
 local function f()
-    local a : string, m : string = "preets", "yoda"
+    local a: string, m: string = "preets", "yoda"
 end
 ]],
 [[
 local f;function f()
-    local a         , m          = "preets", "yoda"
+    local a, m = "preets", "yoda"
 end
 ]])
     end)
@@ -229,12 +223,12 @@ end
         assert_translation(
 [[
 local function f()
-    local a, m : string = "preets", "yoda"
+    local a, m: string = "preets", "yoda"
 end
 ]],
 [[
 local f;function f()
-    local a, m          = "preets", "yoda"
+    local a, m = "preets", "yoda"
 end
 ]])
     end)
@@ -254,7 +248,7 @@ end
 local a, b;function a()
 end
 
-                       
+
 
 function b()
 end
@@ -279,10 +273,10 @@ end
 local a, b;function a()
 end
 
-                   
-               
-              
- 
+
+
+
+
 
 function b()
 end
@@ -307,10 +301,10 @@ end
 local a, b;function a()
 end
 
-            
-              
-              
-   
+
+
+
+
 
 function b()
 end
@@ -320,12 +314,12 @@ end
     it("Remove return type", function ()
         assert_translation(
 [[
-local function a() : integer
+local function a(): integer
     return 0
 end
 ]],
 [[
-local a;function a()          
+local a;function a()
     return 0
 end
 ]])
@@ -334,12 +328,12 @@ end
     it("Remove return types", function ()
         assert_translation(
 [[
-local function a() : ( integer, string )
+local function a(): ( integer, string )
     return 0, "Kush"
 end
 ]],
 [[
-local a;function a()                      
+local a;function a()
     return 0, "Kush"
 end
 ]])
@@ -348,10 +342,10 @@ end
     it("Generate return statement for exported variable", function ()
         assert_translation(
 [[
-export i : integer = 0
+export i: integer = 0
 ]],
 [[
-local  i           = 0
+local  i = 0
 
 return {
     i = i,
@@ -378,13 +372,13 @@ return {
     it("Generate the same return statement for both exported functions and variables", function ()
         assert_translation(
 [[
-export i : integer = 0
+export i: integer = 0
 
 export function f()
 end
 ]],
 [[
-local f;local  i           = 0
+local f;local  i = 0
 
 function f()
 end
@@ -399,7 +393,7 @@ return {
     it("Do not include local symbols in the module return statement", function ()
         assert_translation(
 [[
-export i : integer = 0
+export i: integer = 0
 
 export function a()
 end
@@ -407,10 +401,10 @@ end
 local function s()
 end
 
-local j : { integer } = { 1, 2, 3 }
+local j: { integer } = { 1, 2, 3 }
 ]],
 [[
-local a, s;local  i           = 0
+local a, s;local  i = 0
 
 function a()
 end
@@ -418,7 +412,7 @@ end
 function s()
 end
 
-local j               = { 1, 2, 3 }
+local j = { 1, 2, 3 }
 
 return {
     i = i,
@@ -458,9 +452,9 @@ local function f(x: any, y: any): any
 end
 ]],
 [[
-local f;local xs        = {10, "hello", 3.14}
+local f;local xs = {10, "hello", 3.14}
 
-function f(x     , y     )     
+function f(x, y)
 end
 ]])
     end)
@@ -473,7 +467,7 @@ local function invoke(x: (integer, integer) -> (float, float)): (float, float)
 end
 ]],
 [[
-local invoke;function invoke(x                                      )                
+local invoke;function invoke(x)
     return x(1, 2)
 end
 ]])
@@ -490,12 +484,12 @@ local i: any = 1
 local p: point = { x = i as integer, y = i as integer }
 ]],
 [[
-                   
-               
-              
- 
-local i      = 1
-local p        = { x = i           , y = i            }
+
+
+
+
+local i = 1
+local p = { x = i , y = i }
 ]])
     end)
 
@@ -506,8 +500,8 @@ local i: any = 1
 local j: integer = i as integer
 ]],
 [[
-local i      = 1
-local j          = i           
+local i = 1
+local j = i 
 ]])
     end)
 
@@ -519,9 +513,9 @@ local j: integer = i as integer
 local k: integer = (j as integer) + 1
 ]],
 [[
-local i      = 1
-local j          = i           
-local k          = (j           ) + 1
+local i = 1
+local j = i 
+local k = (j ) + 1
 ]])
     end)
 
@@ -536,10 +530,10 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
-    if k            then
+    if k then
     end
 end
 ]])
@@ -557,11 +551,11 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
     if true then
-        local j          = k           
+        local j = k 
     end
 end
 ]])
@@ -581,12 +575,12 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
     if false then
         -- Nothing
-    elseif k            then
+    elseif k then
         -- Nothing
     end
 end
@@ -607,13 +601,13 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
     if false then
         -- Nothing
     elseif true then
-        local j          = k           
+        local j = k 
     end
 end
 ]])
@@ -633,13 +627,13 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
     if false then
         -- Nothing
     else
-        local j          = k           
+        local j = k 
     end
 end
 ]])
@@ -657,12 +651,12 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
     repeat
         -- Nothing
-    until k           
+    until k 
 end
 ]])
     end)
@@ -679,11 +673,11 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
     repeat
-        local j          = k           
+        local j = k 
     until true
 end
 ]])
@@ -701,10 +695,10 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
-    for j          = k           , k            + 10, k            do
+    for j = k , k + 10, k do
         -- Nothing
     end
 end
@@ -723,11 +717,11 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
-    for j          = 1, 10 do
-        local m          = k           
+    for j = 1, 10 do
+        local m = k 
     end
 end
 ]])
@@ -743,10 +737,10 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
-    k, k = k           , k           
+    k, k = k , k 
 end
 ]])
     end)
@@ -761,10 +755,10 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
-    k = ((k           )           )
+    k = ((k ) )
 end
 ]])
     end)
@@ -779,10 +773,10 @@ local function f()
 end
 ]],
 [[
-local f;local k      = 1
+local f;local k = 1
 
 function f()
-    local j          = k           
+    local j = k 
 end
 ]])
     end)
@@ -797,10 +791,10 @@ local function f()
 end
 ]],
 [[
-local f;local k      = "Madyanam"
+local f;local k = "Madyanam"
 
 function f()
-    io.write(k          )
+    io.write(k )
 end
 ]])
     end)
@@ -816,11 +810,11 @@ local function get_names(): (string, string)
 end
 ]],
 [[
-local get_names;local name1      = "Anushka"
-local name2      = "Samuel"
+local get_names;local name1 = "Anushka"
+local name2 = "Samuel"
 
-function get_names()                  
-    return name1          , name2          
+function get_names()
+    return name1 , name2 
 end
 ]])
     end)
@@ -844,12 +838,12 @@ end
     it("Remove return type annotations", function ()
         assert_translation(
 [[
-local function get_numbers() : ( integer, integer )
+local function get_numbers(): ( integer, integer )
     return 53, 519
 end
 ]],
 [[
-local get_numbers;function get_numbers()                       
+local get_numbers;function get_numbers()
     return 53, 519
 end
 ]])
@@ -858,12 +852,12 @@ end
     it("Remove parameter and return type annotations", function ()
         assert_translation(
 [[
-local function add(x: integer, y: integer) : integer
+local function add(x: integer, y: integer): integer
     return x + y
 end
 ]],
 [[
-local add;function add(x         , y         )          
+local add;function add(x, y)
     return x + y
 end
 ]])
@@ -880,9 +874,9 @@ end
 ]],
 [[
 local f;function f()
-    local x          = 10
-    local y          = 20
-    local z          = x + y
+    local x = 10
+    local y = 20
+    local z = x + y
 end
 ]])
     end)
@@ -901,7 +895,7 @@ local x = (1 + 2) * (100 / 30)
         assert_translation(
 [[
 local function count()
-    local i : integer = 1
+    local i: integer = 1
     while i <= 10 do
         i = i + 1
     end
@@ -909,7 +903,7 @@ end
 ]],
 [[
 local count;function count()
-    local i           = 1
+    local i = 1
     while i <= 10 do
         i = i + 1
     end
@@ -921,17 +915,17 @@ end
         assert_translation(
 [[
 local function f()
-    local i : integer = 10
+    local i: integer = 10
     do
-        local i : integer = 20
+        local i: integer = 20
     end
 end
 ]],
 [[
 local f;function f()
-    local i           = 10
+    local i = 10
     do
-        local i           = 20
+        local i = 20
     end
 end
 ]])
@@ -949,7 +943,7 @@ local function is_even(n: integer): boolean
 end
 ]],
 [[
-local is_even;function is_even(n         )         
+local is_even;function is_even(n)
     if (n % 2) == 0 then
         return true
     else
@@ -963,13 +957,13 @@ end
         assert_translation(
 [[
 local function f()
-    for i : integer = 1, 10 do
+    for i: integer = 1, 10 do
     end
 end
 ]],
 [[
 local f;function f()
-    for i           = 1, 10 do
+    for i = 1, 10 do
     end
 end
 ]])
