@@ -45,17 +45,6 @@ function Parser:doublepeek(name)
     return (name == self.look.name)
 end
 
--- Tries to match a token with the given name.
-function Parser:try(name)
-    assert(name)
-    assert(name ~= "EOF")
-    if self:peek(name) then
-        return self:_advance()
-    else
-        return false
-    end
-end
-
 -- [E]xpect a token of a given type.
 -- If the name is not provided, match whatever token we just peek-ed.
 -- If the optional open_tok is provided then we are matching a closing token ({}, (), do end, etc).
@@ -69,6 +58,19 @@ function Parser:e(name, open_tok)
     end
 end
 
+-- Optionally matches a token of a given type.
+function Parser:try(name)
+    assert(name)
+    assert(name ~= "EOF")
+    if self:peek(name) then
+        return self:_advance()
+    else
+        return false
+    end
+end
+
+-- Call these methods around loop bodies.
+-- This lets us detect if a break statement is used outside a loop.
 function Parser:loop_begin()
     self.loop_depth = self.loop_depth + 1
 end
