@@ -672,18 +672,6 @@ function Checker:check_exp_synthesize(exp)
             error("impossible")
         end
 
-    elseif tag == "ast.Exp.Concat" then
-        for _, inner_exp in ipairs(exp.exps) do
-            inner_exp = self:check_exp_synthesize(inner_exp)
-            local t = inner_exp._type
-            if t._tag ~= "types.T.String" then
-                type_error(inner_exp.loc,
-                    "cannot concatenate with %s value",
-                    types.tostring(t))
-            end
-        end
-        exp._type = types.T.String()
-
     elseif tag == "ast.Exp.Binop" then
         exp.lhs = self:check_exp_synthesize(exp.lhs)
         exp.rhs = self:check_exp_synthesize(exp.rhs)
@@ -760,6 +748,17 @@ function Checker:check_exp_synthesize(exp)
             exp.lhs = self:coerce_numeric_exp_to_float(exp.lhs)
             exp.rhs = self:coerce_numeric_exp_to_float(exp.rhs)
             exp._type = types.T.Float()
+
+        elseif op == ".." then
+            -- The arguments to '..' must be a strings. We do not allow "any" because Pallene does
+            -- not allow concatenating integers or objects that implement tostring()
+            if t1._tag ~= "types.T.String" then
+                type_error(exp.loc, "cannot concatenate with %s value", types.tostring(t1))
+            end
+            if t2._tag ~= "types.T.String" then
+                type_error(exp.loc, "cannot concatenate with %s value", types.tostring(t2))
+            end
+            exp._type = types.T.String()
 
         elseif op == "and" or op == "or" then
             check_type_is_condition(exp.lhs, "left hand side of '%s'", op)

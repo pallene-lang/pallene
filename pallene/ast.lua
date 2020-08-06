@@ -67,7 +67,6 @@ declare_type("Exp", {
     CallMethod = {"loc", "exp", "method", "args"},
     Var        = {"loc", "var"},
     Unop       = {"loc", "op", "exp"},
-    Concat     = {"loc", "exps"},
     Binop      = {"loc", "lhs", "op", "rhs"},
     Cast       = {"loc", "exp", "target", "target_end_loc"},
     Paren      = {"loc", "exp"},

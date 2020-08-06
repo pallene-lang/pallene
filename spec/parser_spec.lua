@@ -648,11 +648,11 @@ describe("Pallene parser", function()
         -- concatenation is right associative
         -- and has less precedence than prefix operators
         assert_expression_ast([[-x .. -y .. -z]],
-            { _tag = "ast.Exp.Concat", exps = {
-                { op = "-", exp = { var = { name = "x" } } },
-                { op = "-", exp = { var = { name = "y" } } },
-                { op = "-", exp = { var = { name = "z" } } },
-            } })
+            { _tag = "ast.Exp.Binop", op = "..",
+                lhs = { op = "-", exp = { var = { name = "x" } } },
+                rhs = { _tag = "ast.Exp.Binop", op = "..",
+                    lhs = { op = "-", exp = { var = { name = "y" } } },
+                    rhs = { op = "-", exp = { var = { name = "z" } } }, } })
 
         -- exponentiation is also right associative
         -- but it has a higher precedence than prefix operators
