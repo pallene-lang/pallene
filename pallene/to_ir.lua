@@ -740,6 +740,17 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 ir.Cmd.Seq({}),
                 ir.Cmd.Seq(rhs_cmds)))
 
+        elseif op == ".." then
+            -- Flatten (a .. (b .. (c .. d))) into (a .. b .. c .. d)
+            local xs = {}
+            while exp._tag == "ast.Exp.Binop" and exp.op == ".." do
+                table.insert(xs, self:exp_to_value(cmds, exp.lhs))
+                exp = exp.rhs
+            end
+            table.insert(xs, self:exp_to_value(cmds, exp))
+
+            table.insert(cmds, ir.Cmd.Concat(loc, dst, xs))
+
         else
             local irop = type_specific_binop(op, exp.lhs._type, exp.rhs._type)
             local v1 = self:exp_to_value(cmds, exp.lhs)

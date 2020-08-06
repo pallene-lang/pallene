@@ -642,15 +642,7 @@ function Parser:SubExp(limit)
 
         local op   = self:e()
         local bexp = self:SubExp(is_right_associative[op.name] and prec-1 or prec)
-        if op.name == ".." then
-            if bexp._tag == "ast.Exp.Concat" then
-                exp = ast.Exp.Concat(op.loc, {exp, table.unpack(bexp.exps) })
-            else
-                exp = ast.Exp.Concat(op.loc, {exp, bexp})
-            end
-        else
-            exp = ast.Exp.Binop(op.loc, exp, op.name, bexp)
-        end
+        exp = ast.Exp.Binop(op.loc, exp, op.name, bexp)
     end
 
     return exp
