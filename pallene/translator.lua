@@ -50,12 +50,26 @@ end
 
 function Translator:add_whitespace(start_index, stop_index)
     assert(self.last_index <= start_index)
-    assert(start_index <= stop_index+1)
+    assert(start_index <= stop_index + 1)
     self:add_previous(start_index - 1)
 
     local region = self.input:sub(start_index, stop_index)
-    local partial = region:gsub("%S", " ")
-    table.insert(self.partials, partial)
+    local start_pos = region:find("[\n\r][ \t]*$")
+    if start_pos then
+        local first_region = region:sub(1, start_pos)
+        local first_partial = first_region:gsub("[^\n\r]", "")
+        local last_partial = region:sub(start_pos + 1)
+
+        table.insert(self.partials, first_partial)
+        table.insert(self.partials, last_partial)
+    else
+        local partial = region:gsub("[^\n\r]", "")
+        table.insert(self.partials, partial)
+    end
+
+    if self.input:sub(stop_index + 1, stop_index + 1) == "=" then
+        table.insert(self.partials, " ")
+    end
 
     self.last_index = stop_index + 1
 end
@@ -83,10 +97,7 @@ end
 
 function Translator:translate_decl(decl)
     if decl.col_loc then
-        -- Remove the colon but retain any adjacent comment to the right.
-        self:add_whitespace(decl.col_loc.pos, decl.col_loc.pos)
-        -- Remove the type annotation but exclude the next token.
-        self:add_whitespace(decl.type.loc.pos, decl.end_loc.pos - 1)
+        self:add_whitespace(decl.col_loc.pos, decl.end_loc.pos - 1)
     end
 end
 
