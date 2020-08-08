@@ -32,7 +32,7 @@
 const char *pallene_tag_name(int raw_tag);
 
 void pallene_runtime_tag_check_error(
-    lua_State *L, int line, int expected_tag, int received_tag,
+    lua_State *L, const char* file, int line, int expected_tag, int received_tag,
     const char *description_fmt, ...)
     PALLENE_NORETURN;
 
@@ -41,36 +41,28 @@ void pallene_runtime_arity_error(
     PALLENE_NORETURN;
 
 void pallene_runtime_divide_by_zero_error(
-    lua_State *L, int line)
+    lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
 
 void pallene_runtime_mod_by_zero_error(
-    lua_State *L, int line)
-    PALLENE_NORETURN;
-
-int pallene_runtime_record_nonstr_error(
-    lua_State *L, int received_tag)
-    PALLENE_NORETURN;
-
-int pallene_runtime_record_index_error(
-    lua_State *L, const char *key)
+    lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
 
 void pallene_runtime_array_metatable_error(
-    lua_State *L, int line)
+    lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
 
 TString *pallene_string_concatN(
     lua_State *L, size_t n, TString **ss);
 
 void pallene_grow_array(
-    lua_State *L, Table *arr, unsigned int ui, int line);
+    lua_State *L, const char* file, int line, Table *arr, unsigned int ui);
 
 void pallene_io_write(
     lua_State *L, TString *str);
 
 TString* pallene_string_char(
-    lua_State *L, lua_Integer c, int line);
+    lua_State *L, const char* file, int line, lua_Integer c);
 
 TString* pallene_string_sub(
     lua_State *L, TString *str, lua_Integer start, lua_Integer end);
@@ -133,11 +125,12 @@ static inline
 lua_Integer pallene_int_divi(
     lua_State *L,
     lua_Integer m, lua_Integer n,
+    const char* file,
     int line)
 {
     if (l_castS2U(n) + 1u <= 1u) {
         if (n == 0){
-            pallene_runtime_divide_by_zero_error(L, line);
+            pallene_runtime_divide_by_zero_error(L, file, line);
         } else {
             return intop(-, 0, m);
         }
@@ -155,12 +148,14 @@ lua_Integer pallene_int_divi(
 static inline
 lua_Integer pallene_int_modi(
     lua_State *L,
-    lua_Integer m, lua_Integer n,
+    lua_Integer m,
+    lua_Integer n,
+    const char* file,
     int line)
 {
     if (l_castS2U(n) + 1u <= 1u) {
         if (n == 0){
-            pallene_runtime_mod_by_zero_error(L, line);
+            pallene_runtime_mod_by_zero_error(L, file, line);
         } else {
             return 0;
         }
@@ -231,11 +226,12 @@ void pallene_renormalize_array(
     lua_State *L,
     Table *arr,
     lua_Integer i,
+    const char* file,
     int line
 ){
     lua_Unsigned ui = (lua_Unsigned) i - 1;
     if (PALLENE_UNLIKELY(ui >= arr->alimit)) {
-        pallene_grow_array(L, arr, ui, line);
+        pallene_grow_array(L, file, line, arr, ui);
     }
 }
 

@@ -31,6 +31,7 @@ const char *pallene_tag_name(int raw_tag)
 
 void pallene_runtime_tag_check_error(
     lua_State *L,
+    const char* file,
     int line,
     int expected_tag,
     int received_tag,
@@ -43,7 +44,7 @@ void pallene_runtime_tag_check_error(
     /* This code is inspired by luaL_error */
     luaL_where(L, 1);
     if (line > 0) {
-        lua_pushfstring(L, "line %d: ", line);
+        lua_pushfstring(L, "file %s: line %d: ", file, line);
     } else {
         lua_pushfstring(L, "");
     }
@@ -78,41 +79,26 @@ void pallene_runtime_arity_error(
 
 void pallene_runtime_divide_by_zero_error(
     lua_State *L,
+    const char* file,
     int line
 ){
-    luaL_error(L, "attempt to divide by zero at line %d", line);
+    luaL_error(L, "file %s: line %d: attempt to divide by zero", file, line);
     PALLENE_UNREACHABLE;
 }
 
 void pallene_runtime_mod_by_zero_error(
     lua_State *L,
+    const char* file,
     int line
 ){
-    luaL_error(L, "attempt to perform 'n%%0' at line %d", line);
-    PALLENE_UNREACHABLE;
-}
-
-int pallene_runtime_record_nonstr_error(
-    lua_State *L,
-    int received_tag
-){
-    const char *type = pallene_tag_name(received_tag);
-    luaL_error(L, "attempt to access non-string field of type '%s'", type);
-    PALLENE_UNREACHABLE;
-}
-
-int pallene_runtime_record_index_error(
-    lua_State *L,
-    const char *key
-){
-    luaL_error(L, "attempt to access nonexistent field '%s'", key);
+    luaL_error(L, "file %s: line %d: attempt to perform 'n%%0'", file, line);
     PALLENE_UNREACHABLE;
 }
 
 void pallene_runtime_array_metatable_error(
-    lua_State *L, int line
+    lua_State *L, const char* file, int line
 ){
-    luaL_error(L, "arrays in Pallene must not have a metatable. Line %d", line);
+    luaL_error(L, "file %s: line %d: arrays in Pallene must not have a metatable", file, line);
     PALLENE_UNREACHABLE;
 }
 
@@ -155,10 +141,10 @@ TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
 
 /* Grows the table so that it can fit index "i"
  * Our strategy is to grow to the next available power of 2. */
-void pallene_grow_array(lua_State *L, Table *arr, unsigned int ui, int line)
+void pallene_grow_array(lua_State *L, const char* file, int line, Table *arr, unsigned int ui)
 {
     if (ui >= MAXASIZE) {
-        luaL_error(L, "invalid index for Pallene array at line %d", line);
+        luaL_error(L, "file %s: line %d: invalid index for Pallene array", file, line);
     }
 
     /* This loop doesn't overflow because i < MAXASIZE and MAXASIZE is a power of two */
@@ -177,10 +163,10 @@ void pallene_io_write(lua_State *L, TString *str)
     fwrite(s, 1, len, stdout);
 }
 
-TString* pallene_string_char(lua_State *L, lua_Integer c, int line)
+TString* pallene_string_char(lua_State *L, const char* file, int line, lua_Integer c)
 {
     if (l_castS2U(c) > UCHAR_MAX) {
-        luaL_error(L, "char value out of range", line);
+        luaL_error(L, "file %s: line %d: char value out of range", file, line);
     }
 
     char buff[2];
