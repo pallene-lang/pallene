@@ -101,7 +101,7 @@ local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_
     end
 
     local c_code
-    c_code, errs = coder.generate(module, mod_name)
+    c_code, errs = coder.generate(module, mod_name, pallene_filename)
     if not c_code then
         return false, errs
     end

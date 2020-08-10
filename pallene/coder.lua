@@ -15,8 +15,8 @@ local coder = {}
 local Coder
 local RecordCoder
 
-function coder.generate(module, modname)
-    local c = Coder.new(module, modname)
+function coder.generate(module, modname, pallene_filename)
+    local c = Coder.new(module, modname, pallene_filename)
     local code = c:generate_module()
     return code, {}
 end
@@ -48,9 +48,10 @@ end
 --
 
 Coder = util.Class()
-function Coder:init(module, modname)
+function Coder:init(module, modname, filename)
     self.module = module
     self.modname = modname
+    self.filename = filename
 
     self.upvalues = {} -- { coder.Upvalue }
     self.upvalue_of_metatable = {} -- typ  => integer
@@ -196,7 +197,7 @@ end
 local function check_no_metatable(src, loc)
     return (util.render([[
         if ($src->metatable) {
-            pallene_runtime_array_metatable_error(L, $line);
+            pallene_runtime_array_metatable_error(L, PALLENE_SOURCE_FILE, $line);
         }
     ]], {
         src = src,
@@ -228,11 +229,12 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
         check_tag = util.render([[
             if (PALLENE_UNLIKELY(!$test)) {
                 pallene_runtime_tag_check_error(L,
-                    $line, $expected_tag, rawtt($slot),
+                    $file, $line, $expected_tag, rawtt($slot),
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
             test = self:test_tag(typ, slot),
+            file = C.string(loc and loc.file_name or "<anonymous>"),
             line = C.integer(loc and loc.line or 0),
             expected_tag = pallene_type_tag(typ),
             slot = slot,
@@ -967,8 +969,13 @@ gen_cmd["Binop"] = function(self, cmd, _func)
     -- For integer division and modulus:
     local function int_division(fname)
         local line = cmd.loc.line
-        return (util.render([[ $dst = $fname(L, $x, $y, $line); ]], {
-            fname = fname, dst = dst, x = x, y = y, line = C.integer(line) }))
+        return (util.render([[ $dst = $fname(L, $x, $y, PALLENE_SOURCE_FILE, $line); ]], {
+            fname = fname,
+            dst = dst,
+            x = x,
+            y = y,
+            line = C.integer(line)
+        }))
     end
 
     local function flt_divi()
@@ -1130,7 +1137,7 @@ gen_cmd["GetArr"] = function(self, cmd, _func)
 
     return (util.render([[
         {
-            pallene_renormalize_array(L, $arr, $i, $line);
+            pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
             TValue *slot = &$arr->array[$i - 1];
             $get_slot
         }
@@ -1151,7 +1158,7 @@ gen_cmd["SetArr"] = function(self, cmd, _func)
     local line = C.integer(cmd.loc.line)
     return (util.render([[
         {
-            pallene_renormalize_array(L, $arr, $i, $line);
+            pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
             TValue *slot = &$arr->array[$i - 1];
             ${set_heap_slot}
         }
@@ -1350,7 +1357,7 @@ gen_cmd["BuiltinStringChar"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
     local line = cmd.loc.line
-    return util.render([[ $dst = pallene_string_char(L, $v, $line); ]], {
+    return util.render([[ $dst = pallene_string_char(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
@@ -1529,7 +1536,11 @@ function Coder:generate_module()
         /* Indentation and formatting courtesy of pallene/C.lua */
 
         #include "pallene_core.h"
+
     ]])
+    local source_file = C.string(self.filename)
+    local source_file_def = string.format("#define PALLENE_SOURCE_FILE %s\n", source_file)
+    table.insert(out, source_file_def)
 
     table.insert(out, section_comment("Records"))
     for _, typ in ipairs(self.module.record_types) do
