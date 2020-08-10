@@ -97,7 +97,7 @@ function Parser:Toplevel()
         local id    = self:e("NAME")
         local _     = self:e("=")
         local typ   = self:Type()
-        return ast.Toplevel.Typealias(start.loc, id.value, typ, self.next.loc)
+        return ast.Toplevel.Typealias(start.loc, id.value, typ)
 
     elseif self:peek("record") then
         local start  = self:e()
@@ -110,7 +110,7 @@ function Parser:Toplevel()
             table.insert(fields, decl)
         end
         self:e("end", start)
-        return ast.Toplevel.Record(start.loc, id.value, fields, self.next.loc)
+        return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else
         local visibility
@@ -126,9 +126,7 @@ function Parser:Toplevel()
             local oparen   = self:e("(")
             local params   = self:DeclList()
             local _        = self:e(")", oparen)
-            local rt_colon = self.next.loc
             local rt_types = self:try(":") and self:RetTypes() or {}
-            local rt_end   = self.next.loc
             local block    = self:Block()
             local _        = self:e("end", start)
 
@@ -152,9 +150,8 @@ function Parser:Toplevel()
 
             return ast.Toplevel.Func(
                 visibility.loc, visibility.name,
-                ast.Decl.Decl(visibility.loc, id.value, false, func_typ, false),
-                ast.Exp.Lambda(visibility.loc, params, block),
-                rt_colon, rt_end)
+                ast.Decl.Decl(visibility.loc, id.value, func_typ),
+                ast.Exp.Lambda(visibility.loc, params, block))
 
         elseif self:peek("NAME") then
             local decls = self:DeclList(); assert(#decls > 0)
@@ -285,9 +282,9 @@ function Parser:Decl()
     if self:peek(":") then
         local colon = self:e()
         local typ   = self:Type()
-        return ast.Decl.Decl(id.loc, id.value, colon.loc, typ, self.next.loc)
+        return ast.Decl.Decl(id.loc, id.value, typ)
     else
-        return ast.Decl.Decl(id.loc, id.value, false, false, false)
+        return ast.Decl.Decl(id.loc, id.value, false)
     end
 end
 
@@ -580,7 +577,7 @@ function Parser:CastExp()
     while self:peek("as") do
         local op  = self:e()
         local typ = self:Type()
-        exp = ast.Exp.Cast(op.loc, exp, typ, self.next.loc)
+        exp = ast.Exp.Cast(op.loc, exp, typ)
     end
     return exp
 end

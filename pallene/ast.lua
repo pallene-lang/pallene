@@ -25,14 +25,14 @@ declare_type("Type", {
 })
 
 declare_type("Toplevel", {
-    Func      = {"loc", "visibility", "decl", "value", "rt_col_loc", "rt_end_loc"},
+    Func      = {"loc", "visibility", "decl", "value"},
     Var       = {"loc", "visibility", "decls", "values"},
-    Typealias = {"loc", "name", "type", "end_loc"},
-    Record    = {"loc", "name", "field_decls", "end_loc"},
+    Typealias = {"loc", "name", "type",},
+    Record    = {"loc", "name", "field_decls"},
 })
 
 declare_type("Decl", {
-    Decl = {"loc", "name", "col_loc", "type", "end_loc"},
+    Decl = {"loc", "name", "type"},
 })
 
 declare_type("Stat", {
@@ -68,7 +68,7 @@ declare_type("Exp", {
     Var        = {"loc", "var"},
     Unop       = {"loc", "op", "exp"},
     Binop      = {"loc", "lhs", "op", "rhs"},
-    Cast       = {"loc", "exp", "target", "target_end_loc"},
+    Cast       = {"loc", "exp", "target"},
     Paren      = {"loc", "exp"},
     ExtraRet   = {"loc", "call_exp", "i"}, -- Inserted by checker.lua
     ToFloat    = {"loc", "exp"},           -- Inserted by checker.lua
