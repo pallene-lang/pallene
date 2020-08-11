@@ -47,7 +47,7 @@ end
 
 local function assert_program_ast(program_str, expected_ast)
     local prog_ast = assert_parses_successfuly(program_str)
-    assert_is_subset(expected_ast, prog_ast)
+    assert_is_subset(expected_ast, prog_ast.tls)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
@@ -73,7 +73,7 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast[1].decls[1].type
+    local type_ast = program_ast.tls[1].decls[1].type
     assert_is_subset(expected_ast, type_ast)
 end
 
@@ -97,7 +97,7 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast[1].value.body.stats[1].exps[1]
+    local exp_ast = program_ast.tls[1].value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -121,7 +121,7 @@ end
 local function assert_statements_ast(code, expected_ast)
     local program_str = statements_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local stats_ast = program_ast[1].value.body.stats
+    local stats_ast = program_ast.tls[1].value.body.stats
     assert_is_subset(expected_ast, stats_ast)
 end
 
@@ -153,7 +153,7 @@ describe("Pallene parser", function()
     it("can parse programs starting with whitespace or comments", function()
         -- This is easy to get wrong in hand-written LPeg grammars...
         local prog_ast = assert_parses_successfuly("--hello\n--bla\n  ")
-        assert.are.same({}, prog_ast)
+        assert.are.same({}, prog_ast.tls)
     end)
 
     it("can parse toplevel var declarations", function()

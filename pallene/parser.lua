@@ -18,6 +18,7 @@ function Parser:init(lexer)
     self.next = false -- Token
     self.look = false -- Token
     self.regions = {} -- Sequence of sequence
+    self.region_depth = 0
     self:_advance(); self:_advance()
 end
 
@@ -80,26 +81,22 @@ function Parser:loop_end()
     self.loop_depth = self.loop_depth - 1
 end
 
-function Parser:is_inside_region()
-    local result = false
-    if #self.regions > 0 then
-        local region = self.regions[#self.regions]
-        result = not region[2]
-    end
-    return result
-end
-
 -- The ranges are inclusive.
 function Parser:region_begin()
-    if not self:is_inside_region() then
+    if self.region_depth == 0 then
         table.insert(self.regions, { self.next.loc.pos, false })
     end
+    self.region_depth = self.region_depth + 1
 end
 
 function Parser:region_end()
-    assert(self:is_inside_region())
-    local region = self.regions[#self.regions]
-    region[2] = self.next.loc.pos - 1
+    assert(self.region_depth > 0)
+    self.region_depth = self.region_depth - 1
+    if self.region_depth == 0 then
+        local region = self.regions[#self.regions]
+        region[2] = self.next.loc.pos - 1
+    end
+
 end
 
 --
@@ -111,7 +108,10 @@ function Parser:Program()
     while not self:peek("EOF") do
         table.insert(tls, self:Toplevel())
     end
-    return tls
+    return {
+        tls = tls,
+        regions = self.regions
+    }
 end
 
 function Parser:Toplevel()
@@ -125,6 +125,7 @@ function Parser:Toplevel()
         return ast.Toplevel.Typealias(start.loc, id.value, typ)
 
     elseif self:peek("record") then
+        self:region_begin()
         local start  = self:e()
         local id     = self:e("NAME")
         local fields = {}
@@ -135,7 +136,7 @@ function Parser:Toplevel()
             table.insert(fields, decl)
         end
         self:e("end", start)
-        self:mark_region(start, self.next)
+        self:region_end()
         return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else

@@ -44,7 +44,7 @@ local Checker = util.Class()
 -- On failure, returns false and a list of compilation errors
 function checker.check(prog_ast)
     local co = coroutine.create(function()
-        return Checker.new():check_program(prog_ast)
+        return Checker.new():check_program(prog_ast.tls)
     end)
     local ok, value = coroutine.resume(co)
     if ok then
