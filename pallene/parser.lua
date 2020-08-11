@@ -17,6 +17,7 @@ function Parser:init(lexer)
     self.loop_depth = 0
     self.next = false -- Token
     self.look = false -- Token
+    self.regions = {} -- Sequence of tables
     self:_advance(); self:_advance()
 end
 

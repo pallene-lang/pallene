@@ -267,7 +267,13 @@ function Lexer:next()
             return false, val
         end
         if name ~= "SPACE" and name ~= "COMMENT" then
-            return { name = name, value = val, loc = loc }
+            local end_loc = self:loc()
+            return {
+                name = name,
+                value = val,
+                loc = loc,
+                end_loc = end_loc
+            }
         end
     end
 end
