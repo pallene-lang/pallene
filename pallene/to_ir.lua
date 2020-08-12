@@ -21,7 +21,8 @@ typedecl.declare(to_ir, "to_ir", "LHS", {
 local ToIR = util.Class()
 
 function to_ir.convert(prog_ast)
-    local module = ToIR.new():convert_toplevel(prog_ast)
+    assert(prog_ast._tag == "ast.Program.Program")
+    local module = ToIR.new():convert_toplevel(prog_ast.tls)
     ir.clean_all(module)
     return module, {}
 end

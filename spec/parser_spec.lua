@@ -45,9 +45,15 @@ local function assert_parses_successfuly(program_str)
     return prog_ast
 end
 
-local function assert_program_ast(program_str, expected_ast)
+local function assert_program_ast(program_str, expected_tls)
+    local expected_ast = {
+        _tag = "ast.Program.Program",
+        tls = expected_tls,
+        regions = {},
+        comment_regions = {}
+    }
     local prog_ast = assert_parses_successfuly(program_str)
-    assert_is_subset(expected_ast, prog_ast.tls)
+    assert_is_subset(expected_ast, prog_ast)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
@@ -795,7 +801,12 @@ describe("Pallene parser", function()
     end)
 
     it("can parse the record field optional separator", function()
-        local expected_ast = {{ field_decls = { { name = "x" }, { name = "y" } } }}
+        local expected_ast = { {
+            field_decls = {
+                { name = "x" },
+                { name = "y" }
+            }
+        } }
 
         assert_program_ast([[
             record Point x: float y: float end

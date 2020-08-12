@@ -11,6 +11,10 @@ local function declare_type(type_name, cons)
     typedecl.declare(ast, "ast", type_name, cons)
 end
 
+declare_type("Program", {
+    Program = {"tls", "regions", "comment_regions"}
+})
+
 declare_type("Type", {
     Nil      = {"loc"},
     Boolean  = {"loc"},

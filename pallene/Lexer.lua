@@ -75,6 +75,7 @@ function Lexer:init(file_name, input)
     self.line      = 1          -- Line number for error messages
     self.col       = 1          -- Column number for error messages
     self.matched   = false      -- Last matched substring
+    self.comment_regions = {}   -- The ranges where comments span
 end
 
 function Lexer:loc()
@@ -267,8 +268,10 @@ function Lexer:next()
             return false, val
         end
 
-        if name ~= "SPACE" then
-            local end_loc = self:loc()
+        local end_loc = self:loc()
+        if name == "COMMENT" then
+            table.insert(self.comment_regions, { loc.pos, end_loc.pos - 1 })
+        elseif name ~= "SPACE" then
             return {
                 name = name,
                 value = val,

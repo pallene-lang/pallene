@@ -14,26 +14,18 @@ local Parser = util.Class()
 
 function Parser:init(lexer)
     self.lexer = lexer
-    self.loop_depth = 0
     self.next = false -- Token
     self.look = false -- Token
-    self.regions = {} -- Sequence of sequence
-    self.comment_regions = {} -- Sequence of sequence
-    self.region_depth = 0
     self:_advance(); self:_advance()
+    self.loop_depth = 0
+    self.region_depth = 0
+    self.regions = {} -- Sequence of pairs. Contains the ranges where type annotations span.
 end
 
 function Parser:_advance()
     local tok, err = self.lexer:next()
     if not tok then
         self:syntax_error(self.lexer:loc(), "%s", err)
-    end
-
-    if tok.name == "COMMENT" then
-        -- For a comment, `end_loc.pos` points at the starting position of the next token.
-        -- Therefore, we subtract 1 from the position to adjust this anamoly.
-        table.insert(self.comment_regions, { tok.loc.pos, tok.end_loc.pos - 1 })
-        return self:_advance()
     end
 
     local ret = self.next
@@ -90,7 +82,9 @@ function Parser:loop_end()
     self.loop_depth = self.loop_depth - 1
 end
 
--- The ranges are inclusive.
+-- The region_begin() and region_end() methods are used to mark the regions which the Pallene to Lua
+-- translator removes. The regions are packaged as part of the AST. The ranges of the regions are
+-- inclusive.
 function Parser:region_begin()
     if self.region_depth == 0 then
         table.insert(self.regions, { self.next.loc.pos, false })
@@ -116,11 +110,7 @@ function Parser:Program()
     while not self:peek("EOF") do
         table.insert(tls, self:Toplevel())
     end
-    return {
-        tls = tls,
-        regions = self.regions,
-        comment_regions = self.comment_regions
-    }
+    return ast.Program.Program(tls, self.regions, self.lexer.comment_regions)
 end
 
 function Parser:Toplevel()
@@ -166,7 +156,7 @@ function Parser:Toplevel()
             local _        = self:e(")", oparen)
 
             local rt_types = {}
-            if self.next.name == ":" then
+            if self:peek(":") then
                 self:region_begin()
                 self:e()
                 rt_types = self:RetTypes()
