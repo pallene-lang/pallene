@@ -18,6 +18,7 @@ function Parser:init(lexer)
     self.next = false -- Token
     self.look = false -- Token
     self.regions = {} -- Sequence of sequence
+    self.comment_regions = {} -- Sequence of sequence
     self.region_depth = 0
     self:_advance(); self:_advance()
 end
@@ -27,6 +28,14 @@ function Parser:_advance()
     if not tok then
         self:syntax_error(self.lexer:loc(), "%s", err)
     end
+
+    if tok.name == "COMMENT" then
+        -- For a comment, `end_loc.pos` points at the starting position of the next token.
+        -- Therefore, we subtract 1 from the position to adjust this anamoly.
+        table.insert(self.comment_regions, { tok.loc.pos, tok.end_loc.pos - 1 })
+        return self:_advance()
+    end
+
     local ret = self.next
     self.next = self.look
     self.look = tok
@@ -109,7 +118,8 @@ function Parser:Program()
     end
     return {
         tls = tls,
-        regions = self.regions
+        regions = self.regions,
+        comment_regions = self.comment_regions
     }
 end
 

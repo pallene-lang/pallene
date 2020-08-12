@@ -89,8 +89,8 @@ local function print_tokens(file_name)
             if token.value then
                 value = string.format(" (%s)", token.value)
             end
-            local s = string.format("%d:%d-%d:%d %s%s", loc.line, loc.col,
-                end_loc.line, end_loc.col, token.name, value)
+            local s = string.format("%d:%d,%d:%d,%d:%d %s%s", loc.line, loc.col,
+                end_loc.line, end_loc.col, loc.pos, end_loc.pos, token.name, value)
             print(s)
             token = lexer:next()
         end

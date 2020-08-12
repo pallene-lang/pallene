@@ -266,7 +266,8 @@ function Lexer:next()
         if not name then
             return false, val
         end
-        if name ~= "SPACE" and name ~= "COMMENT" then
+
+        if name ~= "SPACE" then
             local end_loc = self:loc()
             return {
                 name = name,
