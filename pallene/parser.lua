@@ -96,7 +96,6 @@ function Parser:region_end()
         local region = self.regions[#self.regions]
         region[2] = self.next.loc.pos - 1
     end
-
 end
 
 --
@@ -142,7 +141,9 @@ function Parser:Toplevel()
     else
         local visibility
         if self:peek("local") or self:peek("export") then
+            self:region_begin()
             visibility = self:e()
+            self:region_end()
         else
             visibility = false
         end
@@ -316,7 +317,7 @@ function Parser:Decl()
     local id = self:e("NAME")
     if self:peek(":") then
         self:region_begin()
-        local colon = self:e()
+        local _ = self:e()
         local typ   = self:Type()
         self:region_end()
         return ast.Decl.Decl(id.loc, id.value, typ)
@@ -612,8 +613,8 @@ end
 function Parser:CastExp()
     local exp = self:SimpleExp()
     while self:peek("as") do
-        local op = self:e()
         self:region_begin()
+        local op = self:e()
         local typ = self:Type()
         self:region_end()
         exp = ast.Exp.Cast(op.loc, exp, typ)

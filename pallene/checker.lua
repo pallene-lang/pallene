@@ -49,8 +49,8 @@ function checker.check(prog_ast)
     local ok, value = coroutine.resume(co)
     if ok then
         if coroutine.status(co) == "dead" then
-            prog_ast = value
-            return prog_ast, {}
+            local new_prog_ast = value
+            return { tls = new_prog_ast, regions = prog_ast.regions }, {}
         else
             local compiler_error_msg = value
             return false, { compiler_error_msg }

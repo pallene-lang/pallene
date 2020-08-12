@@ -65,7 +65,7 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     end
 
     local module
-    module, errs = to_ir.convert(prog_ast)
+    module, errs = to_ir.convert(prog_ast.tls)
     if stop_after == "ir" or not module then
         return module, errs
     end

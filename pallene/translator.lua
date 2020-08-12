@@ -48,7 +48,7 @@ function Translator:add_previous(stop_index)
     self.last_index = stop_index + 1
 end
 
-function Translator:add_whitespace(start_index, stop_index)
+function Translator:erase_region(start_index, stop_index)
     assert(self.last_index <= start_index)
     assert(start_index <= stop_index + 1)
     self:add_previous(start_index - 1)
@@ -284,16 +284,34 @@ end
 function Translator:add_forward_declarations(prog_ast)
     table.insert(self.partials, "local string_ = string;")
 
-    local functions = {}
-    for _, node in ipairs(prog_ast) do
-        if node._tag == "ast.Toplevel.Func" then
-            table.insert(functions, node.decl.name)
+    local names = {}
+    for _, node in ipairs(prog_ast.tls) do
+        -- Build the exports and forward declaration table.
+        if node._tag == "ast.Toplevel.Var" then
+            -- Add the variables to the export sequence if they are declared with the `export`
+            -- modifier.
+            if node.visibility == "export" then
+                for _, decl in ipairs(node.decls) do
+                    table.insert(self.exports, decl.name)
+                end
+            end
+
+            for _, decl in ipairs(node.decls) do
+                table.insert(names, decl.name)
+            end
+        elseif node._tag == "ast.Toplevel.Func" then
+            local name = node.decl.name
+            table.insert(names, name)
+
+            if node.visibility == "export" then
+                table.insert(self.exports, name)
+            end
         end
     end
 
-    if #functions > 0 then
+    if #names > 0 then
         table.insert(self.partials, "local ")
-        table.insert(self.partials, table.concat(functions, ", "))
+        table.insert(self.partials, table.concat(names, ", "))
         table.insert(self.partials, ";")
     end
 end
@@ -302,8 +320,8 @@ function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
 
     instance:add_forward_declarations(prog_ast)
-    for _, node in ipairs(prog_ast) do
-        instance:translate_toplevel(node)
+    for _, region in ipairs(prog_ast.regions) do
+        instance:erase_region(region[1], region[2])
     end
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
