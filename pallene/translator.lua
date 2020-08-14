@@ -127,7 +127,7 @@ function translator.translate(input, prog_ast)
     -- regions, not crossing the boundaries.
     local j = 1
     local comments = prog_ast.comment_regions
-    for _, region in ipairs(prog_ast.regions) do
+    for _, region in ipairs(prog_ast.type_regions) do
         local start_index = region[1]
         local end_index   = region[2]
 
