@@ -101,9 +101,7 @@ local function dump(filename, stop_after)
     end
 
     if stop_after == "lexer" then
-        local lexer = out
-        lexer.return_comments = true
-        print_tokens(lexer)
+        print_tokens(out)
     else
         print(inspect(out, inspect_opts))
         print(string.format("Exit after %s step", stop_after))
