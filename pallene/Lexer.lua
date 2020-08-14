@@ -76,6 +76,7 @@ function Lexer:init(file_name, input)
     self.col       = 1          -- Column number for error messages
     self.matched   = false      -- Last matched substring
     self.comment_regions = {}   -- The ranges where comments span
+    self.return_comments = false -- Set this to true to also return comment tokens
 end
 
 function Lexer:loc()
@@ -274,7 +275,7 @@ function Lexer:next()
         if name == "COMMENT" then
             table.insert(self.comment_regions, { loc.pos, end_pos })
         end
-    until not (name == "SPACE" or name == "COMMENT")
+    until name ~= "SPACE" and (name ~= "COMMENT" or self.return_comments)
 
     return {
         name = name,
