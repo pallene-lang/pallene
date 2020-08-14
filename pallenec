@@ -81,7 +81,7 @@ local function print_tokens(lexer)
         else
             value = ""
         end
-        print(string.format("%d:%d %d-%d %s%s",
+        print(string.format("%02d:%02d %d-%d %s%s",
             token.loc.line, token.loc.col, token.loc.pos, token.end_pos, token.name, value))
     end
 end
