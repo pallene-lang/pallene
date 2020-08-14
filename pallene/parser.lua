@@ -14,10 +14,12 @@ local Parser = util.Class()
 
 function Parser:init(lexer)
     self.lexer = lexer
-    self.loop_depth = 0
     self.next = false -- Token
     self.look = false -- Token
     self:_advance(); self:_advance()
+    self.loop_depth = 0
+    self.region_depth = 0
+    self.regions = {} -- Sequence of pairs. Contains the ranges where type annotations span.
 end
 
 function Parser:_advance()
@@ -25,6 +27,7 @@ function Parser:_advance()
     if not tok then
         self:syntax_error(self.lexer:loc(), "%s", err)
     end
+
     local ret = self.next
     self.next = self.look
     self.look = tok
@@ -79,6 +82,25 @@ function Parser:loop_end()
     self.loop_depth = self.loop_depth - 1
 end
 
+-- The region_begin() and region_end() methods are used to mark the regions which the Pallene to Lua
+-- translator removes. The regions are packaged as part of the AST. The ranges of the regions are
+-- inclusive.
+function Parser:region_begin()
+    if self.region_depth == 0 then
+        table.insert(self.regions, { self.next.loc.pos, false })
+    end
+    self.region_depth = self.region_depth + 1
+end
+
+function Parser:region_end()
+    assert(self.region_depth > 0)
+    self.region_depth = self.region_depth - 1
+    if self.region_depth == 0 then
+        local region = self.regions[#self.regions]
+        region[2] = self.next.loc.pos - 1
+    end
+end
+
 --
 -- Toplevel
 --
@@ -88,18 +110,21 @@ function Parser:Program()
     while not self:peek("EOF") do
         table.insert(tls, self:Toplevel())
     end
-    return tls
+    return ast.Program.Program(tls, self.regions, self.lexer.comment_regions)
 end
 
 function Parser:Toplevel()
     if self:peek("typealias") then
+        self:region_begin()
         local start = self:e()
         local id    = self:e("NAME")
         local _     = self:e("=")
         local typ   = self:Type()
-        return ast.Toplevel.Typealias(start.loc, id.value, typ, self.next.loc)
+        self:region_end()
+        return ast.Toplevel.Typealias(start.loc, id.value, typ)
 
     elseif self:peek("record") then
+        self:region_begin()
         local start  = self:e()
         local id     = self:e("NAME")
         local fields = {}
@@ -110,12 +135,15 @@ function Parser:Toplevel()
             table.insert(fields, decl)
         end
         self:e("end", start)
-        return ast.Toplevel.Record(start.loc, id.value, fields, self.next.loc)
+        self:region_end()
+        return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else
         local visibility
         if self:peek("local") or self:peek("export") then
+            self:region_begin()
             visibility = self:e()
+            self:region_end()
         else
             visibility = false
         end
@@ -126,9 +154,15 @@ function Parser:Toplevel()
             local oparen   = self:e("(")
             local params   = self:DeclList()
             local _        = self:e(")", oparen)
-            local rt_colon = self.next.loc
-            local rt_types = self:try(":") and self:RetTypes() or {}
-            local rt_end   = self.next.loc
+
+            local rt_types = {}
+            if self:peek(":") then
+                self:region_begin()
+                self:e()
+                rt_types = self:RetTypes()
+                self:region_end()
+            end
+
             local block    = self:Block()
             local _        = self:e("end", start)
 
@@ -152,9 +186,8 @@ function Parser:Toplevel()
 
             return ast.Toplevel.Func(
                 visibility.loc, visibility.name,
-                ast.Decl.Decl(visibility.loc, id.value, false, func_typ, false),
-                ast.Exp.Lambda(visibility.loc, params, block),
-                rt_colon, rt_end)
+                ast.Decl.Decl(visibility.loc, id.value, func_typ),
+                ast.Exp.Lambda(visibility.loc, params, block))
 
         elseif self:peek("NAME") then
             local decls = self:DeclList(); assert(#decls > 0)
@@ -283,11 +316,13 @@ end
 function Parser:Decl()
     local id = self:e("NAME")
     if self:peek(":") then
-        local colon = self:e()
+        self:region_begin()
+        local _ = self:e()
         local typ   = self:Type()
-        return ast.Decl.Decl(id.loc, id.value, colon.loc, typ, self.next.loc)
+        self:region_end()
+        return ast.Decl.Decl(id.loc, id.value, typ)
     else
-        return ast.Decl.Decl(id.loc, id.value, false, false, false)
+        return ast.Decl.Decl(id.loc, id.value, false)
     end
 end
 
@@ -578,9 +613,11 @@ end
 function Parser:CastExp()
     local exp = self:SimpleExp()
     while self:peek("as") do
-        local op  = self:e()
+        self:region_begin()
+        local op = self:e()
         local typ = self:Type()
-        exp = ast.Exp.Cast(op.loc, exp, typ, self.next.loc)
+        self:region_end()
+        exp = ast.Exp.Cast(op.loc, exp, typ)
     end
     return exp
 end

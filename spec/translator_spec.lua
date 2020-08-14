@@ -70,7 +70,7 @@ local function print_hello()
 end
 ]],
 [[
-local print_hello;local i = 10
+local i, print_hello;i = 10
 function print_hello()
     -- This is a comment.
     -- This is another line comment.
@@ -85,7 +85,7 @@ end
 local xs: integer = 10
 ]],
 [[
-local xs = 10
+local xs;xs = 10
 ]])
     end)
 
@@ -95,7 +95,7 @@ local xs = 10
 local a: integer, b: integer, c: string = 5, 3, 'Marshall Mathers'
 ]],
 [[
-local a, b, c = 5, 3, 'Marshall Mathers'
+local a, b, c;a, b, c = 5, 3, 'Marshall Mathers'
 ]])
     end)
 
@@ -106,7 +106,7 @@ local xs:
     integer = 10
 ]],
 [[
-local xs
+local xs;xs
  = 10
 ]])
     end)
@@ -119,7 +119,7 @@ local a: {
 } = { 5, 3, 19 }
 ]],
 [[
-local a
+local a;a
 
  = { 5, 3, 19 }
 ]])
@@ -128,13 +128,13 @@ local a
     it("Keep tabs that appear in a top-level variable type annotation", function ()
         assert_translation(
             "local xs:\tinteger = 10\n",
-            "local xs = 10\n")
+            "local xs;xs = 10\n")
     end)
 
     it("Keep return carriages that appear in a top-level variable type annotation", function ()
         assert_translation(
             "local xs:\rinteger = 10\n",
-            "local xs\r = 10\n")
+            "local xs;xs\r = 10\n")
     end)
 
     it("Keep newlines that appear after colons in top-level variable type annotations", function ()
@@ -146,7 +146,7 @@ local a:
             integer = 53, 'Madyanam', 19
 ]],
 [[
-local a
+local a, b, c;a
 , b
 , c
  = 53, 'Madyanam', 19
@@ -160,7 +160,7 @@ local xs: -- This is a comment.
     integer = 10
 ]],
 [[
-local xs
+local xs;xs
  = 10
 ]])
     end)
@@ -345,7 +345,7 @@ end
 export i: integer = 0
 ]],
 [[
-local  i = 0
+local i;i = 0
 
 return {
     i = i,
@@ -378,7 +378,7 @@ export function f()
 end
 ]],
 [[
-local f;local  i = 0
+local i, f;i = 0
 
 function f()
 end
@@ -404,7 +404,7 @@ end
 local j: { integer } = { 1, 2, 3 }
 ]],
 [[
-local a, s;local  i = 0
+local i, a, s, j;i = 0
 
 function a()
 end
@@ -412,7 +412,7 @@ end
 function s()
 end
 
-local j = { 1, 2, 3 }
+j = { 1, 2, 3 }
 
 return {
     i = i,
@@ -452,7 +452,7 @@ local function f(x: any, y: any): any
 end
 ]],
 [[
-local f;local xs = {10, "hello", 3.14}
+local xs, f;xs = {10, "hello", 3.14}
 
 function f(x, y)
 end
@@ -484,12 +484,12 @@ local i: any = 1
 local p: point = { x = i as integer, y = i as integer }
 ]],
 [[
+local i, p;
 
 
 
-
-local i = 1
-local p = { x = i , y = i }
+i = 1
+p = { x = i , y = i }
 ]])
     end)
 
@@ -500,8 +500,8 @@ local i: any = 1
 local j: integer = i as integer
 ]],
 [[
-local i = 1
-local j = i 
+local i, j;i = 1
+j = i 
 ]])
     end)
 
@@ -513,9 +513,9 @@ local j: integer = i as integer
 local k: integer = (j as integer) + 1
 ]],
 [[
-local i = 1
-local j = i 
-local k = (j ) + 1
+local i, j, k;i = 1
+j = i 
+k = (j ) + 1
 ]])
     end)
 
@@ -530,7 +530,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     if k then
@@ -551,7 +551,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     if true then
@@ -575,7 +575,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     if false then
@@ -601,7 +601,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     if false then
@@ -627,7 +627,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     if false then
@@ -651,7 +651,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     repeat
@@ -673,7 +673,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     repeat
@@ -695,7 +695,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     for j = k , k + 10, k do
@@ -717,7 +717,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     for j = 1, 10 do
@@ -737,7 +737,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     k, k = k , k 
@@ -755,7 +755,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     k = ((k ) )
@@ -773,7 +773,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = 1
+local k, f;k = 1
 
 function f()
     local j = k 
@@ -791,7 +791,7 @@ local function f()
 end
 ]],
 [[
-local f;local k = "Madyanam"
+local k, f;k = "Madyanam"
 
 function f()
     io.write(k )
@@ -810,8 +810,8 @@ local function get_names(): (string, string)
 end
 ]],
 [[
-local get_names;local name1 = "Anushka"
-local name2 = "Samuel"
+local name1, name2, get_names;name1 = "Anushka"
+name2 = "Samuel"
 
 function get_names()
     return name1 , name2 
@@ -887,7 +887,7 @@ end
 local x = (1 + 2) * (100 / 30)
 ]],
 [[
-local x = (1 + 2) * (100 / 30)
+local x;x = (1 + 2) * (100 / 30)
 ]])
     end)
 

@@ -6,6 +6,7 @@ local inspect = require "inspect"
 local driver = require "pallene.driver"
 local print_ir = require "pallene.print_ir"
 local util = require "pallene.util"
+local C = require "pallene.C"
 
 --
 -- Command-line options
@@ -63,15 +64,45 @@ local inspect_opts = {
     end
 }
 
+local function print_tokens(lexer)
+    while true do
+        local token = lexer:next()
+        if token.name == "EOF" then
+            break
+        end
+
+        local loc = token.loc
+        local end_loc = token.end_loc
+        local value
+        if token.value then
+            if type(token.value) == "string" then
+                value = " " .. C.string(token.value)
+            else
+                value = " " .. tostring(token.value)
+            end
+        else
+            value = ""
+        end
+        print(string.format("%d:%d-%d:%d %d-%d %s%s", loc.line, loc.col,
+            end_loc.line, end_loc.col, loc.pos, end_loc.pos, token.name, value))
+    end
+end
+
 local function dump(filename, stop_after)
     local input, err = driver.load_input(filename)
     if err then util.abort(err) end
 
     local out, errs = driver.compile_internal(filename, input, stop_after, opt_level)
-    if not out then util.abort(table.concat(errs, "\n")) end
+    if not out then
+        util.abort(table.concat(errs, "\n"))
+    end
 
-    print(inspect(out, inspect_opts))
-    print(string.format("Exit after %s step", stop_after))
+    if stop_after == "lexer" then
+        print_tokens(out)
+    else
+        print(inspect(out, inspect_opts))
+        print(string.format("Exit after %s step", stop_after))
+    end
 end
 
 local function pretty_print_ir(filename)

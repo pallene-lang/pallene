@@ -226,7 +226,8 @@ local letrec_groups = {
 }
 
 function Checker:check_program(prog_ast)
-
+    assert(prog_ast._tag == "ast.Program.Program")
+    local tls = prog_ast.tls
     do
         -- Forbid top-level duplicates
         --
@@ -234,7 +235,7 @@ function Checker:check_program(prog_ast)
         -- multiple toplevel entities with the same name, we give a compilation
         -- error.
         local names = {}
-        for _, top_level_node in ipairs(prog_ast) do
+        for _, top_level_node in ipairs(tls) do
             local top_level_names = ast.toplevel_names(top_level_node)
             local node_location = top_level_node.loc
             for _, name in ipairs(top_level_names) do
@@ -261,16 +262,16 @@ function Checker:check_program(prog_ast)
     local tl_groups = {}
     do
         local i = 1
-        local N = #prog_ast
+        local N = #tls
         while i <= N do
-            local node1 = prog_ast[i]
+            local node1 = tls[i]
             local tag1  = node1._tag
             assert(letrec_groups[tag1])
 
             local group = { node1 }
             local j = i + 1
             while j <= N do
-                local node2 = prog_ast[j]
+                local node2 = tls[j]
                 local tag2  = node2._tag
                 assert(letrec_groups[tag2])
 
@@ -960,7 +961,7 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
         if types.equals(found_type, expected_type) then
             return exp
         elseif types.consistent(found_type, expected_type) then
-            local cast = ast.Exp.Cast(exp.loc, exp, false, false)
+            local cast = ast.Exp.Cast(exp.loc, exp, false)
             cast._type = expected_type
             return cast
         else
