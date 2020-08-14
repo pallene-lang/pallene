@@ -49,7 +49,7 @@ local function assert_program_ast(program_str, expected_tls)
     local expected_ast = {
         _tag = "ast.Program.Program",
         tls = expected_tls,
-        regions = {},
+        type_regions = {},
         comment_regions = {}
     }
     local prog_ast = assert_parses_successfuly(program_str)

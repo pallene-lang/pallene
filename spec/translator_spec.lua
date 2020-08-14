@@ -160,12 +160,29 @@ local xs: -- This is a comment.
     integer = 10
 ]],
 [[
-local xs;xs
+local xs;xs-- This is a comment.
  = 10
 ]])
     end)
 
-    pending("Keep comments that appear inside in a top-level variable type annotation", function ()
+    it("Keep comments that appear outside type annotations", function ()
+        assert_translation([[
+-- Knock knock
+local x: { -- Who's there?
+    integer -- Baby Yoda
+} = { 5, 3, 19 } -- Baby Yoda who?
+-- Baby Yoda one for me. XD
+]],
+[[
+local x;-- Knock knock
+x-- Who's there?
+-- Baby Yoda
+ = { 5, 3, 19 } -- Baby Yoda who?
+-- Baby Yoda one for me. XD
+]])
+    end)
+
+    it("Keep comments that appear inside in a top-level variable type annotation", function ()
         assert_translation(
 [[
 local xs: { -- This is a comment.
@@ -173,9 +190,9 @@ local xs: { -- This is a comment.
 } = { 5, 3, 19 }
 ]],
 [[
-local xs    -- This is a comment.
-            -- This is another comment.
-    = { 5, 3, 19 }
+local xs;xs-- This is a comment.
+-- This is another comment.
+ = { 5, 3, 19 }
 ]])
     end)
 
