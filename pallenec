@@ -66,13 +66,16 @@ local inspect_opts = {
 
 local function print_tokens(lexer)
     while true do
-        local token = lexer:next()
+        local token, err = lexer:next()
+        if not token then
+            local loc = lexer:loc()
+            print(string.format("%02d:%02d ERROR %s", loc.line, loc.col, err))
+            break
+        end
         if token.name == "EOF" then
             break
         end
 
-        local loc = token.loc
-        local end_loc = token.end_loc
         local value
         if token.value then
             if type(token.value) == "string" then
@@ -83,8 +86,8 @@ local function print_tokens(lexer)
         else
             value = ""
         end
-        print(string.format("%d:%d-%d:%d %d-%d %s%s", loc.line, loc.col,
-            end_loc.line, end_loc.col, loc.pos, end_loc.pos, token.name, value))
+        print(string.format("%02d:%02d %d-%d %s%s",
+            token.loc.line, token.loc.col, token.loc.pos, token.end_pos, token.name, value))
     end
 end
 

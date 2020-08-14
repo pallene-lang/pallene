@@ -75,7 +75,6 @@ function Lexer:init(file_name, input)
     self.line      = 1          -- Line number for error messages
     self.col       = 1          -- Column number for error messages
     self.matched   = false      -- Last matched substring
-    self.comment_regions = {}   -- The ranges where comments span
 end
 
 function Lexer:loc()
@@ -212,10 +211,11 @@ function Lexer:_next()
         if self:try(longstring_open) then
             local s, err = self:read_long_string(#self.matched, "long comment")
             if not s then return false, err end
+            return "COMMENT", s
         else
             self:try(comment_line)
+            return "COMMENT", self.matched
         end
-        return "COMMENT"
 
     elseif self:try(string_delimiter) then
         local s, err = self:read_short_string(self.matched)
@@ -261,25 +261,23 @@ end
 -- Success: returns a table containing token name, semantic value, start location
 -- Failure: returns false, error message
 function Lexer:next()
-    while true do
-        local loc = self:loc()
-        local name, val = self:_next()
-        if not name then
-            return false, val
-        end
 
-        local end_loc = self:loc()
-        if name == "COMMENT" then
-            table.insert(self.comment_regions, { loc.pos, end_loc.pos - 1 })
-        elseif name ~= "SPACE" then
-            return {
-                name = name,
-                value = val,
-                loc = loc,
-                end_loc = end_loc
-            }
+    local loc, name, value, end_pos
+    repeat
+        loc = self:loc()
+        name, value = self:_next()
+        end_pos = self.pos - 1
+        if not name then
+            return false, value
         end
-    end
+    until name ~= "SPACE"
+
+    return {
+        name = name,
+        value = value,
+        loc = loc,
+        end_pos = end_pos,
+    }
 end
 
 return Lexer
