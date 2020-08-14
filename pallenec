@@ -71,8 +71,6 @@ local function print_tokens(lexer)
             break
         end
 
-        local loc = token.loc
-        local end_loc = token.end_loc
         local value
         if token.value then
             if type(token.value) == "string" then
@@ -83,8 +81,8 @@ local function print_tokens(lexer)
         else
             value = ""
         end
-        print(string.format("%d:%d-%d:%d %d-%d %s%s", loc.line, loc.col,
-            end_loc.line, end_loc.col, loc.pos, end_loc.pos, token.name, value))
+        print(string.format("%d:%d %d-%d %s%s",
+            token.loc.line, token.loc.col, token.loc.pos, token.end_pos, token.name, value))
     end
 end
 

@@ -261,25 +261,27 @@ end
 -- Success: returns a table containing token name, semantic value, start location
 -- Failure: returns false, error message
 function Lexer:next()
-    while true do
-        local loc = self:loc()
-        local name, val = self:_next()
-        if not name then
-            return false, val
-        end
 
-        local end_loc = self:loc()
-        if name == "COMMENT" then
-            table.insert(self.comment_regions, { loc.pos, end_loc.pos - 1 })
-        elseif name ~= "SPACE" then
-            return {
-                name = name,
-                value = val,
-                loc = loc,
-                end_loc = end_loc
-            }
+    local loc, name, value, end_pos
+    repeat
+        loc = self:loc()
+        name, value = self:_next()
+        end_pos = self.pos - 1
+
+        if not name then
+            return false, value
         end
-    end
+        if name == "COMMENT" then
+            table.insert(self.comment_regions, { loc.pos, end_pos })
+        end
+    until not (name == "SPACE" or name == "COMMENT")
+
+    return {
+        name = name,
+        value = value,
+        loc = loc,
+        end_pos = end_pos,
+    }
 end
 
 return Lexer
