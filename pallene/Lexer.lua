@@ -211,10 +211,11 @@ function Lexer:_next()
         if self:try(longstring_open) then
             local s, err = self:read_long_string(#self.matched, "long comment")
             if not s then return false, err end
+            return "COMMENT", s
         else
             self:try(comment_line)
+            return "COMMENT", self.matched
         end
-        return "COMMENT"
 
     elseif self:try(string_delimiter) then
         local s, err = self:read_short_string(self.matched)
