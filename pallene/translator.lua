@@ -120,11 +120,34 @@ end
 
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
-
     instance:add_forward_declarations(prog_ast)
+
+    local j = 1 -- The index of the current comment region.
     for _, region in ipairs(prog_ast.regions) do
-        instance:erase_region(region[1], region[2])
+        local start_index = region[1]
+
+        -- Ignore the comments before the current region.
+        while j <= #prog_ast.comment_regions and start_index > prog_ast.comment_regions[j][1] do
+            j = j + 1
+        end
+
+        -- Multiple comment regions can span within a single region.
+        while j <= #prog_ast.comment_regions do
+            local comment = prog_ast.comment_regions[j]
+            -- Ensure that the current comment does not appear before the current region.
+            assert(start_index <= comment[1])
+            -- Determine if the comment appears within the current region.
+            if comment[2] <= region[2] then
+                instance:erase_region(start_index, comment[1] - 1)
+                start_index = comment[2] + 1
+                j = j + 1
+            else
+                break
+            end
+        end
+        instance:erase_region(start_index, region[2])
     end
+
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
     instance:add_exports()
