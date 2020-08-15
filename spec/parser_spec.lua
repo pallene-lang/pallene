@@ -233,7 +233,7 @@ describe("Pallene parser", function()
                     type = {
                         arg_types = {},
                         ret_types = {
-                            { _tag = "ast.Type.Float" }, }, } },
+                            { _tag = "ast.Type.Name", name = "float" }, }, } },
                 value = {
                     _tag = "ast.Exp.Lambda",
                     arg_decls  = {},
@@ -252,9 +252,9 @@ describe("Pallene parser", function()
                     name = "fB",
                     type = {
                         arg_types = {
-                            { _tag = "ast.Type.Integer" }, },
+                            { _tag = "ast.Type.Name", name = "integer" }, },
                         ret_types = {
-                            { _tag = "ast.Type.Float" }, }, } },
+                            { _tag = "ast.Type.Name", name = "float" }, }, } },
                 value = {
                     _tag = "ast.Exp.Lambda",
                     arg_decls = { { name = "x" } },
@@ -273,10 +273,10 @@ describe("Pallene parser", function()
                     name = "fC",
                     type = {
                         arg_types = {
-                            { _tag = "ast.Type.Integer" },
-                            { _tag = "ast.Type.Integer" }, },
+                            { _tag = "ast.Type.Name", name = "integer" },
+                            { _tag = "ast.Type.Name", name = "integer" }, },
                         ret_types = {
-                            { _tag = "ast.Type.Float" }, }, } },
+                            { _tag = "ast.Type.Name", name = "float" }, }, } },
                 value = {
                     _tag = "ast.Exp.Lambda",
                     arg_decls = { { name = "x" }, { name = "y" } },
@@ -359,13 +359,13 @@ describe("Pallene parser", function()
         assert_type_ast("{ x: float }",
             { _tag = "ast.Type.Table",
               fields = {
-                { name = "x", type = { _tag = "ast.Type.Float" } } } })
+                { name = "x", type = { _tag = "ast.Type.Name", name = "float" } } } })
 
         assert_type_ast("{ x: float, y: integer }",
             { _tag = "ast.Type.Table",
               fields = {
-                { name = "x", type = { _tag = "ast.Type.Float" } },
-                { name = "y", type = { _tag = "ast.Type.Integer" } } } })
+                { name = "x", type = { _tag = "ast.Type.Name", name = "float" } },
+                { name = "y", type = { _tag = "ast.Type.Name", name = "integer" } } } })
 
         assert_type_ast("{ a: {integer} }",
             { _tag = "ast.Type.Table",
@@ -770,8 +770,8 @@ describe("Pallene parser", function()
             { _tag = "ast.Toplevel.Record",
               name = "Point",
               field_decls = {
-                { name = "x", type = { _tag = "ast.Type.Float" } },
-                { name = "y", type = { _tag = "ast.Type.Float" } } } },
+                { name = "x", type = { _tag = "ast.Type.Name", name = "float" } },
+                { name = "y", type = { _tag = "ast.Type.Name", name = "float" } } } },
         })
 
         assert_program_ast([[
@@ -880,12 +880,12 @@ describe("Pallene parser", function()
         assert_expression_ast([[ foo as integer ]],
             { _tag = "ast.Exp.Cast",
                 exp = { _tag = "ast.Exp.Var" },
-                target = { _tag = "ast.Type.Integer" } })
+                target = { _tag = "ast.Type.Name", name = "integer" } })
 
         assert_expression_ast([[ a.b[1].c as integer ]],
             { _tag = "ast.Exp.Cast",
                 exp = { _tag = "ast.Exp.Var" },
-                target = { _tag = "ast.Type.Integer" } })
+                target = { _tag = "ast.Type.Name", name = "integer" } })
 
         assert_expression_ast([[ foo as { integer } ]],
             { _tag = "ast.Exp.Cast",
@@ -896,14 +896,14 @@ describe("Pallene parser", function()
             { rhs = {
                 _tag = "ast.Exp.Cast",
                 exp = { _tag = "ast.Exp.Var" },
-                target = { _tag = "ast.Type.Integer" } }})
+                target = { _tag = "ast.Type.Name", name = "integer" } }})
 
         assert_expression_ast([[ 1 as integer as any ]],
             { _tag = "ast.Exp.Cast",
-                target = { _tag = "ast.Type.Any" },
+                target = { _tag = "ast.Type.Name", name = "any" },
                 exp = {
                     _tag = "ast.Exp.Cast",
-                    target = { _tag = "ast.Type.Integer" },
+                    target = { _tag = "ast.Type.Name", name = "integer" },
                     exp = {
                         _tag = "ast.Exp.Integer"
                     }}})
@@ -914,24 +914,6 @@ describe("Pallene parser", function()
             "Expected a name before '('")
         assert_statements_syntax_error([[ (x) = 42 ]],
             "This expression is not an lvalue")
-    end)
-
-    it("does not allow identifiers that are type names", function()
-        assert_program_syntax_error([[
-            export function integer()
-            end
-        ]], "Expected a name before 'integer'")
-
-        assert_program_syntax_error([[
-            export function f()
-                local integer: integer = 10
-            end
-        ]], "Expected a name before 'integer'")
-    end)
-
-    it("doesn't allow using a primitive type as a record", function()
-        assert_expression_syntax_error("integer.new(10)",
-            "Unexpected 'integer'")
     end)
 
     it("uses specific error labels for some errors", function()

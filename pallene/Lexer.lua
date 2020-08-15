@@ -48,7 +48,7 @@ local is_keyword = {}
 do
     local strs = [[
         and break do else elseif end for false function goto if in local nil not or repeat return
-        then true until while   any as boolean export float string import integer record typealias
+        then true until while   as export import record typealias
     ]]
     for s in string.gmatch(strs, "%S+") do
         is_keyword[s] = true

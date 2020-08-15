@@ -182,11 +182,15 @@ function Checker:from_ast_type(ast_typ)
         local cname = self.symbol_table:find_symbol(name)
         if not cname then
             scope_error(ast_typ.loc,  "type '%s' is not declared", name)
+        elseif cname._tag == "checker.Name.Type" then
+            return cname.typ
+        elseif cname._tag == "checker.Name.Module" and cname.name == "string" then
+            -- Currently the string type appears in the scope as a module because of functions like
+            -- string.char and string.sub. In the future we might want to consider extending this
+            -- feature to other modules that also count as types.
+            return types.T.String()
         end
-        if cname._tag ~= "checker.Name.Type" then
-            type_error(ast_typ.loc, "'%s' isn't a type", name)
-        end
-        return cname.typ
+        type_error(ast_typ.loc, "'%s' isn't a type", name)
 
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
@@ -249,6 +253,13 @@ function Checker:check_program(prog_ast)
             end
         end
     end
+
+    -- Add most primitive types to the symbol table
+    self:add_type("any",     types.T.Any())
+    self:add_type("boolean", types.T.Boolean())
+    self:add_type("float",   types.T.Float())
+    self:add_type("integer", types.T.Integer())
+    --self:add_type("string",  types.T.String()) -- treated as a "module" because of string.char
 
     -- Add builtins to symbol table. The order does not matter because they are distinct.
     for name, _ in pairs(builtins.functions) do

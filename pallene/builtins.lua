@@ -12,14 +12,14 @@ builtins.functions = {
     ["type"] = T.Function({ T.Any() }, { T.String() }),
     ["io.write"] = T.Function({ T.String() }, {}),
     ["math.sqrt"] = T.Function({ T.Float() }, { T.Float() }),
-    ["string_.char"] = T.Function({ T.Integer() }, { T.String() }),
-    ["string_.sub"] = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() })
+    ["string.char"] = T.Function({ T.Integer() }, { T.String() }),
+    ["string.sub"] = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() })
 }
 
 builtins.modules = {
     io = true,
     math = true,
-    string_ = true
+    string = true
 }
 
 return builtins

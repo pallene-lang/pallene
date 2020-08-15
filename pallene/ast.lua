@@ -17,11 +17,6 @@ declare_type("Program", {
 
 declare_type("Type", {
     Nil      = {"loc"},
-    Boolean  = {"loc"},
-    Integer  = {"loc"},
-    Float    = {"loc"},
-    String   = {"loc"},
-    Any      = {"loc"},
     Name     = {"loc", "name"},
     Array    = {"loc", "subtype"},
     Table    = {"loc", "fields"},

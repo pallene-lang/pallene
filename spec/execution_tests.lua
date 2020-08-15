@@ -1390,7 +1390,7 @@ function execution_tests.run(compile, backend, describe, it, assert)
     describe("string.char builtin", function()
         compile([[
             export function chr(x: integer): string
-                return string_.char(x)
+                return string.char(x)
             end
         ]])
 
@@ -1424,7 +1424,7 @@ function execution_tests.run(compile, backend, describe, it, assert)
     describe("string.sub builtin", function()
         compile([[
             export function sub(s: string, i: integer, j: integer): string
-                return string_.sub(s, i, j)
+                return string.sub(s, i, j)
             end
         ]])
 
@@ -1610,6 +1610,8 @@ function execution_tests.run(compile, backend, describe, it, assert)
             export function duplicate_parameter(x: integer, x:integer) : integer
                 return x
             end
+
+            export integer: integer = 12
         ]])
 
         it("ensure that local variables are not exported", function ()
@@ -1634,6 +1636,10 @@ function execution_tests.run(compile, backend, describe, it, assert)
 
         it("allows functions with repeated argument names", function()
             run_test([[ assert( 20 == test.duplicate_parameter(10, 20) )]])
+        end)
+
+        it("allows identifiers named like builtin types", function()
+            run_test([[ assert( 12 == test.integer) ]])
         end)
     end)
 

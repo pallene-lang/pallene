@@ -28,7 +28,7 @@ export function mandelbrot(N: integer)
             nbits = nbits + 1
 
             if nbits == 8 then
-                io.write(string_char(bits))
+                io.write(string.char(bits))
                 bits  = 0
                 nbits = 0
             end
@@ -36,7 +36,7 @@ export function mandelbrot(N: integer)
 
         if nbits > 0 then
             bits  = bits << (8 - nbits)
-            io.write(string_char(bits))
+            io.write(string.char(bits))
             bits  = 0
             nbits = 0
         end

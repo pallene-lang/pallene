@@ -269,26 +269,6 @@ function Parser:SimpleType()
         local tok = self:e()
         return ast.Type.Nil(tok.loc)
 
-    elseif self:peek("boolean") then
-        local tok = self:e()
-        return ast.Type.Boolean(tok.loc)
-
-    elseif self:peek("integer") then
-        local tok = self:e()
-        return ast.Type.Integer(tok.loc)
-
-    elseif self:peek("float") then
-        local tok = self:e()
-        return ast.Type.Float(tok.loc)
-
-    elseif self:peek("string") then
-        local tok = self:e()
-        return ast.Type.String(tok.loc)
-
-    elseif self:peek("any") then
-        local tok = self:e()
-        return ast.Type.Any(tok.loc)
-
     elseif self:peek("NAME") then
         local tok = self:e()
         return ast.Type.Name(tok.loc, tok.value)
