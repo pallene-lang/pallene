@@ -75,9 +75,13 @@ local y: float = i * 1.0
 ### Strings
 
 Pallene also has a `string` type, for Lua strings.
-The syntax for string literals is the same as in Lua.
+The syntax for string literals is the same as in Lua
+You can use single quotes, double quotes, or `[[`.
 
-Currently, the only supported operations for Pallene strings are concatenation with the `..` operator and printing strings to stdout with `io.write`.
+The primitive operators that operate on strings are the concatenation operator `..`,  the length operator `#`, and the comparison operators (`==`, `~=`, `<`, `>`, `<=`, `>=`).
+
+Pallene also implements some functions from the `string` library.
+Currently we implement `string.char` and `string.sub`  but more may be implemented in the future.
 
 ### Arrays
 
