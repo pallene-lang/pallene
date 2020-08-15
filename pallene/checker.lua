@@ -540,10 +540,15 @@ function Checker:check_var(var)
         end
 
     elseif tag == "ast.Var.Dot" then
-        if var.exp._tag == "ast.Exp.Var" and
-           var.exp.var._tag == "ast.Var.Name" and
-           builtins.modules[var.exp.var.name] then
-            local module_name = var.exp.var.name
+        local mod_cname
+        if var.exp._tag == "ast.Exp.Var" and var.exp.var._tag == "ast.Var.Name" then
+            mod_cname = self.symbol_table:find_symbol(var.exp.var.name)
+        else
+            mod_cname = false
+        end
+
+        if mod_cname and mod_cname._tag == "checker.Name.Module" then
+            local module_name = mod_cname.name
             local function_name = var.name
             local internal_name = module_name .. "." .. function_name
 
@@ -574,6 +579,7 @@ function Checker:check_var(var)
             end
             var._type = field_type
         end
+
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
         local arr_type = var.t._type
