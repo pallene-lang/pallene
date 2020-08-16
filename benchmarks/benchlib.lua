@@ -73,10 +73,9 @@ benchlib.modes = {}
 
 benchlib.modes.none = {
     run = function(bench_cmd)
-        -- Output directly to console, don't capture stdout
-        local ok, err = util.execute(bench_cmd)
+        local ok, err, res, _ = util.outputs_of_execute(bench_cmd)
         assert(ok, err)
-        return ""
+        return res
     end,
 
     parse = function(_res)
