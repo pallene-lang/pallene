@@ -11,23 +11,21 @@ local function assert_example(example, expected_output)
     assert.are.same(expected_output, output)
 end
 
-describe("Examples /", function()
-
-    it("Arithmetic", function()
-        assert_example("arithmetic", [[
+it("Arithmetic", function()
+    assert_example("arithmetic", [[
 1 + 2 = 3
 1.5 - 3.25 = -1.75
 ]])
-    end)
+end)
 
-    it("Factorial", function()
-        assert_example("factorial", [[
+it("Factorial", function()
+    assert_example("factorial", [[
 The factorial of 5 is 120.
 ]])
-    end)
+end)
 
-    it("Fibonacci", function()
-        assert_example("fibonacci", [[
+it("Fibonacci", function()
+    assert_example("fibonacci", [[
 0
 1
 1
@@ -39,17 +37,16 @@ The factorial of 5 is 120.
 21
 34
 ]])
-    end)
+end)
 
-    it("Rectangle", function()
-        assert_example("rectangle", [[
+it("Rectangle", function()
+    assert_example("rectangle", [[
 The area of rectangle with width 10.50 and height 5.00 is 52.50
 ]])
-    end)
+end)
 
-    it("Sum of Array", function()
-        assert_example("sum_of_array", [[
+it("Sum of Array", function()
+    assert_example("sum_of_array", [[
 5.25 + 2.50 = 7.75
 ]])
-    end)
 end)
