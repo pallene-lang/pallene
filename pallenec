@@ -30,7 +30,7 @@ p:mutex(
 -- NOTE: *For C compiler only* this option may be overridden  using the CFLAGS environment variable.
 p:option("-O", "Optimization level")
     :args(1):convert(tonumber)
-    :choices({0, 1, 2, 3})
+    :choices({"0", "1", "2", "3"})
     :default(2)
 
 
