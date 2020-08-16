@@ -45,6 +45,6 @@ local function addqueen (N:integer, a:{integer}, n:integer)
 end
 
 -- run the program
-function nqueens(N:integer)
+export function nqueens(N:integer)
     addqueen(N, {}, 1)
 end
