@@ -4,9 +4,18 @@
 --
 
 local benchlib = require "benchmarks.benchlib"
+local util= require "pallene.util"
+
+local impls
+if util.outputs_of_execute("luajit -v") then
+    impls = {"lua", "capi", "pallene", "luajit", "ffi"}
+else
+    impls = {"lua", "capi", "pallene"}
+    print("Warning: not testing the LuaJIT benchmarks, because LuaJIT is not installed.")
+end
 
 local function assert_benchmark(bench, params, expected_output)
-    for _, impl in ipairs({"lua", "luajit", "ffi", "capi", "pallene"}) do
+    for _, impl in ipairs(impls) do
         if benchlib.find_benchmark(bench, impl) then
             it(impl, function()
                 local out = benchlib.run_with_impl_name("none", bench, impl, params)
