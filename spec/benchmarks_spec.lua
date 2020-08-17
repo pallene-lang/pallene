@@ -130,13 +130,12 @@ describe("Nbody /", function()
 end)
 
 describe("Objmandelbrot /", function()
-    assert_benchmark("objmandelbrot", {2, 1}, [[
+    assert_benchmark("objmandelbrot", {3, 1}, [[
 P2
-2	2	255
-0
-255
-0
-255
+3 3 255
+0 0 0
+0 4 4
+0 1 1
 ]])
 end)
 
