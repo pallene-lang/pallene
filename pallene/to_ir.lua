@@ -634,11 +634,11 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "math.sqrt" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, dsts, xs))
-            elseif bname == "string_.char" then
+            elseif bname == "string.char" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, dsts, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())
-            elseif bname == "string_.sub" then
+            elseif bname == "string.sub" then
                 assert(#xs == 3)
                 table.insert(cmds, ir.Cmd.BuiltinStringSub(loc, dsts, xs))
                 table.insert(cmds, ir.Cmd.CheckGC())

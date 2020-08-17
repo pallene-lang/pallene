@@ -182,11 +182,15 @@ function Checker:from_ast_type(ast_typ)
         local cname = self.symbol_table:find_symbol(name)
         if not cname then
             scope_error(ast_typ.loc,  "type '%s' is not declared", name)
+        elseif cname._tag == "checker.Name.Type" then
+            return cname.typ
+        elseif cname._tag == "checker.Name.Module" and cname.name == "string" then
+            -- Currently the string type appears in the scope as a module because of functions like
+            -- string.char and string.sub. In the future we might want to consider extending this
+            -- feature to other modules that also count as types.
+            return types.T.String()
         end
-        if cname._tag ~= "checker.Name.Type" then
-            type_error(ast_typ.loc, "'%s' isn't a type", name)
-        end
-        return cname.typ
+        type_error(ast_typ.loc, "'%s' isn't a type", name)
 
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
@@ -249,6 +253,13 @@ function Checker:check_program(prog_ast)
             end
         end
     end
+
+    -- Add most primitive types to the symbol table
+    self:add_type("any",     types.T.Any())
+    self:add_type("boolean", types.T.Boolean())
+    self:add_type("float",   types.T.Float())
+    self:add_type("integer", types.T.Integer())
+    --self:add_type("string",  types.T.String()) -- treated as a "module" because of string.char
 
     -- Add builtins to symbol table. The order does not matter because they are distinct.
     for name, _ in pairs(builtins.functions) do
@@ -540,10 +551,15 @@ function Checker:check_var(var)
         end
 
     elseif tag == "ast.Var.Dot" then
-        if var.exp._tag == "ast.Exp.Var" and
-           var.exp.var._tag == "ast.Var.Name" and
-           builtins.modules[var.exp.var.name] then
-            local module_name = var.exp.var.name
+        local mod_cname
+        if var.exp._tag == "ast.Exp.Var" and var.exp.var._tag == "ast.Var.Name" then
+            mod_cname = self.symbol_table:find_symbol(var.exp.var.name)
+        else
+            mod_cname = false
+        end
+
+        if mod_cname and mod_cname._tag == "checker.Name.Module" then
+            local module_name = mod_cname.name
             local function_name = var.name
             local internal_name = module_name .. "." .. function_name
 
@@ -574,6 +590,7 @@ function Checker:check_var(var)
             end
             var._type = field_type
         end
+
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
         local arr_type = var.t._type

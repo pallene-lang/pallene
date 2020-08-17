@@ -264,7 +264,7 @@ describe("Pallene lexer", function()
 
     it("can lex some programs", function()
         assert_lex("local x: float = 10.0",
-            {"local", "NAME", ":", "float", "=", "NUMBER"},
-            {"x", 10.0})
+            {"local", "NAME", ":", "NAME", "=", "NUMBER"},
+            {"x", "float", 10.0})
     end)
 end)

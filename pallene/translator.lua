@@ -86,8 +86,6 @@ function Translator:add_exports()
 end
 
 function Translator:add_forward_declarations(prog_ast)
-    table.insert(self.partials, "local string_ = string;")
-
     local names = {}
     for _, node in ipairs(prog_ast.tls) do
         -- Build the exports and forward declaration table.

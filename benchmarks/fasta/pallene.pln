@@ -29,12 +29,12 @@ export function repeat_fasta(id: string, desc: string, alu: string, n: integer)
     local start = 0 -- (This index is 0-based bacause of the % operator)
     for _ = 1, lines do
         local stop = start + WIDTH
-        io.write(string_sub(aluwrap, start+1, stop))
+        io.write(string.sub(aluwrap, start+1, stop))
         io.write("\n")
         start = stop % alusize
     end
     if last_line > 0 then
-        io.write(string_sub(aluwrap, start+1, start + last_line))
+        io.write(string.sub(aluwrap, start+1, start + last_line))
         io.write("\n")
     end
 end

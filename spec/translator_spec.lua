@@ -15,7 +15,7 @@ end
 local function assert_translation(pallene_code, expected)
     compile(pallene_code)
     local contents = util.get_file_contents("__test__.lua")
-    assert.are.same("local string_ = string;" .. expected, contents)
+    assert.are.same(expected, contents)
 end
 
 local function assert_translation_error(pallene_code, expected)
