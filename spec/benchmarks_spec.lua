@@ -140,18 +140,18 @@ P2
 end)
 
 describe("Queen /", function()
-    -- We use regular quotes strings here because Vim likes to eat the trailing whitespace.
-    assert_benchmark("queen", {4, 1},
-"- X - - \n"..
-"- - - X \n"..
-"X - - - \n"..
-"- - X - \n"..
-"\n"..
-"- - X - \n"..
-"X - - - \n"..
-"- - - X \n"..
-"- X - - \n"..
-"\n")
+    assert_benchmark("queen", {4, 1}, [[
+- X - -
+- - - X
+X - - -
+- - X -
+
+- - X -
+X - - -
+- - - X
+- X - -
+
+]])
 end)
 
 describe("Sieve /", function()

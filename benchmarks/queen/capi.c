@@ -55,12 +55,14 @@ static void printsolution(lua_State *L, lua_Integer N)
         lua_pop(L, 1);
 
         for (lua_Integer j = 1; j <= N; j++) {
+            if (j > 1) {
+                putchar(' ');
+            }
             if (ai == j) {
                 putchar('X');
             } else {
                 putchar('-');
             }
-            putchar(' ');
         }
         putchar('\n');
     }
