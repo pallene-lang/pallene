@@ -6,7 +6,7 @@ local benchlib = {}
 benchlib.DEFAULT_LUA = "./lua/src/lua"
 
 -- @param lua_path:       Lua interpreter to use
--- @param benchmark_path: Path to th ebenchmark file
+-- @param benchmark_path: Path to the benchmark file
 --
 -- Compiles the benchmark program (if necessary) and then
 -- reeturns a command-line string that will run the benchmark
@@ -73,14 +73,13 @@ benchlib.modes = {}
 
 benchlib.modes.none = {
     run = function(bench_cmd)
-        -- Output directly to console, don't capture stdout
-        local ok, err = util.execute(bench_cmd)
+        local ok, err, res, _ = util.outputs_of_execute(bench_cmd)
         assert(ok, err)
-        return ""
+        return res
     end,
 
-    parse = function(_res)
-        return {}
+    parse = function(res)
+        return res
     end,
 }
 
@@ -148,10 +147,9 @@ table.sort(benchlib.MODE_NAMES)
 --
 -- @param bench: benchmark directory name (ex.: matmul)
 -- @param impl:  benchmark name           (ex.: lua, luajit, pallene)
--- @param modename: measurement type
 --
 
-local function find_benchmark(bench, impl)
+function benchlib.find_benchmark(bench, impl)
 
     local lua_path
     local candidates
@@ -160,13 +158,20 @@ local function find_benchmark(bench, impl)
         lua_path = benchlib.DEFAULT_LUA
         candidates = {
             "lua_puc.lua",
+            "puc.lua",
             "lua.lua"
         }
     elseif impl == "luajit" then
         lua_path = "luajit"
         candidates = {
             "lua_luajit.lua",
+            "jit.lua",
             "lua.lua"
+        }
+    elseif impl == "ffi" then
+        lua_path = "luajit"
+        candidates = {
+            "ffi.lua",
         }
     else
         lua_path = benchlib.DEFAULT_LUA
@@ -185,12 +190,12 @@ local function find_benchmark(bench, impl)
         end
     end
 
-    error(string.format("failed to find %s/%s", bench, impl))
+    return false, string.format("failed to find %s/%s", bench, impl)
 end
 
 function benchlib.run_with_impl_name(modename, bench, impl, extra_params)
     local mode = assert(benchlib.modes[modename])
-    local lua_path, bench_path = find_benchmark(bench, impl)
+    local lua_path, bench_path = assert(benchlib.find_benchmark(bench, impl))
     local cmd = benchlib.prepare_benchmark(lua_path, bench_path, extra_params)
     local res  = mode.run(cmd)
     local data = mode.parse(res)

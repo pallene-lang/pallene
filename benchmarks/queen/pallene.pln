@@ -17,12 +17,14 @@ local function printsolution (N: integer, a:{integer})
   for i = 1, N do
     local ai = a[i]
     for j = 1, N do
+      if j > 1 then
+        io.write(" ")
+      end
       if ai == j then
         io.write("X")
       else
         io.write("-")
       end
-      io.write(" ")
     end
     io.write("\n")
   end
@@ -45,6 +47,6 @@ local function addqueen (N:integer, a:{integer}, n:integer)
 end
 
 -- run the program
-function nqueens(N:integer)
+export function nqueens(N:integer)
     addqueen(N, {}, 1)
 end

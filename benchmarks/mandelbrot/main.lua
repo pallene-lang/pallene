@@ -7,6 +7,7 @@
 --  * I don't use any explicit buffering. In my experiments it speeds up the
 --    program by less than 10%, while considerably increasing the complexity.
 --  * The LuaJIT version needs to be separate, due to the lack of bitwise ops.
+--  * The output is in the Netpbm file format. Use an image viewer to view the picture.
 
 local mandelbrot = require(arg[1])
 local N   = tonumber(arg[2]) or 100

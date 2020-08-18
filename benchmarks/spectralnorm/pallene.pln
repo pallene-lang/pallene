@@ -61,5 +61,5 @@ export function Approximate(N: integer): float
         vv  = vv  + vi*vi
     end
 
-    return math_sqrt(vBv/vv)
+    return math.sqrt(vBv/vv)
 end

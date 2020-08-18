@@ -21,11 +21,9 @@ for i = 1, 8 do
     end
 end
 
-for _ = 1, nsteps do
-    life.draw(N, M, curr_cells)
-    io.write("\n")
-
+for i = 1, nsteps do
     life.step(N, M, curr_cells, next_cells)
     curr_cells, next_cells = next_cells, curr_cells
+    if i > 1 then io.write("\n") end
+    life.draw(N, M, curr_cells)
 end
-life.draw(N, M, curr_cells)
