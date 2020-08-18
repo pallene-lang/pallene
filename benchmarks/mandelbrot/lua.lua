@@ -1,4 +1,5 @@
-local function mandelbrot(N)
+local mandelbrot;
+function mandelbrot(N)
     local bits  = 0
     local nbits = 0
 
@@ -44,5 +45,5 @@ local function mandelbrot(N)
 end
 
 return {
-    mandelbrot = mandelbrot
+    mandelbrot = mandelbrot,
 }

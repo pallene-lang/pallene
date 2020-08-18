@@ -1,10 +1,9 @@
-local _M = {}
-
-function _M.new(x, y)
+local new, centroid;
+function new(x, y)
     return { x, y }
 end
 
-function _M.centroid(points, nrep)
+function centroid(points, nrep)
     local x = 0.0
     local y = 0.0
     local npoints = #points
@@ -20,4 +19,7 @@ function _M.centroid(points, nrep)
     return { x / npoints, y / npoints }
 end
 
-return _M
+return {
+    new = new,
+    centroid = centroid,
+}

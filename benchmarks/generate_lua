@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# This script generates the `lua.lua` files for the benchmarks written in Pallene using the
+# Pallene to Lua translator. You should run this script whenever changes are made to the
+# translator.
+
+for entry in benchmarks/*
+do
+    test -d "$entry" || continue
+    echo "Translating $entry/pallene.pln"
+    ./pallenec "$entry/pallene.pln" --emit-lua
+    mv "$entry/pallene.lua" "$entry/lua.lua"
+done

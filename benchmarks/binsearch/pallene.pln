@@ -1,4 +1,5 @@
-export function binsearch(t: {integer}, x: integer) : integer
+
+export function binsearch(t: {integer}, x: integer): integer
     -- lo <= x <= hi
     local lo = 1
     local hi = #t

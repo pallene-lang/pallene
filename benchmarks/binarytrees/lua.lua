@@ -1,4 +1,5 @@
-local function BottomUpTree(depth)
+local BottomUpTree, ItemCheck, Stress;
+function BottomUpTree(depth)
     if depth > 0 then
         depth = depth - 1
         local left  = BottomUpTree(depth)
@@ -9,7 +10,7 @@ local function BottomUpTree(depth)
     end
 end
 
-local function ItemCheck(tree)
+function ItemCheck(tree)
     if tree[1] then
         return 1 + ItemCheck(tree[1]) + ItemCheck(tree[2])
     else
@@ -17,7 +18,7 @@ local function ItemCheck(tree)
     end
 end
 
-local function Stress(mindepth, maxdepth, depth)
+function Stress(mindepth, maxdepth, depth)
     local iterations = 1 << (maxdepth - depth + mindepth)
     local check = 0
     for _ = 1, iterations do
