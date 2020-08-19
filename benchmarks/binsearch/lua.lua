@@ -1,6 +1,7 @@
-local function binsearch(t, x)
+local binsearch, test;
+function binsearch(t, x)
     -- lo <= x <= hi
-    local lo = 1
+local lo = 1
     local hi = #t
 
     local steps = 0
@@ -24,7 +25,7 @@ local function binsearch(t, x)
     return steps
 end
 
-local function test(t, nrep)
+function test(t, nrep)
     local s = 0
     for i = 1, nrep do
         if binsearch(t, i) ~= 22 then

@@ -1,13 +1,14 @@
+
 export function fannkuch(N: integer): {integer}
 
-    local initial_perm : {integer} = {}
+    local initial_perm: {integer} = {}
     for i = 1, N do
         initial_perm[i] = i
     end
 
-    local perm : {integer} = {} -- Work copy, allocated once
+    local perm: {integer} = {} -- Work copy, allocated once
 
-    local count : {integer} = {}
+    local count: {integer} = {}
     count[1] = 0
     local r = N
 

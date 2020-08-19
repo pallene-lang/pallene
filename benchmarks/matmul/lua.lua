@@ -1,6 +1,5 @@
-local matmul = {}
-
-function matmul.matmul(A, B)
+local matmul;
+function matmul(A, B)
     local C = {}
     local NI = #A
     local NK = #B
@@ -25,4 +24,6 @@ function matmul.matmul(A, B)
     return C
 end
 
-return matmul
+return {
+    matmul = matmul,
+}

@@ -1,3 +1,4 @@
+
 export function mandelbrot(N: integer)
     local bits  = 0
     local nbits = 0

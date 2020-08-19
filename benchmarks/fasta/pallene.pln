@@ -1,3 +1,4 @@
+
 local IM   = 139968
 local IA   = 3877
 local IC   = 29573
@@ -53,8 +54,8 @@ export function random_fasta(id: string, desc: string, frequencies: {{any}}, n: 
 
     -- Prepare the cummulative probability table
     local nitems  = #frequencies
-    local letters : {string} = {}
-    local probs   : {float}  = {}
+    local letters: {string} = {}
+    local probs: {float}  = {}
     do
         local total = 0.0
         for i = 1, nitems do

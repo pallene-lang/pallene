@@ -1,24 +1,25 @@
-local function new(x, y)
+local new, clone, conj, add, mul, norm2;
+function new(x, y)
     return { x, y }
 end
 
-local function clone(x)
+function clone(x)
     return new(x[1], x[2])
 end
 
-local function conj(x)
+function conj(x)
     return new(x[1], -x[2])
 end
 
-local function add(x,y)
+function add(x, y)
     return new(x[1] + y[1], x[2] + y[2])
 end
 
-local function mul(x,y)
+function mul(x, y)
     return new(x[1] * y[1] - x[2] * y[2], x[1] * y[2] + x[2] * y[1])
 end
 
-local function norm2(x)
+function norm2(x)
     local n = mul(x, conj(x))
     return n[1]
 end

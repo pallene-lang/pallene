@@ -1,20 +1,21 @@
-local IM   = 139968
-local IA   = 3877
-local IC   = 29573
+local IM, IA, IC, seed, random, WIDTH, print_fasta_header, repeat_fasta, linear_search, random_fasta;
+IM   = 139968
+IA   = 3877
+IC   = 29573
 
-local seed = 42
-local function random(max)
+seed = 42
+function random(max)
     seed = (seed * IA + IC) % IM
     return max * seed / IM;
 end
 
-local WIDTH = 60
+WIDTH = 60
 
-local function print_fasta_header(id, desc)
+function print_fasta_header(id, desc)
     io.write(">" .. id .. " " .. desc .. "\n")
 end
 
-local function repeat_fasta(id, desc, alu, n)
+function repeat_fasta(id, desc, alu, n)
     print_fasta_header(id, desc)
 
     local alusize = #alu
@@ -39,7 +40,7 @@ local function repeat_fasta(id, desc, alu, n)
     end
 end
 
-local function linear_search(ps, p)
+function linear_search(ps, p)
     for i = 1, #ps do
         if ps[i]>= p then
             return i
@@ -48,19 +49,19 @@ local function linear_search(ps, p)
     return 1
 end
 
-local function random_fasta(id, desc, frequencies, n)
+function random_fasta(id, desc, frequencies, n)
     print_fasta_header(id, desc)
 
     -- Prepare the cummulative probability table
     local nitems  = #frequencies
     local letters = {}
-    local probs   = {}
+    local probs = {}
     do
         local total = 0.0
         for i = 1, nitems do
             local o = frequencies[i]
-            local c = o[1]
-            local p = o[2]
+            local c = o[1] 
+            local p = o[2] 
             total = total + p
             letters[i] = c
             probs[i]   = total

@@ -1,3 +1,4 @@
+
 -- check whether position (n,c) is free from attacks
 local function isplaceok (a:{integer}, n:integer, c:integer): boolean
   for i = 1, n - 1 do   -- for each queen already placed

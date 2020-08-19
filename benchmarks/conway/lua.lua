@@ -1,8 +1,9 @@
-local ALIVE = "*"
-local DEAD  = " "
+local ALIVE, DEAD, new_canvas, wrap, draw, spawn, step;
+ALIVE = "*"
+DEAD  = " "
 
 -- Create a new grid for the simulation.
-local function new_canvas(N, M)
+function new_canvas(N, M)
     local t = {}
     for i = 1, N do
         local line = {}
@@ -15,12 +16,12 @@ local function new_canvas(N, M)
 end
 
 -- Our grid has a toroidal topology with wraparound
-local function wrap(i, N)
+function wrap(i, N)
     return (i - 1) % N + 1
 end
 
 -- Print the grid to stdout.
-local function draw(N, M, cells)
+function draw(N, M, cells)
     local out = "" -- accumulate to reduce flicker
     for i = 1, N do
         local cellsi = cells[i]
@@ -38,7 +39,8 @@ local function draw(N, M, cells)
 end
 
 -- Place a shape in the grid
-local function spawn(N, M, cells, shape, top, left)
+function spawn(N, M, cells, shape,
+top, left)
     for i = 1, #shape do
         local ci = wrap(i+top-1, N)
         local shape_row = shape[i]
@@ -51,7 +53,8 @@ local function spawn(N, M, cells, shape, top, left)
 end
 
 -- Run one step of the simulation.
-local function step(N, M, curr_cells, next_cells)
+function step(N, M, curr_cells,
+next_cells)
     for i2 = 1, N do
         local i1 = wrap(i2-1, N)
         local i3 = wrap(i2+1, N)

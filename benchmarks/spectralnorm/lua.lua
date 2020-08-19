@@ -1,16 +1,17 @@
+local A, MultiplyAv, MultiplyAtv, MultiplyAtAv, Approximate;
 -- Return A[i][j], for the infinite matrix A
 --
 --  A = 1/1  1/2  1/4 ...
 --      1/3  1/5  ... ...
 --      1/6  ...  ... ...
 --      ...  ...  ... ...
-local function A(i, j)
+function A(i, j)
     local ij = i + j
     return 1.0 / ((ij-1) * (ij-2) * 0.5 + i)
 end
 
 -- Multiply vector v by matrix A
-local function MultiplyAv(N, v, out)
+function MultiplyAv(N, v, out)
     for i = 1, N do
         local s = 0.0
         for j = 1, N do
@@ -21,7 +22,7 @@ local function MultiplyAv(N, v, out)
 end
 
 -- Multiply vector v by matrix A transposed
-local function MultiplyAtv(N, v, out)
+function MultiplyAtv(N, v, out)
     for i=1, N do
         local s = 0.0
         for j = 1, N do
@@ -32,15 +33,15 @@ local function MultiplyAtv(N, v, out)
 end
 
 -- Multiply vector v by matrix A and then by matrix A transposed
-local function MultiplyAtAv(N, v, out)
+function MultiplyAtAv(N, v, out)
     local u = {}
     MultiplyAv(N, v, u)
     MultiplyAtv(N, u, out)
 end
 
-local function Approximate(N)
+function Approximate(N)
     -- Create unit vector
-    local u = {}
+local u = {}
     for i = 1, N do
         u[i] = 1.0
     end
@@ -65,5 +66,5 @@ local function Approximate(N)
 end
 
 return {
-    Approximate = Approximate
+    Approximate = Approximate,
 }

@@ -1,5 +1,6 @@
+
 export function matmul(A: {{float}}, B:{{float}}): {{float}}
-    local C : {{float}} = {}
+    local C: {{float}} = {}
     local NI = #A
     local NK = #B
     local NJ = #B[1]

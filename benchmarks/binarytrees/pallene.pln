@@ -1,3 +1,4 @@
+
 export function BottomUpTree(depth: integer): {any}
     if depth > 0 then
         depth = depth - 1

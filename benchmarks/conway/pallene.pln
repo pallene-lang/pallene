@@ -1,3 +1,4 @@
+
 local ALIVE = "*"
 local DEAD  = " "
 
@@ -5,7 +6,7 @@ local DEAD  = " "
 export function new_canvas(N:integer, M:integer): {{integer}}
     local t:{{integer}} = {}
     for i = 1, N do
-        local line : {integer} = {}
+        local line: {integer} = {}
         for j = 1, M do
             line[j] = 0
         end
@@ -53,7 +54,7 @@ end
 
 -- Run one step of the simulation.
 export function step(N:integer, M:integer, curr_cells:{{integer}},
-next_cells:{{integer}}) : ()
+next_cells:{{integer}}): ()
     for i2 = 1, N do
         local i1 = wrap(i2-1, N)
         local i3 = wrap(i2+1, N)

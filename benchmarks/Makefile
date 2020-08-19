@@ -9,3 +9,7 @@ notarget:
 
 %.so: %.c
 	./pallenec --compile-c $<
+
+%/lua.lua: %/pallene.pln
+	./pallenec --emit-lua $<
+	mv $(basename $<).lua $@
