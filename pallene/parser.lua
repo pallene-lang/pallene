@@ -19,7 +19,7 @@ function Parser:init(lexer)
     self.look = false -- Token
     self.loop_depth = 0       -- Are we inside a loop?
     self.region_depth = 0     -- Are we inside a type annotation?
-    self.regions = {}         -- Sequence of pairs. Ranges of type annotations in program.
+    self.type_regions = {}    -- Sequence of pairs. Ranges of type annotations in program.
     self.comment_regions = {} -- Sequence of pairs. Ranges of comments in the program.
     self:_advance(); self:_advance()
 end
@@ -95,7 +95,7 @@ end
 -- inclusive.
 function Parser:region_begin()
     if self.region_depth == 0 then
-        table.insert(self.regions, { self.next.loc.pos, false })
+        table.insert(self.type_regions, { self.next.loc.pos, false })
     end
     self.region_depth = self.region_depth + 1
 end
@@ -104,7 +104,7 @@ function Parser:region_end(skip_spaces)
     assert(self.region_depth > 0)
     self.region_depth = self.region_depth - 1
     if self.region_depth == 0 then
-        local region = self.regions[#self.regions]
+        local region = self.type_regions[#self.type_regions]
         if skip_spaces then
             region[2] = self.next.loc.pos - 1
         else
@@ -122,7 +122,7 @@ function Parser:Program()
     while not self:peek("EOF") do
         table.insert(tls, self:Toplevel())
     end
-    return ast.Program.Program(tls, self.regions, self.comment_regions)
+    return ast.Program.Program(tls, self.type_regions, self.comment_regions)
 end
 
 function Parser:Toplevel()
