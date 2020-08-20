@@ -41,7 +41,7 @@ end
 
 function Approximate(N)
     -- Create unit vector
-local u = {}
+    local u = {}
     for i = 1, N do
         u[i] = 1.0
     end

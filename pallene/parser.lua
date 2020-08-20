@@ -14,6 +14,7 @@ local Parser = util.Class()
 
 function Parser:init(lexer)
     self.lexer = lexer
+    self.prev = false -- Token
     self.next = false -- Token
     self.look = false -- Token
     self.loop_depth = 0       -- Are we inside a loop?
@@ -35,10 +36,10 @@ function Parser:_advance()
         end
     until tok.name ~= "COMMENT"
 
-    local ret = self.next
+    self.prev = self.next
     self.next = self.look
     self.look = tok
-    return ret
+    return self.prev
 end
 
 -- Check the next token without consuming it
@@ -99,12 +100,16 @@ function Parser:region_begin()
     self.region_depth = self.region_depth + 1
 end
 
-function Parser:region_end()
+function Parser:region_end(skip_spaces)
     assert(self.region_depth > 0)
     self.region_depth = self.region_depth - 1
     if self.region_depth == 0 then
         local region = self.regions[#self.regions]
-        region[2] = self.next.loc.pos - 1
+        if skip_spaces then
+            region[2] = self.next.loc.pos - 1
+        else
+            region[2] = self.prev.end_pos
+        end
     end
 end
 
@@ -150,7 +155,7 @@ function Parser:Toplevel()
         if self:peek("local") or self:peek("export") then
             self:region_begin()
             visibility = self:e()
-            self:region_end()
+            self:region_end(true)
         else
             visibility = false
         end

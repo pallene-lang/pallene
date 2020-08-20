@@ -55,7 +55,7 @@ export function random_fasta(id: string, desc: string, frequencies: {{any}}, n: 
     -- Prepare the cummulative probability table
     local nitems  = #frequencies
     local letters: {string} = {}
-    local probs: {float}  = {}
+    local probs: {float} = {}
     do
         local total = 0.0
         for i = 1, nitems do

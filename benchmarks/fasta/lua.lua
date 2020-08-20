@@ -60,8 +60,8 @@ function random_fasta(id, desc, frequencies, n)
         local total = 0.0
         for i = 1, nitems do
             local o = frequencies[i]
-            local c = o[1] 
-            local p = o[2] 
+            local c = o[1]
+            local p = o[2]
             total = total + p
             letters[i] = c
             probs[i]   = total
