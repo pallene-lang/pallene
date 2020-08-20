@@ -44,8 +44,14 @@ end
 function Translator:add_previous(stop_index)
     assert(self.last_index <= stop_index + 1)
     local partial = self.input:sub(self.last_index, stop_index)
-    table.insert(self.partials, partial)
+    self:add_partial(partial)
     self.last_index = stop_index + 1
+end
+
+function Translator:add_partial(partial)
+    if partial ~= "" then
+        table.insert(self.partials, partial)
+    end
 end
 
 function Translator:erase_region(start_index, stop_index)
@@ -53,35 +59,29 @@ function Translator:erase_region(start_index, stop_index)
     assert(start_index <= stop_index + 1)
     self:add_previous(start_index - 1)
 
+    if #self.partials > 0 then
+        local last_partial = self.partials[#self.partials]
+        local space_index = last_partial:find(" +$")
+        if space_index then
+            self.partials[#self.partials] = last_partial:sub(1, space_index - 1)
+        end
+    end
+
     local region = self.input:sub(start_index, stop_index)
-    local start_pos = region:find("[\n\r][ \t]*$")
-    if start_pos then
-        local first_region = region:sub(1, start_pos)
-        local first_partial = first_region:gsub("[^\n\r]", "")
-        local last_partial = region:sub(start_pos + 1)
-
-        table.insert(self.partials, first_partial)
-        table.insert(self.partials, last_partial)
-    else
-        local partial = region:gsub("[^\n\r]", "")
-        table.insert(self.partials, partial)
-    end
-
-    if self.input:sub(stop_index + 1, stop_index + 1) == "=" then
-        table.insert(self.partials, " ")
-    end
+    local partial = region:gsub("[^\n\r]", "")
+    self:add_partial(partial)
 
     self.last_index = stop_index + 1
 end
 
 function Translator:add_exports()
     if #self.exports > 0 then
-        table.insert(self.partials, "\nreturn {\n")
+        self:add_partial("\nreturn {\n")
         for _, export in ipairs(self.exports) do
             local pair = string.format("    %s = %s,\n", export, export)
-            table.insert(self.partials, pair)
+            self:add_partial(pair)
         end
-        table.insert(self.partials, "}\n")
+        self:add_partial("}\n")
     end
 end
 
@@ -134,7 +134,7 @@ function translator.translate(input, prog_ast)
             j = j + 1
         end
 
-        -- Preserve the comments inside the current region
+        -- Preserve the comments inside the current region.
         while j <= #comments and comments[j][2] <= end_index do
             assert(start_index < comments[j][1])
             instance:erase_region(start_index, comments[j][1] - 1)
@@ -142,7 +142,7 @@ function translator.translate(input, prog_ast)
             j = j + 1
         end
 
-        -- Ensure that the next comment is outside the current region
+        -- Ensure that the next comment is outside the current region.
         if j <= #comments then
             assert(end_index < comments[j][1])
         end

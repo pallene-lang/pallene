@@ -1,7 +1,7 @@
 local binsearch, test;
 function binsearch(t, x)
     -- lo <= x <= hi
-local lo = 1
+    local lo = 1
     local hi = #t
 
     local steps = 0

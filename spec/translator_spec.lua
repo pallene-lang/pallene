@@ -506,7 +506,7 @@ local i, p;
 
 
 i = 1
-p = { x = i , y = i }
+p = { x = i, y = i }
 ]])
     end)
 
@@ -518,7 +518,7 @@ local j: integer = i as integer
 ]],
 [[
 local i, j;i = 1
-j = i 
+j = i
 ]])
     end)
 
@@ -531,8 +531,8 @@ local k: integer = (j as integer) + 1
 ]],
 [[
 local i, j, k;i = 1
-j = i 
-k = (j ) + 1
+j = i
+k = (j) + 1
 ]])
     end)
 
@@ -572,7 +572,7 @@ local k, f;k = 1
 
 function f()
     if true then
-        local j = k 
+        local j = k
     end
 end
 ]])
@@ -624,7 +624,7 @@ function f()
     if false then
         -- Nothing
     elseif true then
-        local j = k 
+        local j = k
     end
 end
 ]])
@@ -650,7 +650,7 @@ function f()
     if false then
         -- Nothing
     else
-        local j = k 
+        local j = k
     end
 end
 ]])
@@ -673,7 +673,7 @@ local k, f;k = 1
 function f()
     repeat
         -- Nothing
-    until k 
+    until k
 end
 ]])
     end)
@@ -694,7 +694,7 @@ local k, f;k = 1
 
 function f()
     repeat
-        local j = k 
+        local j = k
     until true
 end
 ]])
@@ -715,7 +715,7 @@ end
 local k, f;k = 1
 
 function f()
-    for j = k , k + 10, k do
+    for j = k, k + 10, k do
         -- Nothing
     end
 end
@@ -738,7 +738,7 @@ local k, f;k = 1
 
 function f()
     for j = 1, 10 do
-        local m = k 
+        local m = k
     end
 end
 ]])
@@ -757,7 +757,7 @@ end
 local k, f;k = 1
 
 function f()
-    k, k = k , k 
+    k, k = k, k
 end
 ]])
     end)
@@ -775,7 +775,7 @@ end
 local k, f;k = 1
 
 function f()
-    k = ((k ) )
+    k = ((k))
 end
 ]])
     end)
@@ -793,7 +793,7 @@ end
 local k, f;k = 1
 
 function f()
-    local j = k 
+    local j = k
 end
 ]])
     end)
@@ -811,7 +811,7 @@ end
 local k, f;k = "Madyanam"
 
 function f()
-    io.write(k )
+    io.write(k)
 end
 ]])
     end)
@@ -831,7 +831,7 @@ local name1, name2, get_names;name1 = "Anushka"
 name2 = "Samuel"
 
 function get_names()
-    return name1 , name2 
+    return name1, name2
 end
 ]])
     end)
