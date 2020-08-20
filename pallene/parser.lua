@@ -95,7 +95,8 @@ end
 -- inclusive.
 function Parser:region_begin()
     if self.region_depth == 0 then
-        table.insert(self.type_regions, { self.next.loc.pos, false })
+        local pos = (self.prev and self.prev.end_pos + 1 or 1)
+        table.insert(self.type_regions, { pos, false })
     end
     self.region_depth = self.region_depth + 1
 end
