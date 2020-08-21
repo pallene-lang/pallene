@@ -21,7 +21,7 @@ local function is_constant_value(v)
     end
 end
 
--- Replaces toplevel constant variables by their respetive values.
+-- Replaces toplevel constant variables by their respective values.
 --
 -- Currently assumes that the toplevel constant variable is initialized with a constant literal.
 -- Does not currently recognize non-trivial constant expressions as being constant.

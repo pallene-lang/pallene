@@ -273,7 +273,7 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
         }))
     end
 
-    -- Another tricky thing about holes in Lua 5.4 is that they actually contain "empty", a special
+    -- Another tricky thing about holes in Lua 5.4 is that they actually contain "empty", a special kind
     -- of nil. When reading them, they must be converted to regular nils, just like how the "rawget"
     -- function in lapi.c does.
     if typ._tag == "types.T.Any" then
@@ -903,7 +903,7 @@ gen_cmd["Unop"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local x = self:c_value(cmd.src)
 
-    -- For when we can be directly translate to a C operator:
+    -- For when we can directly translate to a C operator:
     local function unop(op)
         return (util.render([[ $dst = ${op}$x; ]], {
             op = op , dst = dst, x = x }))

@@ -168,7 +168,7 @@ lua_Integer pallene_int_modi(
     }
 }
 
-/* In C, there is undefined behavior if the shift ammount is negative or is larger than the integer
+/* In C, there is undefined behavior if the shift amount is negative or is larger than the integer
  * width. On the other hand, Lua and Pallene specify the behavior in these cases (negative means
  * shift in the opposite direction, and large shifts saturate at zero).
  *

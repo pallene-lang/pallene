@@ -286,7 +286,7 @@ function ToIR:convert_stat(cmds, stat)
         --
         --  2) If the exp is something simple that can be evaluated with exp_to_value then the thing
         --  that we need to worry about is if we are reading from a local variable that is being
-        --  assigned to in another part of this multi-assignment. We can take care of this with
+        --  assigned in another part of this multi-assignment. We can take care of this with
         --  save_if_necessary.
         --
         --  3) If the expression is something more complex that expects to be evaluated with
