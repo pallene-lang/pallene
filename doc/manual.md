@@ -476,9 +476,9 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
     topleveltypealias ::= typealias NAME = type
 
-    toplevelvar ::= local NAME [':' type] {',' NAME [':' type]} '=' explist
+    toplevelvar ::= local|export NAME [':' type] {',' NAME [':' type]} '=' explist
 
-    toplevelfunc ::= [local] function NAME '(' [paramlist] ')'  [':' typelist ] block end
+    toplevelfunc ::= local|export function NAME '(' [paramlist] ')'  [':' typelist ] block end
 
     paramlist ::= NAME ':' type {',' NAME ':' type}
 
