@@ -624,7 +624,7 @@ function Checker:coerce_numeric_exp_to_float(exp)
 end
 
 -- Infers the type of expression @exp, ignoring the surrounding type context.
--- Returns the typechecked expression. This may be either be the original expression, or an inner
+-- Returns the typechecked expression. This may be either the original expression, or an inner
 -- expression if we are dropping a redundant type conversion.
 function Checker:check_exp_synthesize(exp)
     if exp._type then
@@ -872,7 +872,7 @@ function Checker:check_exp_synthesize(exp)
 end
 
 -- Verifies that expression @exp has type expected_type.
--- Returns the typechecked expression. This may be either be the original
+-- Returns the typechecked expression. This may be either the original
 -- expression, or a coercion node from the original expression to the expected
 -- type.
 --
