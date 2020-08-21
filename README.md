@@ -188,3 +188,6 @@ To run benchmarks with LuaJIT, use the `--lua` option:
 ```sh
 ./benchmarks/run benchmarks/sieve/lua.lua --lua=luajit
 ```
+
+> Please run `./benchmarks/generate_lua` to translate all the benchmarks written in Pallene to Lua
+> whenever changes are made to the translator.
