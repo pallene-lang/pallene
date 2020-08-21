@@ -13,7 +13,8 @@ builtins.functions = {
     ["io.write"] = T.Function({ T.String() }, {}),
     ["math.sqrt"] = T.Function({ T.Float() }, { T.Float() }),
     ["string.char"] = T.Function({ T.Integer() }, { T.String() }),
-    ["string.sub"] = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() })
+    ["string.sub"] = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() }),
+    ["tostring"] = T.Function({ T.Any() }, { T.String() })
 }
 
 builtins.modules = {
