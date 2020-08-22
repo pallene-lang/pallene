@@ -2174,33 +2174,23 @@ function execution_tests.run(compile, backend, describe, it, assert)
         ]])
 
         it("works correctly with integer argument", function()
-            run_test([[
-                local x = test.f(42)
-                assert(x == "42")
-            ]])
+            run_test([[ assert(test.f(42) == "42") ]])
         end)
 
         it("works correctly with float argument", function()
-            run_test([[
-                local pi = test.f(3.1415)
-                assert(pi == "3.1415")
-            ]])
+            run_test([[ assert(test.f(3.1415) == "3.1415") ]])
         end)
 
-        it("works correctly with boolean argument", function()
-            run_test([[
-                local t = test.f(true)
-                local f = test.f(false)
-                assert(t == "true")
-                assert(f == "false")
-            ]])
+        it("works correctly with boolean argument (true)", function()
+            run_test([[ assert(test.f(true) == "true") ]])
+        end)
+
+        it("works correctly with boolean argument (false)", function()
+            run_test([[ assert(test.f(false) == "false") ]])
         end)
 
         it("works correctly with string argument", function()
-            run_test([[
-                local s = test.f("this is a string")
-                assert(s == "this is a string")
-            ]])
+            run_test([[ assert(test.f("this is a string") == "this is a string") ]])
         end)
 
         it("error case", function()
