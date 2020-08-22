@@ -73,6 +73,9 @@ int pallene_l_strcmp(
 TString *pallene_type_builtin(
     lua_State *L, TValue v);
 
+TString *pallene_tostring(
+    lua_State *L, const char* file, int line, TValue v);
+
 /* --------------------------- */
 /* Inline functions and macros */
 /* --------------------------- */

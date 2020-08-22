@@ -1376,6 +1376,14 @@ gen_cmd["BuiltinType"] = function(self, cmd, _func)
     return util.render([[ $dst = pallene_type_builtin(L, $v); ]], { dst = dst, v = v })
 end
 
+gen_cmd["BuiltinTostring"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+    local line = cmd.loc.line
+    return util.render([[ $dst = pallene_tostring(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
+        dst = dst, line = C.integer(line), v = v })
+end
+
 --
 -- Control flow
 --

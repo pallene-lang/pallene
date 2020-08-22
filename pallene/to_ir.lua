@@ -645,6 +645,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "type" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinType(loc, dsts, xs))
+            elseif bname == "tostring" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinTostring(loc, dsts, xs))
             else
                 error("impossible")
             end

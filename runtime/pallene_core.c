@@ -17,6 +17,7 @@
 
 #include <string.h>
 #include <stdarg.h>
+#include <locale.h>
 
 const char *pallene_tag_name(int raw_tag)
 {
@@ -251,4 +252,36 @@ int pallene_l_strcmp (const TString *ls, const TString *rs) {
 
 TString *pallene_type_builtin(lua_State *L, TValue v) {
     return luaS_new(L, lua_typename(L, ttype(&v)));
+}
+
+/* This is defined at lobject.c before tostringbuff function definition, where it is used */
+#define MAXNUMBER2STR	50
+
+/* Based on function luaL_tolstring */
+TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
+    int len;
+    char buff[MAXNUMBER2STR];
+    switch (ttype(&v)) {
+        case LUA_TNUMBER: {
+            if (ttisinteger(&v)) {
+                len = lua_integer2str(buff, MAXNUMBER2STR, ivalue(&v));
+            } else {
+                len = lua_number2str(buff, MAXNUMBER2STR, fltvalue(&v));
+                if (buff[strspn(buff, "-0123456789")] == '\0') {  /* looks like an int? */
+                  buff[len++] = lua_getlocaledecpoint();
+                  buff[len++] = '0';  /* adds '.0' to result */
+                }
+            }
+            return luaS_newlstr(L, buff, len);
+        }
+        case LUA_TSTRING:
+            return luaS_new(L, svalue(&v));
+        case LUA_TBOOLEAN:
+            return luaS_new(L, ((pallene_is_truthy(&v)) ? "true" : "false"));
+        default: {
+            luaL_error(L, "file %s: line %d: tostring called with unsuported type '%s'", file, line,
+                lua_typename(L, ttype(&v)));
+            PALLENE_UNREACHABLE;
+        }
+    }
 }

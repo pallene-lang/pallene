@@ -2166,6 +2166,40 @@ function execution_tests.run(compile, backend, describe, it, assert)
         end)
     end)
 
+    describe("tostring builtin", function ()
+        compile([[
+            export function f(x: any): string
+                return tostring(x)
+            end
+        ]])
+
+        it("works correctly with integer argument", function()
+            run_test([[ assert(test.f(42) == "42") ]])
+        end)
+
+        it("works correctly with float argument", function()
+            run_test([[ assert(test.f(3.1415) == "3.1415") ]])
+        end)
+
+        it("works correctly with boolean argument (true)", function()
+            run_test([[ assert(test.f(true) == "true") ]])
+        end)
+
+        it("works correctly with boolean argument (false)", function()
+            run_test([[ assert(test.f(false) == "false") ]])
+        end)
+
+        it("works correctly with string argument", function()
+            run_test([[ assert(test.f("this is a string") == "this is a string") ]])
+        end)
+
+        it("error case", function()
+            run_test([[
+                assert_pallene_error("tostring called with unsuported type 'table'", test.f, {})
+            ]])
+        end)
+    end)
+
 end
 
 return execution_tests
