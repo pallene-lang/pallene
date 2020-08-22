@@ -254,8 +254,11 @@ TString *pallene_type_builtin(lua_State *L, TValue v) {
     return luaS_new(L, lua_typename(L, ttype(&v)));
 }
 
+/* This is defined at lobject.c before tostringbuff function definition, where it is used */
+#define MAXNUMBER2STR	50
+
 /* Based on function luaL_tolstring */
-TString *pallene_tostring(lua_State *L, TValue v) {
+TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
     int len;
     char buff[MAXNUMBER2STR];
     switch (ttype(&v)) {
@@ -276,8 +279,9 @@ TString *pallene_tostring(lua_State *L, TValue v) {
         case LUA_TBOOLEAN:
             return luaS_new(L, ((pallene_is_truthy(&v)) ? "true" : "false"));
         default: {
-            buff[0] = '\0';
-            return luaS_new(L, buff);
+            luaL_error(L, "file %s: line %d: tostring called with unsuported type '%s'", file, line,
+                lua_typename(L, ttype(&v)));
+            PALLENE_UNREACHABLE;
         }
     }
 }

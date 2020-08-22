@@ -22,8 +22,6 @@
 
 #include <math.h>
 
-/* This is defined at lobject.c before tostringbuff function definition, where it is used */
-#define MAXNUMBER2STR	50
 
 #define PALLENE_NORETURN __attribute__((noreturn))
 #define PALLENE_UNREACHABLE __builtin_unreachable()
@@ -76,7 +74,7 @@ TString *pallene_type_builtin(
     lua_State *L, TValue v);
 
 TString *pallene_tostring(
-    lua_State *L, TValue v);
+    lua_State *L, const char* file, int line, TValue v);
 
 /* --------------------------- */
 /* Inline functions and macros */

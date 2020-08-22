@@ -1379,7 +1379,9 @@ end
 gen_cmd["BuiltinTostring"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
-    return util.render([[ $dst = pallene_tostring(L, $v); ]], { dst = dst, v = v })
+    local line = cmd.loc.line
+    return util.render([[ $dst = pallene_tostring(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
+        dst = dst, line = C.integer(line), v = v })
 end
 
 --
