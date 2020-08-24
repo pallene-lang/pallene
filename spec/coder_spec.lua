@@ -25,5 +25,5 @@ end
 
 describe("#c_backend /", function ()
     teardown(cleanup)
-    execution_tests.run(compile, 'c', describe, it, assert)
+    execution_tests.run(compile, 'c', _ENV)
 end)

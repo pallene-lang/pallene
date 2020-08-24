@@ -28,11 +28,6 @@ end
 local function cleanup()
     os.remove("__test__.pln")
     os.remove("__test__.lua")
-end
-
-local function cleanup_run()
-    os.remove("__test__.pln")
-    os.remove("__test__.lua")
     os.remove("__test__script__.lua")
     os.remove("__test__output__.txt")
 end
@@ -988,6 +983,6 @@ end
 end)
 
 describe("#lua_backend /", function ()
-    teardown(cleanup_run)
-    execution_tests.run(compile, 'lua', describe, it, assert)
+    teardown(cleanup)
+    execution_tests.run(compile, 'lua', _ENV)
 end)

@@ -2,7 +2,7 @@ local util = require "pallene.util"
 
 local execution_tests = {}
 
-function execution_tests.run(compile, backend, describe, it, assert)
+function execution_tests.run(compile, backend, _ENV)
     local assert_test_output = function (expected)
         local output = assert(util.get_file_contents("__test__output__.txt"))
         assert.are.same(expected, output)
