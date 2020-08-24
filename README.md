@@ -33,6 +33,13 @@ sudo apt install libreadline-dev # for Ubuntu & Debian-based distros
 sudo dnf install readline-devel  # for Fedora
 ```
 
+Another optional dependency is GNU parallel, which speeds up how long it takes to run the test suite.
+
+```sh
+sudo apt install parallel # for Ubuntu & Debian-based distros
+sudo dnf install parallel # for Fedora
+```
+
 Pallene requires Lua 5.3 to be installed on your system.
 You can either install it [from source](https://www.lua.org/ftp/) or via the package manager for your Linux distro.
 If you install via the package manager then make sure to also install the Lua headers, which are often in a separate "development" package.
@@ -145,7 +152,8 @@ We use Busted to run our test suite. It can be installed using LuaRocks:
 $ luarocks install --local busted
 ```
 
-To run the test suite, run the ./test-project script in this project's root directory:
+To run the test suite, run the ./test-project script in this project's root directory.
+(Tip: if GNU parallel is installed in your system, running the full test suite will be much faster.)
 
 ```sh
 $ ./test-project                       # Run all tests
