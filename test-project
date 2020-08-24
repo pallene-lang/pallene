@@ -1,10 +1,37 @@
-#!/bin/sh
+#!/bin/bash
 
-# We encourage our developers to use busted --no-keep-going by default. Sometimes the test suite
-# is failing because of something silly such as forgetting to run make and in those cases there is
-# a desire to interrupt the test suite with Ctrl-C. With --keep-going (the default busted behavior)
-# you need to press Ctrl-C multiple times and one of those Ctrl-C's will likely kill the busted
-# process itself, meaning that the "teardown" routines are not run. On the other hand, with
-# --no-keep-going we only need to press Ctrl-C once and busted usually gets to exit gracefully.
+# HOW TO USE: This is a wrapper around busted. The command-line arguments are the same.
+#
+# EXAMPLES:
+#   ./test-project
+#   ./test-project -k
+#   ./test-project spec/coder_spec.lua
+
+# We encourage using -no-keep-going by default. Sometimes the test suite is failing because of
+# something silly such as forgetting to run make and in those cases there is a desire to interrupt
+# the test suite with Ctrl-C. With --keep-going (the default busted behavior) you need to press
+# Ctrl-C multiple times and one of those Ctrl-C's will likely kill the busted process itself,
+# meaning that the "teardown" routines are not run. On the other hand, with --no-keep-going we only
+# need to press Ctrl-C once and busted usually gets to exit gracefully.
+FLAGS=(--verbose --no-keep-going)
+
+# To speed things up, we tell the C compiler to skip optimizations.
+# Don't worry, the continuous integration server still tests with optimizations.
 export CFLAGS=-O0
-busted --no-keep-going "$@"
+
+# We can also speed things up by running multiple busted processes in parallel. But unfortunately,
+# busted is single-threaded so we have to parallelize it ourselves. We use GNU parallel, albeit only
+# in the default case where no command-line arguments are given. I didn't want to wrap busted in the
+# case where we are testing a single spec file, because in that case GNU parallel would only show
+# the output after the last test has finished. I'd rather see the little green circle for each test
+# case as soon as it completes.
+if [ "$#" -eq 0 ]; then
+    if command -v parallel >/dev/null; then
+        parallel busted -o utfTerminal "${FLAGS[@]}" ::: spec/*_spec.lua
+    else
+        echo "GNU Parallel is not installed. Running the test suite in single threaded mode..."
+        busted "${FLAGS[@]}" spec/*_spec.lua
+    fi
+else
+    busted "${FLAGS[@]}" "$@"
+fi
