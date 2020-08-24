@@ -20,7 +20,7 @@ local function execution_compile(filename, pallene_code)
 end
 
 describe("#lua_backend /", function ()
-    execution_tests.run(execution_compile, 'lua', _ENV)
+    execution_tests.run(execution_compile, 'lua', _ENV, false)
 end)
 
 --------------------

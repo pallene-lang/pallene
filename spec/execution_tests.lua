@@ -2,7 +2,12 @@ local util = require "pallene.util"
 
 local execution_tests = {}
 
-function execution_tests.run(compile_file, backend, _ENV)
+function execution_tests.run(compile_file, backend, _ENV, only_compile)
+
+    local it = _ENV.it
+    if only_compile then
+        it = function() end
+    end
 
     local modname     = "__test_"..backend.."__"
     local file_pln    = modname..".pln"
@@ -11,6 +16,16 @@ function execution_tests.run(compile_file, backend, _ENV)
     local file_script = modname.."script.lua"
     local file_output = modname.."output.txt"
 
+    local function compile(code)
+        setup(function()
+            compile_file(file_pln, code)
+        end)
+
+        if only_compile then
+            _ENV.it("compiles sucessfully", function() end)
+        end
+    end
+
     teardown(function()
         os.remove(file_pln)
         os.remove(file_so)
@@ -18,10 +33,6 @@ function execution_tests.run(compile_file, backend, _ENV)
         os.remove(file_script)
         os.remove(file_output)
     end)
-
-    local function compile(code)
-        return compile_file(file_pln, code)
-    end
 
     local assert_test_output = function (expected)
         local output = assert(util.get_file_contents(file_output))
