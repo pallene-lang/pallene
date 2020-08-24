@@ -17,12 +17,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
     local file_output = modname.."output.txt"
 
     local function compile(code)
-        setup(function()
-            compile_file(file_pln, code)
-        end)
-
         if only_compile then
-            _ENV.it("compiles sucessfully", function() end)
+            _ENV.it("compiles without error", function()
+                compile_file(file_pln, code)
+            end)
+        else
+            setup(function()
+                compile_file(file_pln, code)
+            end)
         end
     end
 
