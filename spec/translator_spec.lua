@@ -4,37 +4,44 @@
 local util = require "pallene.util"
 local execution_tests = require "spec.execution_tests"
 
-local function compile(pallene_code)
-    assert(util.set_file_contents("__test__.pln", pallene_code))
-    local ok, _, _, error_message = util.outputs_of_execute("./pallenec __test__.pln --emit-lua")
-    if not ok then
-        error(error_message)
-    end
+local function compile(filename, pallene_code)
+    assert(util.set_file_contents(filename, pallene_code))
+    local cmd = string.format("./pallenec %s --emit-lua", util.shell_quote(filename))
+    local ok, _, _, error_message = util.outputs_of_execute(cmd)
+    return ok, error_message
 end
 
+------------------
+-- Execution tests
+-------------------
+
+local function execution_compile(filename, pallene_code)
+    return assert(compile(filename, pallene_code))
+end
+
+describe("#lua_backend /", function ()
+    execution_tests.run(execution_compile, 'lua', _ENV, false)
+end)
+
+--------------------
+-- Translation tests
+--------------------
+
 local function assert_translation(pallene_code, expected)
-    compile(pallene_code)
-    local contents = util.get_file_contents("__test__.lua")
+    assert(compile("__translation_test__.pln", pallene_code))
+    local contents = assert(util.get_file_contents("__translation_test__.lua"))
     assert.are.same(expected, contents)
 end
 
 local function assert_translation_error(pallene_code, expected)
-    assert(util.set_file_contents("__test__.pln", pallene_code))
-    local ok, _, _, actual = util.outputs_of_execute("./pallenec __test__.pln --emit-lua")
+    local ok, err = compile("__translation_test__.pln", pallene_code)
     assert.is_false(ok)
-    assert.match(expected, actual, 1, true)
+    assert.match(expected, err, 1, true)
 end
 
 local function cleanup()
-    os.remove("__test__.pln")
-    os.remove("__test__.lua")
-end
-
-local function cleanup_run()
-    os.remove("__test__.pln")
-    os.remove("__test__.lua")
-    os.remove("__test__script__.lua")
-    os.remove("__test__output__.txt")
+    os.remove("__translation_test__.pln")
+    os.remove("__translation_test__.lua")
 end
 
 describe("Pallene to Lua translator / #translator", function ()
@@ -985,9 +992,4 @@ local f;function f()
 end
 ]])
     end)
-end)
-
-describe("#lua_backend /", function ()
-    teardown(cleanup_run)
-    execution_tests.run(compile, 'lua', describe, it, assert)
 end)

@@ -3,11 +3,11 @@ local execution_tests = require "spec.execution_tests"
 
 local function compile(filename, pallene_code)
     assert(util.set_file_contents(filename, pallene_code))
-    local cmd = string.format("./pallenec %s", util.shell_quote(filename))
+    local cmd = string.format("./pallenec --print-ir %s", util.shell_quote(filename))
     local ok, _, _, errmsg = util.outputs_of_execute(cmd)
     assert(ok, errmsg)
 end
 
-describe("#c_backend /", function ()
-    execution_tests.run(compile, 'c', _ENV, false)
+describe("#pretty_printer /", function ()
+    execution_tests.run(compile, 'pretty_printer', _ENV, true)
 end)

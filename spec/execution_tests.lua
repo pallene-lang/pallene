@@ -2,15 +2,48 @@ local util = require "pallene.util"
 
 local execution_tests = {}
 
-function execution_tests.run(compile, backend, describe, it, assert)
+function execution_tests.run(compile_file, backend, _ENV, only_compile)
+
+    local it = _ENV.it
+    if only_compile then
+        it = function() end
+    end
+
+    local modname     = "__test_"..backend.."__"
+    local file_pln    = modname..".pln"
+    local file_so     = modname..".so"
+    local file_lua    = modname..".lua"
+    local file_script = modname.."script.lua"
+    local file_output = modname.."output.txt"
+
+    local function compile(code)
+        if only_compile then
+            _ENV.it("compiles without error", function()
+                compile_file(file_pln, code)
+            end)
+        else
+            setup(function()
+                compile_file(file_pln, code)
+            end)
+        end
+    end
+
+    teardown(function()
+        os.remove(file_pln)
+        os.remove(file_so)
+        os.remove(file_lua)
+        os.remove(file_script)
+        os.remove(file_output)
+    end)
+
     local assert_test_output = function (expected)
-        local output = assert(util.get_file_contents("__test__output__.txt"))
+        local output = assert(util.get_file_contents(file_output))
         assert.are.same(expected, output)
     end
 
     local run_test = function (test_script)
-        local final_script = util.render([[
-            local test = require "__test__"
+        util.set_file_contents(file_script, (util.render([[
+            local test = require ${modname}
 
             local function assert_pallene_error(message, target, ...)
                 if $backend == "c" then
@@ -30,11 +63,15 @@ function execution_tests.run(compile, backend, describe, it, assert)
 
             ${TEST_SCRIPT}
         ]], {
+            modname = string.format("%q", modname),
+            backend = string.format("%q", backend),
             TEST_SCRIPT = test_script,
-            backend = string.format("%q", backend)
-        })
-        util.set_file_contents("__test__script__.lua", final_script)
-        assert(util.execute("./lua/src/lua __test__script__.lua > __test__output__.txt"))
+        })))
+
+        assert(util.execute(
+            string.format("./lua/src/lua %s > %s",
+                util.shell_quote(file_script),
+                util.shell_quote(file_output))))
     end
 
     describe("Empty program /", function()
