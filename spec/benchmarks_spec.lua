@@ -19,7 +19,7 @@ local function test_benchmark(bench, params, expected_output)
         for _, impl in ipairs(impls) do
             if benchlib.find_benchmark(bench, impl) then
                 it(impl, function()
-                local out = benchlib.run_with_impl_name("none", bench, impl, params)
+                local out = benchlib.run_with_impl_name("plain", bench, impl, params)
                     assert.are.same(expected_output, out)
                 end)
             end
