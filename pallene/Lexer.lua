@@ -21,6 +21,7 @@ local one_char = P(1)
 
 local space = RE"[ \t\n\v\f\r]+"
 local newline = P"\n\r" + P"\r\n" + P"\n" + P"\r" -- See inclinenumber in llex.c
+local find_newline = (1 - newline)^0 * newline
 
 local comment_line = RE"[^\n\r]*" * newline^-1
 
@@ -96,7 +97,7 @@ function Lexer:try(pat)
         self.matched = string.sub(self.input, self.pos, new_pos - 1)
         local i = 1
         while true do
-            local j = newline:match(self.matched, i)
+            local j = find_newline:match(self.matched, i)
             if not j then break end
             self.line = self.line + 1
             self.col  = 1
