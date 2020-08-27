@@ -1,4 +1,3 @@
-local chronos = require "chronos"
 local util = require "pallene.util"
 
 local benchlib = {}
@@ -125,6 +124,7 @@ benchlib.modes.chronos = {
     -- The measurement is given in microseconds, although it is probably not the best idea to trust
     -- that blindly, since there is always a lot of noise when measuring benchmarks...
     run = function(bench_cmd)
+        local chronos = require "chronos"  -- This library is an optional dependency
         local measure_cmd = bench_cmd
         local t1 = chronos.nanotime()
         local ok, err, _, _res = util.outputs_of_execute(measure_cmd)
