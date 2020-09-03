@@ -30,7 +30,7 @@ end
 local function ctype(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "int"
-    elseif tag == "types.T.Boolean"  then return "int"
+    elseif tag == "types.T.Boolean"  then return "char"
     elseif tag == "types.T.Integer"  then return "lua_Integer"
     elseif tag == "types.T.Float"    then return "lua_Number"
     elseif tag == "types.T.String"   then return "TString *"
