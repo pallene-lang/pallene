@@ -8,25 +8,27 @@ local types = require "pallene.types"
 
 local gc = {}
 
--- For proper garbage collection in Pallene, we must ensure that at every potential garbage
--- collection point the values of all live variables with a GC type are saved into the Lua stack.
--- Per the Pallene calling convention, functions can assume that the initial values of function
--- parameters have already been saved by the caller.
+-- For proper garbage collection in Pallene we must ensure that at every potential garbage
+-- collection site all the live GC values must be saved to the the Lua stack, where the GC can see
+-- them. The way that we do this is that whenever we assign to a local variable that has a GC type
+-- we also assign the same value to the Lua stack.
 --
--- Potential garbage collection points are explicit ir.CheckGC nodes and function calls.  Our
--- implementation of variable saving is to mirror writes to the Lua stack if at any point in the
--- function the corresponding variable is live at a GC point.
+-- Potential garbage collection points are explicit ir.CheckGC nodes and function calls. Per the
+-- Pallene calling convention, functions can assume that the initial values of function parameters
+-- have already been saved by the caller.
 --
--- This analysis could be made more precise in the following ways, which may or
--- may not be worth the trouble of implementing in the future:
+-- As an optimization, we don't save values to the Lua stack if the associated variable dies before
+-- it reaches a potential garbage collection site. The current analysis is pretty simple, and there
+-- are many ways to make it more precise. So we don't forget, I'm listing some of the ideas here...
+-- But it should be said that we don't know if implementing them would be worth the trouble.
 --
 --   1) Insert fewer checkGC calls in our functions, or move the checkGC calls to places with fewer
 --      live variables. (For example, the end of the scope)
 --
---   2) Identifiy functions that don't call the GC (directly or indirectly) and don't treat calls to
---      them as potential GC sites
+--   2) Identify functions that don't call the GC (directly or indirectly) and don't treat calls to
+--      them as potential GC sites. (Function inlining might mitigate this for small functions)
 --
---   3) Use a flow-based liveleness analysis to precisely identify the commands that a variable
+--   3) Use a flow-based liveliness analysis to precisely identify the commands that a variable
 --      appears live at, instead of approximating with first definition and last use.
 --
 --   4) Use SSA form or some form of reaching definitions analysis so that we we only need to mirror

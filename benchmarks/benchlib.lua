@@ -1,4 +1,3 @@
-local chronos = require "chronos"
 local util = require "pallene.util"
 
 local benchlib = {}
@@ -74,7 +73,9 @@ end
 --
 benchlib.modes = {}
 
-benchlib.modes.none = {
+benchlib.modes.plain = {
+    -- Return whatever the benchmark normally outputs to stdout.
+    -- However, the output only appears on the screen after the benchmark has finished running.
     run = function(bench_cmd)
         local ok, err, res, _ = util.outputs_of_execute(bench_cmd)
         assert(ok, err)
@@ -86,7 +87,24 @@ benchlib.modes.none = {
     end,
 }
 
+benchlib.modes.none = {
+    -- This is similar to "plain", but the benchmark output is directly sent to the stdout, without
+    -- any redirection. We can see the output being produced in real time, but the downside is that
+    -- further scripts cannot read what the output was.
+    run = function(bench_cmd)
+        local ok, err = util.execute(bench_cmd)
+        assert(ok, err)
+        return ""
+    end,
+
+    parse = function(_res)
+        return {}
+    end,
+}
+
 benchlib.modes.time = {
+    -- Measure how long it takes to run the benchmark, using /usr/bin/time.
+    -- The output is rounded to 1/100 second.
     run = function(bench_cmd)
         local measure_cmd = string.format("env LC_ALL=C time -p -- %s", bench_cmd)
         local ok, err, _, res = util.outputs_of_execute(measure_cmd)
@@ -102,7 +120,11 @@ benchlib.modes.time = {
 }
 
 benchlib.modes.chronos = {
+    -- Measure how long it takes to run the benchmark using chronos.nanotime.
+    -- The measurement is given in microseconds, although it is probably not the best idea to trust
+    -- that blindly, since there is always a lot of noise when measuring benchmarks...
     run = function(bench_cmd)
+        local chronos = require "chronos"  -- This library is an optional dependency
         local measure_cmd = bench_cmd
         local t1 = chronos.nanotime()
         local ok, err, _, _res = util.outputs_of_execute(measure_cmd)
@@ -119,6 +141,8 @@ benchlib.modes.chronos = {
 }
 
 benchlib.modes.perf = {
+    -- Measure running times and a bunch of low-level info from hardware performance counters,
+    -- using Linux's perf tool.
     run = function (bench_cmd)
         local measure_cmd = string.format("env LC_ALL=C perf stat -d -- %s", bench_cmd)
         local ok, err, _, res = util.outputs_of_execute(measure_cmd)

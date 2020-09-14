@@ -21,9 +21,10 @@ for i = 1, 8 do
     end
 end
 
-for i = 1, nsteps do
+io.write("\027[2J")	-- ANSI clear screen
+for _ = 1, nsteps do
     life.step(N, M, curr_cells, next_cells)
     curr_cells, next_cells = next_cells, curr_cells
-    if i > 1 then io.write("\n") end
+    io.write("\027[H") -- ANSI home cursor
     life.draw(N, M, curr_cells)
 end
