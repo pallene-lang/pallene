@@ -693,7 +693,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 cmd = ir.Cmd.GetTable(loc, dst_typ, dst, rec, key)
             elseif typ._tag == "types.T.Record" then
                 cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)
-            elseif typedecl.tag_is_type(type._tag) then
+            elseif typedecl.tag_is_type(typ._tag) then
                 typedecl.tag_error(typ._tag, "cannot index this type.")
             else
                 typedecl.tag_error(typ._tag)
