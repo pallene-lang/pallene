@@ -82,4 +82,27 @@ function typedecl.declare(module, mod_name, type_name, constructors)
     end
 end
 
+-- Returns true if the 2nd argument is a prefix of the first.
+--
+-- @param tag: The type name (string)
+-- @param tag_prefix: The prefix to test (string)
+
+function typedecl.tag_matches(tag, tag_prefix)
+    return type(tag) == "string"
+        and string.find(tag, tag_prefix, 1, true) ~= nil
+end
+
+-- Throw an error at the given type tag.
+--
+-- @param tag The type tag at which the error is to be thown (string)
+-- @param message The optional error message. (?string)
+
+function typedecl.tag_error(tag, message)
+    local error_msg = message
+        and string.format("Tag error at %s: %s", tag, message)
+        or string.format("Tag error at %s.", tag)
+
+    error(error_msg)
+end
+
 return typedecl
