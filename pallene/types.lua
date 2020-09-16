@@ -49,7 +49,7 @@ function types.is_gc(t)
         return true
 
     else
-        error("impossible")
+        typedecl.tag_error(tag, "unknown type.")
     end
 end
 
@@ -72,8 +72,10 @@ function types.is_condition(t)
     then
         return false
 
+    elseif not typedecl.tag_matches(tag, "types.T") then
+        typedecl.tag_error(tag, "not a type.")
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 
 end
@@ -98,7 +100,7 @@ function types.is_indexable(t)
         return false
 
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 end
 
@@ -110,8 +112,10 @@ function types.indices(t)
     elseif tag == "types.T.Record" then
         return t.field_types
 
+    elseif typedecl.tag_is_type(tag) then
+        typedecl.tag_error(tag, "cannot index this type.")
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 end
 
@@ -194,7 +198,8 @@ local function equivalent(t1, t2, is_gradual)
         return t1 == t2
 
     else
-        return error("impossible")
+        return typedecl.tag_error(tag1,
+            string.format("attempt to check equivalence of types %s and %s.", tag1, tag2))
     end
 end
 
@@ -246,8 +251,10 @@ function types.tostring(t)
 
     elseif tag == "types.T.Record" then
         return t.name
+    elseif not typedecl.tag_matches(tag, "types.T") then
+        typedecl.tag_error(tag, "not a type.")
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 end
 

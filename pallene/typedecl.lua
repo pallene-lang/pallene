@@ -92,6 +92,14 @@ function typedecl.tag_matches(tag, tag_prefix)
         and string.find(tag, tag_prefix, 1, true) ~= nil
 end
 
+-- Return true if the argument tag is has "types.T" as prefix
+--
+-- @param tag Tag name
+
+function typedecl.tag_is_type(tag)
+    return typedecl.tag_matches(tag, "types.T")
+end
+
 -- Throw an error at the given type tag.
 --
 -- @param tag The type tag at which the error is to be thown (string)
@@ -99,8 +107,8 @@ end
 
 function typedecl.tag_error(tag, message)
     local error_msg = message
-        and string.format("Tag error at %s: %s", tag, message)
-        or string.format("Tag error at %s.", tag)
+        and string.format("Type error at '%s': %s", tag, message)
+        or string.format("Type error at '%s'.", tag)
 
     error(error_msg)
 end
