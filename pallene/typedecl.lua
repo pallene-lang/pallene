@@ -107,8 +107,8 @@ end
 
 function typedecl.tag_error(tag, message)
     local error_msg = message
-        and string.format("Type error at '%s': %s", tag, message)
-        or string.format("Type error at '%s'.", tag)
+        and string.format("error at tag '%s': %s", tag, message)
+        or string.format("error at tag '%s'.", tag)
 
     error(error_msg)
 end
