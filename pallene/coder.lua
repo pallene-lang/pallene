@@ -39,7 +39,9 @@ local function ctype(typ)
     elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
     elseif tag == "types.T.Any"      then return "TValue"
-    else error("impossible")
+    elseif typedecl.tag_is_type(tag) then
+        typedecl.tag_error(tag, "unable to get corresponding c type.")
+    else typedecl.tag_error(tag)
     end
 end
 
@@ -90,7 +92,7 @@ local function lua_value(typ, src_slot)
     elseif tag == "types.T.Table"    then tmpl = "hvalue($src)"
     elseif tag == "types.T.Record"   then tmpl = "uvalue($src)"
     elseif tag == "types.T.Any"      then tmpl = "*($src)"
-    else error("impossible")
+    else typedecl.tag_error(tag)
     end
     return (util.render(tmpl, {src = src_slot}))
 end
@@ -117,8 +119,12 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
     elseif tag == "types.T.Any"      then tmpl = "setobj(L, $dst, &$src);"
-    else error("impossible")
+    elseif not typedecl.tag_is_type(tag) then
+        typedecl.tag_error(tag, "not a type.")
+    else
+        typedecl.tag_error(tag)
     end
+
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
@@ -165,8 +171,8 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
     elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
-    elseif tag == "types.T.Any"    then error("value is not a tag")
-    else error("impossible")
+    elseif tag == "types.T.Any"      then typedecl.tag_error(tag, "value is not a tag")
+    else typedecl.tag_error(tag)
     end
 end
 
@@ -324,8 +330,10 @@ function Coder:c_value(value)
         local f_id = value.id
         local typ = self.module.functions[f_id].typ
         return lua_value(typ, self:function_upvalue_slot(f_id))
+    elseif typedecl.tag_matches(tag, "ir.Value") then
+        typedecl.tag_error(tag, "unable to get C expression for this value type.")
     else
-        error("impossible")
+        typedecl.tag_error(tag, "not a value.")
     end
 end
 
@@ -1476,7 +1484,7 @@ gen_cmd["For"] = function(self, cmd, func)
     elseif typ._tag == "types.T.Float" then
         macro = "PALLENE_FLT_FOR_LOOP"
     else
-        error("impossible")
+        typedecl.tag_error(typ._tag)
     end
 
     return (util.render([[
@@ -1601,7 +1609,7 @@ function Coder:generate_luaopen_function()
                     ix = C.integer(self.upvalue_of_function[upv.f_id]),
                 }))
             else
-                error("impossible")
+                typedecl.tag_error(tag)
             end
 
             table.insert(init_constants, util.render([[
