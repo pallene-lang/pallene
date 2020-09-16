@@ -6,6 +6,7 @@
 local C = require "pallene.C"
 local ir = require "pallene.ir"
 local util = require "pallene.util"
+local typedecl = require "pallene.typedecl"
 
 --
 -- Generates a human-readable representation of the IR.
@@ -41,7 +42,7 @@ local function Val(val)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
     elseif tag == "ir.Value.Function" then return Fun(val.id)
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 end
 
