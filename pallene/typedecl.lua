@@ -103,11 +103,8 @@ end
 -- @param tag The type tag at which the error is to be thown (string)
 -- @param message The optional error message. (?string)
 function typedecl.tag_error(tag, message)
-    local error_msg = message
-        and string.format("error at tag '%s': %s", tag, message)
-        or string.format("error at tag '%s'.", tag)
-
-    error(error_msg)
+    message = message or "input has the wrong type or an elseif case is missing"
+    error(string.format("unhandled case '%s': %s", tag, message))
 end
 
 return typedecl
