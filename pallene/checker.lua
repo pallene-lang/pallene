@@ -124,7 +124,7 @@ declare_type("Name", {
 })
 
 function Checker:add_type(name, typ)
-    assert(typedecl.match_tag(typ._tag, "types.T."))
+    assert(typedecl.match_tag(typ._tag, "types.T"))
     self.symbol_table:add_symbol(name, checker.Name.Type(typ))
 end
 

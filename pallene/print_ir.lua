@@ -216,7 +216,7 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.CallDyn"    then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
     else
         local tagname = cmd._tag
-        assert(typedecl.match_tag(tagname, "ir.Cmd."))
+        assert(typedecl.match_tag(tagname, "ir.Cmd"))
         rhs = Call(tagname, Vals(ir.get_srcs(cmd)))
     end
 

@@ -1505,7 +1505,7 @@ gen_cmd["CheckGC"] = function(self, cmd, func)
 end
 
 function Coder:generate_cmd(func, cmd)
-    local name = assert(string.match(cmd._tag, "^ir%.Cmd%.(.*)$"))
+    local name = assert(typedecl.match_tag(cmd._tag, "ir.Cmd"))
     local f = assert(gen_cmd[name], "impossible")
     local out = f(self, cmd, func)
 
