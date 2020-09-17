@@ -100,7 +100,7 @@ end
 
 -- Throw an error at the given type tag.
 --
--- @param tag The type tag at which the error is to be thown (string)
+-- @param tag The type tag (or token string) at which the error is to be thown (string)
 -- @param message The optional error message. (?string)
 function typedecl.tag_error(tag, message)
     message = message or "input has the wrong type or an elseif case is missing"
