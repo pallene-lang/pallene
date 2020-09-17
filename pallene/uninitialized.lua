@@ -118,7 +118,7 @@ local function test(cmd, uninit, loop)
             return true, loop.uninit
         end
 
-    elseif typedecl.tag_matches(cmd._tag, "ir.Cmd.") then
+    elseif typedecl.match_tag(cmd._tag, "ir.Cmd") then
         for _, val in ipairs(ir.get_srcs(cmd)) do
             if val._tag == "ir.Value.LocalVar" then
                 check_use(val.id)

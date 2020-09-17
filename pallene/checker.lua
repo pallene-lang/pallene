@@ -124,7 +124,7 @@ declare_type("Name", {
 })
 
 function Checker:add_type(name, typ)
-    assert(string.match(typ._tag, "^types%.T%."))
+    assert(typedecl.match_tag(typ._tag, "types.T"))
     self.symbol_table:add_symbol(name, checker.Name.Type(typ))
 end
 
@@ -618,7 +618,7 @@ function Checker:coerce_numeric_exp_to_float(exp)
         return exp
     elseif tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
-    elseif typedecl.tag_matches(tag, "types.T") then
+    elseif typedecl.match_tag(tag, "types.T") then
         typedecl.tag_error(tag, "this type cannot be coerced to float.")
     else
         typedecl.tag_error(tag)
@@ -689,7 +689,7 @@ function Checker:check_exp_synthesize(exp)
             check_type_is_condition(exp.exp, "'not' operator")
             exp._type = types.T.Boolean()
         else
-            typedecl.tag_error(tag, string.format("unknown unary operator '%s'.", op))
+            typedecl.tag_error(op)
         end
 
     elseif tag == "ast.Exp.Binop" then
