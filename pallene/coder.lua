@@ -325,7 +325,7 @@ function Coder:c_value(value)
         local f_id = value.id
         local typ = self.module.functions[f_id].typ
         return lua_value(typ, self:function_upvalue_slot(f_id))
-    elseif typedecl.tag_matches(tag, "ir.Value") then
+    elseif typedecl.match_tag(tag, "ir.Value") then
         typedecl.tag_error(tag, "unable to get C expression for this value type.")
     else
         typedecl.tag_error(tag)

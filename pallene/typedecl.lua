@@ -82,23 +82,25 @@ function typedecl.declare(module, mod_name, type_name, constructors)
     end
 end
 
--- Returns true if the 2nd argument is a prefix of the first.
+-- Check if the 2nd tag is a prefix of the first.
+-- If appending a "." to the second argument makes it a
+-- prefix of the first, captures the rest of the string and
+-- returns it
 --
 -- for example:
---
 -- ```
--- typedecl.tag_matches("ast.Exp.Bool", "ast.Exp")
+-- typedecl.match_tag("ast.Exp.Bool", "ast.Exp")
 -- ```
--- would return true since `"ast.Exp"` is indeed a prefix of
+-- would return "Bool" since `"ast.Exp."` is indeed a prefix of
 -- "ast.Exp.bool". Check types.lua for more usage examples.
 --
 -- @param tag: The type name (string)
 -- @param tag_prefix: The prefix to test (string)
-function typedecl.tag_matches(tag, tag_prefix)
-    return type(tag) == "string" and string.find(tag, tag_prefix, 1, true) ~= nil
+function typedecl.match_tag(tag, tag_prefix)
+    return type(tag) == "string" and string.match(tag, tag_prefix .. ".(.*)")
 end
 
--- Throw an error at the given type tag.
+-- Throw an error at the given tag.
 --
 -- @param tag The type tag at which the error is to be thown (string)
 -- @param message The optional error message. (?string)

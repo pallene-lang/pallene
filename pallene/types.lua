@@ -110,7 +110,7 @@ function types.indices(t)
     elseif tag == "types.T.Record" then
         return t.field_types
 
-    elseif typedecl.tag_matches(tag, "types.T") then
+    elseif typedecl.match_tag(tag, "types.T") then
         typedecl.tag_error(tag, "cannot index this type.")
     else
         typedecl.tag_error(tag)
@@ -125,8 +125,8 @@ local function equivalent(t1, t2, is_gradual)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
-    assert(typedecl.tag_matches(tag1, "types.T"))
-    assert(typedecl.tag_matches(tag2, "types.T"))
+    assert(typedecl.match_tag(tag1, "types.T"))
+    assert(typedecl.match_tag(tag2, "types.T"))
 
     if is_gradual and (tag1 == "types.T.Any" or tag2 == "types.T.Any") then
         return true
