@@ -618,7 +618,7 @@ function Checker:coerce_numeric_exp_to_float(exp)
         return exp
     elseif tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
-    elseif typedecl.tag_is_type(tag) then
+    elseif typedecl.tag_matches(tag, "types.T") then
         typedecl.tag_error(tag, "this type cannot be coerced to float.")
     else
         typedecl.tag_error(tag)

@@ -39,7 +39,7 @@ local function ctype(typ)
     elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
     elseif tag == "types.T.Any"      then return "TValue"
-    elseif typedecl.tag_is_type(tag) then
+    elseif typedecl.tag_matches(tag, "types.T") then
         typedecl.tag_error(tag, "unable to get corresponding c type.")
     else typedecl.tag_error(tag)
     end
@@ -119,7 +119,7 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
     elseif tag == "types.T.Any"      then tmpl = "setobj(L, $dst, &$src);"
-    elseif not typedecl.tag_is_type(tag) then
+    elseif not typedecl.tag_matches(tag, "types.T") then
         typedecl.tag_error(tag, "not a type.")
     else
         typedecl.tag_error(tag)

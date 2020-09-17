@@ -95,15 +95,7 @@ end
 -- @param tag: The type name (string)
 -- @param tag_prefix: The prefix to test (string)
 function typedecl.tag_matches(tag, tag_prefix)
-    return type(tag) == "string"
-        and string.find(tag, tag_prefix, 1, true) ~= nil
-end
-
--- Return true if the argument tag is has "types.T" as prefix
---
--- @param tag Tag name
-function typedecl.tag_is_type(tag)
-    return typedecl.tag_matches(tag, "types.T")
+    return type(tag) == "string" and string.find(tag, tag_prefix, 1, true) ~= nil
 end
 
 -- Throw an error at the given type tag.

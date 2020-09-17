@@ -112,7 +112,7 @@ function types.indices(t)
     elseif tag == "types.T.Record" then
         return t.field_types
 
-    elseif typedecl.tag_is_type(tag) then
+    elseif typedecl.tag_matches(tag, "types.T") then
         typedecl.tag_error(tag, "cannot index this type.")
     else
         typedecl.tag_error(tag)
