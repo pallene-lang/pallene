@@ -90,7 +90,7 @@ end
 -- typedecl.tag_matches("ast.Exp.Bool", "ast.Exp")
 -- ```
 -- would return true since `"ast.Exp"` is indeed a prefix of
--- "ast.Exp.bool"
+-- "ast.Exp.bool". Check types.lua for more usage examples.
 --
 -- @param tag: The type name (string)
 -- @param tag_prefix: The prefix to test (string)
