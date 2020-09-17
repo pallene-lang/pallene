@@ -4,7 +4,7 @@
 -- SPDX-License-Identifier: MIT
 
 local ir = require "pallene.ir"
-local typedecl = require "typedecl"
+local typedecl = require "pallene.typedecl"
 
 local uninitialized = {}
 
