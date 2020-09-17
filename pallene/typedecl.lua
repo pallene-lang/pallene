@@ -84,9 +84,16 @@ end
 
 -- Returns true if the 2nd argument is a prefix of the first.
 --
+-- for example:
+--
+-- ```
+-- typedecl.tag_matches("ast.Exp.Bool", "ast.Exp")
+-- ```
+-- would return true since `"ast.Exp"` is indeed a prefix of
+-- "ast.Exp.bool"
+--
 -- @param tag: The type name (string)
 -- @param tag_prefix: The prefix to test (string)
-
 function typedecl.tag_matches(tag, tag_prefix)
     return type(tag) == "string"
         and string.find(tag, tag_prefix, 1, true) ~= nil
@@ -95,7 +102,6 @@ end
 -- Return true if the argument tag is has "types.T" as prefix
 --
 -- @param tag Tag name
-
 function typedecl.tag_is_type(tag)
     return typedecl.tag_matches(tag, "types.T")
 end
@@ -104,7 +110,6 @@ end
 --
 -- @param tag The type tag at which the error is to be thown (string)
 -- @param message The optional error message. (?string)
-
 function typedecl.tag_error(tag, message)
     local error_msg = message
         and string.format("error at tag '%s': %s", tag, message)
