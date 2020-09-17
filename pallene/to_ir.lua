@@ -497,7 +497,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
                 return ir.Value.Function(id)
 
             elseif cname._tag == "checker.Name.Builtin" then
-                typedecl.tag_error(cname._tag, "not implemented")
+                error("not implemented")
 
             else
                 typedecl.tag_error(cname._tag)
@@ -651,7 +651,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinTostring(loc, dsts, xs))
             else
-                typedecl.tag_error(cname._tag, "unknown builtin function.")
+                typedecl.tag_error(bname)
             end
 
         elseif cname and cname._tag == "checker.Name.Function" then
@@ -780,8 +780,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif src_typ._tag == "types.T.Any" then
                 table.insert(cmds, ir.Cmd.FromDyn(loc, dst_typ, dst, v))
             else
-                typedecl.tag_error(tag,
-                    string.format("error casting from type '%s' to '%s'",
+                error(string.format("error casting from type '%s' to '%s'",
                         types.tostring(src_typ), types.tostring(dst_typ)))
             end
         end

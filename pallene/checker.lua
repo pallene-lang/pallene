@@ -455,7 +455,7 @@ function Checker:check_stat(stat)
             elseif loop_type._tag == "types.T.Float" then
                 stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
             else
-                typedecl.tag_error(loop_type._tag, "incorrect loop step type.")
+                typedecl.tag_error(loop_type._tag, "loop type is not a number.")
             end
         end
 
@@ -799,7 +799,7 @@ function Checker:check_exp_synthesize(exp)
             exp._type = types.T.Integer()
 
         else
-            typedecl.tag_error(tag, string.format("unknown binary operator '%s'.", op))
+            typedecl.tag_error(op)
         end
 
     elseif tag == "ast.Exp.CallFunc" then

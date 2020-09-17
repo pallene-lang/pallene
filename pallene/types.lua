@@ -49,7 +49,7 @@ function types.is_gc(t)
         return true
 
     else
-        typedecl.tag_error(tag, "unknown type.")
+        typedecl.tag_error(tag)
     end
 end
 
@@ -72,8 +72,6 @@ function types.is_condition(t)
     then
         return false
 
-    elseif not typedecl.tag_matches(tag, "types.T") then
-        typedecl.tag_error(tag, "not a type.")
     else
         typedecl.tag_error(tag)
     end
@@ -126,6 +124,9 @@ local function equivalent(t1, t2, is_gradual)
     assert(is_gradual ~= nil)
     local tag1 = t1._tag
     local tag2 = t2._tag
+
+    assert(typedecl.tag_matches(tag1, "types.T"))
+    assert(typedecl.tag_matches(tag2, "types.T"))
 
     if is_gradual and (tag1 == "types.T.Any" or tag2 == "types.T.Any") then
         return true
@@ -251,8 +252,6 @@ function types.tostring(t)
 
     elseif tag == "types.T.Record" then
         return t.name
-    elseif not typedecl.tag_matches(tag, "types.T") then
-        typedecl.tag_error(tag, "not a type.")
     else
         typedecl.tag_error(tag)
     end

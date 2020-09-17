@@ -39,9 +39,7 @@ local function ctype(typ)
     elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
     elseif tag == "types.T.Any"      then return "TValue"
-    elseif typedecl.tag_matches(tag, "types.T") then
-        typedecl.tag_error(tag, "unable to get corresponding c type.")
-    else typedecl.tag_error(tag)
+    else   typedecl.tag_error(tag)
     end
 end
 
@@ -119,10 +117,7 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
     elseif tag == "types.T.Any"      then tmpl = "setobj(L, $dst, &$src);"
-    elseif not typedecl.tag_matches(tag, "types.T") then
-        typedecl.tag_error(tag, "not a type.")
-    else
-        typedecl.tag_error(tag)
+    else typedecl.tag_error(tag)
     end
 
     return (util.render(tmpl, { dst = dst_slot, src = value }))
@@ -171,7 +166,7 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
     elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
-    elseif tag == "types.T.Any"      then typedecl.tag_error(tag, "value is not a tag")
+    elseif tag == "types.T.Any"      then typedecl.tag_error(tag, "'Any' is not a Lua type tag.")
     else typedecl.tag_error(tag)
     end
 end
@@ -333,7 +328,7 @@ function Coder:c_value(value)
     elseif typedecl.tag_matches(tag, "ir.Value") then
         typedecl.tag_error(tag, "unable to get C expression for this value type.")
     else
-        typedecl.tag_error(tag, "not a value.")
+        typedecl.tag_error(tag)
     end
 end
 
