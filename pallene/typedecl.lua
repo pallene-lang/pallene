@@ -97,7 +97,16 @@ end
 -- @param tag: The type name (string)
 -- @param tag_prefix: The prefix to test (string)
 function typedecl.match_tag(tag, tag_prefix)
-    return type(tag) == "string" and string.match(tag, tag_prefix .. ".(.*)")
+    local n = #tag_prefix
+
+    if type(tag) == "string" and
+       string.sub(tag, 1, n) == tag_prefix and
+       string.byte(tag, n + 1) == 46 -- "."
+    then
+        return string.sub(tag, n + 2)
+    end
+
+    return false
 end
 
 -- Throw an error at the given tag.
