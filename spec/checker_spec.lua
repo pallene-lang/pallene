@@ -295,6 +295,78 @@ describe("Pallene type checker", function()
             "expected integer but found string in array initializer")
     end)
 
+    it("type checks the iterator function in for-in loops", function()
+        assert_error([[
+            export function fn()
+                for k, v in 5, 1, 2 do
+                    local a = k + v
+                end
+            end
+        ]],
+        "expected function type (any, any) -> (any, any) but found integer in loop iterator")
+
+        assert_error([[
+
+            export function foo(a: integer, b: integer): integer
+                return a * b
+            end
+
+            export function fn()
+                for k, v in foo, 2, 3 do
+                    k = v
+                end
+            end
+        ]], "expected function type (any, any) -> (any, any) but found function type (integer, integer) -> (integer) in loop iterator")
+    end)
+
+    it("type checks the state and control values of for-in loops", function()
+        assert_error([[
+            export function foo(): (integer, integer)
+                return 1, 2
+            end
+
+            export function iter(a: any, b: any): (any, any)
+                return 1, 2
+            end
+
+            export function fn()
+                for k, v in iter, foo() do
+                    local a = k + v
+                end
+            end
+        ]],
+        "expected any but found integer in loop state value")
+
+        assert_error([[
+            export function iter(a: any, b: any): (any, any)
+                return 1, 2
+            end
+
+            export function fn()
+                for k, v in iter do
+                    k = v
+                end
+            end
+        ]], "missing state variable in for-in loop")
+
+        assert_error([[
+            export function iter(a: any, b: any): (any, any)
+                return 1, 2
+            end
+
+            export function x_ipairs(): ((any, any) -> (any, any), integer)
+                return iter, 4
+            end
+
+            export function fn()
+                for k, v in x_ipairs() do
+                    k = v
+                end
+            end
+        ]], "missing control variable in for-in loop")
+    end)
+
+
     describe("table/record initalizer", function()
         local function assert_init_error(typ, code, err)
             typ = typ and (": " .. typ) or ""

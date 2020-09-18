@@ -295,7 +295,7 @@ function Checker:check_program(prog_ast)
 
             for _, tl_var in ipairs(tl_group) do
 
-                self:expand_function_returns(tl_var.decls, tl_var.values)
+                self:expand_function_returns(#tl_var.decls, tl_var.values)
 
                 for i, decl in ipairs(tl_var.decls) do
                     tl_var.values[i] =
@@ -358,13 +358,14 @@ function Checker:check_program(prog_ast)
 end
 
 -- This function expands @rhs using @rhs[#rhs] if there are missing expressions.
--- That is, if (rhs < lhs) and rhs[#rhs] is a function or method call.
-function Checker:expand_function_returns(lhs, rhs)
+-- That is, if (rhs < lhs_count) and rhs[#rhs] is a function or method call.
+-- `lhs_count` is the number of symbols on the left hand side of assignment.
+function Checker:expand_function_returns(lhs_count, rhs)
     local last = rhs[#rhs]
     if  last and (last._tag == "ast.Exp.CallFunc" or
         last._tag == "ast.Exp.CallMethod")
     then
-        local missing_exps = #lhs - #rhs
+        local missing_exps = lhs_count - #rhs
 
         last = self:check_exp_synthesize(last)
         rhs[#rhs] = last
@@ -382,7 +383,7 @@ function Checker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
 
-        self:expand_function_returns(stat.decls, stat.exps)
+        self:expand_function_returns(#stat.decls, stat.exps)
 
         for i, decl in ipairs(stat.decls) do
             stat.exps[i] =
@@ -417,7 +418,7 @@ function Checker:check_stat(stat)
             check_type_is_condition(stat.condition, "repeat-until loop condition")
         end)
 
-    elseif tag == "ast.Stat.For" then
+    elseif tag == "ast.Stat.ForNum" then
 
         stat.start =
             self:check_initializer_exp(
@@ -451,9 +452,73 @@ function Checker:check_stat(stat)
             self:add_local(stat.decl)
             self:check_stat(stat.block)
         end)
+    elseif tag == "ast.Stat.ForIn" then
+        local rhs = stat.exps
+        self:expand_function_returns(3, rhs)
+
+        if not rhs[1] then
+            type_error(stat.loc, "missing right hand side of for-in loop")
+        end
+
+        if not rhs[2] then
+            type_error(rhs[1].loc, "missing state variable in for-in loop")
+        end
+
+        if not rhs[3] then
+            type_error(rhs[1].loc, "missing control variable in for-in loop")
+        end
+
+        local expected_ret_types = {}
+        for _ = 1, #stat.decls do
+            table.insert(expected_ret_types, types.T.Any())
+        end
+
+        local itertype = types.T.Function({ types.T.Any(), types.T.Any() }, expected_ret_types)
+        rhs[1] = self:check_exp_synthesize(rhs[1])
+        local iteratorfn = rhs[1]
+
+        if not types.equals(iteratorfn._type, itertype) then
+            type_error(iteratorfn.loc, "expected %s but found %s in loop iterator",
+                types.tostring(itertype), types.tostring(iteratorfn._type))
+        end
+
+        rhs[2] = self:check_exp_synthesize(rhs[2])
+        rhs[3] = self:check_exp_synthesize(rhs[3])
+
+        if rhs[2]._type._tag ~= "types.T.Any" then
+            type_error(rhs[2].loc, "expected any but found %s in loop state value",
+                types.tostring(rhs[2]._type))
+        end
+
+        if rhs[3]._type._tag ~= "types.T.Any" then
+            type_error(rhs[2].loc, "expected any but found %s in loop control value",
+            types.tostring(rhs[3]._type))
+        end
+
+        if #stat.decls ~= #iteratorfn._type.ret_types then
+            type_error(stat.decls[1].loc, "expected %d values, but function returns %d",
+                       #stat.decls, #iteratorfn._type.ret_types)
+        end
+
+        self.symbol_table:with_block(function()
+            local ret_types = iteratorfn._type.ret_types
+            for i, decl in ipairs(stat.decls) do
+                if decl.type then
+                    decl._type = self:from_ast_type(decl.type)
+                    if not types.consistent(decl._type, ret_types[i]) then
+                        type_error(decl.loc, "expected value of type %s, but iterator returns %s",
+                                   types.tostring(decl._type), types.tostring(ret_types[i]))
+                    end
+                else
+                    stat.decls[i]._type = ret_types[i]
+                end
+                self:add_local(stat.decls[i])
+            end
+            self:check_stat(stat.block)
+        end)
 
     elseif tag == "ast.Stat.Assign" then
-        self:expand_function_returns(stat.vars, stat.exps)
+        self:expand_function_returns(#stat.vars, stat.exps)
 
         for i = 1, #stat.vars do
             stat.vars[i] = self:check_var(stat.vars[i])
@@ -478,7 +543,7 @@ function Checker:check_stat(stat)
     elseif tag == "ast.Stat.Return" then
         local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
 
-        self:expand_function_returns(ret_types, stat.exps)
+        self:expand_function_returns(#ret_types, stat.exps)
 
         if #stat.exps ~= #ret_types then
             type_error(stat.loc,
@@ -797,7 +862,7 @@ function Checker:check_exp_synthesize(exp)
                 types.tostring(exp.exp._type))
         end
 
-        self:expand_function_returns(f_type.arg_types, exp.args)
+        self:expand_function_returns(#f_type.arg_types, exp.args)
 
         if #f_type.arg_types ~= #exp.args then
             type_error(exp.loc,

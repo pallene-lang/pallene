@@ -191,7 +191,7 @@ function ToIR:convert_stat(cmds, stat)
         local else_ = {}; self:convert_stat(else_, stat.else_)
         table.insert(cmds, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Seq(then_), ir.Cmd.Seq(else_)))
 
-    elseif tag == "ast.Stat.For" then
+    elseif tag == "ast.Stat.ForNum" then
         local start = self:exp_to_value(cmds, stat.start)
         local limit = self:exp_to_value(cmds, stat.limit)
         local step  = self:exp_to_value(cmds, stat.step)
@@ -204,6 +204,46 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stat(body, stat.block)
 
         table.insert(cmds, ir.Cmd.For(stat.loc, v, start, limit, step, ir.Cmd.Seq(body)))
+
+    elseif tag == "ast.Stat.ForIn" then
+        local decls = stat.decls
+        local exps = stat.exps
+
+
+        -- local iter, st, ctrl = ...rhs
+        local v_iter = ir.add_local(self.func, "$iter", exps[1]._type)
+        self:exp_to_assignment(cmds, v_iter, exps[1])
+        local v_state = ir.add_local(self.func, "$st", exps[2]._type)
+        self:exp_to_assignment(cmds, v_state, exps[2])
+        local v_ctrl = ir.add_local(self.func, "$ctrl", exps[3]._type)
+        self:exp_to_assignment(cmds, v_ctrl, exps[3])
+
+        -- body of the `while true ... end` loop.
+        local body = {}
+
+        -- local i, x = iter(st, ctrl)
+        local itertype = exps[1]._type
+        local v_decls = {}
+        for _, decl in ipairs(decls) do
+            local v = ir.add_local(self.func, decl.name, decl._type)
+            self.loc_id_of_decl[decl] = v
+            table.insert(v_decls, v)
+        end
+
+        local xs = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
+        local iter_f_id = self.fun_id_of_decl[exps[1].var._name.decl]
+        table.insert(body, ir.Cmd.CallStatic(exps[1].loc, itertype, v_decls, iter_f_id, xs))
+
+        -- if i == nil then break
+        local v_cond = ir.add_local(self.func, "$cond", types.T.Boolean())
+        local then_ = {}; table.insert(then_, ir.Cmd.Break())
+        table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_decls[1])))
+        table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Seq(then_), ir.Cmd.Seq({})))
+
+        -- ctrl = i
+        table.insert(body, ir.Cmd.Move(stat.loc, v_ctrl, ir.Value.LocalVar(v_decls[1])))
+        self:convert_stat(body, stat.block)
+        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
@@ -815,6 +855,12 @@ function ToIR:value_is_truthy(cmds, exp, val)
     else
         typedecl.tag_error(typ._tag)
     end
+end
+
+function ToIR:new_local_from_decl(decl)
+    local v = ir.add_local(self.func, decl.name, decl._type)
+    self.loc_id_of_decl[decl] = v
+    return v
 end
 
 return to_ir

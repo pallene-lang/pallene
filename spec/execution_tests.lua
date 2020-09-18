@@ -1754,6 +1754,42 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("For-in loops", function()
+        compile([[
+            export function iter(a: any, b: any): (any, any, any)
+                return 1, 2, 3
+            end
+
+            export function fn()
+                local a: any = 2
+                local b: any = 3
+                for i, j, k in iter, a, b do
+                    i = j
+                    k = i
+                end
+            end
+        ]])
+    end)
+
+    describe("Nested for-in loops", function()
+        compile([[
+            export function iter(a: any, b: any): (any, any)
+                return 1, 2
+            end
+
+            export function fn()
+                local a: any = 2
+                local b: any = 3
+                for i, j in iter, a, b do
+                    for k, v in iter, b, a do
+                        i = v
+                        k = j
+                    end
+                end
+            end
+        ]])
+    end)
+
     describe("Constant propagation", function()
         compile([[
             local x = 0 -- never read from

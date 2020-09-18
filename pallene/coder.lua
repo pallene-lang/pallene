@@ -1121,6 +1121,13 @@ gen_cmd["IsTruthy"] = function(self, cmd, _func)
         dst = dst, src = src }))
 end
 
+gen_cmd["IsNil"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dst)
+    local src = self:c_value(cmd.src)
+    return (util.render([[ $dst = ttisnil(&$src); ]], {
+        dst = dst, src = src }))
+end
+
 gen_cmd["NewArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
     local n   = self:c_value(cmd.size_hint)
