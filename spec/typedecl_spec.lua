@@ -12,7 +12,6 @@ describe("Typedecl", function()
     it("'match_tag' works as expected.", function ()
         assert.falsy(typedecl.match_tag("foo.Bar.baz", "f.o.Bar"))
         assert.truthy(typedecl.match_tag("foo.Bar.baz", "foo.Bar"))
-        -- caller doesn't in the second "."
         assert.falsy(typedecl.match_tag("types.T.Float", "types.T."))
     end, "")
 end)
