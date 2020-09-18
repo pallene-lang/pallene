@@ -8,4 +8,11 @@ describe("Typedecl", function()
             typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
         end, "tag name 'TESTTYPE.Foo.Bar' is already being used")
     end)
+
+    it("'match_tag' works as expected.", function ()
+        assert.falsy(typedecl.match_tag("foo.Bar.baz", "f.o.Bar"))
+        assert.truthy(typedecl.match_tag("foo.Bar.baz", "foo.Bar"))
+        -- caller doesn't in the second "."
+        assert.falsy(typedecl.match_tag("types.T.Float", "types.T."))
+    end, "")
 end)
