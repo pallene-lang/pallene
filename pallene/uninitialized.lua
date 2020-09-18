@@ -4,6 +4,7 @@
 -- SPDX-License-Identifier: MIT
 
 local ir = require "pallene.ir"
+local typedecl = require "pallene.typedecl"
 
 local uninitialized = {}
 
@@ -117,7 +118,7 @@ local function test(cmd, uninit, loop)
             return true, loop.uninit
         end
 
-    elseif string.match(tag, "^ir%.Cmd%.") then
+    elseif typedecl.match_tag(cmd._tag, "ir.Cmd") then
         for _, val in ipairs(ir.get_srcs(cmd)) do
             if val._tag == "ir.Value.LocalVar" then
                 check_use(val.id)

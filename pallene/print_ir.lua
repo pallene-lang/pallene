@@ -6,6 +6,7 @@
 local C = require "pallene.C"
 local ir = require "pallene.ir"
 local util = require "pallene.util"
+local typedecl = require "pallene.typedecl"
 
 --
 -- Generates a human-readable representation of the IR.
@@ -41,7 +42,7 @@ local function Val(val)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
     elseif tag == "ir.Value.Function" then return Fun(val.id)
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 end
 
@@ -214,7 +215,7 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.CallStatic" then rhs = Call(Fun(cmd.f_id),  Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallDyn"    then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
     else
-        local tagname = assert(string.match(cmd._tag, "^ir.Cmd.(.*)"))
+        local tagname = assert(typedecl.match_tag(cmd._tag, "ir.Cmd"))
         rhs = Call(tagname, Vals(ir.get_srcs(cmd)))
     end
 

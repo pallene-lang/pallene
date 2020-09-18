@@ -4,6 +4,7 @@
 -- SPDX-License-Identifier: MIT
 
 local ir = require "pallene.ir"
+local typedecl = require "pallene.typedecl"
 
 local constant_propagation = {}
 
@@ -17,7 +18,7 @@ local function is_constant_value(v)
     elseif tag == "ir.Value.LocalVar" then return false
     elseif tag == "ir.Value.Function" then return true
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
 end
 

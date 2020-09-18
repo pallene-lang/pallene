@@ -82,4 +82,40 @@ function typedecl.declare(module, mod_name, type_name, constructors)
     end
 end
 
+-- Check if the 2nd tag is a prefix of the first.
+-- If appending a "." to the second argument makes it a
+-- prefix of the first, captures the rest of the string and
+-- returns it
+--
+-- for example:
+-- ```
+-- typedecl.match_tag("ast.Exp.Bool", "ast.Exp")
+-- ```
+-- would return "Bool" since `"ast.Exp."` is indeed a prefix of
+-- "ast.Exp.bool". Check types.lua for more usage examples.
+--
+-- @param tag: The type name (string)
+-- @param tag_prefix: The prefix to test (string)
+function typedecl.match_tag(tag, tag_prefix)
+    local n = #tag_prefix
+
+    if type(tag) == "string" and
+       string.sub(tag, 1, n) == tag_prefix and
+       string.byte(tag, n + 1) == 46 -- "."
+    then
+        return string.sub(tag, n + 2)
+    end
+
+    return false
+end
+
+-- Throw an error at the given tag.
+--
+-- @param tag The type tag (or token string) at which the error is to be thown (string)
+-- @param message The optional error message. (?string)
+function typedecl.tag_error(tag, message)
+    message = message or "input has the wrong type or an elseif case is missing"
+    error(string.format("unhandled case '%s': %s", tag, message))
+end
+
 return typedecl

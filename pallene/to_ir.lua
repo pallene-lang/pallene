@@ -93,7 +93,7 @@ function ToIR:convert_toplevel(prog_ast)
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
 
         else
-            error("impossible")
+            typedecl.tag_error(tag)
         end
     end
 
@@ -248,7 +248,7 @@ function ToIR:convert_stat(cmds, stat)
                     local id = self.glb_id_of_decl[cname.decl]
                     table.insert(lhss, to_ir.LHS.Global(id))
                 else
-                    error("impossible")
+                    typedecl.tag_error(cname._tag)
                 end
 
             elseif var._tag == "ast.Var.Bracket" then
@@ -266,12 +266,14 @@ function ToIR:convert_stat(cmds, stat)
                 elseif ttag == "types.T.Record" then
                     local typ = var.exp._type
                     table.insert(lhss, to_ir.LHS.Record(typ, t, var.name))
+                elseif typedecl.tag_is_type(ttag) then
+                    typedecl.tag_error(ttag, "type not indexable.")
                 else
-                    error("impossible")
+                    typedecl.tag_error(ttag)
                 end
 
             else
-                error("impossible")
+                typedecl.tag_error(var._tag)
             end
         end
 
@@ -326,7 +328,7 @@ function ToIR:convert_stat(cmds, stat)
                 elseif ltag == "to_ir.LHS.Record" then
                     cmd = ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val)
                 else
-                    error("impossible")
+                    typedecl.tag_error(ltag)
                 end
                 table.insert(cmds, cmd)
             end
@@ -355,7 +357,7 @@ function ToIR:convert_stat(cmds, stat)
         table.insert(cmds, ir.Cmd.Break())
 
     else
-        error("impossible")
+        typedecl.type_error(tag)
     end
 end
 
@@ -498,7 +500,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
                 error("not implemented")
 
             else
-                error("impossible")
+                typedecl.tag_error(cname._tag)
             end
         else
             -- Fallthrough to default
@@ -577,7 +579,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 table.insert(cmds, ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
             end
         else
-            error("impossible")
+            typedecl.tag_error(typ._tag)
         end
 
     elseif tag == "ast.Exp.Lambda" then
@@ -649,7 +651,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinTostring(loc, dsts, xs))
             else
-                error("impossible")
+                typedecl.tag_error(bname)
             end
 
         elseif cname and cname._tag == "checker.Name.Function" then
@@ -691,13 +693,16 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 cmd = ir.Cmd.GetTable(loc, dst_typ, dst, rec, key)
             elseif typ._tag == "types.T.Record" then
                 cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)
+            elseif typedecl.tag_is_type(typ._tag) then
+                typedecl.tag_error(typ._tag, "cannot index this type.")
             else
-                error("impossible")
+                typedecl.tag_error(typ._tag)
             end
+
             table.insert(cmds, cmd)
 
         else
-            error("impossible")
+            typedecl.tag_error(var._tag)
         end
 
     elseif tag == "ast.Exp.Unop" then
@@ -775,7 +780,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif src_typ._tag == "types.T.Any" then
                 table.insert(cmds, ir.Cmd.FromDyn(loc, dst_typ, dst, v))
             else
-                error("impossible")
+                error(string.format("error casting from type '%s' to '%s'",
+                        types.tostring(src_typ), types.tostring(dst_typ)))
             end
         end
 
@@ -803,8 +809,10 @@ function ToIR:value_is_truthy(cmds, exp, val)
         local b = ir.add_local(self.func, false, types.T.Boolean())
         table.insert(cmds, ir.Cmd.IsTruthy(exp.loc, b, val))
         return ir.Value.LocalVar(b)
+    elseif typedecl.tag_is_type(typ) then
+        typedecl.tag_error(typ._tag, "unable to test this type for truthiness.")
     else
-        error("impossible")
+        typedecl.tag_error(typ._tag)
     end
 end
 

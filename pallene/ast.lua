@@ -100,7 +100,7 @@ function ast.toplevel_names(tl_node)
     elseif tag == "ast.Toplevel.Builtin" then
         table.insert(names, tl_node.name)
     else
-        error("impossible")
+        typedecl.tag_error(tag)
     end
     return names
 end
