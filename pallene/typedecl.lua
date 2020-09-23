@@ -82,20 +82,12 @@ function typedecl.declare(module, mod_name, type_name, constructors)
     end
 end
 
--- Check if the 2nd tag is a prefix of the first.
--- If appending a "." to the second argument makes it a
--- prefix of the first, captures the rest of the string and
--- returns it
+-- Check if the given type tag belongs to the specified type.
+-- If it does, returns the last component of the tag name.
 --
--- for example:
--- ```
--- typedecl.match_tag("ast.Exp.Bool", "ast.Exp")
--- ```
--- would return "Bool" since `"ast.Exp."` is indeed a prefix of
--- "ast.Exp.bool". Check types.lua for more usage examples.
---
--- @param tag: The type name (string)
--- @param tag_prefix: The prefix to test (string)
+-- Examples:
+--    typedecl.match_tag("ast.Exp.Bool", "ast.Exp")   --> "Bool"
+--    typedecl.match_tag("ast.Stat.While", "ast.Exp") --> false
 function typedecl.match_tag(tag, tag_prefix)
     local n = #tag_prefix
 
@@ -104,9 +96,9 @@ function typedecl.match_tag(tag, tag_prefix)
        string.byte(tag, n + 1) == 46 -- "."
     then
         return string.sub(tag, n + 2)
+    else
+        return false
     end
-
-    return false
 end
 
 -- Throw an error at the given tag.

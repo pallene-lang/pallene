@@ -9,18 +9,21 @@ describe("Typedecl", function()
         end, "tag name 'TESTTYPE.Foo.Bar' is already being used")
     end)
 
-    describe("'match_tag'", function ()
-        it("doesn't treat a '.' in the prefix string as regex", function ()
-            assert.falsy(typedecl.match_tag("foo.Bar.baz", "f.o.Bar"))
+    describe("match_tag", function ()
+        it("returns the tag name", function ()
+            assert.equals("baz", typedecl.match_tag("foo.Bar.baz", "foo.Bar"))
         end)
 
-        it("works as expected with input strings", function ()
-            assert.are.equals(typedecl.match_tag("foo.Bar.baz", "foo.Bar"), "baz")
+        it("doesn't crash with a non-string tag", function()
+            assert.equals(false, typedecl.match_tag(nil, "types.T"))
+        end)
+
+        it("doesn't treat a '.' in the prefix string as regex", function ()
+            assert.equals(false, typedecl.match_tag("foo.Bar.baz", "f.o.Bar"))
         end)
 
         it("doesn't require a '.' at the end of prefix.", function ()
-            assert.falsy(typedecl.match_tag("types.T.Float", "types.T."))
+            assert.equals(false, typedecl.match_tag("types.T.Float", "types.T."))
         end)
     end)
-
 end)

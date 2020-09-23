@@ -162,21 +162,6 @@ function Checker:from_ast_type(ast_typ)
     if     tag == "ast.Type.Nil" then
         return types.T.Nil()
 
-    elseif tag == "ast.Type.Boolean" then
-        return types.T.Boolean()
-
-    elseif tag == "ast.Type.Integer" then
-        return types.T.Integer()
-
-    elseif tag == "ast.Type.Float" then
-        return types.T.Float()
-
-    elseif tag == "ast.Type.String" then
-        return types.T.String()
-
-    elseif tag == "ast.Type.Any" then
-        return types.T.Any()
-
     elseif tag == "ast.Type.Name" then
         local name = ast_typ.name
         local cname = self.symbol_table:find_symbol(name)
