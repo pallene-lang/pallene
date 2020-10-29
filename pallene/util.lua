@@ -107,6 +107,26 @@ function util.outputs_of_execute(cmd)
     return ok, err, out_content, err_content
 end
 
+-- performs a deep copy of the table 'obj'
+
+function util.copy(obj)
+    -- creates a closure to properly ignore the 'seen' parameter on root call
+    local function _copy(obj,seen)
+        -- Handle non-tables and previously-seen tables.
+        if type(obj) ~= 'table' then return obj end
+        if seen and seen[obj] then return seen[obj] end
+
+        -- New table; mark it as seen an copy recursively.
+        local s = seen or {}
+        local res = {}
+        s[obj] = res
+        for k, v in next, obj do res[_copy(k, s)] = _copy(v, s) end
+        return setmetatable(res, getmetatable(obj))
+    end
+    return _copy(obj)
+end
+
+
 --
 -- OOP
 --
