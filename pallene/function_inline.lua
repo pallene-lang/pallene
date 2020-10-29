@@ -52,23 +52,23 @@ local function find_top(cmd)
             change_top(val.id)
         end
     end
-    local function findtop(cmd)
-        if cmd._tag == 'ir.Cmd.Binop' then
-            change_top(cmd.dst)
-            findtop_localvar(cmd.src1)
-            findtop_localvar(cmd.src2)
-            return cmd
+    local function findtop(_cmd)
+        if _cmd._tag == 'ir.Cmd.Binop' then
+            change_top(_cmd.dst)
+            findtop_localvar(_cmd.src1)
+            findtop_localvar(_cmd.src2)
+            return _cmd
         end
-        if cmd._tag == 'ir.Cmd.Move' then
-            change_top(cmd.dst)
-            return cmd
+        if _cmd._tag == 'ir.Cmd.Move' then
+            change_top(_cmd.dst)
+            return _cmd
         end
-        if cmd._tag == 'ir.Cmd.Return' then
+        if _cmd._tag == 'ir.Cmd.Return' then
 
-            for key, value in pairs(cmd.srcs) do
+            for _, value in pairs(_cmd.srcs) do
                 findtop_localvar(value)
             end
-            return cmd
+            return _cmd
         end
     end
     ir.map_cmd(cmd,findtop)
@@ -151,9 +151,7 @@ function function_inline.inline(module)
 
     for k, func in ipairs(module.functions) do
 
-        local nvars = #func.vars
-        local nargs = #func.typ.arg_types
-        local nret  = #func.typ.ret_types
+
 
         -- top is the highest variable present in the host function
         local top = find_top(func.body)+1

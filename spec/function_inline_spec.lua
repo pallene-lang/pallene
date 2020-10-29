@@ -1,15 +1,14 @@
 local driver = require 'pallene.driver'
-local ir = require 'pallene.ir'
 local print_ir = require 'pallene.print_ir'
 local function_inline = require 'pallene.function_inline'
 
 
 
 -- for debugging purposes
-local function run_ir(code)
-    local module, errs = driver.compile_internal("__test__.pln", code, "ir")
-    return module, table.concat(errs, "\n")
-end
+-- local function run_ir(code)
+--     local module, errs = driver.compile_internal("__test__.pln", code, "ir")
+--     return module, table.concat(errs, "\n")
+-- end
 
 local function run_function_inline(code)
     local module, errs = driver.compile_internal("__test__.pln", code, "function_inline")

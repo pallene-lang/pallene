@@ -109,7 +109,7 @@ end
 
 -- performs a deep copy of the table 'obj'
 
-function util.copy(obj)
+function util.copy(_obj)
     -- creates a closure to properly ignore the 'seen' parameter on root call
     local function _copy(obj,seen)
         -- Handle non-tables and previously-seen tables.
@@ -123,7 +123,7 @@ function util.copy(obj)
         for k, v in next, obj do res[_copy(k, s)] = _copy(v, s) end
         return setmetatable(res, getmetatable(obj))
     end
-    return _copy(obj)
+    return _copy(_obj)
 end
 
 
