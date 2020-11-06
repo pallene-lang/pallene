@@ -1,5 +1,10 @@
 local util = require "pallene.util"
 
+--
+-- These are the test cases that involve compiling and running a Pallene program.
+-- We use these tests for the C backend (coder_spec) and the Lua backend (translator_spec).
+--
+
 local execution_tests = {}
 
 function execution_tests.run(compile_file, backend, _ENV, only_compile)
