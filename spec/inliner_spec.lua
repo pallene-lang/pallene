@@ -22,11 +22,11 @@ local function print_ir_normal(module)
 end
 
 -- compare the textual PIR (in normal form) of two versions (that should be equivalent after inlining)
-local function assert_ok(code,equivalent)
-    local module, errs = run_function_inline(code)
+local function assert_inlines(code,equivalent)
+    local module, errs = run_inliner(code)
     if #errs > 0 then print(errs) end
     assert.truthy(module)
-    local module_equivalent, errs = run_function_inline(equivalent)
+    local module_equivalent, errs = run_inliner(equivalent)
     if #errs > 0 then print(errs) end
     assert.truthy(module_equivalent,"expected failed to compile")
     -- for debugging, sometimes it is useful to see the original PIR
@@ -41,7 +41,7 @@ end
 describe("Function inline: ", function()
 
     it("empty function", function()
-        assert_ok([[
+        assert_inlines([[
             local function B()
             end
             export function A()
@@ -57,7 +57,7 @@ describe("Function inline: ", function()
     )
     end)
     it("return value propagation", function()
-        assert_ok([[
+        assert_inlines([[
             local function B() : integer
                 return 5
             end
@@ -77,7 +77,7 @@ describe("Function inline: ", function()
     )
     end)
     it("return value in expression", function()
-        assert_ok([[
+        assert_inlines([[
             local function B() : integer
                 return 5
             end
@@ -98,7 +98,7 @@ describe("Function inline: ", function()
     )
     end)
     it("returning argument", function()
-        assert_ok([[
+        assert_inlines([[
             local function B(x : integer) : integer
                 return x
             end
@@ -120,7 +120,7 @@ describe("Function inline: ", function()
     )
     end)
     it("variables in function", function()
-        assert_ok([[
+        assert_inlines([[
             local function B(x : integer) : integer
                 local y = x + 5
                 return y
@@ -146,7 +146,7 @@ describe("Function inline: ", function()
     end)
 
    it("return expression", function()
-        assert_ok([[
+        assert_inlines([[
             local function B(x : integer) : integer
                 local y = 5
                 return y+x

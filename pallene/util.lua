@@ -109,22 +109,39 @@ end
 
 -- performs a deep copy of the table 'obj'
 
-function util.copy(_obj)
-    -- creates a closure to properly ignore the 'seen' parameter on root call
-    local function _copy(obj,seen)
-        -- Handle non-tables and previously-seen tables.
-        if type(obj) ~= 'table' then return obj end
-        if seen and seen[obj] then return seen[obj] end
+-- Deep copy a Lua table or object.
+-- Based on https://gist.github.com/tylerneylon/81333721109155b2d244
+function util.copy(root_obj)
 
-        -- New table; mark it as seen an copy recursively.
-        local s = seen or {}
-        local res = {}
-        s[obj] = res
-        for k, v in next, obj do res[_copy(k, s)] = _copy(v, s) end
-        return setmetatable(res, getmetatable(obj))
+    -- We memoize the tables to avoid looping
+    -- forever if there are circular references.
+    local memo = {}
+
+    local function copy(obj)
+        if type(obj) ~= "table" then
+            return obj
+        else
+            if memo[obj] then return memo[obj] end
+
+            local res = {}
+            memo[obj] = res
+
+            -- Be careful with the metamethods:
+            -- 1) Use `next` to iterate over the source table. It acts like "rawget".
+            -- 2) Only set the destination's metatable after we finish setting its keys.
+            local k, v = next(obj)
+            while k do
+                res[copy(k)] = copy(v)
+                k, v = next(obj, k)
+            end
+            return setmetatable(res, getmetatable(obj))
+        end
     end
-    return _copy(_obj)
+
+    return copy(root_obj)
 end
+
+
 
 
 --

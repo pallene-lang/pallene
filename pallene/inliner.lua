@@ -12,11 +12,19 @@ local inliner = {}
 local function args_to_moves(args, cmd, top)
     local arguments = {}
     for k, _ in ipairs(args) do
-        -- in PIR, the variable name convention is arg1 -> x1, arg2 -> x2 ... argN -> xN
-        -- and then local and temps use values starting from N+1
-        -- so we can just use the srcs from the call (the arguments) on the rhs of the 'move' commands
-        -- at the same time, it is also convenient to adjust the dst (lhs) of the 'move'
+        -- we can just use the srcs from the call (the arguments) on the rhs of the "move" commands
+        -- at the same time, it is also convenient to adjust the dst (lhs) of the "move"
         -- to values that will not collide with the outer scope (adding top)
+        -- see ir.lua "Function variables" for more details
+        -- for example,
+        --      x5 = f(x2,x3) -- with srcs = {2,3} and args = {5}
+        --      in a function with a total of 9 variables (top = 9)
+        -- would be translated to
+        --      x(9+1) = x2
+        --      x(9+2) = x3
+        --      ...
+        -- so the new variables will not collide with any of the variables already present in the outer scope
+        -- it also have the nice property of being sequential to top
         table.insert(arguments, ir.Cmd.Move(cmd.loc, k+top, cmd.srcs[k]))
     end
     return ir.Cmd.Seq(arguments)
@@ -26,7 +34,7 @@ end
 -- each return is turned into a sequence of moves.
 local function return_to_moves(called, cmd)
     return ir.map_cmd(called, function (_cmd)
-        if _cmd._tag == 'ir.Cmd.Return' then
+        if _cmd._tag == "ir.Cmd.Return" then
             local moves = {}
             for k, v in ipairs(_cmd.srcs) do
                 -- if the function call will put the results into a, b, c
@@ -40,27 +48,29 @@ local function return_to_moves(called, cmd)
 end
 
 
--- find_top finds the highest variable index in the 'cmd' subtree
+-- find_top finds the highest variable index in the "cmd" subtree
 local function find_top(cmd)
     local top = 0
     local function change_top(val)
         if val > top then top = val end
     end
     local function findtop_localvar(val)
-        change_top(val.id)
+        if val._tag == 'ir.Value.LocalVar' then
+            change_top(val.id)
+        end
     end
     local function findtop(_cmd)
-        if _cmd._tag == 'ir.Cmd.Binop' then
+        if _cmd._tag == "ir.Cmd.Binop" then
             change_top(_cmd.dst)
             findtop_localvar(_cmd.src1)
             findtop_localvar(_cmd.src2)
             return _cmd
         end
-        if _cmd._tag == 'ir.Cmd.Move' then
+        if _cmd._tag == "ir.Cmd.Move" then
             change_top(_cmd.dst)
             return _cmd
         end
-        if _cmd._tag == 'ir.Cmd.Return' then
+        if _cmd._tag == "ir.Cmd.Return" then
 
             for _, value in pairs(_cmd.srcs) do
                 findtop_localvar(value)
@@ -75,18 +85,18 @@ end
 -- auxiliary function to transform values
 local function map_val(cmd, fval, flocalval)
     return ir.map_cmd(cmd, function (_cmd)
-        if _cmd._tag == 'ir.Cmd.Binop' then
+        if _cmd._tag == "ir.Cmd.Binop" then
             _cmd.src1 = flocalval(_cmd.src1)
             _cmd.src2 = flocalval(_cmd.src2)
             _cmd.dst = fval(_cmd.dst)
             return _cmd
         end
-        if _cmd._tag == 'ir.Cmd.Move' then
+        if _cmd._tag == "ir.Cmd.Move" then
             _cmd.src = flocalval(_cmd.src)
             _cmd.dst = fval(_cmd.dst)
             return _cmd
         end
-        if _cmd._tag == 'ir.Cmd.Return' then
+        if _cmd._tag == "ir.Cmd.Return" then
             for key, value in pairs(_cmd.srcs) do
                 _cmd.srcs[key] = flocalval(value)
             end
@@ -102,7 +112,9 @@ local function adjust(cmd, top)
         return top+val
     end
     local iflocalvar_new_val = function (val)
-        val.id = new_val(val.id)
+        if val._tag == 'ir.Value.LocalVar' then
+            val.id = new_val(val.id)
+        end
         return val
     end
     return map_val(cmd, new_val, iflocalvar_new_val)
@@ -122,7 +134,7 @@ local function normal_form(cmd)
     end
 
     local iflocalvar_new_val = function (val)
-        if type(val) == "table" and val._tag == 'ir.Value.LocalVar' then
+        if val._tag == "ir.Value.LocalVar" then
             val.id = new_val(val.id)
         end
         return val
@@ -151,7 +163,7 @@ function inliner.inline(module)
         local top = find_top(func.body)+1
 
         module.functions[k].body = ir.map_cmd(func.body, function(cmd)
-            if cmd._tag == 'ir.Cmd.CallStatic' then
+            if cmd._tag == "ir.Cmd.CallStatic" then
                 local called = util.copy(module.functions[cmd.f_id].body)
                 local args = args_to_moves(module.functions[cmd.f_id].typ.arg_types, cmd, top)
                 local body = adjust(called, top)

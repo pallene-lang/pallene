@@ -82,6 +82,8 @@ end
 
 --
 -- Function variables
+-- in PIR, the variable name convention is arg1 -> x1, arg2 -> x2 ... argN -> xN
+-- and then local and temps use values starting from N+1
 --
 
 function ir.add_local(func, name, typ)
