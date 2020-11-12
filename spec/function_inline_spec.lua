@@ -1,6 +1,6 @@
 local driver = require 'pallene.driver'
 local print_ir = require 'pallene.print_ir'
-local function_inline = require 'pallene.function_inline'
+local inliner = require 'pallene.inliner'
 
 
 
@@ -10,14 +10,14 @@ local function_inline = require 'pallene.function_inline'
 --     return module, table.concat(errs, "\n")
 -- end
 
-local function run_function_inline(code)
-    local module, errs = driver.compile_internal("__test__.pln", code, "function_inline")
+local function run_inliner(code)
+    local module, errs = driver.compile_internal("__test__.pln", code, "inliner")
     return module, table.concat(errs, "\n")
 end
 
 -- we want to compare if the code inlined is equivalent to another when both are in normal form
 local function print_ir_normal(module)
-    function_inline.to_normal_module(module)
+    inliner.to_normal_module(module)
     return print_ir(module)
 end
 
