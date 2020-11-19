@@ -1756,19 +1756,48 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("For-in loops", function()
         compile([[
-            export function iter(a: any, b: any): (any, any, any)
-                return 1, 2, 3
+            local function iter(state: any, current: any): (any, any)
+                if current as integer == #(state as {any}) then
+                    return nil, nil
+                end
+
+                return current as integer + 1, (state as {any})[current as integer + 1]
             end
 
-            export function fn()
-                local a: any = 2
-                local b: any = 3
-                for i, j, k in iter, a, b do
-                    i = j
-                    k = i
+            typealias iterfn = (any, any) -> (any, any)
+            local function xpairs(xs: {any}): (iterfn, any, any)
+                return iter, xs, 0
+            end
+
+
+            export function double(xs: {integer}): {integer}
+                local out: {integer} = {}
+                for i, x in xpairs(xs) do
+                    out[#out + 1] = x as integer * 2
+                end
+
+                return out
+            end
+
+            export function abs_list(xs: {float})
+                for i, x in xpairs(xs) do
+                    if (x as float) < 0.0 then
+                        xs[i] = -(x as float)
+                    end
                 end
             end
         ]])
+
+        it("", function()
+            run_test([[
+                local xs = test.double({1, 2})
+                assert(xs[1] == 2 and xs[2] == 4)
+
+                xs = {0.0, 2.1, -1.0, -4.5}
+                test.abs_list(xs)
+                assert(xs[1] == 0.0 and xs[2] == 2.1 and xs[3] == 1.0 and xs[4] == 4.5)
+            ]])
+        end)
     end)
 
     describe("Nested for-in loops", function()

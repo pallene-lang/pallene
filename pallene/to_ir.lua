@@ -209,8 +209,24 @@ function ToIR:convert_stat(cmds, stat)
         local decls = stat.decls
         local exps = stat.exps
 
+        -- for-in loops are desugared into regurlar loops before compiling.
+        -- so an example for loop like this:
+        --- ```
+        -- for <LHS> in <RHS> do
+        --     <loop body>
+        -- end
+        ---```
+        -- is compiled as if the following was written instead:
+        --```
+        -- local iter, st, ctrl = RHS[1], RHS[2], RHS[3]
+        -- while true do
+        --   local <LHS> = iter(st, ctrl)
+        --   if LHS[1] == nil then break end
+        --   ctrl = LHS[1]
+        --   <loop body>
+        -- end
+        -- ```
 
-        -- local iter, st, ctrl = ...rhs
         local v_iter = ir.add_local(self.func, "$iter", exps[1]._type)
         self:exp_to_assignment(cmds, v_iter, exps[1])
         local v_state = ir.add_local(self.func, "$st", exps[2]._type)
@@ -218,10 +234,9 @@ function ToIR:convert_stat(cmds, stat)
         local v_ctrl = ir.add_local(self.func, "$ctrl", exps[3]._type)
         self:exp_to_assignment(cmds, v_ctrl, exps[3])
 
-        -- body of the `while true ... end` loop.
+        --Body of the `while` loop.
         local body = {}
 
-        -- local i, x = iter(st, ctrl)
         local itertype = exps[1]._type
         local v_decls = {}
         for _, decl in ipairs(decls) do
@@ -231,16 +246,13 @@ function ToIR:convert_stat(cmds, stat)
         end
 
         local xs = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
-        local iter_f_id = self.fun_id_of_decl[exps[1].var._name.decl]
-        table.insert(body, ir.Cmd.CallStatic(exps[1].loc, itertype, v_decls, iter_f_id, xs))
+        table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_decls, ir.Value.LocalVar(v_iter), xs))
 
-        -- if i == nil then break
-        local v_cond = ir.add_local(self.func, "$cond", types.T.Boolean())
+        local v_cond = ir.add_local(self.func, false, types.T.Boolean())
         local then_ = {}; table.insert(then_, ir.Cmd.Break())
         table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_decls[1])))
-        table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Seq(then_), ir.Cmd.Seq({})))
+        table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
 
-        -- ctrl = i
         table.insert(body, ir.Cmd.Move(stat.loc, v_ctrl, ir.Value.LocalVar(v_decls[1])))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
