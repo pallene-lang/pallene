@@ -238,22 +238,21 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
 
         local itertype = exps[1]._type
-        local v_decls = {}
+        local v_lhs = {}
         for _, decl in ipairs(decls) do
             local v = ir.add_local(self.func, decl.name, decl._type)
             self.loc_id_of_decl[decl] = v
-            table.insert(v_decls, v)
+            table.insert(v_lhs, v)
         end
 
         local xs = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
-        table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_decls, ir.Value.LocalVar(v_iter), xs))
+        table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs, ir.Value.LocalVar(v_iter), xs))
 
         local v_cond = ir.add_local(self.func, false, types.T.Boolean())
-        local then_ = {}; table.insert(then_, ir.Cmd.Break())
-        table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_decls[1])))
+        table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_lhs[1])))
         table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
 
-        table.insert(body, ir.Cmd.Move(stat.loc, v_ctrl, ir.Value.LocalVar(v_decls[1])))
+        table.insert(body, ir.Cmd.Move(stat.loc, v_ctrl, ir.Value.LocalVar(v_lhs[1])))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 

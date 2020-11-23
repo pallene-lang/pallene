@@ -1756,67 +1756,90 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("For-in loops", function()
         compile([[
-            local function iter(state: any, current: any): (any, any)
-                if current as integer == #(state as {any}) then
+            local function iter(arr: {any}, prev: integer): (any, any)
+                local i = prev + 1
+                local x = arr[i]
+                if x == (nil as any) then
                     return nil, nil
                 end
 
-                return current as integer + 1, (state as {any})[current as integer + 1]
+                return i, x
             end
 
+
             typealias iterfn = (any, any) -> (any, any)
-            local function xpairs(xs: {any}): (iterfn, any, any)
+            local function my_ipairs(xs: {any}): (iterfn, any, any)
                 return iter, xs, 0
             end
 
+            -----------------------
 
             export function double(xs: {integer}): {integer}
                 local out: {integer} = {}
-                for i, x in xpairs(xs) do
-                    out[#out + 1] = x as integer * 2
+                for i, x in my_ipairs(xs) do
+                    out[i] = x as integer * 2
                 end
 
                 return out
             end
 
-            export function abs_list(xs: {float})
-                for i, x in xpairs(xs) do
-                    if (x as float) < 0.0 then
-                        xs[i] = -(x as float)
+            -----------------------
+
+            export function flatten_list(grid: {{integer}}): {integer}
+                local out: {integer} = {}
+                for _, xs in my_ipairs(grid) do
+                    for _, x in my_ipairs(xs) do
+                        out[#out + 1] = x
                     end
                 end
+                return out
             end
         ]])
 
-        it("", function()
+        it("general for-in loops", function()
             run_test([[
                 local xs = test.double({1, 2})
                 assert(xs[1] == 2 and xs[2] == 4)
+            ]])
+        end)
 
-                xs = {0.0, 2.1, -1.0, -4.5}
-                test.abs_list(xs)
-                assert(xs[1] == 0.0 and xs[2] == 2.1 and xs[3] == 1.0 and xs[4] == 4.5)
+        it("nested for in loops", function()
+            run_test([[
+                local xs = test.flatten_list({{1, 2}, {3, 4}})
+                assert(xs[1] == 1 and xs[2] == 2 and xs[3] == 3 and xs[4] == 4)
             ]])
         end)
     end)
 
-    describe("Nested for-in loops", function()
+    describe("For-in loops with expanded RHS", function()
         compile([[
-            export function iter(a: any, b: any): (any, any)
-                return 1, 2
+            local function iter(arr: {any}, prev: integer): (any, any)
+                local i = prev + 1
+                local x = arr[i]
+                if x == (nil as any) then
+                    return nil, nil
+                end
+
+                return i, x
             end
 
-            export function fn()
-                local a: any = 2
-                local b: any = 3
-                for i, j in iter, a, b do
-                    for k, v in iter, b, a do
-                        i = v
-                        k = j
-                    end
+            typealias iterfn = (any, any) -> (any, any)
+
+            export function square_list(xs: {integer}): {integer}
+                local out: {integer} = {}
+                for i, v in iter as iterfn, xs as any, 0 as any do
+                    out[i] = (v as integer) * (v as integer)
                 end
+                return out
             end
         ]])
+
+        it("can execute for-in loops with inlined exp-list", function()
+            run_test([[
+                local xs = test.square_list({2, 3, 4})
+                assert(xs[1] == 4 and xs[2] == 9 and xs[3] == 16)
+            ]])
+        end)
     end)
 
     describe("Constant propagation", function()
