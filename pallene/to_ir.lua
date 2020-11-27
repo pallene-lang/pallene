@@ -211,9 +211,12 @@ function ToIR:convert_stat(cmds, stat)
         local exps = stat.exps
         assert(#vars == #exps)
 
-        -- In Lua, the expressions in an assignment are evaluated from left to right and all
-        -- sub-expressions are evaluated before the assignments are resolved. Assignments happen
-        -- from right to left.
+        -- Multiple Assignments
+        -- --------------------
+        -- According to the Lua reference manual, the expressions in a multiple assignment should be
+        -- evaluated before the assignments are performed. The order of evaluation is not specified
+        -- but we try to match what PUC-Lua does: it evaluates the expressions from left to right
+        -- and then performs the assignments from right to left.
 
         -- In a multiple assignment we have to be careful if we end up with an ir.Value that refers
         -- to a local variable because that variable can potentially be overwritten in another part
