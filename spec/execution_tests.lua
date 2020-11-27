@@ -2138,16 +2138,29 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return (f())
             end
 
-            export function assign_same_var_1(): integer
+            export function callstatic_assign_same_var_1(): integer
                 local x: integer
                 x, x, x = f()
                 return x
             end
 
-            export function assign_same_var_2(): integer
+            export function callstatic_assign_same_var_2(): integer
                 local x: integer
                 local y: integer
                 x, y, y = f()
+                return y
+            end
+
+            export function calldyn_assign_same_var_1(p: ()->(integer,integer,integer)): integer
+                local x: integer
+                x, x, x = p()
+                return x
+            end
+
+            export function calldyn_assign_same_var_2(p: ()->(integer,integer,integer)): integer
+                local x: integer
+                local y: integer
+                x, y, y = p()
                 return y
             end
         ]])
@@ -2193,16 +2206,30 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             ]])
         end)
 
-        it("assigns return values from right to left (1)", function()
+        it("assigns return values from right to left (callstatic/1)", function()
             run_test([[
-                local x = test.assign_same_var_1()
+                local x = test.callstatic_assign_same_var_1()
                 assert(x == 10)
             ]])
         end)
 
-        it("assigns return values from right to left (2)", function()
+        it("assigns return values from right to left (callstatic/2)", function()
             run_test([[
-                local y = test.assign_same_var_2()
+                local y = test.callstatic_assign_same_var_2()
+                assert(y == 20)
+            ]])
+        end)
+
+        it("assigns return values from right to left (calldyn/1)", function()
+            run_test([[
+                local x = test.calldyn_assign_same_var_1(test.f)
+                assert(x == 10)
+            ]])
+        end)
+
+        it("assigns return values from right to left (calldyn/2)", function()
+            run_test([[
+                local y = test.calldyn_assign_same_var_2(test.f)
                 assert(y == 20)
             ]])
         end)
