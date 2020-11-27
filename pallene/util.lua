@@ -26,10 +26,10 @@ function util.render(code, substs)
             end
             local v = substs[k]
             if not v then
-                err = "missing template variable " .. k
+                err = "missing template variable: " .. k
                 return ""
             elseif type(v) ~= "string" then
-                err = "template variable is not a string " .. k
+                err = "template variable is not a string: " .. k
                 return ""
             end
             if a == "" and b == "}" then

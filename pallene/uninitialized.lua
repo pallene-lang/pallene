@@ -162,7 +162,7 @@ function uninitialized.verify_variables(module)
             local cmd, v = o.cmd, o.v
             if not reported_variables[v] then
                 reported_variables[v] = true
-                local name = assert(func.vars[v].name)
+                local name = assert(func.vars[v].name,'on func '..func.name..' variable without name '..v)
                 table.insert(errors, cmd.loc:format_error(
                         "error: variable '%s' is used before being initialized", name))
             end
