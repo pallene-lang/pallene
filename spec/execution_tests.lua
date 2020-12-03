@@ -1842,6 +1842,41 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("For-in loops with type annotated LHS.", function ()
+        compile([[
+           local function iter(arr: {any}, prev: integer): (any, any)
+                local i = prev + 1
+                local x = arr[i]
+                if x == (nil as any) then
+                    return nil, nil
+                end
+
+                return i, x
+            end
+
+
+            typealias iterfn = (any, any) -> (any, any)
+            local function my_ipairs(xs: {any}): (iterfn, any, any)
+                return iter, xs, 0
+            end
+
+            export function sum_list(xs: {integer}): integer
+                local sum = 0
+                for _: integer, x: integer in my_ipairs(xs) do
+                    sum = sum + x
+                end
+                return sum
+            end
+        ]])
+
+        it("can execute for-in loops with typed LHS", function()
+            run_test([[
+                local sum = test.sum_list({1, 2, 3, 4})
+                assert(sum == 10)
+            ]])
+        end)
+    end)
+
     describe("Constant propagation", function()
         compile([[
             local x = 0 -- never read from
