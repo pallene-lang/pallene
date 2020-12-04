@@ -242,7 +242,7 @@ function ToIR:convert_stat(cmds, stat)
         local itertype = exps[1]._type
         local v_lhs_dyn = {}
         for _, decl in ipairs(decls) do
-            local v = ir.add_local(self.func, decl.name .. "_dyn", types.T.Any())
+            local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any())
             table.insert(v_lhs_dyn, v)
         end
 

@@ -1774,7 +1774,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function double(xs: {integer}): {integer}
+            export function double_list(xs: {integer}): {integer}
                 local out: {integer} = {}
                 for i, x in my_ipairs(xs) do
                     out[i] = x as integer * 2
@@ -1794,36 +1794,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return out
             end
-        ]])
 
-        it("general for-in loops", function()
-            run_test([[
-                local xs = test.double({1, 2})
-                assert(xs[1] == 2 and xs[2] == 4)
-            ]])
-        end)
-
-        it("nested for in loops", function()
-            run_test([[
-                local xs = test.flatten_list({{1, 2}, {3, 4}})
-                assert(xs[1] == 1 and xs[2] == 2 and xs[3] == 3 and xs[4] == 4)
-            ]])
-        end)
-    end)
-
-    describe("For-in loops with expanded RHS", function()
-        compile([[
-            local function iter(arr: {any}, prev: integer): (any, any)
-                local i = prev + 1
-                local x = arr[i]
-                if x == (nil as any) then
-                    return nil, nil
-                end
-
-                return i, x
-            end
-
-            typealias iterfn = (any, any) -> (any, any)
+            -----------------------
 
             export function square_list(xs: {integer}): {integer}
                 local out: {integer} = {}
@@ -1832,33 +1804,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return out
             end
-        ]])
 
-        it("can execute for-in loops with inlined exp-list", function()
-            run_test([[
-                local xs = test.square_list({2, 3, 4})
-                assert(xs[1] == 4 and xs[2] == 9 and xs[3] == 16)
-            ]])
-        end)
-    end)
-
-    describe("For-in loops with type annotated LHS.", function ()
-        compile([[
-           local function iter(arr: {any}, prev: integer): (any, any)
-                local i = prev + 1
-                local x = arr[i]
-                if x == (nil as any) then
-                    return nil, nil
-                end
-
-                return i, x
-            end
-
-
-            typealias iterfn = (any, any) -> (any, any)
-            local function my_ipairs(xs: {any}): (iterfn, any, any)
-                return iter, xs, 0
-            end
+            -----------------------
 
             export function sum_list(xs: {integer}): integer
                 local sum = 0
@@ -1869,7 +1816,28 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             end
         ]])
 
-        it("can execute for-in loops with typed LHS", function()
+        it("general for-in loops", function()
+            run_test([[
+                local xs = test.double_list({1, 2})
+                assert(xs[1] == 2 and xs[2] == 4)
+            ]])
+        end)
+
+        it("nested for-in loops", function()
+            run_test([[
+                local xs = test.flatten_list({{1, 2}, {3, 4}})
+                assert(xs[1] == 1 and xs[2] == 2 and xs[3] == 3 and xs[4] == 4)
+            ]])
+        end)
+
+        it("loops with expanded RHS", function()
+            run_test([[
+                local xs = test.square_list({2, 3, 4})
+                assert(xs[1] == 4 and xs[2] == 9 and xs[3] == 16)
+            ]])
+        end)
+
+        it("loops with type annotated LHS.", function()
             run_test([[
                 local sum = test.sum_list({1, 2, 3, 4})
                 assert(sum == 10)
