@@ -11,28 +11,43 @@ local inliner = {}
 
 local inspect = require'inspect'
 
-local function maybe_create_var(var_pos,typ,func)
+
+-- receives a local variable reference or a local variable id
+-- and creates a variable in the function structure
+-- if there isn't one already in the given id
+local function maybe_create_var(var,typ,func)
     assert(typ)
-    if type(var_pos) == "table" then
-        if var_pos._tag == "ir.Value.LocalVar" then
-            if not func.vars[var_pos.id] then
-                func.vars[var_pos.id] = ir.VarDecl(false, typ)
+    assert(var)
+    if type(var) == "table" then
+        if var._tag == "ir.Value.LocalVar" then
+            if not func.vars[var.id] then
+                func.vars[var.id] = ir.VarDecl(false, typ)
+            -- else check if expected type?
             end
-        elseif var_pos._tag == "ir.Value.Integer" then
-            --print(inspect(var_pos))
-            --assert(1==0)
+        elseif var._tag == "ir.Value.Integer" then
+        elseif var._tag == "ir.Value.Bool" then
+        elseif var._tag == "ir.Value.Nil" then
+        elseif var._tag == "ir.Value.Float" then
+        elseif var._tag == "ir.Value.String" then
+        elseif var._tag == "ir.Value.Function" then
+        else
+            assert(false,'not treated '..inspect(var))
         end
-    elseif type(var_pos) == "number" then
-        if not func.vars[var_pos] then
-            func.vars[var_pos] = ir.VarDecl(false, typ)
+    elseif type(var) == "number" then
+        if not func.vars[var] then
+            func.vars[var] = ir.VarDecl(false, typ)
+        -- else check if expected type?
         end
+    else
+        assert(false,'not treated '..inspect(var))
     end
 
 end
+
 -- return moves corresponding to each argument as they where at the beginning of the inner scope
 local function args_to_moves(args, cmd, top,func)
     local arguments = {}
-    for k, _ in ipairs(args) do
+    for k, arg in ipairs(args) do
         -- we can just use the srcs from the call (the arguments) on the rhs of the "move" commands
         -- at the same time, it is also convenient to adjust the dst (lhs) of the "move"
         -- to values that will not collide with the outer scope (adding top)
@@ -46,8 +61,9 @@ local function args_to_moves(args, cmd, top,func)
         --      ...
         -- so the new variables will not collide with any of the variables already present in the outer scope
         -- it also have the nice property of being sequential to top
-        maybe_create_var(k+top,            args[k],func)
-        maybe_create_var(cmd.srcs[k].value,args[k],func)
+
+        maybe_create_var(k+top,            arg,func)
+        maybe_create_var(cmd.srcs[k],arg,func)
         table.insert(arguments, ir.Cmd.Move(cmd.loc, k+top, cmd.srcs[k]))
     end
     return ir.Cmd.Seq(arguments)
@@ -56,7 +72,8 @@ end
 -- changes the called function (a copy preferably) in place.
 -- each return is turned into a sequence of moves.
 local function return_to_moves(called, cmd,func,calledf)
-        return ir.map_cmd(called, function (_cmd)
+        return ir.map_cmd(called, function (_cmd,inside_loop)
+
             if _cmd._tag == "ir.Cmd.Return" then
                 local moves = {}
                 for k=#_cmd.srcs,1,-1 do
@@ -66,10 +83,12 @@ local function return_to_moves(called, cmd,func,calledf)
                     -- this creates moves corresponding to x = a, y = b and z = c
                     -- in reverse order (see execution_tests/assign_same_var_1)
 
-                    -- assert(func.typ.ret_types[k])
                     maybe_create_var(cmd.dsts[k],calledf.typ.ret_types[k],func)
                     maybe_create_var(v          ,calledf.typ.ret_types[k],func)
                     table.insert(moves, ir.Cmd.Move(_cmd.loc, cmd.dsts[k], v))
+                end
+                if inside_loop then
+                    table.insert(moves,ir.Cmd.Break())
                 end
                 return ir.Cmd.Seq(moves)
             end
@@ -79,6 +98,7 @@ end
 
 
 -- find_top finds the highest variable index in the "cmd" subtree
+-- this probably should use map_val
 local function find_top(cmd)
     local top = 0
     local function change_top(val)
@@ -114,46 +134,97 @@ end
 
 
 -- auxiliary function to transform values
+-- it should have one case for each constructor in ir.ir_cmd_constructors
+-- maybe this should be on ir.lua
 local function map_val(cmd, fval, flocalval)
     return ir.map_cmd(cmd, function (_cmd)
-        if _cmd._tag == "ir.Cmd.Binop" then
-            _cmd.dst = fval(_cmd.dst)
-            _cmd.src1 = flocalval(_cmd.src1)
-            _cmd.src2 = flocalval(_cmd.src2)
-            return _cmd
-        elseif _cmd._tag == "ir.Cmd.Unop" then
+        if _cmd._tag == "ir.Cmd.Move" then
             _cmd.src = flocalval(_cmd.src)
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.GetGlobal" then
             _cmd.dst = fval(_cmd.dst)
             return _cmd
         elseif _cmd._tag == "ir.Cmd.SetGlobal" then
             _cmd.src = flocalval(_cmd.src)
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.GetGlobal" then
-            _cmd.dst = fval(_cmd.dst)
-            return _cmd
-        elseif _cmd._tag == "ir.Cmd.Move" then
+        elseif _cmd._tag == "ir.Cmd.Unop" then
             _cmd.src = flocalval(_cmd.src)
             _cmd.dst = fval(_cmd.dst)
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.If" then
-            _cmd.condition = flocalval(_cmd.condition)
+        elseif _cmd._tag == "ir.Cmd.Binop" then
+            _cmd.dst = fval(_cmd.dst)
+            _cmd.src1 = flocalval(_cmd.src1)
+            _cmd.src2 = flocalval(_cmd.src2)
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.Return" then
+        elseif _cmd._tag == "ir.Cmd.Concat" then
             for key, value in pairs(_cmd.srcs) do
                 _cmd.srcs[key] = flocalval(value)
             end
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.ToFloat" then
+            _cmd.dst = fval(_cmd.dst)
+            _cmd.src = flocalval(_cmd.src)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.ToDyn" then
+            _cmd.dst = fval(_cmd.dst)
+            _cmd.src = flocalval(_cmd.src)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.FromDyn" then
+            _cmd.src = flocalval(_cmd.src)
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.IsTruthy" then
+            _cmd.src = flocalval(_cmd.src)
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.NewArr" then
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.GetArr" then
+            _cmd.src_arr = flocalval(_cmd.src_arr )
+            _cmd.src_i   = flocalval(_cmd.src_i   )
+            _cmd.dst     =      fval(_cmd.dst     )
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.SetArr" then
+            _cmd.src_arr = flocalval(_cmd.src_arr )
+            _cmd.src_i   = flocalval(_cmd.src_i   )
+            _cmd.src_v   = flocalval(_cmd.src_v   )
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.NewTable" then
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.GetTable" then
+            _cmd.src_tab = flocalval(_cmd.src_tab )
+            _cmd.src_k   = flocalval(_cmd.src_k   )
+            _cmd.dst     =      fval(_cmd.dst     )
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.SetTable" then
+            _cmd.src_tab = flocalval(_cmd.src_tab )
+            _cmd.src_k   = flocalval(_cmd.src_k   )
+            _cmd.src_v   = flocalval(_cmd.src_v   )
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.NewRecord" then
+            _cmd.dst = fval(_cmd.dst)
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.GetField" then
+            _cmd.src_rec = flocalval(_cmd.src_rec )
+            _cmd.field_name   = fval(_cmd.field_name   )
+            _cmd.dst     =      fval(_cmd.dst     )
+            return _cmd
+        elseif _cmd._tag == "ir.Cmd.SetField" then
+            _cmd.src_rec = flocalval(_cmd.src_rec )
+            _cmd.field_name   = fval(_cmd.field_name   )
+            _cmd.src_v   = flocalval(_cmd.src_v   )
             return _cmd
         elseif _cmd._tag == "ir.Cmd.CallStatic" then
-            -- print(inspect(_cmd.srcs))
             for key, value in pairs(_cmd.dsts) do
-                -- assert(type(value)=='table')
-                -- assert(type(value)~='table')
                 _cmd.dsts[key] = fval(value)
             end
             for key, value in pairs(_cmd.srcs) do
                 _cmd.srcs[key] = flocalval(value)
             end
-
             return _cmd
         elseif _cmd._tag == "ir.Cmd.CallDyn" then
             _cmd.src_f = flocalval(_cmd.src_f )
@@ -163,56 +234,65 @@ local function map_val(cmd, fval, flocalval)
             for key, value in pairs(_cmd.dsts) do
                 _cmd.dsts[key] = fval(value)
             end
-        elseif _cmd._tag == "ir.Cmd.NewArr" then
-            _cmd.dst = fval(_cmd.dst)
+        elseif _cmd._tag == "ir.Cmd.BuiltinIoWrite" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
+        elseif _cmd._tag == "ir.Cmd.BuiltinMathSqrt" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
+            for key, value in pairs(_cmd.dsts) do
+                _cmd.dsts[key] = fval(value)
+            end
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.SetArr" then
-            _cmd.src_arr = flocalval(_cmd.src_arr )
-            _cmd.src_i   = flocalval(_cmd.src_i   )
-            _cmd.src_v   = flocalval(_cmd.src_v   )
+        elseif _cmd._tag == "ir.Cmd.BuiltinStringChar" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
+            for key, value in pairs(_cmd.dsts) do
+                _cmd.dsts[key] = fval(value)
+            end
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.GetArr" then
-            _cmd.src_arr = flocalval(_cmd.src_arr )
-            _cmd.src_i   = flocalval(_cmd.src_i   )
-            _cmd.dst     =      fval(_cmd.dst     )
+        elseif _cmd._tag == "ir.Cmd.BuiltinStringSub" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
+            for key, value in pairs(_cmd.dsts) do
+                _cmd.dsts[key] = fval(value)
+            end
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.NewRecord" then
-            _cmd.dst = fval(_cmd.dst)
+        elseif _cmd._tag == "ir.Cmd.BuiltinType" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
+            for key, value in pairs(_cmd.dsts) do
+                _cmd.dsts[key] = fval(value)
+            end
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.SetField" then
-            _cmd.src_rec = flocalval(_cmd.src_rec )
-            _cmd.field_name   = flocalval(_cmd.field_name   )
-            _cmd.src_v   = flocalval(_cmd.src_v   )
+        elseif _cmd._tag == "ir.Cmd.BuiltinTostring" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
+            for key, value in pairs(_cmd.dsts) do
+                _cmd.dsts[key] = fval(value)
+            end
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.GetField" then
-            _cmd.src_rec = flocalval(_cmd.src_rec )
-            _cmd.field_name   = flocalval(_cmd.field_name   )
-            _cmd.dst     =      fval(_cmd.dst     )
+        elseif _cmd._tag == "ir.Cmd.Nop" then
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.NewTable" then
-            _cmd.dst = fval(_cmd.dst)
+        elseif _cmd._tag == "ir.Cmd.Seq" then
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.SetTable" then
-            _cmd.src_tab = flocalval(_cmd.src_tab )
-            _cmd.src_k   = flocalval(_cmd.src_k   )
-            _cmd.src_v   = flocalval(_cmd.src_v   )
+        elseif _cmd._tag == "ir.Cmd.Return" then
+            for key, value in pairs(_cmd.srcs) do
+                _cmd.srcs[key] = flocalval(value)
+            end
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.GetTable" then
-            _cmd.src_tab = flocalval(_cmd.src_tab )
-            _cmd.src_k   = flocalval(_cmd.src_k   )
-            _cmd.dst     =      fval(_cmd.dst     )
+        elseif _cmd._tag == "ir.Cmd.Break" then
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.IsTruthy" then
-            _cmd.src = flocalval(_cmd.src)
-            _cmd.dst = fval(_cmd.dst)
+        elseif _cmd._tag == "ir.Cmd.Loop" then
             return _cmd
-        elseif _cmd._tag == "ir.Cmd.ToDyn" then
-            _cmd.src = flocalval(_cmd.src)
-            _cmd.dst = fval(_cmd.dst)
-            return _cmd
-        elseif _cmd._tag == "ir.Cmd.FromDyn" then
-            _cmd.src = flocalval(_cmd.src)
-            _cmd.dst = fval(_cmd.dst)
+        elseif _cmd._tag == "ir.Cmd.If" then
+            _cmd.condition = flocalval(_cmd.condition)
             return _cmd
         elseif _cmd._tag == "ir.Cmd.For" then
             _cmd.loop_var = fval(_cmd.loop_var)
@@ -220,37 +300,31 @@ local function map_val(cmd, fval, flocalval)
             _cmd.start = flocalval(_cmd.start)
             _cmd.limit = flocalval(_cmd.limit)
             return _cmd
+        elseif _cmd._tag == "ir.Cmd.CheckGC" then
+            return _cmd
         else
-            --print(_cmd._tag)
+            assert(false,'not treated '.._cmd._tag)
         end
     end)
 end
 
 -- adjusts the function body to be inlined in respect to the outer function top
 -- so the internal variables will not collide with the outer ones
-local function adjust(cmd, top,func,called)
+local function inline_body(cmd, top,func,called)
     local function maybe_create(id,last_id)
-        --print(last_id,inspect(called.vars))
         assert(called.vars[last_id],last_id)
         maybe_create_var(id,called.vars[last_id].typ,func)
     end
     local new_val = function(val)
-        --print('maybe',top+val,val)
         maybe_create(top+val,val)
         return top+val
     end
     local iflocalvar_new_val = function (val)
         if type(val) == 'number' then
-            if not func.vars[val] then
-                --print(val,inspect(func.vars))
-            end
             local tmp = new_val(val)
             maybe_create(tmp,val)
             val = tmp
         elseif val._tag == 'ir.Value.LocalVar' then
-            if not func.vars[val.id] then
-                --print(val.id,inspect(func.vars))
-            end
             local tmp = new_val(val.id)
             maybe_create(tmp,val.id)
             val.id = tmp
@@ -260,14 +334,16 @@ local function adjust(cmd, top,func,called)
     return map_val(cmd, new_val, iflocalvar_new_val)
 end
 
--- normal_form guarantess that the cmd subtree will be in normal form
--- starting at 1 and every value is increased in order of appearance, without holes
--- ignoring the arguments
+-- normal_form guarantess that the cmd subtree will be in normal form:
+-- starting at the number of arguments+1
+-- and every value is increased in order of appearance,
+-- without holes
 local function normal_form(cmd,num_args)
     local ids = {}
     ids.top = num_args+1
     local new_val = function(val)
-        if val > num_args then
+        -- val can be string or int
+        if type(val) == 'number' and val > num_args then
             if not ids[val] then
                 ids[val] = ids.top
                 ids.top = ids.top + 1
@@ -282,11 +358,16 @@ local function normal_form(cmd,num_args)
         if val._tag == "ir.Value.LocalVar" then
             if val.id > num_args then
                 local tmp = new_val(val.id)
-                --print(val._tag..' changing ',val.id,tmp)
                 val.id = tmp
             end
+        elseif val._tag == "ir.Value.Integer" then
+        elseif val._tag == "ir.Value.Float" then
+        elseif val._tag == "ir.Value.Bool" then
+        elseif val._tag == "ir.Value.Nil" then
+        elseif val._tag == "ir.Value.String" then
+        elseif val._tag == "ir.Value.Function" then
         else
-            --print('not treated',val._tag)
+            assert(false, 'not treated '..val._tag)
         end
         return val
     end
@@ -298,66 +379,45 @@ end
 -- now used just for testing purposes
 function inliner.to_normal_module(module)
     for _, func in ipairs(module.functions) do
-        --print('start '..func.name)
         local new_body, vars_map = normal_form(func.body,#func.typ.arg_types)
         func.body = new_body
         local new_vars = {}
         local n = #func.typ.arg_types
-        --print(inspect(vars_map,{newline='', indent=""}))
         for k,v in pairs(vars_map) do
             new_vars[v] = func.vars[k]
         end
-        --print(inspect(new_vars,{newline='', indent=""}))
-        --print(inspect(func.vars,{newline='', indent=""}))
         for k,v in pairs(new_vars) do
-            -- if not vars_map[k] then
-            --     new_vars[k] = v
-            -- end
             func.vars[k] = v
         end
-        --print(inspect(func.vars,{newline='', indent=""}))
-        --print('end '..func.name..'\n')
-        --func.vars = new_vars
     end
     return module
 end
 
--- only inline firs
+-- only inline first level calls.
+-- inlines in order of appearance (maybe should mount a dependency tree)
 function inliner.inline(module)
 
     local errors = {}
     local found = false
-    -- print('*****************')
-    -- print(print_ir(module,true))
-    --print(print_ir(module))
     for k, func in ipairs(module.functions) do
-
-
-
-        -- top is the highest variable present in the host function
-        local top = find_top(func.body)
-        --print('>>>',top,inspect(module.functions[k].vars,{newline='', indent=""}))
-        --print(inspect(func.typ))
         module.functions[k].body = ir.map_cmd(func.body, function(cmd)
             if cmd._tag == "ir.Cmd.CallStatic" then
-                local called = util.copy(module.functions[cmd.f_id].body)
-                --print('>=>',inspect(module.functions[cmd.f_id].vars,{newline='', indent=""}))
-                local args = args_to_moves(module.functions[cmd.f_id].typ.arg_types, cmd, top,func)
-                --print('>*>',inspect(module.functions[k].vars,{newline='', indent=""}))
-                local body = adjust(called, top,func,module.functions[cmd.f_id])
-                local rets = return_to_moves(body, cmd,func,module.functions[cmd.f_id])
+                -- top is the highest variable present in the host function
+                -- it should be recalculated every time,
+                -- since a previous inline could have altered it
+                local top = find_top(func.body)+1
+                local called = util.copy(module.functions[cmd.f_id])
+
+                local args = args_to_moves(called.typ.arg_types, cmd, top, func)
+                local body = inline_body(called.body, top, func, called)
+                local rets = return_to_moves(body, cmd, func, called)
                 return ir.Cmd.Seq({args, rets})
             end
         end)
         -- check consistency
+        -- (for each command, it will print [x,y] indicating that the variables at x or y were not declared properly)
         --local flat_cmds = ir.flatten_cmd(module.functions[k].body)
-        --print(inspect(module.functions[k].body,{newline='', indent=""}))
-        --print('>end>',inspect(module.functions[k].vars,{newline='', indent=""}))
     --     for i, cmd in ipairs(flat_cmds) do
-    --         -- print(
-    --         --     inspect(ir.get_srcs(cmd)),
-    --         --     inspect(ir.get_dsts(cmd))
-    --         -- )
     --         local st = cmd._tag..' ['
     --         for _, val in ipairs(ir.get_srcs(cmd)) do
     --             if type(val) == 'table' and val._tag == "ir.Value.LocalVar" then
@@ -378,15 +438,10 @@ function inliner.inline(module)
     --         st = st .. (']')
     --         print(st)
     --     end
-
     --     print('======')
     end
-    -- print('FINISHED____________')
-    -- print(print_ir(module,true))
+
     module = inliner.to_normal_module(module)
-    -- print('NORMAL_____________')
-    -- print(print_ir(module,true))
-    -- print('END MODULE_______________')
     if #errors == 0 then
         return module, {}
     else
