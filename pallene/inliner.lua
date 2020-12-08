@@ -5,8 +5,6 @@
 
 local ir = require "pallene.ir"
 local util = require "pallene.util"
-local print_ir = require 'pallene.print_ir'
-local print_func = require 'pallene.print_func'
 local inliner = {}
 
 local inspect = require'inspect'
@@ -382,7 +380,6 @@ function inliner.to_normal_module(module)
         local new_body, vars_map = normal_form(func.body,#func.typ.arg_types)
         func.body = new_body
         local new_vars = {}
-        local n = #func.typ.arg_types
         for k,v in pairs(vars_map) do
             new_vars[v] = func.vars[k]
         end
@@ -398,7 +395,6 @@ end
 function inliner.inline(module)
 
     local errors = {}
-    local found = false
     for k, func in ipairs(module.functions) do
         module.functions[k].body = ir.map_cmd(func.body, function(cmd)
             if cmd._tag == "ir.Cmd.CallStatic" then
