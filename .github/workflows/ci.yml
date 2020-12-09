@@ -1,0 +1,49 @@
+# This is the configuration file for our CI via Github Actions.
+#
+# The result of all executions of the github actions is logged in the "Actions" tab at the top of
+# the repository. If the jobs aren't running as they should, check there to see if you didn't
+# introduce a syntax error in the YAML file or something like that.
+#
+# Useful reference:
+#   - https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions
+#   - https://github.com/actions/checkout
+#   - https://github.com/leafo/gh-actions-lua
+#   - https://github.com/leafo/gh-actions-luarocks
+
+name: Github Actions CI
+
+on: [ pull_request ]
+
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: leafo/gh-actions-lua@v8.0.0
+            - uses: leafo/gh-actions-luarocks@v4.0.0
+
+            - name: Install Luacheck
+              run: luarocks install luacheck
+
+            - name: Run Luacheck
+              run: ./lint-project
+
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: leafo/gh-actions-lua@v8.0.0
+            - uses: leafo/gh-actions-luarocks@v4.0.0
+
+            - name: Build
+              run: |
+                  luarocks make
+                  make linux-noreadline
+
+            - name: Install Busted
+              run: luarocks install busted
+
+            - name: Run Tests
+              run: busted -o gtest -v ./spec
