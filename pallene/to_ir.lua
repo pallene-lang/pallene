@@ -211,9 +211,12 @@ function ToIR:convert_stat(cmds, stat)
         local exps = stat.exps
         assert(#vars == #exps)
 
-        -- In Lua, the expressions in an assignment are evaluated from left to right and all
-        -- sub-expressions are evaluated before the assignments are resolved. Assignments happen
-        -- from right to left.
+        -- Multiple Assignments
+        -- --------------------
+        -- According to the Lua reference manual, the expressions in a multiple assignment should be
+        -- evaluated before the assignments are performed. The order of evaluation is not specified
+        -- but we try to match what PUC-Lua does: it evaluates the expressions from left to right
+        -- and then performs the assignments from right to left.
 
         -- In a multiple assignment we have to be careful if we end up with an ir.Value that refers
         -- to a local variable because that variable can potentially be overwritten in another part
@@ -297,8 +300,8 @@ function ToIR:convert_stat(cmds, stat)
         --  the rest of the RHS has been evaluated. However, we don't bother optimizing this last
         --  case because if the programmer has written a complicated multiple-assignment then it is
         --  likely that it isn't something that could have been written as a sequence of single
-        --  assignments. (Our implementation always ends up creating a temporary variable in this
-        --  case because save_if_necessary calls exp_to_value.)
+        --  assignments. Our implementation always ends up creating a temporary variable in this
+        --  case because save_if_necessary calls exp_to_value.
         local vals = {}
         for i, exp in ipairs(exps) do
             local is_last = (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet")
@@ -314,23 +317,21 @@ function ToIR:convert_stat(cmds, stat)
             local lhs = lhss[i]
             local val = vals[i]
             if val then
-                local cmd
                 local ltag = lhs._tag
                 if     ltag == "to_ir.LHS.Local" then
-                    cmd = ir.Cmd.Move(loc, lhs.id, val)
+                    table.insert(cmds, ir.Cmd.Move(loc, lhs.id, val))
                 elseif ltag == "to_ir.LHS.Global" then
-                    cmd = ir.Cmd.SetGlobal(loc, lhs.id, val)
+                    table.insert(cmds, ir.Cmd.SetGlobal(loc, lhs.id, val))
                 elseif ltag == "to_ir.LHS.Array" then
-                    cmd = ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val)
+                    table.insert(cmds, ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val))
                 elseif ltag == "to_ir.LHS.Table" then
                     local str = ir.Value.String(lhs.field)
-                    cmd = ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val)
+                    table.insert(cmds, ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val))
                 elseif ltag == "to_ir.LHS.Record" then
-                    cmd = ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val)
+                    table.insert(cmds, ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val))
                 else
                     typedecl.tag_error(ltag)
                 end
-                table.insert(cmds, cmd)
             end
         end
 

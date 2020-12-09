@@ -1405,6 +1405,9 @@ gen_cmd["Return"] = function(self, cmd)
     if #cmd.srcs == 0 then
         return [[ return; ]]
     else
+        -- We assign the dsts from right to left, in order to match Lua's semantics when a
+        -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
+        -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
         local returns = {}
         for i = #cmd.srcs, 2, -1 do
             local src = self:c_value(cmd.srcs[i])
