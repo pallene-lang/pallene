@@ -37,21 +37,6 @@
 */
 
 /*
-@@ LUAI_MAXCSTACK defines the maximum depth for nested calls and
-** also limits the maximum depth of other recursive algorithms in
-** the implementation, such as syntactic analysis. A value too
-** large may allow the interpreter to crash (C-stack overflow).
-** The default value seems ok for regular machines, but may be
-** too high for restricted hardware.
-** The test file 'cstack.lua' may help finding a good limit.
-** (It will crash with a limit too high.)
-*/
-#if !defined(LUAI_MAXCSTACK)
-#define LUAI_MAXCSTACK		2000
-#endif
-
-
-/*
 @@ LUA_USE_C89 controls the use of non-ISO-C89 features.
 ** Define it if you want Lua to avoid the use of a few C99 features
 ** or Windows-specific features on Windows.
@@ -315,7 +300,12 @@
 ** give a warning about it. To avoid these warnings, change to the
 ** default definition.
 */
-#define LUAI_FUNC	LUA_API    /* Pallene exports everything */
+#if defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+    defined(__ELF__)		/* { */
+#define LUAI_FUNC	__attribute__((visibility("internal"))) extern
+#else				/* }{ */
+#define LUAI_FUNC	extern
+#endif				/* } */
 
 #define LUAI_DDEC(dec)	LUAI_FUNC dec
 #define LUAI_DDEF	/* empty */
