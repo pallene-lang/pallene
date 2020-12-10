@@ -2966,26 +2966,31 @@ When you interact with the Lua API,
 you are responsible for ensuring consistency.
 In particular,
 <em>you are responsible for controlling stack overflow</em>.
-You can use the function <a href="#lua_checkstack"><code>lua_checkstack</code></a>
-to ensure that the stack has enough space for pushing new elements.
+When you call any API function,
+you must ensure the stack has enough room to accommodate the results.
+
+
+<p>
+There is one exception to the above rule:
+When you call a Lua function
+without a fixed number of results (see <a href="#lua_call"><code>lua_call</code></a>),
+Lua ensures that the stack has enough space for all results.
+However, it does not ensure any extra space.
+So, before pushing anything on the stack after such a call
+you should use <a href="#lua_checkstack"><code>lua_checkstack</code></a>.
 
 
 <p>
 Whenever Lua calls C,
 it ensures that the stack has space for
-at least <a name="pdf-LUA_MINSTACK"><code>LUA_MINSTACK</code></a> extra slots.
+at least <a name="pdf-LUA_MINSTACK"><code>LUA_MINSTACK</code></a> extra elements;
+that is, you can safely push up to <code>LUA_MINSTACK</code> values into it.
 <code>LUA_MINSTACK</code> is defined as 20,
 so that usually you do not have to worry about stack space
 unless your code has loops pushing elements onto the stack.
-
-
-<p>
-When you call a Lua function
-without a fixed number of results (see <a href="#lua_call"><code>lua_call</code></a>),
-Lua ensures that the stack has enough space for all results,
-but it does not ensure any extra space.
-So, before pushing anything in the stack after such a call
-you should use <a href="#lua_checkstack"><code>lua_checkstack</code></a>.
+Whenever necessary,
+you can use the function <a href="#lua_checkstack"><code>lua_checkstack</code></a>
+to ensure that the stack has enough space for pushing new elements.
 
 
 
@@ -3039,6 +3044,49 @@ For functions that can be called with acceptable indices,
 any non-valid index is treated as if it
 contains a value of a virtual type <a name="pdf-LUA_TNONE"><code>LUA_TNONE</code></a>,
 which behaves like a nil value.
+
+
+
+
+
+<h3>4.1.3 &ndash; <a name="4.1.3">Pointers to strings</a></h3>
+
+<p>
+Several functions in the API return pointers (<code>const char*</code>)
+to Lua strings in the stack.
+(See <a href="#lua_pushfstring"><code>lua_pushfstring</code></a>, <a href="#lua_pushlstring"><code>lua_pushlstring</code></a>,
+<a href="#lua_pushstring"><code>lua_pushstring</code></a>, and <a href="#lua_tolstring"><code>lua_tolstring</code></a>.
+See also <a href="#luaL_checklstring"><code>luaL_checklstring</code></a>, <a href="#luaL_checkstring"><code>luaL_checkstring</code></a>,
+and <a href="#luaL_tolstring"><code>luaL_tolstring</code></a> in the auxiliary library.)
+
+
+<p>
+In general,
+Lua's garbage collection can free or move internal memory
+and then invalidate pointers to internal strings.
+To allow a safe use of these pointers,
+The API guarantees that any pointer to a string in a stack index
+is valid while the string value at that index is not removed from the stack.
+(It can be moved to another index, though.)
+When the index is a pseudo-index (referring to an upvalue),
+the pointer is valid while the corresponding call is active and
+the corresponding upvalue is not modified.
+
+
+<p>
+Some functions in the debug interface
+also return pointers to strings,
+namely <a href="#lua_getlocal"><code>lua_getlocal</code></a>, <a href="#lua_getupvalue"><code>lua_getupvalue</code></a>,
+<a href="#lua_setlocal"><code>lua_setlocal</code></a>, and <a href="#lua_setupvalue"><code>lua_setupvalue</code></a>.
+For these functions, the pointer is guaranteed to
+be valid while the caller function is active and
+the given closure (if one was given) is in the stack.
+
+
+<p>
+Except for these guarantees,
+the garbage collector is free to invalidate
+any pointer to internal strings.
 
 
 
@@ -3239,7 +3287,7 @@ Therefore, if a C&nbsp;function <code>foo</code> calls an API function
 and this API function yields
 (directly or indirectly by calling another function that yields),
 Lua cannot return to <code>foo</code> any more,
-because the <code>longjmp</code> removes its frame from the C stack.
+because the <code>longjmp</code> removes its frame from the C&nbsp;stack.
 
 
 <p>
@@ -3269,7 +3317,7 @@ After the thread resumes,
 it eventually will finish running the callee function.
 However,
 the callee function cannot return to the original function,
-because its frame in the C stack was destroyed by the yield.
+because its frame in the C&nbsp;stack was destroyed by the yield.
 Instead, Lua calls a <em>continuation function</em>,
 which was given as an argument to the callee function.
 As the name implies,
@@ -3389,7 +3437,7 @@ depending on the situation;
 an interrogation mark '<code>?</code>' means that
 we cannot know how many elements the function pops/pushes
 by looking only at its arguments.
-(For instance, they may depend on what is on the stack.)
+(For instance, they may depend on what is in the stack.)
 The third field, <code>x</code>,
 tells whether the function may raise errors:
 '<code>-</code>' means the function never raises any error;
@@ -3408,7 +3456,7 @@ and therefore may raise any errors.
 <p>
 Converts the acceptable index <code>idx</code>
 into an equivalent absolute index
-(that is, one that does not depend on the stack top).
+(that is, one that does not depend on the stack size).
 
 
 
@@ -3678,7 +3726,7 @@ of numeric arguments and returns their average and their sum:
 <pre>int lua_checkstack (lua_State *L, int n);</pre>
 
 <p>
-Ensures that the stack has space for at least <code>n</code> extra slots,
+Ensures that the stack has space for at least <code>n</code> extra elements,
 that is, that you can safely push up to <code>n</code> values into it.
 It returns false if it cannot fulfill the request,
 either because it would cause the stack
@@ -3686,7 +3734,7 @@ to be greater than a fixed maximum size
 (typically at least several thousand elements) or
 because it cannot allocate memory for the extra space.
 This function never shrinks the stack;
-if the stack already has space for the extra slots,
+if the stack already has space for the extra elements,
 it is left unchanged.
 
 
@@ -4443,6 +4491,10 @@ plus an associated block of raw memory with <code>size</code> bytes.
 
 <p>
 The function returns the address of the block of memory.
+Lua ensures that this address is valid as long as
+the corresponding userdata is alive (see <a href="#2.5">&sect;2.5</a>).
+Moreover, if the userdata is marked for finalization (see <a href="#2.5.3">&sect;2.5.3</a>),
+its address is valid at least until the call to its finalizer.
 
 
 
@@ -4600,11 +4652,16 @@ except that it allows the called function to yield (see <a href="#4.5">&sect;4.5
 
 
 <hr><h3><a name="lua_pop"><code>lua_pop</code></a></h3><p>
-<span class="apii">[-n, +0, &ndash;]</span>
+<span class="apii">[-n, +0, <em>e</em>]</span>
 <pre>void lua_pop (lua_State *L, int n);</pre>
 
 <p>
 Pops <code>n</code> elements from the stack.
+
+
+<p>
+This function can run arbitrary code when removing an index
+marked as to-be-closed from the stack.
 
 
 
@@ -4688,7 +4745,7 @@ This function is equivalent to <a href="#lua_pushcclosure"><code>lua_pushcclosur
 
 <p>
 Pushes onto the stack a formatted string
-and returns a pointer to this string.
+and returns a pointer to this string (see <a href="#4.1.3">&sect;4.1.3</a>).
 It is similar to the ISO&nbsp;C function <code>sprintf</code>,
 but has two important differences.
 First,
@@ -4788,7 +4845,7 @@ including embedded zeros.
 
 
 <p>
-Returns a pointer to the internal copy of the string.
+Returns a pointer to the internal copy of the string (see <a href="#4.1.3">&sect;4.1.3</a>).
 
 
 
@@ -4829,7 +4886,7 @@ the function returns.
 
 
 <p>
-Returns a pointer to the internal copy of the string.
+Returns a pointer to the internal copy of the string (see <a href="#4.1.3">&sect;4.1.3</a>).
 
 
 <p>
@@ -5273,7 +5330,7 @@ for the "newindex" event (see <a href="#2.4">&sect;2.4</a>).
 
 
 <hr><h3><a name="lua_settop"><code>lua_settop</code></a></h3><p>
-<span class="apii">[-?, +?, &ndash;]</span>
+<span class="apii">[-?, +?, <em>e</em>]</span>
 <pre>void lua_settop (lua_State *L, int index);</pre>
 
 <p>
@@ -5282,6 +5339,11 @@ and sets the stack top to this index.
 If the new top is greater than the old one,
 then the new elements are filled with <b>nil</b>.
 If <code>index</code> is&nbsp;0, then all stack elements are removed.
+
+
+<p>
+This function can run arbitrary code when removing an index
+marked as to-be-closed from the stack.
 
 
 
@@ -5399,7 +5461,7 @@ otherwise, returns <code>NULL</code>.
 
 
 <hr><h3><a name="lua_toclose"><code>lua_toclose</code></a></h3><p>
-<span class="apii">[-0, +0, <em>v</em>]</span>
+<span class="apii">[-0, +0, <em>m</em>]</span>
 <pre>void lua_toclose (lua_State *L, int index);</pre>
 
 <p>
@@ -5423,9 +5485,17 @@ that is equal to or below an active to-be-closed index.
 
 
 <p>
-This function can raise an out-of-memory error.
-In that case, the value in the given index is immediately closed,
+In the case of an out-of-memory error,
+the value in the given index is immediately closed,
 as if it was already marked.
+
+
+<p>
+Note that, both in case of errors and of a regular return,
+by the time the <code>__close</code> metamethod runs,
+the C&nbsp;stack was already unwound,
+so that any automatic C&nbsp;variable declared in the calling function
+will be out of scope.
 
 
 
@@ -5482,16 +5552,10 @@ when <code>lua_tolstring</code> is applied to keys during a table traversal.)
 
 <p>
 <code>lua_tolstring</code> returns a pointer
-to a string inside the Lua state.
+to a string inside the Lua state (see <a href="#4.1.3">&sect;4.1.3</a>).
 This string always has a zero ('<code>\0</code>')
 after its last character (as in&nbsp;C),
 but can contain other zeros in its body.
-
-
-<p>
-Because Lua has garbage collection,
-there is no guarantee that the pointer returned by <code>lua_tolstring</code>
-will be valid after the corresponding Lua value is removed from the stack.
 
 
 
@@ -5944,7 +6008,7 @@ true if the function is a vararg function
 </li>
 
 <li><b><code>ftransfer</code>: </b>
-the index on the stack of the first value being "transferred",
+the index in the stack of the first value being "transferred",
 that is, parameters in a call or return values in a return.
 (The other values are in consecutive indices.)
 Using this index, you can access and modify these values
@@ -6141,7 +6205,7 @@ an identification of the <em>activation record</em>
 of the function executing at a given level.
 Level&nbsp;0 is the current running function,
 whereas level <em>n+1</em> is the function that has called level <em>n</em>
-(except for tail calls, which do not count on the stack).
+(except for tail calls, which do not count in the stack).
 When called with a level greater than the stack depth,
 <a href="#lua_getstack"><code>lua_getstack</code></a> returns 0;
 otherwise it returns 1.
@@ -6218,24 +6282,6 @@ calling <a href="#lua_yield"><code>lua_yield</code></a> with <code>nresults</cod
 
 
 
-<hr><h3><a name="lua_setcstacklimit"><code>lua_setcstacklimit</code></a></h3><p>
-<span class="apii">[-0, +0, &ndash;]</span>
-<pre>int (lua_setcstacklimit) (lua_State *L, unsigned int limit);</pre>
-
-<p>
-Sets a new limit for the C stack.
-This limit controls how deeply nested calls can go in Lua,
-with the intent of avoiding a stack overflow.
-Returns the old limit in case of success,
-or zero in case of error.
-For more details about this function,
-see <a href="#pdf-debug.setcstacklimit"><code>debug.setcstacklimit</code></a>,
-its equivalent in the standard library.
-
-
-
-
-
 <hr><h3><a name="lua_sethook"><code>lua_sethook</code></a></h3><p>
 <span class="apii">[-0, +0, &ndash;]</span>
 <pre>void lua_sethook (lua_State *L, lua_Hook f, int mask, int count);</pre>
@@ -6259,8 +6305,7 @@ For each event, the hook is called as explained below:
 <ul>
 
 <li><b>The call hook: </b> is called when the interpreter calls a function.
-The hook is called just after Lua enters the new function,
-before the function gets its arguments.
+The hook is called just after Lua enters the new function.
 </li>
 
 <li><b>The return hook: </b> is called when the interpreter returns from a function.
@@ -7573,7 +7618,7 @@ it returns <code>NULL</code> instead of raising an error.
 Converts any Lua value at the given index to a C&nbsp;string
 in a reasonable format.
 The resulting string is pushed onto the stack and also
-returned by the function.
+returned by the function (see <a href="#4.1.3">&sect;4.1.3</a>).
 If <code>len</code> is not <code>NULL</code>,
 the function also sets <code>*len</code> with the string length.
 
@@ -8001,9 +8046,11 @@ The default is "<code>bt</code>".
 
 
 <p>
-Lua does not check the consistency of binary chunks.
-Maliciously crafted binary chunks can crash
-the interpreter.
+It is safe to load malformed binary chunks;
+<code>load</code> signals an appropriate error.
+However,
+Lua does not check the consistency of the code inside binary chunks;
+running maliciously crafted bytecode can crash the interpreter.
 
 
 
@@ -8663,6 +8710,18 @@ This function is not supported by Standard&nbsp;C.
 As such, it is only available on some platforms
 (Windows, Linux, Mac OS X, Solaris, BSD,
 plus other Unix systems that support the <code>dlfcn</code> standard).
+
+
+<p>
+This function is inherently insecure,
+as it allows Lua to call any function in any readable dynamic
+library in the system.
+(Lua calls any function assuming the function
+has a proper prototype and respects a proper protocol
+(see <a href="#lua_CFunction"><code>lua_CFunction</code></a>).
+Therefore,
+calling an arbitrary function in an arbitrary dynamic library
+more often than not results in an access violation.)
 
 
 
@@ -11084,7 +11143,7 @@ which means the function running at level <code>f</code> of the call stack
 of the given thread:
 level&nbsp;0 is the current function (<code>getinfo</code> itself);
 level&nbsp;1 is the function that called <code>getinfo</code>
-(except for tail calls, which do not count on the stack);
+(except for tail calls, which do not count in the stack);
 and so on.
 If <code>f</code> is a number greater than the number of active functions,
 then <code>getinfo</code> returns <b>fail</b>.
@@ -11214,43 +11273,6 @@ represents variables with no known names
 Returns the <code>n</code>-th user value associated
 to the userdata <code>u</code> plus a boolean,
 <b>false</b> if the userdata does not have that value.
-
-
-
-
-<p>
-<hr><h3><a name="pdf-debug.setcstacklimit"><code>debug.setcstacklimit (limit)</code></a></h3>
-
-
-<p>
-Sets a new limit for the C stack.
-This limit controls how deeply nested calls can go in Lua,
-with the intent of avoiding a stack overflow.
-A limit too small restricts recursive calls pointlessly;
-a limit too large exposes the interpreter to stack-overflow crashes.
-Unfortunately, there is no way to know a priori
-the maximum safe limit for a platform.
-
-
-<p>
-Each call made from Lua code counts one unit.
-Other operations (e.g., calls made from C to Lua or resuming a coroutine)
-may have a higher cost.
-
-
-<p>
-This function has the following restrictions:
-
-<ul>
-<li>It can only be called from the main coroutine (thread);</li>
-<li>It cannot be called while handling a stack-overflow error;</li>
-<li><code>limit</code> must be less than 40000;</li>
-<li><code>limit</code> cannot be less than the amount of C stack in use.</li>
-</ul><p>
-If a call does not respect some restriction,
-it returns a false value.
-Otherwise,
-the call returns the old limit.
 
 
 
@@ -11886,10 +11908,10 @@ and LiteralString, see <a href="#3.1">&sect;3.1</a>.)
 
 <P CLASS="footer">
 Last update:
-Thu Jun 18 16:10:16 UTC 2020
+Fri Nov 13 15:35:22 UTC 2020
 </P>
 <!--
-Last change: revised for Lua 5.4.0 (final)
+Last change: revised for Lua 5.4.2
 -->
 
 </body></html>
