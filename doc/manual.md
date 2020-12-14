@@ -46,7 +46,7 @@ There is also a catch-all type `any`, which can refer to any Lua or Pallene valu
 
 ### Primitive types
 
-Pallene's primitive types are similat to Lua's:
+Pallene's primitive types are similar to Lua's:
 
 - `nil`
 - `boolean`
@@ -55,7 +55,7 @@ Pallene's primitive types are similat to Lua's:
 
 ### Integers and floats
 
-In Pallene there are separate typed for `integer` and `float` instead of a single `number` type.
+In Pallene there are separate types for `integer` and `float` instead of a single `number` type.
 There are no automatic coercions between the two types, meaning that code such as the following is a type error in Pallene:
 
 ```

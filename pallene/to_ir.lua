@@ -212,7 +212,7 @@ function ToIR:convert_stat(cmds, stat)
         -- for-in loops are desugared into regurlar loops before compiling.
         -- For example, a loop like this:
         --- ```
-        -- for a: T, b: T2 in <RHS> do
+        -- for a: T1, b: T2 in <RHS> do
         --     <loop body>
         -- end
         ---```
@@ -222,7 +222,7 @@ function ToIR:convert_stat(cmds, stat)
         -- while true do
         --   local a_any, b_any = iter(st, ctrl)
         --   if a_any == nil then break end
-        --   local a = a_any as T
+        --   local a = a_any as T1
         --   local b = b_any as T2
         --   ctrl = i_any
         --   <loop body>
