@@ -156,6 +156,61 @@ That is, `a -> b -> c` means `a -> (b -> c)`.
 A Pallene variable of function type may refer to either a statically-typed Pallene function or to a dynamically typed Lua function.
 When calling a dynamically-typed Lua function from Pallene, Pallene will check whether the Lua function returned the correct types and number of arguments and it will raise a run-time error if it does not receive what it expected.
 
+### Loops
+
+Pallene supports the usual variety of loops seen in Lua.
+Pallene's `for-in` loops carry some semantic importance that might be of relevance to certain users.
+An example of such a loop might look like this:
+
+```
+function sum_list(xs: {integer}) do
+    local sum: integer = 0
+    for _, x: integer in ipairs(xs) do
+        sum = sum + x
+    end
+end
+```
+
+The variables on the left hand side of a loop (here `_` and`x`) may optionally
+be type annotated.
+If no annotation is found, their type is assumed to be `any`.
+
+The right hand side of a for-in loop following "`in`" expects 3 values (or
+a call returning 3 values, like `ipairs(xs)`).
+
+The first is the iterator function which accepts 2 arguments, both of type `any`, and returns as many values of type `any` as found in the left hand side of the loop. In this case, the iterator function has type `(any, any) -> (any, any)`.
+
+The second is the `state` variable of type `any` which is the table that the loop is iterating over.
+
+The third and last value is the `control` variable of type `any`.
+Under most contexts, it is the current index or slot of the table under inspection.
+
+As an example, consider the same `sum_list` function from above written without `ipairs` using a hand written iterator function:
+
+```
+local function iter(arr: {any}, prev: integer): (any, any)
+    local i = prev + 1
+    local x = arr[i]
+    if x == (nil as any) then
+        return nil, nil
+    end
+
+    return i, x
+end
+
+typealias iterfn = (any, any) -> (any, any)
+local function my_ipairs(xs: {any}): (iterfn, any, any)
+    return iter, xs, 0
+end
+
+function sum_list(xs: {integer}): integer
+    local sum = 0
+    for _, x: integer in my_ipairs(xs) do
+        sum = sum + x
+    end
+end
+```
+
 ### Records
 
 Record types in Pallene are nominal and should be declared in the top level.
@@ -496,14 +551,17 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
     statement ::=  ';' |
         varlist '=' explist |
-        function_call |
+        funccall |
         do block end |
         while exp do block end |
         repeat block until exp |
         break |
         if exp then block {elseif exp then block} [else block] end |
-        for NAME [':' type] '=' exp ',' exp [',' exp] do block end |
+        forstat |
         local name [':' type] '=' exp
+
+    forstat ::= for NAME [':' type] '=' exp ',' exp [',' exp] do block end |
+        for NAME [':' type] {',' NAME [':' type]} in explist do block end
 
     returnstat ::= return exp [';']
 
