@@ -218,13 +218,13 @@ function ToIR:convert_stat(cmds, stat)
         ---```
         -- is compiled as if the following was written instead:
         --```
-        -- local iter, st, ctrl = RHS[1], RHS[2], RHS[3]
+        -- local iter, st, a_any, b_any
+        -- iter, st, ctrl = RHS[1], RHS[2], RHS[3]
         -- while true do
-        --   local a_any, b_any = iter(st, ctrl)
+        --   a_any, b_any = iter(st, ctrl)
         --   if a_any == nil then break end
         --   local a = a_any as T1
         --   local b = b_any as T2
-        --   ctrl = a_any
         --   <loop body>
         -- end
         -- ```
@@ -233,19 +233,20 @@ function ToIR:convert_stat(cmds, stat)
         self:exp_to_assignment(cmds, v_iter, exps[1])
         local v_state = ir.add_local(self.func, "$st", exps[2]._type)
         self:exp_to_assignment(cmds, v_state, exps[2])
-        local v_ctrl = ir.add_local(self.func, "$ctrl", exps[3]._type)
-        self:exp_to_assignment(cmds, v_ctrl, exps[3])
 
-        --Body of the `while` loop.
-        local body = {}
-
-        local itertype = exps[1]._type
         local v_lhs_dyn = {}
         for _, decl in ipairs(decls) do
             local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any())
             table.insert(v_lhs_dyn, v)
         end
 
+        local v_ctrl = v_lhs_dyn[1]
+        self:exp_to_assignment(cmds, v_ctrl, exps[3])
+
+        --Body of the `while` loop.
+        local body = {}
+
+        local itertype = exps[1]._type
         local args = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
         table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
 
@@ -266,7 +267,6 @@ function ToIR:convert_stat(cmds, stat)
             end
         end
 
-        table.insert(body, ir.Cmd.Move(stat.loc, v_ctrl, ir.Value.LocalVar(v_lhs_dyn[1])))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
