@@ -224,7 +224,7 @@ function ToIR:convert_stat(cmds, stat)
         --   if a_any == nil then break end
         --   local a = a_any as T1
         --   local b = b_any as T2
-        --   ctrl = i_any
+        --   ctrl = a_any
         --   <loop body>
         -- end
         -- ```
