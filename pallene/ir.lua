@@ -129,6 +129,7 @@ local ir_cmd_constructors = {
     ToDyn      = {"loc", "src_typ", "dst", "src"},
     FromDyn    = {"loc", "dst_typ", "dst", "src"},
     IsTruthy   = {"loc", "dst", "src"},
+    IsNil      = {"loc", "dst", "src"},
 
     -- Arrays
     NewArr     = {"loc", "dst", "size_hint"},

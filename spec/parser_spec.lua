@@ -566,7 +566,7 @@ describe("Pallene parser", function()
                 x = i
             end
         ]], {
-            { _tag = "ast.Stat.For",
+            { _tag = "ast.Stat.ForNum",
               block = {
                 stats = {
                   { _tag = "ast.Stat.Assign",
@@ -576,6 +576,51 @@ describe("Pallene parser", function()
               start =  { _tag = "ast.Exp.Integer", value = 1 },
               limit =  { _tag = "ast.Exp.Integer", value = 2 },
               step =   { _tag = "ast.Exp.Integer", value = 3 }, },
+        })
+    end)
+
+    it("can parse for-in loops", function()
+        assert_statements_ast([[
+            for k, v in ipairs(t) do
+                x = v
+            end
+        ]], {
+            { _tag = "ast.Stat.ForIn",
+              block = {
+                stats = {
+                  { _tag = "ast.Stat.Assign",
+                    exps = { { var = { _tag = "ast.Var.Name", name = "v" } } },
+                    vars = { { _tag = "ast.Var.Name", name = "x" } } } } },
+              decls = {
+                { _tag = "ast.Decl.Decl", name = "k", type = false },
+                { _tag = "ast.Decl.Decl", name = "v", type = false }, },
+              exps =  {
+                { _tag = "ast.Exp.CallFunc", exp  = { _tag = "ast.Exp.Var",
+                  var = { _tag = "ast.Var.Name", name = "ipairs" } },
+                  args = {
+                    { _tag = "ast.Exp.Var" ,
+                    var = { name = "t" } } } } }
+            }
+        })
+
+        assert_statements_ast([[
+            for x in foo() do
+                x = 1
+            end
+        ]], {
+            { _tag = "ast.Stat.ForIn",
+              block = {
+                stats = {
+                  { _tag = "ast.Stat.Assign",
+                   exps = { { value = 1 } },
+                   vars = { { _tag = "ast.Var.Name", name = "x" } } } } },
+              decls = { { _tag = "ast.Decl.Decl", name = "x", type = false } },
+              exps = {
+              { _tag = "ast.Exp.CallFunc",
+                exp  = { _tag = "ast.Exp.Var",
+                var  = { _tag = "ast.Var.Name", name = "foo" } },
+                args = { --[[ no args ]] } } }
+            }
         })
     end)
 
@@ -1116,6 +1161,30 @@ describe("Pallene parser", function()
                 return 42
             return 41
         ]], "Expected 'end' before 'return', to close the 'for' at line 2")
+
+        assert_statements_syntax_error([[
+            for k, in ipairs(t) do
+                k = 1
+            end
+        ]], "Expected a name before 'in'")
+
+        assert_statements_syntax_error([[
+            for k v in ipairs(t) do
+                v = 1
+            end
+        ]], "Unexpected 'v' while trying to parse a for loop")
+
+        assert_statements_syntax_error([[
+            for in ipairs(t) do
+                local v = 1
+            end
+        ]], "Expected a name before 'in'")
+
+        assert_statements_syntax_error([[
+            for k, v in ipairs(t)
+                k = 1
+            end
+        ]], "Expected 'do' before 'k'")
 
         assert_statements_syntax_error([[
             local = 3

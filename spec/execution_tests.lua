@@ -1754,6 +1754,97 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("For-in loops", function()
+        compile([[
+            local function iter(arr: {any}, prev: integer): (any, any)
+                local i = prev + 1
+                local x = arr[i]
+                if x == (nil as any) then
+                    return nil, nil
+                end
+
+                return i, x
+            end
+
+
+            typealias iterfn = (any, any) -> (any, any)
+            local function my_ipairs(xs: {any}): (iterfn, any, any)
+                return iter, xs, 0
+            end
+
+            -----------------------
+
+            export function double_list(xs: {integer}): {integer}
+                local out: {integer} = {}
+                for i, x in my_ipairs(xs) do
+                    out[i] = x as integer * 2
+                end
+
+                return out
+            end
+
+            -----------------------
+
+            export function flatten_list(grid: {{integer}}): {integer}
+                local out: {integer} = {}
+                for _, xs in my_ipairs(grid) do
+                    for _, x in my_ipairs(xs) do
+                        out[#out + 1] = x
+                    end
+                end
+                return out
+            end
+
+            -----------------------
+
+            export function square_list(xs: {integer}): {integer}
+                local out: {integer} = {}
+                for i, v in iter as iterfn, xs as any, 0 as any do
+                    out[i] = (v as integer) * (v as integer)
+                end
+                return out
+            end
+
+            -----------------------
+
+            export function sum_list(xs: {integer}): integer
+                local sum = 0
+                for _: integer, x: integer in my_ipairs(xs) do
+                    sum = sum + x
+                end
+                return sum
+            end
+        ]])
+
+        it("general for-in loops", function()
+            run_test([[
+                local xs = test.double_list({1, 2})
+                assert(xs[1] == 2 and xs[2] == 4)
+            ]])
+        end)
+
+        it("nested for-in loops", function()
+            run_test([[
+                local xs = test.flatten_list({{1, 2}, {3, 4}})
+                assert(xs[1] == 1 and xs[2] == 2 and xs[3] == 3 and xs[4] == 4)
+            ]])
+        end)
+
+        it("loops with expanded RHS", function()
+            run_test([[
+                local xs = test.square_list({2, 3, 4})
+                assert(xs[1] == 4 and xs[2] == 9 and xs[3] == 16)
+            ]])
+        end)
+
+        it("loops with type annotated LHS.", function()
+            run_test([[
+                local sum = test.sum_list({1, 2, 3, 4})
+                assert(sum == 10)
+            ]])
+        end)
+    end)
+
     describe("Constant propagation", function()
         compile([[
             local x = 0 -- never read from

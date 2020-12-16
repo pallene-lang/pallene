@@ -191,7 +191,7 @@ function ToIR:convert_stat(cmds, stat)
         local else_ = {}; self:convert_stat(else_, stat.else_)
         table.insert(cmds, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Seq(then_), ir.Cmd.Seq(else_)))
 
-    elseif tag == "ast.Stat.For" then
+    elseif tag == "ast.Stat.ForNum" then
         local start = self:exp_to_value(cmds, stat.start)
         local limit = self:exp_to_value(cmds, stat.limit)
         local step  = self:exp_to_value(cmds, stat.step)
@@ -204,6 +204,71 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stat(body, stat.block)
 
         table.insert(cmds, ir.Cmd.For(stat.loc, v, start, limit, step, ir.Cmd.Seq(body)))
+
+    elseif tag == "ast.Stat.ForIn" then
+        local decls = stat.decls
+        local exps = stat.exps
+
+        -- for-in loops are desugared into regurlar loops before compiling.
+        -- For example, a loop like this:
+        --- ```
+        -- for a: T1, b: T2 in <RHS> do
+        --     <loop body>
+        -- end
+        ---```
+        -- is compiled as if the following was written instead:
+        --```
+        -- local iter, st, a_any, b_any
+        -- iter, st, ctrl = RHS[1], RHS[2], RHS[3]
+        -- while true do
+        --   a_any, b_any = iter(st, ctrl)
+        --   if a_any == nil then break end
+        --   local a = a_any as T1
+        --   local b = b_any as T2
+        --   <loop body>
+        -- end
+        -- ```
+
+        local v_iter = ir.add_local(self.func, "$iter", exps[1]._type)
+        self:exp_to_assignment(cmds, v_iter, exps[1])
+        local v_state = ir.add_local(self.func, "$st", exps[2]._type)
+        self:exp_to_assignment(cmds, v_state, exps[2])
+
+        local v_lhs_dyn = {}
+        for _, decl in ipairs(decls) do
+            local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any())
+            table.insert(v_lhs_dyn, v)
+        end
+
+        local v_ctrl = v_lhs_dyn[1]
+        self:exp_to_assignment(cmds, v_ctrl, exps[3])
+
+        --Body of the `while` loop.
+        local body = {}
+
+        local itertype = exps[1]._type
+        local args = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
+        table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
+
+        -- if i == nil then break end
+        local v_cond = ir.add_local(self.func, false, types.T.Boolean())
+        table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_lhs_dyn[1])))
+        table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
+
+        -- cast loop LHS to annotated types.
+        for i, decl in ipairs(decls) do
+            if decl._type.tag == "types.T.Any" then
+                self.loc_id_of_decl[decl] = v_lhs_dyn[i]
+            else
+                local v_typed = ir.add_local(self.func, decl.name, decl._type)
+                local val = ir.Value.LocalVar(v_lhs_dyn[i])
+                table.insert(body, ir.Cmd.FromDyn(stat.loc, decl._type, v_typed, val))
+                self.loc_id_of_decl[decl] = v_typed
+            end
+        end
+
+        self:convert_stat(body, stat.block)
+        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
@@ -815,6 +880,12 @@ function ToIR:value_is_truthy(cmds, exp, val)
     else
         typedecl.tag_error(typ._tag)
     end
+end
+
+function ToIR:new_local_from_decl(decl)
+    local v = ir.add_local(self.func, decl.name, decl._type)
+    self.loc_id_of_decl[decl] = v
+    return v
 end
 
 return to_ir

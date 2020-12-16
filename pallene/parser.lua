@@ -422,7 +422,7 @@ function Parser:Stat()
             local _     = self:e("do"); self:loop_begin()
             local body  = self:Block(); self:loop_end()
             local _     = self:e("end", start)
-            return ast.Stat.For(start.loc, decl1, init, limit, step, body)
+            return ast.Stat.ForNum(start.loc, decl1, init, limit, step, body)
 
         elseif self:peek(",") or self:peek("in") then
             local decls = {decl1}
@@ -434,7 +434,6 @@ function Parser:Stat()
             local _    = self:e("do"); self:loop_begin()
             local body = self:Block(); self:loop_end()
             local _    = self:e("end", start)
-            self:syntax_error(start.loc, "for-in loops are not implemented yet")
             return ast.Stat.ForIn(start.loc, decls, exps, body)
 
         else
