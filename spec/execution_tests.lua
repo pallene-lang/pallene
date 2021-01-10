@@ -1814,6 +1814,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return sum
             end
+
+            -----------------------
+
+            export function double_list_ipairs(xs: {integer}): {integer}
+                local out: {integer} = {}
+                for i, x in ipairs(xs) do
+                    out[i] = x as integer * 2
+                end
+
+                return out
+            end
         ]])
 
         it("general for-in loops", function()
@@ -1843,6 +1854,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 assert(sum == 10)
             ]])
         end)
+
+        it("for-in loops with ipairs", function()
+            run_test([[
+                local xs = test.double_list_ipairs({1, 2})
+                assert(xs[1] == 2 and xs[2] == 4)
+            ]])
+        end)
+
     end)
 
     describe("Constant propagation", function()
