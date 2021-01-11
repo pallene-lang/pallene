@@ -243,7 +243,7 @@ function ToIR:convert_stat(cmds, stat)
             --   i_num = i_num + 1
             -- end
             -- ```
-            
+
             -- the table passed as argument to `ipairs`
             local arr =  exps[2].call_exp.args[1]
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
@@ -255,7 +255,7 @@ function ToIR:convert_stat(cmds, stat)
             table.insert(cmds, ir.Cmd.Move(stat.loc, v_inum, start))
         
             -- local limit: integer = 1
-            local v_limit = ir.add_local(self.func, "$"..decls[2].name.."_len", types.T.Integer())
+            local v_limit = ir.add_local(self.func, "$xs_len", types.T.Integer())
             table.insert(cmds, ir.Cmd.Unop(stat.loc, v_limit, "ArrLen", ir.Value.LocalVar(v_arr)))
             local limit = ir.Value.LocalVar(v_limit)
 
@@ -278,10 +278,9 @@ function ToIR:convert_stat(cmds, stat)
 
             -- x_dyn = xs[i]
             local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any())
-            self.loc_id_of_decl[decls[2]] = v_x_dyn
             local src_arr =  ir.Value.LocalVar(v_arr)
             local src_i =  ir.Value.LocalVar(v_inum)
-            table.insert(body, ir.Cmd.GetArr(stat.loc, decls[2]._type, v_x_dyn, src_arr, src_i))
+            table.insert(body, ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
 
             -- if x_dyn == nil then break end
             local v_cond_checknil = ir.add_local(self.func, "$is_"..decls[2].name.."_nil", types.T.Boolean())
@@ -290,6 +289,7 @@ function ToIR:convert_stat(cmds, stat)
 
             -- local x = x_dyn as T2
             local v_x = ir.add_local(self.func, decls[2].name, decls[2]._type)
+            self.loc_id_of_decl[decls[2]] = v_x
             if decls[2]._type._tag == "types.T.Any" then
                 table.insert(body, ir.Cmd.Move(stat.loc, v_x, ir.Value.LocalVar(v_x_dyn)))
             else
