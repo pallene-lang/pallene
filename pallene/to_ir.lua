@@ -209,8 +209,15 @@ function ToIR:convert_stat(cmds, stat)
         local decls = stat.decls
         local exps = stat.exps
 
+        local is_ipairs = false
+        local iterfn = exps[1]
+        if iterfn._tag == "ast.Exp.CallFunc" and iterfn.exp._tag == "ast.Exp.Var" then
+            local iterfn_var = iterfn.exp.var._name
+            is_ipairs = iterfn_var._tag == "checker.Name.Builtin" and iterfn_var.name == "ipairs"
+        end
 
-        if stat.is_ipairs then
+
+        if is_ipairs then
             -- `ipairs` are desugared down to regular for-loops
             -- ```
             -- for i, x in ipairs(xs) do

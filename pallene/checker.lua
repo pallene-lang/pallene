@@ -482,11 +482,6 @@ function Checker:check_stat(stat)
                 types.tostring(itertype), types.tostring(iteratorfn._type))
         end
 
-        if iteratorfn._tag == "ast.Exp.CallFunc" then
-            local iterfn_var = iteratorfn.exp.var._name
-            stat.is_ipairs = iterfn_var._tag == "checker.Name.Builtin" and iterfn_var.name == "ipairs"
-        end
-
         rhs[2] = self:check_exp_synthesize(rhs[2])
         rhs[3] = self:check_exp_synthesize(rhs[3])
 
