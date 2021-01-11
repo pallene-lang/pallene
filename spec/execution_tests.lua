@@ -1822,8 +1822,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 for i, x in ipairs(xs) do
                     out[i] = x as integer * 2
                 end
-
                 return out
+            end
+
+            -----------------------
+
+            export function sum_list_ipairs(xs: {integer}): integer
+                local sum = 0
+                for _: integer, x: integer in ipairs(xs) do
+                    sum = sum + x
+                end
+                return sum
             end
         ]])
 
@@ -1859,6 +1868,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[
                 local xs = test.double_list_ipairs({1, 2})
                 assert(xs[1] == 2 and xs[2] == 4)
+            ]])
+        end)
+
+        it("for-in loops with ipairs and type annotated LHS", function()
+            run_test([[
+                local sum = test.sum_list_ipairs({1, 2, 3})
+                assert(sum == 6)
+            ]])
+        end)
+
+        it("for-in loops with holes", function()
+            run_test([[
+                local sum = test.sum_list_ipairs({1, 2, 3, nil, 4, 5})
+                assert(sum == 6)
             ]])
         end)
 

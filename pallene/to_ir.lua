@@ -243,6 +243,7 @@ function ToIR:convert_stat(cmds, stat)
             --   i_num = i_num + 1
             -- end
             -- ```
+            
             -- the table passed as argument to `ipairs`
             local arr =  exps[2].call_exp.args[1]
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
