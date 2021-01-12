@@ -209,12 +209,12 @@ function ToIR:convert_stat(cmds, stat)
         local decls = stat.decls
         local exps = stat.exps
 
-        local is_ipairs = false
-        local iterfn = exps[1]
-        if iterfn._tag == "ast.Exp.CallFunc" and iterfn.exp._tag == "ast.Exp.Var" then
-            local iterfn_var = iterfn.exp.var._name
-            is_ipairs = iterfn_var._tag == "checker.Name.Builtin" and iterfn_var.name == "ipairs"
-        end
+        local e1 = exps[1]
+        local is_ipairs = (
+            e1._tag == "ast.Exp.CallFunc" and
+            e1.exp._tag == "ast.Exp.Var" and
+            e1.exp.var._name._tag == "checker.Name.Builtin" and
+            e1.exp.var._name.name == "ipairs")
 
 
         if is_ipairs then
@@ -226,18 +226,13 @@ function ToIR:convert_stat(cmds, stat)
             -- ```
             -- would get compiled down to:
             -- ```
-            -- local x_dyn: any
             -- local i_num: integer = 1
-            -- local limit: integer = #xs
             -- while true do
-            --   if i_num > limit then
-            --     break
-            --   end
-            --   local i = i_num as T1
-            --   x_dyn = xs[i_num]
+            --   local x_dyn = xs[i_num]
             --   if x_dyn == nil then
             --     break
             --   end
+            --   local i = i_num as T1
             --   local x = x_dyn as T2 
             --   <loop body>
             --   i_num = i_num + 1
@@ -313,13 +308,13 @@ function ToIR:convert_stat(cmds, stat)
             ---```
             -- is compiled as if the following was written instead:
             --```
-            -- local iter, st, a_any, b_any
+            -- local iter, st, a_dyn, b_dyn
             -- iter, st, ctrl = RHS[1], RHS[2], RHS[3]
             -- while true do
-            --   a_any, b_any = iter(st, ctrl)
-            --   if a_any == nil then break end
-            --   local a = a_any as T1
-            --   local b = b_any as T2
+            --   a_dyn, b_dyn = iter(st, a_dyn)
+            --   if a_dyn == nil then break end
+            --   local a = a_dyn as T1
+            --   local b = b_dyn as T2
             --   <loop body>
             -- end
             -- ```
