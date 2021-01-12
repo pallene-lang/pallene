@@ -249,29 +249,10 @@ function ToIR:convert_stat(cmds, stat)
             local start = ir.Value.Integer(1)
             table.insert(cmds, ir.Cmd.Move(stat.loc, v_inum, start))
         
-            -- local limit: integer = 1
-            local v_limit = ir.add_local(self.func, "$xs_len", types.T.Integer())
-            table.insert(cmds, ir.Cmd.Unop(stat.loc, v_limit, "ArrLen", ir.Value.LocalVar(v_arr)))
-            local limit = ir.Value.LocalVar(v_limit)
-
             -- body of the while loop.
             local body = {}
 
-            -- if i_num > limit then break end
-            local v_cond = ir.add_local(self.func, "$loop_limit_reached", types.T.Boolean())
-            table.insert(body, ir.Cmd.Binop(stat.loc, v_cond, "IntGt", ir.Value.LocalVar(v_inum), limit))
-            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
-
-            -- local i: T1 = i_num as T1
-            local v_i = ir.add_local(self.func, decls[1].name, decls[1]._type)
-            self.loc_id_of_decl[decls[1]] = v_i
-            if decls[1]._type._tag == "types.T.Integer" then
-                table.insert(body, ir.Cmd.Move(stat.loc, v_i, ir.Value.LocalVar(v_inum)))
-            else
-                table.insert(body, ir.Cmd.ToDyn(stat.loc, types.T.Integer(), v_i, ir.Value.LocalVar(v_inum)))
-            end
-
-            -- x_dyn = xs[i]
+            -- x_dyn = xs[i_num]
             local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any())
             local src_arr =  ir.Value.LocalVar(v_arr)
             local src_i =  ir.Value.LocalVar(v_inum)
@@ -281,6 +262,15 @@ function ToIR:convert_stat(cmds, stat)
             local v_cond_checknil = ir.add_local(self.func, "$is_"..decls[2].name.."_nil", types.T.Boolean())
             table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_x_dyn)))
             table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond_checknil), ir.Cmd.Break(), ir.Cmd.Nop()))
+
+            -- local i: T1 = i_num as T1
+            local v_i = ir.add_local(self.func, decls[1].name, decls[1]._type)
+            self.loc_id_of_decl[decls[1]] = v_i
+            if decls[1]._type._tag == "types.T.Integer" then
+                table.insert(body, ir.Cmd.Move(stat.loc, v_i, ir.Value.LocalVar(v_inum)))
+            else
+                table.insert(body, ir.Cmd.ToDyn(stat.loc, types.T.Integer(), v_i, ir.Value.LocalVar(v_inum)))
+            end
 
             -- local x = x_dyn as T2
             local v_x = ir.add_local(self.func, decls[2].name, decls[2]._type)
@@ -292,11 +282,12 @@ function ToIR:convert_stat(cmds, stat)
             end
 
             self:convert_stat(body, stat.block)
-            -- local step: integer = 1
+            -- i_num = i_num + 1
             local loop_step = ir.Value.Integer(1)
             table.insert(body, ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
 
             table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+        
         else
 
             -- Regular for-in loops are desugared into regurlar loops before compiling.
