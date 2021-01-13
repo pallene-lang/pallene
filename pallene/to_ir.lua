@@ -241,6 +241,7 @@ function ToIR:convert_stat(cmds, stat)
 
             -- the table passed as argument to `ipairs`
             local arr =  exps[2].call_exp.args[1]
+            assert(arr._type._tag == "types.T.Any")
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
             self:exp_to_assignment(cmds, v_arr, arr)
 
@@ -281,6 +282,7 @@ function ToIR:convert_stat(cmds, stat)
                 table.insert(body, ir.Cmd.FromDyn(stat.loc, decls[2]._type, v_x, ir.Value.LocalVar(v_x_dyn)))
             end
 
+            -- <loop body>
             self:convert_stat(body, stat.block)
             -- i_num = i_num + 1
             local loop_step = ir.Value.Integer(1)
