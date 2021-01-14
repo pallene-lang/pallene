@@ -239,8 +239,14 @@ function ToIR:convert_stat(cmds, stat)
             -- end
             -- ```
 
+            
+            local ipairs_args = exps[2].call_exp.args
+            assert(#ipairs_args == 1)
+            assert(#decls == 2)
+
             -- the table passed as argument to `ipairs`
-            local arr =  exps[2].call_exp.args[1]
+            local arr =  ipairs_args[1]
+            assert(types.equals(arr._type, types.T.Array(types.T.Any())))
             assert(arr._type.elem._tag == "types.T.Any")
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
             self:exp_to_assignment(cmds, v_arr, arr)
@@ -260,7 +266,7 @@ function ToIR:convert_stat(cmds, stat)
             table.insert(body, ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
 
             -- if x_dyn == nil then break end
-            local v_cond_checknil = ir.add_local(self.func, "$is_"..decls[2].name.."_nil", types.T.Boolean())
+            local v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
             table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_x_dyn)))
             table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond_checknil), ir.Cmd.Break(), ir.Cmd.Nop()))
 

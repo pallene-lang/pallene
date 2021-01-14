@@ -366,6 +366,24 @@ describe("Pallene type checker", function()
         ]], "missing control variable in for-in loop")
     end)
 
+    it("checks the arguments of ipairs.", function()
+        assert_error([[
+            export function fn()
+                for i: integer in ipairs() do
+                    local x = i
+                end
+            end
+        ]], "type error: function expects 1 argument(s) but received 0")
+
+        assert_error([[
+            export function fn()
+                for i, x in ipairs({1, 2}, {3, 4}) do
+                    local k = i
+                end
+            end
+        ]], "type error: function expects 1 argument(s) but received 2")
+    end)
+
 
     describe("table/record initalizer", function()
         local function assert_init_error(typ, code, err)
