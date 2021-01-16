@@ -366,7 +366,7 @@ describe("Pallene type checker", function()
         ]], "missing control variable in for-in loop")
     end)
 
-    it("checks the arguments of ipairs.", function()
+    it("checks loops with ipairs.", function()
         assert_error([[
             export function fn()
                 for i: integer in ipairs() do
@@ -382,6 +382,22 @@ describe("Pallene type checker", function()
                 end
             end
         ]], "type error: function expects 1 argument(s) but received 2")
+
+        assert_error([[
+            export function fn()
+                for i, x, z in ipairs({1, 2}) do
+                    local k = z
+                end
+            end
+        ]], "type error: expected function type (any, any) -> (any, any, any) but found function type (any, any) -> (any, any) in loop iterator")
+        
+        assert_error([[
+            export function fn()
+                for i in ipairs({1, 2}) do
+                    local k = z
+                end
+            end
+        ]], "type error: expected function type (any, any) -> (any) but found function type (any, any) -> (any, any) in loop iterator")        
     end)
 
 
