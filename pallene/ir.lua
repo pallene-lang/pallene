@@ -136,6 +136,7 @@ local ir_cmd_constructors = {
 
     GetArr     = {"loc", "dst_typ", "dst", "src_arr", "src_i"},
     SetArr     = {"loc", "src_typ",        "src_arr", "src_i", "src_v"},
+    NormArr    = {"loc", "src_typ",        "src_arr", "src_i"},
 
     -- Tables
     NewTable   = {"loc", "dst", "size_hint"},

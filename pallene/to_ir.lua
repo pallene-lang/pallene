@@ -477,6 +477,7 @@ function ToIR:convert_stat(cmds, stat)
                 elseif ltag == "to_ir.LHS.Global" then
                     table.insert(cmds, ir.Cmd.SetGlobal(loc, lhs.id, val))
                 elseif ltag == "to_ir.LHS.Array" then
+                    table.insert(cmds, ir.Cmd.NormArr(loc, lhs.typ, lhs.arr, lhs.i))
                     table.insert(cmds, ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val))
                 elseif ltag == "to_ir.LHS.Table" then
                     local str = ir.Value.String(lhs.field)
@@ -702,6 +703,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 local iv = ir.Value.Integer(i)
                 local vv = self:exp_to_value(cmds, field.exp)
                 local src_typ = field.exp._type
+                -- one could add a NormArr here, but we can assume
+                -- that a new array is already normalized up to sizehint
                 table.insert(cmds, ir.Cmd.SetArr(loc, src_typ, av, iv, vv))
             end
 
