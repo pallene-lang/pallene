@@ -8,6 +8,8 @@ local T = types.T
 
 local builtins = {}
 
+local ipairs_itertype = T.Function({T.Any(), T.Any()}, {T.Any(), T.Any()})
+
 builtins.functions = {
     ["type"] = T.Function({ T.Any() }, { T.String() }),
     ["io.write"] = T.Function({ T.String() }, {}),
@@ -15,6 +17,7 @@ builtins.functions = {
     ["string.char"] = T.Function({ T.Integer() }, { T.String() }),
     ["string.sub"] = T.Function({ T.String(), T.Integer(), T.Integer() }, { T.String() }),
     ["tostring"] = T.Function({ T.Any() }, { T.String() }),
+    ["ipairs"] = T.Function({T.Array(T.Any())}, {ipairs_itertype, T.Any(), T.Any()})
 }
 
 builtins.modules = {

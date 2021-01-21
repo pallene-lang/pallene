@@ -209,66 +209,155 @@ function ToIR:convert_stat(cmds, stat)
         local decls = stat.decls
         local exps = stat.exps
 
-        -- for-in loops are desugared into regurlar loops before compiling.
-        -- For example, a loop like this:
-        --- ```
-        -- for a: T1, b: T2 in <RHS> do
-        --     <loop body>
-        -- end
-        ---```
-        -- is compiled as if the following was written instead:
-        --```
-        -- local iter, st, a_any, b_any
-        -- iter, st, ctrl = RHS[1], RHS[2], RHS[3]
-        -- while true do
-        --   a_any, b_any = iter(st, ctrl)
-        --   if a_any == nil then break end
-        --   local a = a_any as T1
-        --   local b = b_any as T2
-        --   <loop body>
-        -- end
-        -- ```
+        local e1 = exps[1]
+        local is_ipairs = (
+            e1._tag == "ast.Exp.CallFunc" and
+            e1.exp._tag == "ast.Exp.Var" and
+            e1.exp.var._name._tag == "checker.Name.Builtin" and
+            e1.exp.var._name.name == "ipairs")
 
-        local v_iter = ir.add_local(self.func, "$iter", exps[1]._type)
-        self:exp_to_assignment(cmds, v_iter, exps[1])
-        local v_state = ir.add_local(self.func, "$st", exps[2]._type)
-        self:exp_to_assignment(cmds, v_state, exps[2])
 
-        local v_lhs_dyn = {}
-        for _, decl in ipairs(decls) do
-            local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any())
-            table.insert(v_lhs_dyn, v)
-        end
+        if is_ipairs then
+            -- `ipairs` are desugared down to regular for-loops
+            -- ```
+            -- for i: T1, x: T2 in ipairs(xs) do
+            --   <loop body>
+            -- end
+            -- ```
+            -- would get compiled down to:
+            -- ```
+            -- local i_num: integer = 1
+            -- while true do
+            --   local x_dyn = xs[i_num]
+            --   if x_dyn == nil then
+            --     break
+            --   end
+            --   local i = i_num as T1
+            --   local x = x_dyn as T2 
+            --   <loop body>
+            --   i_num = i_num + 1
+            -- end
+            -- ```
 
-        local v_ctrl = v_lhs_dyn[1]
-        self:exp_to_assignment(cmds, v_ctrl, exps[3])
+            
+            local ipairs_args = exps[2].call_exp.args
+            assert(#ipairs_args == 1)
+            assert(#decls == 2)
 
-        --Body of the `while` loop.
-        local body = {}
+            -- the table passed as argument to `ipairs`
+            local arr =  ipairs_args[1]
+            assert(types.equals(arr._type, types.T.Array(types.T.Any())))
+            local v_arr = ir.add_local(self.func, "$xs", arr._type)
+            self:exp_to_assignment(cmds, v_arr, arr)
 
-        local itertype = exps[1]._type
-        local args = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
-        table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
+            -- local i_num: integer = 1
+            local v_inum = ir.add_local(self.func, "$"..decls[1].name.."_num", types.T.Integer())
+            local start = ir.Value.Integer(1)
+            table.insert(cmds, ir.Cmd.Move(stat.loc, v_inum, start))
+        
+            -- body of the while loop.
+            local body = {}
 
-        -- if i == nil then break end
-        local v_cond = ir.add_local(self.func, false, types.T.Boolean())
-        table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_lhs_dyn[1])))
-        table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
+            -- x_dyn = xs[i_num]
+            local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any())
+            local src_arr =  ir.Value.LocalVar(v_arr)
+            local src_i =  ir.Value.LocalVar(v_inum)
+            table.insert(body, ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
 
-        -- cast loop LHS to annotated types.
-        for i, decl in ipairs(decls) do
-            if decl._type.tag == "types.T.Any" then
-                self.loc_id_of_decl[decl] = v_lhs_dyn[i]
+            -- if x_dyn == nil then break end
+            local v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
+            table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_x_dyn)))
+            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond_checknil), ir.Cmd.Break(), ir.Cmd.Nop()))
+
+            -- local i: T1 = i_num as T1
+            local v_i = ir.add_local(self.func, decls[1].name, decls[1]._type)
+            self.loc_id_of_decl[decls[1]] = v_i
+            if decls[1]._type._tag == "types.T.Integer" then
+                table.insert(body, ir.Cmd.Move(stat.loc, v_i, ir.Value.LocalVar(v_inum)))
             else
-                local v_typed = ir.add_local(self.func, decl.name, decl._type)
-                local val = ir.Value.LocalVar(v_lhs_dyn[i])
-                table.insert(body, ir.Cmd.FromDyn(stat.loc, decl._type, v_typed, val))
-                self.loc_id_of_decl[decl] = v_typed
+                table.insert(body, ir.Cmd.ToDyn(stat.loc, types.T.Integer(), v_i, ir.Value.LocalVar(v_inum)))
             end
-        end
 
-        self:convert_stat(body, stat.block)
-        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+            -- local x = x_dyn as T2
+            local v_x = ir.add_local(self.func, decls[2].name, decls[2]._type)
+            self.loc_id_of_decl[decls[2]] = v_x
+            if decls[2]._type._tag == "types.T.Any" then
+                table.insert(body, ir.Cmd.Move(stat.loc, v_x, ir.Value.LocalVar(v_x_dyn)))
+            else
+                table.insert(body, ir.Cmd.FromDyn(stat.loc, decls[2]._type, v_x, ir.Value.LocalVar(v_x_dyn)))
+            end
+
+            -- <loop body>
+            self:convert_stat(body, stat.block)
+            -- i_num = i_num + 1
+            local loop_step = ir.Value.Integer(1)
+            table.insert(body, ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
+
+            table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+        
+        else
+
+            -- Regular for-in loops are desugared into regurlar loops before compiling.
+            -- For example, a loop like this:
+            --- ```
+            -- for a: T1, b: T2 in <RHS> do
+            --     <loop body>
+            -- end
+            ---```
+            -- is compiled as if the following was written instead:
+            --```
+            -- local iter, st, a_dyn, b_dyn
+            -- iter, st, ctrl = RHS[1], RHS[2], RHS[3]
+            -- while true do
+            --   a_dyn, b_dyn = iter(st, a_dyn)
+            --   if a_dyn == nil then break end
+            --   local a = a_dyn as T1
+            --   local b = b_dyn as T2
+            --   <loop body>
+            -- end
+            -- ```
+
+            local v_iter = ir.add_local(self.func, "$iter", exps[1]._type)
+            self:exp_to_assignment(cmds, v_iter, exps[1])
+            local v_state = ir.add_local(self.func, "$st", exps[2]._type)
+            self:exp_to_assignment(cmds, v_state, exps[2])
+
+            local v_lhs_dyn = {}
+            for _, decl in ipairs(decls) do
+                local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any())
+                table.insert(v_lhs_dyn, v)
+            end
+
+            local v_ctrl = v_lhs_dyn[1]
+            self:exp_to_assignment(cmds, v_ctrl, exps[3])
+
+            --Body of the `while` loop.
+            local body = {}
+
+            local itertype = exps[1]._type
+            local args = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
+            table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
+
+            -- if i == nil then break end
+            local v_cond = ir.add_local(self.func, false, types.T.Boolean())
+            table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_lhs_dyn[1])))
+            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
+
+            -- cast loop LHS to annotated types.
+            for i, decl in ipairs(decls) do
+                if decl._type.tag == "types.T.Any" then
+                    self.loc_id_of_decl[decl] = v_lhs_dyn[i]
+                else
+                    local v_typed = ir.add_local(self.func, decl.name, decl._type)
+                    local val = ir.Value.LocalVar(v_lhs_dyn[i])
+                    table.insert(body, ir.Cmd.FromDyn(stat.loc, decl._type, v_typed, val))
+                    self.loc_id_of_decl[decl] = v_typed
+                end
+            end
+
+            self:convert_stat(body, stat.block)
+            table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+    end
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
