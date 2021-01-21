@@ -247,7 +247,6 @@ function ToIR:convert_stat(cmds, stat)
             -- the table passed as argument to `ipairs`
             local arr =  ipairs_args[1]
             assert(types.equals(arr._type, types.T.Array(types.T.Any())))
-            assert(arr._type.elem._tag == "types.T.Any")
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
             self:exp_to_assignment(cmds, v_arr, arr)
 
