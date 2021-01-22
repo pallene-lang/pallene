@@ -1173,14 +1173,12 @@ gen_cmd["SetArr"] = function(self, cmd, _func)
     }))
 end
 
-gen_cmd["NormArr"] = function(self, cmd, _func)
+gen_cmd["NormalizeArr"] = function(self, cmd, _func)
     local arr = self:c_value(cmd.src_arr)
     local i   = self:c_value(cmd.src_i)
     local line = C.integer(cmd.loc.line)
     return (util.render([[
-        {
-            pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
-        }
+        pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
     ]], {
         arr = arr,
         i = i,
