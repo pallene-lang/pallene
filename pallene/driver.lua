@@ -161,15 +161,29 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     return true, {}
 end
 
-function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_level)
+
+-- Compile the contents of [input_file_name] with extension [input_ext].
+-- Writes the resulting output to [output_file_name] with extension [output_ext].
+-- If [output_file_name] is nil then the output is written to a file in the same
+-- directory as [input_file_name] and  having the same  base name as the input file.
+function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_level, output_file_name)
     local base_name, err =
         check_source_filename(argv0, input_file_name, input_ext)
     if not base_name then return false, {err} end
 
+    local output_base_name
+    if not output_file_name then
+        output_base_name = base_name
+    else
+        output_base_name, err =
+            check_source_filename(argv0, output_file_name, output_ext)
+        if not output_base_name then return false, {err} end
+    end
+
     local mod_name = string.gsub(base_name, "/", "_")
 
     if output_ext == "lua" then
-        return compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
+        return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")
@@ -178,8 +192,10 @@ function driver.compile(argv0, input_ext, output_ext, input_file_name, opt_level
         local file_names = {}
         for i = first_step, last_step do
             local step = compiler_steps[i]
-            if (i == first_step or i == last_step) then
+            if i == first_step then
                 file_names[i] = base_name .. "." .. step.name
+            elseif i == last_step then
+                file_names[i] = output_base_name .. "." .. step.name
             else
                 file_names[i] = os.tmpname()
             end
