@@ -172,16 +172,13 @@ function driver.compile(argv0, opt_level, input_ext, output_ext, input_file_name
 
     if not input_base_name then return false, {err} end
 
-    local output_base_name
-    if not output_file_name then
-        output_base_name = input_base_name
-    else
-        output_base_name, err =
-            check_source_filename(argv0, output_file_name, output_ext)
-        if not output_base_name then return false, {err} end
-    end
+    output_file_name = output_file_name or (input_base_name.."."..output_ext)
+    local output_base_name, err =
+        check_source_filename(argv0, output_file_name, output_ext)
 
-    local mod_name = string.gsub(input_base_name, "/", "_")
+    if not output_base_name then return false, {err} end
+
+    local mod_name = string.gsub(output_base_name, "/", "_")
 
     if output_ext == "lua" then
         return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
