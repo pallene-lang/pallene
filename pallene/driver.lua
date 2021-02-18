@@ -167,15 +167,11 @@ end
 -- If [output_file_name] is nil then the output is written to a file in the same
 -- directory as [input_file_name] and  having the same  base name as the input file.
 function driver.compile(argv0, opt_level, input_ext, output_ext, input_file_name, output_file_name)
-    local input_base_name, err =
-        check_source_filename(argv0, input_file_name, input_ext)
-
+    local input_base_name, err = check_source_filename(argv0, input_file_name, input_ext)
     if not input_base_name then return false, {err} end
 
     output_file_name = output_file_name or (input_base_name.."."..output_ext)
-    local output_base_name, err =
-        check_source_filename(argv0, output_file_name, output_ext)
-
+    local output_base_name, err = check_source_filename(argv0, output_file_name, output_ext)
     if not output_base_name then return false, {err} end
 
     local mod_name = string.gsub(output_base_name, "/", "_")
