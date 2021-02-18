@@ -11,6 +11,10 @@ describe("pallenec", function()
             local test = require "__test__"
             print(test.f(0))
         ]])
+        util.set_file_contents("__test__script__flag__.lua", [[
+            local test = require "__test__flag__"
+            print(test.f(0))
+        ]])
     end)
 
     after_each(function()
@@ -18,12 +22,21 @@ describe("pallenec", function()
         os.remove("__test__.c")
         os.remove("__test__.s")
         os.remove("__test__.so")
+        os.remove("__test__flag__.so")
         os.remove("__test__script__.lua")
+        os.remove("__test__script__flag__.lua")
     end)
 
     it("Can compile pallene files", function()
         assert(util.execute("./pallenec __test__.pln"))
         local ok, err, out, _ = util.outputs_of_execute("./lua/src/lua __test__script__.lua")
+        assert(ok, err)
+        assert.equals("17\n", out)
+    end)
+
+    it("Can compile with --output flag", function()
+        assert(util.execute("./pallenec __test__.pln -o __test__flag__.so"))
+        local ok, err, out, _ = util.outputs_of_execute("./lua/src/lua __test__script__flag__.lua")
         assert(ok, err)
         assert.equals("17\n", out)
     end)
