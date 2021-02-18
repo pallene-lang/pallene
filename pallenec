@@ -33,7 +33,7 @@ p:option("-O", "Optimization level")
     :choices({"0", "1", "2", "3"})
     :default(2)
 
-p:option("-o --output", "Output file path.")
+p:option("-o --output", "Output file path")
 
 
 local args = p:parse()
@@ -45,7 +45,7 @@ local opt_level = args.O
 local compiler_name = arg[0]
 
 local function compile(in_ext, out_ext)
-    local ok, errs = driver.compile(compiler_name, in_ext, out_ext, args.source_file, opt_level,
+    local ok, errs = driver.compile(compiler_name, opt_level, in_ext, out_ext, args.source_file,
         args.output)
     if not ok then util.abort(table.concat(errs, "\n")) end
 end
