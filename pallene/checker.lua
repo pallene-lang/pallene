@@ -996,9 +996,6 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                 "type hint for initializer is not an array, table, or record type")
         end
 
-        exp._type = expected_type
-        return exp
-
     elseif tag == "ast.Exp.Lambda" then
 
         -- These assertions are always true in the current version of Pallene, which does not allow
@@ -1017,30 +1014,36 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
         end)
         table.remove(self.ret_types_stack)
 
-        return exp
-
     elseif tag == "ast.Exp.Paren" then
         exp.exp = self:check_exp_verify(exp.exp, expected_type, errmsg_fmt, ...)
-        return exp
 
     else
 
         exp = self:check_exp_synthesize(exp)
         local found_type = exp._type
-        if types.equals(found_type, expected_type) then
-            return exp
-        elseif types.consistent(found_type, expected_type) then
-            local cast = ast.Exp.Cast(exp.loc, exp, false)
-            cast._type = expected_type
-            return cast
-        else
-            type_error(exp.loc, string.format(
-                "expected %s but found %s in %s",
-                types.tostring(expected_type),
-                types.tostring(found_type),
-                string.format(errmsg_fmt, ...)))
+
+        if not types.equals(found_type, expected_type) then
+            if types.consistent(found_type, expected_type) then
+                exp = ast.Exp.Cast(exp.loc, exp, false)
+
+            else
+                type_error(exp.loc, string.format(
+                    "expected %s but found %s in %s",
+                    types.tostring(expected_type),
+                    types.tostring(found_type),
+                    string.format(errmsg_fmt, ...)))
+            end
         end
     end
+
+    -- If we have reached this point, the type should be correct. But to be safe, we assert that the
+    -- type annotation is correct, if it has already been set by check_exp_synthesize.
+    exp._type = exp._type or expected_type
+    assert(types.equals(exp._type, expected_type))
+
+    -- Be aware that some of the cases might have reassigned the `exp` variable so it won't
+    -- necessarily be the same as the input `exp` we received.
+    return exp
 end
 
 -- Typechecks an initializer `x : ast_typ = exp`, where the type annotation is optional.
