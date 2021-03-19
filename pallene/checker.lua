@@ -295,7 +295,7 @@ function Checker:check_program(prog_ast)
 
             for _, tl_var in ipairs(tl_group) do
 
-                self:expand_function_returns(#tl_var.decls, tl_var.values)
+                self:expand_function_returns(tl_var.values)
 
                 for i, decl in ipairs(tl_var.decls) do
                     tl_var.values[i] =
@@ -357,24 +357,15 @@ function Checker:check_program(prog_ast)
     return prog_ast
 end
 
--- This function expands @rhs using @rhs[#rhs] if there are missing expressions.
--- That is, if (rhs < lhs_count) and rhs[#rhs] is a function or method call.
--- `lhs_count` is the number of symbols on the left hand side of assignment.
-function Checker:expand_function_returns(lhs_count, rhs)
+-- If the last expression in @rhs is a function call that returns multiple values, add ExtraRet
+-- nodes to the end of the list.
+function Checker:expand_function_returns(rhs)
     local last = rhs[#rhs]
-    if  last and (last._tag == "ast.Exp.CallFunc" or
-        last._tag == "ast.Exp.CallMethod")
-    then
-        local missing_exps = lhs_count - #rhs
-
+    if  last and (last._tag == "ast.Exp.CallFunc" or last._tag == "ast.Exp.CallMethod") then
         last = self:check_exp_synthesize(last)
         rhs[#rhs] = last
-
-        for i = 2, missing_exps + 1 do
-            if last._types[i] then
-                local exp = ast.Exp.ExtraRet(last.loc, last, i)
-                table.insert(rhs, exp)
-            end
+        for i = 2, #last._types do
+            table.insert(rhs, ast.Exp.ExtraRet(last.loc, last, i))
         end
     end
 end
@@ -383,7 +374,7 @@ function Checker:check_stat(stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
 
-        self:expand_function_returns(#stat.decls, stat.exps)
+        self:expand_function_returns(stat.exps)
 
         for i, decl in ipairs(stat.decls) do
             stat.exps[i] =
@@ -454,7 +445,7 @@ function Checker:check_stat(stat)
         end)
     elseif tag == "ast.Stat.ForIn" then
         local rhs = stat.exps
-        self:expand_function_returns(3, rhs)
+        self:expand_function_returns(rhs)
 
         if not rhs[1] then
             type_error(stat.loc, "missing right hand side of for-in loop")
@@ -518,7 +509,7 @@ function Checker:check_stat(stat)
         end)
 
     elseif tag == "ast.Stat.Assign" then
-        self:expand_function_returns(#stat.vars, stat.exps)
+        self:expand_function_returns(stat.exps)
 
         for i = 1, #stat.vars do
             stat.vars[i] = self:check_var(stat.vars[i])
@@ -543,7 +534,7 @@ function Checker:check_stat(stat)
     elseif tag == "ast.Stat.Return" then
         local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
 
-        self:expand_function_returns(#ret_types, stat.exps)
+        self:expand_function_returns(stat.exps)
 
         if #stat.exps ~= #ret_types then
             type_error(stat.loc,
@@ -862,7 +853,7 @@ function Checker:check_exp_synthesize(exp)
                 types.tostring(exp.exp._type))
         end
 
-        self:expand_function_returns(#f_type.arg_types, exp.args)
+        self:expand_function_returns(exp.args)
 
         if #f_type.arg_types ~= #exp.args then
             type_error(exp.loc,
