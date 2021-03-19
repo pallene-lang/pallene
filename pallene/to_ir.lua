@@ -125,7 +125,7 @@ function ToIR:convert_toplevel(prog_ast)
             if tag == "ast.Toplevel.Var" then
                 for i, exp in ipairs(tl_node.values) do
                     local decl = tl_node.decls[i]
-                    local val = self:exp_to_value(cmds, tl_node.values[i])
+                    local val = self:exp_to_value(cmds, exp)
                     if decl then
                         local gid = self.glb_id_of_decl[decl]
                         table.insert(cmds, ir.Cmd.SetGlobal(tl_node.loc, gid, val))
@@ -493,7 +493,7 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        for i, decl in ipairs(stat.decls) do
+        for _, decl in ipairs(stat.decls) do
             self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
         end
 
