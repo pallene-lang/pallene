@@ -2402,6 +2402,18 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("check_exp_verify and parens", function()
+        -- https://github.com/pallene-lang/pallene/issues/356
+        compile([[
+            export function f(): integer
+                return (1) as integer
+            end
+        ]])
+
+        it("works", function()
+            run_test([[ assert(1 == test.f()) ]])
+        end)
+    end)
 end
 
 return execution_tests
