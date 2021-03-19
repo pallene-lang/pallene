@@ -390,14 +390,14 @@ describe("Pallene type checker", function()
                 end
             end
         ]], "type error: expected function type (any, any) -> (any, any, any) but found function type (any, any) -> (any, any) in loop iterator")
-        
+
         assert_error([[
             export function fn()
                 for i in ipairs({1, 2}) do
                     local k = z
                 end
             end
-        ]], "type error: expected function type (any, any) -> (any) but found function type (any, any) -> (any, any) in loop iterator")        
+        ]], "type error: expected function type (any, any) -> (any) but found function type (any, any) -> (any, any) in loop iterator")
     end)
 
 
