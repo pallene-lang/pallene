@@ -123,10 +123,13 @@ function ToIR:convert_toplevel(prog_ast)
         for _, tl_node in ipairs(prog_ast) do
             local tag = tl_node._tag
             if tag == "ast.Toplevel.Var" then
-                for i, decl in ipairs(tl_node.decls) do
-                    local val = self:exp_to_value(cmds, tl_node.values[i])
-                    local gid = self.glb_id_of_decl[decl]
-                    table.insert(cmds, ir.Cmd.SetGlobal(tl_node.loc, gid, val))
+                for i, exp in ipairs(tl_node.values) do
+                    local decl = tl_node.decls[i]
+                    local val = self:exp_to_value(cmds, exp)
+                    if decl then
+                        local gid = self.glb_id_of_decl[decl]
+                        table.insert(cmds, ir.Cmd.SetGlobal(tl_node.loc, gid, val))
+                    end
                 end
             end
         end
@@ -233,13 +236,13 @@ function ToIR:convert_stat(cmds, stat)
             --     break
             --   end
             --   local i = i_num as T1
-            --   local x = x_dyn as T2 
+            --   local x = x_dyn as T2
             --   <loop body>
             --   i_num = i_num + 1
             -- end
             -- ```
 
-            
+
             local ipairs_args = exps[2].call_exp.args
             assert(#ipairs_args == 1)
             assert(#decls == 2)
@@ -254,7 +257,7 @@ function ToIR:convert_stat(cmds, stat)
             local v_inum = ir.add_local(self.func, "$"..decls[1].name.."_num", types.T.Integer())
             local start = ir.Value.Integer(1)
             table.insert(cmds, ir.Cmd.Move(stat.loc, v_inum, start))
-        
+
             -- body of the while loop.
             local body = {}
 
@@ -294,7 +297,7 @@ function ToIR:convert_stat(cmds, stat)
             table.insert(body, ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
 
             table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
-        
+
         else
 
             -- Regular for-in loops are desugared into regurlar loops before compiling.
@@ -363,7 +366,6 @@ function ToIR:convert_stat(cmds, stat)
         local loc = stat.loc
         local vars = stat.vars
         local exps = stat.exps
-        assert(#vars == #exps)
 
         -- Multiple Assignments
         -- --------------------
@@ -458,7 +460,8 @@ function ToIR:convert_stat(cmds, stat)
         --  case because save_if_necessary calls exp_to_value.
         local vals = {}
         for i, exp in ipairs(exps) do
-            local is_last = (i == #exps or exps[i+1]._tag == "ast.Exp.ExtraRet")
+            local is_mulret = exps[i+1] and exps[i+1]._tag == "ast.Exp.ExtraRet"
+            local is_last = (i == #vars) or is_mulret
             if is_last and lhss[i]._tag == "to_ir.LHS.Local" then
                 self:exp_to_assignment(cmds, lhss[i].id, exp)
                 vals[i] = false
@@ -467,7 +470,7 @@ function ToIR:convert_stat(cmds, stat)
             end
         end
 
-        for i = #stat.vars, 1, -1 do
+        for i = #vars, 1, -1 do
             local lhs = lhss[i]
             local val = vals[i]
             if val then
@@ -490,11 +493,17 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        for i, decl in ipairs(stat.decls) do
-            local v = ir.add_local(self.func, decl.name, decl._type)
-            self.loc_id_of_decl[decl] = v
-            if stat.exps[i] then
-                self:exp_to_assignment(cmds, v, stat.exps[i])
+        for _, decl in ipairs(stat.decls) do
+            self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
+        end
+
+        for i, exp in ipairs(stat.exps) do
+            local decl = stat.decls[i]
+            if decl then
+                self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
+            else
+                -- Extra argument to RHS; compute it for side effects and discard result
+                local _ = self:exp_to_value(cmds, exp)
             end
         end
 

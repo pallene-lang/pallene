@@ -2103,6 +2103,32 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 a, a, a = 10, 20, 30
                 return a
             end
+
+
+            local gn = 0
+            local function inc(): integer
+                gn = gn + 1
+                return gn
+            end
+
+            local x = inc(), inc()
+
+            export function extra_values_in_toplevel_decl(): (integer, integer)
+                return x, gn
+            end
+
+            export function extra_values_in_local_decl(): (integer, integer)
+                gn = 10
+                local y = inc(), inc()
+                return y, gn
+            end
+
+            export function extra_values_in_assign_stat(): (integer, integer)
+                local y: integer
+                gn = 20
+                y = inc(), inc()
+                return y, gn
+            end
         ]])
 
         it("preserves evaluation order with local variables", function()
@@ -2235,6 +2261,30 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[
                 local a = test.assign_same_var()
                 assert(10 == a)
+            ]])
+        end)
+
+        it("assignment to toplevel decl does not discard extra arguments in RHS", function()
+            run_test([[
+                local x, n = test.extra_values_in_toplevel_decl()
+                assert(2 == n)
+                assert(1 == x)
+            ]])
+        end)
+
+        it("assignment to local decl does not does not discard extra arguments in RHS", function()
+            run_test([[
+                local x, n = test.extra_values_in_local_decl()
+                assert(12 == n)
+                assert(11 == x)
+            ]])
+        end)
+
+        it("assignment statement does not does not discard extra arguments in RHS", function()
+            run_test([[
+                local x, n = test.extra_values_in_assign_stat()
+                assert(22 == n)
+                assert(21 == x)
             ]])
         end)
     end)

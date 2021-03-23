@@ -390,14 +390,14 @@ describe("Pallene type checker", function()
                 end
             end
         ]], "type error: expected function type (any, any) -> (any, any, any) but found function type (any, any) -> (any, any) in loop iterator")
-        
+
         assert_error([[
             export function fn()
                 for i in ipairs({1, 2}) do
                     local k = z
                 end
             end
-        ]], "type error: expected function type (any, any) -> (any) but found function type (any, any) -> (any, any) in loop iterator")        
+        ]], "type error: expected function type (any, any) -> (any) but found function type (any, any) -> (any, any) in loop iterator")
     end)
 
 
@@ -559,6 +559,19 @@ describe("Pallene type checker", function()
             "returning 0 value(s) but function expects 1")
     end)
 
+    it("detects too many return values when returning a function call", function()
+        assert_error([[
+            local function f(): (integer, integer)
+                return 1, 2
+            end
+
+            export function g(): integer
+                return f()
+            end
+        ]],
+            "returning 2 value(s) but function expects 1")
+    end)
+
     it("detects when a function returns the wrong type", function()
         assert_error([[
             export function fn(): integer
@@ -603,7 +616,7 @@ describe("Pallene type checker", function()
             "function expects 2 argument(s) but received 1")
     end)
 
-    it("detects wrong number of arguments when expanding a function", function()
+    it("detects too few arguments when expanding a function", function()
         assert_error([[
             export function f(): (integer, integer)
                 return 1, 2
@@ -618,6 +631,23 @@ describe("Pallene type checker", function()
             end
         ]],
             "function expects 3 argument(s) but received 2")
+    end)
+
+    it("detects too many arguments when expanding a function", function()
+        assert_error([[
+            export function f(): (integer, integer)
+                return 1, 2
+            end
+
+            export function g(x:integer): integer
+                return x
+            end
+
+            export function test(): integer
+                return g(f())
+            end
+        ]],
+            "function expects 1 argument(s) but received 2")
     end)
 
     it("detects wrong types of arguments to functions", function()
