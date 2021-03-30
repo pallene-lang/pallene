@@ -5,7 +5,11 @@
 
 typealias rectangle = { width: float, height: float }
 
-export function find_area(r: rectangle): float
+local m: module = {}
+
+function m.find_area(r: rectangle): float
 	local result = r.width * r.height
 	return result
 end
+
+return m

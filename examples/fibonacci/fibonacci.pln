@@ -3,7 +3,9 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-export function fibonacci(N: integer): { integer }
+local m: module = {}
+
+function m.fibonacci(N: integer): { integer }
     local result: { integer } = {}
     local a, b = 0, 1
     for i = 1, N do
@@ -12,3 +14,5 @@ export function fibonacci(N: integer): { integer }
     end
     return result
 end
+
+return m

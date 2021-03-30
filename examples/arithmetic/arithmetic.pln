@@ -3,10 +3,14 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-export function add(a: any, b: any): integer
+local m: module = {}
+
+function m.add(a: any, b: any): integer
     return (a as integer) + (b as integer)
 end
 
-export function subtract(a: any, b: any): float
+function m.subtract(a: any, b: any): float
     return (a as float) - (b as float)
 end
+
+return m

@@ -12,7 +12,7 @@ local function declare_type(type_name, cons)
 end
 
 declare_type("Program", {
-    Program = {"tls", "type_regions", "comment_regions"}
+    Program = {"loc", "tls", "type_regions", "comment_regions"}
 })
 
 declare_type("Type", {
@@ -21,11 +21,11 @@ declare_type("Type", {
     Array    = {"loc", "subtype"},
     Table    = {"loc", "fields"},
     Function = {"loc", "arg_types", "ret_types"},
+    Module   = {"loc"},
 })
 
 declare_type("Toplevel", {
-    Func      = {"loc", "visibility", "decl", "value"},
-    Var       = {"loc", "visibility", "decls", "values"},
+    Stat      = {"loc", "stat"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
 })
@@ -46,6 +46,7 @@ declare_type("Stat", {
     Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
     Break  = {"loc"},
+    Func   = {"loc", "name", "decl", "value"},
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
@@ -82,28 +83,5 @@ declare_type("Field", {
 --
 -- note: the following functions are why we need `if type(conss) == "table"` in parser.lua
 --
-
--- Returns a sequence containing the variable names declared by the specified
--- toplevel node.
-function ast.toplevel_names(tl_node)
-    local names = {}
-    local tag = tl_node._tag
-    if     tag == "ast.Toplevel.Func" then
-        table.insert(names, tl_node.decl.name)
-    elseif tag == "ast.Toplevel.Var" then
-        for _, decl in ipairs(tl_node.decls) do
-            table.insert(names, decl.name)
-        end
-    elseif tag == "ast.Toplevel.Typealias" then
-        table.insert(names, tl_node.name)
-    elseif tag == "ast.Toplevel.Record" then
-        table.insert(names, tl_node.name)
-    elseif tag == "ast.Toplevel.Builtin" then
-        table.insert(names, tl_node.name)
-    else
-        typedecl.tag_error(tag)
-    end
-    return names
-end
 
 return ast
