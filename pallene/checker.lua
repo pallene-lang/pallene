@@ -459,18 +459,32 @@ function Checker:check_stat(stat)
             type_error(rhs[1].loc, "missing control variable in for-in loop")
         end
 
-        local expected_ret_types = {}
+        local decl_types = {}
         for _ = 1, #stat.decls do
-            table.insert(expected_ret_types, types.T.Any())
+            table.insert(decl_types, types.T.Any())
         end
 
-        local itertype = types.T.Function({ types.T.Any(), types.T.Any() }, expected_ret_types)
+        local itertype = types.T.Function({ types.T.Any(), types.T.Any() }, decl_types)
         rhs[1] = self:check_exp_synthesize(rhs[1])
         local iteratorfn = rhs[1]
 
         if not types.equals(iteratorfn._type, itertype) then
-            type_error(iteratorfn.loc, "expected %s but found %s in loop iterator",
-                types.tostring(itertype), types.tostring(iteratorfn._type))
+            if iteratorfn._type._tag == "types.T.Function" and
+               #decl_types ~= #iteratorfn._type.ret_types then
+                local decl_count            = #decl_types
+                local expected_decl_count   = #iteratorfn._type.ret_types
+
+                if expected_decl_count == 1 then
+                    type_error(iteratorfn.loc, "expected 1 declaration in for loop but found %d.",
+                        decl_count)
+                else
+                    type_error(iteratorfn.loc, "expected %d declarations in for loop but found %d.",
+                        expected_decl_count, decl_count)
+                end
+            else
+                type_error(iteratorfn.loc, "expected %s but found %s in loop iterator",
+                    types.tostring(itertype), types.tostring(iteratorfn._type))
+            end
         end
 
         rhs[2] = self:check_exp_synthesize(rhs[2])
