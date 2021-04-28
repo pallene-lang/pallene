@@ -471,16 +471,8 @@ function Checker:check_stat(stat)
         if not types.equals(iteratorfn._type, itertype) then
             if iteratorfn._type._tag == "types.T.Function" and
                #decl_types ~= #iteratorfn._type.ret_types then
-                local decl_count          = #decl_types
-                local expected_decl_count = #iteratorfn._type.ret_types
-
-                if expected_decl_count == 1 then
-                    type_error(iteratorfn.loc, "expected 1 declaration in for loop but found %d.",
-                        decl_count)
-                else
-                    type_error(iteratorfn.loc, "expected %d declarations in for loop but found %d.",
-                        expected_decl_count, decl_count)
-                end
+                type_error(iteratorfn.loc, "expected %d variable(s) in for loop but found %d",
+                    #iteratorfn._type.ret_types, #decl_types)
             else
                 type_error(iteratorfn.loc, "expected %s but found %s in loop iterator",
                     types.tostring(itertype), types.tostring(iteratorfn._type))

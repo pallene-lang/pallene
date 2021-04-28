@@ -316,7 +316,7 @@ describe("Pallene type checker", function()
                 end
             end
         ]],
-        "expected 1 declaration in for loop but found 2")
+        "expected 1 variable(s) in for loop but found 2")
 
         assert_error([[
             export function foo(a: integer, b: integer): integer
@@ -328,7 +328,7 @@ describe("Pallene type checker", function()
                     k = v
                 end
             end
-        ]], "expected 1 declaration in for loop but found 2")
+        ]], "expected 1 variable(s) in for loop but found 2")
     end)
 
     it("type checks the state and control values of for-in loops", function()
@@ -385,7 +385,7 @@ describe("Pallene type checker", function()
                     local x = i
                 end
             end
-        ]], "type error: function expects 1 argument(s) but received 0")
+        ]], "function expects 1 argument(s) but received 0")
 
         assert_error([[
             export function fn()
@@ -393,7 +393,7 @@ describe("Pallene type checker", function()
                     local k = i
                 end
             end
-        ]], "type error: function expects 1 argument(s) but received 2")
+        ]], "function expects 1 argument(s) but received 2")
 
         assert_error([[
             export function fn()
@@ -401,7 +401,7 @@ describe("Pallene type checker", function()
                     local k = z
                 end
             end
-        ]], "expected 2 declarations in for loop but found 3")
+        ]], "expected 2 variable(s) in for loop but found 3")
 
         assert_error([[
             export function fn()
@@ -409,7 +409,7 @@ describe("Pallene type checker", function()
                     local k = z
                 end
             end
-        ]], "expected 2 declarations in for loop but found 1")
+        ]], "expected 2 variable(s) in for loop but found 1")
     end)
 
 
