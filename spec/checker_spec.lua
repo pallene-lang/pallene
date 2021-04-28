@@ -306,7 +306,19 @@ describe("Pallene type checker", function()
         "expected function type (any, any) -> (any, any) but found integer in loop iterator")
 
         assert_error([[
+            export function foo(a: integer, b: integer): integer
+                return a * b
+            end
 
+            export function fn()
+                for k, v in foo, 1, 2 do
+                    local a = k + v
+                end
+            end
+        ]],
+        "expected 1 variable(s) in for loop but found 2")
+
+        assert_error([[
             export function foo(a: integer, b: integer): integer
                 return a * b
             end
@@ -316,7 +328,7 @@ describe("Pallene type checker", function()
                     k = v
                 end
             end
-        ]], "expected function type (any, any) -> (any, any) but found function type (integer, integer) -> (integer) in loop iterator")
+        ]], "expected 1 variable(s) in for loop but found 2")
     end)
 
     it("type checks the state and control values of for-in loops", function()
@@ -373,7 +385,7 @@ describe("Pallene type checker", function()
                     local x = i
                 end
             end
-        ]], "type error: function expects 1 argument(s) but received 0")
+        ]], "function expects 1 argument(s) but received 0")
 
         assert_error([[
             export function fn()
@@ -381,7 +393,7 @@ describe("Pallene type checker", function()
                     local k = i
                 end
             end
-        ]], "type error: function expects 1 argument(s) but received 2")
+        ]], "function expects 1 argument(s) but received 2")
 
         assert_error([[
             export function fn()
@@ -389,7 +401,7 @@ describe("Pallene type checker", function()
                     local k = z
                 end
             end
-        ]], "type error: expected function type (any, any) -> (any, any, any) but found function type (any, any) -> (any, any) in loop iterator")
+        ]], "expected 2 variable(s) in for loop but found 3")
 
         assert_error([[
             export function fn()
@@ -397,7 +409,7 @@ describe("Pallene type checker", function()
                     local k = z
                 end
             end
-        ]], "type error: expected function type (any, any) -> (any) but found function type (any, any) -> (any, any) in loop iterator")
+        ]], "expected 2 variable(s) in for loop but found 1")
     end)
 
 
