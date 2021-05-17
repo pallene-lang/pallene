@@ -1,4 +1,5 @@
-local isplaceok, printsolution, addqueen, nqueens;
+local m, isplaceok, printsolution, addqueen;m = {}
+
 -- check whether position (n,c) is free from attacks
 function isplaceok (a, n, c)
   for i = 1, n - 1 do   -- for each queen already placed
@@ -48,10 +49,8 @@ function addqueen (N, a, n)
 end
 
 -- run the program
-function nqueens(N)
+function m.nqueens(N)
     addqueen(N, {}, 1)
 end
 
-return {
-    nqueens = nqueens,
-}
+return m

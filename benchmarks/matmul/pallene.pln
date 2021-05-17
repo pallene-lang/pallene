@@ -1,5 +1,6 @@
+local m: module = {}
 
-export function matmul(A: {{float}}, B:{{float}}): {{float}}
+function m.matmul(A: {{float}}, B:{{float}}): {{float}}
     local C: {{float}} = {}
     local NI = #A
     local NK = #B
@@ -23,3 +24,5 @@ export function matmul(A: {{float}}, B:{{float}}): {{float}}
     end
     return C
 end
+
+return m

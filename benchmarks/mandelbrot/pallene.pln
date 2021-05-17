@@ -1,5 +1,6 @@
+local m: module = {}
 
-export function mandelbrot(N: integer)
+function m.mandelbrot(N: integer)
     local bits  = 0
     local nbits = 0
 
@@ -43,3 +44,5 @@ export function mandelbrot(N: integer)
         end
     end
 end
+
+return m

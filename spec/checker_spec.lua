@@ -17,17 +17,22 @@ describe("Scope analysis: ", function()
 
     it("forbids variables from being used before they are defined", function()
         assert_error([[
-            export function fn(): nil
+            local m: module = {}
+            function fn(): nil
                 x = 17
                 local x = 18
             end
+
+            return m
         ]],
-            "variable 'x' is not declared")
+            "Function must be 'local' or module function")
     end)
 
     it("forbids type variables from being used before they are defined", function()
         assert_error([[
-            export function fn(p: Point): integer
+            local m: module = {}
+
+            function m.fn(p: Point): integer
                 return p.x
             end
 
@@ -35,75 +40,86 @@ describe("Scope analysis: ", function()
                 x: integer
                 y: integer
             end
+
+            return m
         ]],
             "type 'Point' is not declared")
     end)
 
     it("do-end limits variable scope", function()
         assert_error([[
-            export function fn(): nil
+            local m: module = {}
+            function m.fn(): nil
                 do
                     local x = 17
                 end
                 x = 18
             end
+
+            return m
         ]],
             "variable 'x' is not declared")
     end)
 
     it("forbids multiple toplevel declarations with the same name for exported functions", function()
         assert_error([[
-            export function f() end
-            export function f() end
-        ]],
-            "duplicate toplevel 'f', previous one at line 1")
-    end)
+            local m: module = {}
+            function m.f() end
+            function m.f() end
 
-    it("forbids multiple toplevel declaration", function()
-        assert_error([[
-            local f = 1
-            local function f()
-            end
+            return m
         ]],
-            "duplicate toplevel 'f', previous one at line 1")
+            "duplicate module field 'f', previous one at line 2")
     end)
 
     it("forbids multiple toplevel declarations with the same name for exported function and variable", function()
         assert_error([[
-            export function f() end
-            export f = 1
+            local m: module = {}
+            function m.f() end
+            m.f = 1
+            return m
         ]],
-            "duplicate toplevel 'f', previous one at line 1")
+            "duplicate module field 'f', previous one at line 2")
     end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
         assert_error([[
+            local m: module = {}
             local a, b = 1, a
+            return m
         ]],
             "variable 'a' is not declared")
     end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
         assert_error([[
+            local m: module = {}
             local a = a
+            return m
         ]],
             "variable 'a' is not declared")
     end)
 
     it("ensure variables are not in scope in their initializers", function()
         assert_error([[
+            local m: module = {}
             local function f()
                 local a, b = 1, a
             end
+            
+            return m
         ]],
             "variable 'a' is not declared")
     end)
 
     it("ensure variables are not in scope in their initializers", function()
         assert_error([[
+            local m: module = {}
             local function f()
                 local a = a
             end
+
+            return m
         ]],
             "variable 'a' is not declared")
     end)
@@ -111,6 +127,9 @@ describe("Scope analysis: ", function()
     it("forbids typealias to non-existent type", function()
         assert_error([[
             typealias point = foo
+
+            local m: module = {}
+            return m
         ]],
             "type 'foo' is not declared")
     end)
@@ -118,16 +137,21 @@ describe("Scope analysis: ", function()
     it("forbids recursive typealias", function()
         assert_error([[
             typealias point = {point}
+
+            local m: module = {}
+            return m
         ]],
             "type 'point' is not declared")
     end)
 
     it("forbids typealias to non-type name", function()
         assert_error([[
-            local x: integer = 0
+            local m: module = {}
             typealias point = x
+            local x: integer = 0
+            return m
         ]],
-            "type error: 'x' isn't a type")
+            "__test__.pln:2:31: scope error: type 'x' is not declared")
     end)
 end)
 
@@ -135,12 +159,13 @@ describe("Pallene type checker", function()
 
     it('catches incompatible function type assignments', function()
         assert_error([[
-            export function f(a: integer, b: float): float
+            local m: module = {}
+            function m.f(a: integer, b: float): float
                 return 3.14
             end
 
-            export function test(g: () -> integer)
-                g = f
+            function m.test(g: () -> integer)
+                g = m.f
             end
         ]],
         "expected function type () -> (integer) but found function type (integer, float) -> (float) in assignment")
@@ -148,10 +173,13 @@ describe("Pallene type checker", function()
 
     it("detects when a non-type is used in a type variable", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local foo: integer = 10
                 local bar: foo = 11
             end
+
+            return m
         ]],
             "'foo' isn't a type")
     end)
@@ -162,16 +190,22 @@ describe("Pallene type checker", function()
                 x: integer
                 y: integer
             end
-            export function fn()
+
+            local m: module = {}
+            function m.fn()
                 local bar: integer = Point
             end
+
+            return m
         ]],
             "'Point' isn't a value")
     end)
 
     it("catches table type with repeated fields", function()
         assert_error([[
-            export function fn(t: {x: float, x: integer}) end
+            local m: module = {}
+            function m.fn(t: {x: float, x: integer}) end
+            return m
         ]],
             "duplicate field 'x' in table")
     end)
@@ -179,153 +213,175 @@ describe("Pallene type checker", function()
     it("allows tables with fields with more than LUAI_MAXSHORTLEN chars", function()
         local field = string.rep('a', 41)
         local module, _ = run_checker([[
-            export function f(t: {]].. field ..[[: float}) end
+            local m: module = {}
+            function m.f(t: {]].. field ..[[: float}) end
+            return m
         ]])
         assert.truthy(module)
     end)
 
     it("catches array expression in indexing is not an array", function()
         assert_error([[
-            export function fn(x: integer)
+            local m: module = {}
+            function m.fn(x: integer)
                 x[1] = 2
             end
+            return m
         ]],
             "expected array but found integer in array indexing")
     end)
 
     it("catches wrong use of length operator", function()
         assert_error([[
-            export function fn(x: integer): integer
+            local m: module = {}
+            function m.fn(x: integer): integer
                 return #x
             end
+
+            return m
         ]],
             "trying to take the length")
     end)
 
     it("catches wrong use of unary minus", function()
         assert_error([[
-            export function fn(x: boolean): boolean
+            local m: module = {}
+            function m.fn(x: boolean): boolean
                 return -x
             end
+
+            return m
         ]],
             "trying to negate a")
     end)
 
     it("catches wrong use of bitwise not", function()
         assert_error([[
-            export function fn(x: boolean): boolean
+            local m: module = {}
+            function m.fn(x: boolean): boolean
                 return ~x
             end
+
+            return m
         ]],
             "trying to bitwise negate a")
     end)
 
     it("catches wrong use of boolean not", function()
         assert_error([[
-            export function fn(): boolean
+            local m: module = {}
+            function m.fn(): boolean
                 return not nil
             end
+
+            return m
         ]],
             "expression passed to 'not' operator has type nil")
     end)
 
     it("catches mismatching types in locals", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local i: integer = 1
                 local s: string = "foo"
                 s = i
             end
+
+            return m
         ]],
             "expected string but found integer in assignment")
     end)
 
     it("requires a type annotation for an uninitialized variable", function()
         assert_error([[
-            export function fn(): integer
+            local m: module = {}
+            function m.fn(): integer
                 local x
                 x = 10
                 return x
             end
+            return m
         ]], "uninitialized variable 'x' needs a type annotation")
     end)
 
     it("catches mismatching types in arguments", function()
         assert_error([[
-            export function fn(i: integer, s: string): integer
+            local m: module = {}
+            function m.fn(i: integer, s: string): integer
                 s = i
             end
+            return m
         ]],
             "expected string but found integer in assignment")
     end)
 
     it("forbids empty array (without type annotation)", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local xs = {}
             end
+            return m
         ]],
             "missing type hint for initializer")
     end)
 
     it("forbids non-empty array (without type annotation)", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local xs = {10, 20, 30}
             end
+            return m
         ]],
             "missing type hint for initializer")
     end)
 
     it("forbids array initializers with a table part", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local xs: {integer} = {10, 20, 30, x=17}
             end
+            return m
         ]],
             "named field 'x' in array initializer")
     end)
 
     it("forbids wrong type in array initializer", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local xs: {integer} = {10, "hello"}
             end
+            return m
         ]],
             "expected integer but found string in array initializer")
     end)
 
     it("type checks the iterator function in for-in loops", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 for k, v in 5, 1, 2 do
                     local a = k + v
                 end
             end
+            return m
         ]],
         "expected function type (any, any) -> (any, any) but found integer in loop iterator")
 
         assert_error([[
-            export function foo(a: integer, b: integer): integer
+            local m: module = {}
+
+            function m.foo(a: integer, b: integer): integer
                 return a * b
             end
 
-            export function fn()
-                for k, v in foo, 1, 2 do
+            function m.fn()
+                for k, v in m.foo, 1, 2 do
                     local a = k + v
-                end
-            end
-        ]],
-        "expected 1 variable(s) in for loop but found 2")
-
-        assert_error([[
-            export function foo(a: integer, b: integer): integer
-                return a * b
-            end
-
-            export function fn()
-                for k, v in foo, 2, 3 do
-                    k = v
                 end
             end
         ]], "expected 1 variable(s) in for loop but found 2")
@@ -333,82 +389,96 @@ describe("Pallene type checker", function()
 
     it("type checks the state and control values of for-in loops", function()
         assert_error([[
-            export function foo(): (integer, integer)
+            local m: module = {}
+            function m.foo(): (integer, integer)
                 return 1, 2
             end
 
-            export function iter(a: any, b: any): (any, any)
+            function m.iter(a: any, b: any): (any, any)
                 return 1, 2
             end
 
-            export function fn()
-                for k, v in iter, foo() do
+            function m.fn()
+                for k, v in m.iter, m.foo() do
                     local a = k + v
                 end
             end
+            return m
         ]],
         "expected any but found integer in loop state value")
 
         assert_error([[
-            export function iter(a: any, b: any): (any, any)
+            local m: module = {}
+            function m.iter(a: any, b: any): (any, any)
                 return 1, 2
             end
 
-            export function fn()
-                for k, v in iter do
+            function m.fn()
+                for k, v in m.iter do
                     k = v
                 end
             end
+            return m
         ]], "missing state variable in for-in loop")
 
         assert_error([[
-            export function iter(a: any, b: any): (any, any)
+            local m: module = {}
+            function m.iter(a: any, b: any): (any, any)
                 return 1, 2
             end
 
-            export function x_ipairs(): ((any, any) -> (any, any), integer)
-                return iter, 4
+            function m.x_ipairs(): ((any, any) -> (any, any), integer)
+                return m.iter, 4
             end
 
-            export function fn()
-                for k, v in x_ipairs() do
+            function m.fn()
+                for k, v in m.x_ipairs() do
                     k = v
                 end
             end
+            return m
         ]], "missing control variable in for-in loop")
     end)
 
     it("checks loops with ipairs.", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 for i: integer in ipairs() do
                     local x = i
                 end
             end
+            return m
         ]], "function expects 1 argument(s) but received 0")
 
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 for i, x in ipairs({1, 2}, {3, 4}) do
                     local k = i
                 end
             end
+            return m
         ]], "function expects 1 argument(s) but received 2")
 
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 for i, x, z in ipairs({1, 2}) do
                     local k = z
                 end
             end
+            return m
         ]], "expected 2 variable(s) in for loop but found 3")
 
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 for i in ipairs({1, 2}) do
                     local k = z
                 end
             end
+            return m
         ]], "expected 2 variable(s) in for loop but found 1")
     end)
 
@@ -417,11 +487,13 @@ describe("Pallene type checker", function()
         local function assert_init_error(typ, code, err)
             typ = typ and (": " .. typ) or ""
             assert_error([[
+                local m: module = {}
                 record Point x: float; y:float end
 
-                export function f(): float
+                function m.f(): float
                     local p ]].. typ ..[[ = ]].. code ..[[
                 end
+                return m
             ]], err)
         end
 
@@ -461,216 +533,252 @@ describe("Pallene type checker", function()
 
     it("forbids type hints that are not array, tables, or records", function()
         assert_error([[
-            export function fn()
+            local m: module = {}
+            function m.fn()
                 local p: string = { 10, 20, 30 }
             end
+            return m
         ]],
             "type hint for initializer is not an array, table, or record type")
     end)
 
     it("requires while statement conditions to be boolean", function()
         assert_error([[
-            export function fn(x:integer): integer
+            local m: module = {}
+            function m.fn(x:integer): integer
                 while x do
                     return 10
                 end
                 return 20
             end
+            return m
         ]],
             "expression passed to while loop condition has type integer")
     end)
 
     it("requires repeat statement conditions to be boolean", function()
         assert_error([[
-            export function fn(x:integer): integer
+            local m: module = {}
+            function m.fn(x:integer): integer
                 repeat
                     return 10
                 until x
                 return 20
             end
+            return m
         ]],
             "expression passed to repeat-until loop condition has type integer")
     end)
 
     it("requires if statement conditions to be boolean", function()
         assert_error([[
-            export function fn(x:integer): integer
+            local m: module = {}
+            function m.fn(x:integer): integer
                 if x then
                     return 10
                 else
                     return 20
                 end
             end
+            return m
         ]],
             "expression passed to if statement condition has type integer")
     end)
 
     it("ensures numeric 'for' variable has number type", function()
         assert_error([[
-            export function fn(x: integer, s: string): integer
+            local m: module = {}
+            function m.fn(x: integer, s: string): integer
                 for i: string = "hello", 10, 2 do
                     x = x + i
                 end
                 return x
             end
+            return m
         ]],
             "expected integer or float but found string in for-loop control variable 'i'")
     end)
 
     it("catches 'for' errors in the start expression", function()
         assert_error([[
-            export function fn(x: integer, s: string): integer
+            local m: module = {}
+            function m.fn(x: integer, s: string): integer
                 for i:integer = s, 10, 2 do
                     x = x + i
                 end
                 return x
             end
+            return m
         ]],
             "expected integer but found string in numeric for-loop initializer")
     end)
 
     it("catches 'for' errors in the limit expression", function()
         assert_error([[
-            export function fn(x: integer, s: string): integer
+            local m: module = {}
+            function m.fn(x: integer, s: string): integer
                 for i = 1, s, 2 do
                     x = x + i
                 end
                 return x
             end
+            return m
         ]],
             "expected integer but found string in numeric for-loop limit")
     end)
 
     it("catches 'for' errors in the step expression", function()
         assert_error([[
-            export function fn(x: integer, s: string): integer
+            local m: module = {}
+            function m.fn(x: integer, s: string): integer
                 for i = 1, 10, s do
                     x = x + i
                 end
                 return x
             end
+            return m
         ]],
             "expected integer but found string in numeric for-loop step")
     end)
 
     it("detects too many return values", function()
         assert_error([[
-            export function f(): ()
+            local m: module = {}
+            function m.f(): ()
                 return 1
             end
+            return m
         ]],
             "returning 1 value(s) but function expects 0")
     end)
 
     it("detects too few return values", function()
         assert_error([[
-            export function f(): integer
+            local m: module = {}
+            function m.f(): integer
                 return
             end
+            return m
         ]],
             "returning 0 value(s) but function expects 1")
     end)
 
     it("detects too many return values when returning a function call", function()
         assert_error([[
+            local m: module = {}
             local function f(): (integer, integer)
                 return 1, 2
             end
 
-            export function g(): integer
+            function m.g(): integer
                 return f()
             end
+            return m
         ]],
             "returning 2 value(s) but function expects 1")
     end)
 
     it("detects when a function returns the wrong type", function()
         assert_error([[
-            export function fn(): integer
+            local m: module = {}
+            function m.fn(): integer
                 return "hello"
             end
+            return m
         ]],
             "expected integer but found string in return statement")
     end)
 
     it("rejects void functions in expression contexts", function()
         assert_error([[
+            local m: module = {}
             local function f(): ()
             end
 
             local function g(): integer
                 return 1 + f()
             end
+            return m
         ]],
             "void instead of a number")
     end)
 
     it("detects attempts to call non-functions", function()
         assert_error([[
-            export function fn(): integer
+            local m: module = {}
+            function m.fn(): integer
                 local i: integer = 0
                 i()
             end
+            return m
         ]],
             "attempting to call a integer value")
     end)
 
     it("detects wrong number of arguments to functions", function()
         assert_error([[
-            export function f(x: integer, y: integer): integer
+            local m: module = {}
+            function m.f(x: integer, y: integer): integer
                 return x + y
             end
 
-            export function g(): integer
-                return f(1)
+            function m.g(): integer
+                return m.f(1)
             end
+            return m
         ]],
             "function expects 2 argument(s) but received 1")
     end)
 
     it("detects too few arguments when expanding a function", function()
         assert_error([[
-            export function f(): (integer, integer)
+            local m: module = {}
+            function m.f(): (integer, integer)
                 return 1, 2
             end
 
-            export function g(x:integer, y:integer, z:integer): integer
+            function m.g(x:integer, y:integer, z:integer): integer
                 return x + y
             end
 
-            export function test(): integer
-                return g(f())
+            function m.test(): integer
+                return m.g(m.f())
             end
+            return m
         ]],
             "function expects 3 argument(s) but received 2")
     end)
 
     it("detects too many arguments when expanding a function", function()
         assert_error([[
-            export function f(): (integer, integer)
+            local m: module = {}
+            function m.f(): (integer, integer)
                 return 1, 2
             end
 
-            export function g(x:integer): integer
+            function m.g(x:integer): integer
                 return x
             end
 
-            export function test(): integer
-                return g(f())
+            function m.test(): integer
+                return m.g(m.f())
             end
+            return m
         ]],
             "function expects 1 argument(s) but received 2")
     end)
 
     it("detects wrong types of arguments to functions", function()
         assert_error([[
-            export function f(x: integer, y: integer): integer
+            local m: module = {}
+            function m.f(x: integer, y: integer): integer
                 return x + y
             end
 
-            export function g(): integer
-                return f(1.0, 2.0)
+            function m.g(): integer
+                return m.f(1.0, 2.0)
             end
+            return m
         ]],
             "expected integer but found float in argument 1 of call to function")
     end)
@@ -680,9 +788,11 @@ describe("Pallene type checker", function()
             local err_msg = string.format(
                 "cannot concatenate with %s value", typ)
             local test_program = util.render([[
-                export function fn(x : $typ) : string
+                local m: module = {}
+                function m.fn(x : $typ) : string
                     return "hello " .. x
                 end
+                return m
             ]], { typ = typ })
 
             it(err_msg, function()
@@ -714,9 +824,11 @@ describe("Pallene type checker", function()
                         not (t1 == "float" and t2 == "integer")
                     then
                         optest("cannot compare $t1 and $t2 using $op", [[
-                            export function fn(a: $t1, b: $t2): boolean
+                            local m: module = {}
+                            function m.fn(a: $t1, b: $t2): boolean
                                 return a $op b
                              end
+                            return m
                         ]], {
                             op = op, t1 = t1, t2 = t2
                         })
@@ -736,9 +848,11 @@ describe("Pallene type checker", function()
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
        "$dir hand side of '$op' has type $t", [[
-                        export function fn(x: $t1, y: $t2) : boolean
+                        local m: module = {}
+                        function m.fn(x: $t1, y: $t2) : boolean
                             return x $op y
                         end
+                        return m
                     ]], { op = op, t = t, dir = dir, t1 = t1, t2=t2 })
                 end
             end
@@ -755,9 +869,11 @@ describe("Pallene type checker", function()
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
         "$dir hand side of bitwise expression is a $t instead of an integer", [[
-                        export function fn(a: $t1, b: $t2): integer
+                        local m: module = {}
+                        function m.fn(a: $t1, b: $t2): integer
                             return a $op b
                         end
+                        return m
                     ]], { op = op, t = t, dir = dir, t1 = t1, t2 = t2 })
                 end
             end
@@ -774,9 +890,11 @@ describe("Pallene type checker", function()
                     local dir, t1, t2 = test[1], test[2], test[3]
                     optest(
         "$dir hand side of arithmetic expression is a $t instead of a number", [[
-                        export function fn(a: $t1, b: $t2) : float
+                        local m: module = {}
+                        function m.fn(a: $t1, b: $t2) : float
                             return a $op b
                         end
+                        return m
                     ]], { op = op, t = t, dir = dir, t1 = t1, t2 = t2} )
                 end
             end
@@ -788,9 +906,11 @@ describe("Pallene type checker", function()
             assert_error([[
                 record Point x: float; y:float end
 
-                export function f(p: ]].. typ ..[[): float
+                local m: module = {}
+                function m.f(p: ]].. typ ..[[): float
                     ]].. code ..[[
                 end
+                return m
             ]], err)
         end
 
@@ -825,9 +945,11 @@ describe("Pallene type checker", function()
             for _, t2 in ipairs(typs) do
                 if t1 ~= t2 then
                     optest("expected $t2 but found $t1 in cast expression", [[
-                        export function fn(a: $t1) : $t2
+                        local m: module = {}
+                        function m.fn(a: $t1) : $t2
                             return a as $t2
                         end
+                        return m
                     ]], { t1 = t1, t2 = t2 })
                 end
             end
@@ -836,63 +958,76 @@ describe("Pallene type checker", function()
 
     it("catches assignment to function", function ()
         assert_error([[
-            export function f()
+            local m: module = {}
+            function m.f()
             end
 
-            export function g()
-                f = g
+            function m.g()
+                m.f = m.g
             end
+            return m
         ]],
-        "attempting to assign to toplevel constant function 'f'")
+        --"attempting to assign to toplevel constant function 'f'")
+        "type error: Can't assign module field to 'function type () -> ()'")
     end)
 
     it("catches assignment to builtin (with correct type)", function ()
         assert_error([[
-            export function f(x: string)
+            local m: module = {}
+            function m.f(x: string)
             end
 
-            export function g()
-                io.write = f
+            function m.g()
+                io.write = m.f
             end
+            return m
         ]],
         "attempting to assign to builtin function io.write")
     end)
 
     it("catches assignment to builtin (with wrong type)", function ()
         assert_error([[
-            export function f(x: integer)
+            local m: module = {}
+            function m.f(x: integer)
             end
 
-            export function g()
-                io.write = f
+            function m.g()
+                io.write = m.f
             end
+            return m
         ]],
         "attempting to assign to builtin function io.write")
     end)
 
     it("typechecks io.write (error)", function()
         assert_error([[
-            export function f()
+            local m: module = {}
+            function m.f()
                 io.write(17)
             end
+            return m
         ]],
         "expected string but found integer in argument 1")
     end)
 
     it("checks assignment variables to modules", function()
         assert_error([[
-            export function f()
+            local m: module = {}
+            function m.f()
                 local x = io
             end
+            return m
         ]],
         "cannot reference module name 'io' without dot notation")
     end)
 
     it("checks assignment of modules", function()
         assert_error([[
-            export function f()
+            local m: module = {}
+            function m.f()
                 io = 1
             end
+            return m
         ]],
         "cannot reference module name 'io' without dot notation")
     end)

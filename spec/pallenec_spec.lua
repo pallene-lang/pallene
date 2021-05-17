@@ -3,9 +3,11 @@ local util = require "pallene.util"
 describe("pallenec", function()
     before_each(function()
         util.set_file_contents("__test__.pln", [[
-            export function f(x:integer): integer
+            local m: module = {}
+            function m.f(x:integer): integer
                 return x + 17
             end
+            return m
         ]])
         util.set_file_contents("__test__script__.lua", [[
             local test = require "__test__"

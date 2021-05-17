@@ -18,14 +18,17 @@ describe("Uninitialized variable analysis: ", function()
 
     it("empty function", function()
         assert_error([[
-            export function fn(): integer
+            local m: module = {}
+            function m.fn(): integer
             end
+            return m
         ]], missing_return)
     end)
 
     it("missing return in elseif", function()
         assert_error([[
-            export function getval(a:integer): integer
+            local m: module = {}
+            function m.getval(a:integer): integer
                 if a == 1 then
                     return 10
                 elseif a == 2 then
@@ -33,12 +36,14 @@ describe("Uninitialized variable analysis: ", function()
                     return 30
                 end
             end
+            return m
         ]], missing_return)
     end)
 
     it("missing return in deep elseif", function()
         assert_error([[
-            export function getval(a:integer): integer
+            local m: module = {}
+            function m.getval(a:integer): integer
                 if a == 1 then
                     return 10
                 elseif a == 2 then
@@ -53,21 +58,25 @@ describe("Uninitialized variable analysis: ", function()
                     end
                 end
             end
+            return m
         ]], missing_return)
     end)
 
     it("catches use of uninitialized variable", function()
         assert_error([[
-            export function foo(): integer
+            local m: module = {}
+            function m.foo(): integer
                 local x:integer
                 return x
             end
+            return m
         ]], "variable 'x' is used before being initialized")
     end)
 
     it("assumes that loops might not execute", function()
         assert_error([[
-            export function foo(cond: boolean): integer
+            local m: module = {}
+            function m.foo(cond: boolean): integer
                 local x: integer
                 while cond do
                     x = 0
@@ -75,6 +84,7 @@ describe("Uninitialized variable analysis: ", function()
                 end
                 return x
             end
+            return m
         ]], "variable 'x' is used before being initialized")
     end)
 end)

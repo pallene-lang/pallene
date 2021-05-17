@@ -1,5 +1,6 @@
-local sieve;
-function sieve(N)
+local m;m = {}
+
+function m.sieve(N)
     local is_prime = {}
     is_prime[1] = false
     for n = 2, N do
@@ -22,6 +23,4 @@ function sieve(N)
     return primes
 end
 
-return {
-    sieve = sieve,
-}
+return m

@@ -1,4 +1,5 @@
-local A, MultiplyAv, MultiplyAtv, MultiplyAtAv, Approximate;
+local m, A, MultiplyAv, MultiplyAtv, MultiplyAtAv;m = {}
+
 -- Return A[i][j], for the infinite matrix A
 --
 --  A = 1/1  1/2  1/4 ...
@@ -39,7 +40,7 @@ function MultiplyAtAv(N, v, out)
     MultiplyAtv(N, u, out)
 end
 
-function Approximate(N)
+function m.Approximate(N)
     -- Create unit vector
     local u = {}
     for i = 1, N do
@@ -65,6 +66,4 @@ function Approximate(N)
     return math.sqrt(vBv/vv)
 end
 
-return {
-    Approximate = Approximate,
-}
+return m

@@ -1,35 +1,32 @@
-local BottomUpTree, ItemCheck, Stress;
-function BottomUpTree(depth)
+local m;m = {}
+
+function m.BottomUpTree(depth)
     if depth > 0 then
         depth = depth - 1
-        local left  = BottomUpTree(depth)
-        local right = BottomUpTree(depth)
+        local left  = m.BottomUpTree(depth)
+        local right = m.BottomUpTree(depth)
         return { left, right }
     else
         return { false, false }
     end
 end
 
-function ItemCheck(tree)
+function m.ItemCheck(tree)
     if tree[1] then
-        return 1 + ItemCheck(tree[1]) + ItemCheck(tree[2])
+        return 1 + m.ItemCheck(tree[1]) + m.ItemCheck(tree[2])
     else
         return 1
     end
 end
 
-function Stress(mindepth, maxdepth, depth)
+function m.Stress(mindepth, maxdepth, depth)
     local iterations = 1 << (maxdepth - depth + mindepth)
     local check = 0
     for _ = 1, iterations do
-        local t = BottomUpTree(depth)
-        check = check + ItemCheck(t)
+        local t = m.BottomUpTree(depth)
+        check = check + m.ItemCheck(t)
     end
     return { iterations, check }
 end
 
-return {
-    BottomUpTree = BottomUpTree,
-    ItemCheck = ItemCheck,
-    Stress = Stress,
-}
+return m

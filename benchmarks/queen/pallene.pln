@@ -1,3 +1,4 @@
+local m: module = {}
 
 -- check whether position (n,c) is free from attacks
 local function isplaceok (a:{integer}, n:integer, c:integer): boolean
@@ -48,6 +49,8 @@ local function addqueen (N:integer, a:{integer}, n:integer)
 end
 
 -- run the program
-export function nqueens(N:integer)
+function m.nqueens(N:integer)
     addqueen(N, {}, 1)
 end
+
+return m

@@ -1,5 +1,6 @@
+local m: module = {}
 
-export function sieve(N: integer): {integer}
+function m.sieve(N: integer): {integer}
     local is_prime: {boolean} = {}
     is_prime[1] = false
     for n: integer = 2, N do
@@ -21,3 +22,5 @@ export function sieve(N: integer): {integer}
 
     return primes
 end
+
+return m
