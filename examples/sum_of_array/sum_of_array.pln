@@ -3,10 +3,14 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-export function sum(array: { float }): float
+local m: module = {}
+
+function m.sum(array: { float }): float
     local result = 0.0
     for i = 1, #array do
         result = result + array[i]
     end
     return result
 end
+
+return m

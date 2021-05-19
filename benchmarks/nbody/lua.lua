@@ -1,4 +1,4 @@
-local new_body, offset_momentum, advance, advance_multiple_steps, energy;
+local m;m = {}
 
 
 
@@ -9,7 +9,8 @@ local new_body, offset_momentum, advance, advance_multiple_steps, energy;
 
 
 
-function new_body(
+
+function m.new_body(
     x, y, z,
     vx, vy, vz, mass)
 
@@ -24,7 +25,7 @@ function new_body(
     }
 end
 
-function offset_momentum(bodies)
+function m.offset_momentum(bodies)
     local n = #bodies
     local px = 0.0
     local py = 0.0
@@ -44,7 +45,7 @@ function offset_momentum(bodies)
     sun.vz = sun.vz - pz / solar_mass
 end
 
-function advance(bodies, dt)
+function m.advance(bodies, dt)
     local n = #bodies
     for i = 1, n do
         local bi = bodies[i]
@@ -76,13 +77,13 @@ function advance(bodies, dt)
     end
 end
 
-function advance_multiple_steps(nsteps, bodies, dt)
+function m.advance_multiple_steps(nsteps, bodies, dt)
     for _ = 1, nsteps do
-        advance(bodies, dt)
+        m.advance(bodies, dt)
     end
 end
 
-function energy(bodies)
+function m.energy(bodies)
     local n = #bodies
     local e = 0.0
     for i = 1, n do
@@ -103,10 +104,4 @@ function energy(bodies)
     return e
 end
 
-return {
-    new_body = new_body,
-    offset_momentum = offset_momentum,
-    advance = advance,
-    advance_multiple_steps = advance_multiple_steps,
-    energy = energy,
-}
+return m

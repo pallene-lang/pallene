@@ -1,29 +1,32 @@
+local m: module = {}
 
-export function BottomUpTree(depth: integer): {any}
+function m.BottomUpTree(depth: integer): {any}
     if depth > 0 then
         depth = depth - 1
-        local left  = BottomUpTree(depth)
-        local right = BottomUpTree(depth)
+        local left  = m.BottomUpTree(depth)
+        local right = m.BottomUpTree(depth)
         return { left, right }
     else
         return { false, false }
     end
 end
 
-export function ItemCheck(tree: {any}): integer
+function m.ItemCheck(tree: {any}): integer
     if tree[1] then
-        return 1 + ItemCheck(tree[1]) + ItemCheck(tree[2])
+        return 1 + m.ItemCheck(tree[1]) + m.ItemCheck(tree[2])
     else
         return 1
     end
 end
 
-export function Stress(mindepth: integer, maxdepth: integer, depth: integer): {integer}
+function m.Stress(mindepth: integer, maxdepth: integer, depth: integer): {integer}
     local iterations = 1 << (maxdepth - depth + mindepth)
     local check = 0
     for _ = 1, iterations do
-        local t = BottomUpTree(depth)
-        check = check + ItemCheck(t)
+        local t = m.BottomUpTree(depth)
+        check = check + m.ItemCheck(t)
     end
     return { iterations, check }
 end
+
+return m

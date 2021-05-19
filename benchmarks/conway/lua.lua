@@ -1,9 +1,10 @@
-local ALIVE, DEAD, new_canvas, wrap, draw, spawn, step;
+local m, ALIVE, DEAD;m = {}
+
 ALIVE = "*"
 DEAD  = " "
 
 -- Create a new grid for the simulation.
-function new_canvas(N, M)
+function m.new_canvas(N, M)
     local t = {}
     for i = 1, N do
         local line = {}
@@ -16,12 +17,12 @@ function new_canvas(N, M)
 end
 
 -- Our grid has a toroidal topology with wraparound
-function wrap(i, N)
+function m.wrap(i, N)
     return (i - 1) % N + 1
 end
 
 -- Print the grid to stdout.
-function draw(N, M, cells)
+function m.draw(N, M, cells)
     local out = "" -- accumulate to reduce flicker
     for i = 1, N do
         local cellsi = cells[i]
@@ -39,25 +40,25 @@ function draw(N, M, cells)
 end
 
 -- Place a shape in the grid
-function spawn(N, M, cells, shape,
+function m.spawn(N, M, cells, shape,
 top, left)
     for i = 1, #shape do
-        local ci = wrap(i+top-1, N)
+        local ci = m.wrap(i+top-1, N)
         local shape_row = shape[i]
         local cell_row = cells[ci]
         for j = 1, #shape_row do
-            local cj = wrap(j+left-1, M)
+            local cj = m.wrap(j+left-1, M)
             cell_row[cj] = shape_row[j]
         end
     end
 end
 
 -- Run one step of the simulation.
-function step(N, M, curr_cells,
+function m.step(N, M, curr_cells,
 next_cells)
     for i2 = 1, N do
-        local i1 = wrap(i2-1, N)
-        local i3 = wrap(i2+1, N)
+        local i1 = m.wrap(i2-1, N)
+        local i3 = m.wrap(i2+1, N)
 
         local cells1 = curr_cells[i1]
         local cells2 = curr_cells[i2]
@@ -66,8 +67,8 @@ next_cells)
         local next2 = next_cells[i2]
 
         for j2 = 1, M do
-            local j1 = wrap(j2-1, M)
-            local j3 = wrap(j2+1, M)
+            local j1 = m.wrap(j2-1, M)
+            local j3 = m.wrap(j2+1, M)
 
             local c11 = cells1[j1]
             local c12 = cells1[j2]
@@ -95,10 +96,4 @@ next_cells)
     end
 end
 
-return {
-    new_canvas = new_canvas,
-    wrap = wrap,
-    draw = draw,
-    spawn = spawn,
-    step = step,
-}
+return m

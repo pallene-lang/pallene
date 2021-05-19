@@ -1,25 +1,28 @@
+local m: module = {}
 
-export function new(x: float, y: float): {float}
+function m.new(x: float, y: float): {float}
     return { x, y }
 end
 
-export function clone(x: {float}): {float}
-    return new(x[1], x[2])
+function m.clone(x: {float}): {float}
+    return m.new(x[1], x[2])
 end
 
-export function conj(x: {float}): {float}
-    return new(x[1], -x[2])
+function m.conj(x: {float}): {float}
+    return m.new(x[1], -x[2])
 end
 
-export function add(x: {float}, y: {float}): {float}
-    return new(x[1] + y[1], x[2] + y[2])
+function m.add(x: {float}, y: {float}): {float}
+    return m.new(x[1] + y[1], x[2] + y[2])
 end
 
-export function mul(x: {float}, y: {float}): {float}
-    return new(x[1] * y[1] - x[2] * y[2], x[1] * y[2] + x[2] * y[1])
+function m.mul(x: {float}, y: {float}): {float}
+    return m.new(x[1] * y[1] - x[2] * y[2], x[1] * y[2] + x[2] * y[1])
 end
 
-export function norm2(x: {float}): float
-    local n = mul(x, conj(x))
+function m.norm2(x: {float}): float
+    local n = m.mul(x, m.conj(x))
     return n[1]
 end
+
+return m

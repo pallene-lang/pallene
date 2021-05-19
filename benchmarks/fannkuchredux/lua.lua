@@ -1,5 +1,6 @@
-local fannkuch;
-function fannkuch(N)
+local m;m = {}
+
+function m.fannkuch(N)
 
     local initial_perm = {}
     for i = 1, N do
@@ -81,6 +82,4 @@ function fannkuch(N)
     end
 end
 
-return {
-    fannkuch = fannkuch,
-}
+return m

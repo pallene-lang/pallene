@@ -1,5 +1,6 @@
-local mandelbrot;
-function mandelbrot(N)
+local m;m = {}
+
+function m.mandelbrot(N)
     local bits  = 0
     local nbits = 0
 
@@ -44,6 +45,4 @@ function mandelbrot(N)
     end
 end
 
-return {
-    mandelbrot = mandelbrot,
-}
+return m

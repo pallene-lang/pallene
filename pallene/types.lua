@@ -27,6 +27,7 @@ declare_type("T", {
         "field_names", -- same order as the source type declaration
         "field_types", -- map { string => types.T }
     },
+    Module  = {},
 })
 
 function types.is_gc(t)
@@ -93,7 +94,8 @@ function types.is_indexable(t)
            tag == "types.T.Any" or
            tag == "types.T.String" or
            tag == "types.T.Function" or
-           tag == "types.T.Array"
+           tag == "types.T.Array" or
+           tag == "types.T.Module"
     then
         return false
 
@@ -140,7 +142,8 @@ local function equivalent(t1, t2, is_gradual)
            tag1 == "types.T.Boolean" or
            tag1 == "types.T.Integer" or
            tag1 == "types.T.Float" or
-           tag1 == "types.T.String"
+           tag1 == "types.T.String" or
+           tag1 == "types.T.Module"
     then
         return true
 
@@ -230,6 +233,7 @@ function types.tostring(t)
     elseif tag == "types.T.Integer"     then return "integer"
     elseif tag == "types.T.Float"       then return "float"
     elseif tag == "types.T.String"      then return "string"
+    elseif tag == "types.T.Module"      then return "module"
     elseif tag == "types.T.Function" then
         return string.format("function type %s -> %s",
             join_type_list(t.arg_types), join_type_list(t.ret_types))

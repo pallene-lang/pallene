@@ -79,16 +79,12 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 util.shell_quote(file_output))))
     end
 
-    describe("Empty program /", function()
-        compile("")
-
-        it("compiles", function() end)
-    end)
-
     describe("Exported functions /", function()
         compile([[
-            export function f(): integer return 10 end
+            local m: module = {}
+            function m.f(): integer return 10 end
             local function g(): integer return 11 end
+            return m
         ]])
 
         it("does not export local functions", function()
@@ -101,15 +97,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Literals /", function()
         compile([[
-            export function f_nil(): nil          return nil  end
-            export function f_true(): boolean     return true end
-            export function f_false(): boolean    return false end
-            export function f_integer(): integer  return 17 end
-            export function f_float(): float      return 3.14 end
-            export function f_string(): string    return "Hello World" end
-            export function pi(): float           return 3.141592653589793 end
-            export function e(): float            return 2.718281828459045 end
-            export function one_half(): float     return 1.0 / 2.0 end
+            local m: module = {}
+            function m.f_nil(): nil          return nil  end
+            function m.f_true(): boolean     return true end
+            function m.f_false(): boolean    return false end
+            function m.f_integer(): integer  return 17 end
+            function m.f_float(): float      return 3.14 end
+            function m.f_string(): string    return "Hello World" end
+            function m.pi(): float           return 3.141592653589793 end
+            function m.e(): float            return 2.718281828459045 end
+            function m.one_half(): float     return 1.0 / 2.0 end
+            return m
         ]])
 
         it("nil", function()
@@ -156,14 +154,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Variables /", function()
         compile([[
-            export function fst(x:integer, y:integer): integer return x end
-            export function snd(x:integer, y:integer): integer return y end
+            local m: module = {}
+            function m.fst(x:integer, y:integer): integer return x end
+            function m.snd(x:integer, y:integer): integer return y end
 
             local n = 0
-            export function next_n(): integer
+            function m.next_n(): integer
                 n = n + 1
                 return n
             end
+
+            return m
         ]])
 
         it("local variables", function()
@@ -182,81 +183,65 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    describe("Function calls /", function()
+   describe("Function calls /", function()
         compile([[
-            export function f0(): integer
+	    local m: module = {}
+            function m.f0(): integer
                 return 17
             end
-
-            export function g0(): integer
-                return f0()
+            function m.g0(): integer
+                return m.f0()
             end
-
             -----------
-
-            export function f1(x:integer): integer
+            function m.f1(x:integer): integer
                 return x
             end
-
-            export function g1(x:integer): integer
-                return f1(x)
+            function m.g1(x:integer): integer
+                return m.f1(x)
             end
-
             -----------
-
-            export function f2(x:integer, y:integer): integer
+            function m.f2(x:integer, y:integer): integer
                 return x+y
             end
-
-            export function g2(x:integer, y:integer): integer
-                return f2(x, y)
+            function m.g2(x:integer, y:integer): integer
+                return m.f2(x, y)
             end
-
             -----------
-
-            export function gcd(a:integer, b:integer): integer
+            function m.gcd(a:integer, b:integer): integer
                 if b == 0 then
                    return a
                 else
-                   return gcd(b, a % b)
+                   return m.gcd(b, a % b)
                 end
             end
-
             -----------
-
-            export function even(x: integer): boolean
+            function m.even(x: integer): boolean
                 if x == 0 then
                     return true
                 else
-                    return odd(x-1)
+                    return m.odd(x-1)
                 end
             end
-
-            export function odd(x: integer): boolean
+            function m.odd(x: integer): boolean
                 if x == 0 then
                     return false
                 else
-                    return even(x-1)
+                    return m.even(x-1)
                 end
             end
-
             -----------
-
-            export function skip_a() end
-            export function skip_b() skip_a(); skip_a() end
-
+            function m.skip_a() end
+            function m.skip_b() m.skip_a(); m.skip_a() end
             -----------
-
-            export function ignore_return(): integer
-                even(1)
+            function m.ignore_return(): integer
+                m.even(1)
                 return 17
             end
-
-            export function ignore_return_builtin(): integer
+            function m.ignore_return_builtin(): integer
                 math.sqrt(1.0)
                 return 18
             end
-
+            return m
         ]])
 
         it("no parameters", function()
@@ -322,18 +307,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+
     describe("First class functions /", function()
         compile([[
-            export function inc(x:integer): integer   return x + 1   end
-            export function dec(x:integer): integer   return x - 1   end
+            local m: module = {}
+            function m.inc(x:integer): integer   return x + 1   end
+            function m.dec(x:integer): integer   return x - 1   end
 
-            export function get_inc(): integer->integer
-                return inc
+            function m.get_inc(): integer->integer
+                return m.inc
             end
 
             --------
 
-            export function call(
+            function m.call(
                 f : integer -> integer,
                 x : integer
             ) :  integer
@@ -342,19 +329,21 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             --------
 
-            local f: integer->integer = inc
+            local f: integer->integer = m.inc
 
-            export function setf(g:integer->integer): ()
+            function m.setf(g:integer->integer): ()
                 f = g
             end
 
-            export function getf(): integer->integer
+            function m.getf(): integer->integer
                 return f
             end
 
-            export function callf(x:integer): integer
+            function m.callf(x:integer): integer
                 return f(x)
             end
+
+            return m
         ]])
 
         it("Object identity", function()
@@ -407,11 +396,12 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         local pallene_code = {}
         local test_scripts = {}
 
+        pallene_code[1] = [[local m: module = {} ]]
         for i, test in ipairs(tests) do
             local name, op, typ, rtyp = test[1], test[2], test[3], test[4]
 
-            pallene_code[i] = util.render([[
-                export function $name (x: $typ): $rtyp
+            pallene_code[i + 1] = util.render([[
+                function m.$name (x: $typ): $rtyp
                     return $op x
                 end
             ]], {
@@ -433,7 +423,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 typ_str = string.format("%q", typ),
             })
         end
-
+        pallene_code[#pallene_code + 1] = [[return m]]
+      
         compile(table.concat(pallene_code, "\n"))
 
         for _, test in ipairs(tests) do
@@ -543,12 +534,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         local pallene_code = {}
         local test_scripts = {}
 
+        pallene_code[1] = [[local m: module = {} ]]
         for i, test in ipairs(tests) do
             local name, op, typ1, typ2, rtyp =
                 test[1], test[2], test[3], test[4], test[5]
 
-            pallene_code[i] = util.render([[
-                export function $name (x: $typ1, y:$typ2): $rtyp
+            pallene_code[i + 1] = util.render([[
+                function m.$name (x: $typ1, y:$typ2): $rtyp
                     return x ${op} y
                 end
             ]], {
@@ -572,6 +564,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 typ2_str = string.format("%q", typ2),
             })
         end
+        pallene_code[#pallene_code + 1] = [[return m]]
 
         compile(table.concat(pallene_code, "\n"))
 
@@ -583,17 +576,19 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Nil equality", function()
         compile([[
-            export function eq_nil(x: nil, y: nil): boolean
+          local m: module = {}
+            function m.eq_nil(x: nil, y: nil): boolean
                 return x == y
             end
 
-            export function ne_nil(x: nil, y: nil): boolean
+            function m.ne_nil(x: nil, y: nil): boolean
                 return x ~= y
             end
 
-            export function eq_any(x: any, y: any): boolean
+            function m.eq_any(x: any, y: any): boolean
                 return x == y
             end
+            return m
         ]])
 
         it("==", function()
@@ -624,7 +619,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: float
             end
 
-            export function points(): {Point}
+            local m: module = {}
+
+            function m.points(): {Point}
                 return {
                     { x = 1.0, y = 2.0 },
                     { x = 1.0, y = 2.0 },
@@ -632,13 +629,15 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 }
             end
 
-            export function eq_point(p: Point, q: Point): boolean
+            function m.eq_point(p: Point, q: Point): boolean
                 return p == q
             end
 
-            export function ne_point(p: Point, q: Point): boolean
+            function m.ne_point(p: Point, q: Point): boolean
                 return p ~= q
             end
+
+            return m
         ]])
 
         it("==", function()
@@ -681,9 +680,10 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         }
 
         local record_decls = [[
+            local m: module = {}
             record Empty
             end
-            export function new_empty(): Empty
+            function m.new_empty(): Empty
                 return {}
             end
         ]]
@@ -696,11 +696,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             local name, typ, value = test[1], test[2], test[3]
 
             pallene_code[i] = util.render([[
-                export function from_${name}(x: ${typ}): any
+                function m.from_${name}(x: ${typ}): any
                     return (x as any)
                 end
 
-                export function to_${name}(x: any): ${typ}
+                function m.to_${name}(x: any): ${typ}
                     return (x as ${typ})
                 end
             ]], {
@@ -724,6 +724,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 value = value
             })
         end
+        pallene_code[#pallene_code + 1] = [[ return m]]
 
         compile(
             record_decls .. "\n" ..
@@ -749,7 +750,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Statements /", function()
         compile([[
-            export function stat_blocks(): integer
+            local m: module = {}
+            function m.stat_blocks(): integer
                 local a = 1
                 local b = 2
                 do
@@ -760,7 +762,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return a + b
             end
 
-            export function sign(x: integer) : integer
+            function m.sign(x: integer) : integer
                 if x < 0 then
                     return -1
                 elseif x == 0 then
@@ -770,14 +772,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
 
-            export function abs(x: integer) : integer
+            function m.abs(x: integer) : integer
                 if x >= 0 then
                     return x
                 end
                 return -x
             end
 
-            export function factorial_while(n: integer): integer
+            function m.factorial_while(n: integer): integer
                 local r = 1
                 while n > 0 do
                     r = r * n
@@ -786,7 +788,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return r
             end
 
-            export function factorial_int_for_inc(n: integer): integer
+            function m.factorial_int_for_inc(n: integer): integer
                 local res = 1
                 for i = 1, n do
                     res = res * i
@@ -794,7 +796,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return res
             end
 
-            export function factorial_int_for_dec(n: integer): integer
+            function m.factorial_int_for_dec(n: integer): integer
                 local res = 1
                 for i = n, 1, -1 do
                     res = res * i
@@ -802,7 +804,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return res
             end
 
-            export function factorial_float_for_inc(n: float): float
+            function m.factorial_float_for_inc(n: float): float
                 local res = 1.0
                 for i = 1.0, n do
                     res = res * i
@@ -810,7 +812,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return res
             end
 
-            export function factorial_float_for_dec(n: float): float
+            function m.factorial_float_for_dec(n: float): float
                 local res = 1.0
                 for i = n, 1.0, -1.0 do
                     res = res * i
@@ -818,7 +820,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return res
             end
 
-            export function repeat_until(): integer
+            function m.repeat_until(): integer
                 local x = 0
                 repeat
                     x = x + 1
@@ -827,17 +829,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return x
             end
 
-            export function break_while() : integer
+            function m.break_while() : integer
                 while true do break end
                 return 17
             end
 
-            export function break_repeat() : integer
+            function m.break_repeat() : integer
                 repeat break until false
                 return 17
             end
 
-            export function break_for(): integer
+            function m.break_for(): integer
                 local x = 0
                 for i = 1, 10 do
                     x = x + i
@@ -846,7 +848,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return x
             end
 
-            export function nested_break(x:boolean): integer
+            function m.nested_break(x:boolean): integer
                 while true do
                     while true do
                         break
@@ -862,6 +864,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return 40
             end
 
+            return m
         ]])
 
         it("Block, Assign, Decl", function()
@@ -922,37 +925,40 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Arrays /", function()
         compile([[
-            export function newarr(): {integer}
+            local m: module = {}
+            function m.newarr(): {integer}
                 return {10,20,30}
             end
 
-            export function len(xs:{integer}): integer
+            function m.len(xs:{integer}): integer
                 return #xs
             end
 
-            export function geti(arr: {integer}, i: integer): integer
+            function m.geti(arr: {integer}, i: integer): integer
                 return arr[i]
             end
 
-            export function seti(arr: {integer}, i: integer, v: integer)
+            function m.seti(arr: {integer}, i: integer, v: integer)
                 arr[i] = v
             end
 
-            export function insert(xs: {any}, v:any): ()
+            function m.insert(xs: {any}, v:any): ()
                 xs[#xs + 1] = v
             end
 
-            export function remove(xs: {any}): ()
+            function m.remove(xs: {any}): ()
                 xs[#xs] = nil
             end
 
-            export function getany(xs: {any}, i:integer): any
+            function m.getany(xs: {any}, i:integer): any
                 return xs[i]
             end
 
-            export function getnil(xs: {nil}, i: integer): nil
+            function m.getnil(xs: {nil}, i: integer): nil
                 return xs[i]
             end
+
+            return m
         ]])
 
         it("literals", function()
@@ -1082,45 +1088,49 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         compile([[
             typealias point = {x: integer, y: integer}
 
-            export function newpoint(): point
+            local m: module = {}
+
+            function m.newpoint(): point
                 return {x = 10, y = 20}
             end
 
-            export function getx(p: point): integer
+            function m.getx(p: point): integer
                 return p.x
             end
 
-            export function gety(p: point): integer
+            function m.gety(p: point): integer
                 return p.y
             end
 
-            export function setx(p: point, v: integer)
+            function m.setx(p: point, v: integer)
                 p.x = v
             end
 
-            export function sety(p: point, v: integer)
+            function m.sety(p: point, v: integer)
                 p.y = v
             end
 
-            export function getany(t: {x: any}): any
+            function m.getany(t: {x: any}): any
                 return t.x
             end
 
-            export function setany(t: {x: any}, v: any)
+            function m.setany(t: {x: any}, v: any)
                 t.x = v
             end
 
-            export function getnil(t: {x: nil}): nil
+            function m.getnil(t: {x: nil}): nil
                 return t.x
             end
 
-            export function setnil(t: {x: nil})
+            function m.setnil(t: {x: nil})
                 t.x = nil
             end
 
-            export function getmax(t: {]].. maxlenfield ..[[: integer}): integer
+            function m.getmax(t: {]].. maxlenfield ..[[: integer}): integer
                 return t.]].. maxlenfield ..[[
             end
+
+            return m
         ]])
 
         it("has literals", function()
@@ -1196,9 +1206,12 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Strings", function()
         compile([[
-            export function len(s:string): integer
+            local m: module = {}
+            function m.len(s:string): integer
                 return #s
             end
+
+            return m
         ]])
 
         it("length operator (#)", function()
@@ -1213,9 +1226,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             typealias Float = float
             typealias FLOAT = float
 
-            export function Float2float(x: Float): float return x end
-            export function float2Float(x: float): Float return x end
-            export function Float2FLOAT(x: Float): FLOAT return x end
+            local m: module = {}
+
+            function m.Float2float(x: Float): float return x end
+            function m.float2Float(x: float): Float return x end
+            function m.Float2FLOAT(x: Float): FLOAT return x end
 
             record point
                 x: Float
@@ -1224,17 +1239,19 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             typealias Point = point
             typealias Points = {Point}
 
-            export function newPoint(x: Float): Point
+            function m.newPoint(x: Float): Point
                 return {x = x}
             end
 
-            export function get(p: Point): FLOAT
+            function m.get(p: Point): FLOAT
                 return p.x
             end
 
-            export function addPoint(ps: Points, p: Point)
+            function m.addPoint(ps: Points, p: Point)
                 ps[#ps + 1] = p
             end
+
+            return m
         ]])
 
         it("converts between typealiases of the same type", function()
@@ -1269,23 +1286,25 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: {integer}
             end
 
-            export function make_foo(x: integer, y: {integer}): Foo
+            local m: module = {}
+
+            function m.make_foo(x: integer, y: {integer}): Foo
                 return { x = x, y = y }
             end
 
-            export function get_x(foo: Foo): integer
+            function m.get_x(foo: Foo): integer
                 return foo.x
             end
 
-            export function set_x(foo: Foo, x: integer)
+            function m.set_x(foo: Foo, x: integer)
                 foo.x = x
             end
 
-            export function get_y(foo: Foo): {integer}
+            function m.get_y(foo: Foo): {integer}
                 return foo.y
             end
 
-            export function set_y(foo: Foo, y: {integer})
+            function m.set_y(foo: Foo, y: {integer})
                 foo.y = y
             end
 
@@ -1293,7 +1312,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x: integer
             end
 
-            export function make_prim(x: integer): Prim
+            function m.make_prim(x: integer): Prim
                 return { x = x }
             end
 
@@ -1301,16 +1320,18 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x: {integer}
             end
 
-            export function make_gc(x: {integer}): Gc
+            function m.make_gc(x: {integer}): Gc
                 return { x = x }
             end
 
             record Empty
             end
 
-            export function make_empty(): Empty
+            function m.make_empty(): Empty
                 return {}
             end
+
+            return m
         ]])
 
         it("create records", function()
@@ -1384,9 +1405,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("I/O", function()
         compile([[
-            export function write(s:string)
+            local m: module = {}
+            function m.write(s:string)
                 io.write(s)
             end
+            return m
         ]])
 
         it("io.write works", function()
@@ -1399,9 +1422,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("math.sqrt builtin", function()
         compile([[
-            export function square_root(x: float): float
+            local m: module = {}
+            function m.square_root(x: float): float
                 return math.sqrt(x)
             end
+            return m
         ]])
 
         it("works on positive numbers", function()
@@ -1431,9 +1456,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("string.char builtin", function()
         compile([[
-            export function chr(x: integer): string
+            local m: module = {}
+            function m.chr(x: integer): string
                 return string.char(x)
             end
+            return m
         ]])
 
         it("works on normal characters", function()
@@ -1465,9 +1492,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("string.sub builtin", function()
         compile([[
-            export function sub(s: string, i: integer, j: integer): string
+            local m: module = {}
+            function m.sub(s: string, i: integer, j: integer): string
                 return string.sub(s, i, j)
             end
+            return m
         ]])
 
         it("work", function()
@@ -1484,23 +1513,24 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("any", function()
         compile([[
-            export function id(x:any): any
+            local m: module = {}
+            function m.id(x:any): any
                 return x
             end
 
-            export function call(f:any->any, x:any): any
+            function m.call(f:any->any, x:any): any
                 return f(x)
             end
 
-            export function read(xs:{any}, i:integer): any
+            function m.read(xs:{any}, i:integer): any
                 return xs[i]
             end
 
-            export function write(xs:{any}, i:integer, x:any): ()
+            function m.write(xs:{any}, i:integer, x:any): ()
                 xs[i] = x
             end
 
-            export function if_any(x:any): boolean
+            function m.if_any(x:any): boolean
                 if x then
                     return true
                 else
@@ -1508,7 +1538,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
 
-            export function while_any(x:any): integer
+            function m.while_any(x:any): integer
                 local out = 0
                 while x do
                     out = out + 1
@@ -1517,7 +1547,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return out
             end
 
-            export function repeat_any(x:any): integer
+            function m.repeat_any(x:any): integer
                 local out = 0
                 repeat
                     out = out + 1
@@ -1527,6 +1557,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 until x
                 return out
             end
+
+            return m
         ]])
 
         --
@@ -1588,10 +1620,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Corner cases of exporting variables", function ()
         compile([[
+            local m: module = {}
             local  a = 10
-            export b = 20
+            m.b = 20
             local  c = 30
-            export d = 40
+            m.d = 40
+
+            return m
         ]])
 
         it("ensure that when globals are optimized away, the variables being exported are the right ones", function ()
@@ -1609,6 +1644,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: integer
             end
 
+            local m: module = {}
+
             local x = 10
 
             typealias y = integer
@@ -1619,21 +1656,21 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             ------
 
-            export k : string = "How you doin'?"
+             m.k = "How you doin'?"
 
             ------
 
-            export function local_type(): integer
+            function m.local_type(): integer
                 local Point: Point = { x=1, y=2 }
                 return Point.x
             end
 
-            export function local_initializer(): integer
+            function m.local_initializer(): integer
                 local x = x + 1
                 return x
             end
 
-            export function for_type_annotation(): integer
+            function m.for_type_annotation(): integer
                 local res = 0
                 for y:y = 1, 10 do
                     res = res + y
@@ -1641,7 +1678,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return res
             end
 
-            export function for_initializer(): integer
+            function m.for_initializer(): integer
                 local res = 0
                 for x = x + 1, x + 100, x-7 do
                     res = res + 1
@@ -1649,11 +1686,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return res
             end
 
-            export function duplicate_parameter(x: integer, x:integer) : integer
+            function m.duplicate_parameter(x: integer, x:integer) : integer
                 return x
             end
 
-            export integer: integer = 12
+             m.integer = 12
+
+            return m
         ]])
 
         it("ensure that local variables are not exported", function ()
@@ -1687,35 +1726,38 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Non-constant toplevel initializers", function()
         compile([[
-            export function f(): integer
+            local m: module = {}
+            function m.f(): integer
                 return 10
             end
 
-            local x1 = f()
+            local x1 = m.f()
             local x2 = x1
             local x3 = -x2
             local x4: {integer} = { x1 }
             local x5: {x: integer} = { x = x1 }
 
-            export function get_x1(): integer
+            function m.get_x1(): integer
                 return x1
             end
 
-            export function get_x2(): integer
+            function m.get_x2(): integer
                 return x2
             end
 
-            export function get_x3(): integer
+            function m.get_x3(): integer
                 return x3
             end
 
-            export function get_x4(): {integer}
+            function m.get_x4(): {integer}
                 return x4
             end
 
-            export function get_x5(): {x: integer}
+            function m.get_x5(): {x: integer}
                 return x5
             end
+
+            return m
         ]])
 
         it("", function()
@@ -1734,7 +1776,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Nested for loops", function()
         compile([[
-            export function mul(n: integer, m:integer) : integer
+            local m: module = {}
+            function m.mul(n: integer, m:integer) : integer
                 local ret = 0
                 for i = 1, n do
                     for j = 1, m do
@@ -1743,6 +1786,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return ret
             end
+            return m
         ]])
 
         it("", function()
@@ -1756,6 +1800,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("For-in loops", function()
         compile([[
+            local m: module = {}
             local function iter(arr: {any}, prev: integer): (any, any)
                 local i = prev + 1
                 local x = arr[i]
@@ -1774,7 +1819,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function double_list(xs: {integer}): {integer}
+            function m.double_list(xs: {integer}): {integer}
                 local out: {integer} = {}
                 for i, x in my_ipairs(xs) do
                     out[i] = x as integer * 2
@@ -1785,7 +1830,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function flatten_list(grid: {{integer}}): {integer}
+            function m.flatten_list(grid: {{integer}}): {integer}
                 local out: {integer} = {}
                 for _, xs in my_ipairs(grid) do
                     for _, x in my_ipairs(xs) do
@@ -1797,7 +1842,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function square_list(xs: {integer}): {integer}
+            function m.square_list(xs: {integer}): {integer}
                 local out: {integer} = {}
                 for i, v in iter as iterfn, xs as any, 0 as any do
                     out[i] = (v as integer) * (v as integer)
@@ -1807,7 +1852,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function sum_list(xs: {integer}): integer
+            function m.sum_list(xs: {integer}): integer
                 local sum = 0
                 for _: integer, x: integer in my_ipairs(xs) do
                     sum = sum + x
@@ -1817,7 +1862,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function double_list_ipairs(xs: {integer}): {integer}
+            function m.double_list_ipairs(xs: {integer}): {integer}
                 local out: {integer} = {}
                 for i, x in ipairs(xs) do
                     out[i] = x as integer * 2
@@ -1827,13 +1872,15 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             -----------------------
 
-            export function sum_list_ipairs(xs: {integer}): integer
+            function m.sum_list_ipairs(xs: {integer}): integer
                 local sum = 0
                 for _: integer, x: integer in ipairs(xs) do
                     sum = sum + x
                 end
                 return sum
             end
+
+            return m
         ]])
 
         it("general for-in loops", function()
@@ -1893,15 +1940,18 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             local step = 1
             local counter = 0
 
+            local m: module = {}
+
             local function inc(): integer
                 counter = counter + step
                 return counter
             end
 
-            export function next(): integer
+            function m.next(): integer
                 x = inc()
                 return counter
             end
+            return m
         ]])
 
         it("preserves assignment side-effects", function()
@@ -1915,7 +1965,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Uninitialized variables", function()
         compile([[
-            export function sign(x: integer): integer
+            local m: module = {}
+            function m.sign(x: integer): integer
                 local ret: integer
                 if     x  < 0 then
                     ret = -1
@@ -1927,7 +1978,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return ret
             end
 
-            export function non_breaking_loop(): integer
+            function m.non_breaking_loop(): integer
                 local i = 1
                 while true do
                     if i == 42 then return i end
@@ -1935,13 +1986,15 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
 
-            export function initialize_inside_loop(): integer
+            function m.initialize_inside_loop(): integer
                 local x: integer
                 repeat
                     x = 17
                 until true
                 return x
             end
+
+            return m
         ]])
 
         it("can be used", function()
@@ -1967,13 +2020,15 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("For loop integer overflow", function()
         compile([[
-            export function loop(A: integer, B: integer, C: integer): {integer}
+            local m: module = {}
+            function m.loop(A: integer, B: integer, C: integer): {integer}
                 local xs: {integer} = {}
                 for i = A, B, C do
                     xs[#xs+1] = i
                 end
                 return xs
             end
+            return m
         ]])
 
         it("int loop avoids overflow", function()
@@ -2027,21 +2082,23 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: integer
             end
 
-            export function new_rpoint(x:integer, y:integer): RPoint
+            local m: module = {}
+
+            function m.new_rpoint(x:integer, y:integer): RPoint
                 return {x = x, y = y}
             end
 
-            export function get_rpoint_fields(p:RPoint): (integer, integer)
+            function m.get_rpoint_fields(p:RPoint): (integer, integer)
                 return p.x, p.y
             end
 
             local gi, ga: {integer} = 1, {}
-            export function assign_global(): (integer, {integer})
+            function m.assign_global(): (integer, {integer})
                 gi, ga[gi] = gi+1, 20
                 return gi, ga
             end
 
-            export function assign_local(): (integer, {integer})
+            function m.assign_local(): (integer, {integer})
                 local li: integer = 1
                 local la: {integer} = {}
 
@@ -2049,56 +2106,56 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return li, la
             end
 
-            export function assign_bracket(): (integer, integer)
+            function m.assign_bracket(): (integer, integer)
                 local a: {integer} = {10, 20}
 
                 a[1], a[2] = a[2], a[1]
                 return a[1], a[2]
             end
 
-            export function swap(): (integer, integer)
+            function m.swap(): (integer, integer)
                 local x, y = 10, 20
                 x, y = y, x
                 return x, y
             end
 
-            export function swap_point(): TPoint
+            function m.swap_point(): TPoint
                 local p:TPoint = { x = 10, y = 20 }
                 p.x, p.y = p.y, p.x
                 return p
             end
 
-            export function assign_tables_1(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
+            function m.assign_tables_1(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
                 a, a[1] = b, c
                 return a, b
             end
 
-            export function assign_tables_2(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
+            function m.assign_tables_2(a:{integer}, b:{integer}, c:integer): ({integer}, {integer})
                 a[1], a = c, b
                 return a, b
             end
 
-            export function assign_dots_1(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
+            function m.assign_dots_1(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
                 a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            export function assign_dots_2(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
+            function m.assign_dots_2(a:TPoint, b:TPoint, c:integer, d:integer): (TPoint, TPoint)
                 a.x, a.y, a = c, d, b
                 return a, b
             end
 
-            export function assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+            function m.assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
                 a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            export function assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+            function m.assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
                 a.x, a.y, a = c, d, b
                 return a, b
             end
 
-            export function assign_same_var(): integer
+            function m.assign_same_var(): integer
                 local a:integer
                 a, a, a = 10, 20, 30
                 return a
@@ -2113,22 +2170,24 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             local x = inc(), inc()
 
-            export function extra_values_in_toplevel_decl(): (integer, integer)
+            function m.extra_values_in_toplevel_decl(): (integer, integer)
                 return x, gn
             end
 
-            export function extra_values_in_local_decl(): (integer, integer)
+            function m.extra_values_in_local_decl(): (integer, integer)
                 gn = 10
                 local y = inc(), inc()
                 return y, gn
             end
 
-            export function extra_values_in_assign_stat(): (integer, integer)
+            function m.extra_values_in_assign_stat(): (integer, integer)
                 local y: integer
                 gn = 20
                 y = inc(), inc()
                 return y, gn
             end
+
+            return m
         ]])
 
         it("preserves evaluation order with local variables", function()
@@ -2291,61 +2350,64 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Multiple returns", function()
         compile([[
-            export function f(): (integer, integer, integer)
+            local m: module = {}
+            function m.f(): (integer, integer, integer)
                 return 10, 20, 30
             end
 
-            export function g(x:integer, y:integer, z:integer): integer
+            function m.g(x:integer, y:integer, z:integer): integer
                 return x + y + z
             end
 
-            export function func_as_param(): integer
-                local a = g(f())
+            function m.func_as_param(): integer
+                local a = m.g(m.f())
                 return a
             end
 
-            export function func_as_return(): (integer, integer, integer)
-                return f()
+            function m.func_as_return(): (integer, integer, integer)
+                return m.f()
             end
 
-            export function func_as_first_return(): (integer, integer)
-                return f(), 42
+            function m.func_as_first_return(): (integer, integer)
+                return m.f(), 42
             end
 
-            export function func_as_only_exp(): integer
-                local a, b, c = f()
+            function m.func_as_only_exp(): integer
+                local a, b, c = m.f()
                 return a + b + c
             end
 
-            export function func_inside_paren(): integer
-                return (f())
+            function m.func_inside_paren(): integer
+                return (m.f())
             end
 
-            export function callstatic_assign_same_var_1(): integer
+            function m.callstatic_assign_same_var_1(): integer
                 local x: integer
-                x, x, x = f()
+                x, x, x = m.f()
                 return x
             end
 
-            export function callstatic_assign_same_var_2(): integer
+            function m.callstatic_assign_same_var_2(): integer
                 local x: integer
                 local y: integer
-                x, y, y = f()
+                x, y, y = m.f()
                 return y
             end
 
-            export function calldyn_assign_same_var_1(p: ()->(integer,integer,integer)): integer
+            function m.calldyn_assign_same_var_1(p: ()->(integer,integer,integer)): integer
                 local x: integer
                 x, x, x = p()
                 return x
             end
 
-            export function calldyn_assign_same_var_2(p: ()->(integer,integer,integer)): integer
+            function m.calldyn_assign_same_var_2(p: ()->(integer,integer,integer)): integer
                 local x: integer
                 local y: integer
                 x, y, y = p()
                 return y
             end
+
+            return m
         ]])
 
         it("works as function arguments", function()
@@ -2420,9 +2482,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("tostring builtin", function ()
         compile([[
-            export function f(x: any): string
+            local m: module = {}
+            function m.f(x: any): string
                 return tostring(x)
             end
+            return m
         ]])
 
         it("works correctly with integer argument", function()
@@ -2455,9 +2519,12 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
     describe("check_exp_verify and parens", function()
         -- https://github.com/pallene-lang/pallene/issues/356
         compile([[
-            export function f(): integer
+          local m: module = {}
+            function m.f(): integer
                 return (1) as integer
             end
+
+            return m
         ]])
 
         it("works", function()

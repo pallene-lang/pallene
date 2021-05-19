@@ -1,3 +1,4 @@
+local m: module = {}
 
 local IM   = 139968
 local IA   = 3877
@@ -15,7 +16,7 @@ local function print_fasta_header(id: string, desc: string)
     io.write(">" .. id .. " " .. desc .. "\n")
 end
 
-export function repeat_fasta(id: string, desc: string, alu: string, n: integer)
+function m.repeat_fasta(id: string, desc: string, alu: string, n: integer)
     print_fasta_header(id, desc)
 
     local alusize = #alu
@@ -49,7 +50,7 @@ local function linear_search(ps: {float}, p: float): integer
     return 1
 end
 
-export function random_fasta(id: string, desc: string, frequencies: {{any}}, n: integer)
+function m.random_fasta(id: string, desc: string, frequencies: {{any}}, n: integer)
     print_fasta_header(id, desc)
 
     -- Prepare the cummulative probability table
@@ -86,3 +87,5 @@ export function random_fasta(id: string, desc: string, frequencies: {{any}}, n: 
         io.write("\n")
     end
 end
+
+return m

@@ -79,7 +79,7 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast.tls[1].decls[1].type
+    local type_ast = program_ast.tls[1].stat.decls[1].type
     assert_is_subset(expected_ast, type_ast)
 end
 
@@ -94,7 +94,7 @@ end
 
 local function expression_test_program(s)
     return (util.render([[
-        export function foo()
+        local function foo()
             x = ${EXPR}
         end
     ]], { EXPR = s }))
@@ -103,7 +103,7 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast.tls[1].value.body.stats[1].exps[1]
+    local exp_ast = program_ast.tls[1].stat.value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -118,7 +118,7 @@ end
 
 local function statements_test_program(s)
     return (util.render([[
-        export function foo()
+        local function foo()
             ${STATS}
         end
     ]], { STATS = s }))
@@ -127,7 +127,7 @@ end
 local function assert_statements_ast(code, expected_ast)
     local program_str = statements_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local stats_ast = program_ast.tls[1].value.body.stats
+    local stats_ast = program_ast.tls[1].stat.value.body.stats
     assert_is_subset(expected_ast, stats_ast)
 end
 
@@ -163,15 +163,26 @@ describe("Pallene parser", function()
     end)
 
     it("can parse toplevel var declarations", function()
-        assert_program_ast([[ local x=17 ]], {
-            { _tag = "ast.Toplevel.Var",
-                decls = { { name = "x", type = false } } }
-        })
+        assert_program_ast([[ local x=17 ]], { {
+      _tag = "ast.Toplevel.Stat",
+      stat = {
+        _tag = "ast.Stat.Decl",
+        decls = { {
+            _tag = "ast.Decl.Decl",
+            name = "x",
+            type = false
+          } },
+        exps = { {
+            _tag = "ast.Exp.Integer",
+            value = 17
+          } }
+      }
+    } })
     end)
 
     it("does not allow global variables", function()
         assert_program_syntax_error([[ x=17 ]],
-            "Toplevel variable declarations must have a 'local' or 'export' modifier")
+            "Toplevel assignments are only possible with module fields")
     end)
 
     it("cannot define function without export or local modifier", function()
@@ -180,130 +191,249 @@ describe("Pallene parser", function()
                 return 5319
             end
         ]],
-        "Toplevel function declarations must have a 'local' or 'export' modifier")
+        "Function must be 'local' or module function")
     end)
 
     it("last function without export or local modifier", function()
         assert_program_syntax_error([[
-            export function a()
+            local m: module = {}
+            function m.a()
             end
 
             function f() : integer
                 return 5319
             end
+            return m
         ]],
-        "Toplevel function declarations must have a 'local' or 'export' modifier")
+        "Function must be 'local' or module function")
     end)
 
     it("first function without export or local modifier", function()
         assert_program_syntax_error([[
+            local m: module = {}
             function a()
             end
 
-            export function f() : integer
+            function m.f() : integer
                 return 5319
             end
+            return m
         ]],
-        "Toplevel function declarations must have a 'local' or 'export' modifier")
+        "Function must be 'local' or module function")
     end)
 
     it("toplevel variable declaration without export or local modifier", function()
         assert_program_syntax_error([[
             a,m="s","r"
         ]],
-        "Toplevel variable declarations must have a 'local' or 'export' modifier")
+        "Toplevel assignments are only possible with module fields")
     end)
 
     it("toplevel variable declaration without export or local modifier (without comma)", function()
         assert_program_syntax_error([[
             a="s"
         ]],
-        "Toplevel variable declarations must have a 'local' or 'export' modifier")
+        "Toplevel assignments are only possible with module fields")
     end)
 
     it("can parse toplevel function declarations", function()
         assert_program_ast([[
             local function fA() : float
             end
-        ]], {
-            { _tag = "ast.Toplevel.Func",
-                visibility = "local",
-                decl = {
-                    name = "fA",
-                    type = {
-                        arg_types = {},
-                        ret_types = {
-                            { _tag = "ast.Type.Name", name = "float" }, }, } },
-                value = {
-                    _tag = "ast.Exp.Lambda",
-                    arg_decls  = {},
-                    body = {
-                        _tag = "ast.Stat.Block",
-                        stats = {} } } },
-        })
+        ]], { {
+          _tag = "ast.Toplevel.Stat",
+          stat = {
+            _tag = "ast.Stat.Func",
+            decl = {
+              _tag = "ast.Decl.Decl",
+              type = {
+                _tag = "ast.Type.Function",
+                arg_types = {},
+                ret_types = { {
+                    _tag = "ast.Type.Name",
+                    name = "float"
+                  } }
+              }
+            },
+            name = {
+              _tag = "ast.Exp.Var",
+              var = {
+                _tag = "ast.Var.Name",
+                name = "fA"
+              }
+            },
+            value = {
+              _tag = "ast.Exp.Lambda",
+              arg_decls = {},
+              body = {
+                _tag = "ast.Stat.Block",
+                stats = {}
+              }
+            }
+          }
+        } })
 
         assert_program_ast([[
             local function fB(x:integer) : float
             end
-        ]], {
-            { _tag = "ast.Toplevel.Func",
-                visibility = "local",
-                decl = {
-                    name = "fB",
-                    type = {
-                        arg_types = {
-                            { _tag = "ast.Type.Name", name = "integer" }, },
-                        ret_types = {
-                            { _tag = "ast.Type.Name", name = "float" }, }, } },
-                value = {
-                    _tag = "ast.Exp.Lambda",
-                    arg_decls = { { name = "x" } },
-                    body = {
-                        _tag = "ast.Stat.Block",
-                        stats = {} } } },
-        })
+        ]], { {
+      _tag = "ast.Toplevel.Stat",
+        stat = {
+          _tag = "ast.Stat.Func",
+          decl = {
+            _tag = "ast.Decl.Decl",
+            type = {
+              _tag = "ast.Type.Function",
+              arg_types = { {
+                  _tag = "ast.Type.Name",
+                  name = "integer"
+                } },
+              ret_types = { {
+                  _tag = "ast.Type.Name",
+                  name = "float"
+                } }
+            }
+          },
+          name = {
+            _tag = "ast.Exp.Var",
+            var = {
+              _tag = "ast.Var.Name",
+              name = "fB"
+            }
+          },
+          value = {
+            _tag = "ast.Exp.Lambda",
+            arg_decls = { {
+                _tag = "ast.Decl.Decl",
+                name = "x",
+              } },
+            body = {
+              _tag = "ast.Stat.Block",
+              stats = {}
+            }
+          }
+        }
+      } })
 
         assert_program_ast([[
             local function fC(x:integer, y:integer) : float
             end
-        ]], {
-            { _tag = "ast.Toplevel.Func",
-                visibility = "local",
-                decl = {
-                    name = "fC",
-                    type = {
-                        arg_types = {
-                            { _tag = "ast.Type.Name", name = "integer" },
-                            { _tag = "ast.Type.Name", name = "integer" }, },
-                        ret_types = {
-                            { _tag = "ast.Type.Name", name = "float" }, }, } },
-                value = {
-                    _tag = "ast.Exp.Lambda",
-                    arg_decls = { { name = "x" }, { name = "y" } },
-                    body = {
-                        _tag = "ast.Stat.Block",
-                        stats = {} } } },
-        })
+        ]], { {
+            _tag = "ast.Toplevel.Stat",
+            stat = {
+              _tag = "ast.Stat.Func",
+              decl = {
+                _tag = "ast.Decl.Decl",
+                type = {
+                  _tag = "ast.Type.Function",
+                  arg_types = { {
+                      _tag = "ast.Type.Name",
+                      name = "integer"
+                    }, {
+                      _tag = "ast.Type.Name",
+                      name = "integer"
+                    } },
+                  ret_types = { {
+                      _tag = "ast.Type.Name",
+                      name = "float"
+                    } }
+                }
+              },
+              name = {
+                _tag = "ast.Exp.Var",
+                var = {
+                  _tag = "ast.Var.Name",
+                  name = "fC"
+                }
+              },
+              value = {
+                _tag = "ast.Exp.Lambda",
+                arg_decls = { {
+                    _tag = "ast.Decl.Decl",
+                    name = "x",
+                  }, {
+                    _tag = "ast.Decl.Decl",
+                    name = "y",
+                  } },
+                body = {
+                  _tag = "ast.Stat.Block",
+                  stats = {}
+                }
+              }
+            }
+        } })
     end)
 
     it("allows ommiting the optional return type annotation", function ()
         assert_program_ast([[
-            export function foo()
+            function m.foo()
             end
             local function bar()
             end
-        ]], {
-            { _tag = "ast.Toplevel.Func",
-                visibility = "export",
-                decl = {
-                    name = "foo",
-                    type = { arg_types = {}, ret_types = {} } }, },
-            { _tag = "ast.Toplevel.Func",
-                visibility = "local",
-                decl = {
-                    name = "bar",
-                    type = { arg_types = {}, ret_types = {} } }, },
-        })
+        ]], { {
+      _tag = "ast.Toplevel.Stat",
+      stat = {
+        _tag = "ast.Stat.Func",
+        decl = {
+          _tag = "ast.Decl.Decl",
+          type = {
+            _tag = "ast.Type.Function",
+            arg_types = {},
+            ret_types = {}
+          }
+        },
+        name = {
+          _tag = "ast.Exp.Var",
+          var = {
+            _tag = "ast.Var.Dot",
+            exp = {
+              _tag = "ast.Exp.Var",
+              var = {
+                _tag = "ast.Var.Name",
+                name = "m"
+              }
+            },
+            name = "foo"
+          }
+        },
+        value = {
+          _tag = "ast.Exp.Lambda",
+          arg_decls = {},
+          body = {
+            _tag = "ast.Stat.Block",
+            stats = {}
+          }
+        }
+      }
+    }, {
+      _tag = "ast.Toplevel.Stat",
+      stat = {
+        _tag = "ast.Stat.Func",
+        decl = {
+          _tag = "ast.Decl.Decl",
+          type = {
+            _tag = "ast.Type.Function",
+            arg_types = {},
+            ret_types = {}
+          }
+        },
+        name = {
+          _tag = "ast.Exp.Var",
+          var = {
+            _tag = "ast.Var.Name",
+            name = "bar"
+          }
+        },
+        value = {
+          _tag = "ast.Exp.Lambda",
+          arg_decls = {},
+          body = {
+            _tag = "ast.Stat.Block",
+            stats = {}
+          }
+        }
+      }
+    } })
     end)
 
     it("can parse multiple return expressions", function()
@@ -964,40 +1094,40 @@ describe("Pallene parser", function()
     it("uses specific error labels for some errors", function()
 
         assert_program_syntax_error([[
-            export function () : int
+            local function () : int
             end
         ]], "Expected a name before '('")
 
         assert_program_syntax_error([[
-            export function foo : int
+            function m.foo : int
             end
         ]], "Expected '(' before ':'")
 
         assert_program_syntax_error([[
-            export function foo ( : int
+            function m.foo ( : int
             end
         ]], "Expected ')' before ':'")
 
         assert_program_syntax_error([[
-            export function foo () :
+            function m.foo () :
                 local x = 3
             end
         ]], "Unexpected 'local' while trying to parse a type")
 
         assert_program_syntax_error([[
-            export function foo () : int
+            function m.foo () : int
               local x = 3
               return x
         ]], "Expected 'end' before end of the file, to close the 'function' at line 1")
 
         assert_program_syntax_error([[
-            export function foo(x, y) : int
+            function m.foo(x, y) : int
             end
         ]], "Parameter 'x' is missing a type annotation")
 
         assert_program_syntax_error([[
             local x 3
-        ]], "Expected '=' before number")
+        ]], "Unexpected number while trying to parse a statement")
 
         assert_program_syntax_error([[
             local x =
@@ -1025,12 +1155,12 @@ describe("Pallene parser", function()
         ]], "Expected 'end' before end of the file, to close the 'record' at line 1")
 
         assert_program_syntax_error([[
-            export function foo (a:int, ) : int
+            function m.foo (a:int, ) : int
             end
         ]], "Expected a name before ')'")
 
         assert_program_syntax_error([[
-            export function foo (a: ) : int
+            function m.foo (a: ) : int
             end
         ]], "Unexpected ')' while trying to parse a type")
 
@@ -1066,7 +1196,7 @@ describe("Pallene parser", function()
         ]], "Unexpected 'function' while trying to parse a type")
 
         assert_program_syntax_error([[
-            export function f ( x : int) : string
+            function m.f ( x : int) : string
                 do
                 return "42"
         ]], "Expected 'end' before end of the file, to close the 'do' at line 2")
@@ -1254,7 +1384,7 @@ describe("Pallene parser", function()
 
     it("catches break statements outside loops", function()
         assert_program_syntax_error([[
-            export function fn()
+            local function fn()
                 break
             end
         ]], "break statement outside of a loop")
@@ -1262,7 +1392,7 @@ describe("Pallene parser", function()
 
     it("catches break statements outside loops but inside other statements", function()
         assert_program_syntax_error([[
-            export function fn(x:boolean)
+            local function fn(x:boolean)
                 do
                     if x then
                         break

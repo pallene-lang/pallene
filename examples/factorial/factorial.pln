@@ -3,10 +3,14 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-export function factorial(n: integer): integer
+local m: module = {}
+
+function m.factorial(n: integer): integer
     if n <= 1 then
         return 1
     else
-        return n * factorial(n - 1)
+        return n * m.factorial(n - 1)
     end
 end
+
+return m

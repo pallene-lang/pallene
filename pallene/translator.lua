@@ -44,6 +44,7 @@ end
 function Translator:add_previous(stop_index)
     assert(self.last_index <= stop_index + 1)
     local partial = self.input:sub(self.last_index, stop_index)
+    --partial = partial:gsub('local ', '')
     table.insert(self.partials, partial)
     self.last_index = stop_index + 1
 end
@@ -60,37 +61,22 @@ function Translator:erase_region(start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
-function Translator:add_exports()
-    if #self.exports > 0 then
-        table.insert(self.partials, "\nreturn {\n")
-        for _, export in ipairs(self.exports) do
-            local pair = string.format("    %s = %s,\n", export, export)
-            table.insert(self.partials, pair)
-        end
-        table.insert(self.partials, "}\n")
-    end
-end
-
 function Translator:add_forward_declarations(prog_ast)
     local names = {}
     for _, node in ipairs(prog_ast.tls) do
-        -- Build the exports and forward declaration table.
-        if node._tag == "ast.Toplevel.Var" then
-            if node.visibility == "export" then
-                for _, decl in ipairs(node.decls) do
-                    table.insert(self.exports, decl.name)
+        if node._tag == "ast.Toplevel.Stat" then
+            local stat = node.stat
+            if stat._tag == "ast.Stat.Decl" then
+                for _, decl in ipairs(stat.decls) do
+                    if not decl._modname then
+                        table.insert(names, decl.name)     
+                    end
                 end
-            end
-
-            for _, decl in ipairs(node.decls) do
-                table.insert(names, decl.name)
-            end
-        elseif node._tag == "ast.Toplevel.Func" then
-            local name = node.decl.name
-            table.insert(names, name)
-
-            if node.visibility == "export" then
-                table.insert(self.exports, name)
+            elseif stat._tag == "ast.Stat.Func" then
+                local decl = stat.decl
+                if not decl._modname then
+                    table.insert(names, decl.name)     
+                end
             end
         end
     end
@@ -138,7 +124,6 @@ function translator.translate(input, prog_ast)
 
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
-    instance:add_exports()
 
     return table.concat(instance.partials)
 end

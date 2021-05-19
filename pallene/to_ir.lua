@@ -74,85 +74,38 @@ function ToIR:convert_toplevel(prog_ast)
     ir.add_function(self.module, false, "$init", types.T.Function({}, {}))
 
     -- Initialize the module-level variables
+    self:enter_function(1)
+    local cmds = {}
     for _, tl_node in ipairs(prog_ast) do
         local tag = tl_node._tag
-        if     tag == "ast.Toplevel.Func" then
-            local decl = tl_node.decl
-            self.fun_id_of_decl[decl] = ir.add_function(self.module, decl.loc, decl.name, decl._type)
-
-        elseif tag == "ast.Toplevel.Var" then
-            for _, decl in ipairs(tl_node.decls) do
-                self.glb_id_of_decl[decl] = ir.add_global(self.module, decl.name, decl._type)
+        if tag == "ast.Toplevel.Stat" then
+            local stat = tl_node.stat
+            if stat._tag == "ast.Stat.Func" then
+                local decl = stat.decl
+                self.fun_id_of_decl[decl] = ir.add_function(self.module, decl.loc, decl.name, decl._type)
+                if decl._modname then
+                    ir.add_exported_function(self.module, self.fun_id_of_decl[decl])
+                end
             end
-
-        elseif  tag == "ast.Toplevel.Typealias" then
+        end
+    end
+    for _, tl_node in ipairs(prog_ast) do
+        local tag = tl_node._tag
+        if     tag == "ast.Toplevel.Typealias" then
             -- skip
 
         elseif tag == "ast.Toplevel.Record" then
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
 
+        elseif tag == "ast.Toplevel.Stat" then
+            self:convert_stat(cmds, tl_node.stat, true)
+
         else
             typedecl.tag_error(tag)
         end
     end
-
-    -- Take care of exports
-    for _, tl_node in ipairs(prog_ast) do
-        local tag = tl_node._tag
-        if     tag == "ast.Toplevel.Func" then
-            local f_id = self.fun_id_of_decl[tl_node.decl]
-            if tl_node.visibility == "export" then
-                ir.add_exported_function(self.module, f_id)
-            end
-        elseif tag == "ast.Toplevel.Var" then
-            if tl_node.visibility == "export" then
-                for _, decl in ipairs(tl_node.decls) do
-                    local g_id = self.glb_id_of_decl[decl]
-                    ir.add_exported_global(self.module, g_id)
-                end
-            end
-        end
-    end
-
-
-    -- Convert the body of the $init function
-    do
-        self:enter_function(1)
-        local cmds = {}
-        for _, tl_node in ipairs(prog_ast) do
-            local tag = tl_node._tag
-            if tag == "ast.Toplevel.Var" then
-                for i, exp in ipairs(tl_node.values) do
-                    local decl = tl_node.decls[i]
-                    local val = self:exp_to_value(cmds, exp)
-                    if decl then
-                        local gid = self.glb_id_of_decl[decl]
-                        table.insert(cmds, ir.Cmd.SetGlobal(tl_node.loc, gid, val))
-                    end
-                end
-            end
-        end
-        self:exit_function(cmds)
-    end
-
-    -- Convert the regular functions
-    for _, tl_node in ipairs(prog_ast) do
-       local tag = tl_node._tag
-       if tag == "ast.Toplevel.Func" then
-           self:enter_function(self.fun_id_of_decl[tl_node.decl])
-
-           local exp = tl_node.value
-           assert(exp._tag == "ast.Exp.Lambda")
-           for _, decl in ipairs(exp.arg_decls) do
-               self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
-           end
-
-           local cmds = {}
-           self:convert_stat(cmds, exp.body)
-           self:exit_function(cmds)
-       end
-    end
+    self:exit_function(cmds)
 
     return self.module
 end
@@ -160,13 +113,13 @@ end
 
 function ToIR:convert_stats(cmds, stats)
     for i = 1, #stats do
-        self:convert_stat(cmds, stats[i])
+        self:convert_stat(cmds, stats[i], false)
     end
 end
 
 -- Converts a typechecked ast.Stat into a list of ir.Cmd
 -- The converted ir.Cmd nodes are appended to the @cmds list
-function ToIR:convert_stat(cmds, stat)
+function ToIR:convert_stat(cmds, stat, istoplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Block" then
         self:convert_stats(cmds, stat.stats)
@@ -176,12 +129,12 @@ function ToIR:convert_stat(cmds, stat)
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
         table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
-        self:convert_stat(body, stat.block)
+        self:convert_stat(body, stat.block, false)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.Repeat" then
         local body = {}
-        self:convert_stat(body, stat.block)
+        self:convert_stat(body, stat.block, false)
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
         table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
@@ -190,8 +143,8 @@ function ToIR:convert_stat(cmds, stat)
     elseif tag == "ast.Stat.If" then
         local cond     = self:exp_to_value(cmds, stat.condition)
         local condBool = self:value_is_truthy(cmds, stat.condition, cond)
-        local then_ = {}; self:convert_stat(then_, stat.then_)
-        local else_ = {}; self:convert_stat(else_, stat.else_)
+        local then_ = {}; self:convert_stat(then_, stat.then_, false)
+        local else_ = {}; self:convert_stat(else_, stat.else_, false)
         table.insert(cmds, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Seq(then_), ir.Cmd.Seq(else_)))
 
     elseif tag == "ast.Stat.ForNum" then
@@ -204,7 +157,7 @@ function ToIR:convert_stat(cmds, stat)
         self.loc_id_of_decl[decl] = v
 
         local body = {}
-        self:convert_stat(body, stat.block)
+        self:convert_stat(body, stat.block, false)
 
         table.insert(cmds, ir.Cmd.For(stat.loc, v, start, limit, step, ir.Cmd.Seq(body)))
 
@@ -291,7 +244,7 @@ function ToIR:convert_stat(cmds, stat)
             end
 
             -- <loop body>
-            self:convert_stat(body, stat.block)
+            self:convert_stat(body, stat.block, false)
             -- i_num = i_num + 1
             local loop_step = ir.Value.Integer(1)
             table.insert(body, ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
@@ -358,7 +311,7 @@ function ToIR:convert_stat(cmds, stat)
                 end
             end
 
-            self:convert_stat(body, stat.block)
+            self:convert_stat(body, stat.block, false)
             table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
     end
 
@@ -406,6 +359,15 @@ function ToIR:convert_stat(cmds, stat)
                 elseif cname._tag == "checker.Name.Global" then
                     local id = self.glb_id_of_decl[cname.decl]
                     table.insert(lhss, to_ir.LHS.Global(id))
+                elseif cname._tag == "checker.Module.Var" then
+                    local decl = cname.decl
+                    local g_id = self.glb_id_of_decl[decl]
+                    if not g_id then
+                        g_id = ir.add_global(self.module, decl.name, decl.type)
+                        self.glb_id_of_decl[decl] = g_id
+                        ir.add_exported_global(self.module, g_id)
+                    end
+                    table.insert(lhss, to_ir.LHS.Global(g_id))
                 else
                     typedecl.tag_error(cname._tag)
                 end
@@ -494,13 +456,32 @@ function ToIR:convert_stat(cmds, stat)
 
     elseif tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
-            self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
+            local typ = decl._type
+            if istoplevel then
+                if typ._tag ~= "types.T.Module" then
+                    self.glb_id_of_decl[decl] = ir.add_global(self.module, decl.name, typ)
+                    if decl._modname then
+                        ir.add_exported_global(self.module, self.glb_id_of_decl[decl])
+                    end
+                end
+            else
+                assert(typ._tag ~= "types.T.Module")
+                self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, typ)
+            end
         end
 
         for i, exp in ipairs(stat.exps) do
             local decl = stat.decls[i]
             if decl then
-                self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
+                if istoplevel then
+                    local gid = self.glb_id_of_decl[decl]
+                    if gid then
+                        local val = self:exp_to_value(cmds, exp)
+                        table.insert(cmds, ir.Cmd.SetGlobal(decl.loc, gid, val))
+                    end
+                else
+                    self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
+                end
             else
                 -- Extra argument to RHS; compute it for side effects and discard result
                 local _ = self:exp_to_value(cmds, exp)
@@ -519,6 +500,21 @@ function ToIR:convert_stat(cmds, stat)
 
     elseif tag == "ast.Stat.Break" then
         table.insert(cmds, ir.Cmd.Break())
+
+    elseif tag == "ast.Stat.Func" then
+        local prev_f_id = 1
+        self:enter_function(self.fun_id_of_decl[stat.decl])
+
+        local exp = stat.value
+        assert(exp._tag == "ast.Exp.Lambda")
+        for _, decl in ipairs(exp.arg_decls) do
+          self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
+        end
+
+        local f_cmds = {}
+        self:convert_stat(f_cmds, exp.body, false)
+        self:exit_function(f_cmds)
+        self:enter_function(prev_f_id)
 
     else
         typedecl.type_error(tag)
@@ -653,7 +649,8 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
                 local id = self.loc_id_of_decl[cname.decl]
                 return ir.Value.LocalVar(id)
 
-            elseif cname._tag == "checker.Name.Global" then
+            elseif cname._tag == "checker.Name.Global" or
+                   cname._tag == "checker.Module.Var" then
                 -- Fallthrough to default
 
             elseif cname._tag == "checker.Name.Function" then
@@ -742,6 +739,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 local vv = self:exp_to_value(cmds, f_exp)
                 table.insert(cmds, ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
             end
+        elseif typ._tag == "types.T.Module" then
+            -- Fallthrough to default
+
         else
             typedecl.tag_error(typ._tag)
         end
@@ -779,7 +779,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local f_val
         if  cname and (
                 cname._tag == "checker.Name.Builtin" or
-                cname._tag == "checker.Name.Function") then
+                cname._tag == "checker.Name.Function" or
+                cname._tag == "checker.Module.Function") then
             f_val = false
         else
             f_val = self:exp_to_value(cmds, exp.exp)
@@ -818,7 +819,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 typedecl.tag_error(bname)
             end
 
-        elseif cname and cname._tag == "checker.Name.Function" then
+        elseif cname and (cname._tag == "checker.Name.Function" or
+                          cname._tag == "checker.Module.Function") then
             local f_id = assert(self.fun_id_of_decl[cname.decl])
             table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_id, xs))
 
@@ -833,7 +835,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
             local cname = var._name
-            if cname._tag == "checker.Name.Global" then
+            if cname._tag == "checker.Name.Global" or
+               cname._tag == "checker.Module.Var" then
                 local g_id = assert(self.glb_id_of_decl[cname.decl])
                 table.insert(cmds, ir.Cmd.GetGlobal(loc, dst, g_id))
             else
@@ -847,23 +850,21 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             table.insert(cmds, ir.Cmd.GetArr(loc, dst_typ, dst, arr, i))
 
         elseif var._tag == "ast.Var.Dot" then
-            local typ = assert(var.exp._type)
-            local field = var.name
-            local rec = self:exp_to_value(cmds, var.exp)
-            local cmd
-            if     typ._tag == "types.T.Table" then
-                local key = ir.Value.String(field)
-                local dst_typ = typ.fields[field]
-                cmd = ir.Cmd.GetTable(loc, dst_typ, dst, rec, key)
-            elseif typ._tag == "types.T.Record" then
-                cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)
-            elseif typedecl.tag_is_type(typ._tag) then
-                typedecl.tag_error(typ._tag, "cannot index this type.")
-            else
-                typedecl.tag_error(typ._tag)
-            end
+              local typ = assert(var.exp._type)
+              local field = var.name
+              local cmd
+              local rec = self:exp_to_value(cmds, var.exp)
+              if     typ._tag == "types.T.Table" then
+                  local key = ir.Value.String(field)
+                  local dst_typ = typ.fields[field]
+                  cmd = ir.Cmd.GetTable(loc, dst_typ, dst, rec, key)
+              elseif typ._tag == "types.T.Record" then
+                  cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)
+              else
+                  typedecl.tag_error(typ._tag)
+              end
 
-            table.insert(cmds, cmd)
+              table.insert(cmds, cmd)
 
         else
             typedecl.tag_error(var._tag)

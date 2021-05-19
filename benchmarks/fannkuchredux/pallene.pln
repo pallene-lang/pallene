@@ -1,5 +1,6 @@
+local m: module = {}
 
-export function fannkuch(N: integer): {integer}
+function m.fannkuch(N: integer): {integer}
 
     local initial_perm: {integer} = {}
     for i = 1, N do
@@ -80,3 +81,5 @@ export function fannkuch(N: integer): {integer}
         perm_count = perm_count + 1
     end
 end
+
+return m

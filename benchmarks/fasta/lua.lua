@@ -1,4 +1,5 @@
-local IM, IA, IC, seed, random, WIDTH, print_fasta_header, repeat_fasta, linear_search, random_fasta;
+local m, IM, IA, IC, seed, random, WIDTH, print_fasta_header, linear_search;m = {}
+
 IM   = 139968
 IA   = 3877
 IC   = 29573
@@ -15,7 +16,7 @@ function print_fasta_header(id, desc)
     io.write(">" .. id .. " " .. desc .. "\n")
 end
 
-function repeat_fasta(id, desc, alu, n)
+function m.repeat_fasta(id, desc, alu, n)
     print_fasta_header(id, desc)
 
     local alusize = #alu
@@ -49,7 +50,7 @@ function linear_search(ps, p)
     return 1
 end
 
-function random_fasta(id, desc, frequencies, n)
+function m.random_fasta(id, desc, frequencies, n)
     print_fasta_header(id, desc)
 
     -- Prepare the cummulative probability table
@@ -87,7 +88,4 @@ function random_fasta(id, desc, frequencies, n)
     end
 end
 
-return {
-    repeat_fasta = repeat_fasta,
-    random_fasta = random_fasta,
-}
+return m
