@@ -1031,4 +1031,79 @@ describe("Pallene type checker", function()
         ]],
         "cannot reference module name 'io' without dot notation")
     end)
+    it("check if module variable is not declared", function()
+        assert_error([[
+            local function f()
+                local x = 2.5
+            end
+        ]],
+        "type error: Program has no module variable")
+    end)
+    it("forbid declarion of two module variables", function()
+        assert_error([[
+            local m: module = {}
+            local n: module = {}
+            function m.f()
+                local x = 2.5
+            end
+            return m
+        ]],
+        "type error: There can only be one module variable per program")
+    end)
+    it("forbid return of more than one variable", function()
+        assert_error([[
+            local m: module = {}
+            local i: integer = 2
+            function m.f()
+                local x = 2.5
+            end
+            return m, n
+        ]],
+        "type error: returning 2 value(s) but function expects 1")
+    end)
+    it("forbid return of any variable of type other then module", function()
+        assert_error([[
+            local m: module = {}
+            local i: integer = 2
+            function m.f()
+                local x = 2.5
+            end
+            return i
+        ]],
+        "type error: expected module but found integer in return statement")
+    end)
+    it("forbid assignment of Record as module field", function()
+        assert_error([[
+            record Point
+                x: integer
+                y: integer
+            end
+            local p: Point = {x = 12, y = 7}
+            local m: module = {}
+            m.p = p
+            return m
+        ]],
+        "type error: Can't assign module field to 'Point'")
+    end)
+    it("forbid assignment of Array as module field", function()
+        assert_error([[
+            local arr: {integer} = {1, 2, 6, -10}
+            local m: module = {}
+            m.arr = arr
+            return m
+        ]],
+        "type error: Can't assign module field to '{ integer }'")
+    end)
+    it("forbid assignment of any as module field", function()
+        assert_error([[
+            local a: any
+            local m: module = {}
+            m.a = a
+            return m
+        ]],
+        "type error: Can't assign module field to 'any'")
+    end)
+    it("forbid empty program", function()
+        assert_error([[]], "type error: Empty modules are not permitted")
+    end)
 end)
