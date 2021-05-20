@@ -122,7 +122,7 @@ declare_type("Name", {
     Global   = { "decl" },
     Function = { "decl" },
     Builtin  = { "name" },
-    Module   = { "name", "is_main_mod", "shadowed_type"}
+    Module   = { "name", "is_main_mod", "shadowed_symbol"}
 })
 -- TODO: add a comment explaining the Module case
 
@@ -165,19 +165,10 @@ end
 
 function Checker:add_module(name, is_main_mod)
     assert(type(name) == "string")
-
     -- To allow the name "string" to be used both as a module name and as a type name, module
     -- symbols are aware of the type that they are shadowing.
-    local curr = self.symbol_table:find_symbol(name)
-
-    local shadowed_type
-    if curr and curr._tag == "checker.Name.Type" then
-        shadowed_type = curr
-    else
-        shadowed_type = false
-    end
-
-    self.symbol_table:add_symbol(name, checker.Name.Module(name, is_main_mod, shadowed_type))
+    local shadowed_symbol = self.symbol_table:find_symbol(name)
+    self.symbol_table:add_symbol(name, checker.Name.Module(name, is_main_mod, shadowed_symbol))
 end
 
 --
@@ -197,8 +188,8 @@ function Checker:from_ast_type(ast_typ)
         elseif cname._tag == "checker.Name.Type" then
             return cname.typ
         elseif cname._tag == "checker.Name.Module" then
-            if cname.shadowed_type then
-                return cname.shadowed_type.typ
+            if cname.shadowed_symbol and cname.shadowed_symbol._tag == "checker.Name.Type" then
+                return cname.shadowed_symbol.typ
             else
                 -- fallthrough
             end
