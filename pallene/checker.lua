@@ -102,6 +102,7 @@ end
 --
 
 function Checker:init()
+    self.mod_name = false            -- string
     self.symbol_table = symtab.new() -- string => checker.Name
     self.ret_types_stack = {}        -- stack of types.T
     return self
@@ -122,7 +123,8 @@ declare_type("Name", {
     Global   = { "decl" },
     Function = { "decl" },
     Builtin  = { "name" },
-    Module   = { "name", "is_main_mod", "shadowed_symbol"}
+    Module   = { "name", "is_main_mod", "shadowed_symbol"},
+    FakeKeyword = { "name" }, -- the "module" pseudo-type
 })
 -- TODO: add a comment explaining the Module case
 
@@ -169,6 +171,11 @@ function Checker:add_module(name, is_main_mod)
     -- symbols are aware of the type that they are shadowing.
     local shadowed_symbol = self.symbol_table:find_symbol(name)
     self.symbol_table:add_symbol(name, checker.Name.Module(name, is_main_mod, shadowed_symbol))
+end
+
+function Checker:add_fake_keyword(name)
+    assert(type(name) == "string")
+    self.symbol_table:add_symbol(name, checker.Name.FakeKeyword(name))
 end
 
 --
@@ -239,6 +246,9 @@ local letrec_groups = {
 function Checker:check_program(prog_ast)
     assert(prog_ast._tag == "ast.Program.Program")
     local tls = prog_ast.tls
+
+    -- Add the fake "module" type to the scope
+    self:add_fake_keyword("module")
 
     -- Add most primitive types to the symbol table
     self:add_type("any",     types.T.Any())
@@ -326,8 +336,9 @@ function Checker:check_program(prog_ast)
                 if stat._tag ==  "ast.Stat.Decl" then
                     for _, decl in ipairs(stat.decls) do
                         local typ = decl.type
-                        if typ and typ._tag == "ast.Type.Name" then
-                            if typ.name == "module" then
+                        if typ and typ._tag == "ast.Type.Name" and typ.name == "module" then
+                            local module_cname = self.symbol_table:find_symbol("module")
+                            if module_cname._tag == "checker.Name.FakeKeyword" then
                                 if self.mod_name then
                                   type_error(decl.loc,
                                      "There can only be one module variable per program")
@@ -343,6 +354,9 @@ function Checker:check_program(prog_ast)
                     local fname_exp = stat.name
                     decl._type = self:from_ast_type(decl.type)
                     self:check_funcname(fname_exp, decl)
+
+                else
+                    -- skip
                 end
             end
             if not self.mod_name then
