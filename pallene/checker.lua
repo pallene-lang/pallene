@@ -122,8 +122,9 @@ declare_type("Name", {
     Global   = { "decl" },
     Function = { "decl" },
     Builtin  = { "name" },
-    Module   = { "name", "is_main_mod" }
+    Module   = { "name", "is_main_mod", "shadowed_symbol"}
 })
+-- TODO: add a comment explaining the Module case
 
 function Checker:add_type(name, typ)
     assert(typedecl.match_tag(typ._tag, "types.T"))
@@ -164,7 +165,10 @@ end
 
 function Checker:add_module(name, is_main_mod)
     assert(type(name) == "string")
-    self.symbol_table:add_symbol(name, checker.Name.Module(name, is_main_mod))
+    -- To allow the name "string" to be used both as a module name and as a type name, module
+    -- symbols are aware of the type that they are shadowing.
+    local shadowed_symbol = self.symbol_table:find_symbol(name)
+    self.symbol_table:add_symbol(name, checker.Name.Module(name, is_main_mod, shadowed_symbol))
 end
 
 --
@@ -183,13 +187,16 @@ function Checker:from_ast_type(ast_typ)
             scope_error(ast_typ.loc,  "type '%s' is not declared", name)
         elseif cname._tag == "checker.Name.Type" then
             return cname.typ
-        elseif cname._tag == "checker.Name.Module" and cname.name == "string" then
-            -- Currently the string type appears in the scope as a module because of functions like
-            -- string.char and string.sub. In the future we might want to consider extending this
-            -- feature to other modules that also count as types.
-            return types.T.String()
+        elseif cname._tag == "checker.Name.Module" then
+            if cname.shadowed_symbol and cname.shadowed_symbol._tag == "checker.Name.Type" then
+                return cname.shadowed_symbol.typ
+            else
+                -- fallthrough
+            end
+        else
+            -- fallthrough
         end
-        type_error(ast_typ.loc, "'%s' isn't a type", name)
+        type_error(ast_typ.loc, "'%s' is not a type", name)
 
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
@@ -238,7 +245,7 @@ function Checker:check_program(prog_ast)
     self:add_type("boolean", types.T.Boolean())
     self:add_type("float",   types.T.Float())
     self:add_type("integer", types.T.Integer())
-    --self:add_type("string",  types.T.String()) -- treated as a "module" because of string.char
+    self:add_type("string",  types.T.String())
 
     -- Add builtins to symbol table. The order does not matter because they are distinct.
     for name, _ in pairs(builtins.functions) do
@@ -367,7 +374,7 @@ function Checker:check_program(prog_ast)
             end
         end
     end
-    
+
     local last_toplevel_node = prog_ast.tls[total_nodes]
     local last_stat = last_toplevel_node.stat
     if last_toplevel_node._tag ~= "ast.Toplevel.Stat" or
