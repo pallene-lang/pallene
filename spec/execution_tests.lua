@@ -21,7 +21,15 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
     local file_script = modname.."script.lua"
     local file_output = modname.."output.txt"
 
-    local function compile(code)
+    local function compile(body)
+        local code = util.render([[
+            local m: module = {}
+            $body
+            return m
+        ]], {
+            body = body,
+        })
+
         if only_compile then
             _ENV.it("compiles without error", function()
                 compile_file(file_pln, code)
@@ -81,10 +89,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Exported functions /", function()
         compile([[
-            local m: module = {}
             function m.f(): integer return 10 end
             local function g(): integer return 11 end
-            return m
         ]])
 
         it("does not export local functions", function()
@@ -97,7 +103,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Literals /", function()
         compile([[
-            local m: module = {}
             function m.f_nil(): nil          return nil  end
             function m.f_true(): boolean     return true end
             function m.f_false(): boolean    return false end
@@ -107,7 +112,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.pi(): float           return 3.141592653589793 end
             function m.e(): float            return 2.718281828459045 end
             function m.one_half(): float     return 1.0 / 2.0 end
-            return m
         ]])
 
         it("nil", function()
@@ -154,7 +158,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Variables /", function()
         compile([[
-            local m: module = {}
             function m.fst(x:integer, y:integer): integer return x end
             function m.snd(x:integer, y:integer): integer return y end
 
@@ -163,8 +166,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 n = n + 1
                 return n
             end
-
-            return m
         ]])
 
         it("local variables", function()
@@ -185,7 +186,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
    describe("Function calls /", function()
         compile([[
-	    local m: module = {}
             function m.f0(): integer
                 return 17
             end
@@ -241,7 +241,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 math.sqrt(1.0)
                 return 18
             end
-            return m
         ]])
 
         it("no parameters", function()
@@ -310,7 +309,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("First class functions /", function()
         compile([[
-            local m: module = {}
             function m.inc(x:integer): integer   return x + 1   end
             function m.dec(x:integer): integer   return x - 1   end
 
@@ -342,8 +340,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.callf(x:integer): integer
                 return f(x)
             end
-
-            return m
         ]])
 
         it("Object identity", function()
@@ -396,11 +392,10 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         local pallene_code = {}
         local test_scripts = {}
 
-        pallene_code[1] = [[local m: module = {} ]]
         for i, test in ipairs(tests) do
             local name, op, typ, rtyp = test[1], test[2], test[3], test[4]
 
-            pallene_code[i + 1] = util.render([[
+            pallene_code[i] = util.render([[
                 function m.$name (x: $typ): $rtyp
                     return $op x
                 end
@@ -423,8 +418,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 typ_str = string.format("%q", typ),
             })
         end
-        pallene_code[#pallene_code + 1] = [[return m]]
-      
+
         compile(table.concat(pallene_code, "\n"))
 
         for _, test in ipairs(tests) do
@@ -534,12 +528,11 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         local pallene_code = {}
         local test_scripts = {}
 
-        pallene_code[1] = [[local m: module = {} ]]
         for i, test in ipairs(tests) do
             local name, op, typ1, typ2, rtyp =
                 test[1], test[2], test[3], test[4], test[5]
 
-            pallene_code[i + 1] = util.render([[
+            pallene_code[i] = util.render([[
                 function m.$name (x: $typ1, y:$typ2): $rtyp
                     return x ${op} y
                 end
@@ -564,7 +557,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 typ2_str = string.format("%q", typ2),
             })
         end
-        pallene_code[#pallene_code + 1] = [[return m]]
 
         compile(table.concat(pallene_code, "\n"))
 
@@ -576,7 +568,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Nil equality", function()
         compile([[
-          local m: module = {}
             function m.eq_nil(x: nil, y: nil): boolean
                 return x == y
             end
@@ -588,7 +579,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.eq_any(x: any, y: any): boolean
                 return x == y
             end
-            return m
         ]])
 
         it("==", function()
@@ -619,8 +609,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: float
             end
 
-            local m: module = {}
-
             function m.points(): {Point}
                 return {
                     { x = 1.0, y = 2.0 },
@@ -636,8 +624,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.ne_point(p: Point, q: Point): boolean
                 return p ~= q
             end
-
-            return m
         ]])
 
         it("==", function()
@@ -680,7 +666,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         }
 
         local record_decls = [[
-            local m: module = {}
             record Empty
             end
             function m.new_empty(): Empty
@@ -724,7 +709,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 value = value
             })
         end
-        pallene_code[#pallene_code + 1] = [[ return m]]
 
         compile(
             record_decls .. "\n" ..
@@ -750,7 +734,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Statements /", function()
         compile([[
-            local m: module = {}
             function m.stat_blocks(): integer
                 local a = 1
                 local b = 2
@@ -863,8 +846,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return 40
             end
-
-            return m
         ]])
 
         it("Block, Assign, Decl", function()
@@ -925,7 +906,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Arrays /", function()
         compile([[
-            local m: module = {}
             function m.newarr(): {integer}
                 return {10,20,30}
             end
@@ -957,8 +937,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.getnil(xs: {nil}, i: integer): nil
                 return xs[i]
             end
-
-            return m
         ]])
 
         it("literals", function()
@@ -1088,8 +1066,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         compile([[
             typealias point = {x: integer, y: integer}
 
-            local m: module = {}
-
             function m.newpoint(): point
                 return {x = 10, y = 20}
             end
@@ -1129,8 +1105,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.getmax(t: {]].. maxlenfield ..[[: integer}): integer
                 return t.]].. maxlenfield ..[[
             end
-
-            return m
         ]])
 
         it("has literals", function()
@@ -1206,12 +1180,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Strings", function()
         compile([[
-            local m: module = {}
             function m.len(s:string): integer
                 return #s
             end
-
-            return m
         ]])
 
         it("length operator (#)", function()
@@ -1225,8 +1196,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         compile([[
             typealias Float = float
             typealias FLOAT = float
-
-            local m: module = {}
 
             function m.Float2float(x: Float): float return x end
             function m.float2Float(x: float): Float return x end
@@ -1250,8 +1219,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.addPoint(ps: Points, p: Point)
                 ps[#ps + 1] = p
             end
-
-            return m
         ]])
 
         it("converts between typealiases of the same type", function()
@@ -1285,8 +1252,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x: integer
                 y: {integer}
             end
-
-            local m: module = {}
 
             function m.make_foo(x: integer, y: {integer}): Foo
                 return { x = x, y = y }
@@ -1330,8 +1295,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.make_empty(): Empty
                 return {}
             end
-
-            return m
         ]])
 
         it("create records", function()
@@ -1405,11 +1368,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("I/O", function()
         compile([[
-            local m: module = {}
             function m.write(s:string)
                 io.write(s)
             end
-            return m
         ]])
 
         it("io.write works", function()
@@ -1422,11 +1383,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("math.sqrt builtin", function()
         compile([[
-            local m: module = {}
             function m.square_root(x: float): float
                 return math.sqrt(x)
             end
-            return m
         ]])
 
         it("works on positive numbers", function()
@@ -1456,11 +1415,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("string.char builtin", function()
         compile([[
-            local m: module = {}
             function m.chr(x: integer): string
                 return string.char(x)
             end
-            return m
         ]])
 
         it("works on normal characters", function()
@@ -1492,11 +1449,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("string.sub builtin", function()
         compile([[
-            local m: module = {}
             function m.sub(s: string, i: integer, j: integer): string
                 return string.sub(s, i, j)
             end
-            return m
         ]])
 
         it("work", function()
@@ -1513,7 +1468,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("any", function()
         compile([[
-            local m: module = {}
             function m.id(x:any): any
                 return x
             end
@@ -1557,8 +1511,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 until x
                 return out
             end
-
-            return m
         ]])
 
         --
@@ -1620,13 +1572,10 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Corner cases of exporting variables", function ()
         compile([[
-            local m: module = {}
             local  a = 10
             m.b = 20
             local  c = 30
             m.d = 40
-
-            return m
         ]])
 
         it("ensure that when globals are optimized away, the variables being exported are the right ones", function ()
@@ -1643,8 +1592,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x: integer
                 y: integer
             end
-
-            local m: module = {}
 
             local x = 10
 
@@ -1690,9 +1637,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return x
             end
 
-             m.integer = 12
-
-            return m
+            m.integer = 12
         ]])
 
         it("ensure that local variables are not exported", function ()
@@ -1726,7 +1671,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Non-constant toplevel initializers", function()
         compile([[
-            local m: module = {}
             function m.f(): integer
                 return 10
             end
@@ -1756,8 +1700,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             function m.get_x5(): {x: integer}
                 return x5
             end
-
-            return m
         ]])
 
         it("", function()
@@ -1776,7 +1718,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Nested for loops", function()
         compile([[
-            local m: module = {}
             function m.mul(n: integer, m:integer) : integer
                 local ret = 0
                 for i = 1, n do
@@ -1786,7 +1727,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return ret
             end
-            return m
         ]])
 
         it("", function()
@@ -1800,7 +1740,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("For-in loops", function()
         compile([[
-            local m: module = {}
             local function iter(arr: {any}, prev: integer): (any, any)
                 local i = prev + 1
                 local x = arr[i]
@@ -1879,8 +1818,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return sum
             end
-
-            return m
         ]])
 
         it("general for-in loops", function()
@@ -1940,8 +1877,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             local step = 1
             local counter = 0
 
-            local m: module = {}
-
             local function inc(): integer
                 counter = counter + step
                 return counter
@@ -1951,7 +1886,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x = inc()
                 return counter
             end
-            return m
         ]])
 
         it("preserves assignment side-effects", function()
@@ -1965,7 +1899,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Uninitialized variables", function()
         compile([[
-            local m: module = {}
             function m.sign(x: integer): integer
                 local ret: integer
                 if     x  < 0 then
@@ -1993,8 +1926,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 until true
                 return x
             end
-
-            return m
         ]])
 
         it("can be used", function()
@@ -2020,7 +1951,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("For loop integer overflow", function()
         compile([[
-            local m: module = {}
             function m.loop(A: integer, B: integer, C: integer): {integer}
                 local xs: {integer} = {}
                 for i = A, B, C do
@@ -2028,7 +1958,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return xs
             end
-            return m
         ]])
 
         it("int loop avoids overflow", function()
@@ -2081,8 +2010,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x: integer
                 y: integer
             end
-
-            local m: module = {}
 
             function m.new_rpoint(x:integer, y:integer): RPoint
                 return {x = x, y = y}
@@ -2186,8 +2113,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y = inc(), inc()
                 return y, gn
             end
-
-            return m
         ]])
 
         it("preserves evaluation order with local variables", function()
@@ -2350,7 +2275,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("Multiple returns", function()
         compile([[
-            local m: module = {}
             function m.f(): (integer, integer, integer)
                 return 10, 20, 30
             end
@@ -2406,8 +2330,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 x, y, y = p()
                 return y
             end
-
-            return m
         ]])
 
         it("works as function arguments", function()
@@ -2482,11 +2404,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("tostring builtin", function ()
         compile([[
-            local m: module = {}
             function m.f(x: any): string
                 return tostring(x)
             end
-            return m
         ]])
 
         it("works correctly with integer argument", function()
@@ -2519,12 +2439,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
     describe("check_exp_verify and parens", function()
         -- https://github.com/pallene-lang/pallene/issues/356
         compile([[
-          local m: module = {}
             function m.f(): integer
                 return (1) as integer
             end
-
-            return m
         ]])
 
         it("works", function()
