@@ -106,7 +106,7 @@ describe("Scope analysis: ", function()
             local function f()
                 local a, b = 1, a
             end
-            
+
             return m
         ]],
             "variable 'a' is not declared")
@@ -181,7 +181,19 @@ describe("Pallene type checker", function()
 
             return m
         ]],
-            "'foo' isn't a type")
+            "'foo' is not a type")
+    end)
+
+    it("detects when a non-type is used in a type variable", function()
+        assert_error([[
+            local m: module = {}
+            function m.fn()
+                local bar: m = 11
+            end
+
+            return m
+        ]],
+            "'m' is not a type")
     end)
 
     it("detects when a non-value is used in a value variable", function()
