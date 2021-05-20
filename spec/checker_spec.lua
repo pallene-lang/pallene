@@ -151,7 +151,7 @@ describe("Scope analysis: ", function()
             local x: integer = 0
             return m
         ]],
-            "__test__.pln:2:31: scope error: type 'x' is not declared")
+            "type 'x' is not declared")
     end)
 end)
 
