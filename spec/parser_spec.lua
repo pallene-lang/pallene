@@ -185,7 +185,7 @@ describe("Pallene parser", function()
             "Toplevel assignments are only possible with module fields")
     end)
 
-    it("cannot define function without export or local modifier", function()
+    it("cannot define function without local modifier", function()
         assert_program_syntax_error([[
             function f() : integer
                 return 5319
@@ -194,42 +194,38 @@ describe("Pallene parser", function()
         "Function must be 'local' or module function")
     end)
 
-    it("last function without export or local modifier", function()
+    it("last function without local modifier", function()
         assert_program_syntax_error([[
-            local m: module = {}
             function m.a()
             end
 
             function f() : integer
                 return 5319
             end
-            return m
         ]],
         "Function must be 'local' or module function")
     end)
 
-    it("first function without export or local modifier", function()
+    it("first function without local modifier", function()
         assert_program_syntax_error([[
-            local m: module = {}
             function a()
             end
 
             function m.f() : integer
                 return 5319
             end
-            return m
         ]],
         "Function must be 'local' or module function")
     end)
 
-    it("toplevel variable declaration without export or local modifier", function()
+    it("toplevel variable declaration without local modifier", function()
         assert_program_syntax_error([[
-            a,m="s","r"
+            x, y = "s", "r"
         ]],
         "Toplevel assignments are only possible with module fields")
     end)
 
-    it("toplevel variable declaration without export or local modifier (without comma)", function()
+    it("toplevel variable declaration without local modifier (without comma)", function()
         assert_program_syntax_error([[
             a="s"
         ]],
