@@ -1603,7 +1603,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             ------
 
-             m.k = "How you doin'?"
+            m.k = "How you doin'?"
+            m.integer = 12
 
             ------
 
@@ -1637,7 +1638,15 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return x
             end
 
-            m.integer = 12
+            function m.variable_called_module(): integer
+                local module = 10
+                return module + 7
+            end
+
+            typealias module = integer
+            function m.type_called_module(): module
+                return 18
+            end
         ]])
 
         it("ensure that local variables are not exported", function ()
@@ -1666,6 +1675,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
         it("allows identifiers named like builtin types", function()
             run_test([[ assert( 12 == test.integer) ]])
+        end)
+
+        it("allows 'module' as a variable name", function()
+            run_test([[ assert( 17 == test.variable_called_module() ) ]])
+        end)
+
+        it("allows 'module' as a type name", function()
+            run_test([[ assert( 18 == test.type_called_module() ) ]])
         end)
     end)
 
