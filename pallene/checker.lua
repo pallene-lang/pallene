@@ -351,9 +351,9 @@ function Checker:check_program(prog_ast)
                     end
                 elseif stat._tag == "ast.Stat.Func" then
                     local decl = stat.decl
-                    local fname_exp = stat.name
+                    local fname = stat.name
                     decl._type = self:from_ast_type(decl.type)
-                    self:check_funcname(fname_exp, decl)
+                    self:check_funcname(fname, decl)
 
                 else
                     -- skip
@@ -667,21 +667,16 @@ function Checker:check_stat(stat, istoplevel)
     return stat
 end
 
-function Checker:check_funcname(name, decl)
-    local var = name.var
-    local tag = var._tag
-    decl.name = var.name
-    if tag == "ast.Var.Dot" then
-        if var.exp._tag == "ast.Exp.Var" then
-            if var.exp.var._tag == "ast.Var.Name" then
-                local mod_cname = self.symbol_table:find_symbol(var.exp.var.name)
-                if not mod_cname or mod_cname._tag ~= "checker.Name.Module" then
-                    type_error(name.loc, "'%s' is not a module", var.exp.var.name)
-                end
-                name.var = ast.Var.Name(name.loc, var.name)
-                decl._modname = var.exp.var.name
-            end
+function Checker:check_funcname(fname, decl)
+    if fname.method then
+        error("methods are not implemented yet")
+    end
+    if #fname.fields > 0 then
+        local mod_cname = self.symbol_table:find_symbol(fname.root)
+        if not mod_cname or mod_cname._tag ~= "checker.Name.Module" then
+            type_error(fname.loc, "'%s' is not a module", fname.root)
         end
+        decl._modname = assert(fname.root)
     end
     self:add_function(decl)
 end

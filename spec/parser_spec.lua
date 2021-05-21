@@ -252,11 +252,9 @@ describe("Pallene parser", function()
               }
             },
             name = {
-              _tag = "ast.Exp.Var",
-              var = {
-                _tag = "ast.Var.Name",
-                name = "fA"
-              }
+              root = "fA",
+              fields = {},
+              method = false,
             },
             value = {
               _tag = "ast.Exp.Lambda",
@@ -291,11 +289,9 @@ describe("Pallene parser", function()
             }
           },
           name = {
-            _tag = "ast.Exp.Var",
-            var = {
-              _tag = "ast.Var.Name",
-              name = "fB"
-            }
+            root = "fB",
+            fields = {},
+            method = false,
           },
           value = {
             _tag = "ast.Exp.Lambda",
@@ -336,11 +332,9 @@ describe("Pallene parser", function()
                 }
               },
               name = {
-                _tag = "ast.Exp.Var",
-                var = {
-                  _tag = "ast.Var.Name",
-                  name = "fC"
-                }
+                root = "fC",
+                fields = {},
+                method = false,
               },
               value = {
                 _tag = "ast.Exp.Lambda",
@@ -379,18 +373,9 @@ describe("Pallene parser", function()
           }
         },
         name = {
-          _tag = "ast.Exp.Var",
-          var = {
-            _tag = "ast.Var.Dot",
-            exp = {
-              _tag = "ast.Exp.Var",
-              var = {
-                _tag = "ast.Var.Name",
-                name = "m"
-              }
-            },
-            name = "foo"
-          }
+          root = "m",
+          fields = {"foo"},
+          method = false,
         },
         value = {
           _tag = "ast.Exp.Lambda",
@@ -414,11 +399,9 @@ describe("Pallene parser", function()
           }
         },
         name = {
-          _tag = "ast.Exp.Var",
-          var = {
-            _tag = "ast.Var.Name",
-            name = "bar"
-          }
+          root = "bar",
+          fields = {},
+          method = false,
         },
         value = {
           _tag = "ast.Exp.Lambda",
@@ -1095,9 +1078,9 @@ describe("Pallene parser", function()
         ]], "Expected a name before '('")
 
         assert_program_syntax_error([[
-            function m.foo : int
+            function m.foo ): int
             end
-        ]], "Expected '(' before ':'")
+        ]], "Expected '(' before ')'")
 
         assert_program_syntax_error([[
             function m.foo ( : int

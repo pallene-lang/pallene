@@ -309,29 +309,39 @@ function Parser:Block()
     return ast.Stat.Block(false, self:StatList())
 end
 
-function Parser:Funcname(is_local)
-    local first_id = self:e("NAME")
-    local exp = ast.Exp.Var(first_id.loc, ast.Var.Name(first_id.loc, first_id.value))
+function Parser:FuncName(is_local)
+    local tok = self:e("NAME")
 
-    if self:peek(".") then
-        local start = self:e()
-        local id    = self:e("NAME")
-        exp = ast.Exp.Var(start.loc, ast.Var.Dot(start.loc, exp, id.value))
-
-    elseif self:peek(":") then
-        error("Not Implemented")
-
-    elseif not is_local then
-        self:syntax_error(first_id.loc,
-          "Function must be 'local' or module function")
+    local fields = {}
+    while self:try(".") do
+        local field = self:e("NAME")
+        table.insert(fields, field.value)
     end
 
-    return exp
+    local method = false
+    if self:try(":") then
+        method = self:e("NAME").value
+    end
+
+    local has_dot = (#fields > 0 or method)
+    if is_local and has_dot then
+        self:syntax_error(tok.loc, "Local function name has a '.' or ':'")
+    end
+    if not is_local and not has_dot then
+        self:syntax_error(tok.loc, "Function must be 'local' or module function")
+    end
+
+    return {
+        loc    = tok.loc,
+        root   = tok.value, -- string
+        fields = fields,    -- string list
+        method = method,    -- string?
+    }
 end
 
 function Parser:Func(is_local)
     local start    = self:e("function")
-    local exp      = self:Funcname(is_local)
+    local fname    = self:FuncName(is_local)
     local oparen   = self:e("(")
     local params   = self:DeclList()
     local _        = self:e(")", oparen)
@@ -358,11 +368,12 @@ function Parser:Func(is_local)
     for i, decl in ipairs(params) do
       arg_types[i] = decl.type
     end
-    local func_typ = ast.Type.Function(exp.loc, arg_types, rt_types)
+    local func_typ = ast.Type.Function(start.loc, arg_types, rt_types)
+    local name  = (fname.fields[1] or fname.root)
     return ast.Stat.Func(
-      exp.loc, exp,
-      ast.Decl.Decl(exp.loc, exp.value, func_typ),
-      ast.Exp.Lambda(exp.loc, params, block))
+      start.loc, fname,
+      ast.Decl.Decl(start.loc, name, func_typ),
+      ast.Exp.Lambda(start.loc, params, block))
 end
 
 function Parser:Stat(is_toplevel)
@@ -449,7 +460,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("local") then
-        
+
         if is_toplevel then
             self:region_begin()
         end

@@ -28,12 +28,12 @@ describe("Scope analysis: ", function()
 
     it("forbids variables from being used before they are defined", function()
         assert_error([[
-            function fn(): nil
+            function m.fn(): nil
                 x = 17
                 local x = 18
             end
         ]],
-            "Function must be 'local' or module function")
+            "variable 'x' is not declared")
     end)
 
     it("forbids type variables from being used before they are defined", function()
