@@ -494,10 +494,9 @@ function Parser:Block()
     return ast.Stat.Block(false, self:StatList())
 end
 
-function Parser:Func(is_local)
-    local start    = self:e("function")
+function Parser:FuncStat(is_local)
+    local start = self:e("function")
 
-    -- Function name
     local root = self:e("NAME")
 
     local fields = {}
@@ -516,9 +515,7 @@ function Parser:Func(is_local)
         self:syntax_error(root.loc, "Local function name has a '.' or ':'")
     end
 
-    local oparen   = self:e("(")
-    local params   = self:DeclList()
-    local _        = self:e(")", oparen)
+    local params = self:FuncParams()
 
     local return_types = {}
     if self:peek(":") then
@@ -629,7 +626,7 @@ function Parser:Stat(is_toplevel)
     elseif self:peek("local") then
         local start = self:e()
         if self:peek("function") then
-            return self:Func(true)
+            return self:FuncStat(true)
         else
             local decls = self:DeclList(); if #decls == 0 then self:forced_syntax_error("NAME") end
             local exps  = self:try("=") and self:ExpList1() or {}
@@ -653,7 +650,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("function") then
-        return self:Func(false)
+        return self:FuncStat(false)
 
     else
         -- Assignment or function call
@@ -760,6 +757,33 @@ function Parser:FuncArgs()
     end
 end
 
+function Parser:FuncParams()
+    local oparen = self:e("(")
+    local params = self:DeclList()
+    local _ = self:e(")", oparen)
+    return params
+end
+
+function Parser:FuncExp(func_token)
+    local params = self:FuncParams(true)
+
+    for _, decl in ipairs(params) do
+        if decl.type then
+            self:syntax_error(decl.loc, "Function expressions cannot be type annotated")
+        end
+    end
+
+    if self:peek(":") then
+        local colon = self:e()
+        self:syntax_error(colon.loc, "Function expressions cannot be type annotated")
+    end
+
+    local block = self:Block()
+    local _     = self:e("end", func_token)
+
+    return ast.Exp.Lambda(func_token.loc, params, block)
+end
+
 function Parser:SimpleExp()
     if     self:peek("NUMBER") then
         local id = self:e()
@@ -796,6 +820,9 @@ function Parser:SimpleExp()
         self:e("}", open)
         return ast.Exp.Initlist(open.loc, fields)
 
+    elseif self:peek("function") then
+        local start = self:e()
+        return self:FuncExp(start)
     else
         return self:SuffixedExp(false)
     end
