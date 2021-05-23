@@ -28,6 +28,10 @@ local util = require "pallene.util"
 --      - ast.Var.Name
 --      - ast.Var.QualifiedName
 --
+--   * _is_module_decl: true
+--      - in the `local m:module={}` statement
+--      - in the `return m` statement
+--
 -- We also make some adjustments to the AST:
 --
 --   * We flatten qualified names such as `io.write` from ast.Var.Dot to ast.Var.QualifiedName.
@@ -357,6 +361,7 @@ function Checker:check_stat(stat, is_toplevel)
                 type_error(stat.loc, "Module initializer must be literally {}") -- TODO: test
             end
 
+            decl._is_module_decl = true
             self.module_symbol = self:add_module_symbol(decl.name, false, {})
             self.module_var_name = decl.name
 
@@ -424,7 +429,7 @@ function Checker:check_stat(stat, is_toplevel)
         stat.step = self:check_exp_verify(stat.step, loop_type, "numeric for-loop step")
 
         self.symbol_table:with_block(function()
-            self:add_local(stat.decl)
+            self:add_value_symbol(stat.decl.name, stat.decl._type, checker.Def.Variable(stat.decl))
             self:check_stat(stat.block, false)
         end)
 
@@ -494,7 +499,7 @@ function Checker:check_stat(stat, is_toplevel)
                 else
                     stat.decls[i]._type = ret_types[i]
                 end
-                self:add_local(stat.decls[i])
+                self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
             end
             self:check_stat(stat.block, false)
         end)
@@ -525,6 +530,7 @@ function Checker:check_stat(stat, is_toplevel)
             if not self:is_the_module_variable(stat.exps[1]) then
                 type_error(stat.loc, "must return the module variable (%s)", self.module_var_name)  -- TODO
             end
+            stat._is_module_decl = true
         else
             -- Function return
             local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
@@ -644,7 +650,7 @@ function Checker:try_flatten_to_qualified_name(outer_var)
 
     local q = ast.Var.QualifiedName(var.loc, root, fields)
     q._type = sym.typ
-    q._def = sym.def
+    q._def  = sym.def
     return q
 end
 
