@@ -37,7 +37,6 @@ function Translator:init(input)
     self.input = input -- string
     self.last_index = 1 -- integer
     self.partials = {} -- list of strings
-    self.exports = {} -- list of strings
     return self
 end
 
@@ -61,36 +60,9 @@ function Translator:erase_region(start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
-function Translator:add_forward_declarations(prog_ast)
-    local names = {}
-    for _, node in ipairs(prog_ast.tls) do
-        if node._tag == "ast.Toplevel.Stat" then
-            local stat = node.stat
-            if stat._tag == "ast.Stat.Decl" then
-                for _, decl in ipairs(stat.decls) do
-                    if not decl._modname then
-                        table.insert(names, decl.name)     
-                    end
-                end
-            elseif stat._tag == "ast.Stat.Func" then
-                local decl = stat.decl
-                if not decl._modname then
-                    table.insert(names, decl.name)     
-                end
-            end
-        end
-    end
-
-    if #names > 0 then
-        table.insert(self.partials, "local ")
-        table.insert(self.partials, table.concat(names, ", "))
-        table.insert(self.partials, ";")
-    end
-end
 
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
-    instance:add_forward_declarations(prog_ast)
 
     -- Erase all type regions, while preserving comments
     -- As a sanity check, assert that the comment regions are either inside or outside the type

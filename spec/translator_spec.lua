@@ -75,9 +75,9 @@ end
 return m
 ]],
 [[
-local m, i, print_hello;m = {}
-i = 10
-function print_hello()
+local m = {}
+local i = 10
+local function print_hello()
     -- This is a comment.
     -- This is another line comment.
     io.write("Hello, world!")
@@ -94,8 +94,8 @@ local xs: integer = 10
 return m
 ]],
 [[
-local m, xs;m = {}
-xs = 10
+local m = {}
+local xs = 10
 return m
 ]])
     end)
@@ -108,8 +108,8 @@ local a: integer, b: integer, c: string = 5, 3, 'Marshall Mathers'
 return m
 ]],
 [[
-local m, a, b, c;m = {}
-a, b, c = 5, 3, 'Marshall Mathers'
+local m = {}
+local a, b, c = 5, 3, 'Marshall Mathers'
 return m
 ]])
     end)
@@ -123,8 +123,8 @@ local xs:
 return m
 ]],
 [[
-local m, xs;m = {}
-xs
+local m = {}
+local xs
  = 10
 return m
 ]])
@@ -140,8 +140,8 @@ local a: {
 return m
 ]],
 [[
-local m, a;m = {}
-a
+local m = {}
+local a
 
  = { 5, 3, 19 }
 return m
@@ -151,13 +151,13 @@ return m
     it("Keep tabs that appear in a top-level variable type annotation", function ()
         assert_translation(
             "local m: module = {} local xs:\tinteger = 10\treturn m",
-            "local m, xs;m = {}xs = 10\treturn m")
+            "local m = {} local xs = 10\treturn m")
     end)
 
     it("Keep return carriages that appear in a top-level variable type annotation", function ()
         assert_translation(
             "local m: module = {} local xs:\rinteger = 10\treturn m\n",
-            "local m, xs;m = {}xs\r = 10\treturn m\n")
+            "local m = {} local xs\r = 10\treturn m\n")
     end)
 
     it("Keep newlines that appear after colons in top-level variable type annotations", function ()
@@ -171,8 +171,8 @@ local a:
 return m
 ]],
 [[
-local m, a, b, c;m = {}
-a
+local m = {}
+local a
 , b
 , c
  = 53, 'Madyanam', 19
@@ -189,8 +189,8 @@ local xs: -- This is a comment.
 return m
 ]],
 [[
-local m, xs;m = {}
-xs-- This is a comment.
+local m = {}
+local xs-- This is a comment.
  = 10
 return m
 ]])
@@ -210,13 +210,13 @@ local xs: { -- This is a comment.
 return m
 ]],
 [[
-local m, x, xs;-- Knock knock
-m = {}
-x-- Who's there?
+-- Knock knock
+local m = {}
+local x-- Who's there?
 -- Baby Yoda
- = { 5, 3, 19 }-- Baby Yoda who?
+ = { 5, 3, 19 } -- Baby Yoda who?
 -- Baby Yoda one for me. XD
-xs-- This is a comment.
+local xs-- This is a comment.
 -- This is another comment.
  = { 5, 3, 19 }
 return m
@@ -233,8 +233,8 @@ local xs: { -- This is a comment.
 return m
 ]],
 [[
-local m, xs;m = {}
-xs-- This is a comment.
+local m = {}
+local xs-- This is a comment.
 -- This is another comment.
  = { 5, 3, 19 }
 return m
@@ -250,8 +250,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f(x, y)
+local m = {}
+local function f(x, y)
 end
 return m
 ]])
@@ -267,8 +267,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f()
+local m = {}
+local function f()
     local i = 5
 end
 return m
@@ -285,8 +285,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f()
+local m = {}
+local function f()
     local a, m = "preets", "yoda"
 end
 return m
@@ -303,8 +303,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f()
+local m = {}
+local function f()
     local a, m = "preets", "yoda"
 end
 return m
@@ -325,13 +325,13 @@ end
 return m
 ]],
 [[
-local m, a, b;m = {}
-function a()
+local m = {}
+local function a()
 end
 
 
 
-function b()
+local function b()
 end
 return m
 ]])
@@ -354,8 +354,8 @@ end
 return m
 ]],
 [[
-local m, a, b;m = {}
-function a()
+local m = {}
+local function a()
 end
 
 
@@ -363,7 +363,7 @@ end
 
 
 
-function b()
+local function b()
 end
 return m
 ]])
@@ -386,8 +386,8 @@ end
 return m
 ]],
 [[
-local m, a, b;m = {}
-function a()
+local m = {}
+local function a()
 end
 
 
@@ -395,7 +395,7 @@ end
 
 
 
-function b()
+local function b()
 end
 return m
 ]])
@@ -411,8 +411,8 @@ end
 return m
 ]],
 [[
-local m, a;m = {}
-function a()
+local m = {}
+local function a()
     return 0
 end
 return m
@@ -429,15 +429,15 @@ end
 return m
 ]],
 [[
-local m, a;m = {}
-function a()
+local m = {}
+local function a()
     return 0, "Kush"
 end
 return m
 ]])
     end)
 
-    it("Generate return statement for exported variable", function ()
+    pending("Generate return statement for exported variable", function ()
         assert_translation(
 [[
 local m: module = {}
@@ -445,13 +445,13 @@ m.i = 0
 return m
 ]],
 [[
-local m;m = {}
+local m = {}
 m.i = 0
 return m
 ]])
     end)
 
-    it("Generate return statement for exported function", function ()
+    pending("Generate return statement for exported function", function ()
         assert_translation(
 [[
 local m: module = {}
@@ -460,14 +460,14 @@ end
 return m
 ]],
 [[
-local m;m = {}
+local m = {}
 function m.f()
 end
 return m
 ]])
     end)
 
-    it("Generate the same return statement for both exported functions and variables", function ()
+    pending("Generate the same return statement for both exported functions and variables", function ()
         assert_translation(
 [[
 local m: module = {}
@@ -477,7 +477,7 @@ end
 return m
 ]],
 [[
-local m;m = {}
+local m = {}
 m.i = 0
 function m.f()
 end
@@ -485,7 +485,7 @@ return m
 ]])
     end)
 
-    it("Do not include local symbols in the module return statement", function ()
+    pending("Do not include local symbols in the module return statement", function ()
         assert_translation(
 [[
 local m: module = {}
@@ -501,7 +501,7 @@ local j: { integer } = { 1, 2, 3 }
 return m
 ]],
 [[
-local m, j;m = {}
+local m = {}
 m.i = 0
 
 function m.a()
@@ -515,7 +515,7 @@ return m
 ]])
     end)
 
-    it("Mutually recursive functions (infinite)", function ()
+    pending("Mutually recursive functions (infinite)", function ()
         assert_translation(
 [[
 local m: module = {}
@@ -552,10 +552,10 @@ end
 return m
 ]],
 [[
-local m, xs, f;m = {}
-xs = {10, "hello", 3.14}
+local m = {}
+local xs = {10, "hello", 3.14}
 
-function f(x, y)
+local function f(x, y)
 end
 
 return m
@@ -572,8 +572,8 @@ end
 return m
 ]],
 [[
-local m, invoke;m = {}
-function invoke(x)
+local m = {}
+local function invoke(x)
     return x(1, 2)
 end
 return m
@@ -593,13 +593,13 @@ local p: point = { x = i as integer, y = i as integer }
 return m
 ]],
 [[
-local m, i, p;m = {}
+local m = {}
 
 
 
 
-i = 1
-p = { x = i, y = i }
+local i = 1
+local p = { x = i, y = i }
 return m
 ]])
     end)
@@ -613,9 +613,9 @@ local j: integer = i as integer
 return m
 ]],
 [[
-local m, i, j;m = {}
-i = 1
-j = i
+local m = {}
+local i = 1
+local j = i
 return m
 ]])
     end)
@@ -630,10 +630,10 @@ local k: integer = (j as integer) + 1
 return m
 ]],
 [[
-local m, i, j, k;m = {}
-i = 1
-j = i
-k = (j) + 1
+local m = {}
+local i = 1
+local j = i
+local k = (j) + 1
 return m
 ]])
     end)
@@ -651,10 +651,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     if k then
     end
 end
@@ -676,10 +676,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     if true then
         local j = k
     end
@@ -704,10 +704,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     if false then
         -- Nothing
     elseif k then
@@ -734,10 +734,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     if false then
         -- Nothing
     elseif true then
@@ -764,10 +764,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     if false then
         -- Nothing
     else
@@ -792,10 +792,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     repeat
         -- Nothing
     until k
@@ -818,10 +818,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     repeat
         local j = k
     until true
@@ -844,10 +844,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     for j = k, k + 10, k do
         -- Nothing
     end
@@ -870,10 +870,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     for j = 1, 10 do
         local m = k
     end
@@ -894,10 +894,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     k, k = k, k
 end
 return m
@@ -916,10 +916,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     k = ((k))
 end
 return m
@@ -938,10 +938,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = 1
+local m = {}
+local k = 1
 
-function f()
+local function f()
     local j = k
 end
 return m
@@ -960,10 +960,10 @@ end
 return m
 ]],
 [[
-local m, k, f;m = {}
-k = "Madyanam"
+local m = {}
+local k = "Madyanam"
 
-function f()
+local function f()
     io.write(k)
 end
 return m
@@ -983,11 +983,11 @@ end
 return m
 ]],
 [[
-local m, name1, name2, get_names;m ={}
-name1 = "Anushka"
-name2 = "Samuel"
+local m ={}
+local name1 = "Anushka"
+local name2 = "Samuel"
 
-function get_names()
+local function get_names()
     return name1, name2
 end
 return m
@@ -1005,8 +1005,8 @@ end
 return m
 ]],
 [[
-local m, print_hello;m = {}
-function print_hello()
+local m = {}
+local function print_hello()
     io.write('Hello, ')
     io.write("world!")
 end
@@ -1024,8 +1024,8 @@ end
 return m
 ]],
 [[
-local m, get_numbers;m = {}
-function get_numbers()
+local m = {}
+local function get_numbers()
     return 53, 519
 end
 return m
@@ -1042,8 +1042,8 @@ end
 return m
 ]],
 [[
-local m, add;m = {}
-function add(x, y)
+local m = {}
+local function add(x, y)
     return x + y
 end
 return m
@@ -1062,8 +1062,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f()
+local m = {}
+local function f()
     local x = 10
     local y = 20
     local z = x + y
@@ -1080,8 +1080,8 @@ local x = (1 + 2) * (100 / 30)
 return m
 ]],
 [[
-local m, x;m = {}
-x = (1 + 2) * (100 / 30)
+local m = {}
+local x = (1 + 2) * (100 / 30)
 return m
 ]])
     end)
@@ -1099,8 +1099,8 @@ end
 return m
 ]],
 [[
-local m, count;m = {}
-function count()
+local m = {}
+local function count()
     local i = 1
     while i <= 10 do
         i = i + 1
@@ -1123,8 +1123,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f()
+local m = {}
+local function f()
     local i = 10
     do
         local i = 20
@@ -1148,8 +1148,8 @@ end
 return m
 ]],
 [[
-local m, is_even;m = {}
-function is_even(n)
+local m = {}
+local function is_even(n)
     if (n % 2) == 0 then
         return true
     else
@@ -1171,8 +1171,8 @@ end
 return m
 ]],
 [[
-local m, f;m = {}
-function f()
+local m = {}
+local function f()
     for i = 1, 10 do
     end
 end

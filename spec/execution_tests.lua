@@ -215,6 +215,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
             -----------
+            --[=[
             function m.even(x: integer): boolean
                 if x == 0 then
                     return true
@@ -229,12 +230,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return m.even(x-1)
                 end
             end
+            ]=]
             -----------
             function m.skip_a() end
             function m.skip_b() m.skip_a(); m.skip_a() end
             -----------
             function m.ignore_return(): integer
-                m.even(1)
+                m.gcd(1,2)
                 return 17
             end
             function m.ignore_return_builtin(): integer
@@ -259,7 +261,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[ assert(3*5 == test.gcd(2*3*5, 3*5*7)) ]])
         end)
 
-        it("mutually recursive calls", function()
+        pending("mutually recursive calls", function()
             run_test([[
                 for i = 0, 5 do
                     assert( (i%2 == 0) == test.even(i) )
@@ -1570,7 +1572,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    describe("Corner cases of exporting variables", function ()
+    pending("Corner cases of exporting variables", function ()
         compile([[
             local  a = 10
             m.b = 20
@@ -1603,8 +1605,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             ------
 
-            m.k = "How you doin'?"
-            m.integer = 12
+            --m.integer = 12
 
             ------
 
@@ -1673,7 +1674,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[ assert( 20 == test.duplicate_parameter(10, 20) )]])
         end)
 
-        it("allows identifiers named like builtin types", function()
+        pending("allows identifiers named like builtin types", function()
             run_test([[ assert( 12 == test.integer) ]])
         end)
 

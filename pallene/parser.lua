@@ -455,14 +455,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("local") then
-
-        if is_toplevel then
-            self:region_begin()
-        end
         local start = self:e()
-        if is_toplevel then
-            self:region_end(true)
-        end
         if self:peek("function") then
             return self:Func(true)
         else
