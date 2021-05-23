@@ -28,9 +28,9 @@ local util = require "pallene.util"
 --      - ast.Var.Name
 --      - ast.Var.QualifiedName
 --
---   * _is_module_decl: true
---      - in the `local m:module={}` statement
---      - in the `return m` statement
+--   * _is_module_decl: a boolean (true) marking some parts that the IR gen should skip
+--      - The `local m:module={}` statement
+--      - The `return m` statement
 --
 -- We also make some adjustments to the AST:
 --
@@ -361,7 +361,7 @@ function Checker:check_stat(stat, is_toplevel)
                 type_error(stat.loc, "Module initializer must be literally {}") -- TODO: test
             end
 
-            decl._is_module_decl = true
+            stat._is_module_decl = true
             self.module_symbol = self:add_module_symbol(decl.name, false, {})
             self.module_var_name = decl.name
 

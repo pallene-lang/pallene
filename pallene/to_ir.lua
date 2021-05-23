@@ -332,7 +332,7 @@ function ToIR:convert_stat(cmds, stat, istoplevel)
 
             self:convert_stat(body, stat.block, false)
             table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
-    end
+        end
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
@@ -462,8 +462,8 @@ function ToIR:convert_stat(cmds, stat, istoplevel)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        for _, decl in ipairs(stat.decls) do
-            if not decl._is_module_decl then
+        if not stat._is_module_decl then
+            for _, decl in ipairs(stat.decls) do
                 local typ = decl._type
                 if istoplevel then
                     self.glb_id_of_decl[decl] = ir.add_global(self.module, decl.name, typ)
@@ -471,23 +471,21 @@ function ToIR:convert_stat(cmds, stat, istoplevel)
                     self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, typ)
                 end
             end
-        end
 
-        for i, exp in ipairs(stat.exps) do
-            local decl = stat.decls[i]
-            if decl then
-                if istoplevel then
-                    local gid = self.glb_id_of_decl[decl]
-                    if gid then
+            for i, exp in ipairs(stat.exps) do
+                local decl = stat.decls[i]
+                if decl then
+                    if istoplevel then
+                        local gid = assert(self.glb_id_of_decl[decl])
                         local val = self:exp_to_value(cmds, exp)
                         table.insert(cmds, ir.Cmd.SetGlobal(decl.loc, gid, val))
+                    else
+                        self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
                     end
                 else
-                    self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
+                    -- Extra argument to RHS; compute it for side effects and discard result
+                    local _ = self:exp_to_value(cmds, exp)
                 end
-            else
-                -- Extra argument to RHS; compute it for side effects and discard result
-                local _ = self:exp_to_value(cmds, exp)
             end
         end
 
