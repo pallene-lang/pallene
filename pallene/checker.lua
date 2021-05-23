@@ -26,7 +26,6 @@ local util = require "pallene.util"
 --
 --   * _def: A checker.Def that describes the meaning of the name
 --      - ast.Var.Name
---      - ast.Var.QualifiedName
 --
 --   * _is_module_decl: a boolean (true) marking some parts that the IR gen should skip
 --      - The `local m:module={}` statement
@@ -34,7 +33,7 @@ local util = require "pallene.util"
 --
 -- We also make some adjustments to the AST:
 --
---   * We flatten qualified names such as `io.write` from ast.Var.Dot to ast.Var.QualifiedName.
+--   * We flatten qualified names such as `io.write` from ast.Var.Dot to ast.Var.Name.
 --   * We insert explicit ast.Exp.Cast nodes where there is an implicit upcast or downcast.
 --   * We insert ast.Exp.ExtraRet nodes to represent additional return values from functions.
 --   * We insert an explicit call to tofloat in some arithmetic operations. For example int + float.
@@ -606,7 +605,7 @@ function Checker:check_stat(stat, is_toplevel)
 end
 
 --
--- If the given var is of the form x.y.z, try to convert it to a Var.QualifiedName
+-- If the given var is of the form x.y.z, try to convert it to a Var.Name
 --
 function Checker:try_flatten_to_qualified_name(outer_var)
     -- TODO: We use O(N²) time if there is a long chain of dots that is not a qualified name.
@@ -648,7 +647,13 @@ function Checker:try_flatten_to_qualified_name(outer_var)
         type_error(outer_var.loc, "module field '%s' is not a value", rev_fields[1]) -- TODO
     end
 
-    local q = ast.Var.QualifiedName(var.loc, root, fields)
+    local components = {}
+    table.insert(components, root)
+    for _, field in ipairs(fields) do
+        table.insert(components, field)
+    end
+
+    local q = ast.Var.Name(var.loc, table.concat(components, "."))
     q._type = sym.typ
     q._def  = sym.def
     return q
@@ -704,10 +709,6 @@ function Checker:check_var(var)
         end
         var.k = self:check_exp_verify(var.k, types.T.Integer(), "array indexing")
         var._type = arr_type.elem
-
-    elseif tag == "ast.Var.QualifiedName" then
-        -- This is never present in the source program
-        error("impossible")
 
     else
         typedecl.tag_error(tag)

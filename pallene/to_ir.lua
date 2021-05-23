@@ -646,7 +646,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
 
     elseif tag == "ast.Exp.Var" then
         local var = exp.var
-        if     var._tag == "ast.Var.Name" or var._tag == "ast.Var.QualifiedName" then
+        if     var._tag == "ast.Var.Name" then
             local def = var._def
             if     def._tag == "checker.Def.Variable" then
                 local is_loc, id = self:is_local(def.decl)
@@ -764,7 +764,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local f_typ = exp.exp._type
         local def = (
             exp.exp._tag == "ast.Exp.Var" and
-            (exp.exp.var._tag == "ast.Var.Name" or exp.exp.var._tag == "ast.Var.QualifiedName") and
+            exp.exp.var._tag == "ast.Var.Name" and
             exp.exp.var._def )
 
         -- Prepare the list of destination variables.
@@ -849,9 +849,6 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             else
                 use_exp_to_value = true
             end
-
-        elseif var._tag == "ast.Var.QualifiedName" then
-            use_exp_to_value = true
 
         elseif var._tag == "ast.Var.Bracket" then
             local arr = self:exp_to_value(cmds, var.t)

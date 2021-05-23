@@ -53,7 +53,6 @@ declare_type("Var", {
     Name          = {"loc", "name"},
     Bracket       = {"loc", "t", "k"},
     Dot           = {"loc", "exp", "name"},
-    QualifiedName = {"loc", "root", "fields"},
 })
 
 declare_type("Exp", {
