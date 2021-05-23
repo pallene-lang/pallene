@@ -240,22 +240,11 @@ describe("Pallene parser", function()
           _tag = "ast.Toplevel.Stat",
           stat = {
             _tag = "ast.Stat.Func",
-            decl = {
-              _tag = "ast.Decl.Decl",
-              type = {
-                _tag = "ast.Type.Function",
-                arg_types = {},
-                ret_types = { {
-                    _tag = "ast.Type.Name",
-                    name = "float"
-                  } }
-              }
-            },
-            name = {
-              root = "fA",
-              fields = {},
-              method = false,
-            },
+            is_local = true,
+            root = "fA",
+            fields = {},
+            method = false,
+            ret_types = { { _tag = "ast.Type.Name", name = "float" } },
             value = {
               _tag = "ast.Exp.Lambda",
               arg_decls = {},
@@ -274,25 +263,11 @@ describe("Pallene parser", function()
       _tag = "ast.Toplevel.Stat",
         stat = {
           _tag = "ast.Stat.Func",
-          decl = {
-            _tag = "ast.Decl.Decl",
-            type = {
-              _tag = "ast.Type.Function",
-              arg_types = { {
-                  _tag = "ast.Type.Name",
-                  name = "integer"
-                } },
-              ret_types = { {
-                  _tag = "ast.Type.Name",
-                  name = "float"
-                } }
-            }
-          },
-          name = {
-            root = "fB",
-            fields = {},
-            method = false,
-          },
+          is_local = true,
+          root = "fB",
+          fields = {},
+          method = false,
+          ret_types = { { _tag = "ast.Type.Name", name = "float" } },
           value = {
             _tag = "ast.Exp.Lambda",
             arg_decls = { {
@@ -314,28 +289,11 @@ describe("Pallene parser", function()
             _tag = "ast.Toplevel.Stat",
             stat = {
               _tag = "ast.Stat.Func",
-              decl = {
-                _tag = "ast.Decl.Decl",
-                type = {
-                  _tag = "ast.Type.Function",
-                  arg_types = { {
-                      _tag = "ast.Type.Name",
-                      name = "integer"
-                    }, {
-                      _tag = "ast.Type.Name",
-                      name = "integer"
-                    } },
-                  ret_types = { {
-                      _tag = "ast.Type.Name",
-                      name = "float"
-                    } }
-                }
-              },
-              name = {
-                root = "fC",
-                fields = {},
-                method = false,
-              },
+            is_local = true,
+              root = "fC",
+              fields = {},
+              method = false,
+              ret_types = { { _tag = "ast.Type.Name", name = "float" } },
               value = {
                 _tag = "ast.Exp.Lambda",
                 arg_decls = { {
@@ -364,19 +322,11 @@ describe("Pallene parser", function()
       _tag = "ast.Toplevel.Stat",
       stat = {
         _tag = "ast.Stat.Func",
-        decl = {
-          _tag = "ast.Decl.Decl",
-          type = {
-            _tag = "ast.Type.Function",
-            arg_types = {},
-            ret_types = {}
-          }
-        },
-        name = {
-          root = "m",
-          fields = {"foo"},
-          method = false,
-        },
+        is_local = false,
+        root = "m",
+        fields = {"foo"},
+        method = false,
+        ret_types = {},
         value = {
           _tag = "ast.Exp.Lambda",
           arg_decls = {},
@@ -390,19 +340,11 @@ describe("Pallene parser", function()
       _tag = "ast.Toplevel.Stat",
       stat = {
         _tag = "ast.Stat.Func",
-        decl = {
-          _tag = "ast.Decl.Decl",
-          type = {
-            _tag = "ast.Type.Function",
-            arg_types = {},
-            ret_types = {}
-          }
-        },
-        name = {
-          root = "bar",
-          fields = {},
-          method = false,
-        },
+        is_local = true,
+        root = "bar",
+        fields = {},
+        method = false,
+        ret_types = {},
         value = {
           _tag = "ast.Exp.Lambda",
           arg_decls = {},

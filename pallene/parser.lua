@@ -310,7 +310,20 @@ function Parser:Block()
 end
 
 function Parser:FuncName(is_local)
-    local tok = self:e("NAME")
+
+    return {
+        loc    = tok.loc,
+        root   = tok.value, -- string
+        fields = fields,    -- string list
+        method = method,    -- string?
+    }
+end
+
+function Parser:Func(is_local)
+    local start    = self:e("function")
+
+    -- Function name
+    local root = self:e("NAME")
 
     local fields = {}
     while self:try(".") do
@@ -325,32 +338,21 @@ function Parser:FuncName(is_local)
 
     local has_dot = (#fields > 0 or method)
     if is_local and has_dot then
-        self:syntax_error(tok.loc, "Local function name has a '.' or ':'")
+        self:syntax_error(root.loc, "Local function name has a '.' or ':'")
     end
     if not is_local and not has_dot then
-        self:syntax_error(tok.loc, "Function must be 'local' or module function")
+        self:syntax_error(root.loc, "Function must be 'local' or module function")
     end
 
-    return {
-        loc    = tok.loc,
-        root   = tok.value, -- string
-        fields = fields,    -- string list
-        method = method,    -- string?
-    }
-end
-
-function Parser:Func(is_local)
-    local start    = self:e("function")
-    local fname    = self:FuncName(is_local)
     local oparen   = self:e("(")
     local params   = self:DeclList()
     local _        = self:e(")", oparen)
 
-    local rt_types = {}
+    local return_types = {}
     if self:peek(":") then
         self:region_begin()
         self:e()
-        rt_types = self:RetTypes()
+        return_types = self:RetTypes()
         self:region_end()
     end
 
@@ -364,16 +366,9 @@ function Parser:Func(is_local)
       end
     end
 
-    local arg_types = {}
-    for i, decl in ipairs(params) do
-      arg_types[i] = decl.type
-    end
-    local func_typ = ast.Type.Function(start.loc, arg_types, rt_types)
-    local name  = (fname.fields[1] or fname.root)
     return ast.Stat.Func(
-      start.loc, fname,
-      ast.Decl.Decl(start.loc, name, func_typ),
-      ast.Exp.Lambda(start.loc, params, block))
+        start.loc, is_local, root.value, fields, method, return_types,
+        ast.Exp.Lambda(start.loc, params, block))
 end
 
 function Parser:Stat(is_toplevel)
@@ -493,7 +488,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("function") then
-        return self:Func()
+        return self:Func(false)
 
     else
         -- Assignment or function call

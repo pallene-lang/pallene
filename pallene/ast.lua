@@ -21,7 +21,6 @@ declare_type("Type", {
     Array    = {"loc", "subtype"},
     Table    = {"loc", "fields"},
     Function = {"loc", "arg_types", "ret_types"},
-    Module   = {"loc"},
 })
 
 declare_type("Toplevel", {
@@ -46,14 +45,15 @@ declare_type("Stat", {
     Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
     Break  = {"loc"},
-    Func   = {"loc", "name", "decl", "value"},
+    Func   = {"loc", "is_local", "root", "fields", "method", "ret_types", "value"},
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
 declare_type("Var", {
-    Name    = {"loc", "name"},
-    Bracket = {"loc", "t", "k"},
-    Dot     = {"loc", "exp", "name"}
+    Name          = {"loc", "name"},
+    Bracket       = {"loc", "t", "k"},
+    Dot           = {"loc", "exp", "name"},
+    QualifiedName = {"loc", "root", "fields"},
 })
 
 declare_type("Exp", {

@@ -67,10 +67,11 @@ describe("Scope analysis: ", function()
             function m.f() end
             function m.f() end
         ]],
-            "duplicate module field 'f', previous one at line 2")
+            "duplicate module field 'f'")
     end)
 
-    it("forbids multiple toplevel declarations with the same name for exported function and variable", function()
+    pending("forbids multiple toplevel declarations with the same name for exported function and variable", function()
+        -- TODO: reimplement variables
         assert_error([[
             function m.f() end
             m.f = 1
@@ -178,7 +179,7 @@ describe("Pallene type checker", function()
                 local bar: integer = Point
             end
         ]],
-            "'Point' isn't a value")
+            "'Point' is not a value")
     end)
 
     it("catches table type with repeated fields", function()
@@ -796,7 +797,7 @@ describe("Pallene type checker", function()
         end
 
         it("doesn't typecheck read/write to non indexable type", function()
-            local err = "trying to access a member of value of type 'string'"
+            local err = "trying to access a member of a value of type 'string'"
             assert_dot_error("string", [[ ("t").x = 10 ]], err)
             assert_dot_error("string", [[ local x = ("t").x ]], err)
         end)
@@ -844,8 +845,7 @@ describe("Pallene type checker", function()
                 m.f = m.g
             end
         ]],
-        --"attempting to assign to toplevel constant function 'f'")
-        "type error: Can't assign module field to 'function type () -> ()'")
+        "LHS of assignment is not a mutable variable")
     end)
 
     it("catches assignment to builtin (with correct type)", function ()
@@ -857,7 +857,7 @@ describe("Pallene type checker", function()
                 io.write = m.f
             end
         ]],
-        "attempting to assign to builtin function io.write")
+        "LHS of assignment is not a mutable variable")
     end)
 
     it("catches assignment to builtin (with wrong type)", function ()
@@ -869,7 +869,7 @@ describe("Pallene type checker", function()
                 io.write = m.f
             end
         ]],
-        "attempting to assign to builtin function io.write")
+        "LHS of assignment is not a mutable variable")
     end)
 
     it("typechecks io.write (error)", function()
@@ -887,7 +887,7 @@ describe("Pallene type checker", function()
                 local x = io
             end
         ]],
-        "cannot reference module name 'io' without dot notation")
+        "attempt to use module as a value")
     end)
 
     it("checks assignment of modules", function()
@@ -896,7 +896,7 @@ describe("Pallene type checker", function()
                 io = 1
             end
         ]],
-        "cannot reference module name 'io' without dot notation")
+        "attempt to use module as a value")
     end)
 
     it("forbid empty program", function()
@@ -918,7 +918,7 @@ describe("Pallene type checker", function()
             local m2: module = {}
             return m1
         ]],
-        "type error: There can only be one module variable per program")
+        "type error: There can only be one module declaration in the program")
     end)
 
     it("forbid return of more than one variable", function()
@@ -926,7 +926,7 @@ describe("Pallene type checker", function()
             local m: module = {}
             return m, m
         ]],
-        "type error: returning 2 value(s) but function expects 1")
+        "type error: returning 2 value(s) but module expects 1")
     end)
 
     it("forbid return of any variable of type other then module", function()
@@ -938,35 +938,6 @@ describe("Pallene type checker", function()
             end
             return i
         ]],
-        "type error: expected module but found integer in return statement")
+        "type error: must return the module variable (m)")
     end)
-
-    it("forbid assignment of Record as module field", function()
-        assert_error([[
-            record Point
-                x: integer
-                y: integer
-            end
-            local p: Point = {x = 12, y = 7}
-            m.p = p
-        ]],
-        "type error: Can't assign module field to 'Point'")
-    end)
-
-    it("forbid assignment of Array as module field", function()
-        assert_error([[
-            local arr: {integer} = {1, 2, 6, -10}
-            m.arr = arr
-        ]],
-        "type error: Can't assign module field to '{ integer }'")
-    end)
-
-    it("forbid assignment of any as module field", function()
-        assert_error([[
-            local a: any
-            m.a = a
-        ]],
-        "type error: Can't assign module field to 'any'")
-    end)
-
 end)

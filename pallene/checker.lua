@@ -11,30 +11,34 @@ local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
 --
--- This file is responsible for type-checking a Pallene module and for resolving the scope of all
--- identifiers. The result is a modified AST that is annotated with this information:
+-- WHAT THE TYPE CHECKER DOES
+-- ==========================
+--
+-- This compiler pass checks if the types are correct and resolves the scope of all identifiers.
+-- It produces a modified AST that is annotated with the following information:
 --
 --   * _type: A types.T in the following kinds of nodes
 --      - ast.Exp
 --      - ast.Var
 --      - ast.Decl
 --      - ast.Toplevel.Record
+--      - ast.Stat.Func
 --
---   * _name: In ast.Var.Name nodes, a checker.Name that points to the matching declaration.
---   * _modname: In ast.Stat.Decl nodes, which represent a module variable or function declaration.
---   It holds the module's name. For instance, m.var = 2, would have _modname = "m"
+--   * _def: A checker.Def that describes the meaning of the name
+--      - ast.Var.Name
+--      - ast.Var.QualifiedName
 --
 -- We also make some adjustments to the AST:
 --
---   * We convert qualified identifiers such as `io.write` from ast.Var.Dot to a flat ast.Var.Name.
+--   * We flatten qualified names such as `io.write` from ast.Var.Dot to ast.Var.QualifiedName.
 --   * We insert explicit ast.Exp.Cast nodes where there is an implicit upcast or downcast.
 --   * We insert ast.Exp.ExtraRet nodes to represent additional return values from functions.
 --   * We insert an explicit call to tofloat in some arithmetic operations. For example int + float.
 --   * We add an explicit +1 or +1.0 step in numeric for loops without a loop step.
 --
--- In order for these transformations to work it is important to always use the return value from
--- the check_exp and check_var functions. For example, instead of just `check_exp(foo.exp)` you
--- should write `foo.exp = check_exp(foo.exp)`.
+-- For these transformations to work you should always use the return value from the check_exp and
+-- check_var functions. For example, instead of just `check_exp(foo.exp)` you should always write
+-- `foo.exp = check_exp(foo.exp)`.
 --
 
 local checker = {}
@@ -64,15 +68,10 @@ function checker.check(prog_ast)
     end
 end
 
--- Usually if an error is produced with `assert()` or `error()` then it is
--- a compiler bug. User-facing errors such as syntax errors and
--- type checking errors are reported in a different way. The actual
--- method employed is kind of tricky. Since Lua does not have a clean
--- try-catch functionality we use coroutines to do that job.
--- You can see this in the `checker.check()` function but you do
--- not need to know how it works. You just need to know that calling
--- `scope_error()` or `type_error()` will exit the type checking routine
--- and report a Pallene compilation error.
+-- We use coroutines.yield to raise an exception if we encounter a type error in the user program.
+-- Some other things we tried that did not work:
+-- 1) Produce a dummy "Void" type on errors, and keep going to produce more errors; too finnicky.
+-- 2) Use "error" to raise the exception; I couldn't implement the required "try-catch".
 local function checker_error(loc, fmt, ...)
     local error_message = loc:format_error(fmt, ...)
     coroutine.yield(error_message)
@@ -96,14 +95,14 @@ local function check_type_is_condition(exp, fmt, ...)
     end
 end
 
-
 --
 --
 --
 
 function Checker:init()
-    self.mod_name = false            -- string
-    self.symbol_table = symtab.new() -- string => checker.Name
+    self.module_symbol = false       -- checker.Symbol.Module
+    self.module_var_name = false     -- string
+    self.symbol_table = symtab.new() -- string => checker.Symbol
     self.ret_types_stack = {}        -- stack of types.T
     return self
 end
@@ -117,68 +116,45 @@ local function declare_type(type_name, cons)
     typedecl.declare(checker, "checker", type_name, cons)
 end
 
-declare_type("Name", {
-    Type     = { "typ" },
-    Local    = { "decl" },
-    Global   = { "decl" },
-    Function = { "decl" },
-    Builtin  = { "name" },
-    Module   = { "name", "is_main_mod", "shadowed_symbol"},
-    FakeKeyword = { "name" }, -- the "module" pseudo-type
+--
+-- Type information, meant for for the type checker
+-- For each name in scope, the type checker wants to know if it is a value and what is its type.
+--
+declare_type("Symbol", {
+    Type   = { "typ"  },
+    Value  = { "typ", "def" },
+    Module = { "typ", "symbols" }, -- Note: a module name can also be a type (e.g. "string")
 })
--- TODO: add a comment explaining the Module case
-
-function Checker:add_type(name, typ)
-    assert(typedecl.match_tag(typ._tag, "types.T"))
-    self.symbol_table:add_symbol(name, checker.Name.Type(typ))
-end
-
-function Checker:add_local(decl)
-    assert(decl._tag == "ast.Decl.Decl")
-    self.symbol_table:add_symbol(decl.name, checker.Name.Local(decl))
-end
-
-local function verify_mod_decl(name, decl, symbol_table)
-    local cname = symbol_table:find_symbol(name)
-    if decl._modname and cname then
-        scope_error(decl.loc,
-          "duplicate module field '%s', previous one at line %d", decl.name, cname.decl.loc.line)
-    end
-end
-
-function Checker:add_global(decl)
-    assert(decl._tag == "ast.Decl.Decl")
-    local name = decl._modname and (decl._modname .. '.' .. decl.name) or decl.name
-    verify_mod_decl(name, decl, self.symbol_table)
-    self.symbol_table:add_symbol(name, checker.Name.Global(decl))
-end
-
-function Checker:add_function(decl)
-    assert(decl._tag == "ast.Decl.Decl")
-    local name = decl._modname and (decl._modname .. '.' .. decl.name) or decl.name
-    verify_mod_decl(name, decl, self.symbol_table)
-    self.symbol_table:add_symbol(name, checker.Name.Function(decl))
-end
-
-function Checker:add_builtin(name, id)
-    assert(type(name) == "string")
-    self.symbol_table:add_symbol(name, checker.Name.Builtin(id))
-end
-
-function Checker:add_module(name, is_main_mod)
-    assert(type(name) == "string")
-    -- To allow the name "string" to be used both as a module name and as a type name, module
-    -- symbols are aware of the type that they are shadowing.
-    local shadowed_symbol = self.symbol_table:find_symbol(name)
-    self.symbol_table:add_symbol(name, checker.Name.Module(name, is_main_mod, shadowed_symbol))
-end
-
-function Checker:add_fake_keyword(name)
-    assert(type(name) == "string")
-    self.symbol_table:add_symbol(name, checker.Name.FakeKeyword(name))
-end
 
 --
+-- Provenance information, meant for the code generator
+-- For each name in the AST, we to add an annotation to tell the codegen where it comes from.
+--
+declare_type("Def", {
+    Variable = { "decl" },
+    Function = { "stat" },
+    Builtin  = { "id"   },
+--  Import   = { ??? },
+})
+
+function Checker:add_type_symbol(name, typ)
+    assert(type(name) == "string")
+    assert(typedecl.match_tag(typ._tag, "types.T"))
+    return self.symbol_table:add_symbol(name, checker.Symbol.Type(typ))
+end
+
+function Checker:add_value_symbol(name, typ, def)
+    assert(type(name) == "string")
+    assert(typedecl.match_tag(typ._tag, "types.T"))
+    return self.symbol_table:add_symbol(name, checker.Symbol.Value(typ, def))
+end
+
+function Checker:add_module_symbol(name, typ, symbols)
+    assert(type(name) == "string")
+    assert((not typ) or typedecl.match_tag(typ._tag, "types.T"))
+    return self.symbol_table:add_symbol(name, checker.Symbol.Module(typ, symbols))
+end
+
 --
 --
 
@@ -189,21 +165,26 @@ function Checker:from_ast_type(ast_typ)
 
     elseif tag == "ast.Type.Name" then
         local name = ast_typ.name
-        local cname = self.symbol_table:find_symbol(name)
-        if not cname then
+
+        local sym = self.symbol_table:find_symbol(name)
+        if not sym then
             scope_error(ast_typ.loc,  "type '%s' is not declared", name)
-        elseif cname._tag == "checker.Name.Type" then
-            return cname.typ
-        elseif cname._tag == "checker.Name.Module" then
-            if cname.shadowed_symbol and cname.shadowed_symbol._tag == "checker.Name.Type" then
-                return cname.shadowed_symbol.typ
-            else
-                -- fallthrough
-            end
-        else
-            -- fallthrough
         end
-        type_error(ast_typ.loc, "'%s' is not a type", name)
+
+        local stag = sym._tag
+        if     stag == "checker.Symbol.Type" then
+            return sym.typ
+        elseif stag == "checker.Symbol.Module" then
+            if sym.typ then
+                return sym.typ
+            else
+                type_error(ast_typ.loc, "module '%s' is not a type", name)
+            end
+        elseif stag == "checker.Symbol.Value" then
+            type_error(ast_typ.loc, "'%s' is not a type", name)
+        else
+            typedecl.tag_error(stag)
+        end
 
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
@@ -235,154 +216,73 @@ function Checker:from_ast_type(ast_typ)
     end
 end
 
-local letrec_groups = {
-    ["ast.Toplevel.Var"]       = "Var",
-    ["ast.Toplevel.Func"]      = "Func",
-    ["ast.Toplevel.Typealias"] = "Type",
-    ["ast.Toplevel.Record"]    = "Type",
-    ["ast.Toplevel.Stat"]      = "Stat",
-}
-
 function Checker:check_program(prog_ast)
     assert(prog_ast._tag == "ast.Program.Program")
-    local tls = prog_ast.tls
 
-    -- Add the fake "module" type to the scope
-    self:add_fake_keyword("module")
+    -- Add primitive types to the symbol table
+    self:add_type_symbol("any",     types.T.Any())
+    self:add_type_symbol("boolean", types.T.Boolean())
+    self:add_type_symbol("float",   types.T.Float())
+    self:add_type_symbol("integer", types.T.Integer())
+    self:add_type_symbol("string",  types.T.String())
 
-    -- Add most primitive types to the symbol table
-    self:add_type("any",     types.T.Any())
-    self:add_type("boolean", types.T.Boolean())
-    self:add_type("float",   types.T.Float())
-    self:add_type("integer", types.T.Integer())
-    self:add_type("string",  types.T.String())
-
-    -- Add builtins to symbol table. The order does not matter because they are distinct.
-    for name, _ in pairs(builtins.functions) do
-        self:add_builtin(name, name)
-    end
-    for name in pairs(builtins.modules) do
-        self:add_module(name)
+    -- Add builtins to symbol table.
+    -- The order does not matter because they are distinct.
+    for name, typ in pairs(builtins.functions) do
+        self:add_value_symbol(name, typ, checker.Def.Builtin(name))
     end
 
-    -- Group mutually-recursive definitions
-    local tl_groups = {}
-    do
-        local i = 1
-        local N = #tls
-        while i <= N do
-            local node1 = tls[i]
-            local tag1  = node1._tag
-            assert(letrec_groups[tag1])
-
-            node1.i = i
-            local group = { node1 }
-            local j = i + 1
-            while j <= N do
-                local node2 = tls[j]
-                local tag2  = node2._tag
-                assert(letrec_groups[tag2])
-
-                if letrec_groups[tag1] ~= letrec_groups[tag2] then
-                    break
-                end
-
-                node2.i = j
-                table.insert(group, node2)
-                j = j + 1
-            end
-            table.insert(tl_groups, group)
-            i = j
+    for mod_name, funs in pairs(builtins.modules) do
+        local symbols = {}
+        for fun_name, typ in pairs(funs) do
+            local id = mod_name .. "." .. fun_name
+            symbols[fun_name] = checker.Symbol.Value(typ, checker.Def.Builtin(id))
         end
+        local typ = (mod_name == "string") and types.T.String() or false
+        self:add_module_symbol(mod_name, typ, symbols)
     end
 
     -- Check toplevel
-    for _, tl_group in ipairs(tl_groups) do
-        local group_kind = letrec_groups[tl_group[1]._tag]
+    for _, tl_node in ipairs(prog_ast.tls) do
+        local tag = tl_node._tag
+        if     tag == "ast.Toplevel.Stat" then
+            self:check_stat(tl_node.stat, true)
 
-        if     group_kind == "Import" then
-            local loc = tl_group[1].loc
-            type_error(loc, "modules are not implemented yet")
+        elseif tag == "ast.Toplevel.Typealias" then
+            self:add_type_symbol(tl_node.name, self:from_ast_type(tl_node.type))
 
-        elseif group_kind == "Type" then
-
-            -- TODO: Implement recursive and mutually recursive types
-            for _, tl_node in ipairs(tl_group) do
-                local tag = tl_node._tag
-                if     tag == "ast.Toplevel.Typealias" then
-                    self:add_type(tl_node.name, self:from_ast_type(tl_node.type))
-
-                elseif tag == "ast.Toplevel.Record" then
-                    local field_names = {}
-                    local field_types = {}
-                    for _, field_decl in ipairs(tl_node.field_decls) do
-                        local field_name = field_decl.name
-                        table.insert(field_names, field_name)
-                        field_types[field_name] = self:from_ast_type(field_decl.type)
-                    end
-
-                    local typ = types.T.Record(tl_node.name, field_names, field_types)
-                    tl_node._type = typ
-                    self:add_type(tl_node.name, typ)
-
-                else
-                    typedecl.tag_error(tag)
-                end
+        elseif tag == "ast.Toplevel.Record" then
+            local field_names = {}
+            local field_types = {}
+            for _, field_decl in ipairs(tl_node.field_decls) do
+                local field_name = field_decl.name
+                table.insert(field_names, field_name)
+                field_types[field_name] = self:from_ast_type(field_decl.type)
             end
 
-        elseif group_kind == "Stat" then
-            for _, tl_node in ipairs(tl_group) do
-                local stat = tl_node.stat
-                if stat._tag ==  "ast.Stat.Decl" then
-                    for _, decl in ipairs(stat.decls) do
-                        local typ = decl.type
-                        if typ and typ._tag == "ast.Type.Name" and typ.name == "module" then
-                            local module_cname = self.symbol_table:find_symbol("module")
-                            if module_cname._tag == "checker.Name.FakeKeyword" then
-                                if self.mod_name then
-                                  type_error(decl.loc,
-                                     "There can only be one module variable per program")
-                                end
-                                self.mod_name = decl.name
-                                decl._type = types.T.Module()
-                                self:add_module(decl.name, true)
-                            end
-                        end
-                    end
-                elseif stat._tag == "ast.Stat.Func" then
-                    local decl = stat.decl
-                    local fname = stat.name
-                    decl._type = self:from_ast_type(decl.type)
-                    self:check_funcname(fname, decl)
+            local typ = types.T.Record(tl_node.name, field_names, field_types)
+            self:add_type_symbol(tl_node.name, typ)
 
-                else
-                    -- skip
-                end
-            end
-            if not self.mod_name then
-                type_error(prog_ast.loc, "Program has no module variable")
-            end
-            for _, tl_node in ipairs(tl_group) do
-                local stat = tl_node.stat
-                local i = tl_node.i
-                if stat._tag ~= "ast.Stat.Return" then
-                  tls[i].stat = self:check_stat(stat, true)
-                end
-            end
+            tl_node._type = typ
 
         else
-            error("impossible")
+            typedecl.tag_error(tag)
         end
     end
 
-    local total_nodes = #tls
+    local total_nodes = #prog_ast.tls
     if total_nodes == 0 then
         type_error(prog_ast.loc, "Empty modules are not permitted")
     end
 
-     for i = 1, total_nodes - 1 do
-        if tls[i]._tag == "ast.Toplevel.Stat" then
-            local stat = tls[i].stat
+    if not self.module_symbol then
+        type_error(prog_ast.loc, "Program has no module variable")
+    end
+
+    -- TODO: Does this protect against "do return end"?
+    for i = 1, total_nodes - 1 do
+        if prog_ast.tls[i]._tag == "ast.Toplevel.Stat" then
+            local stat = prog_ast.tls[i].stat
             if stat._tag == "ast.Stat.Return" then
                 type_error(stat.loc, "Only the last toplevel node can be a return statement")
             end
@@ -396,30 +296,9 @@ function Checker:check_program(prog_ast)
         type_error(last_toplevel_node.loc, "Last Toplevel element must be a return statement")
     end
 
-    local ret_types = {}
-    ret_types[1] = types.T.Module()
-    table.insert(self.ret_types_stack, ret_types)
-    self:check_stat(last_stat, true)
-    table.remove(self.ret_types_stack)
-    table.remove(prog_ast.tls)
-
     return prog_ast
 end
 
-function Checker:mod_assign_rhs_type(exp)
-    local typ = exp._type
-    local tag = typ._tag
-    if     tag == "types.T.Record" or
-           tag == "types.T.Array" or
-           tag == "types.T.Module" or
-           tag == "types.T.Function" or
-           tag == "types.T.Any" or
-           tag == "types.T.Void"
-    then
-        type_error(exp.loc,
-          "Can't assign module field to '%s'", types.tostring(typ))
-    end
-end
 -- If the last expression in @rhs is a function call that returns multiple values, add ExtraRet
 -- nodes to the end of the list.
 function Checker:expand_function_returns(rhs)
@@ -433,33 +312,63 @@ function Checker:expand_function_returns(rhs)
     end
 end
 
-function Checker:check_stat(stat, istoplevel)
+function Checker:is_a_module_declaration(decls)
+    for _, decl in ipairs(decls) do
+        assert(decl._tag == "ast.Decl.Decl")
+        if
+            decl.type and
+            decl.type._tag == "ast.Type.Name" and
+            decl.type.name == "module" and
+            not self.symbol_table:find_symbol("module")
+        then
+            return true
+        end
+    end
+    return false
+end
+
+function Checker:is_the_module_variable(exp)
+    -- Check if the expression is the module variable without calling check_exp.
+    -- Doing that would have raised an exception because it is not a value.
+    return (
+        exp._tag == "ast.Exp.Var" and
+        exp.var._tag == "ast.Var.Name" and
+        (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
+end
+
+function Checker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
 
-        self:expand_function_returns(stat.exps)
-
-        for i, decl in ipairs(stat.decls) do
-            if not (decl._type and decl._type._tag == "types.T.Module") then
-                stat.exps[i] =
-                    self:check_initializer_exp(
-                        decl, stat.exps[i],
-                        "declaration of local variable %s", decl.name)
+        if self:is_a_module_declaration(stat.decls) then
+            if self.module_symbol then
+                type_error(stat.loc, "There can only be one module declaration in the program")
             end
-        end
-
-        for i, decl in ipairs(stat.decls) do
-            local typ = decl._type
-            if decl._modname then
-                self:mod_assign_rhs_type(stat.exps[i])
+            if not is_toplevel then
+                type_error(stat.loc, "The module declaration must be at the toplevel") --TODO test
             end
-            local not_main_mod = typ and typ._tag ~= "types.T.Module"
-            if istoplevel then
-                if not_main_mod then
-                    self:add_global(decl)
-                end
-            else
-                self:add_local(decl)
+            if #stat.decls ~= 1 or #stat.exps ~= 1 then
+                type_error(stat.loc, "Cannot declare module table in a multiple-assignment") -- TODO test
+            end
+
+            local decl = stat.decls[1]
+            local exp  = stat.exps[1]
+            if not (exp._tag == "ast.Exp.Initlist" and #exp.fields == 0) then
+                type_error(stat.loc, "Module initializer must be literally {}") -- TODO: test
+            end
+
+            self.module_symbol = self:add_module_symbol(decl.name, false, {})
+            self.module_var_name = decl.name
+
+        else
+            self:expand_function_returns(stat.exps)
+            for i, decl in ipairs(stat.decls) do
+                stat.exps[i] = self:check_initializer_exp(
+                    decl, stat.exps[i],
+                    "declaration of local variable %s", decl.name)
+            end
+            for _, decl in ipairs(stat.decls) do
+                self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
             end
         end
 
@@ -487,10 +396,9 @@ function Checker:check_stat(stat, istoplevel)
 
     elseif tag == "ast.Stat.ForNum" then
 
-        stat.start =
-            self:check_initializer_exp(
-                stat.decl, stat.start,
-                "numeric for-loop initializer")
+        stat.start = self:check_initializer_exp(
+            stat.decl, stat.start,
+            "numeric for-loop initializer")
 
         local loop_type = stat.decl._type
 
@@ -519,6 +427,7 @@ function Checker:check_stat(stat, istoplevel)
             self:add_local(stat.decl)
             self:check_stat(stat.block, false)
         end)
+
     elseif tag == "ast.Stat.ForIn" then
         local rhs = stat.exps
         self:expand_function_returns(rhs)
@@ -592,39 +501,10 @@ function Checker:check_stat(stat, istoplevel)
 
     elseif tag == "ast.Stat.Assign" then
         self:expand_function_returns(stat.exps)
-
         for i = 1, #stat.vars do
-            if stat.vars[i]._tag == "ast.Var.Dot" then
-                if stat.vars[i].exp._tag == "ast.Exp.Var" then
-                    local top_var = stat.vars[i].exp.var
-                    local mod_cname = self.symbol_table:find_symbol(top_var.name)
-                    if mod_cname and mod_cname._tag == "checker.Name.Module" and
-                       mod_cname.is_main_mod then
-                        if #stat.vars > 1 then
-                            type_error(stat.loc,
-                              "Module assignment can only have one element at the lhs")
-                        end
-                        local loc, name = stat.loc, stat.vars[i].name
-                        local decl = ast.Decl.Decl(loc, name, nil)
-                        decl._modname = top_var.name
-                        local newstat = ast.Stat.Decl(loc, {decl}, stat.exps)
-                        stat = newstat
-                        return self:check_stat(stat, istoplevel)
-                    end
-                end
-            end
             stat.vars[i] = self:check_var(stat.vars[i])
-            if stat.vars[i]._tag == "ast.Var.Name" then
-                local ntag = stat.vars[i]._name._tag
-                if ntag == "checker.Name.Function" then
-                    type_error(stat.loc,
-                        "attempting to assign to toplevel constant function '%s'",
-                        stat.vars[i].name)
-                elseif ntag == "checker.Name.Builtin" then
-                    type_error(stat.loc,
-                        "attempting to assign to builtin function %s",
-                        stat.vars[i].name)
-                end
+            if stat.vars[i]._def and stat.vars[i]._def._tag ~= "checker.Def.Variable" then
+                type_error(stat.loc, "LHS of assignment is not a mutable variable")
             end
             stat.exps[i] = self:check_exp_verify(stat.exps[i], stat.vars[i]._type, "assignment")
         end
@@ -633,18 +513,29 @@ function Checker:check_stat(stat, istoplevel)
         stat.call_exp = self:check_exp_synthesize(stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
-        local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
-
         self:expand_function_returns(stat.exps)
-
-        if #stat.exps ~= #ret_types then
-            type_error(stat.loc,
-                "returning %d value(s) but function expects %s",
-                #stat.exps, #ret_types)
-        end
-
-        for i = 1, #stat.exps do
-            stat.exps[i] = self:check_exp_verify(stat.exps[i], ret_types[i], "return statement")
+        if #self.ret_types_stack == 0 then
+            -- Module return
+            if not is_toplevel then
+                type_error(stat.loc, "return statement is not allowed here") -- TODO
+            end
+            if #stat.exps ~= 1 then
+                type_error(stat.loc, "returning %d value(s) but module expects 1", #stat.exps) -- TODO
+            end
+            if not self:is_the_module_variable(stat.exps[1]) then
+                type_error(stat.loc, "must return the module variable (%s)", self.module_var_name)  -- TODO
+            end
+        else
+            -- Function return
+            local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
+            if #stat.exps ~= #ret_types then
+                type_error(stat.loc,
+                    "returning %d value(s) but function expects %s",
+                    #stat.exps, #ret_types)
+            end
+            for i = 1, #stat.exps do
+                stat.exps[i] = self:check_exp_verify(stat.exps[i], ret_types[i], "return statement")
+            end
         end
 
     elseif tag == "ast.Stat.If" then
@@ -657,8 +548,49 @@ function Checker:check_stat(stat, istoplevel)
         -- ok
 
     elseif tag == "ast.Stat.Func" then
-        local decl = stat.decl
-        stat.value = self:check_exp_verify(stat.value, decl._type, "toplevel function")
+
+        local arg_types = {}
+        for i, decl in ipairs(stat.value.arg_decls) do
+            arg_types[i] = self:from_ast_type(decl.type)
+        end
+
+        local ret_types = {}
+        for i, ast_typ in ipairs(stat.ret_types) do
+            ret_types[i] = self:from_ast_type(ast_typ)
+        end
+
+        local typ = types.T.Function(arg_types, ret_types)
+        stat._type = typ -- TODO: do I need this annotation?
+
+        if stat.is_local then
+            assert(#stat.fields == 0)
+            assert(not stat.method)
+            self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
+        else
+            assert(not stat.method) -- not yet implemented
+
+            local sym = self.symbol_table:find_symbol(stat.root)
+            if not sym then
+                scope_error(stat.loc, "module '%s' is not declared", stat.root)
+            end
+            if sym._tag ~= "checker.Symbol.Module" then
+                type_error(stat.loc, "'%s' is not a module", stat.root)
+            end
+            if sym ~= self.module_symbol then
+                type_error(stat.loc, "attempting to reassign a function from external module") --TODO
+            end
+            if #stat.fields > 1 then
+                type_error(stat.loc, "more than one dot in the function name is not allowed") --TODO
+            end
+
+            local name = stat.fields[1]
+            if sym.symbols[name] then
+                type_error(stat.loc, "duplicate module field '%s'", name)
+            end
+            sym.symbols[name] = checker.Symbol.Value(typ, checker.Def.Function(stat))
+        end
+
+        stat.value = self:check_exp_verify(stat.value, typ, "toplevel function")
 
     else
         typedecl.tag_error(tag)
@@ -667,108 +599,94 @@ function Checker:check_stat(stat, istoplevel)
     return stat
 end
 
-function Checker:check_funcname(fname, decl)
-    if fname.method then
-        error("methods are not implemented yet")
+--
+-- If the given var is of the form x.y.z, try to convert it to a Var.QualifiedName
+--
+function Checker:try_flatten_to_qualified_name(outer_var)
+    -- TODO: We use O(N²) time if there is a long chain of dots that is not a qualified name.
+    --       It might be possible to avoid this with a bit of memoization.
+
+    if outer_var._tag ~= "ast.Var.Dot" then return false end
+
+    -- Find the leftmost name.
+    local rev_fields = {}
+    local var = outer_var
+    while var._tag == "ast.Var.Dot" do
+        if var.exp._tag ~= "ast.Exp.Var" then return false end
+        table.insert(rev_fields, var.name)
+        var = var.exp.var
     end
-    if #fname.fields > 0 then
-        local mod_cname = self.symbol_table:find_symbol(fname.root)
-        if not mod_cname or mod_cname._tag ~= "checker.Name.Module" then
-            type_error(fname.loc, "'%s' is not a module", fname.root)
+
+    if var._tag ~= "ast.Var.Name" then return false end
+    local root = var.name
+
+    -- Is it a module? If so, resolve the types
+    local root_sym = self.symbol_table:find_symbol(root)
+    if not root_sym then return false end
+
+    local fields = {}
+    for i = #rev_fields, 1, -1 do
+        table.insert(fields, rev_fields[i])
+    end
+
+    local sym = root_sym
+    for _, field in ipairs(fields) do
+        if sym._tag ~= "checker.Symbol.Module" then return false end -- Retry recursively.
+        sym = sym.symbols[field]
+        if not sym then
+            type_error(outer_var.loc, "module field '%s' does not exist", field) -- TODO
         end
-        decl._modname = assert(fname.root)
     end
-    self:add_function(decl)
+
+    if sym._tag ~= "checker.Symbol.Value" then
+        type_error(outer_var.loc, "module field '%s' is not a value", rev_fields[1]) -- TODO
+    end
+
+    local q = ast.Var.QualifiedName(var.loc, root, fields)
+    q._type = sym.typ
+    q._def = sym.def
+    return q
 end
 
 function Checker:check_var(var)
     local tag = var._tag
     if     tag == "ast.Var.Name" then
-        local cname = self.symbol_table:find_symbol(var.name)
-        if not cname then
+        local sym = self.symbol_table:find_symbol(var.name)
+        if not sym then
             scope_error(var.loc, "variable '%s' is not declared", var.name)
         end
-        var._name = cname
 
-        if     cname._tag == "checker.Name.Type" then
-            type_error(var.loc, "'%s' isn't a value", var.name)
-        elseif cname._tag == "checker.Name.Local" then
-            var._type = assert(cname.decl._type)
-        elseif cname._tag == "checker.Name.Global" then
-            var._type = assert(cname.decl._type)
-        elseif cname._tag == "checker.Name.Function" then
-            var._type = assert(cname.decl._type)
-        elseif cname._tag == "checker.Name.Builtin" then
-            var._type = assert(builtins.functions[cname.name])
-        elseif cname._tag == "checker.Name.Module" then
-            -- Module names can appear only in the dot notation.
-            -- For example, a statement like `local x = io` is illegal.
-            if cname.is_main_mod then
-                var._type = types.T.Module()
-            else
-                type_error(var.loc,
-                    "cannot reference module name '%s' without dot notation",
-                    var.name)
-            end
+        local stag = sym._tag
+        if     stag == "checker.Symbol.Type" then
+            type_error(var.loc, "'%s' is not a value", var.name)
+        elseif stag == "checker.Symbol.Value" then
+            var._type = sym.typ
+            var._def  = sym.def
+        elseif stag == "checker.Symbol.Module" then
+            type_error(var.loc, "attempt to use module as a value")
         else
-            typedecl.tag_error(cname._tag)
+            typedecl.tag_error(stag)
         end
 
     elseif tag == "ast.Var.Dot" then
-        local mod_cname
-        if var.exp._tag == "ast.Exp.Var" and var.exp.var._tag == "ast.Var.Name" then
-            mod_cname = self.symbol_table:find_symbol(var.exp.var.name)
-        else
-            mod_cname = false
+
+        local qualified = self:try_flatten_to_qualified_name(var)
+        if qualified then return qualified end
+
+        var.exp = self:check_exp_synthesize(var.exp)
+        local ind_type = var.exp._type
+        if not types.is_indexable(ind_type) then
+            type_error(var.loc,
+                "trying to access a member of a value of type '%s'",
+                types.tostring(ind_type))
         end
-
-        if mod_cname and mod_cname._tag == "checker.Name.Module" then
-            if mod_cname.is_main_mod then
-                local module_name = mod_cname.name
-                local field_name = var.name
-                local internal_name = module_name .. '.' .. field_name
-                local cname = self.symbol_table:find_symbol(internal_name)
-                if not cname then
-                    scope_error(var.loc, "variable '%s' is not declared", internal_name)
-                end
-                local flat_var = ast.Var.Name(var.exp.loc, field_name)
-                flat_var._name = cname
-                flat_var._type = cname.decl._type
-                var = flat_var
-            else
-                local module_name = mod_cname.name
-                local function_name = var.name
-                local internal_name = module_name .. "." .. function_name
-
-                local typ = builtins.functions[internal_name]
-                if typ then
-                    local cname = self.symbol_table:find_symbol(internal_name)
-                    local flat_var = ast.Var.Name(var.exp.loc, internal_name)
-                    flat_var._name = cname
-                    flat_var._type = typ
-                    var = flat_var
-                else
-                    type_error(var.loc,
-                        "unknown function '%s'", internal_name)
-                end
-            end
-
-        else
-            var.exp = self:check_exp_synthesize(var.exp)
-            local ind_type = var.exp._type
-            if not types.is_indexable(ind_type) then
-                type_error(var.loc,
-                    "trying to access a member of value of type '%s'",
-                    types.tostring(ind_type))
-            end
-            local field_type = types.indices(ind_type)[var.name]
-            if not field_type then
-                type_error(var.loc,
-                    "field '%s' not found in type '%s'",
-                    var.name, types.tostring(ind_type))
-            end
-            var._type = field_type
+        local field_type = types.indices(ind_type)[var.name]
+        if not field_type then
+            type_error(var.loc,
+                "field '%s' not found in type '%s'",
+                var.name, types.tostring(ind_type))
         end
+        var._type = field_type
 
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
@@ -780,6 +698,10 @@ function Checker:check_var(var)
         end
         var.k = self:check_exp_verify(var.k, types.T.Integer(), "array indexing")
         var._type = arr_type.elem
+
+    elseif tag == "ast.Var.QualifiedName" then
+        -- This is never present in the source program
+        error("impossible")
 
     else
         typedecl.tag_error(tag)
@@ -1139,7 +1061,7 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
         self.symbol_table:with_block(function()
             for i, decl in ipairs(exp.arg_decls) do
                 decl._type = assert(expected_type.arg_types[i])
-                self:add_local(decl)
+                self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
             end
             self:check_stat(exp.body, false)
         end)

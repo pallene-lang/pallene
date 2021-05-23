@@ -24,10 +24,11 @@ function Symtab:with_block(body, ...)
     self:close_block()
 end
 
-function Symtab:add_symbol(name, decl)
+function Symtab:add_symbol(name, symbol)
     assert(#self.blocks > 0)
     local block = self.blocks
-    block[#block][name] = decl
+    block[#block][name] = symbol
+    return symbol
 end
 
 function Symtab:find_symbol(name)
