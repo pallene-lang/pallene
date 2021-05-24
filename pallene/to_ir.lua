@@ -115,7 +115,7 @@ function ToIR:convert_toplevel(prog_ast)
                     end
 
                 elseif stag == "ast.Stat.Decl" then
-                    if not stat._is_module_decl then
+                    if not stat._skip then
                         for _, decl in ipairs(stat.decls) do
                             assert(decl._type)
                             local g_id = ir.add_global(self.module, decl.name, decl._type)
@@ -124,9 +124,15 @@ function ToIR:convert_toplevel(prog_ast)
                     end
 
                 elseif stag == "ast.Stat.Func" then
-                    assert(stat.is_local or #stat.fields == 1)
+                    if stat.is_local then
+                        assert(#stat.fields == 0)
+                        assert(not stat.method)
+                    else
+                        assert(#stat.fields <= 1)
+                        assert(not stat.method)
+                    end
                     local exp = stat.value
-                    local name = (stat.is_local and stat.root or stat.fields[1])
+                    local name = stat.fields[1] or stat.root
                     local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
 
                     self.fun_id_of_exp[exp] = f_id
@@ -492,7 +498,7 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        if not stat._is_module_decl then
+        if not stat._skip then
             for _, decl in ipairs(stat.decls) do
                 local typ = decl._type
                 if not self.glb_id_of_decl[decl] then
@@ -521,7 +527,7 @@ function ToIR:convert_stat(cmds, stat)
         self:exp_to_assignment(cmds, false, stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
-        if not stat._is_module_decl then
+        if not stat._skip then
             local vals = {}
             for i, exp in ipairs(stat.exps) do
                 vals[i] = self:exp_to_value(cmds, exp)

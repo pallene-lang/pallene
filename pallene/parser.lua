@@ -335,9 +335,6 @@ function Parser:Func(is_local)
     if is_local and has_dot then
         self:syntax_error(root.loc, "Local function name has a '.' or ':'")
     end
-    if not is_local and not has_dot then
-        self:syntax_error(root.loc, "Function must be 'local' or module function")
-    end
 
     local oparen   = self:e("(")
     local params   = self:DeclList()

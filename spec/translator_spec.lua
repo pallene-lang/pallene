@@ -437,7 +437,7 @@ return m
 ]])
     end)
 
-    pending("Mutually recursive functions (infinite)", function ()
+    it("Mutually recursive functions (infinite)", function ()
         assert_translation(
 [[
 local m: module = {}

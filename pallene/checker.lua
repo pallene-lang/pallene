@@ -24,16 +24,17 @@ local util = require "pallene.util"
 --      - ast.Toplevel.Record
 --      - ast.Stat.Func
 --
---   * _def: A checker.Def that describes the meaning of the name
+--   * _def: A checker.Def that describes the meaninge
 --      - ast.Var.Name
 --
---   * _is_exported: a boolean (true) marking assignments that are exported variable declarations
+--   * _is_exported: A boolean (true) marking assignments that are declaring an exported variable
+--      - ast.Var.Name
 --
---   * _is_module_decl: a boolean (true) marking some parts that the IR gen should skip
---      - The `local m:module={}` statement
---      - The `return m` statement
+--   * _skip: A boolean (true) marking nodes that should be skipped by the to_ir
+--      - ast.Stat.Decl (the `local m:module={}` statement and the forward-decl for functions)
+--      - ast.Stat.Return (the `return m` statement)
 --
---   * _declared (a boolean flag, only used internally by the type checker)
+--   * _declared (used internally by the type checker)
 --      - ast.Stat.Func
 --
 -- We also make some adjustments to the AST:
@@ -350,8 +351,8 @@ function Checker:is_the_module_variable(exp)
         (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
 end
 
--- Mutual Recursion
--- ================
+-- Mutualy Recursive Functions
+-- ===========================
 --
 -- We allow Pallene functions to call functions that are defined later down down the file. However,
 -- we must ensure that we only call functions after they are initialized.
@@ -399,7 +400,6 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
         assert(not stat.method) -- not yet implemented
         if #stat.fields == 0 then
             -- Local function (forward declared)
-            error("TODO")
             self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
         else
             -- Module function
@@ -432,28 +432,88 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
     stat._type = typ
 end
 
+--
+-- Does this statement look like it is the start of a forward declaration for a group of functions?
+-- If yes, return a table with the set of names
+--
+local function is_forward_decl(stats, i)
+    local stat = stats[i]
+    if stat._tag ~= "ast.Stat.Decl" then return false end
+    if #stat.exps > 0 then return false end
+
+    local names = {}
+    for _, decl in ipairs(stat.decls) do
+        names[decl.name] = true
+    end
+
+    local fstat = stats[i+1]
+    if not fstat then return false end
+    if fstat._tag ~= "ast.Stat.Func" then return false end
+    if fstat.is_local then return false end
+    if #fstat.fields > 0 or fstat.method then return false end
+    if not names[fstat.root] then return false end
+
+    for _, decl in ipairs(stat.decls) do
+        if decl.type then
+            -- TODO: allow type annotations in the forward decl (and check them)
+            return false
+        end
+    end
+
+    return names
+end
+
 function Checker:check_stat_list(stats, is_toplevel)
     local N = #stats
-    for i, stat in ipairs(stats) do
-        if stat._tag == "ast.Stat.Func" and not stat._declared then
-            self:add_func_stat_to_scope(stat, is_toplevel)
-            for j = i+1, N do
-                if stats[j]._tag == "ast.Stat.Func" and not stats[j].is_local then
-                    self:add_func_stat_to_scope(stats[j], is_toplevel)
+    for i, first_stat in ipairs(stats) do
+        -- Is this one of the special cases with forward declarations?
+        -- If so, start by adding all those names to the scope
+        local is_fresh_exported = (
+            first_stat._tag == "ast.Stat.Func"
+            and not first_stat.is_local
+            and not first_stat._declared)
+        local forward_decl_names = is_forward_decl(stats, i)
+        if is_fresh_exported or forward_decl_names then
+
+            local start
+            if is_fresh_exported then
+                assert(not forward_decl_names)
+                start = i
+            elseif forward_decl_names then
+                assert(not is_fresh_exported)
+                stats[i]._skip = true
+                start = i+1
+            else
+                error("impossible")
+            end
+
+            for j = start, N do
+                local stat = stats[j]
+                if stat._tag == "ast.Stat.Func" and not stat.is_local then
+                    if #stat.fields == 0 and not stat.method then
+                        if not forward_decl_names or not forward_decl_names[stat.root] then
+                            scope_error(stat.loc, "function '%s' was not forward declared", stat.root)
+                        end
+                        forward_decl_names[stat.root] = nil
+                    end
+                    self:add_func_stat_to_scope(stat, is_toplevel)
                 else
                     break
                 end
             end
         end
-        self:check_stat(stat, is_toplevel)
+        -- And then type check the body of the statement
+        self:check_stat(first_stat, is_toplevel)
     end
 end
 
 function Checker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
+        if stat._skip then
+            -- Ignore
 
-        if self:is_a_module_declaration(stat.decls) then
+        elseif self:is_a_module_declaration(stat.decls) then
             if self.module_symbol then
                 type_error(stat.loc, "There can only be one module declaration in the program")
             end
@@ -470,7 +530,7 @@ function Checker:check_stat(stat, is_toplevel)
                 type_error(stat.loc, "Module initializer must be literally {}") -- TODO: test
             end
 
-            stat._is_module_decl = true
+            stat._skip = true
             self.module_symbol = self:add_module_symbol(decl.name, false, {})
             self.module_var_name = decl.name
 
@@ -676,7 +736,7 @@ function Checker:check_stat(stat, is_toplevel)
             if not self:is_the_module_variable(stat.exps[1]) then
                 type_error(stat.loc, "must return the module variable (%s)", self.module_var_name)  -- TODO
             end
-            stat._is_module_decl = true
+            stat._skip = true
         else
             -- Function return
             local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])

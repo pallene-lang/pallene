@@ -164,6 +164,16 @@ describe("Scope analysis: ", function()
         ]],
             "module functions can only be set at the toplevel")
     end)
+
+    it("cannot define function without local modifier", function()
+        assert_error([[
+            function f() : integer
+                return 5319
+            end
+        ]],
+            "function 'f' was not forward declared")
+    end)
+
 end)
 
 describe("Pallene type checker", function()
