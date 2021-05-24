@@ -309,16 +309,6 @@ function Parser:Block()
     return ast.Stat.Block(false, self:StatList())
 end
 
-function Parser:FuncName(is_local)
-
-    return {
-        loc    = tok.loc,
-        root   = tok.value, -- string
-        fields = fields,    -- string list
-        method = method,    -- string?
-    }
-end
-
 function Parser:Func(is_local)
     local start    = self:e("function")
 
