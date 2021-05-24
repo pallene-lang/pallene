@@ -24,7 +24,7 @@ declare_type("Type", {
 })
 
 declare_type("Toplevel", {
-    Stat      = {"loc", "stat"},
+    Stats     = {"loc", "stats"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
 })
@@ -46,6 +46,7 @@ declare_type("Stat", {
     Return = {"loc", "exps"},
     Break  = {"loc"},
     Func   = {"loc", "is_local", "root", "fields", "method", "ret_types", "value"},
+    LetRec = {"loc", "func_stats"}, -- Inserted by checker.lua
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
@@ -78,9 +79,5 @@ declare_type("Field", {
     List = {"loc", "exp"},
     Rec  = {"loc", "name", "exp"},
 })
-
---
--- note: the following functions are why we need `if type(conss) == "table"` in parser.lua
---
 
 return ast

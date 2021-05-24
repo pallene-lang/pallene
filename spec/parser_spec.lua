@@ -79,7 +79,7 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast.tls[1].stat.decls[1].type
+    local type_ast = program_ast.tls[1].stats[1].decls[1].type
     assert_is_subset(expected_ast, type_ast)
 end
 
@@ -103,7 +103,7 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast.tls[1].stat.value.body.stats[1].exps[1]
+    local exp_ast = program_ast.tls[1].stats[1].value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -127,7 +127,7 @@ end
 local function assert_statements_ast(code, expected_ast)
     local program_str = statements_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local stats_ast = program_ast.tls[1].stat.value.body.stats
+    local stats_ast = program_ast.tls[1].stats[1].value.body.stats
     assert_is_subset(expected_ast, stats_ast)
 end
 
@@ -164,8 +164,8 @@ describe("Pallene parser", function()
 
     it("can parse toplevel var declarations", function()
         assert_program_ast([[ local x=17 ]], { {
-      _tag = "ast.Toplevel.Stat",
-      stat = {
+      _tag = "ast.Toplevel.Stats",
+      stats = { {
         _tag = "ast.Stat.Decl",
         decls = { {
             _tag = "ast.Decl.Decl",
@@ -176,7 +176,7 @@ describe("Pallene parser", function()
             _tag = "ast.Exp.Integer",
             value = 17
           } }
-      }
+      } },
     } })
     end)
 
@@ -237,8 +237,8 @@ describe("Pallene parser", function()
             local function fA() : float
             end
         ]], { {
-          _tag = "ast.Toplevel.Stat",
-          stat = {
+          _tag = "ast.Toplevel.Stats",
+          stats = { {
             _tag = "ast.Stat.Func",
             is_local = true,
             root = "fA",
@@ -253,15 +253,15 @@ describe("Pallene parser", function()
                 stats = {}
               }
             }
-          }
+          } }
         } })
 
         assert_program_ast([[
             local function fB(x:integer) : float
             end
         ]], { {
-      _tag = "ast.Toplevel.Stat",
-        stat = {
+      _tag = "ast.Toplevel.Stats",
+        stats = { {
           _tag = "ast.Stat.Func",
           is_local = true,
           root = "fB",
@@ -279,15 +279,15 @@ describe("Pallene parser", function()
               stats = {}
             }
           }
-        }
+        } }
       } })
 
         assert_program_ast([[
             local function fC(x:integer, y:integer) : float
             end
         ]], { {
-            _tag = "ast.Toplevel.Stat",
-            stat = {
+            _tag = "ast.Toplevel.Stats",
+            stats = { {
               _tag = "ast.Stat.Func",
             is_local = true,
               root = "fC",
@@ -308,7 +308,7 @@ describe("Pallene parser", function()
                   stats = {}
                 }
               }
-            }
+            } }
         } })
     end)
 
@@ -319,38 +319,38 @@ describe("Pallene parser", function()
             local function bar()
             end
         ]], { {
-      _tag = "ast.Toplevel.Stat",
-      stat = {
-        _tag = "ast.Stat.Func",
-        is_local = false,
-        root = "m",
-        fields = {"foo"},
-        method = false,
-        ret_types = {},
-        value = {
-          _tag = "ast.Exp.Lambda",
-          arg_decls = {},
-          body = {
-            _tag = "ast.Stat.Block",
-            stats = {}
+      _tag = "ast.Toplevel.Stats",
+      stats = {
+        {
+          _tag = "ast.Stat.Func",
+          is_local = false,
+          root = "m",
+          fields = {"foo"},
+          method = false,
+          ret_types = {},
+          value = {
+            _tag = "ast.Exp.Lambda",
+            arg_decls = {},
+            body = {
+             _tag = "ast.Stat.Block",
+              stats = {}
+            }
           }
-        }
-      }
-    }, {
-      _tag = "ast.Toplevel.Stat",
-      stat = {
-        _tag = "ast.Stat.Func",
-        is_local = true,
-        root = "bar",
-        fields = {},
-        method = false,
-        ret_types = {},
-        value = {
-          _tag = "ast.Exp.Lambda",
-          arg_decls = {},
-          body = {
-            _tag = "ast.Stat.Block",
-            stats = {}
+        },
+        {
+          _tag = "ast.Stat.Func",
+          is_local = true,
+          root = "bar",
+          fields = {},
+          method = false,
+          ret_types = {},
+          value = {
+            _tag = "ast.Exp.Lambda",
+            arg_decls = {},
+            body = {
+              _tag = "ast.Stat.Block",
+              stats = {}
+            }
           }
         }
       }

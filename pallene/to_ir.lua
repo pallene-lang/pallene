@@ -101,49 +101,55 @@ function ToIR:convert_toplevel(prog_ast)
     local cmds = {}
     for _, tl_node in ipairs(prog_ast) do
         local tag = tl_node._tag
-        if tag == "ast.Toplevel.Stat" then
-            local stat = tl_node.stat
-
-            local stag = stat._tag
-            if     stag == "ast.Stat.Assign" then
-                for _, var in ipairs(stat.vars) do
-                    if var._is_exported then
-                        assert(var._type)
-                        local g_id = ir.add_global(self.module, var.name, var._type)
-                        self.glb_id_of_var[var] = g_id
-                        ir.add_exported_global(self.module, g_id)
+        if tag == "ast.Toplevel.Stats" then
+            for _, stat in ipairs(tl_node.stats) do
+                local stag = stat._tag
+                if     stag == "ast.Stat.Assign" then
+                    for _, var in ipairs(stat.vars) do
+                        if var._is_exported then
+                            assert(var._type)
+                            local g_id = ir.add_global(self.module, var.name, var._type)
+                            self.glb_id_of_var[var] = g_id
+                            ir.add_exported_global(self.module, g_id)
+                        end
                     end
-                end
 
-            elseif stag == "ast.Stat.Decl" then
-                if not stat._is_module_decl then
-                    for _, decl in ipairs(stat.decls) do
-                        assert(decl._type)
-                        local g_id = ir.add_global(self.module, decl.name, decl._type)
-                        self.glb_id_of_decl[decl] = g_id
+                elseif stag == "ast.Stat.Decl" then
+                    if not stat._is_module_decl then
+                        for _, decl in ipairs(stat.decls) do
+                            assert(decl._type)
+                            local g_id = ir.add_global(self.module, decl.name, decl._type)
+                            self.glb_id_of_decl[decl] = g_id
+                        end
                     end
-                end
 
-            elseif stag == "ast.Stat.Func" then
-                assert(stat.is_local or #stat.fields == 1)
-                local exp = stat.value
-                local name = (stat.is_local and stat.root or stat.fields[1])
-                local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
+                elseif stag == "ast.Stat.Func" then
+                    assert(stat.is_local or #stat.fields == 1)
+                    local exp = stat.value
+                    local name = (stat.is_local and stat.root or stat.fields[1])
+                    local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
 
-                self.fun_id_of_exp[exp] = f_id
-                if not stat.is_local then
-                    ir.add_exported_function(self.module, f_id)
+                    self.fun_id_of_exp[exp] = f_id
+                    if not stat.is_local then
+                        ir.add_exported_function(self.module, f_id)
+                    end
                 end
             end
+        elseif tag == "ast.Toplevel.Typealias" then
+            --skip
         elseif tag == "ast.Toplevel.Record" then
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
+        else
+            typedecl.tag_error(tag)
         end
     end
 
     for _, tl_node in ipairs(prog_ast) do
-        if tl_node._tag == "ast.Toplevel.Stat" then
-            self:convert_stat(cmds, tl_node.stat)
+        if tl_node._tag == "ast.Toplevel.Stats" then
+            for _, stat in ipairs(tl_node.stats) do
+                self:convert_stat(cmds, stat)
+            end
         else
             -- skip
         end

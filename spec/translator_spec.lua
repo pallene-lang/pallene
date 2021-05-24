@@ -441,16 +441,18 @@ return m
         assert_translation(
 [[
 local m: module = {}
-local function a()
+local a, b
+function a()
     b()
 end
-local function b()
+function b()
     a()
 end
 return m
 ]],
 [[
-local m, a, b;m = {}
+local m = {}
+local a, b
 function a()
     b()
 end

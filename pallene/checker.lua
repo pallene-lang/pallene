@@ -33,6 +33,9 @@ local util = require "pallene.util"
 --      - The `local m:module={}` statement
 --      - The `return m` statement
 --
+--   * _declared (a boolean flag, only used internally by the type checker)
+--      - ast.Stat.Func
+--
 -- We also make some adjustments to the AST:
 --
 --   * We flatten qualified names such as `io.write` from ast.Var.Dot to ast.Var.Name.
@@ -255,8 +258,8 @@ function Checker:check_program(prog_ast)
     -- Check toplevel
     for _, tl_node in ipairs(prog_ast.tls) do
         local tag = tl_node._tag
-        if     tag == "ast.Toplevel.Stat" then
-            self:check_stat(tl_node.stat, true)
+        if     tag == "ast.Toplevel.Stats" then
+            self:check_stat_list(tl_node.stats, true)
 
         elseif tag == "ast.Toplevel.Typealias" then
             self:add_type_symbol(tl_node.name, self:from_ast_type(tl_node.type))
@@ -290,20 +293,21 @@ function Checker:check_program(prog_ast)
     end
 
     -- TODO: Does this protect against "do return end"?
-    for i = 1, total_nodes - 1 do
-        if prog_ast.tls[i]._tag == "ast.Toplevel.Stat" then
-            local stat = prog_ast.tls[i].stat
-            if stat._tag == "ast.Stat.Return" then
-                type_error(stat.loc, "Only the last toplevel node can be a return statement")
+    for i, tl in ipairs(prog_ast.tls) do
+        if tl._tag == "ast.Toplevel.Stats" then
+            for j, stat in ipairs(tl.stats) do
+                if stat._tag == "ast.Stat.Return" and (i < #prog_ast.tls or j < #tl.stats) then
+                    type_error(stat.loc, "Only the last toplevel node can be a return statement")
+                end
             end
         end
     end
 
-    local last_toplevel_node = prog_ast.tls[total_nodes]
-    local last_stat = last_toplevel_node.stat
-    if last_toplevel_node._tag ~= "ast.Toplevel.Stat" or
-       not last_stat or last_stat._tag ~= "ast.Stat.Return" then
-        type_error(last_toplevel_node.loc, "Last Toplevel element must be a return statement")
+    local last_tl = prog_ast.tls[total_nodes]
+    if last_tl._tag ~= "ast.Toplevel.Stats" or
+       last_tl.stats[#last_tl.stats]._tag ~= "ast.Stat.Return" then
+        local loc = last_tl.stats[#last_tl.stats].loc
+        type_error(loc, "Last Toplevel element must be a return statement")
     end
 
     return prog_ast
@@ -346,6 +350,105 @@ function Checker:is_the_module_variable(exp)
         (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
 end
 
+-- Mutual Recursion
+-- ================
+--
+-- We allow Pallene functions to call functions that are defined later down down the file. However,
+-- we must ensure that we only call functions after they are initialized.
+--
+--   function m.f() return m.g() end
+--   local _ = m.f() -- Bad! Cals m.g before it exists
+--   function m.g() end
+--
+-- To disallow this sort of misbehaving program, we only allow functions to see downstream functions
+-- that are "adjacent". If there is an intervening statement between the functions, the latter
+-- function won't be in the scope for the first one.
+--
+--   function m.f() return m.g() end
+--   function m.g() end
+--   local _ = m.f() -- OK!
+--
+-- For local (non-exported) funtions, we recognize the following idiom:
+--
+--   local f, g
+--   function f() end
+--   function g() end
+
+function Checker:add_func_stat_to_scope(stat, is_toplevel)
+    assert(stat._tag == "ast.Stat.Func")
+    assert(not stat._declared)
+
+    local arg_types = {}
+    for i, decl in ipairs(stat.value.arg_decls) do
+        arg_types[i] = self:from_ast_type(decl.type)
+    end
+
+    local ret_types = {}
+    for i, ast_typ in ipairs(stat.ret_types) do
+        ret_types[i] = self:from_ast_type(ast_typ)
+    end
+
+    local typ = types.T.Function(arg_types, ret_types)
+
+    if stat.is_local then
+        -- Local function
+        assert(#stat.fields == 0)
+        assert(not stat.method)
+        self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
+    else
+        assert(not stat.method) -- not yet implemented
+        if #stat.fields == 0 then
+            -- Local function (forward declared)
+            error("TODO")
+            self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
+        else
+            -- Module function
+            local sym = self.symbol_table:find_symbol(stat.root)
+            if not sym then
+                scope_error(stat.loc, "module '%s' is not declared", stat.root)
+            end
+            if sym._tag ~= "checker.Symbol.Module" then
+                type_error(stat.loc, "'%s' is not a module", stat.root)
+            end
+            if not is_toplevel then
+                scope_error(stat.loc, "module functions can only be set at the toplevel")
+            end
+            if sym ~= self.module_symbol then
+                type_error(stat.loc, "attempting to reassign a function from external module") --TODO
+            end
+            if #stat.fields > 1 then
+                type_error(stat.loc, "more than one dot in the function name is not allowed") --TODO
+            end
+
+            local name = stat.fields[1]
+            if sym.symbols[name] then
+                multiple_definitions_error(stat.loc, name)
+            end
+            sym.symbols[name] = checker.Symbol.Value(typ, checker.Def.Function(stat))
+        end
+    end
+
+    stat._declared = true
+    stat._type = typ
+end
+
+function Checker:check_stat_list(stats, is_toplevel)
+    local N = #stats
+    for i, stat in ipairs(stats) do
+        if stat._tag == "ast.Stat.Func" and not stat._declared then
+            self:add_func_stat_to_scope(stat, is_toplevel)
+            for j = i+1, N do
+                if stats[j]._tag == "ast.Stat.Func" and not stats[j].is_local then
+                    self:add_func_stat_to_scope(stats[j], is_toplevel)
+                else
+                    break
+                end
+            end
+        end
+        self:check_stat(stat, is_toplevel)
+    end
+end
+
 function Checker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
@@ -386,9 +489,7 @@ function Checker:check_stat(stat, is_toplevel)
 
     elseif tag == "ast.Stat.Block" then
         self.symbol_table:with_block(function()
-            for _, inner_stat in ipairs(stat.stats) do
-                self:check_stat(inner_stat, false)
-            end
+            self:check_stat_list(stat.stats, false)
         end)
 
     elseif tag == "ast.Stat.While" then
@@ -399,9 +500,7 @@ function Checker:check_stat(stat, is_toplevel)
     elseif tag == "ast.Stat.Repeat" then
         assert(stat.block._tag == "ast.Stat.Block")
         self.symbol_table:with_block(function()
-            for _, inner_stat in ipairs(stat.block.stats) do
-                self:check_stat(inner_stat, false)
-            end
+            self:check_stat_list(stat.block.stats, false)
             stat.condition = self:check_exp_synthesize(stat.condition)
             check_type_is_condition(stat.condition, "repeat-until loop condition")
         end)
@@ -601,52 +700,10 @@ function Checker:check_stat(stat, is_toplevel)
         -- ok
 
     elseif tag == "ast.Stat.Func" then
-
-        local arg_types = {}
-        for i, decl in ipairs(stat.value.arg_decls) do
-            arg_types[i] = self:from_ast_type(decl.type)
+        if not stat._declared then
+            self:add_func_stat_to_scope(stat, is_toplevel)
         end
-
-        local ret_types = {}
-        for i, ast_typ in ipairs(stat.ret_types) do
-            ret_types[i] = self:from_ast_type(ast_typ)
-        end
-
-        local typ = types.T.Function(arg_types, ret_types)
-        stat._type = typ -- TODO: do I need this annotation?
-
-        if stat.is_local then
-            assert(#stat.fields == 0)
-            assert(not stat.method)
-            self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
-        else
-            assert(not stat.method) -- not yet implemented
-
-            local sym = self.symbol_table:find_symbol(stat.root)
-            if not sym then
-                scope_error(stat.loc, "module '%s' is not declared", stat.root)
-            end
-            if sym._tag ~= "checker.Symbol.Module" then
-                type_error(stat.loc, "'%s' is not a module", stat.root)
-            end
-            if not is_toplevel then
-                scope_error(stat.loc, "module functions can only be set at the toplevel")
-            end
-            if sym ~= self.module_symbol then
-                type_error(stat.loc, "attempting to reassign a function from external module") --TODO
-            end
-            if #stat.fields > 1 then
-                type_error(stat.loc, "more than one dot in the function name is not allowed") --TODO
-            end
-
-            local name = stat.fields[1]
-            if sym.symbols[name] then
-                multiple_definitions_error(stat.loc, name)
-            end
-            sym.symbols[name] = checker.Symbol.Value(typ, checker.Def.Function(stat))
-        end
-
-        stat.value = self:check_exp_verify(stat.value, typ, "toplevel function")
+        stat.value = self:check_exp_verify(stat.value, stat._type, "toplevel function")
 
     else
         typedecl.tag_error(tag)

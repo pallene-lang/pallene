@@ -153,16 +153,21 @@ function Parser:Toplevel()
         return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else
-        local stat = self:Stat(true)
-        if stat._tag ~= "ast.Stat.Return" and
-           stat._tag ~= "ast.Stat.Decl" and
-           stat._tag ~= "ast.Stat.Assign" and
-           stat._tag ~= "ast.Stat.Func"
-        then
-            self:syntax_error(stat.loc,
-                "Toplevel statements can only be Returns, Declarations or Assignments")
+        local stats = {}
+        while not (self:peek("EOF") or self:peek("typealias") or self:peek("record")) do
+            local stat = self:Stat(true)
+            if stat._tag ~= "ast.Stat.Return" and
+               stat._tag ~= "ast.Stat.Decl" and
+               stat._tag ~= "ast.Stat.Assign" and
+               stat._tag ~= "ast.Stat.Func"
+            then
+                self:syntax_error(stat.loc,
+                    "Toplevel statements can only be Returns, Declarations or Assignments")
+            end
+            table.insert(stats, stat)
         end
-        return ast.Toplevel.Stat(stat.loc, stat)
+        assert(stats[1])
+        return ast.Toplevel.Stats(stats[1].loc, stats)
     end
 end
 
