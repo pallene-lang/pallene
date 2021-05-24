@@ -27,6 +27,8 @@ local util = require "pallene.util"
 --   * _def: A checker.Def that describes the meaning of the name
 --      - ast.Var.Name
 --
+--   * _is_exported: a boolean (true) marking assignments that are exported variable declarations
+--
 --   * _is_module_decl: a boolean (true) marking some parts that the IR gen should skip
 --      - The `local m:module={}` statement
 --      - The `return m` statement
@@ -86,6 +88,11 @@ end
 
 local function type_error(loc, fmt, ...)
     return checker_error(loc, ("type error: " .. fmt), ...)
+end
+
+local function multiple_definitions_error(loc, name)
+    assert(loc)
+    scope_error(loc, "multiple definitions for module field '%s'", name)
 end
 
 local function check_type_is_condition(exp, fmt, ...)
@@ -371,6 +378,7 @@ function Checker:check_stat(stat, is_toplevel)
                     decl, stat.exps[i],
                     "declaration of local variable %s", decl.name)
             end
+            --assert(#stat.decls == #stat.exps) -- TODO this is a bad assumption
             for _, decl in ipairs(stat.decls) do
                 self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
             end
@@ -505,12 +513,52 @@ function Checker:check_stat(stat, is_toplevel)
 
     elseif tag == "ast.Stat.Assign" then
         self:expand_function_returns(stat.exps)
-        for i = 1, #stat.vars do
-            stat.vars[i] = self:check_var(stat.vars[i])
-            if stat.vars[i]._def and stat.vars[i]._def._tag ~= "checker.Def.Variable" then
-                type_error(stat.loc, "LHS of assignment is not a mutable variable")
+
+        local declarations = {}
+
+        for i, var in ipairs(stat.vars) do
+            if var._tag == "ast.Var.Dot" and self:is_the_module_variable(var.exp) then
+                -- Declaring a module field
+                if not is_toplevel then
+                    scope_error(var.loc, "module fields can only be set at the toplevel")
+                end
+                if self.module_symbol.symbols[var.name] or declarations[var.name] then
+                    multiple_definitions_error(var.loc, var.name)
+                end
+                declarations[var.name] = i
+            else
+                -- Regular assignment
+                stat.vars[i] = self:check_var(stat.vars[i])
+                if stat.vars[i]._def and stat.vars[i]._def._tag ~= "checker.Def.Variable" then
+                    type_error(stat.loc, "LHS of assignment is not a mutable variable")
+                end
             end
-            stat.exps[i] = self:check_exp_verify(stat.exps[i], stat.vars[i]._type, "assignment")
+        end
+
+        for i = 1, #stat.exps do
+            local var = stat.vars[i]
+            if var and var._type then
+                -- Regular assignment
+                stat.exps[i] = self:check_exp_verify(stat.exps[i], var._type, "assignment")
+            else
+                -- Module field or excess initializer
+                stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
+            end
+        end
+
+        -- Add the declared module fields to scope after we type checked the initializers
+        -- Order does not matter because names are distinct
+        for name, i in pairs(declarations) do
+            local var = stat.vars[i]
+            local typ = stat.exps[i]._type
+
+            local qvar = ast.Var.Name(var.loc, var.name)
+            qvar._type = typ
+            qvar._def = checker.Def.Variable(qvar)
+            qvar._is_exported = true
+
+            self.module_symbol.symbols[name] = checker.Symbol.Value(typ, qvar._def)
+            stat.vars[i] = qvar
         end
 
     elseif tag == "ast.Stat.Call" then
@@ -581,6 +629,9 @@ function Checker:check_stat(stat, is_toplevel)
             if sym._tag ~= "checker.Symbol.Module" then
                 type_error(stat.loc, "'%s' is not a module", stat.root)
             end
+            if not is_toplevel then
+                scope_error(stat.loc, "module functions can only be set at the toplevel")
+            end
             if sym ~= self.module_symbol then
                 type_error(stat.loc, "attempting to reassign a function from external module") --TODO
             end
@@ -590,7 +641,7 @@ function Checker:check_stat(stat, is_toplevel)
 
             local name = stat.fields[1]
             if sym.symbols[name] then
-                type_error(stat.loc, "duplicate module field '%s'", name)
+                multiple_definitions_error(stat.loc, name)
             end
             sym.symbols[name] = checker.Symbol.Value(typ, checker.Def.Function(stat))
         end

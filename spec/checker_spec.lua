@@ -67,23 +67,30 @@ describe("Scope analysis: ", function()
             function m.f() end
             function m.f() end
         ]],
-            "duplicate module field 'f'")
+            "multiple definitions for module field 'f'")
     end)
 
-    pending("forbids multiple toplevel declarations with the same name for exported function and variable", function()
-        -- TODO: reimplement variables
+    it("forbids multiple toplevel declarations with the same name for exported function and constant", function()
         assert_error([[
             function m.f() end
             m.f = 1
         ]],
-            "duplicate module field 'f', previous one at line 2")
+            "multiple definitions for module field 'f'")
     end)
 
-    it("ensure toplevel variables are not in scope in their initializers", function()
+    it("forbids multiple declarations for the same exported constant", function()
         assert_error([[
-            local a, b = 1, a
+            m.x = 10
+            m.x = 20
         ]],
-            "variable 'a' is not declared")
+            "multiple definitions for module field 'x'")
+    end)
+
+    it("forbids multiple declarations for the same exported constant in single statement", function()
+        assert_error([[
+            m.x, m.x = 10, 20
+        ]],
+            "multiple definitions for module field 'x'")
     end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
@@ -91,6 +98,13 @@ describe("Scope analysis: ", function()
             local a = a
         ]],
             "variable 'a' is not declared")
+    end)
+
+    it("ensure toplevel exported variables are not in scope in their initializers", function()
+        assert_error([[
+            m.x = m.x
+        ]],
+            "module field 'x' does not exist")
     end)
 
     it("ensure variables are not in scope in their initializers", function()
@@ -131,6 +145,24 @@ describe("Scope analysis: ", function()
             local x: integer = 0
         ]],
             "type 'x' is not declared")
+    end)
+
+    it("forbids setting a module constant outside of the toplevel", function()
+        assert_error([[
+            function m.f()
+                m.x = 10
+            end
+        ]],
+            "module fields can only be set at the toplevel")
+    end)
+
+    it("forbids setting a module function outside of the toplevel", function()
+        assert_error([[
+            function m.f()
+                function m.g() end
+            end
+        ]],
+            "module functions can only be set at the toplevel")
     end)
 end)
 
@@ -845,7 +877,7 @@ describe("Pallene type checker", function()
                 m.f = m.g
             end
         ]],
-        "LHS of assignment is not a mutable variable")
+        "module fields can only be set at the toplevel")
     end)
 
     it("catches assignment to builtin (with correct type)", function ()

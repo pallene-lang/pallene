@@ -1572,7 +1572,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    pending("Corner cases of exporting variables", function ()
+    it("Corner cases of exporting variables", function ()
         compile([[
             local  a = 10
             m.b = 20
@@ -1605,7 +1605,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             ------
 
-            --m.integer = 12
+            m.integer = 12
 
             ------
 
@@ -1674,7 +1674,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[ assert( 20 == test.duplicate_parameter(10, 20) )]])
         end)
 
-        pending("allows identifiers named like builtin types", function()
+        it("allows identifiers named like builtin types", function()
             run_test([[ assert( 12 == test.integer) ]])
         end)
 
