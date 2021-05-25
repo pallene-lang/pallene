@@ -91,6 +91,25 @@ function ToIR:is_local(decl)
     end
 end
 
+function ToIR:register_function(stat)
+    assert(stat._tag == "ast.Stat.Func")
+    if stat.is_local then
+        assert(#stat.fields == 0)
+        assert(not stat.method)
+    else
+        assert(#stat.fields <= 1)
+        assert(not stat.method)
+    end
+    local exp = stat.value
+    local name = stat.fields[1] or stat.root
+    local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
+
+    self.fun_id_of_exp[exp] = f_id
+    if not stat.is_local then
+        ir.add_exported_function(self.module, f_id)
+    end
+end
+
 function ToIR:convert_toplevel(prog_ast)
 
     -- Create the $init function (it must have ID = 1)
@@ -115,29 +134,17 @@ function ToIR:convert_toplevel(prog_ast)
                     end
 
                 elseif stag == "ast.Stat.Decl" then
-                    if not stat._skip then
-                        for _, decl in ipairs(stat.decls) do
-                            assert(decl._type)
-                            local g_id = ir.add_global(self.module, decl.name, decl._type)
-                            self.glb_id_of_decl[decl] = g_id
-                        end
+                    for _, decl in ipairs(stat.decls) do
+                        assert(decl._type)
+                        local g_id = ir.add_global(self.module, decl.name, decl._type)
+                        self.glb_id_of_decl[decl] = g_id
                     end
 
                 elseif stag == "ast.Stat.Func" then
-                    if stat.is_local then
-                        assert(#stat.fields == 0)
-                        assert(not stat.method)
-                    else
-                        assert(#stat.fields <= 1)
-                        assert(not stat.method)
-                    end
-                    local exp = stat.value
-                    local name = stat.fields[1] or stat.root
-                    local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
-
-                    self.fun_id_of_exp[exp] = f_id
-                    if not stat.is_local then
-                        ir.add_exported_function(self.module, f_id)
+                    self:register_function(stat)
+                elseif stag == "ast.Stat.LetRec" then
+                    for _, func in ipairs(stat.func_stats) do
+                        self:register_function(func)
                     end
                 end
             end
@@ -498,28 +505,26 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        if not stat._skip then
-            for _, decl in ipairs(stat.decls) do
-                local typ = decl._type
-                if not self.glb_id_of_decl[decl] then
-                    self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, typ)
-                end
+        for _, decl in ipairs(stat.decls) do
+            local typ = decl._type
+            if not self.glb_id_of_decl[decl] then
+                self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, typ)
             end
+        end
 
-            for i, exp in ipairs(stat.exps) do
-                local decl = stat.decls[i]
-                if decl then
-                    local g_id = self.glb_id_of_decl[decl]
-                    if g_id then
-                        local val = self:exp_to_value(cmds, exp)
-                        table.insert(cmds, ir.Cmd.SetGlobal(decl.loc, g_id, val))
-                    else
-                        self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
-                    end
+        for i, exp in ipairs(stat.exps) do
+            local decl = stat.decls[i]
+            if decl then
+                local g_id = self.glb_id_of_decl[decl]
+                if g_id then
+                    local val = self:exp_to_value(cmds, exp)
+                    table.insert(cmds, ir.Cmd.SetGlobal(decl.loc, g_id, val))
                 else
-                    -- Extra argument to RHS; compute it for side effects and discard result
-                    local _ = self:exp_to_value(cmds, exp)
+                    self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
                 end
+            else
+                -- Extra argument to RHS; compute it for side effects and discard result
+                local _ = self:exp_to_value(cmds, exp)
             end
         end
 
@@ -551,8 +556,13 @@ function ToIR:convert_stat(cmds, stat)
         self:exit_function(f_cmds)
         self:enter_function(prev_f_id)
 
+    elseif tag == "ast.Stat.LetRec" then
+        for _ , func in ipairs(stat.func_stats) do
+            self:convert_stat(cmds, func)
+        end
+
     else
-        typedecl.type_error(tag)
+        typedecl.tag_error(tag)
     end
 end
 

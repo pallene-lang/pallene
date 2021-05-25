@@ -46,6 +46,7 @@ declare_type("Stat", {
     Return = {"loc", "exps"},
     Break  = {"loc"},
     Func   = {"loc", "is_local", "root", "fields", "method", "ret_types", "value"},
+    LetRec = {"loc", "decls", "func_stats"}, -- For mutual recursion (see parser.lua)
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name

@@ -30,11 +30,6 @@ local util = require "pallene.util"
 --   * _is_exported: A boolean (true) marking assignments that are declaring an exported variable
 --      - ast.Var.Name
 --
---   * _skip: marking the forward-decl for functions
---
---   * _declared (used internally by the type checker)
---      - ast.Stat.Func
---
 -- We also make some adjustments to the AST:
 --
 --   * We flatten qualified names such as `io.write` from ast.Var.Dot to ast.Var.Name.
@@ -262,7 +257,9 @@ function Checker:check_program(prog_ast)
     for _, tl_node in ipairs(prog_ast.tls) do
         local tag = tl_node._tag
         if     tag == "ast.Toplevel.Stats" then
-            self:check_stat_list(tl_node.stats, true)
+            for _, stat in ipairs(tl_node.stats) do
+                self:check_stat(stat, true)
+            end
 
         elseif tag == "ast.Toplevel.Typealias" then
             self:add_type_symbol(tl_node.name, self:from_ast_type(tl_node.type))
@@ -315,33 +312,8 @@ function Checker:is_the_module_variable(exp)
         (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
 end
 
--- Mutualy Recursive Functions
--- ===========================
---
--- We allow Pallene functions to call functions that are defined later down down the file. However,
--- we must ensure that we only call functions after they are initialized.
---
---   function m.f() return m.g() end
---   local _ = m.f() -- Bad! Cals m.g before it exists
---   function m.g() end
---
--- To disallow this sort of misbehaving program, we only allow functions to see downstream functions
--- that are "adjacent". If there is an intervening statement between the functions, the latter
--- function won't be in the scope for the first one.
---
---   function m.f() return m.g() end
---   function m.g() end
---   local _ = m.f() -- OK!
---
--- For local (non-exported) funtions, we recognize the following idiom:
---
---   local f, g
---   function f() end
---   function g() end
-
 function Checker:add_func_stat_to_scope(stat, is_toplevel)
     assert(stat._tag == "ast.Stat.Func")
-    assert(not stat._declared)
 
     local arg_types = {}
     for i, decl in ipairs(stat.value.arg_decls) do
@@ -392,106 +364,28 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
         end
     end
 
-    stat._declared = true
     stat._type = typ
-end
-
---
--- Does this statement look like it is the start of a forward declaration for a group of functions?
--- If yes, return a table with the set of names
---
-local function is_forward_decl(stats, i)
-    local stat = stats[i]
-    if stat._tag ~= "ast.Stat.Decl" then return false end
-    if #stat.exps > 0 then return false end
-
-    local names = {}
-    for _, decl in ipairs(stat.decls) do
-        names[decl.name] = true
-    end
-
-    local fstat = stats[i+1]
-    if not fstat then return false end
-    if fstat._tag ~= "ast.Stat.Func" then return false end
-    if fstat.is_local then return false end
-    if #fstat.fields > 0 or fstat.method then return false end
-    if not names[fstat.root] then return false end
-
-    for _, decl in ipairs(stat.decls) do
-        if decl.type then
-            -- TODO: allow type annotations in the forward decl (and check them)
-            return false
-        end
-    end
-
-    return names
-end
-
-function Checker:check_stat_list(stats, is_toplevel)
-    local N = #stats
-    for i, first_stat in ipairs(stats) do
-        -- Is this one of the special cases with forward declarations?
-        -- If so, start by adding all those names to the scope
-        local is_fresh_exported = (
-            first_stat._tag == "ast.Stat.Func"
-            and not first_stat.is_local
-            and not first_stat._declared)
-        local forward_decl_names = is_forward_decl(stats, i)
-        if is_fresh_exported or forward_decl_names then
-
-            local start
-            if is_fresh_exported then
-                assert(not forward_decl_names)
-                start = i
-            elseif forward_decl_names then
-                assert(not is_fresh_exported)
-                stats[i]._skip = true
-                start = i+1
-            else
-                error("impossible")
-            end
-
-            for j = start, N do
-                local stat = stats[j]
-                if stat._tag == "ast.Stat.Func" and not stat.is_local then
-                    if #stat.fields == 0 and not stat.method then
-                        if not forward_decl_names or not forward_decl_names[stat.root] then
-                            scope_error(stat.loc, "function '%s' was not forward declared", stat.root)
-                        end
-                        forward_decl_names[stat.root] = nil
-                    end
-                    self:add_func_stat_to_scope(stat, is_toplevel)
-                else
-                    break
-                end
-            end
-        end
-        -- And then type check the body of the statement
-        self:check_stat(first_stat, is_toplevel)
-    end
 end
 
 function Checker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
-        if stat._skip then
-            -- Ignore
-        else
-            self:expand_function_returns(stat.exps)
-            for i, decl in ipairs(stat.decls) do
-                stat.exps[i] = self:check_initializer_exp(
-                    decl, stat.exps[i],
-                    "declaration of local variable %s", decl.name)
-            end
-            --assert(#stat.decls == #stat.exps) -- TODO this is a bad assumption
-            for _, decl in ipairs(stat.decls) do
-                self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
-            end
+        self:expand_function_returns(stat.exps)
+        for i, decl in ipairs(stat.decls) do
+            stat.exps[i] = self:check_initializer_exp(
+                decl, stat.exps[i],
+                "declaration of local variable %s", decl.name)
+        end
+        --assert(#stat.decls == #stat.exps) -- TODO this is a bad assumption
+        for _, decl in ipairs(stat.decls) do
+            self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
         end
 
     elseif tag == "ast.Stat.Block" then
         self.symbol_table:with_block(function()
-            self:check_stat_list(stat.stats, false)
+            for _, inner_stat in ipairs(stat.stats) do
+                self:check_stat(inner_stat, false)
+            end
         end)
 
     elseif tag == "ast.Stat.While" then
@@ -502,7 +396,9 @@ function Checker:check_stat(stat, is_toplevel)
     elseif tag == "ast.Stat.Repeat" then
         assert(stat.block._tag == "ast.Stat.Block")
         self.symbol_table:with_block(function()
-            self:check_stat_list(stat.block.stats, false)
+            for _, inner_stat in ipairs(stat.block.stats) do
+                self:check_stat(inner_stat, false)
+            end
             stat.condition = self:check_exp_synthesize(stat.condition)
             check_type_is_condition(stat.condition, "repeat-until loop condition")
         end)
@@ -691,10 +587,18 @@ function Checker:check_stat(stat, is_toplevel)
         -- ok
 
     elseif tag == "ast.Stat.Func" then
-        if not stat._declared then
-            self:add_func_stat_to_scope(stat, is_toplevel)
-        end
+        assert(stat.is_local)
+        self:add_func_stat_to_scope(stat, is_toplevel)
         stat.value = self:check_exp_verify(stat.value, stat._type, "toplevel function")
+
+    elseif tag == "ast.Stat.LetRec" then
+
+        for _, func in ipairs(stat.func_stats) do
+            self:add_func_stat_to_scope(func, is_toplevel)
+        end
+        for _, func in ipairs(stat.func_stats) do
+            func.value = self:check_exp_verify(func.value, func._type, "toplevel function")
+        end
 
     else
         typedecl.tag_error(tag)

@@ -179,6 +179,9 @@ function Parser:Program()
         end
 
         last_stat = table.remove(last_tl.stats)
+        if not last_tl.stats[1] then
+            table.remove(tls)
+        end
 
         if #last_stat.exps ~= 1 then
             self:syntax_error(last_stat.loc,
@@ -242,7 +245,7 @@ function Parser:Toplevel()
             table.insert(stats, stat)
         end
         assert(stats[1])
-        return ast.Toplevel.Stats(stats[1].loc, stats)
+        return ast.Toplevel.Stats(stats[1].loc, self:find_letrecs(stats))
     end
 end
 
@@ -356,6 +359,111 @@ function Parser:DeclList()
     return decls
 end
 
+---
+-- Mutualy Recursive Functions
+-- ---------------------------
+--
+-- We allow Pallene functions to call other functions that are defined later down down the file.
+-- However, we must ensure that we only call functions after they are initialized.
+--
+--   function m.f() return m.g() end
+--   local _ = m.f() -- Bad! Calls m.g before it exists
+--   function m.g() end
+--
+-- To disallow this sort of misbehaving program, we only allow functions to see downstream functions
+-- that are "adjacent". If there is an intervening statement between the functions, the latter
+-- function won't be in the scope for the first one.
+--
+--   function m.f() return m.g() end
+--   function m.g() end
+--   local _ = m.f() -- OK!
+--
+-- For local (non-exported) functions, we recognize the following idiom:
+--
+--   local f, g
+--   function f() end
+--   function g() end
+
+local function is_forward_function_declaration(stats, i)
+    local first = stats[i]
+    if not (first and first._tag == "ast.Stat.Decl") then return false end
+    if #first.exps > 0 then return false end
+
+    local func = stats[i+1]
+    if not (func and func._tag == "ast.Stat.Func") then return false end
+    if func.is_local then return false end
+
+    return true
+end
+
+function Parser:find_letrecs(stats)
+    local out = {}
+
+    local N = #stats
+    local i = 1
+    while i <= N do
+
+        local loc = stats[i].loc
+
+        local forw_decls
+        if is_forward_function_declaration(stats, i) then
+            forw_decls = stats[i].decls
+            i = i + 1
+        else
+            forw_decls = {}
+        end
+
+        local funcs = {}
+        while i <= N do
+            local stat = stats[i]
+            if not (stat and stat._tag == "ast.Stat.Func") then break end
+            if stat.is_local then break end
+            table.insert(funcs, stat)
+            i = i + 1
+        end
+
+        if funcs[1] then
+            -- Function group, possibly with forward-declared local functions
+            local forw_names = {}
+            for _, decl in ipairs(forw_decls) do
+                if decl.type then
+                    self:syntax_error(decl.loc,
+                        "type annotations are not allowed in a function forward declaration")
+                end
+                forw_names[decl.name] = true
+            end
+
+            local func_names = {}
+            for _, stat in ipairs(funcs) do
+                assert(stat._tag == "ast.Stat.Func")
+                if #stat.fields == 0 and not stat.method then
+                    if not forw_names[stat.root] then
+                        self:syntax_error(stat.loc,
+                            "function '%s' was not forward declared", stat.root)
+                    end
+                    func_names[stat.root] = true
+                end
+            end
+
+            for _, decl in ipairs(forw_decls) do
+                if not func_names[decl.name] then
+                    self:syntax_error(decl.loc,
+                        "missing a function definition for '%s'", decl.name)
+                end
+            end
+
+            table.insert(out, ast.Stat.LetRec(loc, forw_decls, funcs))
+
+        else
+            -- Other statements
+            table.insert(out, stats[i])
+            i = i + 1
+        end
+    end
+
+    return out
+end
+
 --
 -- Statements
 --
@@ -382,7 +490,7 @@ function Parser:StatList()
         end
     end
 
-    return stats
+    return self:find_letrecs(stats)
 end
 
 function Parser:Block()

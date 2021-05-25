@@ -37,6 +37,25 @@ local function parse(code)
     return driver.compile_internal("__test__.pln", code, "ast")
 end
 
+local function assert_parses_successfuly_unwrapped(program_str)
+    local prog_ast, errors = parse(program_str)
+    if not prog_ast then
+        error(string.format("Unexpected Pallene syntax error: %s", errors[1]))
+    end
+    return prog_ast
+end
+
+local function assert_program_ast_unwrapped(program_str, expected_tls)
+    local expected_ast = {
+        _tag = "ast.Program.Program",
+        tls = expected_tls,
+        type_regions = {},
+        comment_regions = {}
+    }
+    local prog_ast = assert_parses_successfuly_unwrapped(program_str)
+    assert_is_subset(expected_ast, prog_ast)
+end
+
 local function assert_program_syntax_error_unwrapped(program_str, expected_error)
     local prog_ast, errors = parse(program_str)
     if prog_ast then
@@ -52,42 +71,24 @@ end
 -- Assertions for full programs (with module boilerplate)
 --
 
-local function parse_wrapped(body)
-    return parse(util.render([[
+local function wrap(body)
+    return util.render([[
         local m:module = {}
         $body
         return m
-    ]], { body = body }))
+    ]], { body = body })
 end
 
-
 local function assert_parses_successfuly(program_str)
-    local prog_ast, errors = parse_wrapped(program_str)
-    if not prog_ast then
-        error(string.format("Unexpected Pallene syntax error: %s", errors[1]))
-    end
-    return prog_ast
+    return assert_parses_successfuly_unwrapped(wrap(program_str))
 end
 
 local function assert_program_ast(program_str, expected_tls)
-    local expected_ast = {
-        _tag = "ast.Program.Program",
-        tls = expected_tls,
-        type_regions = {},
-        comment_regions = {}
-    }
-    local prog_ast = assert_parses_successfuly(program_str)
-    assert_is_subset(expected_ast, prog_ast)
+    return assert_program_ast_unwrapped(wrap(program_str), expected_tls)
 end
 
 local function assert_program_syntax_error(program_str, expected_error)
-    local prog_ast, errors = parse_wrapped(program_str)
-    if prog_ast then
-        error(string.format(
-            "Expected Pallene syntax error %s but parsed successfuly",
-            expected_error))
-    end
-    assert.matches(expected_error, errors[1], 1, true)
+    return assert_program_syntax_error_unwrapped(wrap(program_str), expected_error )
 end
 
 --
@@ -180,9 +181,13 @@ describe("Pallene parser", function()
         assert:set_parameter("TableFormatLevel", ORIGINAL_FORMAT_LEVEL)
     end)
 
-    pending("can parse programs starting with whitespace or comments", function()
+    it("can parse programs starting with whitespace or comments", function()
         -- This is easy to get wrong in hand-written LPeg grammars...
-        local prog_ast = assert_parses_successfuly("--hello\n--bla\n  ")
+        local prog_ast = assert_parses_successfuly_unwrapped([[
+            --hello\n--bla\n
+            local m: module = {}
+            return m
+        ]])
         assert.are.same({}, prog_ast.tls)
     end)
 
@@ -305,30 +310,11 @@ describe("Pallene parser", function()
 
     it("allows ommiting the optional return type annotation", function ()
         assert_program_ast([[
-            function m.foo()
-            end
             local function bar()
             end
         ]], { {
       _tag = "ast.Toplevel.Stats",
-      stats = {
-        {
-          _tag = "ast.Stat.Func",
-          is_local = false,
-          root = "m",
-          fields = {"foo"},
-          method = false,
-          ret_types = {},
-          value = {
-            _tag = "ast.Exp.Lambda",
-            arg_decls = {},
-            body = {
-             _tag = "ast.Stat.Block",
-              stats = {}
-            }
-          }
-        },
-        {
+      stats = { {
           _tag = "ast.Stat.Func",
           is_local = true,
           root = "bar",
@@ -343,8 +329,7 @@ describe("Pallene parser", function()
               stats = {}
             }
           }
-        }
-      }
+        } }
     } })
     end)
 
