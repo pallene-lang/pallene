@@ -3,9 +3,9 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-typealias rectangle = { width: float, height: float }
-
 local m: module = {}
+
+typealias rectangle = { width: float, height: float }
 
 function m.find_area(r: rectangle): float
 	local result = r.width * r.height

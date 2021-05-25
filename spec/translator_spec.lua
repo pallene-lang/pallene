@@ -49,6 +49,7 @@ describe("Pallene to Lua translator / #translator", function ()
 
     it("Missing end keyword in function definition (syntax error)", function ()
         assert_translation_error([[
+            local m = {}
             local function f(): integer
         ]],
         "Unexpected end of the file while trying to parse a statement")
@@ -56,8 +57,10 @@ describe("Pallene to Lua translator / #translator", function ()
 
     it("Unknown type (semantic error)", function ()
         assert_translation_error([[
+            local m = {}
             local function f() : unknown
             end
+            return m
         ]],
         "type 'unknown' is not declared")
     end)

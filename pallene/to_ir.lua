@@ -527,13 +527,11 @@ function ToIR:convert_stat(cmds, stat)
         self:exp_to_assignment(cmds, false, stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
-        if not stat._skip then
-            local vals = {}
-            for i, exp in ipairs(stat.exps) do
-                vals[i] = self:exp_to_value(cmds, exp)
-            end
-            table.insert(cmds, ir.Cmd.Return(stat.loc, vals))
+        local vals = {}
+        for i, exp in ipairs(stat.exps) do
+            vals[i] = self:exp_to_value(cmds, exp)
         end
+        table.insert(cmds, ir.Cmd.Return(stat.loc, vals))
 
     elseif tag == "ast.Stat.Break" then
         table.insert(cmds, ir.Cmd.Break())

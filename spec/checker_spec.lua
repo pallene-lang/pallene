@@ -7,21 +7,16 @@ local function run_checker(code)
     return module, table.concat(errs, "\n")
 end
 
-local function assert_error_unwrapped(code, expected_err)
-    local module, errs = run_checker(code)
-    assert.falsy(module)
-    assert.match(expected_err, errs, 1, true)
-end
-
 local function assert_error(body, expected_err)
-    local code = util.render([[
+    local module, errs = run_checker(util.render([[
         local m: module = {}
         $body
         return m
     ]], {
         body = body
-    })
-    return assert_error_unwrapped(code, expected_err)
+    }))
+    assert.falsy(module)
+    assert.match(expected_err, errs, 1, true)
 end
 
 describe("Scope analysis: ", function()
@@ -941,45 +936,4 @@ describe("Pallene type checker", function()
         "attempt to use module as a value")
     end)
 
-    it("forbid empty program", function()
-        assert_error_unwrapped([[]], "type error: Empty modules are not permitted")
-    end)
-
-    it("check if module variable is not declared", function()
-        assert_error_unwrapped([[
-            local function f()
-                local x = 2.5
-            end
-        ]],
-        "type error: Program has no module variable")
-    end)
-
-    it("forbid declarion of two module variables", function()
-        assert_error_unwrapped([[
-            local m1: module = {}
-            local m2: module = {}
-            return m1
-        ]],
-        "type error: There can only be one module declaration in the program")
-    end)
-
-    it("forbid return of more than one variable", function()
-        assert_error_unwrapped([[
-            local m: module = {}
-            return m, m
-        ]],
-        "type error: returning 2 value(s) but module expects 1")
-    end)
-
-    it("forbid return of any variable of type other then module", function()
-        assert_error_unwrapped([[
-            local m: module = {}
-            local i: integer = 2
-            function m.f()
-                local x = 2.5
-            end
-            return i
-        ]],
-        "type error: must return the module variable (m)")
-    end)
 end)

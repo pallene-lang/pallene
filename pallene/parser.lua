@@ -119,12 +119,87 @@ end
 --
 
 function Parser:Program()
+
+    local start_loc = self.lexer:loc()
+
+    -- local <modname>: module = {}
+    local modname
+    do
+        if self:peek("EOF") then
+            self:syntax_error(start_loc, "empty modules are not allowed")
+        end
+
+        local stat = self:Stat(true)
+        if not (stat and stat._tag == "ast.Stat.Decl") then
+            self:syntax_error(stat.loc,
+                "must begin with a module declaration; local <modname> = {}")
+        end
+
+        if #stat.decls > 1 or #stat.exps > 1 then
+            self:syntax_error(stat.loc,
+                "cannot use a multiple-assignment to declare the module table")
+        end
+
+        assert(#stat.decls == 1)
+
+        local decl = stat.decls[1]
+        local exp  = stat.exps[1]
+
+        if decl.type and not (decl.type._tag == "ast.Type.Name" and decl.type.name == "module") then
+            self:syntax_error(decl.type.loc,
+                "if the module table has a type annotation, it must be exactly 'module'")
+        end
+
+        if not (exp and exp._tag == "ast.Exp.Initlist" and #exp.fields == 0) then
+            self:syntax_error(stat.loc, "module initializer must be exactly {}")
+        end
+
+        modname = decl.name
+    end
+
+    -- module contents
     local tls = {}
     while not self:peek("EOF") do
         table.insert(tls, self:Toplevel())
     end
-    return ast.Program.Program(self.lexer:loc(), tls, self.type_regions,
-                                self.comment_regions)
+
+    -- returm <modname>
+    local last_stat
+    do
+        local last_tl = tls[#tls]
+
+        if not (
+            last_tl and
+            last_tl._tag == "ast.Toplevel.Stats" and
+            last_tl.stats[#last_tl.stats] and
+            last_tl.stats[#last_tl.stats]._tag == "ast.Stat.Return")
+        then
+            self:syntax_error(self.lexer:loc(),
+                "must end by returning the module table; return %s", modname)
+        end
+
+        last_stat = table.remove(last_tl.stats)
+
+        if #last_stat.exps ~= 1 then
+            self:syntax_error(last_stat.loc,
+                "final return statement must return a single value")
+        end
+
+        local exp = last_stat.exps[1]
+
+        if not (
+            exp._tag == "ast.Exp.Var" and
+            exp.var._tag == "ast.Var.Name" and
+            exp.var.name == modname)
+        then
+            -- The checker also needs to check that this name has not been shadowed
+            self:syntax_error(exp.loc,
+                "must return exactly the module variable '%s'", modname)
+        end
+    end
+
+    return ast.Program.Program(
+        start_loc, last_stat.loc, modname, tls, self.type_regions, self.comment_regions)
 end
 
 function Parser:Toplevel()

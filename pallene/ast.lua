@@ -12,7 +12,7 @@ local function declare_type(type_name, cons)
 end
 
 declare_type("Program", {
-    Program = {"loc", "tls", "type_regions", "comment_regions"}
+    Program = {"loc", "ret_loc", "module_name", "tls", "type_regions", "comment_regions"}
 })
 
 declare_type("Type", {

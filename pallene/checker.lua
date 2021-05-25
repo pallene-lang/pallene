@@ -30,9 +30,7 @@ local util = require "pallene.util"
 --   * _is_exported: A boolean (true) marking assignments that are declaring an exported variable
 --      - ast.Var.Name
 --
---   * _skip: A boolean (true) marking nodes that should be skipped by the to_ir
---      - ast.Stat.Decl (the `local m:module={}` statement and the forward-decl for functions)
---      - ast.Stat.Return (the `return m` statement)
+--   * _skip: marking the forward-decl for functions
 --
 --   * _declared (used internally by the type checker)
 --      - ast.Stat.Func
@@ -115,7 +113,6 @@ end
 
 function Checker:init()
     self.module_symbol = false       -- checker.Symbol.Module
-    self.module_var_name = false     -- string
     self.symbol_table = symtab.new() -- string => checker.Symbol
     self.ret_types_stack = {}        -- stack of types.T
     return self
@@ -231,16 +228,18 @@ function Checker:from_ast_type(ast_typ)
 end
 
 function Checker:check_program(prog_ast)
-    assert(prog_ast._tag == "ast.Program.Program")
 
-    -- Add primitive types to the symbol table
+    assert(prog_ast._tag == "ast.Program.Program")
+    local module_name = prog_ast.module_name
+
+    -- 1) Add primitive types to the symbol table
     self:add_type_symbol("any",     types.T.Any())
     self:add_type_symbol("boolean", types.T.Boolean())
     self:add_type_symbol("float",   types.T.Float())
     self:add_type_symbol("integer", types.T.Integer())
     self:add_type_symbol("string",  types.T.String())
 
-    -- Add builtins to symbol table.
+    -- 2) Add builtins to symbol table.
     -- The order does not matter because they are distinct.
     for name, typ in pairs(builtins.functions) do
         self:add_value_symbol(name, typ, checker.Def.Builtin(name))
@@ -255,6 +254,9 @@ function Checker:check_program(prog_ast)
         local typ = (mod_name == "string") and types.T.String() or false
         self:add_module_symbol(mod_name, typ, symbols)
     end
+
+    -- 3) Add the module name.
+    self.module_symbol = self:add_module_symbol(module_name, false, {})
 
     -- Check toplevel
     for _, tl_node in ipairs(prog_ast.tls) do
@@ -284,31 +286,8 @@ function Checker:check_program(prog_ast)
         end
     end
 
-    local total_nodes = #prog_ast.tls
-    if total_nodes == 0 then
-        type_error(prog_ast.loc, "Empty modules are not permitted")
-    end
-
-    if not self.module_symbol then
-        type_error(prog_ast.loc, "Program has no module variable")
-    end
-
-    -- TODO: Does this protect against "do return end"?
-    for i, tl in ipairs(prog_ast.tls) do
-        if tl._tag == "ast.Toplevel.Stats" then
-            for j, stat in ipairs(tl.stats) do
-                if stat._tag == "ast.Stat.Return" and (i < #prog_ast.tls or j < #tl.stats) then
-                    type_error(stat.loc, "Only the last toplevel node can be a return statement")
-                end
-            end
-        end
-    end
-
-    local last_tl = prog_ast.tls[total_nodes]
-    if last_tl._tag ~= "ast.Toplevel.Stats" or
-       last_tl.stats[#last_tl.stats]._tag ~= "ast.Stat.Return" then
-        local loc = last_tl.stats[#last_tl.stats].loc
-        type_error(loc, "Last Toplevel element must be a return statement")
+    if self.module_symbol ~= self.symbol_table:find_symbol(module_name) then
+        scope_error(prog_ast.ret_loc, "the module variable '%s' is being shadowed", module_name) -- TODO
     end
 
     return prog_ast
@@ -325,21 +304,6 @@ function Checker:expand_function_returns(rhs)
             table.insert(rhs, ast.Exp.ExtraRet(last.loc, last, i))
         end
     end
-end
-
-function Checker:is_a_module_declaration(decls)
-    for _, decl in ipairs(decls) do
-        assert(decl._tag == "ast.Decl.Decl")
-        if
-            decl.type and
-            decl.type._tag == "ast.Type.Name" and
-            decl.type.name == "module" and
-            not self.symbol_table:find_symbol("module")
-        then
-            return true
-        end
-    end
-    return false
 end
 
 function Checker:is_the_module_variable(exp)
@@ -512,28 +476,6 @@ function Checker:check_stat(stat, is_toplevel)
     if     tag == "ast.Stat.Decl" then
         if stat._skip then
             -- Ignore
-
-        elseif self:is_a_module_declaration(stat.decls) then
-            if self.module_symbol then
-                type_error(stat.loc, "There can only be one module declaration in the program")
-            end
-            if not is_toplevel then
-                type_error(stat.loc, "The module declaration must be at the toplevel") --TODO test
-            end
-            if #stat.decls ~= 1 or #stat.exps ~= 1 then
-                type_error(stat.loc, "Cannot declare module table in a multiple-assignment") -- TODO test
-            end
-
-            local decl = stat.decls[1]
-            local exp  = stat.exps[1]
-            if not (exp._tag == "ast.Exp.Initlist" and #exp.fields == 0) then
-                type_error(stat.loc, "Module initializer must be literally {}") -- TODO: test
-            end
-
-            stat._skip = true
-            self.module_symbol = self:add_module_symbol(decl.name, false, {})
-            self.module_var_name = decl.name
-
         else
             self:expand_function_returns(stat.exps)
             for i, decl in ipairs(stat.decls) do
@@ -724,30 +666,19 @@ function Checker:check_stat(stat, is_toplevel)
         stat.call_exp = self:check_exp_synthesize(stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
+        local ret_types = self.ret_types_stack[#self.ret_types_stack]
+        if not ret_types then
+            type_error(stat.loc, "return statement is not allowed here") -- TODO
+        end
+
         self:expand_function_returns(stat.exps)
-        if #self.ret_types_stack == 0 then
-            -- Module return
-            if not is_toplevel then
-                type_error(stat.loc, "return statement is not allowed here") -- TODO
-            end
-            if #stat.exps ~= 1 then
-                type_error(stat.loc, "returning %d value(s) but module expects 1", #stat.exps) -- TODO
-            end
-            if not self:is_the_module_variable(stat.exps[1]) then
-                type_error(stat.loc, "must return the module variable (%s)", self.module_var_name)  -- TODO
-            end
-            stat._skip = true
-        else
-            -- Function return
-            local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
-            if #stat.exps ~= #ret_types then
-                type_error(stat.loc,
-                    "returning %d value(s) but function expects %s",
-                    #stat.exps, #ret_types)
-            end
-            for i = 1, #stat.exps do
-                stat.exps[i] = self:check_exp_verify(stat.exps[i], ret_types[i], "return statement")
-            end
+        if #stat.exps ~= #ret_types then
+            type_error(stat.loc,
+                "returning %d value(s) but function expects %s",
+                #stat.exps, #ret_types)
+        end
+        for i = 1, #stat.exps do
+            stat.exps[i] = self:check_exp_verify(stat.exps[i], ret_types[i], "return statement")
         end
 
     elseif tag == "ast.Stat.If" then
