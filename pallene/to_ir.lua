@@ -690,9 +690,6 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
             local def = var._def
-            if not def then
-                print("!!!", var.loc.line)
-            end
             if     def._tag == "checker.Def.Variable" then
                 local is_loc, id = self:is_local(def.decl)
                 if is_loc then
@@ -706,7 +703,6 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
                 return ir.Value.Function(id)
 
             elseif def._tag == "checker.Def.Builtin" then
-                print("!!!", def.id)
                 error("not implemented")
 
             else
@@ -723,7 +719,6 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
 
     if _recursive then
         -- Avoid infinite loop due to type error
-        print("!!!", require"inspect"(exp))
         error(string.format(
             "Neither exp_to_value or exp_to_assignment handled tag %q)",
             exp._tag))
