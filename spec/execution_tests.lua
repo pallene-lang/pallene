@@ -1602,7 +1602,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    it("Corner cases of exporting variables", function ()
+    describe("Corner cases of exporting variables", function ()
         compile([[
             local  a = 10
             m.b = 20
