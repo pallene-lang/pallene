@@ -159,50 +159,43 @@ function Parser:Program()
 
     -- module contents
     local tls = {}
-    while not self:peek("EOF") do
+    while not self:peek("EOF") and not self:peek("return") do
         table.insert(tls, self:Toplevel())
     end
 
     -- returm <modname>
-    local last_stat
-    do
-        local last_tl = tls[#tls]
+    if self:peek("EOF") then
+        self:syntax_error(self.lexer:loc(),
+            "must end by returning the module table; return %s", modname)
+    end
 
-        if not (
-            last_tl and
-            last_tl._tag == "ast.Toplevel.Stats" and
-            last_tl.stats[#last_tl.stats] and
-            last_tl.stats[#last_tl.stats]._tag == "ast.Stat.Return")
-        then
-            self:syntax_error(self.lexer:loc(),
-                "must end by returning the module table; return %s", modname)
-        end
+    local return_stat = self:Stat(true)
+    assert(return_stat._tag == "ast.Stat.Return")
 
-        last_stat = table.remove(last_tl.stats)
-        if not last_tl.stats[1] then
-            table.remove(tls)
-        end
+    if not self:peek("EOF") then
+        local tok = self:e()
+        self:syntax_error(tok.loc, "statement after the return statement") -- TODO
+    end
 
-        if #last_stat.exps ~= 1 then
-            self:syntax_error(last_stat.loc,
-                "final return statement must return a single value")
-        end
+    if #return_stat.exps ~= 1 then
+        self:syntax_error(return_stat.loc,
+            "final return statement must return a single value")
+    end
 
-        local exp = last_stat.exps[1]
+    local returned_exp = return_stat.exps[1]
 
-        if not (
-            exp._tag == "ast.Exp.Var" and
-            exp.var._tag == "ast.Var.Name" and
-            exp.var.name == modname)
-        then
-            -- The checker also needs to check that this name has not been shadowed
-            self:syntax_error(exp.loc,
-                "must return exactly the module variable '%s'", modname)
-        end
+    if not (
+        returned_exp._tag == "ast.Exp.Var" and
+        returned_exp.var._tag == "ast.Var.Name" and
+        returned_exp.var.name == modname)
+    then
+        -- The checker also needs to check that this name has not been shadowed
+        self:syntax_error(returned_exp.loc,
+            "must return exactly the module variable '%s'", modname)
     end
 
     return ast.Program.Program(
-        start_loc, last_stat.loc, modname, tls, self.type_regions, self.comment_regions)
+        start_loc, return_stat.loc, modname, tls, self.type_regions, self.comment_regions)
 end
 
 function Parser:Toplevel()
@@ -232,10 +225,14 @@ function Parser:Toplevel()
 
     else
         local stats = {}
-        while not (self:peek("EOF") or self:peek("typealias") or self:peek("record")) do
+        while
+            not self:peek("EOF") and
+            not self:peek("return") and
+            not self:peek("typealias") and
+            not self:peek("record")
+        do
             local stat = self:Stat(true)
-            if stat._tag ~= "ast.Stat.Return" and
-               stat._tag ~= "ast.Stat.Decl" and
+            if stat._tag ~= "ast.Stat.Decl" and
                stat._tag ~= "ast.Stat.Assign" and
                stat._tag ~= "ast.Stat.Func"
             then
