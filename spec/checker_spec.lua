@@ -7,33 +7,28 @@ local function run_checker(code)
     return module, table.concat(errs, "\n")
 end
 
-local function assert_error_unwrapped(code, expected_err)
-    local module, errs = run_checker(code)
-    assert.falsy(module)
-    assert.match(expected_err, errs, 1, true)
-end
-
 local function assert_error(body, expected_err)
-    local code = util.render([[
+    local module, errs = run_checker(util.render([[
         local m: module = {}
         $body
         return m
     ]], {
         body = body
-    })
-    return assert_error_unwrapped(code, expected_err)
+    }))
+    assert.falsy(module)
+    assert.match(expected_err, errs, 1, true)
 end
 
 describe("Scope analysis: ", function()
 
     it("forbids variables from being used before they are defined", function()
         assert_error([[
-            function fn(): nil
+            function m.fn(): nil
                 x = 17
                 local x = 18
             end
         ]],
-            "Function must be 'local' or module function")
+            "variable 'x' is not declared")
     end)
 
     it("forbids type variables from being used before they are defined", function()
@@ -67,22 +62,30 @@ describe("Scope analysis: ", function()
             function m.f() end
             function m.f() end
         ]],
-            "duplicate module field 'f', previous one at line 2")
+            "multiple definitions for module field 'f'")
     end)
 
-    it("forbids multiple toplevel declarations with the same name for exported function and variable", function()
+    it("forbids multiple toplevel declarations with the same name for exported function and constant", function()
         assert_error([[
             function m.f() end
             m.f = 1
         ]],
-            "duplicate module field 'f', previous one at line 2")
+            "multiple definitions for module field 'f'")
     end)
 
-    it("ensure toplevel variables are not in scope in their initializers", function()
+    it("forbids multiple declarations for the same exported constant", function()
         assert_error([[
-            local a, b = 1, a
+            m.x = 10
+            m.x = 20
         ]],
-            "variable 'a' is not declared")
+            "multiple definitions for module field 'x'")
+    end)
+
+    it("forbids multiple declarations for the same exported constant in single statement", function()
+        assert_error([[
+            m.x, m.x = 10, 20
+        ]],
+            "multiple definitions for module field 'x'")
     end)
 
     it("ensure toplevel variables are not in scope in their initializers", function()
@@ -90,6 +93,13 @@ describe("Scope analysis: ", function()
             local a = a
         ]],
             "variable 'a' is not declared")
+    end)
+
+    it("ensure toplevel exported variables are not in scope in their initializers", function()
+        assert_error([[
+            m.x = m.x
+        ]],
+            "module field 'x' does not exist")
     end)
 
     it("ensure variables are not in scope in their initializers", function()
@@ -131,6 +141,34 @@ describe("Scope analysis: ", function()
         ]],
             "type 'x' is not declared")
     end)
+
+    it("forbids setting a module constant outside of the toplevel", function()
+        assert_error([[
+            function m.f()
+                m.x = 10
+            end
+        ]],
+            "module fields can only be set at the toplevel")
+    end)
+
+    it("forbids setting a module function outside of the toplevel", function()
+        assert_error([[
+            function m.f()
+                function m.g() end
+            end
+        ]],
+            "module functions can only be set at the toplevel")
+    end)
+
+    it("cannot define function without local modifier", function()
+        assert_error([[
+            function f() : integer
+                return 5319
+            end
+        ]],
+            "function 'f' was not forward declared")
+    end)
+
 end)
 
 describe("Pallene type checker", function()
@@ -178,7 +216,7 @@ describe("Pallene type checker", function()
                 local bar: integer = Point
             end
         ]],
-            "'Point' isn't a value")
+            "'Point' is not a value")
     end)
 
     it("catches table type with repeated fields", function()
@@ -796,7 +834,7 @@ describe("Pallene type checker", function()
         end
 
         it("doesn't typecheck read/write to non indexable type", function()
-            local err = "trying to access a member of value of type 'string'"
+            local err = "trying to access a member of a value of type 'string'"
             assert_dot_error("string", [[ ("t").x = 10 ]], err)
             assert_dot_error("string", [[ local x = ("t").x ]], err)
         end)
@@ -844,8 +882,7 @@ describe("Pallene type checker", function()
                 m.f = m.g
             end
         ]],
-        --"attempting to assign to toplevel constant function 'f'")
-        "type error: Can't assign module field to 'function type () -> ()'")
+        "module fields can only be set at the toplevel")
     end)
 
     it("catches assignment to builtin (with correct type)", function ()
@@ -857,7 +894,7 @@ describe("Pallene type checker", function()
                 io.write = m.f
             end
         ]],
-        "attempting to assign to builtin function io.write")
+        "LHS of assignment is not a mutable variable")
     end)
 
     it("catches assignment to builtin (with wrong type)", function ()
@@ -869,7 +906,7 @@ describe("Pallene type checker", function()
                 io.write = m.f
             end
         ]],
-        "attempting to assign to builtin function io.write")
+        "LHS of assignment is not a mutable variable")
     end)
 
     it("typechecks io.write (error)", function()
@@ -887,7 +924,7 @@ describe("Pallene type checker", function()
                 local x = io
             end
         ]],
-        "cannot reference module name 'io' without dot notation")
+        "attempt to use module as a value")
     end)
 
     it("checks assignment of modules", function()
@@ -896,77 +933,7 @@ describe("Pallene type checker", function()
                 io = 1
             end
         ]],
-        "cannot reference module name 'io' without dot notation")
-    end)
-
-    it("forbid empty program", function()
-        assert_error_unwrapped([[]], "type error: Empty modules are not permitted")
-    end)
-
-    it("check if module variable is not declared", function()
-        assert_error_unwrapped([[
-            local function f()
-                local x = 2.5
-            end
-        ]],
-        "type error: Program has no module variable")
-    end)
-
-    it("forbid declarion of two module variables", function()
-        assert_error_unwrapped([[
-            local m1: module = {}
-            local m2: module = {}
-            return m1
-        ]],
-        "type error: There can only be one module variable per program")
-    end)
-
-    it("forbid return of more than one variable", function()
-        assert_error_unwrapped([[
-            local m: module = {}
-            return m, m
-        ]],
-        "type error: returning 2 value(s) but function expects 1")
-    end)
-
-    it("forbid return of any variable of type other then module", function()
-        assert_error_unwrapped([[
-            local m: module = {}
-            local i: integer = 2
-            function m.f()
-                local x = 2.5
-            end
-            return i
-        ]],
-        "type error: expected module but found integer in return statement")
-    end)
-
-    it("forbid assignment of Record as module field", function()
-        assert_error([[
-            record Point
-                x: integer
-                y: integer
-            end
-            local p: Point = {x = 12, y = 7}
-            m.p = p
-        ]],
-        "type error: Can't assign module field to 'Point'")
-    end)
-
-    it("forbid assignment of Array as module field", function()
-        assert_error([[
-            local arr: {integer} = {1, 2, 6, -10}
-            m.arr = arr
-        ]],
-        "type error: Can't assign module field to '{ integer }'")
-    end)
-
-    it("forbid assignment of any as module field", function()
-        assert_error([[
-            local a: any
-            m.a = a
-        ]],
-        "type error: Can't assign module field to 'any'")
+        "attempt to use module as a value")
     end)
 
 end)

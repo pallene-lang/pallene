@@ -12,7 +12,7 @@ local function declare_type(type_name, cons)
 end
 
 declare_type("Program", {
-    Program = {"loc", "tls", "type_regions", "comment_regions"}
+    Program = {"loc", "ret_loc", "module_name", "tls", "type_regions", "comment_regions"}
 })
 
 declare_type("Type", {
@@ -21,11 +21,10 @@ declare_type("Type", {
     Array    = {"loc", "subtype"},
     Table    = {"loc", "fields"},
     Function = {"loc", "arg_types", "ret_types"},
-    Module   = {"loc"},
 })
 
 declare_type("Toplevel", {
-    Stat      = {"loc", "stat"},
+    Stats     = {"loc", "stats"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
 })
@@ -46,7 +45,8 @@ declare_type("Stat", {
     Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
     Break  = {"loc"},
-    Func   = {"loc", "name", "decl", "value"},
+    Func   = {"loc", "is_local", "root", "fields", "method", "ret_types", "value"},
+    LetRec = {"loc", "decls", "func_stats"}, -- For mutual recursion (see parser.lua)
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
@@ -79,9 +79,5 @@ declare_type("Field", {
     List = {"loc", "exp"},
     Rec  = {"loc", "name", "exp"},
 })
-
---
--- note: the following functions are why we need `if type(conss) == "table"` in parser.lua
---
 
 return ast

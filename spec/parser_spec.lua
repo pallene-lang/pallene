@@ -30,14 +30,14 @@ local function assert_is_subset(expected_ast, parsed_ast)
 end
 
 --
--- Assertions for full programs
+-- Assertions for full programs (without module boilerplate)
 --
 
 local function parse(code)
     return driver.compile_internal("__test__.pln", code, "ast")
 end
 
-local function assert_parses_successfuly(program_str)
+local function assert_parses_successfuly_unwrapped(program_str)
     local prog_ast, errors = parse(program_str)
     if not prog_ast then
         error(string.format("Unexpected Pallene syntax error: %s", errors[1]))
@@ -45,18 +45,18 @@ local function assert_parses_successfuly(program_str)
     return prog_ast
 end
 
-local function assert_program_ast(program_str, expected_tls)
+local function assert_program_ast_unwrapped(program_str, expected_tls)
     local expected_ast = {
         _tag = "ast.Program.Program",
         tls = expected_tls,
         type_regions = {},
         comment_regions = {}
     }
-    local prog_ast = assert_parses_successfuly(program_str)
+    local prog_ast = assert_parses_successfuly_unwrapped(program_str)
     assert_is_subset(expected_ast, prog_ast)
 end
 
-local function assert_program_syntax_error(program_str, expected_error)
+local function assert_program_syntax_error_unwrapped(program_str, expected_error)
     local prog_ast, errors = parse(program_str)
     if prog_ast then
         error(string.format(
@@ -64,6 +64,31 @@ local function assert_program_syntax_error(program_str, expected_error)
             expected_error))
     end
     assert.matches(expected_error, errors[1], 1, true)
+end
+
+
+--
+-- Assertions for full programs (with module boilerplate)
+--
+
+local function wrap(body)
+    return util.render([[
+        local m:module = {}
+        $body
+        return m
+    ]], { body = body })
+end
+
+local function assert_parses_successfuly(program_str)
+    return assert_parses_successfuly_unwrapped(wrap(program_str))
+end
+
+local function assert_program_ast(program_str, expected_tls)
+    return assert_program_ast_unwrapped(wrap(program_str), expected_tls)
+end
+
+local function assert_program_syntax_error(program_str, expected_error)
+    return assert_program_syntax_error_unwrapped(wrap(program_str), expected_error )
 end
 
 --
@@ -79,7 +104,7 @@ end
 local function assert_type_ast(code, expected_ast)
     local program_str = type_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local type_ast = program_ast.tls[1].stat.decls[1].type
+    local type_ast = program_ast.tls[1].stats[1].decls[1].type
     assert_is_subset(expected_ast, type_ast)
 end
 
@@ -103,7 +128,7 @@ end
 local function assert_expression_ast(code, expected_ast)
     local program_str = expression_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local exp_ast = program_ast.tls[1].stat.value.body.stats[1].exps[1]
+    local exp_ast = program_ast.tls[1].stats[1].value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -127,7 +152,7 @@ end
 local function assert_statements_ast(code, expected_ast)
     local program_str = statements_test_program(code)
     local program_ast = assert_parses_successfuly(program_str)
-    local stats_ast = program_ast.tls[1].stat.value.body.stats
+    local stats_ast = program_ast.tls[1].stats[1].value.body.stats
     assert_is_subset(expected_ast, stats_ast)
 end
 
@@ -158,14 +183,18 @@ describe("Pallene parser", function()
 
     it("can parse programs starting with whitespace or comments", function()
         -- This is easy to get wrong in hand-written LPeg grammars...
-        local prog_ast = assert_parses_successfuly("--hello\n--bla\n  ")
+        local prog_ast = assert_parses_successfuly_unwrapped([[
+            --hello\n--bla\n
+            local m: module = {}
+            return m
+        ]])
         assert.are.same({}, prog_ast.tls)
     end)
 
     it("can parse toplevel var declarations", function()
         assert_program_ast([[ local x=17 ]], { {
-      _tag = "ast.Toplevel.Stat",
-      stat = {
+      _tag = "ast.Toplevel.Stats",
+      stats = { {
         _tag = "ast.Stat.Decl",
         decls = { {
             _tag = "ast.Decl.Decl",
@@ -176,46 +205,13 @@ describe("Pallene parser", function()
             _tag = "ast.Exp.Integer",
             value = 17
           } }
-      }
+      } },
     } })
     end)
 
     it("does not allow global variables", function()
         assert_program_syntax_error([[ x=17 ]],
             "Toplevel assignments are only possible with module fields")
-    end)
-
-    it("cannot define function without local modifier", function()
-        assert_program_syntax_error([[
-            function f() : integer
-                return 5319
-            end
-        ]],
-        "Function must be 'local' or module function")
-    end)
-
-    it("last function without local modifier", function()
-        assert_program_syntax_error([[
-            function m.a()
-            end
-
-            function f() : integer
-                return 5319
-            end
-        ]],
-        "Function must be 'local' or module function")
-    end)
-
-    it("first function without local modifier", function()
-        assert_program_syntax_error([[
-            function a()
-            end
-
-            function m.f() : integer
-                return 5319
-            end
-        ]],
-        "Function must be 'local' or module function")
     end)
 
     it("toplevel variable declaration without local modifier", function()
@@ -237,27 +233,14 @@ describe("Pallene parser", function()
             local function fA() : float
             end
         ]], { {
-          _tag = "ast.Toplevel.Stat",
-          stat = {
+          _tag = "ast.Toplevel.Stats",
+          stats = { {
             _tag = "ast.Stat.Func",
-            decl = {
-              _tag = "ast.Decl.Decl",
-              type = {
-                _tag = "ast.Type.Function",
-                arg_types = {},
-                ret_types = { {
-                    _tag = "ast.Type.Name",
-                    name = "float"
-                  } }
-              }
-            },
-            name = {
-              _tag = "ast.Exp.Var",
-              var = {
-                _tag = "ast.Var.Name",
-                name = "fA"
-              }
-            },
+            is_local = true,
+            root = "fA",
+            fields = {},
+            method = false,
+            ret_types = { { _tag = "ast.Type.Name", name = "float" } },
             value = {
               _tag = "ast.Exp.Lambda",
               arg_decls = {},
@@ -266,37 +249,21 @@ describe("Pallene parser", function()
                 stats = {}
               }
             }
-          }
+          } }
         } })
 
         assert_program_ast([[
             local function fB(x:integer) : float
             end
         ]], { {
-      _tag = "ast.Toplevel.Stat",
-        stat = {
+      _tag = "ast.Toplevel.Stats",
+        stats = { {
           _tag = "ast.Stat.Func",
-          decl = {
-            _tag = "ast.Decl.Decl",
-            type = {
-              _tag = "ast.Type.Function",
-              arg_types = { {
-                  _tag = "ast.Type.Name",
-                  name = "integer"
-                } },
-              ret_types = { {
-                  _tag = "ast.Type.Name",
-                  name = "float"
-                } }
-            }
-          },
-          name = {
-            _tag = "ast.Exp.Var",
-            var = {
-              _tag = "ast.Var.Name",
-              name = "fB"
-            }
-          },
+          is_local = true,
+          root = "fB",
+          fields = {},
+          method = false,
+          ret_types = { { _tag = "ast.Type.Name", name = "float" } },
           value = {
             _tag = "ast.Exp.Lambda",
             arg_decls = { {
@@ -308,40 +275,21 @@ describe("Pallene parser", function()
               stats = {}
             }
           }
-        }
+        } }
       } })
 
         assert_program_ast([[
             local function fC(x:integer, y:integer) : float
             end
         ]], { {
-            _tag = "ast.Toplevel.Stat",
-            stat = {
+            _tag = "ast.Toplevel.Stats",
+            stats = { {
               _tag = "ast.Stat.Func",
-              decl = {
-                _tag = "ast.Decl.Decl",
-                type = {
-                  _tag = "ast.Type.Function",
-                  arg_types = { {
-                      _tag = "ast.Type.Name",
-                      name = "integer"
-                    }, {
-                      _tag = "ast.Type.Name",
-                      name = "integer"
-                    } },
-                  ret_types = { {
-                      _tag = "ast.Type.Name",
-                      name = "float"
-                    } }
-                }
-              },
-              name = {
-                _tag = "ast.Exp.Var",
-                var = {
-                  _tag = "ast.Var.Name",
-                  name = "fC"
-                }
-              },
+            is_local = true,
+              root = "fC",
+              fields = {},
+              method = false,
+              ret_types = { { _tag = "ast.Type.Name", name = "float" } },
               value = {
                 _tag = "ast.Exp.Lambda",
                 arg_decls = { {
@@ -356,79 +304,32 @@ describe("Pallene parser", function()
                   stats = {}
                 }
               }
-            }
+            } }
         } })
     end)
 
     it("allows ommiting the optional return type annotation", function ()
         assert_program_ast([[
-            function m.foo()
-            end
             local function bar()
             end
         ]], { {
-      _tag = "ast.Toplevel.Stat",
-      stat = {
-        _tag = "ast.Stat.Func",
-        decl = {
-          _tag = "ast.Decl.Decl",
-          type = {
-            _tag = "ast.Type.Function",
-            arg_types = {},
-            ret_types = {}
+      _tag = "ast.Toplevel.Stats",
+      stats = { {
+          _tag = "ast.Stat.Func",
+          is_local = true,
+          root = "bar",
+          fields = {},
+          method = false,
+          ret_types = {},
+          value = {
+            _tag = "ast.Exp.Lambda",
+            arg_decls = {},
+            body = {
+              _tag = "ast.Stat.Block",
+              stats = {}
+            }
           }
-        },
-        name = {
-          _tag = "ast.Exp.Var",
-          var = {
-            _tag = "ast.Var.Dot",
-            exp = {
-              _tag = "ast.Exp.Var",
-              var = {
-                _tag = "ast.Var.Name",
-                name = "m"
-              }
-            },
-            name = "foo"
-          }
-        },
-        value = {
-          _tag = "ast.Exp.Lambda",
-          arg_decls = {},
-          body = {
-            _tag = "ast.Stat.Block",
-            stats = {}
-          }
-        }
-      }
-    }, {
-      _tag = "ast.Toplevel.Stat",
-      stat = {
-        _tag = "ast.Stat.Func",
-        decl = {
-          _tag = "ast.Decl.Decl",
-          type = {
-            _tag = "ast.Type.Function",
-            arg_types = {},
-            ret_types = {}
-          }
-        },
-        name = {
-          _tag = "ast.Exp.Var",
-          var = {
-            _tag = "ast.Var.Name",
-            name = "bar"
-          }
-        },
-        value = {
-          _tag = "ast.Exp.Lambda",
-          arg_decls = {},
-          body = {
-            _tag = "ast.Stat.Block",
-            stats = {}
-          }
-        }
-      }
+        } }
     } })
     end)
 
@@ -769,13 +670,13 @@ describe("Pallene parser", function()
         assert_statements_syntax_error([[
             return 10
             return 11
-        ]], "Expected 'end' before 'return', to close the 'function' at line 1")
+        ]], "Expected 'end' before 'return', to close the 'function' at line 2")
     end)
 
     it("does not allow extra semicolons after a return", function()
         assert_statements_syntax_error([[
             return;;
-        ]], "Expected 'end' before ';', to close the 'function' at line 1")
+        ]], "Expected 'end' before ';', to close the 'function' at line 2")
     end)
 
     it("can parse binary and unary operators", function()
@@ -1087,6 +988,41 @@ describe("Pallene parser", function()
             "This expression is not an lvalue")
     end)
 
+    it("parse errors for module declaration", function()
+        assert_program_syntax_error_unwrapped([[]],
+            "empty modules are not allowed")
+    end)
+
+    it("check if module variable is not declared", function()
+        assert_program_syntax_error_unwrapped([[
+            local function f()
+                local x = 2.5
+            end
+            return m
+        ]],
+        "must begin with a module declaration")
+    end)
+
+    it("forbid return of more than one variable", function()
+        assert_program_syntax_error_unwrapped([[
+            local m: module = {}
+            return m, m
+        ]],
+        "final return statement must return a single value")
+    end)
+
+    it("forbid return of any variable of type other then module", function()
+        assert_program_syntax_error_unwrapped([[
+            local m: module = {}
+            local i: integer = 2
+            function m.f()
+                local x = 2.5
+            end
+            return i
+        ]],
+        "must return exactly the module variable 'm'")
+    end)
+
     it("uses specific error labels for some errors", function()
 
         assert_program_syntax_error([[
@@ -1095,9 +1031,9 @@ describe("Pallene parser", function()
         ]], "Expected a name before '('")
 
         assert_program_syntax_error([[
-            function m.foo : int
+            function m.foo ): int
             end
-        ]], "Expected '(' before ':'")
+        ]], "Expected '(' before ')'")
 
         assert_program_syntax_error([[
             function m.foo ( : int
@@ -1114,7 +1050,7 @@ describe("Pallene parser", function()
             function m.foo () : int
               local x = 3
               return x
-        ]], "Expected 'end' before end of the file, to close the 'function' at line 1")
+        ]], "Expected 'end' before 'return', to close the 'function' at line 2")
 
         assert_program_syntax_error([[
             function m.foo(x, y) : int
@@ -1127,28 +1063,28 @@ describe("Pallene parser", function()
 
         assert_program_syntax_error([[
             local x =
-        ]], "Unexpected end of the file while trying to parse an expression")
+        ]], "Unexpected 'return' while trying to parse an expression")
 
         assert_program_syntax_error([[
             record
-        ]], "Expected a name before end of the file")
+        ]], "Expected a name before 'return'")
 
         assert_program_syntax_error([[
             typealias
-        ]], "Expected a name before end of the file")
+        ]], "Expected a name before 'return'")
 
         assert_program_syntax_error([[
             typealias point
-        ]], "Expected '=' before end of the file")
+        ]], "Expected '=' before 'return'")
 
         assert_program_syntax_error([[
             typealias point =
-        ]], "Unexpected end of the file while trying to parse a type")
+        ]], "Unexpected 'return' while trying to parse a type")
 
         assert_program_syntax_error([[
             record A
                 x : int
-        ]], "Expected 'end' before end of the file, to close the 'record' at line 1")
+        ]], "Expected 'end' before 'return', to close the 'record' at line 2")
 
         assert_program_syntax_error([[
             function m.foo (a:int, ) : int
@@ -1195,7 +1131,7 @@ describe("Pallene parser", function()
             function m.f ( x : int) : string
                 do
                 return "42"
-        ]], "Expected 'end' before end of the file, to close the 'do' at line 2")
+        ]], "Expected 'end' before 'return', to close the 'do' at line 3")
 
         assert_statements_syntax_error([[
             while do
@@ -1214,13 +1150,13 @@ describe("Pallene parser", function()
                 x = x - 1
                 return 42
             return 41
-        ]], "Expected 'end' before 'return', to close the 'while' at line 2")
+        ]], "Expected 'end' before 'return', to close the 'while' at line 3")
 
         assert_statements_syntax_error([[
             repeat
                 x = x - 1
             end
-        ]], "Expected 'until' before 'end', to close the 'repeat' at line 2")
+        ]], "Expected 'until' before 'end', to close the 'repeat' at line 3")
 
         assert_statements_syntax_error([[
             repeat
@@ -1245,7 +1181,7 @@ describe("Pallene parser", function()
                 x = x - 1
                 return 42
             return 41
-        ]], "Expected 'end' before 'return', to close the 'if' at line 2")
+        ]], "Expected 'end' before 'return', to close the 'if' at line 3")
 
         assert_statements_syntax_error([[
             for = 1, 10 do
@@ -1286,7 +1222,7 @@ describe("Pallene parser", function()
             for x = 1, 10, 1 do
                 return 42
             return 41
-        ]], "Expected 'end' before 'return', to close the 'for' at line 2")
+        ]], "Expected 'end' before 'return', to close the 'for' at line 3")
 
         assert_statements_syntax_error([[
             for k, in ipairs(t) do

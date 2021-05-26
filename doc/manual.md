@@ -7,19 +7,24 @@ This is a work in progress, so if you have any questions or suggestions, or if s
 
 Pallene is a statically-typed companion language to Lua.
 Pallene functions can be called from Lua and Pallene can call Lua functions as well.
+
 At a first glance, Pallene code looks similar to Lua, but with type annotations.
+As a general principle, if a Pallene program runs without errors, then erasing the types and running it as Lua should produce the same result.
+The exception are the times when Pallene produces an error, either a compile-time error or a run-time type error.
 
 Here is an example Pallene subroutine for summing the elements in an array of floating-point numbers.
 Note that type annotations are required for function argument and return types but for local variable declarations Pallene can often infer the types.
 
 ```
-function sum_floats(xs: {float}): float
+local m = {}
+function m.sum_floats(xs: {float}): float
     local r = 0.0
     for i = 1, #xs do
         r = r + xs[i]
     end
     return r
 end
+return m
 ```
 
 If we put this subroutine in a file named `sum.pln` and pass this file to the `pallenec` compiler, it will output a `sum.so` Lua extension module:
@@ -163,7 +168,7 @@ Pallene's `for-in` loops carry some semantic importance that might be of relevan
 An example of such a loop might look like this:
 
 ```
-function sum_list(xs: {integer}) do
+local function sum_list(xs: {integer}) do
     local sum: integer = 0
     for _, x: integer in ipairs(xs) do
         sum = sum + x
@@ -203,7 +208,7 @@ local function my_ipairs(xs: {any}): (iterfn, any, any)
     return iter, xs, 0
 end
 
-function sum_list(xs: {integer}): integer
+local function sum_list(xs: {integer}): integer
     local sum = 0
     for _, x: integer in my_ipairs(xs) do
         sum = sum + x
@@ -265,7 +270,7 @@ The main difference compared to Lua is that Pallene does not allow you to perfor
 You may pass a `any` to a functions and you may store it in an array but you cannot call it, index it, or use it in an arithmetic operation:
 
 ```
-function f(x: any, y: any): any
+local function f(x: any, y: any): any
     return x + y -- compile-time type error: Cannot add two anys
 end
 ```
@@ -275,14 +280,24 @@ Sometimes the Pallene compiler can do this automatically for you but in other si
 The reason for this is that, for performance, Pallene must know at compile-time what version of the arithmetic operator to use.
 
 ```
-function f(x: any, y: any): integer
+local function f(x: any, y: any): integer
     return (x as integer) + (y as integer)
 end
 ```
 
 ## Structure of a Pallene module
 
-A Pallene module consists of a sequence of type declarations, module-local variables, and function definitions.
+Lua allows many idiomatic ways of defining a module.
+Pallene programs, however, must follow a stricter style.
+A Pallene module must start with a local variable declaring the module name and it must finish with a return statement returning that variable.
+The type annotation for the module variable is optional, but if present it should say "module".
+The body of the module consists of a sequence of type declarations, module-local variables, and function definitions.
+
+```
+local m: module = {}
+-- ...
+return m
+```
 
 ### Type aliases
 
@@ -330,18 +345,44 @@ end
 ```
 
 A `local` function is only visible inside the module it is defined.
-Non-local functions are exported, which means that they are accessible to Lua if it requires the Pallene module.
+To export a function, have it's name be a field of the module table, e.g. `function m.foo()`.
 
-As with variables, `<name>` can be any valid identifier, but it is a compile-time error to declare two functions with the same name, or a function with the same name as a module variable.
-The return types `<rettypes>` are optional, and if not given it is assumed that the function does not return anything.
-If two or more return types are present, a parenthesis surrounding them is required.
+Functions that are created using a function statement are immutable in Pallene; you may not re-assign them to a different function.
+It is a compile-time error to declare two exported functions with the same name.
+The return types `<rettypes>` are optional; if not given it is assumed that the function does not return anything.
+If the function returns more than one value, you must use parenthesis around the return types.
 
 Parameters are a comma-separated list of `<name>: <type>`.
 Two parameters cannot have the same name.
-The function body is a sequence of statements.
 
 Pallene functions can be recursive.
 Blocks of mutually-recursive functions are also allowed, as long as the mutually-recursive functions are declared next to each other, without any type or variable declarations between them.
+
+```
+function m.f()
+    m.g() -- ok
+end
+function m.g()
+    m.h() -- not allowed
+end
+local _ = 17
+function m.h()
+    m.f() -- ok
+end
+```
+
+To define a block of mutually-recursive local functions you can use a forward declaration.
+The forward declaration must be adjacent to the functions.
+The functions must also use the function statement syntax, instead of assignment statements.
+
+```
+local odd, even
+function odd(n:integer): boolean
+    if n == 0 then return false else return even(n-1) end
+end
+function even(n:integer): boolean
+    if n == 0 then return true else return odd(n-1) end
+end
 
 ## Expressions and Statements
 
@@ -431,58 +472,6 @@ insert(ns, "boom!")
 local x1 : integer = ns[1]
 local x2 : integer = ns[4] -- run-time error
 ```
-
-## Exporting top-level components
-
-The `export` keyword can be used to export top-level components such as variables and functions from a Pallene module.
-The keyword `export` can be used in the same places where the `local` keyword can be used.
-Every top-level component declaration should have either `local` or `export` modifier because Pallene does not support global variables.
-
-In the following example, we export `foo` and `name` from our module.
-```lua
-export function foo(x: integer): integer
-    return x + 1
-end
-
-export name: string = "Hello"
-```
-
-You can export on top-level components from a Pallene module.
-Further, it is an error to export the same name twice.
-
-
-When variables are exported from a module, only the initial values are exported.
-Therefore, any changes made to the variable from within the module after the export, will not be reflected outside.
-You could over come this limitation (or perhaps a feature), using tables.
-For example, if the exported value is a table then the contents of the table may change and that will be seen outside.
-But if you are exporting a string or number variable, any subsequent changes will remain unseen outside the module.
-
-This is an intended behavior.
-In fact, it is analogous to what happens if you define a Lua module like this:
-```lua
-local x = 10
-
-local function f()
-    return x
-end
-
-return { x = x, f = f }
-```
-
-In Lua you can also create modules in a way that lets the variables be monkey-patched.
-```
-local m = {}
-
-m.x = 10
-
-function m.f()
-    return m.x
-end
-
-return m
-```
-
-But we do not use this pattern in Pallene because it is harder to optimize function calls if they can be monkey-patched.
 
 ## Pallene to Lua translator
 

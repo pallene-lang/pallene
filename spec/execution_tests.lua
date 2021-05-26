@@ -230,11 +230,34 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
             -----------
+            local l_even, l_odd
+            function l_even(x: integer): boolean
+                if x == 0 then
+                    return true
+                else
+                    return l_odd(x-1)
+                end
+            end
+            function l_odd(x: integer): boolean
+                if x == 0 then
+                    return false
+                else
+                    return l_even(x-1)
+                end
+            end
+
+            function m.local_even(n: integer): boolean
+                return l_even(n)
+            end
+            function m.local_odd(n: integer): boolean
+                return l_odd(n)
+            end
+            -----------
             function m.skip_a() end
             function m.skip_b() m.skip_a(); m.skip_a() end
             -----------
             function m.ignore_return(): integer
-                m.even(1)
+                m.gcd(1,2)
                 return 17
             end
             function m.ignore_return_builtin(): integer
@@ -259,11 +282,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[ assert(3*5 == test.gcd(2*3*5, 3*5*7)) ]])
         end)
 
-        it("mutually recursive calls", function()
+        it("mutually recursive calls (exported)", function()
             run_test([[
                 for i = 0, 5 do
                     assert( (i%2 == 0) == test.even(i) )
                     assert( (i%2 == 1) == test.odd(i) )
+                end
+            ]])
+        end)
+
+        it("mutually recursive calls (local)", function()
+            run_test([[
+                for i = 0, 5 do
+                    assert( (i%2 == 0) == test.local_even(i) )
+                    assert( (i%2 == 1) == test.local_odd(i) )
                 end
             ]])
         end)
@@ -1603,7 +1635,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
             ------
 
-            m.k = "How you doin'?"
             m.integer = 12
 
             ------

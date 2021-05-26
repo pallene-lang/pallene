@@ -119,12 +119,83 @@ end
 --
 
 function Parser:Program()
+
+    local start_loc = self.lexer:loc()
+
+    -- local <modname>: module = {}
+    local modname
+    do
+        if self:peek("EOF") then
+            self:syntax_error(start_loc, "empty modules are not allowed")
+        end
+
+        local stat = self:Stat(true)
+        if not (stat and stat._tag == "ast.Stat.Decl") then
+            self:syntax_error(stat.loc,
+                "must begin with a module declaration; local <modname> = {}")
+        end
+
+        if #stat.decls > 1 or #stat.exps > 1 then
+            self:syntax_error(stat.loc,
+                "cannot use a multiple-assignment to declare the module table")
+        end
+
+        assert(#stat.decls == 1)
+
+        local decl = stat.decls[1]
+        local exp  = stat.exps[1]
+
+        if decl.type and not (decl.type._tag == "ast.Type.Name" and decl.type.name == "module") then
+            self:syntax_error(decl.type.loc,
+                "if the module table has a type annotation, it must be exactly 'module'")
+        end
+
+        if not (exp and exp._tag == "ast.Exp.Initlist" and #exp.fields == 0) then
+            self:syntax_error(stat.loc, "module initializer must be exactly {}")
+        end
+
+        modname = decl.name
+    end
+
+    -- module contents
     local tls = {}
-    while not self:peek("EOF") do
+    while not self:peek("EOF") and not self:peek("return") do
         table.insert(tls, self:Toplevel())
     end
-    return ast.Program.Program(self.lexer:loc(), tls, self.type_regions,
-                                self.comment_regions)
+
+    -- returm <modname>
+    if self:peek("EOF") then
+        self:syntax_error(self.lexer:loc(),
+            "must end by returning the module table; return %s", modname)
+    end
+
+    local return_stat = self:Stat(true)
+    assert(return_stat._tag == "ast.Stat.Return")
+
+    if not self:peek("EOF") then
+        local tok = self:e()
+        self:syntax_error(tok.loc, "statement after the return statement") -- TODO
+    end
+
+    if #return_stat.exps ~= 1 then
+        self:syntax_error(return_stat.loc,
+            "final return statement must return a single value")
+    end
+
+    local returned_exp = return_stat.exps[1]
+
+    if not (
+        returned_exp._tag == "ast.Exp.Var" and
+        returned_exp.var._tag == "ast.Var.Name" and
+        returned_exp.var.name == modname)
+    then
+        -- The checker also needs to check that this name has not been shadowed
+        self:syntax_error(returned_exp.loc,
+            "must return exactly the module variable '%s'", modname)
+    end
+
+    return ast.Program.Program(
+        start_loc, return_stat.loc, modname, tls, self.type_regions, self.comment_regions)
 end
 
 function Parser:Toplevel()
@@ -153,16 +224,25 @@ function Parser:Toplevel()
         return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else
-        local stat = self:Stat(true)
-        if stat._tag ~= "ast.Stat.Return" and
-           stat._tag ~= "ast.Stat.Decl" and
-           stat._tag ~= "ast.Stat.Assign" and
-           stat._tag ~= "ast.Stat.Func"
-        then
-            self:syntax_error(stat.loc,
-                "Toplevel statements can only be Returns, Declarations or Assignments")
+        local stats = {}
+        while
+            not self:peek("EOF") and
+            not self:peek("return") and
+            not self:peek("typealias") and
+            not self:peek("record")
+        do
+            local stat = self:Stat(true)
+            if stat._tag ~= "ast.Stat.Decl" and
+               stat._tag ~= "ast.Stat.Assign" and
+               stat._tag ~= "ast.Stat.Func"
+            then
+                self:syntax_error(stat.loc,
+                    "Toplevel statements can only be Returns, Declarations or Assignments")
+            end
+            table.insert(stats, stat)
         end
-        return ast.Toplevel.Stat(stat.loc, stat)
+        assert(stats[1])
+        return ast.Toplevel.Stats(stats[1].loc, self:find_letrecs(stats))
     end
 end
 
@@ -276,6 +356,111 @@ function Parser:DeclList()
     return decls
 end
 
+---
+-- Mutualy Recursive Functions
+-- ---------------------------
+--
+-- We allow Pallene functions to call other functions that are defined later down down the file.
+-- However, we must ensure that we only call functions after they are initialized.
+--
+--   function m.f() return m.g() end
+--   local _ = m.f() -- Bad! Calls m.g before it exists
+--   function m.g() end
+--
+-- To disallow this sort of misbehaving program, we only allow functions to see downstream functions
+-- that are "adjacent". If there is an intervening statement between the functions, the latter
+-- function won't be in the scope for the first one.
+--
+--   function m.f() return m.g() end
+--   function m.g() end
+--   local _ = m.f() -- OK!
+--
+-- For local (non-exported) functions, we recognize the following idiom:
+--
+--   local f, g
+--   function f() end
+--   function g() end
+
+local function is_forward_function_declaration(stats, i)
+    local first = stats[i]
+    if not (first and first._tag == "ast.Stat.Decl") then return false end
+    if #first.exps > 0 then return false end
+
+    local func = stats[i+1]
+    if not (func and func._tag == "ast.Stat.Func") then return false end
+    if func.is_local then return false end
+
+    return true
+end
+
+function Parser:find_letrecs(stats)
+    local out = {}
+
+    local N = #stats
+    local i = 1
+    while i <= N do
+
+        local loc = stats[i].loc
+
+        local forw_decls
+        if is_forward_function_declaration(stats, i) then
+            forw_decls = stats[i].decls
+            i = i + 1
+        else
+            forw_decls = {}
+        end
+
+        local funcs = {}
+        while i <= N do
+            local stat = stats[i]
+            if not (stat and stat._tag == "ast.Stat.Func") then break end
+            if stat.is_local then break end
+            table.insert(funcs, stat)
+            i = i + 1
+        end
+
+        if funcs[1] then
+            -- Function group, possibly with forward-declared local functions
+            local forw_names = {}
+            for _, decl in ipairs(forw_decls) do
+                if decl.type then
+                    self:syntax_error(decl.loc,
+                        "type annotations are not allowed in a function forward declaration")
+                end
+                forw_names[decl.name] = true
+            end
+
+            local func_names = {}
+            for _, stat in ipairs(funcs) do
+                assert(stat._tag == "ast.Stat.Func")
+                if #stat.fields == 0 and not stat.method then
+                    if not forw_names[stat.root] then
+                        self:syntax_error(stat.loc,
+                            "function '%s' was not forward declared", stat.root)
+                    end
+                    func_names[stat.root] = true
+                end
+            end
+
+            for _, decl in ipairs(forw_decls) do
+                if not func_names[decl.name] then
+                    self:syntax_error(decl.loc,
+                        "missing a function definition for '%s'", decl.name)
+                end
+            end
+
+            table.insert(out, ast.Stat.LetRec(loc, forw_decls, funcs))
+
+        else
+            -- Other statements
+            table.insert(out, stats[i])
+            i = i + 1
+        end
+    end
+
+    return out
+end
+
 --
 -- Statements
 --
@@ -302,45 +487,44 @@ function Parser:StatList()
         end
     end
 
-    return stats
+    return self:find_letrecs(stats)
 end
 
 function Parser:Block()
     return ast.Stat.Block(false, self:StatList())
 end
 
-function Parser:Funcname(is_local)
-    local first_id = self:e("NAME")
-    local exp = ast.Exp.Var(first_id.loc, ast.Var.Name(first_id.loc, first_id.value))
-
-    if self:peek(".") then
-        local start = self:e()
-        local id    = self:e("NAME")
-        exp = ast.Exp.Var(start.loc, ast.Var.Dot(start.loc, exp, id.value))
-
-    elseif self:peek(":") then
-        error("Not Implemented")
-
-    elseif not is_local then
-        self:syntax_error(first_id.loc,
-          "Function must be 'local' or module function")
-    end
-
-    return exp
-end
-
 function Parser:Func(is_local)
     local start    = self:e("function")
-    local exp      = self:Funcname(is_local)
+
+    -- Function name
+    local root = self:e("NAME")
+
+    local fields = {}
+    while self:try(".") do
+        local field = self:e("NAME")
+        table.insert(fields, field.value)
+    end
+
+    local method = false
+    if self:try(":") then
+        method = self:e("NAME").value
+    end
+
+    local has_dot = (#fields > 0 or method)
+    if is_local and has_dot then
+        self:syntax_error(root.loc, "Local function name has a '.' or ':'")
+    end
+
     local oparen   = self:e("(")
     local params   = self:DeclList()
     local _        = self:e(")", oparen)
 
-    local rt_types = {}
+    local return_types = {}
     if self:peek(":") then
         self:region_begin()
         self:e()
-        rt_types = self:RetTypes()
+        return_types = self:RetTypes()
         self:region_end()
     end
 
@@ -354,15 +538,9 @@ function Parser:Func(is_local)
       end
     end
 
-    local arg_types = {}
-    for i, decl in ipairs(params) do
-      arg_types[i] = decl.type
-    end
-    local func_typ = ast.Type.Function(exp.loc, arg_types, rt_types)
     return ast.Stat.Func(
-      exp.loc, exp,
-      ast.Decl.Decl(exp.loc, exp.value, func_typ),
-      ast.Exp.Lambda(exp.loc, params, block))
+        start.loc, is_local, root.value, fields, method, return_types,
+        ast.Exp.Lambda(start.loc, params, block))
 end
 
 function Parser:Stat(is_toplevel)
@@ -449,14 +627,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("local") then
-        
-        if is_toplevel then
-            self:region_begin()
-        end
         local start = self:e()
-        if is_toplevel then
-            self:region_end(true)
-        end
         if self:peek("function") then
             return self:Func(true)
         else
@@ -482,7 +653,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("function") then
-        return self:Func()
+        return self:Func(false)
 
     else
         -- Assignment or function call
