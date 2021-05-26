@@ -24,7 +24,7 @@ local util = require "pallene.util"
 --      - ast.Toplevel.Record
 --      - ast.Stat.Func
 --
---   * _def: A checker.Def that describes the meaninge
+--   * _def: A checker.Def that describes the meaning of that name
 --      - ast.Var.Name
 --
 --   * _is_exported: A boolean (true) marking assignments that are declaring an exported variable
