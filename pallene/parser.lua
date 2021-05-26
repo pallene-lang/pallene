@@ -147,11 +147,11 @@ function Parser:Program()
 
         if decl.type and not (decl.type._tag == "ast.Type.Name" and decl.type.name == "module") then
             self:syntax_error(decl.type.loc,
-                "if the module table has a type annotation, it must be exactly 'module'")
+                "if the module variable has a type annotation, it must be exactly 'module'")
         end
 
         if not (exp and exp._tag == "ast.Exp.Initlist" and #exp.fields == 0) then
-            self:syntax_error(stat.loc, "module initializer must be exactly {}")
+            self:syntax_error(stat.loc, "the module initializer must be exactly {}")
         end
 
         modname = decl.name
@@ -174,12 +174,12 @@ function Parser:Program()
 
     if not self:peek("EOF") then
         local tok = self:e()
-        self:syntax_error(tok.loc, "statement after the return statement") -- TODO
+        self:syntax_error(tok.loc, "the module return statement must be the last thing in the file")
     end
 
     if #return_stat.exps ~= 1 then
         self:syntax_error(return_stat.loc,
-            "final return statement must return a single value")
+            "the module return statement must return a single value")
     end
 
     local returned_exp = return_stat.exps[1]
@@ -191,7 +191,7 @@ function Parser:Program()
     then
         -- The checker also needs to check that this name has not been shadowed
         self:syntax_error(returned_exp.loc,
-            "must return exactly the module variable '%s'", modname)
+            "the module return statement must return exactly the module variable '%s'", modname)
     end
 
     return ast.Program.Program(
@@ -237,7 +237,7 @@ function Parser:Toplevel()
                stat._tag ~= "ast.Stat.Func"
             then
                 self:syntax_error(stat.loc,
-                    "Toplevel statements can only be Returns, Declarations or Assignments")
+                    "toplevel statements can only be Returns, Declarations or Assignments")
             end
             table.insert(stats, stat)
         end
@@ -510,9 +510,11 @@ function Parser:FuncStat(is_local)
         method = self:e("NAME").value
     end
 
-    local has_dot = (#fields > 0 or method)
-    if is_local and has_dot then
-        self:syntax_error(root.loc, "Local function name has a '.' or ':'")
+    if is_local and #fields > 0 then
+        self:syntax_error(root.loc, "local function name has a '.'")
+    end
+    if is_local and method then
+        self:syntax_error(root.loc, "local function name has a ':'")
     end
 
     local params = self:FuncParams()
@@ -531,7 +533,7 @@ function Parser:FuncStat(is_local)
     for _, decl in ipairs(params) do
       if not decl.type then
         self:syntax_error(decl.loc,
-          "Parameter '%s' is missing a type annotation", decl.name)
+          "parameter '%s' is missing a type annotation", decl.name)
       end
     end
 
@@ -676,7 +678,7 @@ function Parser:Stat(is_toplevel)
                 return ast.Stat.Call(exp.loc, exp)
             else
                 self:syntax_error(exp.loc,
-                    "This expression in a statement position is not a function call")
+                    "this expression in a statement position is not a function call")
             end
         end
     end
