@@ -176,7 +176,6 @@ describe("Parser /", function()
         end)
     end
 
-
     describe("Programs", function()
 
         it("must not be empty", function()
@@ -251,7 +250,6 @@ describe("Parser /", function()
         end)
     end)
 
-
     describe("Toplevel statements", function()
 
         it("only allow certain statements", function()
@@ -260,7 +258,6 @@ describe("Parser /", function()
             ]], "toplevel statements can only be Returns, Declarations or Assignments")
         end)
     end)
-
 
     describe("Function types", function()
 
@@ -363,7 +360,6 @@ describe("Parser /", function()
         end)
     end)
 
-
     describe("Return statements", function()
 
         it("can be empty", function()
@@ -424,12 +420,107 @@ describe("Parser /", function()
         end)
     end)
 
-    --
-    -- TODO Mutually recursive functions
-    --
+    describe("LetRec", function()
+
+        it("can have a forward declaration", function()
+            assert_toplevel_ast([[
+                function m.f() end
+                function m.g() end
+                local x, y
+                function x() end
+                function m.h() end
+                function y() end
+            ]], {
+                _tag = "ast.Toplevel.Stats",
+                stats = {
+                    {
+                        _tag = "ast.Stat.LetRec",
+                        decls = {},
+                        func_stats = {
+                            { root = "m", fields = {"f"} },
+                            { root = "m", fields = {"g"} },
+                        },
+                    },
+                    {
+                        _tag = "ast.Stat.LetRec",
+                        decls = {
+                            { name = "x" },
+                            { name = "y" },
+                        },
+                        func_stats = {
+                            { root = "x" },
+                            { root = "m", fields = {"h"} },
+                            { root = "y" },
+                        },
+                    }
+                },
+            })
+        end)
+
+        it("is interrupted by a local function", function()
+            assert_toplevel_ast([[
+                function m.f() end
+                function m.g() end
+                local function x() end
+                local function y() end
+                function m.h() end
+            ]], {
+                _tag = "ast.Toplevel.Stats",
+                stats = {
+                    {
+                        _tag = "ast.Stat.LetRec",
+                        decls = {},
+                        func_stats = {
+                            { root = "m", fields = {"f"} },
+                            { root = "m", fields = {"g"} },
+                        },
+                    },
+                    {
+                        _tag = "ast.Stat.Func",
+                        root = "x",
+                    },
+                    {
+                        _tag = "ast.Stat.Func",
+                        root = "y",
+                    },
+                    {
+                        _tag = "ast.Stat.LetRec",
+                        decls = {},
+                        func_stats = {
+                            { root = "m", fields = {"h"} },
+                        },
+                    }
+                },
+            })
+        end)
+
+        it("does not allow type annotations in the forward declaration", function()
+            assert_toplevel_error([[
+                local f: () -> ()
+                function f() end
+            ]], "type annotations are not allowed in a function forward declaration")
+        end)
+
+        it("complains if a global function was not forward declared", function()
+            assert_toplevel_error([[
+                local f
+                function f() end
+                function g() end
+            ]], "function 'g' was not forward declared")
+        end)
+
+        it("catches a missing function definition", function()
+            assert_toplevel_error([[
+                local f, g
+                function f() end
+            ]], "missing a function definition for 'g'")
+        end)
+
+    end)
 
     -- TODO: Move this test to the type checker?
     describe("Toplevel assignments", function()
+
         it("are only allowed to module fields", function()
             assert_toplevel_error([[
                 x = 17
@@ -458,6 +549,7 @@ describe("Parser /", function()
     --
 
     describe("Lvalue", function()
+
         it("cannot be any expression", function()
             assert_statements_error([[
                 (x) = 42
@@ -469,10 +561,9 @@ describe("Parser /", function()
     -- Expr
     --
 
-
-
     -- In Lua, parenthesis can matter for multiple function returns
     describe("Parenthesized expressions", function()
+
         it("are preserverd in the AST", function()
             assert_expression_ast("((1))",
                 { _tag = "ast.Exp.Paren",
@@ -481,8 +572,8 @@ describe("Parser /", function()
         end)
     end)
 
-
     describe("Table constructors", function()
+
         it("can be empty", function()
             assert_expression_ast("{}",
                 { _tag = "ast.Exp.Initlist", fields = {} })
@@ -505,7 +596,8 @@ describe("Parser /", function()
         end)
     end)
 
-    describe("Suffixed expresions", function()
+    describe("Suffixed expressions", function()
+
         it("have the right precedence", function()
             assert_expression_ast([[ - x(1)(2)[3].f ^ 4]], {
                 op = "-",
@@ -541,6 +633,7 @@ describe("Parser /", function()
     end)
 
     describe("Function calls without parenthesis", function()
+
         it("for string literals", function()
             assert_expression_ast([[ f "qwe" ]], {
                 _tag = "ast.Exp.CallFunc",
@@ -557,6 +650,7 @@ describe("Parser /", function()
     end)
 
     describe("Method calls without parenthesis", function()
+
         it("for string literals", function()
             assert_expression_ast([[ o:m "asd" ]], {
                 _tag = "ast.Exp.CallMethod",
