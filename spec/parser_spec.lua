@@ -139,6 +139,10 @@ local function assert_expression_ast(code, expected_ast)
     assert_is_subset(expected_ast, exp_ast)
 end
 
+local function assert_expression_error(code, expected_error)
+    assert_program_error(expression_test_program(code), expected_error)
+end
+
 
 -- Organization of the Parser Test Suite
 -- --------------------------------------
@@ -622,6 +626,24 @@ describe("Parser /", function()
                 },
             })
         end)
+    end)
+
+    describe("Function expressions", function()
+
+        it("cannot have a name", function()
+            assert_expression_error([[ function f() end ]], "expected '(' before 'f'")
+        end)
+
+        it("cannot have argument annotations", function()
+            assert_expression_error([[ function (x:integer) return x+1 end ]],
+            "Function expressions cannot be type annotated")
+        end)
+
+        it("cannot have return type annotation", function()
+            assert_expression_error([[ function (x) : integer return x+1 end ]],
+            "Function expressions cannot be type annotated")
+        end)
+
     end)
 
     describe("Function calls without parenthesis", function()
