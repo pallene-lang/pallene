@@ -52,7 +52,7 @@ describe("Pallene to Lua translator / #translator", function ()
             local m = {}
             local function f(): integer
         ]],
-        "Unexpected end of the file while trying to parse a statement")
+        "unexpected end of the file while trying to parse a statement")
     end)
 
     it("Unknown type (semantic error)", function ()

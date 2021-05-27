@@ -662,7 +662,7 @@ function Parser:Stat(is_toplevel)
                 local var = exp.var
                 if var._tag ~= "ast.Var.Dot" then
                     self:syntax_error(exp.loc,
-                        "Toplevel assignments are only possible with module fields")
+                        "toplevel assignments are only possible with module fields")
                 end
             end
             local lhs = { self:to_var(exp) }
@@ -693,7 +693,7 @@ function Parser:to_var(exp)
     if exp._tag == "ast.Exp.Var" then
         return exp.var
     else
-        self:syntax_error(exp.loc, "This expression is not an lvalue")
+        self:syntax_error(exp.loc, "this expression is not an lvalue")
     end
 end
 
@@ -973,7 +973,7 @@ end
 
 function Parser:unexpected_token_error(non_terminal)
     local where = self:describe_token(self.next)
-    self:syntax_error(self.next.loc, "Unexpected %s while trying to parse %s", where, non_terminal)
+    self:syntax_error(self.next.loc, "unexpected %s while trying to parse %s", where, non_terminal)
 end
 
 function Parser:wrong_token_error(expected_name, open_tok)
@@ -981,10 +981,10 @@ function Parser:wrong_token_error(expected_name, open_tok)
     local what  = self:describe_token_name(expected_name)
     local where = self:describe_token(self.next)
     if not open_tok or loc.line == open_tok.loc.line then
-        self:syntax_error(loc, "Expected %s before %s", what, where)
+        self:syntax_error(loc, "expected %s before %s", what, where)
     else
         local owhat = self:describe_token_name(open_tok.name)
-        self:syntax_error(loc, "Expected %s before %s, to close the %s at line %d",
+        self:syntax_error(loc, "expected %s before %s, to close the %s at line %d",
             what, where, owhat, open_tok.loc.line)
     end
 end

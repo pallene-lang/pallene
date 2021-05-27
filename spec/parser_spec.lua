@@ -40,7 +40,7 @@ end
 local function assert_parses_successfuly(program_str)
     local prog_ast, errors = parse(program_str)
     if not prog_ast then
-        error(string.format("Unexpected Pallene syntax error: %s", errors[1]))
+        error(string.format("unexpected Pallene syntax error: %s", errors[1]))
     end
     return prog_ast
 end
@@ -49,7 +49,7 @@ local function assert_program_error(program_str, expected_error)
     local prog_ast, errors = parse(program_str)
     if prog_ast then
         error(string.format(
-            "Expected Pallene syntax error %s but parsed successfuly",
+            "expected Pallene syntax error %s but parsed successfuly",
             expected_error))
     end
     assert.matches(expected_error, errors[1], 1, true)
@@ -369,14 +369,14 @@ describe("Parser /", function()
         it("cannot be followed by a multiple semicolons", function()
             assert_statements_error([[
                 return;;
-            ]], "Expected 'end' before ';', to close the 'function' at line 2")
+            ]], "expected 'end' before ';', to close the 'function' at line 2")
         end)
 
         it("must be the last statement in the block", function()
             assert_statements_error([[
                 return 10
                 return 11
-            ]], "Expected 'end' before 'return', to close the 'function' at line 2")
+            ]], "expected 'end' before 'return', to close the 'function' at line 2")
         end)
     end)
 
@@ -386,7 +386,7 @@ describe("Parser /", function()
             assert_toplevel_error([[
                 local function (): integer
                 end
-            ]], "Expected a name before '('")
+            ]], "expected a name before '('")
         end)
 
         it("disallow complex names for local functions (1/2)", function()
@@ -516,7 +516,7 @@ describe("Parser /", function()
         it("are only allowed to module fields", function()
             assert_toplevel_error([[
                 x = 17
-            ]], "Toplevel assignments are only possible with module fields")
+            ]], "toplevel assignments are only possible with module fields")
         end)
     end)
 
@@ -531,7 +531,7 @@ describe("Parser /", function()
         it("are the only expression allowed as a statement (2/2)", function()
             assert_statements_error([[
                 1 + 1
-            ]], "Unexpected number")
+            ]], "unexpected number")
         end)
     end)
 
@@ -545,7 +545,7 @@ describe("Parser /", function()
         it("cannot be any expression", function()
             assert_statements_error([[
                 (x) = 42
-            ]], "This expression is not an lvalue")
+            ]], "this expression is not an lvalue")
         end)
     end)
 
