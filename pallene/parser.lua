@@ -525,8 +525,8 @@ function Parser:FuncStat(is_local)
         self:region_end()
     end
 
-    local block    = self:Block()
-    local _        = self:e("end", start)
+    local block = self:Block()
+    local _     = self:e("end", start)
 
     for _, decl in ipairs(params) do
       if not decl.type then
@@ -764,7 +764,8 @@ function Parser:FuncParams()
     return params
 end
 
-function Parser:FuncExp(func_token)
+function Parser:FuncExp()
+    local start  = self:e("function")
     local params = self:FuncParams(true)
 
     for _, decl in ipairs(params) do
@@ -779,9 +780,9 @@ function Parser:FuncExp(func_token)
     end
 
     local block = self:Block()
-    local _     = self:e("end", func_token)
+    local _     = self:e("end", start)
 
-    return ast.Exp.Lambda(func_token.loc, params, block)
+    return ast.Exp.Lambda(start.loc, params, block)
 end
 
 function Parser:SimpleExp()
@@ -821,8 +822,7 @@ function Parser:SimpleExp()
         return ast.Exp.Initlist(open.loc, fields)
 
     elseif self:peek("function") then
-        local start = self:e()
-        return self:FuncExp(start)
+        return self:FuncExp()
     else
         return self:SuffixedExp(false)
     end
