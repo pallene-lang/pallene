@@ -333,6 +333,38 @@ describe("Pallene parser", function()
     } })
     end)
 
+    it ("can parse function expressions", function()
+        assert_expression_ast("function (a) return 1 end", {
+            _tag = "ast.Exp.Lambda",
+            body = {
+              _tag  = "ast.Stat.Block",
+              stats = { {
+                _tag = "ast.Stat.Return",
+                exps = { { _tag = "ast.Exp.Integer", value = 1 } } }
+              }
+            }
+        })
+
+        assert_expression_ast("function (a, b) return 1 end", {
+            _tag = "ast.Exp.Lambda",
+            body = {
+              _tag  = "ast.Stat.Block",
+              stats = { {
+                _tag = "ast.Stat.Return",
+                exps = { { _tag = "ast.Exp.Integer", value = 1 } } }
+              }
+            }
+        })
+    end)
+
+    it("does not allow function expressions with names or type annotations.", function()
+        assert_expression_syntax_error("function f() end", "Expected '(' before 'f'");
+        assert_expression_syntax_error("function (x: integer) end",
+            "Function expressions cannot be type annotated");
+        assert_expression_syntax_error("function (x): integer return x end",
+            "Function expressions cannot be type annotated");
+    end)
+
     it("can parse multiple return expressions", function()
         assert_statements_ast("return 1, 2, 3", {
             { _tag = "ast.Stat.Return",
