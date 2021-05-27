@@ -742,7 +742,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         assert(tag == "ast.Exp.CallFunc" or tag == "ast.Exp.CallMethod")
     end
 
-    if     tag == "ast.Exp.Initlist" then
+    if     tag == "ast.Exp.InitList" then
         local typ = exp._type
         if     typ._tag == "types.T.Array" then
             local n = ir.Value.Integer(#exp.fields)

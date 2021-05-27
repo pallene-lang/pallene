@@ -150,7 +150,7 @@ function Parser:Program()
                 "if the module variable has a type annotation, it must be exactly 'module'")
         end
 
-        if not (exp and exp._tag == "ast.Exp.Initlist" and #exp.fields == 0) then
+        if not (exp and exp._tag == "ast.Exp.InitList" and #exp.fields == 0) then
             self:syntax_error(stat.loc, "the module initializer must be exactly {}")
         end
 
@@ -821,7 +821,7 @@ function Parser:SimpleExp()
             table.insert(fields, self:Field())
         until not self:FieldSep()
         self:e("}", open)
-        return ast.Exp.Initlist(open.loc, fields)
+        return ast.Exp.InitList(open.loc, fields)
 
     elseif self:peek("function") then
         return self:FuncExp()
