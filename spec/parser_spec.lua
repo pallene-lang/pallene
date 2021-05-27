@@ -572,12 +572,12 @@ describe("Parser /", function()
 
         it("can be empty", function()
             assert_expression_ast("{}",
-                { _tag = "ast.Exp.Initlist", fields = {} })
+                { _tag = "ast.Exp.InitList", fields = {} })
         end)
 
         it("can use commas", function()
             assert_expression_ast("{10,20,30}",
-                { _tag = "ast.Exp.Initlist", fields = {
+                { _tag = "ast.Exp.InitList", fields = {
                     { exp = { value = 10 } },
                     { exp = { value = 20 } },
                     { exp = { value = 30 } }, }})
@@ -585,7 +585,7 @@ describe("Parser /", function()
 
         it("can use semicolons", function()
             assert_expression_ast("{40;50;60;}",
-                { _tag = "ast.Exp.Initlist", fields = {
+                { _tag = "ast.Exp.InitList", fields = {
                     { exp = { value = 40 } },
                     { exp = { value = 50 } },
                     { exp = { value = 60 } }, }})
@@ -658,7 +658,7 @@ describe("Parser /", function()
         it("for table literals", function()
             assert_expression_ast([[ f {} ]], {
                 _tag = "ast.Exp.CallFunc",
-                args = { { _tag = "ast.Exp.Initlist" } }
+                args = { { _tag = "ast.Exp.InitList" } }
             })
         end)
     end)
@@ -677,7 +677,7 @@ describe("Parser /", function()
             assert_expression_ast([[ o:m {} ]], {
                 _tag = "ast.Exp.CallMethod",
                 method = "m",
-                args = { { _tag = "ast.Exp.Initlist" } }
+                args = { { _tag = "ast.Exp.InitList" } }
             })
         end)
     end)

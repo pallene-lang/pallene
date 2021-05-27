@@ -763,7 +763,7 @@ function Checker:check_exp_synthesize(exp)
     elseif tag == "ast.Exp.String" then
         exp._type = types.T.String()
 
-    elseif tag == "ast.Exp.Initlist" then
+    elseif tag == "ast.Exp.InitList" then
         type_error(exp.loc, "missing type hint for initializer")
 
     elseif tag == "ast.Exp.Lambda" then
@@ -999,7 +999,7 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
     end
 
     local tag = exp._tag
-    if tag == "ast.Exp.Initlist" then
+    if tag == "ast.Exp.InitList" then
 
         if expected_type._tag == "types.T.Array" then
             for _, field in ipairs(exp.fields) do

@@ -62,7 +62,7 @@ declare_type("Exp", {
     Integer    = {"loc", "value"},
     Float      = {"loc", "value"},
     String     = {"loc", "value"},
-    Initlist   = {"loc", "fields"},
+    InitList   = {"loc", "fields"},
     Lambda     = {"loc", "arg_decls", "body"},
     CallFunc   = {"loc", "exp", "args"},
     CallMethod = {"loc", "exp", "method", "args"},
