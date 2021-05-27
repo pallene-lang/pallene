@@ -74,22 +74,13 @@ end
 -- Some other things we tried that did not work:
 -- 1) Produce a dummy "Void" type on errors, and keep going to produce more errors; too finnicky.
 -- 2) Use "error" to raise the exception; I couldn't implement the required "try-catch".
-local function checker_error(loc, fmt, ...)
-    local error_message = loc:format_error(fmt, ...)
-    coroutine.yield(error_message)
-end
-
-local function scope_error(loc, fmt, ...)
-    return checker_error(loc, ("scope error: " .. fmt), ...)
-end
-
 local function type_error(loc, fmt, ...)
-    return checker_error(loc, ("type error: " .. fmt), ...)
+    coroutine.yield("type error: " .. loc:format_error(fmt, ...))
 end
 
 local function multiple_definitions_error(loc, name)
     assert(loc)
-    scope_error(loc, "multiple definitions for module field '%s'", name)
+    type_error(loc, "multiple definitions for module field '%s'", name)
 end
 
 local function check_type_is_condition(exp, fmt, ...)
@@ -174,7 +165,7 @@ function Checker:from_ast_type(ast_typ)
 
         local sym = self.symbol_table:find_symbol(name)
         if not sym then
-            scope_error(ast_typ.loc,  "type '%s' is not declared", name)
+            type_error(ast_typ.loc,  "type '%s' is not declared", name)
         end
 
         local stag = sym._tag
@@ -284,7 +275,7 @@ function Checker:check_program(prog_ast)
     end
 
     if self.module_symbol ~= self.symbol_table:find_symbol(module_name) then
-        scope_error(prog_ast.ret_loc, "the module variable '%s' is being shadowed", module_name) -- TODO
+        type_error(prog_ast.ret_loc, "the module variable '%s' is being shadowed", module_name) -- TODO
     end
 
     return prog_ast
@@ -341,13 +332,13 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
             -- Module function
             local sym = self.symbol_table:find_symbol(stat.root)
             if not sym then
-                scope_error(stat.loc, "module '%s' is not declared", stat.root)
+                type_error(stat.loc, "module '%s' is not declared", stat.root)
             end
             if sym._tag ~= "checker.Symbol.Module" then
                 type_error(stat.loc, "'%s' is not a module", stat.root)
             end
             if not is_toplevel then
-                scope_error(stat.loc, "module functions can only be set at the toplevel")
+                type_error(stat.loc, "module functions can only be set at the toplevel")
             end
             if sym ~= self.module_symbol then
                 type_error(stat.loc, "attempting to reassign a function from external module") --TODO
@@ -519,7 +510,7 @@ function Checker:check_stat(stat, is_toplevel)
             if var._tag == "ast.Var.Dot" and self:is_the_module_variable(var.exp) then
                 -- Declaring a module field
                 if not is_toplevel then
-                    scope_error(var.loc, "module fields can only be set at the toplevel")
+                    type_error(var.loc, "module fields can only be set at the toplevel")
                 end
                 if self.module_symbol.symbols[var.name] or declarations[var.name] then
                     multiple_definitions_error(var.loc, var.name)
@@ -669,7 +660,7 @@ function Checker:check_var(var)
     if     tag == "ast.Var.Name" then
         local sym = self.symbol_table:find_symbol(var.name)
         if not sym then
-            scope_error(var.loc, "variable '%s' is not declared", var.name)
+            type_error(var.loc, "variable '%s' is not declared", var.name)
         end
 
         local stag = sym._tag
