@@ -376,7 +376,9 @@ function Checker:check_stat(stat, is_toplevel)
                 decl, stat.exps[i],
                 "declaration of local variable %s", decl.name)
         end
-        --assert(#stat.decls == #stat.exps) -- TODO this is a bad assumption
+        for i = #stat.decls + 1, #stat.exps do
+            stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
+        end
         for _, decl in ipairs(stat.decls) do
             self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
         end

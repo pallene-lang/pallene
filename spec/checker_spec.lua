@@ -936,4 +936,12 @@ describe("Pallene type checker", function()
         "attempt to use module as a value")
     end)
 
+    it("checks extra expressions in a variable declaration", function()
+        assert_error([[
+            function m.f()
+                local x = 10, 20+"Boom"
+            end
+        ]],
+        "right hand side of arithmetic expression is a string instead of a number")
+    end)
 end)
