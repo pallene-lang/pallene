@@ -95,10 +95,6 @@ local function assert_type_ast(code, expected_ast)
     assert_is_subset(expected_ast, type_ast)
 end
 
-local function assert_type_syntax_error(code, expected_error)
-    assert_program_error(type_test_program(code), expected_error)
-end
-
 --
 -- Assertions for statements
 --
@@ -141,10 +137,6 @@ local function assert_expression_ast(code, expected_ast)
     local program_ast = assert_parses_successfuly(expression_test_program(code))
     local exp_ast = program_ast.tls[1].stats[1].value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
-end
-
-local function assert_expression_error(code, expected_error)
-    assert_program_error(expression_test_program(code), expected_error)
 end
 
 
