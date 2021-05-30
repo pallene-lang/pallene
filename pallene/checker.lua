@@ -341,8 +341,7 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
                 type_error(stat.loc, "module functions can only be set at the toplevel")
             end
             if sym ~= self.module_symbol then
-                --TODO: add a test case after we implement importing
-                type_error(stat.loc, "attempting to reassign a function from external module")
+                type_error(stat.loc, "attempting to assign a function to an external module")
             end
             if #stat.fields > 1 then
                 type_error(stat.loc, "more than one dot in the function name is not allowed")
@@ -366,7 +365,7 @@ function Checker:check_stat(stat, is_toplevel)
         for i, decl in ipairs(stat.decls) do
             stat.exps[i] = self:check_initializer_exp(
                 decl, stat.exps[i],
-                "declaration of local variable %s", decl.name)
+                "declaration of local variable '%s'", decl.name)
         end
         for i = #stat.decls + 1, #stat.exps do
             stat.exps[i] = self:check_exp_synthesize(stat.exps[i])

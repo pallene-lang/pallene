@@ -1,6 +1,15 @@
 local driver = require 'pallene.driver'
 local util = require 'pallene.util'
 
+-- Organization of the Checker Test Suite
+-- --------------------------------------
+--
+-- Try to order the tests by the order that things appear in parser.lua.
+-- This way, it's easier to know if a test case is missing.
+--
+-- Try to have a test case for every named error. Look for functions in the checker.lua that take
+-- an error string as a paremeter. For example, type_error and check_exp_verify.
+
 local function run_checker(code)
     -- "__test__.pln" does not exist on disk. The name is only used for error messages.
     local module, errs = driver.compile_internal("__test__.pln", code, "checker")
@@ -67,7 +76,7 @@ end)
 
 describe("Module", function()
 
-    it("must shadow the module variable", function()
+    it("must not shadow the module variable", function()
         assert_error([[
             local m = 10
         ]], "the module variable 'm' is being shadowed")
@@ -94,13 +103,13 @@ describe("Module", function()
         ]], "multiple definitions for module field 'x'")
     end)
 
-    it("forbids multiple declarations for the same exported constant in single statement", function()
+    it("forbids repeated exported names (in multiple assignment)", function()
         assert_error([[
             m.x, m.x = 10, 20
         ]], "multiple definitions for module field 'x'")
     end)
 
-    it("ensures that toplevel exported variables are not in scope in their initializers", function()
+    it("ensures that exported variables are not in scope in their initializers", function()
         assert_error([[
             m.x = m.x
         ]], "module field 'x' does not exist")
@@ -152,6 +161,13 @@ describe("Function declaration", function()
         ]], "module functions can only be set at the toplevel")
     end)
 
+    it("must not assign to other modules", function()
+        assert_error([[
+            function io.f()
+            end
+        ]], "attempting to assign a function to an external module")
+    end)
+
     it("must have a namespace that is a single level deep", function()
         assert_error([[
             function m.f.g() end
@@ -172,6 +188,55 @@ end)
 -- Stat
 --
 
+describe("Local variable declaration", function()
+
+    it("requires a type annotation for an uninitialized variable", function()
+        assert_error([[
+            function m.fn(): integer
+                local x
+                x = 10
+                return x
+            end
+        ]], "uninitialized variable 'x' needs a type annotation")
+    end)
+
+    it("checks that initializers match the type annotation", function()
+        assert_error([[
+            local x: string = false
+        ]], "expected string but found boolean in declaration of local variable 'x'")
+    end)
+
+    it("checks extra expressions in right-hand side", function()
+        assert_error([[
+            function m.f()
+                local x = 10, 20+"Boom"
+            end
+        ]], "right-hand side of arithmetic expression is a string instead of a number")
+    end)
+
+    it("does not include the variable in the scope of its initializer", function()
+        assert_error([[
+            local a = a
+        ]], "variable 'a' is not declared")
+    end)
+
+end)
+
+describe("Repeat-until loop", function()
+
+    it("include the inner variables in the scope of the condition", function()
+        assert_error([[
+            function m.f()
+                local x = false
+                repeat
+                    local x = "hello"
+                until x
+            end
+        ]], "expression passed to repeat-until loop condition has type string")
+    end)
+
+end)
+
 describe("Numeric for-loop", function()
 
     it("must have a numeric loop variable", function()
@@ -183,7 +248,7 @@ describe("Numeric for-loop", function()
         ]], "expected integer or float but found string in for-loop control variable 'i'")
     end)
 
-    it("catches 'for' errors in the start expression", function()
+    it("checks the type of the start expression", function()
         assert_error([[
             function m.fn(x: integer, s: string)
                 for i:integer = s, 10, 2 do
@@ -192,7 +257,7 @@ describe("Numeric for-loop", function()
         ]], "expected integer but found string in numeric for-loop initializer")
     end)
 
-    it("catches 'for' errors in the limit expression", function()
+    it("checks the type of the limit expression", function()
         assert_error([[
             function m.fn(x: integer, s: string)
                 for i = 1, s, 2 do
@@ -201,7 +266,7 @@ describe("Numeric for-loop", function()
         ]], "expected integer but found string in numeric for-loop limit")
     end)
 
-    it("catches 'for' errors in the step expression", function()
+    it("checks the type of the step expression", function()
         assert_error([[
             function m.fn(x: integer, s: string)
                 for i = 1, 10, s do
@@ -257,7 +322,7 @@ describe("For-in loop", function()
         ]], "missing control variable in for-in loop")
     end)
 
-    it("catches a mismatched iterator type (1/2)", function()
+    it("checks the type of the iterator (1/2)", function()
         assert_error([[
             function m.foo(a: integer, b: integer): integer
                 return a * b
@@ -271,7 +336,7 @@ describe("For-in loop", function()
         ]], "expected 1 variable(s) in for loop but found 2")
     end)
 
-    it("catches a mismatched iterator type (2/2)", function()
+    it("checks the type of the iterator (2/2)", function()
         assert_error([[
             function m.fn()
                 for k, v in 5, 1, 2 do
@@ -281,7 +346,7 @@ describe("For-in loop", function()
         ]], "expected function type (any, any) -> (any, any) but found integer in loop iterator")
     end)
 
-    it("type checks the state and control values of for-in loops", function()
+    it("checks the type of the state and control values", function()
         assert_error([[
             function m.foo(): (integer, integer)
                 return 1, 2
@@ -303,7 +368,7 @@ end)
 
 describe("Assignment statement", function()
 
-    it("can only exporta a variable in the toplevel", function()
+    it("can only export a variable in the toplevel", function()
         assert_error([[
             function m.f()
                 m.x = 10
@@ -311,15 +376,15 @@ describe("Assignment statement", function()
         ]], "module fields can only be set at the toplevel")
     end)
 
-    it("catches assignment to function", function ()
+    it("cannot reassign a function", function ()
         assert_error([[
-            function m.f()
+            local function f()
             end
 
             function m.g()
-                m.f = m.g
+                f = f
             end
-        ]], "module fields can only be set at the toplevel")
+        ]], "LHS of assignment is not a mutable variable")
     end)
 
     it("catches assignment to builtin (with correct type)", function ()
@@ -344,57 +409,13 @@ describe("Assignment statement", function()
         ]], "LHS of assignment is not a mutable variable")
     end)
 
-    it("catches wrong type (argument)", function()
-        assert_error([[
-            function m.fn(x: integer): integer
-                x = 3.14
-            end
-        ]], "expected integer but found float in assignment")
-    end)
-
-    it("catches wrong type (locals)", function()
-        assert_error([[
-            function m.fn()
-                local x: integer = 10
-                x = 3.14
-            end
-        ]], "expected integer but found float in assignment")
-    end)
-
 end)
 
-describe("Decl statement", function()
-
-    it("does not include the variable in the scope of its initializer", function()
-        assert_error([[
-            local a = a
-        ]], "variable 'a' is not declared")
-    end)
-
-    it("requires a type annotation for an uninitialized variable", function()
-        assert_error([[
-            function m.fn(): integer
-                local x
-                x = 10
-                return x
-            end
-        ]], "uninitialized variable 'x' needs a type annotation")
-    end)
-
-    it("checks extra expressions in right-hand side", function()
-        assert_error([[
-            function m.f()
-                local x = 10, 20+"Boom"
-            end
-        ]], "right-hand side of arithmetic expression is a string instead of a number")
-    end)
-
-end)
 
 describe("Return statement", function()
 
     -- TODO https://github.com/pallene-lang/pallene/issues/379
-    pending("is not allowed at the toplevel", function()
+    pending("must be inside a function", function()
         assert_error([[
             do return 10 end
         ]], "return statement is not allowed outside a function")
@@ -428,7 +449,7 @@ describe("Return statement", function()
         ]], "returning 2 value(s) but function expects 1")
     end)
 
-    it("detects when a function returns the wrong type", function()
+    it("checks the type of the returned value", function()
         assert_error([[
             function m.fn(): integer
                 return "hello"
