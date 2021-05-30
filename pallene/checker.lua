@@ -275,7 +275,7 @@ function Checker:check_program(prog_ast)
     end
 
     if self.module_symbol ~= self.symbol_table:find_symbol(module_name) then
-        type_error(prog_ast.ret_loc, "the module variable '%s' is being shadowed", module_name) -- TODO
+        type_error(prog_ast.ret_loc, "the module variable '%s' is being shadowed", module_name)
     end
 
     return prog_ast
@@ -341,10 +341,11 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
                 type_error(stat.loc, "module functions can only be set at the toplevel")
             end
             if sym ~= self.module_symbol then
-                type_error(stat.loc, "attempting to reassign a function from external module") --TODO
+                --TODO: add a test case after we implement importing
+                type_error(stat.loc, "attempting to reassign a function from external module")
             end
             if #stat.fields > 1 then
-                type_error(stat.loc, "more than one dot in the function name is not allowed") --TODO
+                type_error(stat.loc, "more than one dot in the function name is not allowed")
             end
 
             local name = stat.fields[1]
@@ -435,7 +436,7 @@ function Checker:check_stat(stat, is_toplevel)
         self:expand_function_returns(rhs)
 
         if not rhs[1] then
-            type_error(stat.loc, "missing right hand side of for-in loop")
+            type_error(stat.loc, "missing right-hand side in for-in loop")
         end
 
         if not rhs[2] then
@@ -557,7 +558,7 @@ function Checker:check_stat(stat, is_toplevel)
     elseif tag == "ast.Stat.Return" then
         local ret_types = self.ret_types_stack[#self.ret_types_stack]
         if not ret_types then
-            type_error(stat.loc, "return statement is not allowed here") -- TODO
+            type_error(stat.loc, "return statement is not allowed outside a function") -- TODO
         end
 
         self:expand_function_returns(stat.exps)
@@ -635,7 +636,7 @@ function Checker:try_flatten_to_qualified_name(outer_var)
         if sym._tag ~= "checker.Symbol.Module" then return false end -- Retry recursively.
         sym = sym.symbols[field]
         if not sym then
-            type_error(outer_var.loc, "module field '%s' does not exist", field) -- TODO
+            type_error(outer_var.loc, "module field '%s' does not exist", field)
         end
     end
 
@@ -665,12 +666,12 @@ function Checker:check_var(var)
 
         local stag = sym._tag
         if     stag == "checker.Symbol.Type" then
-            type_error(var.loc, "'%s' is not a value", var.name)
+            type_error(var.loc, "type '%s' is not a value", var.name)
         elseif stag == "checker.Symbol.Value" then
             var._type = sym.typ
             var._def  = sym.def
         elseif stag == "checker.Symbol.Module" then
-            type_error(var.loc, "attempt to use module as a value")
+            type_error(var.loc, "module '%s' is not a value", var.name)
         else
             typedecl.tag_error(stag)
         end
@@ -700,10 +701,10 @@ function Checker:check_var(var)
         local arr_type = var.t._type
         if arr_type._tag ~= "types.T.Array" then
             type_error(var.t.loc,
-                "expected array but found %s in array indexing",
+                "expected array but found %s in indexed expression",
                 types.tostring(arr_type))
         end
-        var.k = self:check_exp_verify(var.k, types.T.Integer(), "array indexing")
+        var.k = self:check_exp_verify(var.k, types.T.Integer(), "array index")
         var._type = arr_type.elem
 
     else
@@ -805,7 +806,7 @@ function Checker:check_exp_synthesize(exp)
         if op == "==" or op == "~=" then
             if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
                (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
-                -- Note: if we implement this then we should use the same logic as luaV_equalobj.
+                -- TODO if we implement this then we should use the same logic as luaV_equalobj.
                 -- Don't just cast to float! That is not accurate for large integers.
                 type_error(exp.loc,
                     "comparisons between float and integers are not yet implemented")
@@ -838,12 +839,12 @@ function Checker:check_exp_synthesize(exp)
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
             if not is_numeric_type(t1) then
                 type_error(exp.loc,
-                    "left hand side of arithmetic expression is a %s instead of a number",
+                    "left-hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(t1))
             end
             if not is_numeric_type(t2) then
                 type_error(exp.loc,
-                    "right hand side of arithmetic expression is a %s instead of a number",
+                    "right-hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(t2))
             end
 
@@ -860,12 +861,12 @@ function Checker:check_exp_synthesize(exp)
         elseif op == "/" or op == "^" then
             if not is_numeric_type(t1) then
                 type_error(exp.loc,
-                    "left hand side of arithmetic expression is a %s instead of a number",
+                    "left-hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(t1))
             end
             if not is_numeric_type(t2) then
                 type_error(exp.loc,
-                    "right hand side of arithmetic expression is a %s instead of a number",
+                    "right-hand side of arithmetic expression is a %s instead of a number",
                     types.tostring(t2))
             end
 
@@ -885,19 +886,19 @@ function Checker:check_exp_synthesize(exp)
             exp._type = types.T.String()
 
         elseif op == "and" or op == "or" then
-            check_type_is_condition(exp.lhs, "left hand side of '%s'", op)
-            check_type_is_condition(exp.rhs, "right hand side of '%s'", op)
+            check_type_is_condition(exp.lhs, "first operand of '%s'", op)
+            check_type_is_condition(exp.rhs, "second operand of '%s'", op)
             exp._type = t2
 
         elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
             if t1._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
-                    "left hand side of bitwise expression is a %s instead of an integer",
+                    "left-hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(t1))
             end
             if t2._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
-                    "right hand side of bitwise expression is a %s instead of an integer",
+                    "right-hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(t2))
             end
             exp._type = types.T.Integer()
@@ -1049,7 +1050,7 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
             end
         else
             type_error(exp.loc,
-                "type hint for initializer is not an array, table, or record type")
+                "type hint for table initializer is not an array, table, or record type")
         end
 
     elseif tag == "ast.Exp.Lambda" then
