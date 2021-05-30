@@ -25,6 +25,7 @@ export CFLAGS=-O0
 # case where we are testing a single spec file, because in that case GNU parallel would only show
 # the output after the last test has finished. I'd rather see the little green circle for each test
 # case as soon as it completes.
+echo "--- Test Suite ---"
 if [ "$#" -eq 0 ]; then
     if command -v parallel >/dev/null; then
         parallel busted -o utfTerminal "${FLAGS[@]}" ::: spec/*_spec.lua
@@ -35,3 +36,7 @@ if [ "$#" -eq 0 ]; then
 else
     busted "${FLAGS[@]}" "$@"
 fi
+
+# Also run the linter tests, because the CI cares about them.
+echo "--- Linter ---"
+./lint-project --quiet
