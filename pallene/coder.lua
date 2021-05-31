@@ -691,6 +691,8 @@ function RecordCoder:init(owner, record_typ)
     local prim_index = {}
     for _, field_name in ipairs(record_typ.field_names) do
         local typ = record_typ.field_types[field_name]
+        assert(not gc_index[field_name]) -- ensure that field names are not repeated
+        assert(not prim_index[field_name])
         if types.is_gc(typ) then
             gc_count = gc_count + 1
             gc_index[field_name] = gc_count

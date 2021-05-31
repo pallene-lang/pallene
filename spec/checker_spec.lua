@@ -138,6 +138,19 @@ describe("Typealias", function()
 
 end)
 
+describe("Record declaration", function()
+
+    it("must not have repeated field names", function()
+        assert_error([[
+            record P
+                x: integer
+                x: float
+            end
+        ]], "duplicate field name 'x' in record type")
+    end)
+
+end)
+
 describe("Function declaration", function()
 
     it("must set a field in a module (1/2)", function()

@@ -260,6 +260,9 @@ function Checker:check_program(prog_ast)
             local field_types = {}
             for _, field_decl in ipairs(tl_node.field_decls) do
                 local field_name = field_decl.name
+                if field_types[field_name] then
+                    type_error(tl_node.loc, "duplicate field name '%s' in record type", field_name)
+                end
                 table.insert(field_names, field_name)
                 field_types[field_name] = self:from_ast_type(field_decl.type)
             end
