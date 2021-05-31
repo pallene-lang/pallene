@@ -555,10 +555,9 @@ function Checker:check_stat(stat, is_toplevel)
         stat.call_exp = self:check_exp_synthesize(stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
-        local ret_types = self.ret_types_stack[#self.ret_types_stack]
-        if not ret_types then
-            type_error(stat.loc, "return statement is not allowed outside a function") -- TODO
-        end
+        -- We know that the return statement can only appear inside a function because the parser
+        -- restricts the allowed toplevel statements
+        local ret_types = assert(self.ret_types_stack[#self.ret_types_stack])
 
         self:expand_function_returns(stat.exps)
         if #stat.exps ~= #ret_types then

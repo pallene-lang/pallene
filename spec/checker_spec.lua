@@ -414,12 +414,6 @@ end)
 
 describe("Return statement", function()
 
-    it("must be inside a function", function()
-        assert_error([[
-            do return 10 end
-        ]], "return statement is not allowed outside a function")
-    end)
-
     it("detects too few return values", function()
         assert_error([[
             function m.f(): integer
