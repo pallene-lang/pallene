@@ -491,7 +491,8 @@ function Parser:StatList()
 end
 
 function Parser:Block()
-    return ast.Stat.Block(false, self:StatList())
+    assert(self.prev) -- typically a "do", "then", etc
+    return ast.Stat.Block(self.prev.loc, self:StatList())
 end
 
 function Parser:FuncStat(is_local)
@@ -583,7 +584,7 @@ function Parser:Stat(is_toplevel)
         if self:try("else") then
             e_body = self:Block()
         else
-            e_body = ast.Stat.Block(false, {})
+            e_body = ast.Stat.Block(self.next.loc, {})
         end
 
         self:e("end", if_start)

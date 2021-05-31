@@ -414,8 +414,7 @@ end)
 
 describe("Return statement", function()
 
-    -- TODO https://github.com/pallene-lang/pallene/issues/379
-    pending("must be inside a function", function()
+    it("must be inside a function", function()
         assert_error([[
             do return 10 end
         ]], "return statement is not allowed outside a function")
