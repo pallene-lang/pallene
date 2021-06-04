@@ -2450,6 +2450,37 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+
+    describe("Closures", function()
+
+        compile([[
+            function m.increment(x: integer): integer
+                local inc: integer -> integer = function (x)
+                    return x + 1
+                end
+                return inc(x)
+            end
+
+            function m.make_incrementer(): integer -> integer
+                return function (x)
+                    return x + 1
+                end
+            end
+        ]])
+
+        it("works correctly with non-capturing closures", function ()
+            run_test([[ assert(test.increment(10) == 11) ]])
+        end)
+
+        it("can return a non-capturing closure", function()
+            run_test([[
+                local add1 = test.make_incrementer()
+                assert(add1(21) == 22)
+            ]])
+        end)
+
+    end)
+
     describe("tostring builtin", function ()
         compile([[
             function m.f(x: any): string
