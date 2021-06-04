@@ -38,15 +38,26 @@ function ToIR:init()
     self.fun_id_of_exp  = {} -- { ast.Exp  => integer }
     self.glb_id_of_decl = {} -- { ast.Decl => integer } -- non-exported globals
     self.glb_id_of_var  = {} -- { ast.Var  => integer } -- exported global
+    self.func_stack     = {} -- list of function metadata
 end
 
 function ToIR:enter_function(f_id)
     -- Function-specific variables
     -- These are re-initialized each time.
-    self.func = self.module.functions[f_id]
-    self.loc_id_of_decl = {} -- { ast.Decl => integer }
-    self.call_exps      = {} -- { ast.Exp.CallFunc }
-    self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
+    local func_data = {
+        loc_id_of_decl = {}, -- { ast.Decl => integer }
+        call_exps      = {}, -- { ast.Exp.CallFunc }
+        dsts_of_call   = {}, -- { ast.Exp => { var_id } }
+        func           = self.module.functions[f_id],
+        f_id           = f_id
+    }
+
+    table.insert(self.func_stack, func_data)
+
+    self.func           = func_data.func
+    self.loc_id_of_decl = func_data.loc_id_of_decl
+    self.call_exps      = func_data.call_exps
+    self.dsts_of_call   = func_data.dsts_of_call
 end
 
 function ToIR:exit_function(cmds)
@@ -63,10 +74,20 @@ function ToIR:exit_function(cmds)
 
     self.func.body = ir.Cmd.Seq(cmds)
 
-    self.func           = nil
-    self.loc_id_of_decl = nil
-    self.call_exps      = nil
-    self.dsts_of_call   = nil
+    table.remove(self.func_stack, #self.func_stack)
+    local current_func = self.func_stack[#self.func_stack]
+
+    if current_func then
+        self.func           = current_func.func
+        self.loc_id_of_decl = current_func.loc_id_of_decl
+        self.call_exps      = current_func.call_exps
+        self.dsts_of_call   = current_func.dsts_of_call
+    else
+        self.func           = nil
+        self.loc_id_of_decl = nil
+        self.call_exps      = nil
+        self.dsts_of_call   = nil
+    end
 end
 
 --
@@ -91,6 +112,13 @@ function ToIR:is_local(decl)
     end
 end
 
+function ToIR:register_lambda(exp, name)
+    assert(exp._tag == "ast.Exp.Lambda")
+    local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
+    self.fun_id_of_exp[exp] = f_id
+    return f_id
+end
+
 function ToIR:register_function(stat)
     assert(stat._tag == "ast.Stat.Func")
     if stat.is_local then
@@ -100,11 +128,11 @@ function ToIR:register_function(stat)
         assert(#stat.fields <= 1)
         assert(not stat.method)
     end
+
     local exp = stat.value
     local name = stat.fields[1] or stat.root
-    local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
+    local f_id = self:register_lambda(exp, name)
 
-    self.fun_id_of_exp[exp] = f_id
     if not stat.is_local then
         ir.add_exported_function(self.module, f_id)
     end
@@ -542,19 +570,8 @@ function ToIR:convert_stat(cmds, stat)
         table.insert(cmds, ir.Cmd.Break())
 
     elseif tag == "ast.Stat.Func" then
-        local prev_f_id = 1
-        self:enter_function(self.fun_id_of_exp[stat.value])
-
-        local exp = stat.value
-        assert(exp._tag == "ast.Exp.Lambda")
-        for _, decl in ipairs(exp.arg_decls) do
-          self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
-        end
-
-        local f_cmds = {}
-        self:convert_stat(f_cmds, exp.body)
-        self:exit_function(f_cmds)
-        self:enter_function(prev_f_id)
+        assert(stat.value and stat.value._tag == "ast.Exp.Lambda")
+        self:convert_func(stat.value)
 
     elseif tag == "ast.Stat.LetRec" then
         for _ , func in ipairs(stat.func_stats) do
@@ -565,6 +582,18 @@ function ToIR:convert_stat(cmds, stat)
         typedecl.tag_error(tag)
     end
 end
+
+function ToIR:convert_func(lambda)
+    self:enter_function(self.fun_id_of_exp[lambda])
+    for _, decl in ipairs(lambda.arg_decls) do
+      self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
+    end
+
+    local f_cmds = {}
+    self:convert_stat(f_cmds, lambda.body)
+    self:exit_function(f_cmds)
+end
+
 
 local unops = {
     { "#",   "Array",   "ArrLen"  },
@@ -793,7 +822,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         end
 
     elseif tag == "ast.Exp.Lambda" then
-        error("not implemented")
+        local f_id = self:register_lambda(exp, "lambda")
+        self:convert_func(exp)
+        ir.add_exported_function(self.module, f_id)
+        table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
 
     elseif tag == "ast.Exp.ExtraRet" then
         assert(self.dsts_of_call[exp.call_exp])
