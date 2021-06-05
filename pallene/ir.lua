@@ -150,6 +150,8 @@ local ir_cmd_constructors = {
     SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
+    NewClosure = {"loc", "dst", "f_id"},
+
     -- (dst is false if the return value is void, or unused)
     CallStatic  = {"loc", "f_typ", "dsts",  "f_id", "srcs"},
     CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},

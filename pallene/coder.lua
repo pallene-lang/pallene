@@ -1290,6 +1290,19 @@ gen_cmd["SetField"] = function(self, cmd, _func)
     end
 end
 
+gen_cmd["NewClosure"] = function (self, cmd, _func)
+    return util.render([[
+        {
+            CClosure *ccl = luaF_newCclosure(L, 0);
+            ccl->f = $lua_entry_point;
+            setclCvalue(L, &$dst, ccl);
+        }
+    ]], {
+        dst = self:c_var(cmd.dst),
+        lua_entry_point = self:lua_entry_point_name(cmd.f_id)
+    })
+end
+
 gen_cmd["CallStatic"] = function(self, cmd, func)
     local dsts = {}
     for i, dst in ipairs(cmd.dsts) do
@@ -1572,6 +1585,10 @@ function Coder:generate_module()
     table.insert(out, section_comment("Function Prototypes"))
     for f_id = 1, #self.module.functions do
         table.insert(out, self:pallene_entry_point_declaration(f_id) .. ";")
+    end
+
+    for f_id = 1, #self.module.functions do
+        table.insert(out, self:lua_entry_point_declaration(f_id) .. ";")
     end
 
     table.insert(out, section_comment("Function Implementations"))
