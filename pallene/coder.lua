@@ -1291,7 +1291,8 @@ gen_cmd["SetField"] = function(self, cmd, _func)
 end
 
 gen_cmd["NewClosure"] = function (self, cmd, _func)
-    return util.render([[{
+    return util.render([[
+        {
             CClosure *ccl = luaF_newCclosure(L, 0);
             ccl->f = $lua_entry_point;
             setclCvalue(L, &$dst, ccl);

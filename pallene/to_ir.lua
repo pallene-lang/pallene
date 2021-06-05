@@ -27,6 +27,14 @@ function to_ir.convert(prog_ast)
     return module, {}
 end
 
+function to_ir.FuncInfo(f_id, func)
+    return {
+        loc_id_of_decl = {},   -- { ast.Decl => integer }
+        func           = func, -- ast.Exp.Lambda
+        f_id           = f_id  -- integer
+    }
+end
+
 --
 --
 --
@@ -38,26 +46,19 @@ function ToIR:init()
     self.fun_id_of_exp  = {} -- { ast.Exp  => integer }
     self.glb_id_of_decl = {} -- { ast.Decl => integer } -- non-exported globals
     self.glb_id_of_var  = {} -- { ast.Var  => integer } -- exported global
-    self.func_stack     = {} -- list of function metadata
+    self.func_stack     = {} -- list of function to_ir.FuncInfo
+    self.call_exps      = {} -- { ast.Exp.CallFunc }
+    self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
 end
 
 function ToIR:enter_function(f_id)
     -- Function-specific variables
     -- These are re-initialized each time.
-    local func_data = {
-        loc_id_of_decl = {}, -- { ast.Decl => integer }
-        call_exps      = {}, -- { ast.Exp.CallFunc }
-        dsts_of_call   = {}, -- { ast.Exp => { var_id } }
-        func           = self.module.functions[f_id],
-        f_id           = f_id
-    }
+    local func_info = to_ir.FuncInfo(f_id, self.module.functions[f_id])
+    table.insert(self.func_stack, func_info)
 
-    table.insert(self.func_stack, func_data)
-
-    self.func           = func_data.func
-    self.loc_id_of_decl = func_data.loc_id_of_decl
-    self.call_exps      = func_data.call_exps
-    self.dsts_of_call   = func_data.dsts_of_call
+    self.func           = func_info.func
+    self.loc_id_of_decl = func_info.loc_id_of_decl
 end
 
 function ToIR:exit_function(cmds)
@@ -80,13 +81,9 @@ function ToIR:exit_function(cmds)
     if current_func then
         self.func           = current_func.func
         self.loc_id_of_decl = current_func.loc_id_of_decl
-        self.call_exps      = current_func.call_exps
-        self.dsts_of_call   = current_func.dsts_of_call
     else
         self.func           = nil
         self.loc_id_of_decl = nil
-        self.call_exps      = nil
-        self.dsts_of_call   = nil
     end
 end
 
@@ -822,7 +819,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         end
 
     elseif tag == "ast.Exp.Lambda" then
-        local f_id = self:register_lambda(exp, "lambda")
+        local f_id = self:register_lambda(exp, "$lambda")
         self:convert_func(exp)
         ir.add_exported_function(self.module, f_id)
         table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
