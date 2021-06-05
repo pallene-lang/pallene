@@ -305,12 +305,13 @@ end
 -- If the last expression in @rhs is a function call that returns multiple values, add ExtraRet
 -- nodes to the end of the list.
 function Checker:expand_function_returns(rhs)
-    local last = rhs[#rhs]
+    local N = #rhs
+    local last = rhs[N]
     if  last and (last._tag == "ast.Exp.CallFunc" or last._tag == "ast.Exp.CallMethod") then
         last = self:check_exp_synthesize(last)
-        rhs[#rhs] = last
+        rhs[N] = last
         for i = 2, #last._types do
-            table.insert(rhs, ast.Exp.ExtraRet(last.loc, last, i))
+            rhs[N-1+i] = ast.Exp.ExtraRet(last.loc, last, i)
         end
     end
 end
@@ -379,15 +380,32 @@ end
 function Checker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
-        self:expand_function_returns(stat.exps)
-        for i, decl in ipairs(stat.decls) do
-            stat.exps[i] = self:check_initializer_exp(
-                decl, stat.exps[i],
-                "declaration of local variable '%s'", decl.name)
+
+        if #stat.exps == 0 then
+            for _, decl in ipairs(stat.decls) do
+                if not decl.type then
+                    type_error(decl.loc,
+                        "uninitialized variable '%s' needs a type annotation", decl.name)
+                end
+                decl._type = self:from_ast_type(decl.type)
+            end
+        else
+            self:expand_function_returns(stat.exps)
+            local m = #stat.decls
+            local n = #stat.exps
+            if m > n then
+                type_error(stat.loc, "right-hand side produces only %d value(s)", n)
+            end
+            for i = 1, m do
+                stat.exps[i] = self:check_initializer_exp(
+                    stat.decls[i], stat.exps[i],
+                    "declaration of local variable '%s'", stat.decls[i].name)
+            end
+            for i = m + 1, n do
+                stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
+            end
         end
-        for i = #stat.decls + 1, #stat.exps do
-            stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
-        end
+
         for _, decl in ipairs(stat.decls) do
             self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
         end
@@ -520,7 +538,6 @@ function Checker:check_stat(stat, is_toplevel)
         end)
 
     elseif tag == "ast.Stat.Assign" then
-        self:expand_function_returns(stat.exps)
 
         for i, var in ipairs(stat.vars) do
             if var._tag == "ast.Var.Dot" and self:is_the_module_variable(var.exp) then
@@ -541,6 +558,11 @@ function Checker:check_stat(stat, is_toplevel)
                     type_error(stat.loc, "LHS of assignment is not a mutable variable")
                 end
             end
+        end
+
+        self:expand_function_returns(stat.exps)
+        if #stat.vars > #stat.exps then
+            type_error(stat.loc, "RHS of assignment has %d value(s), expected %d", #stat.exps, #stat.vars)
         end
 
         for i = 1, #stat.exps do
@@ -568,7 +590,7 @@ function Checker:check_stat(stat, is_toplevel)
         end
 
     elseif tag == "ast.Stat.Call" then
-        stat.call_exp = self:check_exp_synthesize(stat.call_exp)
+        stat.call_exp = self:check_fun_call(stat.call_exp, true)
 
     elseif tag == "ast.Stat.Return" then
         -- We know that the return statement can only appear inside a function because the parser
@@ -742,6 +764,48 @@ function Checker:coerce_numeric_exp_to_float(exp)
     else
         typedecl.tag_error(tag)
     end
+end
+
+-- Check (synthesize) the type of a function call expression.
+-- If the function returns 0 arguments, it is only allowed in a statement context.
+-- Void functions in an expression context are a constant source of headaches.
+function Checker:check_fun_call(exp, is_stat)
+    assert(exp._tag == "ast.Exp.CallFunc")
+
+    exp.exp = self:check_exp_synthesize(exp.exp)
+
+    local f_type = exp.exp._type
+    if f_type._tag ~= "types.T.Function" then
+        type_error(exp.loc,
+            "attempting to call a %s value",
+            types.tostring(exp.exp._type))
+    end
+
+    self:expand_function_returns(exp.args)
+    if #f_type.arg_types ~= #exp.args then
+        type_error(exp.loc,
+            "function expects %d argument(s) but received %d",
+            #f_type.arg_types, #exp.args)
+    end
+
+    for i = 1, #exp.args do
+        exp.args[i] = self:check_exp_verify(
+            exp.args[i], f_type.arg_types[i],
+            "argument %d of call to function", i)
+    end
+
+    if #f_type.ret_types == 0 then
+        if is_stat then
+            exp._type = false
+        else
+            type_error(exp.loc, "calling a void function where a value is expected")
+        end
+    else
+        exp._type = f_type.ret_types[1]
+    end
+    exp._types = f_type.ret_types
+
+    return exp
 end
 
 -- Infers the type of expression @exp, ignoring the surrounding type context.
@@ -922,36 +986,7 @@ function Checker:check_exp_synthesize(exp)
         end
 
     elseif tag == "ast.Exp.CallFunc" then
-        exp.exp = self:check_exp_synthesize(exp.exp)
-        local f_type = exp.exp._type
-
-        if f_type._tag ~= "types.T.Function" then
-            type_error(exp.loc,
-                "attempting to call a %s value",
-                types.tostring(exp.exp._type))
-        end
-
-        self:expand_function_returns(exp.args)
-
-        if #f_type.arg_types ~= #exp.args then
-            type_error(exp.loc,
-                "function expects %d argument(s) but received %d",
-                #f_type.arg_types, #exp.args)
-        end
-
-        for i = 1, #exp.args do
-            exp.args[i] =
-                self:check_exp_verify(
-                    exp.args[i], f_type.arg_types[i],
-                    "argument %d of call to function", i)
-        end
-
-        if #f_type.ret_types == 0 then
-            exp._type = types.T.Void()
-        else
-            exp._type  = f_type.ret_types[1] or types.T.Void()
-        end
-        exp._types = f_type.ret_types
+        exp = self:check_fun_call(exp, false)
 
     elseif tag == "ast.Exp.CallMethod" then
         error("not implemented")
@@ -1120,6 +1155,8 @@ end
 -- Typechecks an initializer `x : ast_typ = exp`, where the type annotation is optional.
 -- Sets decl._type and exp._type
 function Checker:check_initializer_exp(decl, exp, err_fmt, ...)
+    assert(decl)
+    assert(exp)
     if decl.type then
         decl._type = self:from_ast_type(decl.type)
         if exp ~= nil then
@@ -1128,15 +1165,9 @@ function Checker:check_initializer_exp(decl, exp, err_fmt, ...)
             return nil
         end
     else
-        if exp ~= nil then
-            local e = self:check_exp_synthesize(exp)
-            decl._type = e._type
-            return e
-        else
-            type_error(decl.loc, string.format(
-                "uninitialized variable '%s' needs a type annotation",
-                decl.name))
-        end
+        exp = self:check_exp_synthesize(exp)
+        decl._type = exp._type
+        return exp
     end
 end
 

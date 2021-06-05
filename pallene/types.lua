@@ -13,7 +13,6 @@ end
 
 declare_type("T", {
     Any      = {},
-    Void     = {}, -- For functions with 0 returns
     Nil      = {},
     Boolean  = {},
     Integer  = {},
@@ -31,8 +30,7 @@ declare_type("T", {
 
 function types.is_gc(t)
     local tag = t._tag
-    if     tag == "types.T.Void" or
-           tag == "types.T.Nil" or
+    if     tag == "types.T.Nil" or
            tag == "types.T.Boolean" or
            tag == "types.T.Integer" or
            tag == "types.T.Float"
@@ -60,8 +58,7 @@ function types.is_condition(t)
     then
         return true
 
-    elseif tag == "types.T.Void" or
-           tag == "types.T.Nil" or
+    elseif tag == "types.T.Nil" or
            tag == "types.T.Integer" or
            tag == "types.T.Float" or
            tag == "types.T.String" or
@@ -85,8 +82,7 @@ function types.is_indexable(t)
     then
         return true
 
-    elseif tag == "types.T.Void" or
-           tag == "types.T.Nil" or
+    elseif tag == "types.T.Nil" or
            tag == "types.T.Boolean" or
            tag == "types.T.Integer" or
            tag == "types.T.Float" or
@@ -135,7 +131,6 @@ local function equivalent(t1, t2, is_gradual)
         return false
 
     elseif tag1 == "types.T.Any" or
-           tag1 == "types.T.Void" or
            tag1 == "types.T.Nil" or
            tag1 == "types.T.Boolean" or
            tag1 == "types.T.Integer" or
@@ -224,7 +219,6 @@ end
 function types.tostring(t)
     local tag = t._tag
     if     tag == "types.T.Any"         then return "any"
-    elseif tag == "types.T.Void"        then return "void"
     elseif tag == "types.T.Nil"         then return "nil"
     elseif tag == "types.T.Boolean"     then return "boolean"
     elseif tag == "types.T.Integer"     then return "integer"

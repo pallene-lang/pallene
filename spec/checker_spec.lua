@@ -213,6 +213,14 @@ describe("Local variable declaration", function()
         ]], "uninitialized variable 'x' needs a type annotation")
     end)
 
+    it("checks that the RHS has enough values", function()
+        assert_error([[
+            function m.fn()
+                local x, y = 1
+            end
+        ]], "right-hand side produces only 1 value(s)")
+    end)
+
     it("checks that initializers match the type annotation", function()
         assert_error([[
             local x: string = false
@@ -291,18 +299,6 @@ describe("Numeric for-loop", function()
 end)
 
 describe("For-in loop", function()
-
-    -- TODO https://github.com/pallene-lang/pallene/issues/378
-    pending("must have a right-hand side", function()
-        assert_error([[
-            local function voidfn()
-            end
-            function m.fn()
-                for k, v in voidfn() do
-                end
-            end
-        ]], "missing right-hand side in for-in loop")
-    end)
 
     it("must have a RHS with 3 values (missing state variable)", function()
         assert_error([[
@@ -420,6 +416,16 @@ describe("Assignment statement", function()
                 io.write = m.f
             end
         ]], "LHS of assignment is not a mutable variable")
+    end)
+
+    it("catches too few values in RHS", function()
+        assert_error([[
+            function m.f()
+                local x = 1
+                local y =2
+                x, y = 10
+            end
+        ]], "RHS of assignment has 1 value(s), expected 2")
     end)
 
 end)
@@ -833,7 +839,7 @@ describe("Function call", function()
             local function g()
                 local x = 1 + f()
             end
-        ]], "void instead of a number")
+        ]], "calling a void function where a value is expected")
     end)
 
 end)
