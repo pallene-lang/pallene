@@ -433,12 +433,12 @@ function Parser:find_letrecs(stats)
             local func_names = {}
             for _, stat in ipairs(funcs) do
                 assert(stat._tag == "ast.Stat.Func")
-                if #stat.fields == 0 and not stat.method then
-                    if not forw_names[stat.root] then
+                if not stat.module then
+                    if not forw_names[stat.name] then
                         self:syntax_error(stat.loc,
-                            "function '%s' was not forward declared", stat.root)
+                            "function '%s' was not forward declared", stat.name)
                     end
-                    func_names[stat.root] = true
+                    func_names[stat.name] = true
                 end
             end
 
@@ -502,16 +502,26 @@ function Parser:FuncStat(is_local)
 
     local fields = {}
     while self:try(".") do
-        local field = self:e("NAME")
-        table.insert(fields, field.value)
+        table.insert(fields, self:e("NAME"))
     end
+
+   	local module, name
+   	if #fields == 0 then
+        module = false
+        name   = root.value
+   	elseif #fields == 1 then
+        module = root.value
+        name   = fields[1].value
+   	else
+        self:syntax_error(fields[2].loc, "more than one dot in the function name is not allowed")
+   	end
 
     local method = false
     if self:try(":") then
         method = self:e("NAME").value
     end
 
-    if is_local and #fields > 0 then
+    if is_local and module then
         self:syntax_error(root.loc, "local function name has a '.'")
     end
     if is_local and method then
@@ -539,7 +549,7 @@ function Parser:FuncStat(is_local)
     end
 
     return ast.Stat.Func(
-        start.loc, is_local, root.value, fields, method, return_types,
+        start.loc, is_local, module, name, method, return_types,
         ast.Exp.Lambda(start.loc, params, block))
 end
 

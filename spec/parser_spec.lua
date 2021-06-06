@@ -393,6 +393,13 @@ describe("Parser /", function()
             ]], "expected a name before '('")
         end)
 
+        it("disallow multiple levels of '.'", function()
+            assert_toplevel_error([[
+                function m.f.g()
+                end
+            ]], "more than one dot in the function name is not allowed")
+        end)
+
         it("disallow complex names for local functions (1/2)", function()
             assert_toplevel_error([[
                 local function foo.bar()
@@ -433,8 +440,8 @@ describe("Parser /", function()
                         _tag = "ast.Stat.LetRec",
                         decls = {},
                         func_stats = {
-                            { root = "m", fields = {"f"} },
-                            { root = "m", fields = {"g"} },
+                            { module = "m", name = "f" },
+                            { module = "m", name = "g" },
                         },
                     },
                     {
@@ -444,9 +451,9 @@ describe("Parser /", function()
                             { name = "y" },
                         },
                         func_stats = {
-                            { root = "x" },
-                            { root = "m", fields = {"h"} },
-                            { root = "y" },
+                            { module = false, name = "x" },
+                            { module = "m",   name = "h" },
+                            { module = false, name = "y" },
                         },
                     }
                 },
@@ -467,23 +474,25 @@ describe("Parser /", function()
                         _tag = "ast.Stat.LetRec",
                         decls = {},
                         func_stats = {
-                            { root = "m", fields = {"f"} },
-                            { root = "m", fields = {"g"} },
+                            { module = "m", name = "f" },
+                            { module = "m", name = "g" },
                         },
                     },
                     {
                         _tag = "ast.Stat.Func",
-                        root = "x",
+                        module = false,
+                        name = "x",
                     },
                     {
                         _tag = "ast.Stat.Func",
-                        root = "y",
+                        module = false,
+                        name = "y",
                     },
                     {
                         _tag = "ast.Stat.LetRec",
                         decls = {},
                         func_stats = {
-                            { root = "m", fields = {"h"} },
+                            { module = "m", name = "h" },
                         },
                     }
                 },

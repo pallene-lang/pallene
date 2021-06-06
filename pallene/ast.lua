@@ -45,7 +45,7 @@ declare_type("Stat", {
     Call   = {"loc", "call_exp"},
     Return = {"loc", "exps"},
     Break  = {"loc"},
-    Func   = {"loc", "is_local", "root", "fields", "method", "ret_types", "value"},
+    Func   = {"loc", "is_local", "module", "name", "method", "ret_types", "value"},
     LetRec = {"loc", "decls", "func_stats"}, -- For mutual recursion (see parser.lua)
 })
 

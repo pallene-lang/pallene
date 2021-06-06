@@ -342,22 +342,19 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
 
     if stat.is_local then
         -- Local function
-        assert(#stat.fields == 0)
+        assert(not stat.module)
         assert(not stat.method)
-        self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
+        self:add_value_symbol(stat.name, typ, checker.Def.Function(stat))
     else
         assert(not stat.method) -- not yet implemented
-        if #stat.fields == 0 then
-            -- Local function (forward declared)
-            self:add_value_symbol(stat.root, typ, checker.Def.Function(stat))
-        else
+        if stat.module then
             -- Module function
-            local sym = self.symbol_table:find_symbol(stat.root)
+            local sym = self.symbol_table:find_symbol(stat.module)
             if not sym then
-                type_error(stat.loc, "module '%s' is not declared", stat.root)
+                type_error(stat.loc, "module '%s' is not declared", stat.module)
             end
             if sym._tag ~= "checker.Symbol.Module" then
-                type_error(stat.loc, "'%s' is not a module", stat.root)
+                type_error(stat.loc, "'%s' is not a module", stat.module)
             end
             if not is_toplevel then
                 type_error(stat.loc, "module functions can only be set at the toplevel")
@@ -365,12 +362,10 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
             if sym ~= self.module_symbol then
                 type_error(stat.loc, "attempting to assign a function to an external module")
             end
-            if #stat.fields > 1 then
-                type_error(stat.loc, "more than one dot in the function name is not allowed")
-            end
-
-            local name = stat.fields[1]
-            self:export_value_symbol(name, typ, checker.Def.Function(stat))
+            self:export_value_symbol(stat.name, typ, checker.Def.Function(stat))
+        else
+            -- Local function (forward declared)
+            self:add_value_symbol(stat.name, typ, checker.Def.Function(stat))
         end
     end
 

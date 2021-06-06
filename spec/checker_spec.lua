@@ -181,12 +181,6 @@ describe("Function declaration", function()
         ]], "attempting to assign a function to an external module")
     end)
 
-    it("must have a namespace that is a single level deep", function()
-        assert_error([[
-            function m.f.g() end
-        ]], "more than one dot in the function name is not allowed")
-    end)
-
     it("does not allow global functions", function()
         assert_error([[
             function f(): integer
