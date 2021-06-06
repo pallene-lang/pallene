@@ -470,9 +470,7 @@ function Checker:check_stat(stat, is_toplevel)
         local rhs = stat.exps
         self:expand_function_returns(rhs)
 
-        if not rhs[1] then
-            type_error(stat.loc, "missing right-hand side in for-in loop")
-        end
+        assert(rhs[1])
 
         if not rhs[2] then
             type_error(rhs[1].loc, "missing state variable in for-in loop")
