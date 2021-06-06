@@ -127,7 +127,7 @@ function ToIR:register_function(stat)
 
     local f_id = self:register_lambda(stat.value, stat.name)
 
-    if not stat.is_local then
+    if stat.module then
         ir.add_exported_function(self.module, f_id)
     end
 end
