@@ -27,7 +27,7 @@ local util = require "pallene.util"
 --   * _def: A checker.Def that describes the meaning of that name
 --      - ast.Var.Name
 --
---   * _is_exported: A boolean (true) marking assignments that are declaring an exported variable
+--   * _exported_as: A string telling that this var is exported, and which module field name.
 --      - ast.Var.Name
 --
 -- We also make some adjustments to the AST:
@@ -76,11 +76,6 @@ end
 -- 2) Use "error" to raise the exception; I couldn't implement the required "try-catch".
 local function type_error(loc, fmt, ...)
     coroutine.yield("type error: " .. loc:format_error(fmt, ...))
-end
-
-local function multiple_definitions_error(loc, name)
-    assert(loc)
-    type_error(loc, "multiple definitions for module field '%s'", name)
 end
 
 local function check_type_is_condition(exp, fmt, ...)
@@ -134,6 +129,19 @@ declare_type("Def", {
 --  Import   = { ??? },
 })
 
+local function loc_of_def(def)
+    local tag = def._tag
+    if     tag == "checker.Def.Variable" then
+        return def.decl.loc
+    elseif tag == "checker.Def.Function" then
+        return def.stat.loc
+    elseif tag == "checker.Def.Builtin" then
+        error("builtin does not have a location")
+    else
+        typedecl.tag_error(tag)
+    end
+end
+
 function Checker:add_type_symbol(name, typ)
     assert(type(name) == "string")
     assert(typedecl.match_tag(typ._tag, "types.T"))
@@ -150,6 +158,16 @@ function Checker:add_module_symbol(name, typ, symbols)
     assert(type(name) == "string")
     assert((not typ) or typedecl.match_tag(typ._tag, "types.T"))
     return self.symbol_table:add_symbol(name, checker.Symbol.Module(typ, symbols))
+end
+
+function Checker:export_value_symbol(name, typ, def)
+    assert(type(name) == "string")
+    assert(typedecl.match_tag(typ._tag, "types.T"))
+    assert(self.module_symbol)
+    if self.module_symbol.symbols[name] then
+        type_error(loc_of_def(def), "multiple definitions for module field '%s'", name)
+    end
+    self.module_symbol.symbols[name] = checker.Symbol.Value(typ, def)
 end
 
 --
@@ -351,10 +369,7 @@ function Checker:add_func_stat_to_scope(stat, is_toplevel)
             end
 
             local name = stat.fields[1]
-            if sym.symbols[name] then
-                multiple_definitions_error(stat.loc, name)
-            end
-            sym.symbols[name] = checker.Symbol.Value(typ, checker.Def.Function(stat))
+            self:export_value_symbol(name, typ, checker.Def.Function(stat))
         end
     end
 
@@ -507,18 +522,17 @@ function Checker:check_stat(stat, is_toplevel)
     elseif tag == "ast.Stat.Assign" then
         self:expand_function_returns(stat.exps)
 
-        local declarations = {}
-
         for i, var in ipairs(stat.vars) do
             if var._tag == "ast.Var.Dot" and self:is_the_module_variable(var.exp) then
                 -- Declaring a module field
                 if not is_toplevel then
                     type_error(var.loc, "module fields can only be set at the toplevel")
                 end
-                if self.module_symbol.symbols[var.name] or declarations[var.name] then
-                    multiple_definitions_error(var.loc, var.name)
-                end
-                declarations[var.name] = i
+                local qvar = ast.Var.Name(var.loc, var.name)
+                qvar._type = false -- will be set by the initializer
+                qvar._def = checker.Def.Variable(qvar)
+                qvar._exported_as= var.name
+                stat.vars[i] = qvar
             else
                 -- Regular assignment
                 stat.vars[i] = self:check_var(stat.vars[i])
@@ -530,28 +544,26 @@ function Checker:check_stat(stat, is_toplevel)
 
         for i = 1, #stat.exps do
             local var = stat.vars[i]
-            if var and var._type then
-                -- Regular assignment
-                stat.exps[i] = self:check_exp_verify(stat.exps[i], var._type, "assignment")
+            if var then
+                if var._type then
+                    -- Regular assignment
+                    stat.exps[i] = self:check_exp_verify(stat.exps[i], var._type, "assignment")
+                else
+                    -- Module field
+                    stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
+                    var._type = stat.exps[i]._type
+                end
             else
-                -- Module field or excess initializer
+                -- Excess initializer
                 stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
             end
         end
 
         -- Add the declared module fields to scope after we type checked the initializers
-        -- Order does not matter because names are distinct
-        for name, i in pairs(declarations) do
-            local var = stat.vars[i]
-            local typ = stat.exps[i]._type
-
-            local qvar = ast.Var.Name(var.loc, var.name)
-            qvar._type = typ
-            qvar._def = checker.Def.Variable(qvar)
-            qvar._is_exported = true
-
-            self.module_symbol.symbols[name] = checker.Symbol.Value(typ, qvar._def)
-            stat.vars[i] = qvar
+        for _, var in ipairs(stat.vars) do
+            if var._exported_as then
+                self:export_value_symbol(var._exported_as, var._type, var._def)
+            end
         end
 
     elseif tag == "ast.Stat.Call" then
