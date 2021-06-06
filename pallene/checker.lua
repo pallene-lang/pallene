@@ -528,11 +528,12 @@ function Checker:check_stat(stat, is_toplevel)
                 if not is_toplevel then
                     type_error(var.loc, "module fields can only be set at the toplevel")
                 end
-                local qvar = ast.Var.Name(var.loc, var.name)
-                qvar._type = false -- will be set by the initializer
-                qvar._def = checker.Def.Variable(qvar)
-                qvar._exported_as= var.name
-                stat.vars[i] = qvar
+                local name = var.name
+                var = ast.Var.Name(var.loc, name)
+                var._type = false -- will be set by the initializer
+                var._def = checker.Def.Variable(var)
+                var._exported_as = name
+                stat.vars[i] = var
             else
                 -- Regular assignment
                 stat.vars[i] = self:check_var(stat.vars[i])
