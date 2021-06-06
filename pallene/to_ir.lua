@@ -150,7 +150,7 @@ function ToIR:convert_toplevel(prog_ast)
                 local stag = stat._tag
                 if     stag == "ast.Stat.Assign" then
                     for _, var in ipairs(stat.vars) do
-                        if var._is_exported then
+                        if var._exported_as then
                             assert(var._type)
                             local g_id = ir.add_global(self.module, var.name, var._type)
                             self.glb_id_of_var[var] = g_id
