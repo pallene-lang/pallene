@@ -43,13 +43,21 @@ function ir.VarDecl(name, typ)
     }
 end
 
+function ir.UpvalInfo(decl, val)
+    return {
+        decl = decl, -- ir.VarDecl
+        value = val, -- ir.Value
+    }
+end
+
 function ir.Function(loc, name, typ)
     return {
-        loc = loc,           -- Location
-        name = name,         -- string
-        typ = typ,           -- Type
-        vars = {},           -- list of ir.VarDecl
-        body = false,        -- ir.Cmd
+        loc = loc,          -- Location
+        name = name,        -- string
+        typ = typ,          -- Type
+        vars = {},          -- list of ir.VarDecl
+        captured_vars = {}, -- list of ir.UpvalInfo
+        body = false,       -- ir.Cmd
     }
 end
 
@@ -89,6 +97,11 @@ function ir.add_local(func, name, typ)
     return #func.vars
 end
 
+function ir.add_upvalue(func, name, typ, value)
+    local decl = ir.VarDecl(name, typ)
+    table.insert(func.captured_vars, ir.UpvalInfo(decl, value))
+    return #func.captured_vars
+end
 
 function ir.arg_var(func, i)
     local narg = #func.typ.arg_types
@@ -107,6 +120,7 @@ declare_type("Value", {
     Float      = {"value"},
     String     = {"value"},
     LocalVar   = {"id"},
+    Upvalue    = {"id"},
     Function   = {"id"},
 })
 
@@ -152,7 +166,7 @@ local ir_cmd_constructors = {
     SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
-    NewClosure = {"loc", "dst", "f_id"},
+    NewClosure = {"loc", "dst", "srcs", "f_id"},
 
     -- (dst is false if the return value is void, or unused)
     CallStatic  = {"loc", "f_typ", "dsts",  "f_id", "srcs"},

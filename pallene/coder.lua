@@ -300,6 +300,11 @@ function Coder:c_var(v_id)
     return "x" .. v_id
 end
 
+-- @returns the C parameter name for the upvalue u_id
+function Coder:c_upval(u_id)
+    return "uv" .. u_id
+end
+
 -- @returns the C return variable name for the variable ret_i
 function Coder:c_ret_var(ret_i)
     return "ret" .. ret_i
@@ -321,6 +326,8 @@ function Coder:c_value(value)
         return lua_value(types.T.String(), self:string_upvalue_slot(str))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
+    elseif tag == "ir.Value.Upvalue" then
+        return self:c_upval(value.id)
     elseif tag == "ir.Value.Function" then
         local f_id = value.id
         local typ = self.module.functions[f_id].typ
@@ -337,6 +344,14 @@ function Coder:prepare_local_var(func, v_id)
     local c_name = self:c_var(v_id)
     local typ    = func.vars[v_id].typ
     local p_name = func.vars[v_id].name
+    return typ, c_name, (p_name and " "..C.comment(p_name) or "")
+end
+
+-- The information of a C local var for a given Pallene captured var.
+function Coder:prepare_captured_var(u_id, decl)
+    local c_name = self:c_upval(u_id)
+    local typ    = decl.typ
+    local p_name = decl.name
     return typ, c_name, (p_name and " "..C.comment(p_name) or "")
 end
 
@@ -369,6 +384,11 @@ function Coder:pallene_entry_point_declaration(f_id)
     table.insert(args, {"lua_State *" , "L",    ""})
     table.insert(args, {"Udata *"     , "G",    ""})
     table.insert(args, {"StackValue *", "base", ""})
+
+    for i, upval in ipairs(func.captured_vars) do
+        local typ, c_name, comment = self:prepare_captured_var(i, upval.decl)
+        table.insert(args, {ctype(typ), c_name, comment})
+    end
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
         local typ, c_name, comment = self:prepare_local_var(func, v_id)
@@ -497,6 +517,7 @@ function Coder:lua_entry_point_definition(f_id)
     local fname = func.name
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
+    local captured_vars = func.captured_vars
 
     -- We unconditionally initialize the G userdata here, in case one of the tag checking tests
     -- needs to use it. We don't bother to make this initialization conditional because in the case
@@ -519,16 +540,32 @@ function Coder:lua_entry_point_definition(f_id)
 
     local arg_vars  = {}
     local arg_decls = {}
+    for i, captured_var in ipairs(captured_vars) do
+        local name = self:c_upval(i)
+        table.insert(arg_vars, name)
+        table.insert(arg_decls, C.declaration(ctype(captured_var.decl.typ), name)..";")
+    end
     for i, typ in ipairs(arg_types) do
-        local name = "x"..i
-        arg_vars[i] = name
-        arg_decls[i] = C.declaration(ctype(typ), name)..";"
+        local name = self:c_var(i)
+        table.insert(arg_vars, name)
+        table.insert(arg_decls, C.declaration(ctype(typ), name)..";")
     end
 
+
     local init_args = {}
+    for u_id, upval in ipairs(captured_vars) do
+        local name = upval.decl.name
+        local typ  = upval.decl.typ
+        local dst  = arg_vars[u_id]
+        local src  = string.format("&func->upvalue[%s]", C.integer(u_id - 1))
+        table.insert(init_args,
+            self:get_stack_slot(typ, dst, src,
+                func.loc, "upvalue '%s'", C.string(name)))
+    end
+
     for i, typ in ipairs(arg_types) do
         local name = func.vars[i].name
-        local dst = arg_vars[i]
+        local dst = arg_vars[#captured_vars + i]
         local src = string.format("s2v(base + %s)", C.integer(i))
         table.insert(init_args,
             self:get_stack_slot(typ, dst, src,
@@ -1291,15 +1328,29 @@ gen_cmd["SetField"] = function(self, cmd, _func)
 end
 
 gen_cmd["NewClosure"] = function (self, cmd, _func)
+    local func = self.module.functions[cmd.f_id]
+
+    local capture_upvalues = {}
+    for i, upval_info in ipairs(func.captured_vars) do
+        local typ   = upval_info.decl.typ
+        local c_val = self:c_value(upval_info.value)
+        table.insert(capture_upvalues, set_stack_slot(typ,
+            string.format("&ccl->upvalue[%s]", C.integer(i - 1)), c_val))
+    end
+
     return util.render([[
         {
-            CClosure *ccl = luaF_newCclosure(L, 0);
+            CClosure *ccl = luaF_newCclosure(L, $num_upvalues);
             ccl->f = $lua_entry_point;
+            $capture_upvalues
+
             setclCvalue(L, &$dst, ccl);
         }
     ]], {
+        num_upvalues = C.integer(#func.captured_vars),
         dst = self:c_var(cmd.dst),
-        lua_entry_point = self:lua_entry_point_name(cmd.f_id)
+        lua_entry_point = self:lua_entry_point_name(cmd.f_id),
+        capture_upvalues = table.concat(capture_upvalues, "\n")
     })
 end
 

@@ -2473,6 +2473,29 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return x + 1
                 end
             end
+
+            function m.add(x: integer, y: integer): integer
+                local addX: integer -> integer = function(z)
+                    return z + x
+                end
+                return addX(y)
+            end
+
+            function m.make_adder(y: integer): integer -> integer
+                return function(x)
+                    return x + y
+                end
+            end
+
+            function m.add3(x: integer, y: integer, z: integer): integer
+                local add: integer -> integer = function(a)
+                    local f: integer -> integer = function(b)
+                        return b + z
+                    end
+                    return a + f(y)
+                end
+                return add(x)
+            end
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2486,6 +2509,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             ]])
         end)
 
+        it("capturing closures work as expected", function()
+            run_test([[assert(test.add(10, 20) == 30)]])
+        end)
+
+        it("Intermediate closures can capture upvalues to pass them down to nested closures", function()
+            run_test([[assert(test.add3(10, 20, 30) == 60)]])
+        end)
+
+        it("can return a capturing closure", function()
+            run_test([[
+                local add10 = test.make_adder(10)
+                assert(add10(20) == 30)
+            ]])
+        end)
     end)
 
     describe("tostring builtin", function ()
