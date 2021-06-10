@@ -110,10 +110,12 @@ declare_type("Value", {
     Function   = {"id"},
 })
 
--- [IMPORTANT!] After any changes to this data type, update the src_fields,
--- dst_fields, and other_fields list accordingly.
---
+-- declare_type("Cmd"
 local ir_cmd_constructors = {
+    -- [IMPORTANT] Please use this naming convention:
+    --  - "src" fields contain an "ir.Value".
+	--  - "dst" fields contain a local variable ID.
+
     -- Variables
     Move       = {"loc", "dst", "src"},
     GetGlobal  = {"loc", "dst", "global_id"},
@@ -180,87 +182,57 @@ local ir_cmd_constructors = {
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
 }
-
 declare_type("Cmd", ir_cmd_constructors)
 
-local  src_fields = {
-    "src", "src1", "src2",
-    "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
-    "src_f",
-    "src_size",
-    "src_start", "src_limit", "src_step" }
-local srcs_fields = { "srcs" }
-
-function ir.get_srcs(cmd)
-    local srcs = {}
-    for _, k in ipairs(src_fields) do
-        if cmd[k] then
-            table.insert(srcs, cmd[k])
+-- We need to know, for each kind of command, which fields contain inputs (ir.Value) and which
+-- fields refer to outputs (local variable ID). We use a common naming convention for this.
+local value_fields = {}
+for tag, fields in pairs(ir_cmd_constructors) do
+    local ff = { src = {}, srcs = {}, dst = {}, dsts = {} }
+    for _, field in ipairs(fields) do
+        if not field:match("_typ$") then
+            if     field:match("^srcs") then table.insert(ff.srcs, field)
+            elseif field:match("^src")  then table.insert(ff.src,  field)
+            elseif field:match("^dsts") then table.insert(ff.dsts, field)
+            elseif field:match("^dst")  then table.insert(ff.dst,  field)
+            end
         end
     end
-    for _, k in ipairs(srcs_fields) do
-        if cmd[k] then
-            for _, src in ipairs(cmd[k]) do
-                table.insert(srcs, src)
-            end
+    value_fields["ir.Cmd."..tag] = ff
+end
+
+-- Returns the inputs to the given command, a list of ir.Value.
+-- The order is the same order used by the constructor.
+function ir.get_srcs(cmd)
+    local ff = assert(value_fields[cmd._tag])
+    local srcs = {}
+    for _, k in ipairs(ff.src) do
+        table.insert(srcs, cmd[k])
+    end
+    for _, k in ipairs(ff.srcs) do
+        for _, src in ipairs(cmd[k]) do
+            table.insert(srcs, src)
         end
     end
     return srcs
 end
 
-local  dst_fields = { "dst" }
-local dsts_fields = { "dsts"}
-
+-- Returns the outputs of the given command, a list of local variable IDs.
+-- The order is the same order used by the constructor.
 function ir.get_dsts(cmd)
+    local ff = assert(value_fields[cmd._tag])
     local dsts = {}
-    for _, k in ipairs(dst_fields) do
-        if cmd[k] then
-            table.insert(dsts, cmd[k])
-        end
+    for _, k in ipairs(ff.dst) do
+        table.insert(dsts, cmd[k])
     end
-    for _, k in ipairs(dsts_fields) do
-        if cmd[k] then
-            for _, dst in ipairs(cmd[k]) do
-                if dst ~= false then
-                    table.insert(dsts, dst)
-                end
+    for _, k in ipairs(ff.dsts) do
+        for _, dst in ipairs(cmd[k]) do
+            if dst ~= false then
+                table.insert(dsts, dst)
             end
         end
     end
     return dsts
-end
-
-local other_fields = {
-    "loc",
-    "global_id",
-    "op",
-    "src_typ", "dst_typ", "rec_typ", "f_typ",
-    "field_name",
-    "f_id",
-    "cmds", "then_", "else_",
-    "typ", "loop_var", "body",
-}
-do
-    local all_lists = {
-        src_fields, srcs_fields,
-        dst_fields, dsts_fields,
-        other_fields
-    }
-    local all_fields = {}
-    for _, fields in ipairs(all_lists) do
-        for _, field in ipairs(fields) do
-            all_fields[field] = true
-        end
-    end
-
-    for ctor, params in pairs(ir_cmd_constructors) do
-        for _, field in ipairs(params) do
-            if not all_fields[field] then
-                error(string.format("Field '%s' in %s is not accounted for",
-                        field, ctor))
-            end
-        end
-    end
 end
 
 -- Iterate over the cmds with a pre-order traversal.
