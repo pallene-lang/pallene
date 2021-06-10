@@ -132,13 +132,13 @@ local ir_cmd_constructors = {
     IsNil      = {"loc", "dst", "src"},
 
     -- Arrays
-    NewArr     = {"loc", "dst", "size_hint"},
+    NewArr     = {"loc", "dst", "src_size"},
 
     GetArr     = {"loc", "dst_typ", "dst", "src_arr", "src_i"},
     SetArr     = {"loc", "src_typ",        "src_arr", "src_i", "src_v"},
 
     -- Tables
-    NewTable   = {"loc", "dst", "size_hint"},
+    NewTable   = {"loc", "dst", "src_size"},
 
     GetTable   = {"loc", "dst_typ", "dst", "src_tab", "src_k"},
     SetTable   = {"loc", "src_typ",        "src_tab", "src_k", "src_v"},
@@ -174,8 +174,8 @@ local ir_cmd_constructors = {
     Break   = {},
     Loop    = {"body"},
 
-    If      = {"loc", "condition", "then_", "else_"},
-    For     = {"loc", "loop_var", "start", "limit", "step", "body"},
+    If      = {"loc", "src", "then_", "else_"},
+    For     = {"loc", "loop_var", "src_start", "src_limit", "src_step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -187,8 +187,8 @@ local  src_fields = {
     "src", "src1", "src2",
     "src_arr", "src_tab", "src_rec", "src_i", "src_k", "src_v",
     "src_f",
-    "size_hint",
-    "condition", "start", "limit", "step" }
+    "src_size",
+    "src_start", "src_limit", "src_step" }
 local srcs_fields = { "srcs" }
 
 function ir.get_srcs(cmd)
@@ -361,7 +361,7 @@ function ir.clean(cmd)
         end
 
     elseif tag == "ir.Cmd.If" then
-        local v = cmd.condition
+        local v = cmd.src
         cmd.then_ = ir.clean(cmd.then_)
         cmd.else_ = ir.clean(cmd.else_)
         local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")
