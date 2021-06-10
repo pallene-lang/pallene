@@ -407,6 +407,8 @@ function ToIR:convert_stat(cmds, stat)
         local vars = stat.vars
         local exps = stat.exps
 
+        assert(#vars <= #exps)
+
         -- Multiple Assignments
         -- --------------------
         -- According to the Lua reference manual, the expressions in a multiple assignment should be
@@ -497,13 +499,19 @@ function ToIR:convert_stat(cmds, stat)
         --  case because save_if_necessary calls exp_to_value.
         local vals = {}
         for i, exp in ipairs(exps) do
-            local is_mulret = exps[i+1] and exps[i+1]._tag == "ast.Exp.ExtraRet"
-            local is_last = (i == #vars) or is_mulret
-            if is_last and lhss[i]._tag == "to_ir.LHS.Local" then
-                self:exp_to_assignment(cmds, lhss[i].id, exp)
-                vals[i] = false
+            if i <= #vars then
+                local is_extraret = (exp._tag == "ast.Exp.ExtraRet")
+                local is_mulfun   = (exp._tag == "ast.Exp.CallFunc" and
+                                     exp[i+1] and exp[i+1]._tag == "ast.Exp.ExtraRet")
+                local is_last = (i == #vars) or is_mulfun or is_extraret
+                if is_last and lhss[i] and lhss[i]._tag == "to_ir.LHS.Local" then
+                    self:exp_to_assignment(cmds, lhss[i].id, exp)
+                    vals[i] = false
+                else
+                    vals[i] = save_if_necessary(exp, i)
+                end
             else
-                vals[i] = save_if_necessary(exp, i)
+                vals[i] = self:exp_to_value(cmds, exp)
             end
         end
 
