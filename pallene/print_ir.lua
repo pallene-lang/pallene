@@ -180,7 +180,7 @@ local function Cmd(cmd)
                 $body
             }
         ]], {
-            v = Var(cmd.loop_var),
+            v = Var(cmd.dst),
             a = Val(cmd.src_start),
             b = Val(cmd.src_limit),
             c = Val(cmd.src_step),

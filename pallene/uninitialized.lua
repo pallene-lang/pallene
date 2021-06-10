@@ -109,7 +109,7 @@ local function test(cmd, uninit, loop)
         loop.is_infinite = false
         merge(loop.uninit, uninit)
 
-        uninit[cmd.loop_var] = nil
+        uninit[cmd.dst] = nil
         test(cmd.body, uninit, loop)
 
         if loop.is_infinite then

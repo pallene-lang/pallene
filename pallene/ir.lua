@@ -177,7 +177,7 @@ local ir_cmd_constructors = {
     Loop    = {"body"},
 
     If      = {"loc", "src", "then_", "else_"},
-    For     = {"loc", "loop_var", "src_start", "src_limit", "src_step", "body"},
+    For     = {"loc", "dst", "src_start", "src_limit", "src_step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},

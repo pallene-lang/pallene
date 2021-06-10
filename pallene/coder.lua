@@ -1496,7 +1496,7 @@ gen_cmd["Loop"] = function(self, cmd, func)
 end
 
 gen_cmd["For"] = function(self, cmd, func)
-    local typ = func.vars[cmd.loop_var].typ
+    local typ = func.vars[cmd.dst].typ
 
     local macro
     if     typ._tag == "types.T.Integer" then
@@ -1515,7 +1515,7 @@ gen_cmd["For"] = function(self, cmd, func)
         ${macro}_END
     ]], {
         macro = macro,
-        x     = self:c_var(cmd.loop_var),
+        x     = self:c_var(cmd.dst),
         start = self:c_value(cmd.src_start),
         limit = self:c_value(cmd.src_limit),
         step  = self:c_value(cmd.src_step),
