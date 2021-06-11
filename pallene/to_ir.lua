@@ -119,18 +119,15 @@ end
 function ToIR:register_function(stat)
     assert(stat._tag == "ast.Stat.Func")
     if stat.is_local then
-        assert(#stat.fields == 0)
+        assert(not stat.module)
         assert(not stat.method)
     else
-        assert(#stat.fields <= 1)
         assert(not stat.method)
     end
 
-    local exp = stat.value
-    local name = stat.fields[1] or stat.root
-    local f_id = self:register_lambda(exp, name)
+    local f_id = self:register_lambda(stat.value, stat.name)
 
-    if not stat.is_local then
+    if stat.module then
         ir.add_exported_function(self.module, f_id)
     end
 end

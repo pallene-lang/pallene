@@ -91,13 +91,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         compile([[
             function m.f(): integer return 10 end
             local function g(): integer return 11 end
+            local h
+            function h(): integer return 12 end
         ]])
 
-        it("does not export local functions", function()
-            run_test([[
-                assert(type(test.f) == "function")
-                assert(type(test.g) == "nil")
-            ]])
+        it("exports public functions", function()
+            run_test([[ assert(type(test.f) == "function") ]])
+        end)
+
+        it("does not export local functions (no forward decl)", function()
+            run_test([[ assert(type(test.g) == "nil") ]])
+        end)
+
+        it("does not export local functions (with forward decl)", function()
+            run_test([[ assert(type(test.h) == "nil") ]])
         end)
     end)
 
