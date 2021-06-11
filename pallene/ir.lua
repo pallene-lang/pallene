@@ -182,11 +182,6 @@ local ir_cmd_constructors = {
 }
 
 declare_type("Cmd", ir_cmd_constructors)
-declare_type("Seq", {
-    -- This level of indirection on top of a "list of commands" helps when
-    -- editing the command list in-place
-    Seq = {"cmds"}
-})
 
 local  src_fields = {
     "src", "src1", "src2",
@@ -373,7 +368,7 @@ function ir.clean(cmd)
         local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
 
         if t_empty and e_empty then
-            return ir.Seq.Nop()
+            return ir.Cmd.Nop()
         elseif v._tag == "ir.Value.Bool" and v.value == true then
             return cmd.then_
         elseif v._tag == "ir.Value.Bool" and v.value == false then
