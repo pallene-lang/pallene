@@ -498,34 +498,36 @@ end
 function Parser:FuncStat(is_local)
     local start = self:e("function")
 
-    local root = self:e("NAME")
+    local root = self:e("NAME").value
 
-    local fields = {}
-    while self:try(".") do
-        table.insert(fields, self:e("NAME"))
+    local field = false
+    if self:try(".") then
+        field = self:e("NAME").value
+        if self:try(".") then
+	        self:syntax_error(self.prev.loc,
+	            "more than one dot in the function name is not allowed")
+        end
     end
-
-   	local module, name
-   	if #fields == 0 then
-        module = false
-        name   = root.value
-   	elseif #fields == 1 then
-        module = root.value
-        name   = fields[1].value
-   	else
-        self:syntax_error(fields[2].loc, "more than one dot in the function name is not allowed")
-   	end
 
     local method = false
     if self:try(":") then
         method = self:e("NAME").value
     end
 
-    if is_local and module then
-        self:syntax_error(root.loc, "local function name has a '.'")
+    if is_local and field then
+        self:syntax_error(start.loc, "local function name has a '.'")
     end
     if is_local and method then
-        self:syntax_error(root.loc, "local function name has a ':'")
+        self:syntax_error(start.loc, "local function name has a ':'")
+    end
+
+    local module, name
+    if field then
+        module = root
+        name   = field
+    else
+        module = false
+        name   = root
     end
 
     local params = self:FuncParams()
