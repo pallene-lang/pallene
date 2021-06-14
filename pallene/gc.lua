@@ -47,6 +47,7 @@ function gc.compute_stack_slots(func)
     local last_use          = {} -- { var_id => integer }
     local first_definition  = {} -- { var_id => integer }
 
+    -- Upvalues can always be reached by the GC via their closures.
     for i, cmd in ipairs(flat_cmds) do
         for _, val in ipairs(ir.get_srcs(cmd)) do
             if val._tag == "ir.Value.LocalVar" then

@@ -20,6 +20,10 @@ local function Var(id)
     return "x"..id
 end
 
+local function Upval(id)
+    return "uv"..id
+end
+
 local function Fun(id)
     if id == 1 then
         return "main"
@@ -40,6 +44,7 @@ local function Val(val)
     elseif tag == "ir.Value.Float"    then return C.float(val.value)
     elseif tag == "ir.Value.String"   then return C.string(val.value)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
+    elseif tag == "ir.Value.Upvalue"  then return Upval(val.id)
     elseif tag == "ir.Value.Function" then return Fun(val.id)
     else
         typedecl.tag_error(tag)

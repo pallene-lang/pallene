@@ -1,0 +1,123 @@
+-- compose f.g
+
+local function twice(x)
+    return x * 2
+end
+
+local function square(x)
+    return x * x
+end
+
+local function compose(f, g)
+    return function(y)
+        return f(g(y))
+    end
+end
+
+local function test_comp()
+    assert(compose(twice, square)(10) == 200)
+    assert(compose(square, twice)(10) == 400)
+end
+
+test_comp()
+
+-- lambda lists
+local function cons(data, next_)
+    return function(op)
+        if op == 'get' then return data end
+        if op == 'next' then return next_ end
+    end
+end
+
+local function car(node)
+    return node('get')
+end
+
+local function cdr(node)
+    return node('next')
+end
+
+local function test_list()
+    local x = cons(1, cons(2, nil))
+    assert(car(x) == 1)
+    assert(car(cdr(x)) == 2)
+    assert(cdr(cdr(x)) == nil)
+end
+
+test_list()
+
+-- mutating an upvalue that was passed to the surrounding function
+-- as a parameter
+
+local function wrap(x)
+    local set = function(y)
+        x = y
+    end
+
+    local get = function()
+        return x
+    end
+
+    return set, get
+end
+
+local function test_wrap()
+    local set, get = wrap(10)
+    assert(get() == 10)
+    set(100)
+    assert(get() == 100)
+end
+
+test_wrap()
+
+-- taking a function expression as an argument
+
+local function make_filter(filter)
+    return function(xs)
+        local res = {}
+        for _, x in ipairs(xs) do
+            if filter(x) then
+                res[#res + 1] = x
+            end
+        end
+        return res
+    end
+end
+
+
+local function test_filter()
+    local filter = make_filter(function (x)
+        return x % 2 == 0
+    end)
+    local evens = filter({ 1, 2, 3, 4, 5 })
+    assert(#evens == 2)
+    assert(evens[1] == 2 and evens[2] == 4)
+end
+
+test_filter()
+
+-- mutating an upvalue captured from an arbitrarily higher scope
+
+local function mut(var)
+    local nest1 = function()
+        local nest2 = function()
+            local nest3 = function()
+                var = var + 10
+                return var
+            end
+            return nest3()
+        end
+        return nest2()
+    end
+
+    -- add `var` to assert that it's value has changed
+    -- both in the scope of nest3 and in the scope of the
+    -- function where it belongs
+    return var + nest1()
+end
+
+local function test_mut()
+    local x = mut(100)
+    assert(x == 220)
+end
+

@@ -10,12 +10,22 @@ local typedecl = require "pallene.typedecl"
 
 local to_ir = {}
 
-typedecl.declare(to_ir, "to_ir", "LHS", {
+local function declare_type(type_name, cons)
+    typedecl.declare(to_ir, "to_ir", type_name, cons)
+end
+
+declare_type("LHS", {
     Local  = {"id"},
     Global = {"id"},
     Array  = {"typ", "arr", "i"},
     Table  = {"typ", "t", "field"},
     Record = {"typ", "rec", "field"},
+})
+
+declare_type("Var", {
+    LocalVar   = {"id"},
+    Upvalue    = {"id"},
+    GlobalVar  = {"id"},
 })
 
 local ToIR = util.Class()
@@ -29,9 +39,10 @@ end
 
 function to_ir.FuncInfo(f_id, func)
     return {
-        loc_id_of_decl = {},   -- { ast.Decl => integer }
-        func           = func, -- ast.Exp.Lambda
-        f_id           = f_id  -- integer
+        loc_id_of_decl   = {},   -- { ast.Decl => integer }
+        upval_id_of_decl = {},   -- { ast.Decl => integer }
+        func             = func, -- ast.Exp.Lambda
+        f_id             = f_id  -- integer
     }
 end
 
@@ -87,26 +98,51 @@ function ToIR:exit_function(cmds)
     end
 end
 
---
---
---
-function ToIR:is_local(decl)
-    if decl._tag == "ast.Decl.Decl" then
-        local loc_id = self.loc_id_of_decl[decl]
-        local glb_id = self.glb_id_of_decl[decl]
-        if loc_id then
-            assert(not glb_id)
-            return true, loc_id
-        else
-            assert(glb_id)
-            return false, glb_id
-        end
-    elseif decl._tag == "ast.Var.Name" then
+-- Returns a to_ir.Var object containing ID of `decl`.
+-- If `decl` resolves to an upvalue, then it registers the upvalue in the intermediate
+-- and current function.
+function ToIR:resolve_variable(decl)
+    if decl._tag == "ast.Var.Name" then
         local glb_id = assert(self.glb_id_of_var[decl])
-        return false, glb_id
-    else
-        error("impossible")
+        return to_ir.Var.GlobalVar(glb_id)
     end
+    assert(decl._tag == "ast.Decl.Decl")
+
+    local glb_id = self.glb_id_of_decl[decl]
+    if glb_id then
+        return to_ir.Var.GlobalVar(glb_id)
+    end
+
+    local stack_id, var
+    for i = 1, #self.func_stack do
+        local loc_id = self.func_stack[i].loc_id_of_decl[decl]
+        if loc_id then
+            var = to_ir.Var.LocalVar(loc_id)
+            stack_id = i
+            break
+        end
+    end
+
+    assert(var)
+    assert(stack_id)
+    for i = stack_id + 1, #self.func_stack do
+        local func_info = self.func_stack[i]
+        local func      = func_info.func
+        local u_id
+        if func_info.upval_id_of_decl[decl] then
+            u_id = func_info.upval_id_of_decl[decl]
+        elseif var._tag == "to_ir.Var.LocalVar" then
+            u_id = ir.add_upvalue(func, decl.name, decl._type, ir.Value.LocalVar(var.id))
+        elseif var._tag == "to_ir.Var.Upvalue" then
+            u_id = ir.add_upvalue(func, decl.name, decl._type, ir.Value.Upvalue(var.id))
+        else
+            typedecl.tag_error(var._tag)
+        end
+        func_info.upval_id_of_decl[decl] = u_id
+        var = to_ir.Var.Upvalue(u_id)
+    end
+
+    return var
 end
 
 function ToIR:register_lambda(exp, name)
@@ -439,11 +475,15 @@ function ToIR:convert_stat(cmds, stat)
         for i, var in ipairs(vars) do
             if     var._tag == "ast.Var.Name" then
                 assert(var._def._tag == "checker.Def.Variable")
-                local is_loc, id = self:is_local(var._def.decl)
-                if is_loc then
-                    table.insert(lhss, to_ir.LHS.Local(id))
+                local var_info = self:resolve_variable(var._def.decl)
+                if var_info._tag == "to_ir.Var.LocalVar" then
+                    table.insert(lhss, to_ir.LHS.Local(var_info.id))
+                elseif var_info._tag == "to_ir.Var.Upvalue" then
+                    error("Mutable upvalues not implemented")
+                elseif var_info._tag == "to_ir.Var.GlobalVar" then
+                    table.insert(lhss, to_ir.LHS.Global(var_info.id))
                 else
-                    table.insert(lhss, to_ir.LHS.Global(id))
+                    typedecl.tag_error(var_info._tag)
                 end
 
             elseif var._tag == "ast.Var.Bracket" then
@@ -722,11 +762,15 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         if     var._tag == "ast.Var.Name" then
             local def = var._def
             if     def._tag == "checker.Def.Variable" then
-                local is_loc, id = self:is_local(def.decl)
-                if is_loc then
-                    return ir.Value.LocalVar(id)
-                else
+                local var_info = self:resolve_variable(def.decl)
+                if var_info._tag == "to_ir.Var.LocalVar" then
+                    return ir.Value.LocalVar(var_info.id)
+                elseif var_info._tag == "to_ir.Var.Upvalue" then
+                    return ir.Value.Upvalue(var_info.id)
+                elseif var_info._tag == "to_ir.Var.GlobalVar" then
                     -- Fallthrough to default
+                else
+                    typedecl.tag_error(var_info._tag)
                 end
 
             elseif def._tag == "checker.Def.Function" then
@@ -825,9 +869,16 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
     elseif tag == "ast.Exp.Lambda" then
         local f_id = self:register_lambda(exp, "$lambda")
+        local func = self.module.functions[f_id]
         self:convert_func(exp)
         ir.add_exported_function(self.module, f_id)
-        table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
+
+        local upvalues = {}
+        for _, upval_info in ipairs(func.captured_vars) do
+            table.insert(upvalues, upval_info.value)
+        end
+
+        table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, upvalues, f_id))
 
     elseif tag == "ast.Exp.ExtraRet" then
         assert(self.dsts_of_call[exp.call_exp])
@@ -914,11 +965,14 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         if     var._tag == "ast.Var.Name" then
             local def = var._def
             if def._tag == "checker.Def.Variable" then
-                local is_loc, id = self:is_local(def.decl)
-                if is_loc then
+                local var_info = self:resolve_variable(def.decl)
+
+                if var_info._tag == "to_ir.Var.LocalVar" or var_info._tag == "to_ir.Var.Upvalue" then
                     use_exp_to_value = true
+                elseif var_info._tag == "to_ir.Var.GlobalVar" then
+                    table.insert(cmds, ir.Cmd.GetGlobal(loc, dst, var_info.id))
                 else
-                    table.insert(cmds, ir.Cmd.GetGlobal(loc, dst, id))
+                    typedecl.tag_error(var_info._tag)
                 end
             else
                 use_exp_to_value = true
