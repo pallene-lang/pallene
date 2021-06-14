@@ -1447,7 +1447,7 @@ gen_cmd["Break"] = function(self, _cmd, _func)
 end
 
 gen_cmd["If"] = function(self, cmd, func)
-    local condition = self:c_value(cmd.src)
+    local condition = self:c_value(cmd.src_condition)
     local then_ = self:generate_cmd(func, cmd.then_)
     local else_ = self:generate_cmd(func, cmd.else_)
 

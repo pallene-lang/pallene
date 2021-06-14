@@ -176,7 +176,7 @@ local ir_cmd_constructors = {
     Break   = {},
     Loop    = {"body"},
 
-    If      = {"loc", "src", "then_", "else_"},
+    If      = {"loc", "src_condition", "then_", "else_"},
     For     = {"loc", "dst", "src_start", "src_limit", "src_step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
@@ -333,7 +333,7 @@ function ir.clean(cmd)
         end
 
     elseif tag == "ir.Cmd.If" then
-        local v = cmd.src
+        local v = cmd.src_condition
         cmd.then_ = ir.clean(cmd.then_)
         cmd.else_ = ir.clean(cmd.else_)
         local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")

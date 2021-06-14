@@ -138,7 +138,7 @@ local function Cmd(cmd)
             body = Cmd(cmd.body)
         })
     elseif tag == "ir.Cmd.If" then
-        local cond  = Val(cmd.src)
+        local cond  = Val(cmd.src_condition)
         local then_ = Cmd(cmd.then_)
         local else_ = Cmd(cmd.else_)
 
