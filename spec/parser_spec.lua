@@ -111,7 +111,7 @@ end
 
 local function assert_statements_ast(code, expected_ast)
     local program_ast = assert_parses_successfuly(statements_test_program(code))
-    local stats_ast = program_ast.tls[1].stats[1].value.body.stats
+    local stats_ast = program_ast.tls[1].stats[1].funcs[1].value.body.stats
     assert_is_subset(expected_ast, stats_ast)
 end
 
@@ -135,7 +135,7 @@ end
 
 local function assert_expression_ast(code, expected_ast)
     local program_ast = assert_parses_successfuly(expression_test_program(code))
-    local exp_ast = program_ast.tls[1].stats[1].value.body.stats[1].exps[1]
+    local exp_ast = program_ast.tls[1].stats[1].funcs[1].value.body.stats[1].exps[1]
     assert_is_subset(expected_ast, exp_ast)
 end
 
@@ -437,20 +437,17 @@ describe("Parser /", function()
                 _tag = "ast.Toplevel.Stats",
                 stats = {
                     {
-                        _tag = "ast.Stat.LetRec",
-                        decls = {},
-                        func_stats = {
+                        _tag = "ast.Stat.Functions",
+                        declared_names = {},
+                        funcs = {
                             { module = "m", name = "f" },
                             { module = "m", name = "g" },
                         },
                     },
                     {
-                        _tag = "ast.Stat.LetRec",
-                        decls = {
-                            { name = "x" },
-                            { name = "y" },
-                        },
-                        func_stats = {
+                        _tag = "ast.Stat.Functions",
+                        declared_names = { ["x"] = true, ["y"] = true },
+                        funcs = {
                             { module = false, name = "x" },
                             { module = "m",   name = "h" },
                             { module = false, name = "y" },
@@ -471,27 +468,31 @@ describe("Parser /", function()
                 _tag = "ast.Toplevel.Stats",
                 stats = {
                     {
-                        _tag = "ast.Stat.LetRec",
-                        decls = {},
-                        func_stats = {
+                        _tag = "ast.Stat.Functions",
+                        declared_names = {},
+                        funcs = {
                             { module = "m", name = "f" },
                             { module = "m", name = "g" },
                         },
                     },
                     {
-                        _tag = "ast.Stat.Func",
-                        module = false,
-                        name = "x",
+                        _tag = "ast.Stat.Functions",
+                        declared_names = { ["x"] = true },
+                        funcs = {
+                            { module = false, name = "x" },
+                        },
                     },
                     {
-                        _tag = "ast.Stat.Func",
-                        module = false,
-                        name = "y",
+                        _tag = "ast.Stat.Functions",
+                        declared_names = { ["y"] = true },
+                        funcs = {
+                            { module = false, name = "y" },
+                        },
                     },
                     {
-                        _tag = "ast.Stat.LetRec",
-                        decls = {},
-                        func_stats = {
+                        _tag = "ast.Stat.Functions",
+                        declared_names = {},
+                        funcs = {
                             { module = "m", name = "h" },
                         },
                     }
@@ -504,6 +505,14 @@ describe("Parser /", function()
                 local f: () -> ()
                 function f() end
             ]], "type annotations are not allowed in a function forward declaration")
+        end)
+
+        it("does not allow repeated names in the forward declaration", function()
+            assert_toplevel_error([[
+                local f,f,g
+                function f() end
+                function g() end
+            ]], "duplicate forward declaration for 'f'")
         end)
 
         it("complains if a global function was not forward declared", function()
@@ -569,7 +578,7 @@ describe("Parser /", function()
     -- In Lua, parenthesis can matter for multiple function returns
     describe("Parenthesized expressions", function()
 
-        it("are preserverd in the AST", function()
+        it("are preserved in the AST", function()
             assert_expression_ast("((1))",
                 { _tag = "ast.Exp.Paren",
                     exp = { _tag = "ast.Exp.Paren",

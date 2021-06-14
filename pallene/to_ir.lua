@@ -152,22 +152,6 @@ function ToIR:register_lambda(exp, name)
     return f_id
 end
 
-function ToIR:register_function(stat)
-    assert(stat._tag == "ast.Stat.Func")
-    if stat.is_local then
-        assert(not stat.module)
-        assert(not stat.method)
-    else
-        assert(not stat.method)
-    end
-
-    local f_id = self:register_lambda(stat.value, stat.name)
-
-    if stat.module then
-        ir.add_exported_function(self.module, f_id)
-    end
-end
-
 function ToIR:convert_toplevel(prog_ast)
 
     -- Create the $init function (it must have ID = 1)
@@ -198,11 +182,13 @@ function ToIR:convert_toplevel(prog_ast)
                         self.glb_id_of_decl[decl] = g_id
                     end
 
-                elseif stag == "ast.Stat.Func" then
-                    self:register_function(stat)
-                elseif stag == "ast.Stat.LetRec" then
-                    for _, func in ipairs(stat.func_stats) do
-                        self:register_function(func)
+                elseif stag == "ast.Stat.Functions" then
+                    for _, func in ipairs(stat.funcs) do
+                        assert(not stat.method)
+                        local f_id = self:register_lambda(func.value, func.name)
+                        if func.module then
+                            ir.add_exported_function(self.module, f_id)
+                        end
                     end
                 end
             end
@@ -611,13 +597,9 @@ function ToIR:convert_stat(cmds, stat)
     elseif tag == "ast.Stat.Break" then
         table.insert(cmds, ir.Cmd.Break())
 
-    elseif tag == "ast.Stat.Func" then
-        assert(stat.value and stat.value._tag == "ast.Exp.Lambda")
-        self:convert_func(stat.value)
-
-    elseif tag == "ast.Stat.LetRec" then
-        for _ , func in ipairs(stat.func_stats) do
-            self:convert_stat(cmds, func)
+    elseif tag == "ast.Stat.Functions" then
+        for _ , func in ipairs(stat.funcs) do
+            self:convert_func(func.value)
         end
 
     else
@@ -774,7 +756,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
                 end
 
             elseif def._tag == "checker.Def.Function" then
-                local id = self.fun_id_of_exp[def.stat.value]
+                local id = self.fun_id_of_exp[def.func.value]
                 return ir.Value.Function(id)
 
             elseif def._tag == "checker.Def.Builtin" then
@@ -950,7 +932,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif def and def._tag == "checker.Def.Function" then
-            local f_id = assert(self.fun_id_of_exp[def.stat.value])
+            local f_id = assert(self.fun_id_of_exp[def.func.value])
             table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_id, xs))
 
         else

@@ -22,7 +22,7 @@ local util = require "pallene.util"
 --      - ast.Var
 --      - ast.Decl
 --      - ast.Toplevel.Record
---      - ast.Stat.Func
+--      - ast.FuncStat.FuncStat
 --
 --   * _def: A checker.Def that describes the meaning of that name
 --      - ast.Var.Name
@@ -120,12 +120,12 @@ declare_type("Symbol", {
 
 --
 -- Provenance information, meant for the code generator
--- For each name in the AST, we to add an annotation to tell the codegen where it comes from.
+-- For each name in the AST, we add an annotation to tell the codegen where it comes from.
 --
 declare_type("Def", {
-    Variable = { "decl" },
-    Function = { "stat" },
-    Builtin  = { "id"   },
+    Variable = { "decl" }, -- ast.Decl
+    Function = { "func" }, -- ast.FuncStat
+    Builtin  = { "id"   }, -- string
 --  Import   = { ??? },
 })
 
@@ -134,7 +134,7 @@ local function loc_of_def(def)
     if     tag == "checker.Def.Variable" then
         return def.decl.loc
     elseif tag == "checker.Def.Function" then
-        return def.stat.loc
+        return def.func.loc
     elseif tag == "checker.Def.Builtin" then
         error("builtin does not have a location")
     else
@@ -323,53 +323,6 @@ function Checker:is_the_module_variable(exp)
         exp._tag == "ast.Exp.Var" and
         exp.var._tag == "ast.Var.Name" and
         (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
-end
-
-function Checker:add_func_stat_to_scope(stat, is_toplevel)
-    assert(stat._tag == "ast.Stat.Func")
-
-    local arg_types = {}
-    for i, decl in ipairs(stat.value.arg_decls) do
-        arg_types[i] = self:from_ast_type(decl.type)
-    end
-
-    local ret_types = {}
-    for i, ast_typ in ipairs(stat.ret_types) do
-        ret_types[i] = self:from_ast_type(ast_typ)
-    end
-
-    local typ = types.T.Function(arg_types, ret_types)
-
-    if stat.is_local then
-        -- Local function
-        assert(not stat.module)
-        assert(not stat.method)
-        self:add_value_symbol(stat.name, typ, checker.Def.Function(stat))
-    else
-        assert(not stat.method) -- not yet implemented
-        if stat.module then
-            -- Module function
-            local sym = self.symbol_table:find_symbol(stat.module)
-            if not sym then
-                type_error(stat.loc, "module '%s' is not declared", stat.module)
-            end
-            if sym._tag ~= "checker.Symbol.Module" then
-                type_error(stat.loc, "'%s' is not a module", stat.module)
-            end
-            if not is_toplevel then
-                type_error(stat.loc, "module functions can only be set at the toplevel")
-            end
-            if sym ~= self.module_symbol then
-                type_error(stat.loc, "attempting to assign a function to an external module")
-            end
-            self:export_value_symbol(stat.name, typ, checker.Def.Function(stat))
-        else
-            -- Local function (forward declared)
-            self:add_value_symbol(stat.name, typ, checker.Def.Function(stat))
-        end
-    end
-
-    stat._type = typ
 end
 
 function Checker:check_stat(stat, is_toplevel)
@@ -609,17 +562,52 @@ function Checker:check_stat(stat, is_toplevel)
     elseif tag == "ast.Stat.Break" then
         -- ok
 
-    elseif tag == "ast.Stat.Func" then
-        assert(stat.is_local)
-        self:add_func_stat_to_scope(stat, is_toplevel)
-        stat.value = self:check_exp_verify(stat.value, stat._type, "toplevel function")
+    elseif tag == "ast.Stat.Functions" then
 
-    elseif tag == "ast.Stat.LetRec" then
+        -- 1) Add the mutually-recursive names to the scope
+        for _, func in ipairs(stat.funcs) do
 
-        for _, func in ipairs(stat.func_stats) do
-            self:add_func_stat_to_scope(func, is_toplevel)
+            local arg_types = {}
+            for i, decl in ipairs(func.value.arg_decls) do
+                arg_types[i] = self:from_ast_type(decl.type)
+            end
+
+            local ret_types = {}
+            for i, ast_typ in ipairs(func.ret_types) do
+                ret_types[i] = self:from_ast_type(ast_typ)
+            end
+
+            local typ = types.T.Function(arg_types, ret_types)
+
+            assert(not func.method) -- not yet implemented
+
+            if func.module then
+                -- Module function
+                local sym = self.symbol_table:find_symbol(func.module)
+                if not sym then
+                    type_error(func.loc, "module '%s' is not declared", func.module)
+                end
+                if sym._tag ~= "checker.Symbol.Module" then
+                    type_error(func.loc, "'%s' is not a module", func.module)
+                end
+                if not is_toplevel then
+                    type_error(func.loc, "module functions can only be set at the toplevel")
+                end
+                if sym ~= self.module_symbol then
+                    type_error(func.loc, "attempting to assign a function to an external module")
+                end
+                self:export_value_symbol(func.name, typ, checker.Def.Function(func))
+            else
+                -- Local function
+                assert(stat.declared_names[func.name])
+                self:add_value_symbol(func.name, typ, checker.Def.Function(func))
+            end
+
+            func._type = typ
         end
-        for _, func in ipairs(stat.func_stats) do
+
+        -- 2) Type check the function bodies
+        for _, func in ipairs(stat.funcs) do
             func.value = self:check_exp_verify(func.value, func._type, "toplevel function")
         end
 

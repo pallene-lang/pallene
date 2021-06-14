@@ -1,4 +1,5 @@
 -- Copyright (c) 2020, The Pallene Developers
+        -- funcs = { is_local, module, name, method, ret_types, value }
 -- Pallene is licensed under the MIT license.
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
@@ -234,7 +235,7 @@ function Parser:Toplevel()
             local stat = self:Stat(true)
             if stat._tag ~= "ast.Stat.Decl" and
                stat._tag ~= "ast.Stat.Assign" and
-               stat._tag ~= "ast.Stat.Func"
+               stat._tag ~= "ast.Stat.Functions"
             then
                 self:syntax_error(stat.loc,
                     "toplevel statements can only be Returns, Declarations or Assignments")
@@ -386,9 +387,9 @@ local function is_forward_function_declaration(stats, i)
     if not (first and first._tag == "ast.Stat.Decl") then return false end
     if #first.exps > 0 then return false end
 
-    local func = stats[i+1]
-    if not (func and func._tag == "ast.Stat.Func") then return false end
-    if func.is_local then return false end
+    local funcs_stat = stats[i+1]
+    if not (funcs_stat and funcs_stat._tag == "ast.Stat.Functions") then return false end
+    if next(funcs_stat.declared_names) then return false end
 
     return true
 end
@@ -413,43 +414,48 @@ function Parser:find_letrecs(stats)
         local funcs = {}
         while i <= N do
             local stat = stats[i]
-            if not (stat and stat._tag == "ast.Stat.Func") then break end
-            if stat.is_local then break end
-            table.insert(funcs, stat)
+            if not (stat and stat._tag == "ast.Stat.Functions") then break end
+            if next(stat.declared_names) then break end
+            for _, func in ipairs(stat.funcs) do
+	            table.insert(funcs, func)
+            end
             i = i + 1
         end
 
         if funcs[1] then
             -- Function group, possibly with forward-declared local functions
-            local forw_names = {}
+            local declared_names = {}
             for _, decl in ipairs(forw_decls) do
                 if decl.type then
                     self:syntax_error(decl.loc,
                         "type annotations are not allowed in a function forward declaration")
                 end
-                forw_names[decl.name] = true
+                if declared_names[decl.name] then
+                    self:syntax_error(decl.loc,
+                        "duplicate forward declaration for '%s'", decl.name)
+                end
+                declared_names[decl.name] = true
             end
 
-            local func_names = {}
-            for _, stat in ipairs(funcs) do
-                assert(stat._tag == "ast.Stat.Func")
-                if not stat.module then
-                    if not forw_names[stat.name] then
-                        self:syntax_error(stat.loc,
-                            "function '%s' was not forward declared", stat.name)
+            local defined_names = {}
+            for _, func in ipairs(funcs) do
+                if not func.module then
+                    if not declared_names[func.name] then
+                        self:syntax_error(func.loc,
+                            "function '%s' was not forward declared", func.name)
                     end
-                    func_names[stat.name] = true
+                    defined_names[func.name] = true
                 end
             end
 
             for _, decl in ipairs(forw_decls) do
-                if not func_names[decl.name] then
+                if not defined_names[decl.name] then
                     self:syntax_error(decl.loc,
                         "missing a function definition for '%s'", decl.name)
                 end
             end
 
-            table.insert(out, ast.Stat.LetRec(loc, forw_decls, funcs))
+            table.insert(out, ast.Stat.Functions(loc, declared_names, funcs))
 
         else
             -- Other statements
@@ -550,9 +556,18 @@ function Parser:FuncStat(is_local)
       end
     end
 
-    return ast.Stat.Func(
-        start.loc, is_local, module, name, method, return_types,
+    local declared_names
+    if is_local then
+        declared_names = { [name] = true }
+    else
+        declared_names = { }
+    end
+
+    local func = ast.FuncStat.FuncStat(
+        start.loc, module, name, method, return_types,
         ast.Exp.Lambda(start.loc, params, block))
+
+    return ast.Stat.Functions(start.loc, declared_names, { func })
 end
 
 function Parser:Stat(is_toplevel)
