@@ -69,7 +69,6 @@ local x: float = 0 -- Type error. Should use 0.0 instead.
 
 That said, most arithmetic operators still work if one of the parameters is an integer and the other is a float.
 If you just want to convert an integer to float, the recommended idiom is to multiply it by 1.0.
-(Adding 0.0 also works but GCC produces worse code for that.)
 
 ```
 local i: integer = 10
