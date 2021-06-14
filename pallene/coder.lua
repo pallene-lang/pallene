@@ -1132,7 +1132,7 @@ end
 
 gen_cmd["NewArr"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
-    local n   = self:c_value(cmd.size_hint)
+    local n   = self:c_value(cmd.src_size)
     return (util.render([[ $dst = pallene_createtable(L, $n, 0); ]], {
         dst = dst, n = n,
     }))
@@ -1183,7 +1183,7 @@ end
 
 gen_cmd["NewTable"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dst)
-    local n   = self:c_value(cmd.size_hint)
+    local n   = self:c_value(cmd.src_size)
     return (util.render([[ $dst = pallene_createtable(L, 0, $n); ]], {
         dst = dst,
         n = n,
@@ -1447,7 +1447,7 @@ gen_cmd["Break"] = function(self, _cmd, _func)
 end
 
 gen_cmd["If"] = function(self, cmd, func)
-    local condition = self:c_value(cmd.condition)
+    local condition = self:c_value(cmd.src_condition)
     local then_ = self:generate_cmd(func, cmd.then_)
     local else_ = self:generate_cmd(func, cmd.else_)
 
@@ -1496,7 +1496,7 @@ gen_cmd["Loop"] = function(self, cmd, func)
 end
 
 gen_cmd["For"] = function(self, cmd, func)
-    local typ = func.vars[cmd.loop_var].typ
+    local typ = func.vars[cmd.dst].typ
 
     local macro
     if     typ._tag == "types.T.Integer" then
@@ -1515,10 +1515,10 @@ gen_cmd["For"] = function(self, cmd, func)
         ${macro}_END
     ]], {
         macro = macro,
-        x     = self:c_var(cmd.loop_var),
-        start = self:c_value(cmd.start),
-        limit = self:c_value(cmd.limit),
-        step  = self:c_value(cmd.step),
+        x     = self:c_var(cmd.dst),
+        start = self:c_value(cmd.src_start),
+        limit = self:c_value(cmd.src_limit),
+        step  = self:c_value(cmd.src_step),
         body  = self:generate_cmd(func, cmd.body)
     }))
 end

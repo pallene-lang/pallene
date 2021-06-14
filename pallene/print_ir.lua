@@ -138,7 +138,7 @@ local function Cmd(cmd)
             body = Cmd(cmd.body)
         })
     elseif tag == "ir.Cmd.If" then
-        local cond  = Val(cmd.condition)
+        local cond  = Val(cmd.src_condition)
         local then_ = Cmd(cmd.then_)
         local else_ = Cmd(cmd.else_)
 
@@ -180,10 +180,10 @@ local function Cmd(cmd)
                 $body
             }
         ]], {
-            v = Var(cmd.loop_var),
-            a = Val(cmd.start),
-            b = Val(cmd.limit),
-            c = Val(cmd.step),
+            v = Var(cmd.dst),
+            a = Val(cmd.src_start),
+            b = Val(cmd.src_limit),
+            c = Val(cmd.src_step),
             body = Cmd(cmd.body),
         })
     end
