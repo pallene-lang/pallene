@@ -152,6 +152,17 @@ function ToIR:register_lambda(exp, name)
     return f_id
 end
 
+function ToIR:register_imported_function(stat, mod_name)
+    assert(stat._tag == "ast.FuncStat.FuncStat")
+    assert(stat.module)
+
+    return ir.add_imported_function(self.module, mod_name, stat.name, stat.value._type)
+end
+
+function ToIR:is_cross_module_call(exp)
+    return exp.exp.var._mod_name
+end
+
 function ToIR:convert_toplevel(prog_ast)
 
     -- Create the $init function (it must have ID = 1)
@@ -743,6 +754,17 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
             local def = var._def
+            if var._mod_name then
+                if def._tag == "checker.Def.Variable" then
+                    local var_name = def.decl._exported_as
+                    local imported_var = { name = var_name, mod = var._mod_name, typ = var._type }
+                    table.insert(self.module.imported_vars, imported_var)
+                    return ir.Value.ImportedVar(#self.module.imported_vars)
+                else
+                    local id = self:register_imported_function(def.func, var._mod_name)
+                    return ir.Value.ImportedFunction(id)
+                end
+            end
             if     def._tag == "checker.Def.Variable" then
                 local var_info = self:resolve_variable(def.decl)
                 if var_info._tag == "to_ir.Var.LocalVar" then
@@ -892,7 +914,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local f_val
         if  def and (
                 def._tag == "checker.Def.Builtin" or
-                def._tag == "checker.Def.Function") then
+                def._tag == "checker.Def.Function") and
+                not self:is_cross_module_call(exp) then
             f_val = false
         else
             f_val = self:exp_to_value(cmds, exp.exp)
@@ -932,8 +955,12 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif def and def._tag == "checker.Def.Function" then
-            local f_id = assert(self.fun_id_of_exp[def.func.value])
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_id, xs))
+            if self:is_cross_module_call(exp) then
+                table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
+            else
+                local f_id = assert(self.fun_id_of_exp[def.func.value])
+                table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_id, xs))
+            end
 
         else
             table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))

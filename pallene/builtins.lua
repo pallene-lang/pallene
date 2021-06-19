@@ -15,7 +15,8 @@ local ipairs_itertype = T.Function({T.Any(), T.Any()}, {T.Any(), T.Any()})
 builtins.functions = {
     type     = T.Function({ T.Any() }, { T.String() }),
     tostring = T.Function({ T.Any() }, { T.String() }),
-    ipairs   = T.Function({T.Array(T.Any())}, {ipairs_itertype, T.Any(), T.Any()})
+    ipairs   = T.Function({T.Array(T.Any())}, {ipairs_itertype, T.Any(), T.Any()}),
+    require  = T.Function({ T.String() }, { T.Any() })
 }
 
 builtins.modules = {

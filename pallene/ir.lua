@@ -33,6 +33,8 @@ function ir.Module()
         globals            = {}, -- list of ir.VarDecl
         exported_functions = {}, -- list of function ids
         exported_globals   = {}, -- list of variable ids
+        imported_functions = {},  -- list of imported functions
+        imported_vars      = {},  -- list of imported variables
     }
 end
 
@@ -58,6 +60,14 @@ function ir.Function(loc, name, typ)
         vars = {},          -- list of ir.VarDecl
         captured_vars = {}, -- list of ir.UpvalInfo
         body = false,       -- ir.Cmd
+    }
+end
+
+function ir.ImportedFunction(name, typ, mod)
+    return {
+        name = name, -- string
+        typ = typ,   -- Type
+        mod = mod,   -- Module name
     }
 end
 
@@ -88,6 +98,12 @@ function ir.add_exported_global(module, g_id)
     table.insert(module.exported_globals, g_id)
 end
 
+function ir.add_imported_function(module, mod_name, name, typ)
+    table.insert(module.imported_functions, ir.ImportedFunction(name, typ, mod_name))
+
+    return #module.imported_functions
+end
+
 --
 -- Function variables
 --
@@ -114,14 +130,16 @@ end
 --
 
 declare_type("Value", {
-    Nil        = {},
-    Bool       = {"value"},
-    Integer    = {"value"},
-    Float      = {"value"},
-    String     = {"value"},
-    LocalVar   = {"id"},
-    Upvalue    = {"id"},
-    Function   = {"id"},
+    Nil                = {},
+    Bool               = {"value"},
+    Integer            = {"value"},
+    Float              = {"value"},
+    String             = {"value"},
+    LocalVar           = {"id"},
+    Upvalue            = {"id"},
+    Function           = {"id"},
+    ImportedFunction   = {"id"},
+    ImportedVar        = {"id"},
 })
 
 -- declare_type("Cmd"

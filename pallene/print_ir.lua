@@ -32,20 +32,26 @@ local function Fun(id)
     end
 end
 
+local function ImportedFun(id)
+    return "impf"..id
+end
+
 local function Global(id)
     return "g"..id
 end
 
 local function Val(val)
     local tag = val._tag
-    if     tag == "ir.Value.Nil"      then return "nil"
-    elseif tag == "ir.Value.Bool"     then return tostring(val.value)
-    elseif tag == "ir.Value.Integer"  then return tostring(val.value)
-    elseif tag == "ir.Value.Float"    then return C.float(val.value)
-    elseif tag == "ir.Value.String"   then return C.string(val.value)
-    elseif tag == "ir.Value.LocalVar" then return Var(val.id)
-    elseif tag == "ir.Value.Upvalue"  then return Upval(val.id)
-    elseif tag == "ir.Value.Function" then return Fun(val.id)
+    if     tag == "ir.Value.Nil"              then return "nil"
+    elseif tag == "ir.Value.Bool"             then return tostring(val.value)
+    elseif tag == "ir.Value.Integer"          then return tostring(val.value)
+    elseif tag == "ir.Value.Float"            then return C.float(val.value)
+    elseif tag == "ir.Value.String"           then return C.string(val.value)
+    elseif tag == "ir.Value.LocalVar"         then return Var(val.id)
+    elseif tag == "ir.Value.Upvalue"          then return Upval(val.id)
+    elseif tag == "ir.Value.Function"         then return Fun(val.id)
+    elseif tag == "ir.Value.ImportedFunction" then return ImportedFun(val.id)
+    elseif tag == "ir.Value.ImportedVar"      then return ImportedFun(val.id)
     else
         typedecl.tag_error(tag)
     end
