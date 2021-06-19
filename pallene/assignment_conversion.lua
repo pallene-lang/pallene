@@ -124,6 +124,7 @@ function Converter:exit_lambda(lambda)
 			-- 	  to ast.Var.Dot
 			local typ = types.T.Record(self:type_name(decl.name), { "value" } , { value = decl._type } )
 			self:add_box_type(decl.loc, typ)
+			decl._type = typ
 
 			local init_exp = self.init_exp_of_decl[decl]
 			
