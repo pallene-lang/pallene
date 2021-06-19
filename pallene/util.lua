@@ -107,6 +107,22 @@ function util.outputs_of_execute(cmd)
     return ok, err, out_content, err_content
 end
 
+
+function util.copy_table(t)
+    local new_t = {}
+    for k, v in pairs(t) do
+        new_t[k] = v
+    end
+    return setmetatable(new_t, getmetatable(t))
+end
+
+function util.empty_table(t)
+    for k, _ in pairs(t) do
+        t[k] = nil
+    end
+end
+
+
 --
 -- OOP
 --
