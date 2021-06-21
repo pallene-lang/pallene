@@ -128,7 +128,7 @@ declare_type("Value", {
 local ir_cmd_constructors = {
     -- [IMPORTANT] Please use this naming convention:
     --  - "src" fields contain an "ir.Value".
-	--  - "dst" fields contain a local variable ID.
+    --  - "dst" fields contain a local variable ID.
 
     -- Variables
     Move       = {"loc", "dst", "src"},

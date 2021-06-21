@@ -8,8 +8,8 @@ local m: module = {}
 typealias rectangle = { width: float, height: float }
 
 function m.find_area(r: rectangle): float
-	local result = r.width * r.height
-	return result
+    local result = r.width * r.height
+    return result
 end
 
 return m
