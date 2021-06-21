@@ -34,19 +34,22 @@ declare_type("Decl", {
 })
 
 declare_type("Stat", {
-    Block  = {"loc", "stats"},
-    While  = {"loc", "condition", "block"},
-    Repeat = {"loc", "block", "condition"},
-    If     = {"loc", "condition", "then_", "else_"},
-    ForNum = {"loc", "decl", "start", "limit", "step", "block"},
-    ForIn  = {"loc", "decls", "exps", "block"},
-    Assign = {"loc", "vars", "exps"},
-    Decl   = {"loc", "decls", "exps"},
-    Call   = {"loc", "call_exp"},
-    Return = {"loc", "exps"},
-    Break  = {"loc"},
-    Func   = {"loc", "is_local", "module", "name", "method", "ret_types", "value"},
-    LetRec = {"loc", "decls", "func_stats"}, -- For mutual recursion (see parser.lua)
+    Block     = {"loc", "stats"},
+    While     = {"loc", "condition", "block"},
+    Repeat    = {"loc", "block", "condition"},
+    If        = {"loc", "condition", "then_", "else_"},
+    ForNum    = {"loc", "decl", "start", "limit", "step", "block"},
+    ForIn     = {"loc", "decls", "exps", "block"},
+    Assign    = {"loc", "vars", "exps"},
+    Decl      = {"loc", "decls", "exps"},
+    Call      = {"loc", "call_exp"},
+    Return    = {"loc", "exps"},
+    Break     = {"loc"},
+    Functions = {"loc", "declared_names", "funcs"}, -- For mutual recursion (see parser.lua)
+})
+
+declare_type("FuncStat", {
+    FuncStat = {"loc", "module", "name", "method", "ret_types", "value"},
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
