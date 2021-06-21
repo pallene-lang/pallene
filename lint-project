@@ -1,2 +1,19 @@
-#!/bin/sh
-luacheck pallene/ spec/ examples/ "$@"
+#!/bin/bash
+
+srcdirs=(pallene/ spec/ examples/)
+
+# Lint our Lua code
+luacheck "${srcdirs[@]}" "$@" || exit 1
+
+# Also check if there is tab-based indentation. Luacheck doesn't do this.
+tab='	'
+if
+    grep --recursive \
+        --include='*.c'   \
+        --include='*.lua' \
+        --include='*.pln' \
+        "^$tab" "${srcdirs[@]}"
+then
+    echo "Detected tab-based indentation"
+    exit 1
+fi

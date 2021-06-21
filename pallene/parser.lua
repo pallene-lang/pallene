@@ -417,7 +417,7 @@ function Parser:find_letrecs(stats)
             if not (stat and stat._tag == "ast.Stat.Functions") then break end
             if next(stat.declared_names) then break end
             for _, func in ipairs(stat.funcs) do
-	            table.insert(funcs, func)
+                table.insert(funcs, func)
             end
             i = i + 1
         end
@@ -510,8 +510,8 @@ function Parser:FuncStat(is_local)
     if self:try(".") then
         field = self:e("NAME").value
         if self:try(".") then
-	        self:syntax_error(self.prev.loc,
-	            "more than one dot in the function name is not allowed")
+            self:syntax_error(self.prev.loc,
+                "more than one dot in the function name is not allowed")
         end
     end
 
