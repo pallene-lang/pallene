@@ -266,9 +266,6 @@ function Converter:visit_stat(stat)
     elseif tag == "ast.Stat.Call" then
         stat.call_exp = self:convert_exp(stat.call_exp)
 
-    elseif  tag == "ast.Stat.Func" then
-        self:visit_func(stat)
-
     elseif  tag == "ast.Stat.Break" then
         -- empty
     else
