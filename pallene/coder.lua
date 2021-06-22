@@ -557,7 +557,7 @@ function Coder:lua_entry_point_definition(f_id)
         local name = upval.decl.name
         local typ  = upval.decl.typ
         local dst  = arg_vars[u_id]
-        local src  = string.format("&func->upvalue[%s]", C.integer(u_id - 1))
+        local src  = string.format("&func->upvalue[%s]", C.integer(u_id))
         table.insert(init_args,
             self:get_stack_slot(typ, dst, src,
                 func.loc, "upvalue '%s'", C.string(name)))
@@ -1335,19 +1335,20 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
         local typ   = upval_info.decl.typ
         local c_val = self:c_value(upval_info.value)
         table.insert(capture_upvalues, set_stack_slot(typ,
-            string.format("&ccl->upvalue[%s]", C.integer(i - 1)), c_val))
+            string.format("&ccl->upvalue[%s]", C.integer(i)), c_val))
     end
 
     return util.render([[
         {
             CClosure *ccl = luaF_newCclosure(L, $num_upvalues);
             ccl->f = $lua_entry_point;
+            setuvalue(L, &ccl->upvalue[0], G);
             $capture_upvalues
 
             setclCvalue(L, &$dst, ccl);
         }
     ]], {
-        num_upvalues = C.integer(#func.captured_vars),
+        num_upvalues = C.integer(#func.captured_vars + 1),
         dst = self:c_var(cmd.dst),
         lua_entry_point = self:lua_entry_point_name(cmd.f_id),
         capture_upvalues = table.concat(capture_upvalues, "\n")

@@ -2496,6 +2496,19 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
                 return add(x)
             end
+
+            function m.wrap(x: integer): (integer -> (), () -> integer)
+                local n: integer = x
+                local set: integer -> () = function (y)
+                    n = y
+                end 
+
+                local get: () -> integer = function()
+                    return n
+                end
+
+                return set, get
+            end
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2521,6 +2534,16 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[
                 local add10 = test.make_adder(10)
                 assert(add10(20) == 30)
+            ]])
+        end)
+
+
+        it("Mutating and capturing closures work as expected", function()
+            run_test([[
+                local set, get = test.wrap(10)
+                assert(get() == 10)
+                set(100)
+                assert(get() == 100)
             ]])
         end)
     end)
