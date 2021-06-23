@@ -382,6 +382,37 @@ end
 function even(n:integer): boolean
     if n == 0 then return true else return odd(n-1) end
 end
+```
+
+## Imported Modules
+
+It's possible to import other Pallene modules using the `require` function, just as is in Lua.
+
+```
+local mod = require"mod"
+```
+
+There is one caveat, though:
+`require` can only be called from a toplevel local variable declaration.
+
+The syntax for calling module functions, or using module variables is the following
+
+```
+local mod = require"mod"
+local ret = mod.foo()
+local var = mod.var
+```
+
+As of now, you can pass all types of arguments to imported module function, except for `Records`.
+Also, module functions can't return `Records` and module variables can't be `Records`.
+
+Since module variables are constant in pallene, you also can't change their values.
+Any attempt to do so, like the one shown below, will yield an error.
+
+```
+local mod = require"mod"
+mod.var = 1
+```
 
 ## Expressions and Statements
 

@@ -10,13 +10,14 @@ local constant_propagation = {}
 
 local function is_constant_value(v)
     local tag = v._tag
-    if     tag == "ir.Value.Nil"      then return true
-    elseif tag == "ir.Value.Bool"     then return true
-    elseif tag == "ir.Value.Integer"  then return true
-    elseif tag == "ir.Value.Float"    then return true
-    elseif tag == "ir.Value.String"   then return true
-    elseif tag == "ir.Value.LocalVar" then return false
-    elseif tag == "ir.Value.Function" then return true
+    if     tag == "ir.Value.Nil"         then return true
+    elseif tag == "ir.Value.Bool"        then return true
+    elseif tag == "ir.Value.Integer"     then return true
+    elseif tag == "ir.Value.Float"       then return true
+    elseif tag == "ir.Value.String"      then return true
+    elseif tag == "ir.Value.LocalVar"    then return false
+    elseif tag == "ir.Value.Function"    then return true
+    elseif tag == "ir.Value.ImportedVar" then return true
     else
         typedecl.tag_error(tag)
     end

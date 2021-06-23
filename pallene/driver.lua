@@ -64,7 +64,7 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
         return prog_ast, errs
     end
 
-    prog_ast, errs = checker.check(prog_ast)
+    prog_ast, errs = checker.check(prog_ast, driver)
     if stop_after == "checker" or not prog_ast then
         return prog_ast, errs
     end
