@@ -115,6 +115,31 @@ describe("Module", function()
         ]], "module field 'x' does not exist")
     end)
 
+    it("forbids exported function from having Records as arguments", function()
+        assert_error([[
+            record Point
+                x: float
+                y: float
+            end
+            function m.f(i: integer, p: Point): integer
+                return i
+            end
+        ]], "Argument number 2 of module function is a record")
+    end)
+
+    it("forbids exported function from having Records as return values", function()
+        assert_error([[
+            record Point
+                x: float
+                y: float
+            end
+            function m.f(i: integer): Point
+                local p: Point = {x = 1.4, y = -2.0}
+                return p
+            end
+        ]], "Return value number 1 of module function is a record")
+    end)
+
 end)
 
 --
@@ -550,7 +575,8 @@ describe("Field acess (dot)", function()
                 x: integer
                 y: integer
             end
-            function m.f(p: Point)
+            local f
+            function f(p: Point)
                 local _ = p.z
             end
         ]], "field 'z' not found in type 'Point'")
@@ -562,7 +588,8 @@ describe("Field acess (dot)", function()
                 x: integer
                 y: integer
             end
-            function m.f(p: Point)
+            local f
+            function f(p: Point)
                 p.x = "hello"
             end
         ]], "expected integer but found string in assignment")
@@ -918,6 +945,128 @@ describe("Table constructor", function()
         assert_error([[
             local p: string = { 10, 20, 30 }
         ]], "type hint for table initializer is not an array, table, or record type")
+    end)
+
+    describe("Test imported modules", function()
+
+        local function assert_module_error(code, expected_error)
+            local program = util.render([[
+               typealias point = {x: float, y: float}
+               local p1: point = {x = 1.0, y = 2.0}
+               local p2: point = {x = 2.0, y = 1.0}
+               local test = require"spec.modtest"
+               function m.f()
+                    $code
+               end
+            ]], { code = code })
+
+            assert_error(program, expected_error)
+        end
+
+        it("First argument to add must be an integer", function()
+            assert_module_error([[
+                local ret = test.add(1.0, 2)
+            ]], "expected integer but found float in argument 1 of call to function")
+        end)
+
+        it("Second argument to add must be an integer", function()
+            assert_module_error([[
+                local ret = test.add(1, 2.0)
+            ]], "expected integer but found float in argument 2 of call to function")
+        end)
+
+        it("First argument to sub must be an integer", function()
+            assert_module_error([[
+                local ret = test.sub("wrong arg", 2)
+            ]], "expected integer but found string in argument 1 of call to function")
+        end)
+
+        it("First argument to addpoints must be a point", function()
+            assert_module_error([[
+                local ret = test.addpoints(1, p2)
+            ]], "expected { x: float, y: float } but found integer in argument 1 of call to function")
+        end)
+
+        it("Second argument to addpoints must be a point", function()
+            assert_module_error([[
+                local ret = test.addpoints(p1, 2)
+            ]], "expected { x: float, y: float } but found integer in argument 2 of call to function")
+        end)
+
+        it("Return value of addpoints is a point", function()
+            assert_module_error([[
+                local iret: integer = test.addpoints(p1, p2)
+            ]], "expected integer but found { x: float, y: float } in declaration of local variable 'iret'")
+        end)
+
+        it("Wrong number of arguments to addpoints", function()
+            assert_module_error([[
+                local pret: point  = test.addpoints(p1, p2, p1)
+            ]], "function expects 2 argument(s) but received 3")
+        end)
+
+        it("Call non existent module function", function()
+            assert_module_error([[
+                local ret = test.unknown()
+            ]], "module field 'unknown' does not exist")
+        end)
+
+        it("Access not existent module variable", function()
+            assert_module_error([[
+                local i = test.unknown
+            ]], "module field 'unknown' does not exist")
+        end)
+
+        it("Forbid assignment of imported module variable", function()
+            assert_module_error([[
+                test.var = 1
+            ]], "Can't assign to imported module variables")
+        end)
+
+        it("Assign imported variable of type integer to local variable of type float", function()
+            assert_module_error([[
+                local varloc: float = test.var
+            ]], "expected float but found integer in declaration of local variable 'varloc'")
+        end)
+
+    end)
+
+    describe("Forbid require from being stored in anything but a toplevel local variable", function()
+
+        local function assert_module_error(code, expected_error)
+            local program = util.render([[
+               local dummy
+               function dummy(s: any): any
+                   return s
+               end
+               $code
+            ]], { code = code })
+
+            assert_error(program, expected_error)
+        end
+
+        it("Forbid require from being called in a function argument", function()
+            assert_module_error([[
+                local test = dummy(require"test")
+            ]], "Can only call require from a local variable declaration")
+        end)
+
+        it("Forbid require from being called indirectly", function()
+            assert_module_error([[
+                local dummy2
+                function dummy2(s: string): any
+                    return require(s)
+                end
+            ]], "Can only call require from a local variable declaration")
+        end)
+
+        --TODO: Improve the error message for this case
+        it("Forbid multiple requires in one line", function()
+            assert_module_error([[
+                local m1, m2 = require'mod1', require'spec.modtest'
+            ]], "Can only call require from a local variable declaration")
+        end)
+
     end)
 
 end)

@@ -1,0 +1,20 @@
+local m: module = {}
+
+typealias point = {x: float, y: float}
+
+function m.add(x1: integer, x2: integer): integer
+    return x1 + x2
+end
+
+function m.sub(x1: integer, x2: integer): integer
+    return x1 - x2
+end
+
+function m.addpoints(p1: point, p2: point): point
+    local padd: point = {x = p1.x + p2.x, y = p1.y + p2.y}
+    return padd
+end
+
+m.var = 1
+
+return m

@@ -648,7 +648,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: float
             end
 
-            function m.points(): {Point}
+            local points
+            function points(): {Point}
                 return {
                     { x = 1.0, y = 2.0 },
                     { x = 1.0, y = 2.0 },
@@ -656,36 +657,53 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 }
             end
 
-            function m.eq_point(p: Point, q: Point): boolean
+            local eq_point
+            function eq_point(p: Point, q: Point): boolean
                 return p == q
             end
 
-            function m.ne_point(p: Point, q: Point): boolean
+            local ne_point
+            function ne_point(p: Point, q: Point): boolean
                 return p ~= q
             end
+
+            function m.eq_points(): boolean
+                local p = points()
+                for i = 1, #p do
+                    for j = 1, #p do
+                        local ok = (i == j)
+                        if ok ~= eq_point(p[i], p[j]) then
+                            return false
+                        end
+                    end
+                end
+                return true
+            end
+
+            function m.ne_points(): boolean
+                local p = points()
+                for i = 1, #p do
+                    for j = 1, #p do
+                        local ok = (i ~= j)
+                        if ok ~= ne_point(p[i], p[j]) then
+                            return false
+                        end
+                    end
+                end
+                return true
+            end
+
         ]])
 
         it("==", function()
             run_test([[
-                local p = test.points()
-                for i = 1, #p do
-                    for j = 1, #p do
-                        local ok = (i == j)
-                        assert(ok == test.eq_point(p[i], p[j]))
-                    end
-                end
+                assert(test.eq_points())
             ]])
         end)
 
         it("~=", function()
             run_test([[
-                local p = test.points()
-                for i = 1, #p do
-                    for j = 1, #p do
-                        local ok = (i ~= j)
-                        assert(ok == test.ne_point(p[i], p[j]))
-                    end
-                end
+                assert(test.ne_points())
             ]])
         end)
     end)
@@ -697,17 +715,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             { "integer"  , "integer",         "17"},
             { "float"    , "float",           "3.14"},
             { "string"   , "string",          "'hello'"},
-            { "function" , "integer->string", "tostring"},
             { "array"    , "{integer}",       "{10,20}"},
             { "table"    , "{x: integer}",    "{x = 1}"},
-            { "record"   , "Empty",           "test.new_empty()"},
+            { "record"   , "Empty",           "new_empty()"},
             { "any"      , "any",             "17"},
         }
 
         local record_decls = [[
             record Empty
             end
-            function m.new_empty(): Empty
+            local new_empty
+            function new_empty(): Empty
                 return {}
             end
         ]]
@@ -720,34 +738,58 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             local name, typ, value = test[1], test[2], test[3]
 
             pallene_code[i] = util.render([[
-                function m.from_${name}(x: ${typ}): any
+                local from_${name}
+                function from_${name}(x: ${typ}): any
                     return (x as any)
                 end
 
-                function m.to_${name}(x: any): ${typ}
+                local to_${name}
+                function to_${name}(x: any): ${typ}
                     return (x as ${typ})
                 end
+
+                function m.from_${name}(): boolean
+                    local x: $typ = ${value}
+                    return (x as any) == from_${name}(x)
+                end
+
+                function m.to_${name}(): boolean
+                    local x: $typ = ${value}
+                    return x == to_${name}(x)
+                end
+
             ]], {
                 name = name,
                 typ = typ,
+                value = value,
             })
 
             test_to[name] = util.render([[
-                local x = ${value}
-                assert(x == test.from_${name}(x))
+                assert(test.to_${name}())
             ]], {
                 name = name,
-                value = value
             })
 
             test_from[name] = util.render([[
-                local x = ${value}
-                assert(x == test.from_${name}(x))
+                assert(test.from_${name}())
             ]], {
                 name = name,
-                value = value
             })
         end
+
+        pallene_code[#pallene_code + 1] = [[
+            function m.to_integer_dummy(a: any): integer
+                return (a as integer)
+            end
+
+            function m.to_function(x: any): (integer->string)
+                return (x as integer->string)
+            end
+
+            function m.from_function(x: integer->string): any
+                return (x as any)
+            end
+        ]]
 
         compile(
             record_decls .. "\n" ..
@@ -764,9 +806,21 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             it("any->" .. name, function() run_test(test_from[name]) end)
         end
 
+        it("any -> function", function() run_test([[
+                local x = tostring
+                assert(x == test.to_function(x))
+            ]])
+        end)
+
+        it("function -> any", function() run_test([[
+                local x = tostring
+                assert(x == test.from_function(x))
+            ]])
+        end)
+
         it("detects downcast error", function()
             run_test([[
-                assert_pallene_error("wrong type for downcasted value", test.to_integer, "hello")
+                assert_pallene_error("wrong type for downcasted value", test.to_integer_dummy, "hello")
             ]])
         end)
     end)
@@ -1235,52 +1289,50 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         compile([[
             typealias Float = float
             typealias FLOAT = float
-
             function m.Float2float(x: Float): float return x end
             function m.float2Float(x: float): Float return x end
             function m.Float2FLOAT(x: Float): FLOAT return x end
-
             record point
                 x: Float
             end
-
             typealias Point = point
             typealias Points = {Point}
 
-            function m.newPoint(x: Float): Point
+            local newPoint
+            function newPoint(x: Float): Point
                 return {x = x}
             end
-
-            function m.get(p: Point): FLOAT
+            local get
+            function get(p: Point): FLOAT
                 return p.x
             end
-
-            function m.addPoint(ps: Points, p: Point)
+            local addPoint
+            function addPoint(ps: Points, p: Point)
                 ps[#ps + 1] = p
+            end
+
+            function m.get(): FLOAT
+               local p = newPoint(1.1)
+               return get(p)
+            end
+
+            function m.addPoint(): boolean
+               local p = newPoint(1.1)
+               local ps: Points = {}
+               addPoint(ps, p)
+               return p == ps[1]
             end
         ]])
 
-        it("converts between typealiases of the same type", function()
-            run_test([[
-                assert(1.1 == test.Float2float(1.1))
-                assert(1.1 == test.float2Float(1.1))
-                assert(1.1 == test.Float2FLOAT(1.1))
-            ]])
-        end)
-
         it("creates a records with typealiases", function()
             run_test([[
-                local p = test.newPoint(1.1)
-                assert(1.1 == test.get(p))
+                assert(1.1 == test.get())
             ]])
         end)
 
         it("manipulates typealias of an array", function()
             run_test([[
-                local p = test.newPoint(1.1)
-                local ps = {}
-                test.addPoint(ps, p)
-                assert(p == ps[1])
+        assert(test.addPoint())
             ]])
         end)
     end)
@@ -1292,117 +1344,40 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: {integer}
             end
 
-            function m.make_foo(x: integer, y: {integer}): Foo
+            local make_foo
+            function make_foo(x: integer, y: {integer}): Foo
                 return { x = x, y = y }
             end
 
-            function m.get_x(foo: Foo): integer
-                return foo.x
+            function m.getset(): boolean
+                local foo = make_foo(123, {})
+                local res1 = 123 == foo.x
+                foo.x = 456
+                return res1 and foo.x == 456
             end
 
-            function m.set_x(foo: Foo, x: integer)
-                foo.x = x
-            end
-
-            function m.get_y(foo: Foo): {integer}
-                return foo.y
-            end
-
-            function m.set_y(foo: Foo, y: {integer})
-                foo.y = y
-            end
-
-            record Prim
-                x: integer
-            end
-
-            function m.make_prim(x: integer): Prim
-                return { x = x }
-            end
-
-            record Gc
-                x: {integer}
-            end
-
-            function m.make_gc(x: {integer}): Gc
-                return { x = x }
-            end
-
-            record Empty
-            end
-
-            function m.make_empty(): Empty
-                return {}
+            function m.getset_gc(): boolean
+                local a: {integer} = {}
+                local b: {integer}  = {}
+                local foo = make_foo(123, a)
+                local res1 = a == foo.y
+                foo.y = b
+                return res1 and foo.y == b
             end
         ]])
 
-        it("create records", function()
-            run_test([[
-                local x = test.make_foo(123, {})
-                assert_is_pallene_record(x)
-            ]])
-        end)
-
         it("get/set primitive fields in pallene", function()
             run_test([[
-                local foo = test.make_foo(123, {})
-                assert(123 == test.get_x(foo))
-                test.set_x(foo, 456)
-                assert(456 == test.get_x(foo))
+                assert(test.getset())
             ]])
         end)
 
         it("get/set gc fields in pallene", function()
             run_test([[
-                local a = {}
-                local b = {}
-                local foo = test.make_foo(123, a)
-                assert(a == test.get_y(foo))
-                test.set_y(foo, b)
-                assert(b == test.get_y(foo))
+                assert(test.getset_gc())
             ]])
         end)
 
-        it("create records with only primitive fields", function()
-            run_test([[
-                local x = test.make_prim(123)
-                assert_is_pallene_record(x)
-            ]])
-        end)
-
-        it("create records with only gc fields", function()
-            run_test([[
-                local x = test.make_gc({})
-                assert_is_pallene_record(x)
-            ]])
-        end)
-
-        it("create empty records", function()
-            run_test([[
-                local x = test.make_empty()
-                assert_is_pallene_record(x)
-            ]])
-        end)
-
-        it("check record tags", function()
-            -- TODO: change this message to mention the relevant record types
-            -- instead of only saying "userdata"
-            run_test([[
-                local prim = test.make_prim(123)
-                assert_pallene_error("expected userdata but found userdata", test.get_x, prim)
-            ]])
-        end)
-
-        -- The follow test case is special. Therefore, we manually check the backend we are testing
-        -- before executing it.
-        if backend == "c" then
-            it("protect record metatables", function()
-                run_test([[
-                    local x = test.make_prim(123)
-                    assert(getmetatable(x) == false)
-                ]])
-            end)
-        end
     end)
 
     describe("I/O", function()
@@ -2066,11 +2041,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 y: integer
             end
 
-            function m.new_rpoint(x:integer, y:integer): RPoint
+            local new_rpoint
+            function new_rpoint(x:integer, y:integer): RPoint
                 return {x = x, y = y}
             end
 
-            function m.get_rpoint_fields(p:RPoint): (integer, integer)
+            local get_rpoint_fields
+            function get_rpoint_fields(p:RPoint): (integer, integer)
                 return p.x, p.y
             end
 
@@ -2127,14 +2104,32 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 return a, b
             end
 
-            function m.assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+            local assign_recs_1
+            function assign_recs_1(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
                 a, a.x, a.y = b, c, d
                 return a, b
             end
 
-            function m.assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
+            function m.assign_recs_1(): boolean
+                local a, b = new_rpoint(10, 20), new_rpoint(30, 40)
+                local a2, b2 = assign_recs_1(a, b, 50, 60)
+                local ax, ay = get_rpoint_fields(a)
+                local bx, by = get_rpoint_fields(b)
+                return b == a2 and b == b2 and 50 == ax and 60 == ay and 30 == bx and 40 == by
+            end
+
+            local assign_recs_2
+            function assign_recs_2(a:RPoint, b:RPoint, c:integer, d:integer): (RPoint, RPoint)
                 a.x, a.y, a = c, d, b
                 return a, b
+            end
+
+            function m.assign_recs_2(): boolean
+                local a, b = new_rpoint(10, 20), new_rpoint(30, 40)
+                local a2, b2 = assign_recs_2(a, b, 50, 60)
+                local ax, ay = get_rpoint_fields(a)
+                local bx, by = get_rpoint_fields(b)
+                return a2 == b and b2 == b and 50 == ax and 60 == ay and 30 == bx and 40 == by
             end
 
             function m.assign_same_var(): integer
@@ -2266,33 +2261,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
         it("use temporary variables correctly on records assignments 1", function()
             run_test([[
-                local a, b = test.new_rpoint(10, 20), test.new_rpoint(30, 40)
-                local t = table.pack(test.assign_recs_1(a, b, 50, 60))
-                local ax, ay = test.get_rpoint_fields(a)
-                local bx, by = test.get_rpoint_fields(b)
-                assert(2  == t.n)
-                assert(b  == t[1])
-                assert(b  == t[2])
-                assert(50 == ax)
-                assert(60 == ay)
-                assert(30 == bx)
-                assert(40 == by)
+                assert(test.assign_recs_1())
             ]])
         end)
 
         it("use temporary variables correctly on records assignments 2", function()
             run_test([[
-                local a, b = test.new_rpoint(10, 20), test.new_rpoint(30, 40)
-                local t = table.pack(test.assign_recs_2(a, b, 50, 60))
-                local ax, ay = test.get_rpoint_fields(a)
-                local bx, by = test.get_rpoint_fields(b)
-                assert(2  == t.n)
-                assert(b  == t[1])
-                assert(b  == t[2])
-                assert(50 == ax)
-                assert(60 == ay)
-                assert(30 == bx)
-                assert(40 == by)
+                assert(test.assign_recs_2())
             ]])
         end)
 
@@ -2570,6 +2545,78 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         it("works", function()
             run_test([[ assert(1 == test.f()) ]])
         end)
+    end)
+
+    describe("Test imported module", function()
+        compile([[
+            typealias point = {x: float, y: float}
+            local modtest = require"spec.modtest"
+
+            function m.add(x1: integer, x2: integer): integer
+                return modtest.add(x1, x2)
+            end
+
+            function m.sub(x1: integer, x2: integer): integer
+                return modtest.sub(x1, x2)
+            end
+
+            function m.get_var(): integer
+                return modtest.var
+            end
+
+            function m.addpoints(x1: float, y1: float, x2: float, y2: float): (float, float)
+                local p1: point = {x = x1, y = y1}
+                local p2: point = {x = x2, y = y2}
+
+                local pret: point = modtest.addpoints(p1, p2)
+
+                return pret.x, pret.y
+            end
+            local require
+            function require(s: string): string
+                return s
+            end
+
+            function m.require(s: string): string
+                return require(s)
+            end
+        ]])
+
+        it("works correctly with a add", function()
+            run_test([[
+               local x = test.add(1, 29)
+               assert(x == 30)
+            ]])
+        end)
+
+        it("works correctly with a sub", function()
+            run_test([[
+               local x = test.sub(1, 29)
+               assert(x == -28)
+            ]])
+        end)
+
+        it("works getting module var", function()
+            run_test([[
+               local x = test.get_var()
+               assert(x == 1)
+            ]])
+        end)
+
+        it("works correctly with a table as argument", function()
+            run_test([[
+               local x, y = test.addpoints(1.0, 2.7, 2.0, 2.0)
+               assert(x == 3.0)
+               assert(y == 4.7)
+            ]])
+        end)
+
+        it("Assert require can be shadowed", function()
+            run_test([[
+               assert(assert(test.require("test") == "test"))
+            ]])
+        end)
+
     end)
 end
 

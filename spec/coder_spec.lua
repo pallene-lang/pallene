@@ -7,13 +7,21 @@ local execution_tests = require "spec.execution_tests"
 -- This is because those test cases are used for both the C backend and the Lua backend.
 --
 
-local function compile(filename, pallene_code)
-    assert(util.set_file_contents(filename, pallene_code))
+local function compile_file(filename)
     local cmd = string.format("./pallenec %s", util.shell_quote(filename))
     local ok, _, _, errmsg = util.outputs_of_execute(cmd)
     assert(ok, errmsg)
 end
 
+local function compile_code(filename, pallene_code)
+    assert(util.set_file_contents(filename, pallene_code))
+    compile_file(filename)
+end
+
+do -- Compile modtest
+    compile_file("spec/modtest.pln")
+end
+
 describe("#c_backend /", function ()
-    execution_tests.run(compile, 'c', _ENV, false)
+    execution_tests.run(compile_code, 'c', _ENV, false)
 end)

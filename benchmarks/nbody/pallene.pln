@@ -1,14 +1,6 @@
 local m: module = {}
 
-record Body
-    x: float
-    y: float
-    z: float
-    vx: float
-    vy: float
-    vz: float
-    mass: float
-end
+typealias Body = {x: float, y: float, z: float, vx: float, vy: float, vz: float, mass: float}
 
 function m.new_body(
     x: float, y: float, z: float,
