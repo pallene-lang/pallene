@@ -1,4 +1,4 @@
--- Copyright (c) 2020, The Pallene Developers
+-- Copyright (c) 2021, The Pallene Developers
 -- Pallene is licensed under the MIT license.
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
@@ -57,12 +57,11 @@ end
 
 function Converter:init()
     self.func_stack = {} -- list of FuncInfo
-    local func_info = FuncInfo()
-    table.insert(self.func_stack, func_info)
+    table.insert(self.func_stack, FuncInfo())
 
-    self.ref_to_decl        = {} -- list of ast.Var.Name
-    self.func_depth_of_decl = {} -- { ast.Decl.Decl => integer }
-    self.init_exp_of_decl   = {} -- { ast.Decl.Decl => ast.Exp }
+    self.ref_of_decl        = {} -- { ast.Decl => list of ast.Var.Name }
+    self.func_depth_of_decl = {} -- { ast.Decl => integer }
+    self.init_exp_of_decl   = {} -- { ast.Decl => ast.Exp }
     self.box_records        = {} -- list of ast.Toplevel.Record
 
     -- used to assign unique names to subsequently generated record types
@@ -82,8 +81,8 @@ function Converter:add_box_type(loc, typ)
 end
 
 function Converter:register_decl(decl)
-    if not self.ref_to_decl[decl] then
-        self.ref_to_decl[decl]        = {}
+    if not self.ref_of_decl[decl] then
+        self.ref_of_decl[decl]        = {}
         self.func_depth_of_decl[decl] = #self.func_stack
     end 
 end
@@ -145,7 +144,7 @@ function Converter:exit_lambda()
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            for _, ref in ipairs(self.ref_to_decl[decl]) do
+            for _, ref in ipairs(self.ref_of_decl[decl]) do
                 assert(ref._tag == "ast.Var.Name")
                 local var = util.copy_table(ref)
                 ref._tag = "ast.Var.Dot"
@@ -180,13 +179,6 @@ function Converter:visit_func(func)
     self:visit_lambda(lambda)
 end
 
-function Converter:convert_exps_of_stat(stat)
-    local exps = assert(stat.exps)
-    for i, exp in ipairs(exps) do
-        exps[i] = self:convert_exp(exp)
-    end
-end
-
 function Converter:visit_stat(stat)
     local tag = stat._tag
     if tag == "ast.Stat.Functions" then
@@ -195,7 +187,9 @@ function Converter:visit_stat(stat)
         end
     
     elseif tag == "ast.Stat.Return" then
-        self:convert_exps_of_stat(stat)
+        for _, exp in ipairs(stat.exps) do
+            self:visit_exp(exp)
+        end
     
     elseif tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
@@ -203,7 +197,7 @@ function Converter:visit_stat(stat)
         end
 
         for i, exp in ipairs(stat.exps) do
-            stat.exps[i] = self:convert_exp(exp)
+            self:visit_exp(exp)
             -- do not register extra values on RHS
             if i <= #stat.decls then
                 self.init_exp_of_decl[stat.decls[i]] = exp
@@ -215,19 +209,19 @@ function Converter:visit_stat(stat)
 
     elseif tag == "ast.Stat.While" or tag == "ast.Stat.Repeat" then
         self:visit_stats(stat.block.stats)
-        stat.condition = self:convert_exp(stat.condition)
+        self:visit_exp(stat.condition)
 
     elseif tag == "ast.Stat.If" then
-        stat.condition = self:convert_exp(stat.condition)
+        self:visit_exp(stat.condition)
         self:visit_stats(stat.then_.stats)
         if stat.else_ then
             self:visit_stat(stat.else_)
         end
     
     elseif tag == "ast.Stat.ForNum" then
-        stat.start = self:convert_exp(stat.start)
-        stat.limit = self:convert_exp(stat.limit)
-        stat.step  = self:convert_exp(stat.step)
+        self:visit_exp(stat.start)
+        self:visit_exp(stat.limit)
+        self:visit_exp(stat.step)
 
         self:register_decl(stat.decl)
         self:visit_stats(stat.block.stats)
@@ -237,12 +231,15 @@ function Converter:visit_stat(stat)
             self:register_decl(decl)
         end
 
-        self:convert_exps_of_stat(stat)
+        for _, exp in ipairs(stat.exps) do
+            self:visit_exp(exp)
+        end
+        
         self:visit_stats(stat.block.stats)
 
     elseif tag == "ast.Stat.Assign" then
-        for i, var in ipairs(stat.vars) do
-            stat.vars[i] = self:convert_var(var)
+        for _, var in ipairs(stat.vars) do
+            self:visit_var(var)
             
             if var._tag == "ast.Var.Name" and not var._exported_as then
                 if var._def._tag == "checker.Def.Variable" then
@@ -254,17 +251,21 @@ function Converter:visit_stat(stat)
             end
         end
 
-        self:convert_exps_of_stat(stat)
+        for _, exp in ipairs(stat.exps) do
+            self:visit_exp(exp)
+        end
 
     elseif tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
             self:register_decl(decl)
         end
 
-        self:convert_exps_of_stat(stat)
+        for _, exp in ipairs(stat.exps) do
+            self:visit_exp(exp)
+        end
 
     elseif tag == "ast.Stat.Call" then
-        stat.call_exp = self:convert_exp(stat.call_exp)
+        self:visit_exp(stat.call_exp)
 
     elseif  tag == "ast.Stat.Break" then
         -- empty
@@ -274,76 +275,69 @@ function Converter:visit_stat(stat)
 end
 
 
-function Converter:convert_var(var)
+function Converter:visit_var(var)
     local vtag = var._tag
 
     if vtag == "ast.Var.Name" and not var._exported_as then
         if var._def._tag == "checker.Def.Variable" then
             local decl = assert(var._def.decl)
-            assert(self.ref_to_decl[decl], decl.name)
+            assert(self.ref_of_decl[decl], decl.name)
             local depth = self.func_depth_of_decl[decl]
             -- depth == 1 when the decl is that of a global
             if depth < #self.func_stack and depth > 1 then
                 local func_info = self.func_stack[depth]
                 func_info.captured_decls[decl] = true
             end
-            table.insert(self.ref_to_decl[decl], var)
+            table.insert(self.ref_of_decl[decl], var)
         end
 
     elseif vtag == "ast.Var.Dot" then
-        var.exp = self:convert_exp(var.exp)
+        self:visit_exp(var.exp)
     
     elseif vtag == "ast.Var.Bracket" then
-        var.t = self:convert_exp(var.t)
-        var.k = self:convert_exp(var.k)
+        self:visit_exp(var.t)
+        self:visit_exp(var.k)
     
     end
-
-    return var
 end
 
 -- If necessary, transforms `exp` or one of it's subexpression nodes in case they 
 -- reference a mutable upvalue.
 -- Recursively visits all sub-expressions and applies an `ast.Var.Name => ast.Var.Dot`
--- transformation wherever necessary, returning the new transformed node.
--- Note that for the transformed node to be updated at the call site, this method must
--- be called like so:
--- `exp = self:convert_exp(exp)`
-function Converter:convert_exp(exp)
+-- transformation wherever necessary.
+function Converter:visit_exp(exp)
     local tag = exp._tag
 
     if tag == "ast.Exp.InitList" then
         for _, field in ipairs(exp.fields) do
-            field.exp = self:convert_exp(field.exp)
+            self:visit_exp(field.exp)
         end
 
     elseif tag == "ast.Exp.Lambda" then
         self:visit_lambda(exp)
 
     elseif tag == "ast.Exp.CallFunc" or tag == "ast.Exp.CallMethod" then
-        exp.exp = self:convert_exp(exp.exp)
-        for i = 1, #exp.args do
-            exp.args[i] = self:convert_exp(exp.args[i])
+        self:visit_exp(exp.exp)
+        for _, arg in ipairs(exp.args) do
+            self:visit_exp(arg)
         end
 
     elseif tag == "ast.Exp.Var" then
-        exp.var = self:convert_var(exp.var)
+        self:visit_var(exp.var)
 
     elseif tag == "ast.Exp.Unop" 
         or tag == "ast.Exp.Cast" 
         or tag == "ast.Exp.ToFloat" 
         or tag == "ast.Exp.Paren" then
-        exp.exp = self:convert_exp(exp.exp)
+        self:visit_exp(exp.exp)
 
     elseif tag == "ast.Exp.Binop" then
-        exp.lhs = self:convert_exp(exp.lhs)
-        exp.rhs = self:convert_exp(exp.rhs)
+        self:visit_exp(exp.lhs)
+        self:visit_exp(exp.rhs)
 
     elseif not typedecl.match_tag(tag, "ast.Exp") then
         typedecl.tag_error(tag)
     end
-
-    return exp
 end
 
 return converter
