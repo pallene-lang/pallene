@@ -55,13 +55,30 @@ local function FuncInfo()
     }
 end
 
+-- Encapsulates an update on an AST Node.
+-- A Node update has two parts: 
+-- `ref`: An ast.Var that denotes the node that has to be updated.
+-- `update_fn`: A `(ast.Var) -> ()` function that is used to update the node.
+-- ref's location is used to create a new AST Node. The new node is then used to replace the original
+-- occurance of `ref` in the AST by calling `update_fn` on the newly created node.
+local function NodeUpdate(ref, update_fn)
+    return {
+        ref       = ref,       -- ast.Var.Name
+        update_fn = update_fn, -- (ast.Var) -> ()
+    }
+end
+
 function Converter:init()
     self.func_stack = {} -- list of FuncInfo
     table.insert(self.func_stack, FuncInfo())
 
-    self.update_ref_of_decl      = {} -- { ast.Decl => list of (types.T) -> () }
+    self.update_ref_of_decl      = {} -- { ast.Decl => list of NodeUpdate }
+
+    -- The `func_depth_of_decl` is maps a decl to the depth of the function where it appears
+    -- This helps distinguish between mutated variables that are locals and globals from those
+    -- that are captured upvalues and need to be AST transformed.
     self.func_depth_of_decl      = {} -- { ast.Decl => integer }
-    self.update_init_exp_of_decl = {} -- { ast.Decl => (types.T) -> () }
+    self.update_init_exp_of_decl = {} -- { ast.Decl => NodeUpdate }
     self.box_records             = {} -- list of ast.Toplevel.Record
 
     -- used to assign unique names to subsequently generated record types
@@ -130,16 +147,26 @@ function Converter:exit_lambda()
             self:add_box_type(decl.loc, typ)
             decl._type = typ
 
-            local update_init_exp = self.update_init_exp_of_decl[decl]
+            local init_exp_update = self.update_init_exp_of_decl[decl]
 
-            if update_init_exp then
-                update_init_exp(typ)
+            if init_exp_update then
+                local old_ref = init_exp_update.ref
+                local update  = init_exp_update.update_fn
+
+                local new_node = ast.Exp.InitList(old_ref.loc, {{ name = "value", exp = old_ref }})
+                new_node._type = typ
+                update(new_node)
             else
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            for _, update_node in ipairs(self.update_ref_of_decl[decl]) do
-                update_node(typ)
+            for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
+                local old_ref = node_update.ref
+                local update  = node_update.update_fn
+
+                local new_node = ast.Var.Dot(old_ref.loc, ast.Exp.Var(old_ref.loc, old_ref), "value")
+                new_node.exp._type = typ
+                update(new_node)
             end
         end
     end
@@ -190,13 +217,10 @@ function Converter:visit_stat(stat)
             if i <= #stat.decls then
                 -- update the initializer expression of this decl in case it's being captured
                 -- and mutated.
-                self.update_init_exp_of_decl[stat.decls[i]] = function (new_type)
-                    assert(typedecl.match_tag(new_type._tag, "types.T"))
-
-                    local new_node = ast.Exp.InitList(exp.loc, {{ name = "value", exp = exp }})
-                    new_node._type = new_type
-                    stat.exps[i] = new_node
+                local update_init = function (new_exp)
+                    stat.exps[i] = new_exp
                 end
+                self.update_init_exp_of_decl[stat.decls[i]] = NodeUpdate(stat.exps[i], update_init)
             end
         end
 
@@ -235,10 +259,8 @@ function Converter:visit_stat(stat)
 
     elseif tag == "ast.Stat.Assign" then
         for i, var in ipairs(stat.vars) do
-            self:visit_var(var, function(new_type)
-                local new_node = ast.Var.Dot(var.loc, ast.Exp.Var(var.loc, var), "value")
-                new_node.exp._type = new_type
-                stat.vars[i] = new_node
+            self:visit_var(var, function (new_var)
+                stat.vars[i] = new_var
             end)
             
             if var._tag == "ast.Var.Name" and not var._exported_as then
@@ -280,8 +302,8 @@ end
 -- is called to transform it to an `ast.Var.Dot` Node.
 --
 -- @param var The `ast.Var` node.
--- @param update_fn An `(types.T.*) -> ()` function that should update an `ast.Var.Name` node
---        to a new `ast.Var.Dot` node. 
+-- @param update_fn An `(ast.Var) -> ()` function that should update an `ast.Var.Name` node
+--        to a new `ast.Var.Dot` node by assigning it's argument to an appropriate location in the AST
 function Converter:visit_var(var, update_fn)
     local vtag = var._tag
 
@@ -295,7 +317,7 @@ function Converter:visit_var(var, update_fn)
                 local func_info = self.func_stack[depth]
                 func_info.captured_decls[decl] = true
             end
-            table.insert(self.update_ref_of_decl[decl], update_fn)
+            table.insert(self.update_ref_of_decl[decl], NodeUpdate(var, update_fn))
         end
 
     elseif vtag == "ast.Var.Dot" then
@@ -331,10 +353,8 @@ function Converter:visit_exp(exp)
 
     elseif tag == "ast.Exp.Var" then
         local var = exp.var
-        self:visit_var(var, function (new_type)
-            local new_node = ast.Var.Dot(var.loc, ast.Exp.Var(var.loc, var), "value")
-            new_node.exp._type = new_type
-            exp.var = new_node
+        self:visit_var(var, function (new_var)
+            exp.var = new_var
         end)
 
     elseif tag == "ast.Exp.Unop" 
