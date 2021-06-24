@@ -59,10 +59,10 @@ function Converter:init()
     self.func_stack = {} -- list of FuncInfo
     table.insert(self.func_stack, FuncInfo())
 
-    self.ref_of_decl        = {} -- { ast.Decl => list of ast.Var.Name }
-    self.func_depth_of_decl = {} -- { ast.Decl => integer }
-    self.init_exp_of_decl   = {} -- { ast.Decl => ast.Exp }
-    self.box_records        = {} -- list of ast.Toplevel.Record
+    self.update_ref_of_decl      = {} -- { ast.Decl => list of (types.T) -> () }
+    self.func_depth_of_decl      = {} -- { ast.Decl => integer }
+    self.update_init_exp_of_decl = {} -- { ast.Decl => (types.T) -> () }
+    self.box_records             = {} -- list of ast.Toplevel.Record
 
     -- used to assign unique names to subsequently generated record types
     self.typ_counter = 0
@@ -81,8 +81,8 @@ function Converter:add_box_type(loc, typ)
 end
 
 function Converter:register_decl(decl)
-    if not self.ref_of_decl[decl] then
-        self.ref_of_decl[decl]        = {}
+    if not self.update_ref_of_decl[decl] then
+        self.update_ref_of_decl[decl] = {}
         self.func_depth_of_decl[decl] = #self.func_stack
     end 
 end
@@ -130,28 +130,16 @@ function Converter:exit_lambda()
             self:add_box_type(decl.loc, typ)
             decl._type = typ
 
-            local init_exp = self.init_exp_of_decl[decl]
+            local update_init_exp = self.update_init_exp_of_decl[decl]
 
-            if init_exp then
-                local value_exp = util.copy_table(init_exp)
-                util.empty_table(init_exp)
-
-                init_exp._tag   = "ast.Exp.InitList"
-                init_exp._type  = typ
-                init_exp.fields = {}
-                init_exp.fields[1] = { name = "value", exp = value_exp }
+            if update_init_exp then
+                update_init_exp(typ)
             else
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            for _, ref in ipairs(self.ref_of_decl[decl]) do
-                assert(ref._tag == "ast.Var.Name")
-                local var = util.copy_table(ref)
-                ref._tag = "ast.Var.Dot"
-                ref.exp  =  ast.Exp.Var(ref.loc, var)
-                ref.name = "value"
-
-                ref.exp._type = typ
+            for _, update_node in ipairs(self.update_ref_of_decl[decl]) do
+                update_node(typ)
             end
         end
     end
@@ -200,7 +188,15 @@ function Converter:visit_stat(stat)
             self:visit_exp(exp)
             -- do not register extra values on RHS
             if i <= #stat.decls then
-                self.init_exp_of_decl[stat.decls[i]] = exp
+                -- update the initializer expression of this decl in case it's being captured
+                -- and mutated.
+                self.update_init_exp_of_decl[stat.decls[i]] = function (new_type)
+                    assert(typedecl.match_tag(new_type._tag, "types.T"))
+
+                    local new_node = ast.Exp.InitList(exp.loc, {{ name = "value", exp = exp }})
+                    new_node._type = new_type
+                    stat.exps[i] = new_node
+                end
             end
         end
 
@@ -238,8 +234,12 @@ function Converter:visit_stat(stat)
         self:visit_stats(stat.block.stats)
 
     elseif tag == "ast.Stat.Assign" then
-        for _, var in ipairs(stat.vars) do
-            self:visit_var(var)
+        for i, var in ipairs(stat.vars) do
+            self:visit_var(var, function(new_type)
+                local new_node = ast.Var.Dot(var.loc, ast.Exp.Var(var.loc, var), "value")
+                new_node.exp._type = new_type
+                stat.vars[i] = new_node
+            end)
             
             if var._tag == "ast.Var.Name" and not var._exported_as then
                 if var._def._tag == "checker.Def.Variable" then
@@ -274,21 +274,28 @@ function Converter:visit_stat(stat)
     end
 end
 
-
-function Converter:visit_var(var)
+-- This function takes an `ast.Var.*` node and a callback that should replace the reference to the
+-- var at the call site with a transformed AST node, provided the new type as an argument. 
+-- If it is found out  later that `var` is being captured and mutated somewhere then `update_fn`
+-- is called to transform it to an `ast.Var.Dot` Node.
+--
+-- @param var The `ast.Var` node.
+-- @param update_fn An `(types.T.*) -> ()` function that should update an `ast.Var.Name` node
+--        to a new `ast.Var.Dot` node. 
+function Converter:visit_var(var, update_fn)
     local vtag = var._tag
 
     if vtag == "ast.Var.Name" and not var._exported_as then
         if var._def._tag == "checker.Def.Variable" then
             local decl = assert(var._def.decl)
-            assert(self.ref_of_decl[decl], decl.name)
+            assert(self.update_ref_of_decl[decl], decl.name)
             local depth = self.func_depth_of_decl[decl]
             -- depth == 1 when the decl is that of a global
             if depth < #self.func_stack and depth > 1 then
                 local func_info = self.func_stack[depth]
                 func_info.captured_decls[decl] = true
             end
-            table.insert(self.ref_of_decl[decl], var)
+            table.insert(self.update_ref_of_decl[decl], update_fn)
         end
 
     elseif vtag == "ast.Var.Dot" then
@@ -323,7 +330,12 @@ function Converter:visit_exp(exp)
         end
 
     elseif tag == "ast.Exp.Var" then
-        self:visit_var(exp.var)
+        local var = exp.var
+        self:visit_var(var, function (new_type)
+            local new_node = ast.Var.Dot(var.loc, ast.Exp.Var(var.loc, var), "value")
+            new_node.exp._type = new_type
+            exp.var = new_node
+        end)
 
     elseif tag == "ast.Exp.Unop" 
         or tag == "ast.Exp.Cast" 
