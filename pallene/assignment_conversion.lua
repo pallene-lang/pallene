@@ -344,10 +344,7 @@ function Converter:visit_exp(exp)
         end
 
     elseif tag == "ast.Exp.Var" then
-        local var = exp.var
-        self:visit_var(var, function (new_var)
-            exp.var = new_var
-        end)
+        self:visit_var(exp.var, function (new_var) exp.var = new_var  end)
 
     elseif tag == "ast.Exp.Unop"
         or tag == "ast.Exp.Cast"
