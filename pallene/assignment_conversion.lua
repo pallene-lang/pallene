@@ -48,30 +48,20 @@ function converter.convert(prog_ast)
 end
 
 
-local function FuncInfo()
-    return {
-        mutated_decls  = {}, -- list of ast.Decl
-        captured_decls = {} -- { ast.Decl }
-    }
-end
-
 -- Encapsulates an update on an AST Node.
 -- A Node update has two parts: 
 -- `ref`: An ast.Var that denotes the node that has to be updated.
 -- `update_fn`: A `(ast.Var) -> ()` function that is used to update the node.
--- ref's location is used to create a new AST Node. The new node is then used to replace the original
+-- `ref`'s location is used to create a new AST Node. The new node is then used to replace the original
 -- occurance of `ref` in the AST by calling `update_fn` on the newly created node.
 local function NodeUpdate(ref, update_fn)
     return {
-        ref       = ref,       -- ast.Var.Name
+        ref       = ref,       -- ast.Var
         update_fn = update_fn, -- (ast.Var) -> ()
     }
 end
 
 function Converter:init()
-    self.func_stack = {} -- list of FuncInfo
-    table.insert(self.func_stack, FuncInfo())
-
     self.update_ref_of_decl      = {} -- { ast.Decl => list of NodeUpdate }
 
     -- The `func_depth_of_decl` is maps a decl to the depth of the function where it appears
@@ -79,10 +69,16 @@ function Converter:init()
     -- that are captured upvalues and need to be AST transformed.
     self.func_depth_of_decl      = {} -- { ast.Decl => integer }
     self.update_init_exp_of_decl = {} -- { ast.Decl => NodeUpdate }
+    self.mutated_decls           = {} -- list of ast.Decl
+    self.captured_decls          = {} -- { ast.Decl }
     self.box_records             = {} -- list of ast.Toplevel.Record
 
     -- used to assign unique names to subsequently generated record types
     self.typ_counter = 0
+
+    -- Depth of current function's nesting.
+    -- This does not take into account block scopes like `do...end`.
+    self.func_depth  = 1
 end
 
 -- generates a unique type name each time
@@ -100,7 +96,7 @@ end
 function Converter:register_decl(decl)
     if not self.update_ref_of_decl[decl] then
         self.update_ref_of_decl[decl] = {}
-        self.func_depth_of_decl[decl] = #self.func_stack
+        self.func_depth_of_decl[decl] = self.func_depth
     end 
 end
 
@@ -117,6 +113,9 @@ function Converter:visit_prog(prog_ast)
         end
     end
 
+    -- transform the AST Nodes for captured vars.
+    self:apply_transformations()
+
     -- add the upvalue box record types to the AST
     for _, node in ipairs(self.box_records) do
         table.insert(prog_ast.tls, node)
@@ -131,12 +130,11 @@ function Converter:visit_stats(stats)
     end
 end
 
--- Goes over all the ast.Decls inside the function that have been captured by some nested
+-- Goes over all the ast.Decls inside the AST that have been captured by some nested
 -- function, transforms the decl node itself and all the references made to it.
-function Converter:exit_lambda()
-    local func_info = self.func_stack[#self.func_stack]
-    for _, decl in ipairs(func_info.mutated_decls) do
-        if func_info.captured_decls[decl] then
+function Converter:apply_transformations()
+    for _, decl in ipairs(self.mutated_decls) do
+        if self.captured_decls[decl] then
             assert(not decl._exported_as)
 
             -- 1. Create a record type `$T` to hold this captured var.
@@ -170,21 +168,17 @@ function Converter:exit_lambda()
             end
         end
     end
-
-    assert(#self.func_stack > 1)
-    table.remove(self.func_stack)
 end
 
 function Converter:visit_lambda(lambda)
-    local func_info = FuncInfo()
-    table.insert(self.func_stack, func_info)
-
+    self.func_depth = self.func_depth + 1
     for _, arg in ipairs(lambda.arg_decls) do
         self:register_decl(arg)
     end
 
     self:visit_stats(lambda.body.stats)
-    self:exit_lambda()
+    assert(self.func_depth > 1)
+    self.func_depth = self.func_depth - 1
 end
 
 function Converter:visit_func(func)
@@ -266,9 +260,7 @@ function Converter:visit_stat(stat)
             if var._tag == "ast.Var.Name" and not var._exported_as then
                 if var._def._tag == "checker.Def.Variable" then
                     local decl = assert(var._def.decl)
-                    local depth = self.func_depth_of_decl[decl]
-                    local func_info = self.func_stack[depth]
-                    table.insert(func_info.mutated_decls, decl) 
+                    table.insert(self.mutated_decls, decl) 
                 end
             end
         end
@@ -313,9 +305,8 @@ function Converter:visit_var(var, update_fn)
             assert(self.update_ref_of_decl[decl], decl.name)
             local depth = self.func_depth_of_decl[decl]
             -- depth == 1 when the decl is that of a global
-            if depth < #self.func_stack and depth > 1 then
-                local func_info = self.func_stack[depth]
-                func_info.captured_decls[decl] = true
+            if depth < self.func_depth and depth > 1 then
+                self.captured_decls[decl] = true
             end
             table.insert(self.update_ref_of_decl[decl], NodeUpdate(var, update_fn))
         end
