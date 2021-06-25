@@ -64,9 +64,9 @@ end
 function Converter:init()
     self.update_ref_of_decl      = {} -- { ast.Decl => list of NodeUpdate }
 
-    -- The `func_depth_of_decl` is maps a decl to the depth of the function where it appears
+    -- The `func_depth_of_decl` maps a decl to the depth of the function where it appears.
     -- This helps distinguish between mutated variables that are locals and globals from those
-    -- that are captured upvalues and need to be AST transformed.
+    -- that are captured upvalues and need to be transformed to a different kind of node.
     self.func_depth_of_decl      = {} -- { ast.Decl => integer }
     self.update_init_exp_of_decl = {} -- { ast.Decl => NodeUpdate }
     self.mutated_decls           = {} -- list of ast.Decl
@@ -288,8 +288,8 @@ function Converter:visit_stat(stat)
     end
 end
 
--- This function takes an `ast.Var.*` node and a callback that should replace the reference to the
--- var at the call site with a transformed AST node, provided the new type as an argument. 
+-- This function takes an `ast.Var` node and a callback that should replace the reference to the
+-- var at the call site with a transformed AST node, provided the new AST node as an argument. 
 -- If it is found out  later that `var` is being captured and mutated somewhere then `update_fn`
 -- is called to transform it to an `ast.Var.Dot` Node.
 --
