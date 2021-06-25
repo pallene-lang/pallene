@@ -5,6 +5,7 @@
 
 local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
+local assignment_conversion = require "pallene.assignment_conversion"
 local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
 local Lexer = require "pallene.Lexer"
@@ -41,7 +42,7 @@ end
 
 -- List of available compiler passes, used by `pallenec --dump`.
 -- If a new compiler pass is created, please add it to this list.
-driver.list_of_compiler_passes = {"lexer", "ast", "checker", "ir", "uninitialized", "constant_propagation"}
+driver.list_of_compiler_passes = {"lexer", "ast", "checker", "assignment_conversion", "ir", "uninitialized", "constant_propagation"}
 
 --
 -- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
@@ -66,6 +67,11 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
 
     prog_ast, errs = checker.check(prog_ast)
     if stop_after == "checker" or not prog_ast then
+        return prog_ast, errs
+    end
+
+    prog_ast, errs = assignment_conversion.convert(prog_ast)
+    if stop_after == "assignment_conversion" or not prog_ast then
         return prog_ast, errs
     end
 

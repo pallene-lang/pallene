@@ -1,4 +1,4 @@
-local m;m = {}
+local m = {}
 
 function m.fannkuch(N)
 
