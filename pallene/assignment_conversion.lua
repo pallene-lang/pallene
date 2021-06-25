@@ -302,7 +302,7 @@ function Converter:visit_var(var, update_fn)
     if vtag == "ast.Var.Name" and not var._exported_as then
         if var._def._tag == "checker.Def.Variable" then
             local decl = assert(var._def.decl)
-            assert(self.update_ref_of_decl[decl], decl.name)
+            assert(self.update_ref_of_decl[decl])
             local depth = self.func_depth_of_decl[decl]
             -- depth == 1 when the decl is that of a global
             if depth < self.func_depth and depth > 1 then
