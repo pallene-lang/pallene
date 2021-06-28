@@ -48,16 +48,13 @@ function converter.convert(prog_ast)
 end
 
 
--- Encapsulates an update on an AST Node.
--- A Node update has two parts: 
--- `ref`: An ast.Var that denotes the node that has to be updated.
--- `update_fn`: A `(ast.Var) -> ()` function that is used to update the node.
--- `ref`'s location is used to create a new AST Node. The new node is then used to replace the original
--- occurance of `ref` in the AST by calling `update_fn` on the newly created node.
-local function NodeUpdate(ref, update_fn)
+-- Encapsulates an update to an AST Node.
+-- `node`: The AST we will replace (we use it's location)
+-- `update_fn`: A `node -> ()` function that is used to update the node.
+local function NodeUpdate(node, update_fn)
     return {
-        ref       = ref,       -- ast.Var
-        update_fn = update_fn, -- (ast.Var) -> ()
+        node = node,
+        update_fn = update_fn,
     }
 end
 
@@ -97,7 +94,7 @@ function Converter:register_decl(decl)
     if not self.update_ref_of_decl[decl] then
         self.update_ref_of_decl[decl] = {}
         self.func_depth_of_decl[decl] = self.func_depth
-    end 
+    end
 end
 
 function Converter:visit_prog(prog_ast)
@@ -138,20 +135,23 @@ function Converter:apply_transformations()
             assert(not decl._exported_as)
 
             -- 1. Create a record type `$T` to hold this captured var.
-            -- 2. Transform the ast.Decl node from `local x = value` to `local x: $T =  { value = value }`
-            -- 3. Go over all the references ever made to this variable and transform them from `ast.Var.Name`
-            --    to ast.Var.Dot
-            local typ = types.T.Record(self:type_name(decl.name), { "value" } , { value = decl._type } )
+            -- 2. Transform  node from `local x = value` to `local x: $T =  { value = value }`
+            -- 3. Transform all references to the var from `ast.Var.Name` to ast.Var.Dot
+            local typ = types.T.Record(
+                self:type_name(decl.name),
+                { "value" } ,
+                { value = decl._type }
+            )
             self:add_box_type(decl.loc, typ)
             decl._type = typ
 
             local init_exp_update = self.update_init_exp_of_decl[decl]
 
             if init_exp_update then
-                local old_ref = init_exp_update.ref
+                local old_exp = init_exp_update.node
                 local update  = init_exp_update.update_fn
 
-                local new_node = ast.Exp.InitList(old_ref.loc, {{ name = "value", exp = old_ref }})
+                local new_node = ast.Exp.InitList(old_exp.loc, {{ name = "value", exp = old_exp }})
                 new_node._type = typ
                 update(new_node)
             else
@@ -159,10 +159,11 @@ function Converter:apply_transformations()
             end
 
             for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
-                local old_ref = node_update.ref
+                local old_var = node_update.node
                 local update  = node_update.update_fn
 
-                local new_node = ast.Var.Dot(old_ref.loc, ast.Exp.Var(old_ref.loc, old_ref), "value")
+                local loc = old_var.loc
+                local new_node = ast.Var.Dot(loc, ast.Exp.Var(loc, old_var), "value")
                 new_node.exp._type = typ
                 update(new_node)
             end
@@ -194,12 +195,12 @@ function Converter:visit_stat(stat)
         for _, func in ipairs(stat.funcs) do
             self:visit_func(func)
         end
-    
+
     elseif tag == "ast.Stat.Return" then
         for _, exp in ipairs(stat.exps) do
             self:visit_exp(exp)
         end
-    
+
     elseif tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
             self:register_decl(decl)
@@ -231,7 +232,7 @@ function Converter:visit_stat(stat)
         if stat.else_ then
             self:visit_stat(stat.else_)
         end
-    
+
     elseif tag == "ast.Stat.ForNum" then
         self:visit_exp(stat.start)
         self:visit_exp(stat.limit)
@@ -248,7 +249,7 @@ function Converter:visit_stat(stat)
         for _, exp in ipairs(stat.exps) do
             self:visit_exp(exp)
         end
-        
+
         self:visit_stats(stat.block.stats)
 
     elseif tag == "ast.Stat.Assign" then
@@ -256,11 +257,11 @@ function Converter:visit_stat(stat)
             self:visit_var(var, function (new_var)
                 stat.vars[i] = new_var
             end)
-            
+
             if var._tag == "ast.Var.Name" and not var._exported_as then
                 if var._def._tag == "checker.Def.Variable" then
                     local decl = assert(var._def.decl)
-                    table.insert(self.mutated_decls, decl) 
+                    table.insert(self.mutated_decls, decl)
                 end
             end
         end
@@ -289,7 +290,7 @@ function Converter:visit_stat(stat)
 end
 
 -- This function takes an `ast.Var` node and a callback that should replace the reference to the
--- var at the call site with a transformed AST node, provided the new AST node as an argument. 
+-- var at the call site with a transformed AST node, provided the new AST node as an argument.
 -- If it is found out  later that `var` is being captured and mutated somewhere then `update_fn`
 -- is called to transform it to an `ast.Var.Dot` Node.
 --
@@ -313,15 +314,15 @@ function Converter:visit_var(var, update_fn)
 
     elseif vtag == "ast.Var.Dot" then
         self:visit_exp(var.exp)
-    
+
     elseif vtag == "ast.Var.Bracket" then
         self:visit_exp(var.t)
         self:visit_exp(var.k)
-    
+
     end
 end
 
--- If necessary, transforms `exp` or one of it's subexpression nodes in case they 
+-- If necessary, transforms `exp` or one of it's subexpression nodes in case they
 -- reference a mutable upvalue.
 -- Recursively visits all sub-expressions and applies an `ast.Var.Name => ast.Var.Dot`
 -- transformation wherever necessary.
@@ -343,14 +344,11 @@ function Converter:visit_exp(exp)
         end
 
     elseif tag == "ast.Exp.Var" then
-        local var = exp.var
-        self:visit_var(var, function (new_var)
-            exp.var = new_var
-        end)
+        self:visit_var(exp.var, function (new_var) exp.var = new_var  end)
 
-    elseif tag == "ast.Exp.Unop" 
-        or tag == "ast.Exp.Cast" 
-        or tag == "ast.Exp.ToFloat" 
+    elseif tag == "ast.Exp.Unop"
+        or tag == "ast.Exp.Cast"
+        or tag == "ast.Exp.ToFloat"
         or tag == "ast.Exp.Paren" then
         self:visit_exp(exp.exp)
 
