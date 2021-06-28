@@ -147,8 +147,8 @@ function Converter:apply_transformations()
                 { "value" } ,
                 { value = decl._type }
             )
-            self:add_box_type(decl.loc, typ)
 
+            local type_node = self:add_box_type(decl.loc, typ)
             local init_exp_update = self.update_init_exp_of_decl[decl]
 
             if init_exp_update then
@@ -177,17 +177,18 @@ function Converter:apply_transformations()
                 --- end
                 local param = ast.Exp.Var(decl.loc, ast.Var.Name(decl.loc, decl.name))
                 param.var._def = checker.Def.Variable(decl)
-                param.var._type = decl._type
+                param.var._type = assert(decl._type)
                 param._type = decl._type
-                local decl_lhs = ast.Decl.Decl(decl.loc, "$"..decl.name, typ)
+
+                local decl_lhs = ast.Decl.Decl(decl.loc, "$"..decl.name, type_node)
                 local decl_rhs = ast.Exp.InitList(decl.loc, {{ name = "value", exp = param }})
                 decl_rhs._type = typ
                 decl_lhs._type = typ
 
-                local new_node = ast.Stat.Decl(decl.loc, { decl_lhs }, { decl_rhs })
+                local stat = ast.Stat.Decl(decl.loc, { decl_lhs }, { decl_rhs })
 
                 local lambda = self.lambda_of_param[decl]
-                table.insert(lambda.body.stats, 1, new_node)
+                table.insert(lambda.body.stats, 1, stat)
                 proxy_decl_of_param[decl] = decl_lhs
 
             else
