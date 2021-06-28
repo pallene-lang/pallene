@@ -2509,6 +2509,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
                 return set, get
             end
+
+            function m.counter(x: integer): (() -> integer)
+                return function ()
+                    x = x + 1
+                    return x
+                end
+            end
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2544,6 +2551,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 assert(get() == 10)
                 set(100)
                 assert(get() == 100)
+            ]])
+        end)
+
+        it("Capturing parameters and mutating them works", function()
+            run_test([[
+                local tick = test.counter(1)
+                assert(tick() == 2)
+                assert(tick() == 3)
             ]])
         end)
     end)
