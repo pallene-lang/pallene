@@ -45,7 +45,18 @@ local converter = {}
 local Converter = util.Class()
 
 function converter.convert(prog_ast)
-    return Converter.new():visit_prog(prog_ast)
+    local conv = Converter.new()
+    conv:visit_prog(prog_ast)
+    
+    -- transform the AST Nodes for captured vars.
+    conv:apply_transformations()
+
+    -- add the upvalue box record types to the AST
+    for _, node in ipairs(conv.box_records) do
+        table.insert(prog_ast.tls, node)
+    end
+
+    return prog_ast
 end
 
 
@@ -112,50 +123,11 @@ function Converter:visit_prog(prog_ast)
             assert(typedecl.match_tag(tl_node._tag, "ast.Toplevel"))
         end
     end
-
-    -- transform the AST Nodes for captured vars.
-    self:apply_transformations()
-
-    -- add the upvalue box record types to the AST
-    for _, node in ipairs(self.box_records) do
-        table.insert(prog_ast.tls, node)
-    end
-
-    return prog_ast
 end
 
 function Converter:visit_stats(stats)
     for _, stat in ipairs(stats) do
         self:visit_stat(stat)
-    end
-end
-
---- Updates all references made to a mutable upvalue. Replaces all `ast.Var` nodes
---- with `ast.Dot` nodes.
---- @param decl The ast.Decl node that declares the variable or parameter being captured.
---- @param typ  Type box record type for this decl (types.T).
---- @param proxy_decl If `decl` is that of a function parameter, then this refers to the
----        ast.Decl node representing the proxied var.
-function Converter:update_refs_of_captured_var(decl, typ, proxy_decl)
-    for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
-        local old_var = node_update.node
-        local loc     = old_var.loc
-        local update  = node_update.update_fn
-
-        local dot_exp
-        if proxy_decl then
-            -- references to captured parameters get replaced by references to `value` field of
-            -- their proxy variables.
-            local proxy_var = ast.Var.Name(old_var.loc, "$"..decl.name)
-            proxy_var._def  = checker.Def.Variable(proxy_decl)
-            dot_exp         = ast.Exp.Var(loc, proxy_var)
-        else
-            dot_exp = ast.Exp.Var(loc, old_var)
-        end
-
-        local new_node = ast.Var.Dot(old_var.loc, dot_exp, "value")
-        new_node.exp._type = typ
-        update(new_node)
     end
 end
 
@@ -229,7 +201,29 @@ function Converter:apply_transformations()
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            self:update_refs_of_captured_var(decl, typ, proxy_var_of_param[decl])
+            --- Update all references made to a mutable upvalue. Replace all `ast.Var` nodes
+            --- with `ast.Dot` nodes.
+            for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
+                local old_var = node_update.node
+                local loc     = old_var.loc
+                local update  = node_update.update_fn
+
+                local proxy_decl = proxy_var_of_param[decl]
+                local dot_exp
+                if proxy_decl then
+                    -- references to captured parameters get replaced by references to `value` field of
+                    -- their proxy variables.
+                    local proxy_var = ast.Var.Name(old_var.loc, "$"..decl.name)
+                    proxy_var._def  = checker.Def.Variable(proxy_decl)
+                    dot_exp         = ast.Exp.Var(loc, proxy_var)
+                else
+                    dot_exp = ast.Exp.Var(loc, old_var)
+                end
+
+                local new_node = ast.Var.Dot(old_var.loc, dot_exp, "value")
+                new_node.exp._type = typ
+                update(new_node)
+            end
         end
     end
 
