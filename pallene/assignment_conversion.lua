@@ -162,8 +162,8 @@ end
 -- Goes over all the ast.Decls inside the AST that have been captured by some nested
 -- function, transforms the decl node itself and all the references made to it.
 function Converter:apply_transformations()
-    local proxy_decl_of_param       = {} -- { ast.Decl => ast.Decl }
-    local proxy_stats_of_lambda     = {} -- { ast.Lambda => list of ast.Stat.Decl }
+    local proxy_var_of_param       = {} -- { ast.Decl => ast.Decl }
+    local proxy_stats_of_lambda    = {} -- { ast.Lambda => list of ast.Stat.Decl }
 
     for _, decl in ipairs(self.mutated_decls) do
         if self.captured_decls[decl] then
@@ -223,13 +223,13 @@ function Converter:apply_transformations()
                     proxy_stats_of_lambda[lambda] = {}
                 end
                 table.insert(proxy_stats_of_lambda[lambda], stat)
-                proxy_decl_of_param[decl] = decl_lhs
+                proxy_var_of_param[decl] = decl_lhs
 
             else
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            self:update_refs_of_captured_var(decl, typ, proxy_decl_of_param[decl])
+            self:update_refs_of_captured_var(decl, typ, proxy_var_of_param[decl])
         end
     end
 
