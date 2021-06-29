@@ -201,15 +201,15 @@ function Converter:apply_transformations()
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            --- Update all references made to a mutable upvalue. Replace all `ast.Var` nodes
+            --- Update all references made to the mutable upvalue. Replace all `ast.Var` nodes
             --- with `ast.Dot` nodes.
             for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
                 local old_var = node_update.node
                 local loc     = old_var.loc
                 local update  = node_update.update_fn
 
-                local proxy_decl = proxy_var_of_param[decl]
                 local dot_exp
+                local proxy_decl = proxy_var_of_param[decl]
                 if proxy_decl then
                     -- references to captured parameters get replaced by references to `value` field of
                     -- their proxy variables.
