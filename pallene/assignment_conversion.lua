@@ -130,10 +130,40 @@ function Converter:visit_stats(stats)
     end
 end
 
+--- Updates all references made to a mutable upvalue. Replaces all `ast.Var` nodes
+--- with `ast.Dot` nodes.
+--- @param decl The ast.Decl node that declares the variable or parameter being captured.
+--- @param typ  Type box record type for this decl (types.T).
+--- @param proxy_decl If `decl` is that of a function parameter, then this refers to the
+---        ast.Decl node representing the proxied var.
+function Converter:update_refs_of_captured_var(decl, typ, proxy_decl)
+    for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
+        local old_var = node_update.node
+        local loc     = old_var.loc
+        local update  = node_update.update_fn
+
+        local dot_exp
+        if proxy_decl then
+            -- references to captured parameters get replaced by references to `value` field of
+            -- their proxy variables.
+            local proxy_var = ast.Var.Name(old_var.loc, "$"..decl.name)
+            proxy_var._def  = checker.Def.Variable(proxy_decl)
+            dot_exp         = ast.Exp.Var(loc, proxy_var)
+        else
+            dot_exp = ast.Exp.Var(loc, old_var)
+        end
+
+        local new_node = ast.Var.Dot(old_var.loc, dot_exp, "value")
+        new_node.exp._type = typ
+        update(new_node)
+    end
+end
+
 -- Goes over all the ast.Decls inside the AST that have been captured by some nested
 -- function, transforms the decl node itself and all the references made to it.
 function Converter:apply_transformations()
-    local proxy_decl_of_param = {} -- { ast.Decl => ast.Decl }
+    local proxy_decl_of_param       = {} -- { ast.Decl => ast.Decl }
+    local proxy_stats_of_lambda     = {} -- { ast.Lambda => list of ast.Stat.Decl }
 
     for _, decl in ipairs(self.mutated_decls) do
         if self.captured_decls[decl] then
@@ -148,7 +178,8 @@ function Converter:apply_transformations()
                 { value = decl._type }
             )
 
-            local type_node = self:add_box_type(decl.loc, typ)
+            self:add_box_type(decl.loc, typ)
+            local is_param = self.lambda_of_param[decl]
             local init_exp_update = self.update_init_exp_of_decl[decl]
 
             if init_exp_update then
@@ -160,7 +191,7 @@ function Converter:apply_transformations()
                 new_node._type = typ
                 update(new_node)
 
-            elseif self.lambda_of_param[decl] then
+            elseif is_param then
                 --- Function parameters that are captured are implementing by "proxy"-ing them.
                 --- Consider the following function that returns a closure:
                 --- ```
@@ -180,7 +211,7 @@ function Converter:apply_transformations()
                 param.var._type = assert(decl._type)
                 param._type = decl._type
 
-                local decl_lhs = ast.Decl.Decl(decl.loc, "$"..decl.name, type_node)
+                local decl_lhs = ast.Decl.Decl(decl.loc, "$"..decl.name, false)
                 local decl_rhs = ast.Exp.InitList(decl.loc, {{ name = "value", exp = param }})
                 decl_rhs._type = typ
                 decl_lhs._type = typ
@@ -188,35 +219,29 @@ function Converter:apply_transformations()
                 local stat = ast.Stat.Decl(decl.loc, { decl_lhs }, { decl_rhs })
 
                 local lambda = self.lambda_of_param[decl]
-                table.insert(lambda.body.stats, 1, stat)
+                if not proxy_stats_of_lambda[lambda] then
+                    proxy_stats_of_lambda[lambda] = {}
+                end
+                table.insert(proxy_stats_of_lambda[lambda], stat)
                 proxy_decl_of_param[decl] = decl_lhs
 
             else
                 error("upvalues that are not initialized upon declaration cannot be captured.")
             end
 
-            for _, node_update in ipairs(self.update_ref_of_decl[decl]) do
-                local old_var = node_update.node
-                local loc     = old_var.loc
-                local update  = node_update.update_fn
-
-                local dot_exp
-                if proxy_decl_of_param[decl] then
-                    -- references to captured parameters get replaced by references to `value` field of
-                    -- their proxy variables.
-                    local proxy_var = ast.Var.Name(old_var.loc, "$"..decl.name)
-                    proxy_var._def = checker.Def.Variable(proxy_decl_of_param[decl])
-                    dot_exp = ast.Exp.Var(loc, proxy_var)
-                else
-                    dot_exp = ast.Exp.Var(loc, old_var)
-                end
-
-                local new_node = ast.Var.Dot(old_var.loc, dot_exp, "value")
-                new_node.exp._type = typ
-                update(new_node)
-            end
+            self:update_refs_of_captured_var(decl, typ, proxy_decl_of_param[decl])
         end
     end
+
+
+    -- insert all the parameter proxy declarations
+    for lambda, stats in pairs(proxy_stats_of_lambda) do
+        for _, stat in ipairs(lambda.body.stats) do
+            table.insert(stats, stat)
+        end
+        lambda.body.stats = stats
+    end
+
 end
 
 function Converter:visit_lambda(lambda)
