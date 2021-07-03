@@ -2523,6 +2523,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return x, y
                 end
             end
+
+            function m.make_counter(start_at_0: boolean): (() -> integer)
+                local x: integer
+                if start_at_0 then
+                    x = 0
+                else
+                    x = 1
+                end
+
+                return function()
+                    x = x + 1
+                    return x - 1
+                end
+            end
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2576,6 +2590,19 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 assert(x == 2 and y == 1)
                 x, y = swap()
                 assert(x == 1 and y == 2)
+            ]])
+        end)
+
+        it("Can captured upvalues that aren't initialized upon declaration", function()
+            run_test([[
+                local count = test.make_counter(false)
+                assert(count() == 1)
+                assert(count() == 2)
+
+                local count2 = test.make_counter(true)
+                assert(count2() == 0)
+                assert(count2() == 1)
+                assert(count2() == 2)
             ]])
         end)
     end)

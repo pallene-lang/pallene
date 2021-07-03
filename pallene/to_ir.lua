@@ -849,6 +849,12 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             typedecl.tag_error(typ._tag)
         end
 
+    elseif tag == "ast.Exp.UpvalueRecord" then
+        local typ = exp._type
+        assert(typ._tag == "types.T.Record")
+        table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
+        table.insert(cmds, ir.Cmd.CheckGC())
+
     elseif tag == "ast.Exp.Lambda" then
         local f_id = self:register_lambda(exp, "$lambda")
         local func = self.module.functions[f_id]
