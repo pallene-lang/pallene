@@ -60,22 +60,23 @@ declare_type("Var", {
 })
 
 declare_type("Exp", {
-    Nil        = {"loc"},
-    Bool       = {"loc", "value"},
-    Integer    = {"loc", "value"},
-    Float      = {"loc", "value"},
-    String     = {"loc", "value"},
-    InitList   = {"loc", "fields"},
-    Lambda     = {"loc", "arg_decls", "body"},
-    CallFunc   = {"loc", "exp", "args"},
-    CallMethod = {"loc", "exp", "method", "args"},
-    Var        = {"loc", "var"},
-    Unop       = {"loc", "op", "exp"},
-    Binop      = {"loc", "lhs", "op", "rhs"},
-    Cast       = {"loc", "exp", "target"},
-    Paren      = {"loc", "exp"},
-    ExtraRet   = {"loc", "call_exp", "i"}, -- Inserted by checker.lua
-    ToFloat    = {"loc", "exp"},           -- Inserted by checker.lua
+    Nil           = {"loc"},
+    Bool          = {"loc", "value"},
+    Integer       = {"loc", "value"},
+    Float         = {"loc", "value"},
+    String        = {"loc", "value"},
+    InitList      = {"loc", "fields"},
+    Lambda        = {"loc", "arg_decls", "body"},
+    CallFunc      = {"loc", "exp", "args"},
+    CallMethod    = {"loc", "exp", "method", "args"},
+    Var           = {"loc", "var"},
+    Unop          = {"loc", "op", "exp"},
+    Binop         = {"loc", "lhs", "op", "rhs"},
+    Cast          = {"loc", "exp", "target"},
+    Paren         = {"loc", "exp"},
+    ExtraRet      = {"loc", "call_exp", "i"}, -- Inserted by checker.lua
+    ToFloat       = {"loc", "exp"},           -- Inserted by checker.lua
+    UpvalueRecord = {"loc"},                  -- Inserted by assignment_conversion.lua
 })
 
 declare_type("Field", {

@@ -78,10 +78,15 @@ function Converter:init()
     -- that are captured upvalues and need to be transformed to a different kind of node.
     self.func_depth_of_decl      = {} -- { ast.Decl => integer }
     self.update_init_exp_of_decl = {} -- { ast.Decl => NodeUpdate }
-    self.mutated_decls           = {} -- list of ast.Decl
+    self.mutated_decls           = {} -- { ast.Decl }
     self.captured_decls          = {} -- { ast.Decl }
     self.box_records             = {} -- list of ast.Toplevel.Record
     self.lambda_of_param         = {} -- { ast.Decl => ast.Lambda }
+
+    -- Variables that are not initialized upon declaration can still be captured as
+    -- upvalues. In order to facilitate this, we add an `ast.Exp.UpvalueRecord` node
+    -- to the corresponding ast.Decl node.
+    self.add_init_exp_to_decl = {} -- { ast.Decl => NodeUpdate }
 
     -- used to assign unique names to subsequently generated record types
     self.typ_counter = 0
@@ -137,7 +142,7 @@ function Converter:apply_transformations()
     local proxy_var_of_param       = {} -- { ast.Decl => ast.Decl }
     local proxy_stats_of_lambda    = {} -- { ast.Lambda => list of ast.Stat.Decl }
 
-    for _, decl in ipairs(self.mutated_decls) do
+    for decl in pairs(self.mutated_decls) do
         if self.captured_decls[decl] then
             assert(not decl._exported_as)
 
@@ -198,7 +203,15 @@ function Converter:apply_transformations()
                 proxy_var_of_param[decl] = decl_lhs
 
             else
-                error("upvalues that are not initialized upon declaration cannot be captured.")
+                -- Capturing uninitialized decls as mutable upvalues
+                decl._type = typ
+
+                local ast_update = assert(self.add_init_exp_to_decl[decl])
+                local update     = ast_update.update_fn
+
+                local new_node = ast.Exp.UpvalueRecord(decl.loc)
+                new_node._type = typ
+                update(new_node)
             end
 
             --- Update all references made to the mutable upvalue. Replace all `ast.Var` nodes
@@ -270,8 +283,16 @@ function Converter:visit_stat(stat)
         end
 
     elseif tag == "ast.Stat.Decl" then
-        for _, decl in ipairs(stat.decls) do
+        for i, decl in ipairs(stat.decls) do
             self:register_decl(decl)
+
+            if i > #stat.exps then
+                -- Uninitialized decls might be captured as upvalues.
+                local update_decl = function (new_exp)
+                    stat.exps[i] = new_exp
+                end
+                self.add_init_exp_to_decl[decl] = NodeUpdate(decl, update_decl)
+            end
         end
 
         for i, exp in ipairs(stat.exps) do
@@ -329,7 +350,7 @@ function Converter:visit_stat(stat)
             if var._tag == "ast.Var.Name" and not var._exported_as then
                 if var._def._tag == "checker.Def.Variable" then
                     local decl = assert(var._def.decl)
-                    table.insert(self.mutated_decls, decl)
+                    self.mutated_decls[decl] = true
                 end
             end
         end
