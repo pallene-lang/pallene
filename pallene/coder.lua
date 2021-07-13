@@ -1338,6 +1338,12 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
             string.format("&ccl->upvalue[%s]", C.integer(i)), c_val))
     end
 
+    -- The number of upvalues must fit inside a byte (the nupvalues in the ClosureHeader).
+    -- However, we must check this limit ourselves, because luaF_newCclosure doesn't. If we have too
+    -- many upvalues then that internal Lua function can overflow and do weird things.
+    local num_upvalues = #func.captured_vars + 1
+    assert(num_upvalues <= 255)
+
     return util.render([[
         {
             CClosure *ccl = luaF_newCclosure(L, $num_upvalues);
@@ -1348,7 +1354,7 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
             setclCvalue(L, &$dst, ccl);
         }
     ]], {
-        num_upvalues = C.integer(#func.captured_vars + 1),
+        num_upvalues = C.integer(num_upvalues),
         dst = self:c_var(cmd.dst),
         lua_entry_point = self:lua_entry_point_name(cmd.f_id),
         capture_upvalues = table.concat(capture_upvalues, "\n")
