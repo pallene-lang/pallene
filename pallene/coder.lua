@@ -567,7 +567,7 @@ function Coder:lua_entry_point_definition(f_id)
         -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
         -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
         -- their types will be correct. So we can use the `unchecked_get_slot` instead.
-        table.insert(init_args, unchecked_get_slot(typ, dst, src, func.loc, "upvalue '%s'", C.string(name)))
+        table.insert(init_args, unchecked_get_slot(typ, dst, src) .. C.comment(name))
     end
 
     for i, typ in ipairs(arg_types) do
