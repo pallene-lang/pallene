@@ -1,19 +1,38 @@
-#!/bin/bash
+#!/bin/sh
 
-srcdirs=(pallene/ spec/ examples/)
-
-# Lint our Lua code
-luacheck "${srcdirs[@]}" "$@" || exit 1
-
-# Also check if there is tab-based indentation. Luacheck doesn't do this.
 tab='	'
-if
-    grep --recursive \
-        --include='*.c'   \
-        --include='*.lua' \
-        --include='*.pln' \
-        "^$tab" "${srcdirs[@]}"
-then
-    echo "Detected tab-based indentation"
+ok=yes
+
+red='\033[1;31m'
+green='\033[1;32m'
+reset='\033[0m'
+
+error() {
+    printf "${red}ERROR${reset} %s\n" "$*"
+    ok=no
+}
+
+echo "=== Lua Lint ==="
+luacheck pallene/ spec/ "$@" || exit 1
+echo
+
+echo "=== Other checks ==="
+for file in \
+    pallene/*.lua spec/*.lua \
+    examples/*/*.lua examples/*/*.pln \
+    runtime/*.c runtime/*.h
+do
+    if grep "^$tab" "$file"; then
+        error "File $file has tab-based indentation"
+    fi
+
+    if ! grep --quiet 'SPDX-License-Identifier' "$file"; then
+        error "File $file is missing a copyright header"
+    fi
+done
+
+if [ "$ok" != yes ]; then
     exit 1
 fi
+
+printf "${green}OK${reset}\n"
