@@ -641,8 +641,10 @@ function Coder:init_upvalues()
 
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
-        table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
-        self.upvalue_of_metatable[typ] = #self.upvalues
+        if not typ.is_upvalue_box then
+            table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
+            self.upvalue_of_metatable[typ] = #self.upvalues
+        end
     end
 
     -- String Literals
@@ -1691,13 +1693,17 @@ function Coder:generate_luaopen_function()
     local init_constants = {}
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
+        local is_upvalue_box = false
         if tag ~= "coder.Upvalue.Global" then
             if     tag == "coder.Upvalue.Metatable" then
-                table.insert(init_constants, [[
-                    lua_newtable(L);
-                    lua_pushstring(L, "__metatable");
-                    lua_pushboolean(L, 0);
-                    lua_settable(L, -3); ]])
+                is_upvalue_box = upv.typ.is_upvalue_box
+                if not is_upvalue_box then
+                    table.insert(init_constants, [[
+                        lua_newtable(L);
+                        lua_pushstring(L, "__metatable");
+                        lua_pushboolean(L, 0);
+                        lua_settable(L, -3); ]])
+               end
             elseif tag == "coder.Upvalue.String" then
                 table.insert(init_constants, util.render([[
                     lua_pushstring(L, $str);]], {
@@ -1715,12 +1721,14 @@ function Coder:generate_luaopen_function()
                 typedecl.tag_error(tag)
             end
 
-            table.insert(init_constants, util.render([[
-                lua_setiuservalue(L, globals, $ix);
-                /**/
-            ]], {
-                ix = C.integer(ix),
-            }))
+            if not is_upvalue_box then
+                table.insert(init_constants, util.render([[
+                    lua_setiuservalue(L, globals, $ix);
+                    /**/
+                ]], {
+                    ix = C.integer(ix),
+                }))
+            end
         end
     end
 
