@@ -1,3 +1,8 @@
+-- Copyright (c) 2021, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 -- Used by the test scripts in coder_spec, to check that Pallene operations
 -- compute the same results as their Lua analogues.
 

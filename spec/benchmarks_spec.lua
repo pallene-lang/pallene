@@ -1,3 +1,8 @@
+-- Copyright (c) 2021, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 --
 -- In this test file we run all our benchmarks with a small N, to ensure that they aren't broken by
 -- updates to the compiler.

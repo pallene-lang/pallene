@@ -1,3 +1,8 @@
+-- Copyright (c) 2021, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 -- The expected translations contain spaces, which is what the translator is expected to do when
 -- removing type annotations. Please do not delete them, otherwise the tests will fail.
 
