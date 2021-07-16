@@ -780,6 +780,9 @@ end
 function RecordCoder:declarations()
     local declarations = {}
 
+    assert(self.prim_count >= 0)
+    assert(self.gc_count >= 0)
+
     -- Comment
     table.insert(declarations, C.comment(self.record_typ.name) .. "\n")
 
@@ -827,6 +830,9 @@ function RecordCoder:declarations()
     table.insert(declarations, util.render([[
         static Udata *${constructor_name}(lua_State *L, Udata *G)
         {
+ #if $nvalues > USHRT_MAX
+ #error "Record type is too large"
+ #endif
             Udata *rec = luaS_newudata(L, $prims_sizeof, $nvalues);
             rec->metatable = hvalue($mt_slot);
             return rec;
@@ -1747,6 +1753,9 @@ function Coder:generate_luaopen_function()
             /* Constants */
             /**/
 
+#if $n_upvalues > USHRT_MAX
+#error "Too many string literals or record types"
+#endif
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
             /**/
