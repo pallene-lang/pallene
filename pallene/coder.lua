@@ -428,17 +428,20 @@ function Coder:pallene_entry_point_definition(f_id)
     end
 
     local prologue = {}
+    table.insert(prologue, self:savestack())
 
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
-            luaD_checkstack(L, $slots_needed);
+            luaD_checkstackaux(L, $slots_needed,
+                (void)0,
+                $restore_stack);
         ]], {
             slots_needed = C.integer(slots_needed),
+            restore_stack = self:restorestack():match("^(.-);$"),
         }))
     end
-    table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
 
     for v_id = #arg_types + 1, #func.vars do
