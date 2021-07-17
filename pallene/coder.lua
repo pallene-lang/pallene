@@ -123,12 +123,7 @@ local function set_stack_slot(typ, dst_slot, value)
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
--- Set a TValue* slot that belongs to some heap object (array, record, etc).
--- Must receive a pointer to the parent object, due to the GC write barrier.
-local function set_heap_slot(typ, dst_slot, value, parent)
-    local lines = {}
-    table.insert(lines, set_stack_slot(typ, dst_slot, value))
-
+local function gc_barrier(typ, value, parent)
     if types.is_gc(typ) then
         local tmpl
         if typ._tag == "types.T.Any" or typ._tag == "types.T.Function" then
@@ -136,9 +131,18 @@ local function set_heap_slot(typ, dst_slot, value, parent)
         else
             tmpl = "pallene_barrierback_unboxed(L, obj2gco($p), obj2gco($v));"
         end
-        table.insert(lines, util.render(tmpl, { p = parent, v = value }))
+        return util.render(tmpl, { p = parent, v = value })
+    else
+        return ""
     end
+end
 
+-- Set a TValue* slot that belongs to some heap object (array, record, etc).
+-- Must receive a pointer to the parent object, due to the GC write barrier.
+local function set_heap_slot(typ, dst_slot, value, parent)
+    local lines = {}
+    table.insert(lines, set_stack_slot(typ, dst_slot, value))
+    table.insert(lines, gc_barrier(typ, value, parent))
     return table.concat(lines, "\n")
 end
 
@@ -1276,7 +1280,7 @@ end
 gen_cmd["SetTable"] = function(self, cmd, _func)
     local tab = self:c_value(cmd.src_tab)
     local key = self:c_value(cmd.src_k)
-    local v = self:c_value(cmd.src_v)
+    local val = self:c_value(cmd.src_v)
     local src_typ = cmd.src_typ
 
     assert(cmd.src_k._tag == "ir.Value.String")
@@ -1284,20 +1288,28 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
 
     return util.render([[
         {
+            TValue keyv; ${init_keyv}
             static size_t cache = UINT_MAX;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
-                TValue keyv;
-                setsvalue(L, &keyv, $key);
-                slot = luaH_newkey(L, $tab, &keyv);
+                TValue valv; ${init_valv}
+                luaH_newkey(L, $tab, &keyv, &valv);
+            } else {
+                ${set_slot}
             }
-            ${set_heap_slot}
+            ${barrier};
         }
     ]], {
         field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        set_heap_slot = set_heap_slot(src_typ, "slot", v, tab),
+        val = val,
+        init_keyv = set_stack_slot(types.T.String(), "&keyv", key),
+        init_valv = set_stack_slot(src_typ, "&valv", val),
+        -- Here we use set_stack_slot slot on a heap object, because
+        -- we call the barrier by hand outside the if statement.
+        set_slot = set_stack_slot(src_typ, "slot", val),
+        barrier = gc_barrier(src_typ, val, tab),
     })
 end
 
