@@ -674,13 +674,9 @@
 
 #endif
 
-
-#if defined(LUA_CORE) || defined(LUA_LIB)
 /* shorter names for Lua's own use */
 #define l_likely(x)	luai_likely(x)
 #define l_unlikely(x)	luai_unlikely(x)
-#endif
-
 
 
 /* }================================================================== */
