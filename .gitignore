@@ -3,8 +3,8 @@
 *.so
 
 # lua
-lua/src/lua
-lua/src/luac
+vm/src/lua
+vm/src/luac
 
 cbenchmarks/*
 !cbenchmarks/*.c

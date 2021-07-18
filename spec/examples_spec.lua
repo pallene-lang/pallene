@@ -11,7 +11,7 @@ local function assert_example(example, expected_output)
     assert(ok, err)
 
     local luafile = util.shell_quote("examples/"..example.."/main.lua")
-    local ok, err, output, _ = util.outputs_of_execute("./lua/src/lua "..luafile)
+    local ok, err, output, _ = util.outputs_of_execute("./vm/src/lua "..luafile)
     assert(ok, err)
     assert.are.same(expected_output, output)
 end

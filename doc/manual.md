@@ -36,7 +36,7 @@ $ ./pallenec sum.pln
 The `sum.so` file can be loaded from within Lua with `require`, as usual:
 
 ```
-$ ./lua/src/lua
+$ ./vm/src/lua
 > sum = require "sum"
 > print(sum.sum_floats({10.0, 20.0, 30.0})) --> 60.0
 ```
