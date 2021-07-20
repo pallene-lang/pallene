@@ -21,8 +21,6 @@ jobs:
         steps:
             - uses: actions/checkout@v2
             - uses: leafo/gh-actions-lua@v8.0.0
-              with:
-                  luaVersion: "5.4.2"
             - uses: leafo/gh-actions-luarocks@v4.0.0
 
             - name: Install Luacheck
@@ -37,8 +35,6 @@ jobs:
         steps:
             - uses: actions/checkout@v2
             - uses: leafo/gh-actions-lua@v8.0.0
-              with:
-                  luaVersion: "5.4.2"
             - uses: leafo/gh-actions-luarocks@v4.0.0
 
             - name: Build
