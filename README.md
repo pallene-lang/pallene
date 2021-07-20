@@ -100,7 +100,7 @@ To run Pallene, you must currently use the bundled version of the Lua
 interpreter (again, see [Bug #16](https://github.com/pallene-lang/pallene/issues/16)).
 
 ```sh
-$ ./lua/src/lua -l foo
+$ ./vm/src/lua -l foo
 ```
 
 It is possible to change compiler optimization level, for the Pallene compiler and C compiler. Here are some examples:
