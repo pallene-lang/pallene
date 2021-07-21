@@ -71,7 +71,6 @@ function c_compiler.compile_o_to_so(in_filename, out_filename)
         c_compiler.CFLAGS_SHARED,
         "-o", util.shell_quote(out_filename),
         util.shell_quote(in_filename),
-        "runtime/pallenelib.a"
     })
 end
 
