@@ -420,16 +420,16 @@ describe("Parser /", function()
         end)
 
         it("disallow too many function parameters", function ()
-           local params = ''
-           for i = 1, 200 do
-              params = params..'a'..i..', '
-           end
-           params = params..'a201'
-           assert_toplevel_error(string.format([[
-                function m.f(%s)
+            local t_params = {}
+            for i = 1, 201 do
+                t_params[i] = "a"..i..": integer"
+            end
+            local params = table.concat(t_params, ", ")
+            assert_toplevel_error([[
+                function m.f(]]..params..[[): integer
                     return 1
                 end
-           ]], params), "too many parameters (limit is 200)")
+            ]], "too many parameters (limit is 200)")
         end)
 
         it("must have argument type annotations (argument)", function()
@@ -569,14 +569,14 @@ describe("Parser /", function()
         end)
 
         it("disallows too many arguments", function ()
-           local args = ''
-           for i = 1, 200 do
-              args = args .. i .. ', '
-           end
-           args = args ..'201'
-            assert_statements_error(string.format([[
-                f(%s)
-            ]], args), "too many arguments (limit is 200)")
+            local t_args = {}
+            for i = 1, 201 do
+                t_args[i] = i
+            end
+            local args = table.concat(t_args, ", ")
+            assert_statements_error([[
+                f(]]..args..[[)
+            ]], "too many arguments (limit is 200)")
         end)
 
         it("are the only expression allowed as a statement (2/2)", function()

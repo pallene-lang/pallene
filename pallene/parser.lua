@@ -13,6 +13,11 @@ local util = require "pallene.util"
 
 local Parser = util.Class()
 
+-- The Lua VM might have a hard time calling functions with too many arguments.
+-- Lua itself does not allow more than 200 upvalues, function parameters or local variables 
+-- since it uses 1-byte long unsigned numbers to store stack offsets for locals.
+local MaxParams = 200
+
 function Parser:init(lexer)
     self.lexer = lexer
     self.prev = false -- Token
@@ -22,7 +27,6 @@ function Parser:init(lexer)
     self.region_depth = 0     -- Are we inside a type annotation?
     self.type_regions = {}    -- Sequence of pairs. Ranges of type annotations in program.
     self.comment_regions = {} -- Sequence of pairs. Ranges of comments in the program.
-    self.max_params = 200
     self:_advance(); self:_advance()
 end
 
@@ -784,9 +788,9 @@ function Parser:FuncArgs()
         local open = self:e("(")
         local exps = self:peek(")") and {} or self:ExpList1()
         local _    = self:e(")", open)
-        if #exps > self.max_params then
-            self:syntax_error(exps[self.max_params + 1].loc,
-                "too many arguments (limit is %d)", self.max_params)
+        if #exps > MaxParams then
+            self:syntax_error(exps[MaxParams + 1].loc,
+                "too many arguments (limit is %d)", MaxParams)
         end
         return exps
     end
@@ -795,9 +799,9 @@ end
 function Parser:FuncParams()
     local oparen = self:e("(")
     local params = self:DeclList()
-    if #params > self.max_params then
-        self:syntax_error(params[self.max_params + 1].loc,
-            "too many parameters (limit is %d)", self.max_params)
+    if #params > MaxParams then
+        self:syntax_error(params[MaxParams + 1].loc,
+            "too many parameters (limit is %d)", MaxParams)
     end
     local _ = self:e(")", oparen)
     return params
