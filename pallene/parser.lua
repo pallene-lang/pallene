@@ -13,6 +13,11 @@ local util = require "pallene.util"
 
 local Parser = util.Class()
 
+-- The Lua VM might have a hard time calling functions with too many arguments.
+-- Lua itself does not allow more than 200 upvalues, function parameters or local variables 
+-- since it uses 1-byte long unsigned numbers to store stack offsets for locals.
+local MaxParams = 200
+
 function Parser:init(lexer)
     self.lexer = lexer
     self.prev = false -- Token
@@ -783,6 +788,10 @@ function Parser:FuncArgs()
         local open = self:e("(")
         local exps = self:peek(")") and {} or self:ExpList1()
         local _    = self:e(")", open)
+        if #exps > MaxParams then
+            self:syntax_error(exps[MaxParams + 1].loc,
+                "too many arguments (limit is %d)", MaxParams)
+        end
         return exps
     end
 end
@@ -790,6 +799,10 @@ end
 function Parser:FuncParams()
     local oparen = self:e("(")
     local params = self:DeclList()
+    if #params > MaxParams then
+        self:syntax_error(params[MaxParams + 1].loc,
+            "too many parameters (limit is %d)", MaxParams)
+    end
     local _ = self:e(")", oparen)
     return params
 end
