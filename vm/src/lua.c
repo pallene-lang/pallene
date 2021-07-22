@@ -657,3 +657,16 @@ int main (int argc, char **argv) {
   return (result && status == LUA_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+/*
+** PALLENE LINKER HACK
+**
+** When we build the final "lua" executable, bundling it with the "liblua.a" library, the linker
+** only includes symbols from the object files where at least one of the symbols of the module is
+** used by the executable itself. This is a problem for the Pallene runtime library, because those
+** symbols are only used by extension modules, which we expect to dynamically link. One hacky
+** workaround I found is to force the "lua" executable to reference one of the symbols from the
+** pallene_code, as done below.
+*/
+char *pallene_tag_name(int);
+char *(*PALLENE_LINKER_HACK)(int) = pallene_tag_name;
+
