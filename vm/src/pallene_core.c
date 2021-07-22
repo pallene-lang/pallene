@@ -3,6 +3,8 @@
  * Please refer to the LICENSE and AUTHORS files for details
  * SPDX-License-Identifier: MIT */
 
+#define LUA_CORE
+
 #include "pallene_core.h"
 
 #include "lua.h"
