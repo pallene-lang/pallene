@@ -22,6 +22,7 @@ function Parser:init(lexer)
     self.region_depth = 0     -- Are we inside a type annotation?
     self.type_regions = {}    -- Sequence of pairs. Ranges of type annotations in program.
     self.comment_regions = {} -- Sequence of pairs. Ranges of comments in the program.
+    self.max_params = 200
     self:_advance(); self:_advance()
 end
 
@@ -783,6 +784,10 @@ function Parser:FuncArgs()
         local open = self:e("(")
         local exps = self:peek(")") and {} or self:ExpList1()
         local _    = self:e(")", open)
+        if #exps > self.max_params then
+            self:syntax_error(exps[self.max_params + 1].loc,
+                "too many arguments (limit is %d)", self.max_params)
+        end
         return exps
     end
 end
@@ -790,6 +795,10 @@ end
 function Parser:FuncParams()
     local oparen = self:e("(")
     local params = self:DeclList()
+    if #params > self.max_params then
+        self:syntax_error(params[self.max_params + 1].loc,
+            "too many parameters (limit is %d)", self.max_params)
+    end
     local _ = self:e(")", oparen)
     return params
 end
