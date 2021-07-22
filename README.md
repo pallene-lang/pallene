@@ -40,7 +40,7 @@ sudo apt install parallel # for Ubuntu & Debian-based distros
 sudo dnf install parallel # for Fedora
 ```
 
-Pallene requires Lua 5.3 to be installed on your system.
+Pallene requires Lua 5.3 or newer to be installed on your system.
 You can either install it [from source](https://www.lua.org/ftp/) or via the package manager for your Linux distro.
 If you install via the package manager then make sure to also install the Lua headers, which are often in a separate "development" package.
 
@@ -70,18 +70,18 @@ $ echo 'eval `luarocks path`' >> ~/.bashrc
 ```
 For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
 
-### Compiling the runtime libraries
+### Compiling the custom interpreter
 
-Pallene must be run against a custom-built version of the Lua interpreter, as
-well as the Pallene runtime library. Both of these are written in C and must be
-compiled before the Pallene compiler can be used.
+Pallene must be run against a custom-built version of the Lua interpreter.
+This custom version of Lua 5.4 doesn't have to be the same one that you will use to run the compiler itself,
+or to install the Luarocks packages.
 
-These two components can be built through the Makefile we provide. The command
-to be used depends on your operating system:
+To compile the custom version of Lua, follow the instructions found the vm/doc/readme.html.
+For Linux, these are the commands you need to run:
 
 ```sh
-make linux-readline # for Linux
-make macosx         # for MacOS
+cd vm
+make linux-readline -j
 ```
 
 ## Usage
