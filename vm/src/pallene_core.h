@@ -245,9 +245,9 @@ void pallene_renormalize_array(
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
 static inline
-TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
+TValue *pallene_getshortstr(Table *t, TString *key, int *restrict cache)
 {
-    if (*cache < sizenode(t)) {
+    if (0 <= *cache && *cache < sizenode(t)) {
        Node *n = gnode(t, *cache);
        if (keyisshrstr(n) && eqshrstr(keystrval(n), key))
            return gval(n);
@@ -273,7 +273,7 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
 }
 
 static inline
-TValue *pallene_getstr(size_t len, Table *t, TString *key, size_t *cache)
+TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache)
 {
     if (len <= LUAI_MAXSHORTLEN) {
         return pallene_getshortstr(t, key, cache);

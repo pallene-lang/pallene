@@ -1265,7 +1265,7 @@ gen_cmd["GetTable"] = function(self, cmd, _func)
 
     return util.render([[
         {
-            static size_t cache = UINT_MAX;
+            static int cache = UINT_MAX;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
             ${get_slot}
         }
@@ -1289,7 +1289,7 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
     return util.render([[
         {
             TValue keyv; ${init_keyv}
-            static size_t cache = UINT_MAX;
+            static int cache = UINT_MAX;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
             if (PALLENE_UNLIKELY(isabstkey(slot))) {
                 TValue valv; ${init_valv}
