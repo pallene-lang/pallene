@@ -665,7 +665,7 @@ int main (int argc, char **argv) {
 ** used by the executable itself. This is a problem for the Pallene runtime library, because those
 ** symbols are only used by extension modules, which we expect to dynamically link. One hacky
 ** workaround I found is to force the "lua" executable to reference one of the symbols from the
-** pallene_code, as done below.
+** pallene_core, as done below.
 */
 char *pallene_tag_name(int);
 char *(*PALLENE_LINKER_HACK)(int) = pallene_tag_name;

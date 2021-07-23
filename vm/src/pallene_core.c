@@ -161,7 +161,7 @@ void pallene_grow_array(lua_State *L, const char* file, int line, Table *arr, un
 
 void pallene_io_write(lua_State *L, TString *str)
 {
-    (void) L;
+    (void) L; /* unused parameter */
     const char *s = getstr(str);
     size_t len = tsslen(str);
     fwrite(s, 1, len, stdout);
