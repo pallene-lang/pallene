@@ -6,22 +6,28 @@
 #ifndef PALLENE_CORE_H
 #define PALLENE_CORE_H
 
+// This list on includes should include basically everything we need.
+// It is copied from lapi.c (grep for PALLENE LINKER HACK for more details)
+
 #include "lua.h"
 #include "lauxlib.h"
 #include "lualib.h"
 
 #include "lapi.h"
+#include "ldebug.h"
 #include "ldo.h"
 #include "lfunc.h"
 #include "lgc.h"
+#include "lmem.h"
 #include "lobject.h"
 #include "lstate.h"
 #include "lstring.h"
 #include "ltable.h"
+#include "ltm.h"
+#include "lundump.h"
 #include "lvm.h"
 
 #include <math.h>
-
 
 #define PALLENE_NORETURN __attribute__((noreturn))
 #define PALLENE_UNREACHABLE __builtin_unreachable()
