@@ -79,3 +79,16 @@ To run benchmarks with LuaJIT, use the `--lua` option:
 
 If you change the ".pln" file of a benchmark, or if you change our Pallene-to-Lua translator in "translator.lua",
 please run the `./benchmarks/generate_lua` script to regenerate the ".lua" files for the benchmarks.
+
+# Git workflow
+
+The `misc/` directory contains some scripts that I find useful in my day-to-day interactions with Git.
+They are not required, but maybe you'll also find them useful.
+
+The `pre-commit` hook ensures that you never commit directly to the master branch,
+and that pull requests are always prepared on a separate branch.
+
+The `git-sync` script pulls the latest changes from the upstream repository.
+It updates all the local branches and it deletes the local copy of the branches,
+if the pull request they are from has been merged.
+If you copy this script to your `$PATH`, you can call it using `git sync`.

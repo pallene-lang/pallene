@@ -1,0 +1,78 @@
+#!/usr/bin/fish
+
+# Updates the local repo based on changes in the remote repo
+#
+# 1. Moves forward branches when the upstream branch has new commits.
+# 2. Deletes local branches that have been merged to the main branch.
+#
+# To install, save this somewhere in your $PATH. To run, use `git sync`.
+#
+# This script assumes that the local branches are tracking their corresponding
+# remote branches. See `git push -u` and `git branch -u`.
+#
+# This script also does not update/delete the local branch if the upstream has
+# been rebased because in those cases there is no way to automatically ensure
+# that updating the local branch is safe. One way to avoid this problem is to
+# not create a local copy of those branches in the first place. If you just
+# want to inspect the remote branch you can use `git switch --detach`.
+
+function rev-exists
+    git rev-parse --quiet --verify $argv > /dev/null
+end
+
+function is-ancestor
+    git merge-base --is-ancestor $argv
+end
+
+# Prune remote branches and ensure that we are inside a git repo.
+git fetch --all --prune || exit 1
+
+# Ensure that $remote/HEAD exists
+git remote | while read remote
+    if not rev-exists $remote/HEAD
+        git remote set-head $remote --auto || exit 1
+    end
+end
+
+# Switch to detached head mode, in case we need to update or delete the current branch.
+set old_branch (git branch --show-current)
+git switch --detach --quiet
+
+git for-each-ref refs/heads --format="%(refname):%(upstream):%(upstream:remotename)" |
+while read -d':' localref upstream remote
+    # Is this branch tracking an upstream branch?
+    if [ -z "$upstream" ]; continue; end
+
+    # Does said upstream branch still exist?
+    if rev-exists $upstream
+        if is-ancestor $localref $upstream
+            # Fast forward the local branch
+            git fetch . $upstream:$localref
+
+        else if is-ancestor $upstream $localref
+            # Upload the local changes
+            git push $remote $localref
+
+        else
+            echo "It looks like someone rebased $localref or $upstream."
+        end
+    else
+        # Maybe this PR has been merged?
+        if is-ancestor $localref $remote/HEAD
+            git update-ref -d $localref
+        end
+    end
+end
+
+if [ -n "$old_branch" ]
+    if rev-exists $old_branch
+        # The branch we were on is still here.
+        git switch $old_branch --quiet
+    else
+        # The branch we were on has been deleted.
+        # Switch to default branch and announce it.
+        git switch master
+    end
+end
+
+exit 0
