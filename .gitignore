@@ -6,10 +6,6 @@
 vm/src/lua
 vm/src/luac
 
-cbenchmarks/*
-!cbenchmarks/*.c
-!cbenchmarks/Makefile
-
 # Files from the Pallene test suite
 # These can appear if the test runner is abruptly interrupted with SIGINT
 __test__*
