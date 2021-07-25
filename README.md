@@ -76,7 +76,8 @@ Pallene must be run against a custom-built version of the Lua interpreter.
 This custom version of Lua 5.4 doesn't have to be the same one that you will use to run the compiler itself,
 or to install the Luarocks packages.
 
-To compile the custom version of Lua, follow the instructions found the vm/doc/readme.html.
+To compile the custom version of Lua, follow the instructions found the [Lua README](https://www.lua.org/manual/5.4/readme.html), also found in the vm/doc/readme.html file.
+
 For Linux, these are the commands you need to run:
 
 ```sh
