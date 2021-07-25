@@ -6,22 +6,28 @@
 #ifndef PALLENE_CORE_H
 #define PALLENE_CORE_H
 
+// This list on includes should include basically everything we need.
+// It is copied from lapi.c (grep for PALLENE LINKER HACK for more details)
+
 #include "lua.h"
 #include "lauxlib.h"
 #include "lualib.h"
 
 #include "lapi.h"
+#include "ldebug.h"
 #include "ldo.h"
 #include "lfunc.h"
 #include "lgc.h"
+#include "lmem.h"
 #include "lobject.h"
 #include "lstate.h"
 #include "lstring.h"
 #include "ltable.h"
+#include "ltm.h"
+#include "lundump.h"
 #include "lvm.h"
 
 #include <math.h>
-
 
 #define PALLENE_NORETURN __attribute__((noreturn))
 #define PALLENE_UNREACHABLE __builtin_unreachable()
@@ -245,9 +251,9 @@ void pallene_renormalize_array(
 static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
 
 static inline
-TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
+TValue *pallene_getshortstr(Table *t, TString *key, int *restrict cache)
 {
-    if (*cache < sizenode(t)) {
+    if (0 <= *cache && *cache < sizenode(t)) {
        Node *n = gnode(t, *cache);
        if (keyisshrstr(n) && eqshrstr(keystrval(n), key))
            return gval(n);
@@ -273,7 +279,7 @@ TValue *pallene_getshortstr(Table *t, TString *key, size_t *restrict cache)
 }
 
 static inline
-TValue *pallene_getstr(size_t len, Table *t, TString *key, size_t *cache)
+TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache)
 {
     if (len <= LUAI_MAXSHORTLEN) {
         return pallene_getshortstr(t, key, cache);

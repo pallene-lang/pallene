@@ -1453,3 +1453,17 @@ LUA_API void lua_upvaluejoin (lua_State *L, int fidx1, int n1,
 }
 
 
+/*
+** PALLENE LINKER HACK
+**
+** When we build the final "lua" executable, bundling it with the "liblua.a" library, the linker
+** only includes symbols from the object files where at least one of the symbols of the module is
+** used by the executable itself. This is a problem for the Pallene runtime library, because those
+** symbols are only going to be used by the extension modules, which we expect to dynamically link.
+** The hacky workaround that we found is to compile the pallene_core stuff as part of the lapi.o,
+** isntead of its own object file.
+**
+** As a bonus, we also avoid having to modify the Makefile. Conveniently, the set of header files
+** that lapi.c depends on is a superset of the header files that pallene_core.c needs.
+*/
+#include "pallene_core.c"

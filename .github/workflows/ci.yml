@@ -40,7 +40,7 @@ jobs:
             - name: Build
               run: |
                   luarocks make
-                  make linux-noreadline
+                  (cd vm && make linux)
 
             - name: Install Busted
               run: luarocks install busted

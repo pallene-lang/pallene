@@ -20,7 +20,7 @@ echo "=== Other checks ==="
 for file in \
     pallene/*.lua spec/*.lua \
     examples/*/*.lua examples/*/*.pln \
-    runtime/*.c runtime/*.h
+    vm/src/pallene_core.c vm/src/pallene_core.h
 do
     if grep "^$tab" "$file"; then
         error "File $file has tab-based indentation"
