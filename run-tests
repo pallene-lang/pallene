@@ -38,5 +38,4 @@ else
 fi
 
 # Also run the linter tests, because the CI cares about them.
-echo "--- Linter ---"
 ./run-lint --quiet

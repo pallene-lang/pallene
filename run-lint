@@ -12,11 +12,11 @@ error() {
     ok=no
 }
 
-echo "=== Lua Lint ==="
+echo "--- Lua Lint ---"
 luacheck pallene/ spec/ examples/ "$@" || exit 1
 echo
 
-echo "=== Other checks ==="
+echo "--- Other checks ---"
 for file in \
     pallene/*.lua spec/*.lua \
     examples/*/*.lua examples/*/*.pln \
