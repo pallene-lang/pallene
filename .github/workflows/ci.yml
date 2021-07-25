@@ -27,7 +27,7 @@ jobs:
               run: luarocks install luacheck
 
             - name: Run Luacheck
-              run: ./lint-project
+              run: ./run-lint
 
     test:
         name: Test

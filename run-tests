@@ -3,9 +3,9 @@
 # HOW TO USE: This is a wrapper around busted. The command-line arguments are the same.
 #
 # EXAMPLES:
-#   ./test-project
-#   ./test-project -k
-#   ./test-project spec/coder_spec.lua
+#   ./run-tests
+#   ./run-tests -k
+#   ./run-tests spec/coder_spec.lua
 
 # We encourage using -no-keep-going by default. Sometimes the test suite is failing because of
 # something silly such as forgetting to run make and in those cases there is a desire to interrupt
@@ -39,4 +39,4 @@ fi
 
 # Also run the linter tests, because the CI cares about them.
 echo "--- Linter ---"
-./lint-project --quiet
+./run-lint --quiet

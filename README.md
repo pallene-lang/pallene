@@ -153,22 +153,22 @@ We use Busted to run our test suite. It can be installed using LuaRocks:
 $ luarocks install --local busted
 ```
 
-To run the test suite, run the ./test-project script in this project's root directory.
+To run the test suite, run the ./run-tests script in this project's root directory.
 (Tip: if GNU parallel is installed in your system, running the full test suite will be much faster.)
 
 ```sh
-$ ./test-project                       # Run all tests
-$ ./test-project spec/parser_spec.lua  # Run just one of the test suite files
+$ ./run-tests                       # Run all tests
+$ ./run-tests spec/parser_spec.lua  # Run just one of the test suite files
 ```
 
-The ./test-project script accepts the same command-line flags as `busted`.
+The ./run-tests script accepts the same command-line flags as `busted`.
 If you are debugging an unhandled exception in a test case, the following ones might help:
 
 Flag                     | Effect
 ------------------------ | --------------------------------------------------------
-./test-project -v        | Verbose output, including the stack trace
-./test-project -k        | Run all tests even if some tests are failing
-./test-project -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
+./run-tests -v        | Verbose output, including the stack trace
+./run-tests -k        | Run all tests even if some tests are failing
+./run-tests -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
 
 ### Running the benchmarks suite
 
