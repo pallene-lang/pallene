@@ -31,7 +31,7 @@ if [ "$#" -eq 0 ]; then
         parallel busted -o utfTerminal "${FLAGS[@]}" ::: spec/*_spec.lua
     else
         echo "GNU Parallel is not installed. Running the test suite in single threaded mode..."
-        busted "${FLAGS[@]}" spec/*_spec.lua
+        busted "${FLAGS[@]}"
     fi
     # By default, also run the linter tests, because the CI cares about them.
     ./run-lint --quiet
