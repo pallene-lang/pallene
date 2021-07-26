@@ -6,9 +6,9 @@
 --
 --    luarocks install luacheck
 --
--- To run Luackeck, please use our lint-project script:
+-- To run Luackeck, please use our linter script, which also runs additional checks:
 --
---    ./lint-project
+--    ./run-lint
 --
 -- For vim integration, I recommend ALE [2]. It supports luacheck out of the box
 -- For other editors such as Sublime, Atom, Emacs, Brackets, and VS Code,
