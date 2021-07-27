@@ -145,9 +145,9 @@ function ToIR:resolve_variable(decl)
     return var
 end
 
-function ToIR:register_lambda(exp, name)
+function ToIR:register_lambda(exp, name, is_lambda)
     assert(exp._tag == "ast.Exp.Lambda")
-    local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
+    local f_id = ir.add_function(self.module, exp.loc, name, exp._type, is_lambda)
     self.fun_id_of_exp[exp] = f_id
     return f_id
 end
@@ -856,7 +856,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         table.insert(cmds, ir.Cmd.CheckGC())
 
     elseif tag == "ast.Exp.Lambda" then
-        local f_id = self:register_lambda(exp, "$lambda")
+        local f_id = self:register_lambda(exp, "$lambda", true)
         local func = self.module.functions[f_id]
         self:convert_func(exp)
         ir.add_exported_function(self.module, f_id)

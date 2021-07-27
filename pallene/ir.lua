@@ -33,6 +33,7 @@ function ir.Module()
         globals            = {}, -- list of ir.VarDecl
         exported_functions = {}, -- list of function ids
         exported_globals   = {}, -- list of variable ids
+        lambdas            = {}, -- { function id }
     }
 end
 
@@ -70,9 +71,13 @@ function ir.add_record_type(module, typ)
     return #module.record_types
 end
 
-function ir.add_function(module, loc, name, typ)
+function ir.add_function(module, loc, name, typ, is_lambda)
     table.insert(module.functions, ir.Function(loc, name, typ))
-    return #module.functions
+    local f_id = #module.functions
+    if is_lambda then
+        module.lambdas[f_id] = true
+    end
+    return f_id
 end
 
 function ir.add_global(module, name, typ)

@@ -1707,6 +1707,7 @@ function Coder:generate_luaopen_function()
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
         local is_upvalue_box = false
+        local is_lambda = false
         if tag ~= "coder.Upvalue.Global" then
             if     tag == "coder.Upvalue.Metatable" then
                 is_upvalue_box = upv.typ.is_upvalue_box
@@ -1723,18 +1724,21 @@ function Coder:generate_luaopen_function()
                         str = C.string(upv.str)
                     }))
             elseif tag == "coder.Upvalue.Function" then
-                table.insert(init_constants, util.render([[
-                    lua_pushvalue(L, globals);
-                    lua_pushcclosure(L, ${entry_point}, 1);
-                ]], {
-                    entry_point = self:lua_entry_point_name(upv.f_id),
-                    ix = C.integer(self.upvalue_of_function[upv.f_id]),
-                }))
+                is_lambda = self.module.lambdas[upv.f_id]
+                if not is_lambda then
+                    table.insert(init_constants, util.render([[
+                        lua_pushvalue(L, globals);
+                        lua_pushcclosure(L, ${entry_point}, 1);
+                    ]], {
+                        entry_point = self:lua_entry_point_name(upv.f_id),
+                        ix = C.integer(self.upvalue_of_function[upv.f_id]),
+                    }))
+                end
             else
                 typedecl.tag_error(tag)
             end
 
-            if not is_upvalue_box then
+            if not (is_upvalue_box or is_lambda) then
                 table.insert(init_constants, util.render([[
                     lua_setiuservalue(L, globals, $ix);
                     /**/
@@ -1755,16 +1759,18 @@ function Coder:generate_luaopen_function()
 
     local init_exports = {}
     for _, f_id in ipairs(self.module.exported_functions) do
-        local name = self.module.functions[f_id].name
-        table.insert(init_exports, util.render([[
-            lua_pushstring(L, ${name});
-            lua_getiuservalue(L, globals, $ix);
-            lua_settable(L, export_table);
-            /**/
-        ]], {
-            name = C.string(name),
-            ix = C.integer(self.upvalue_of_function[f_id]),
-        }))
+        if not self.module.lambdas[f_id] then
+            local name = self.module.functions[f_id].name
+            table.insert(init_exports, util.render([[
+                lua_pushstring(L, ${name});
+                lua_getiuservalue(L, globals, $ix);
+                lua_settable(L, export_table);
+                /**/
+            ]], {
+                name = C.string(name),
+                ix = C.integer(self.upvalue_of_function[f_id]),
+            }))
+        end
     end
 
     for _, g_id in ipairs(self.module.exported_globals) do
