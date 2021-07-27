@@ -12,7 +12,17 @@
 
 name: Github Actions CI
 
-on: [ push ]
+# Github Actions can be infuriatingly obtuse at times. I don't know exactly why we need both the
+# push and the pull_request events. It's wasteful, but at least does what we want.
+#
+# - only push:         doesn't run checks if an external fork opens a pull request
+# - only pull_request: doesn't work with caching
+# - both events:       runs the same checks twice, wasting compute time
+on:
+    push:
+        branches: [ master ]
+    pull_request:
+        branches: [ master ]
 
 jobs:
     lint:
