@@ -672,13 +672,14 @@ function Coder:init_upvalues()
     for _, func in ipairs(self.module.functions) do
         for cmd in ir.iter(func.body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
-                if v._tag == "ir.Value.Function" then
+                if v._tag == "ir.Value.Function" and not self.module.lambdas[v.id] then
                     table.insert(closures, v.id)
                 end
             end
         end
     end
     for _, f_id in ipairs(self.module.exported_functions) do
+        assert(not self.module.lambdas[f_id])
         table.insert(closures, f_id)
     end
 
@@ -1696,6 +1697,14 @@ function Coder:generate_module()
             table.insert(out, self:lua_entry_point_definition(f_id))
         end
     end
+
+    table.insert(out, section_comment("Lambdas"))
+    for f_id = 1, #self.module.functions do
+        if self.module.lambdas[f_id] then
+            table.insert(out, self:lua_entry_point_definition(f_id))
+        end
+    end
+
     table.insert(out, self:generate_luaopen_function())
 
     return C.reformat(table.concat(out, "\n/**/\n"))
@@ -1707,7 +1716,6 @@ function Coder:generate_luaopen_function()
     for ix, upv in ipairs(self.upvalues) do
         local tag = upv._tag
         local is_upvalue_box = false
-        local is_lambda = false
         if tag ~= "coder.Upvalue.Global" then
             if     tag == "coder.Upvalue.Metatable" then
                 is_upvalue_box = upv.typ.is_upvalue_box
@@ -1724,21 +1732,19 @@ function Coder:generate_luaopen_function()
                         str = C.string(upv.str)
                     }))
             elseif tag == "coder.Upvalue.Function" then
-                is_lambda = self.module.lambdas[upv.f_id]
-                if not is_lambda then
-                    table.insert(init_constants, util.render([[
-                        lua_pushvalue(L, globals);
-                        lua_pushcclosure(L, ${entry_point}, 1);
-                    ]], {
-                        entry_point = self:lua_entry_point_name(upv.f_id),
-                        ix = C.integer(self.upvalue_of_function[upv.f_id]),
-                    }))
-                end
+                assert(not self.module.lambdas[upv.f_id])
+                table.insert(init_constants, util.render([[
+                    lua_pushvalue(L, globals);
+                    lua_pushcclosure(L, ${entry_point}, 1);
+                ]], {
+                    entry_point = self:lua_entry_point_name(upv.f_id),
+                    ix = C.integer(self.upvalue_of_function[upv.f_id]),
+                }))
             else
                 typedecl.tag_error(tag)
             end
 
-            if not (is_upvalue_box or is_lambda) then
+            if not is_upvalue_box then
                 table.insert(init_constants, util.render([[
                     lua_setiuservalue(L, globals, $ix);
                     /**/
