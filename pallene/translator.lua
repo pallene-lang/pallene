@@ -5,7 +5,13 @@
 
 local util = require "pallene.util"
 
+-- !!! IMPORTANT - READ THIS !!!
 --
+-- If you change the output of this translator, please run the `benchmarks/generate_lua` script
+-- to update the ".lua" files of our benchmarks.
+
+----------
+
 -- This file implements a Pallene to Lua translator.
 --
 -- The Pallene compiler is divided into two logical ends:
@@ -22,11 +28,6 @@ local util = require "pallene.util"
 -- everything else other than type annotations are retained in the translated code. Thus, the
 -- formatting in the original input is preserved, which means the error messages always point to
 -- the same location in both Pallene and Lua code.
---
--- Since shadowing top-level components is a syntax error in Pallene, the translator can generate
--- all the forward references at the beginning of the module. This design allows us to not worry
--- about finding empty lines, lines with comments, and so on to correctly translate mutually recursive
--- function groups.
 --
 
 local translator = {}

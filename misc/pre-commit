@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# If you have have permission to push to the Pallene repository, and your normal workflow is to
+# always work on a separate feature branch, then comitting directly to master is almost an error.
+# This hook can protect you from doing that by accident.
+#
+# To install this git hook, copy it to the .git/hooks/ directory, or place a symbolic link there.
+
+if [ "$(git branch --show-current)" = "master" ]; then
+    echo "$0: Please don't directly create commits on the master branch"
+    exit 1
+fi
+
+exit 0
