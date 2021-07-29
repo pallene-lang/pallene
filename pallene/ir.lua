@@ -62,8 +62,8 @@ function ir.Function(loc, name, typ)
     }
 end
 
----
---- Mutate modules
+--
+-- Mutate modules
 --
 
 function ir.add_record_type(module, typ)
@@ -71,13 +71,9 @@ function ir.add_record_type(module, typ)
     return #module.record_types
 end
 
-function ir.add_function(module, loc, name, typ, is_lambda)
+function ir.add_function(module, loc, name, typ)
     table.insert(module.functions, ir.Function(loc, name, typ))
-    local f_id = #module.functions
-    if is_lambda then
-        module.lambdas[f_id] = true
-    end
-    return f_id
+    return #module.functions
 end
 
 function ir.add_global(module, name, typ)

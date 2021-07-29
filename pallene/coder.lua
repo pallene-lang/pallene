@@ -1691,19 +1691,10 @@ function Coder:generate_module()
         table.insert(out, self:pallene_entry_point_definition(f_id))
     end
 
-    table.insert(out, section_comment("Exports"))
     for f_id = 1, #self.module.functions do
-        if f_id == 1 or self.upvalue_of_function[f_id] then
-            table.insert(out, self:lua_entry_point_definition(f_id))
-        end
+        table.insert(out, self:lua_entry_point_definition(f_id))
     end
 
-    table.insert(out, section_comment("Lambdas"))
-    for f_id = 1, #self.module.functions do
-        if self.module.lambdas[f_id] then
-            table.insert(out, self:lua_entry_point_definition(f_id))
-        end
-    end
 
     table.insert(out, self:generate_luaopen_function())
 
