@@ -672,14 +672,13 @@ function Coder:init_upvalues()
     for _, func in ipairs(self.module.functions) do
         for cmd in ir.iter(func.body) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
-                if v._tag == "ir.Value.Function" and not self.module.lambdas[v.id] then
+                if v._tag == "ir.Value.Function" then
                     table.insert(closures, v.id)
                 end
             end
         end
     end
     for _, f_id in ipairs(self.module.exported_functions) do
-        assert(not self.module.lambdas[f_id])
         table.insert(closures, f_id)
     end
 
@@ -1686,15 +1685,15 @@ function Coder:generate_module()
         table.insert(out, self:lua_entry_point_declaration(f_id) .. ";")
     end
 
-    table.insert(out, section_comment("Function Implementations"))
+    table.insert(out, section_comment("Pallene Entry Points"))
     for f_id = 1, #self.module.functions do
         table.insert(out, self:pallene_entry_point_definition(f_id))
     end
 
+    table.insert(out, section_comment("Lua Entry Points"))
     for f_id = 1, #self.module.functions do
         table.insert(out, self:lua_entry_point_definition(f_id))
     end
-
 
     table.insert(out, self:generate_luaopen_function())
 
@@ -1723,7 +1722,6 @@ function Coder:generate_luaopen_function()
                         str = C.string(upv.str)
                     }))
             elseif tag == "coder.Upvalue.Function" then
-                assert(not self.module.lambdas[upv.f_id])
                 table.insert(init_constants, util.render([[
                     lua_pushvalue(L, globals);
                     lua_pushcclosure(L, ${entry_point}, 1);
@@ -1756,7 +1754,6 @@ function Coder:generate_luaopen_function()
 
     local init_exports = {}
     for _, f_id in ipairs(self.module.exported_functions) do
-        if not self.module.lambdas[f_id] then
             local name = self.module.functions[f_id].name
             table.insert(init_exports, util.render([[
                 lua_pushstring(L, ${name});
@@ -1767,7 +1764,6 @@ function Coder:generate_luaopen_function()
                 name = C.string(name),
                 ix = C.integer(self.upvalue_of_function[f_id]),
             }))
-        end
     end
 
     for _, g_id in ipairs(self.module.exported_globals) do

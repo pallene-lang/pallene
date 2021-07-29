@@ -33,7 +33,6 @@ function ir.Module()
         globals            = {}, -- list of ir.VarDecl
         exported_functions = {}, -- list of function ids
         exported_globals   = {}, -- list of variable ids
-        lambdas            = {}, -- { function id }
     }
 end
 
