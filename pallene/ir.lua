@@ -61,8 +61,8 @@ function ir.Function(loc, name, typ)
     }
 end
 
----
---- Mutate modules
+--
+-- Mutate modules
 --
 
 function ir.add_record_type(module, typ)

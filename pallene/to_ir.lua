@@ -859,7 +859,6 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local f_id = self:register_lambda(exp, "$lambda")
         local func = self.module.functions[f_id]
         self:convert_func(exp)
-        ir.add_exported_function(self.module, f_id)
 
         local upvalues = {}
         for _, upval_info in ipairs(func.captured_vars) do

@@ -1685,17 +1685,16 @@ function Coder:generate_module()
         table.insert(out, self:lua_entry_point_declaration(f_id) .. ";")
     end
 
-    table.insert(out, section_comment("Function Implementations"))
+    table.insert(out, section_comment("Pallene Entry Points"))
     for f_id = 1, #self.module.functions do
         table.insert(out, self:pallene_entry_point_definition(f_id))
     end
 
-    table.insert(out, section_comment("Exports"))
+    table.insert(out, section_comment("Lua Entry Points"))
     for f_id = 1, #self.module.functions do
-        if f_id == 1 or self.upvalue_of_function[f_id] then
-            table.insert(out, self:lua_entry_point_definition(f_id))
-        end
+        table.insert(out, self:lua_entry_point_definition(f_id))
     end
+
     table.insert(out, self:generate_luaopen_function())
 
     return C.reformat(table.concat(out, "\n/**/\n"))
@@ -1755,16 +1754,16 @@ function Coder:generate_luaopen_function()
 
     local init_exports = {}
     for _, f_id in ipairs(self.module.exported_functions) do
-        local name = self.module.functions[f_id].name
-        table.insert(init_exports, util.render([[
-            lua_pushstring(L, ${name});
-            lua_getiuservalue(L, globals, $ix);
-            lua_settable(L, export_table);
-            /**/
-        ]], {
-            name = C.string(name),
-            ix = C.integer(self.upvalue_of_function[f_id]),
-        }))
+            local name = self.module.functions[f_id].name
+            table.insert(init_exports, util.render([[
+                lua_pushstring(L, ${name});
+                lua_getiuservalue(L, globals, $ix);
+                lua_settable(L, export_table);
+                /**/
+            ]], {
+                name = C.string(name),
+                ix = C.integer(self.upvalue_of_function[f_id]),
+            }))
     end
 
     for _, g_id in ipairs(self.module.exported_globals) do
