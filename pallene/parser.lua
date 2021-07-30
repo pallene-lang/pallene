@@ -983,14 +983,6 @@ end
 -- Syntax errors
 --
 
-local SyntaxError = util.Class()
-function SyntaxError:init(msg)
-    self.msg = msg
-end
-function SyntaxError:__tostring()
-    return tostring(self.msg)
-end
-
 function Parser:describe_token_name(name)
     if     name == "EOF"    then return "end of the file"
     elseif name == "NUMBER" then return "number"
@@ -1012,7 +1004,7 @@ end
 
 function Parser:syntax_error(loc, fmt, ...)
     local msg = "syntax error: " .. loc:format_error(fmt, ...)
-    error(SyntaxError.new(msg), 2)
+    trycatch.error("syntax", msg)
 end
 
 function Parser:forced_syntax_error(expected_name)
@@ -1052,8 +1044,8 @@ function parser.parse(lexer)
         local prog_ast = ret
         return prog_ast, {}
     else
-        if getmetatable(ret.err) == SyntaxError then
-            local err_msg = ret.err.msg
+        if ret.tag == "syntax" then
+            local err_msg = ret.msg
             return false, { err_msg }
         else
             -- Internal error; re-throw

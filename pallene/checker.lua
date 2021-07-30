@@ -46,14 +46,6 @@ local util = require "pallene.util"
 
 local checker = {}
 
-local CheckerError = util.Class()
-function CheckerError:init(msg)
-    self.msg = msg
-end
-function CheckerError:__tostring()
-    return tostring(self.msg)
-end
-
 local Checker = util.Class()
 
 -- Type-check a Pallene module
@@ -67,8 +59,8 @@ function checker.check(prog_ast)
         prog_ast = ret
         return prog_ast, {}
     else
-        if getmetatable(ret.err) == CheckerError then
-            local err_msg = ret.err.msg
+        if ret.tag == "checker" then
+            local err_msg = ret.msg
             return false, { err_msg }
         else
             -- Internal error; re-throw
@@ -79,7 +71,7 @@ end
 
 local function type_error(loc, fmt, ...)
     local msg = "type error: " .. loc:format_error(fmt, ...)
-    error(CheckerError.new(msg))
+    trycatch.error("checker", msg)
 end
 
 local function check_type_is_condition(exp, fmt, ...)

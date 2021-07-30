@@ -20,33 +20,57 @@ local util = require "pallene.util"
 -- us more control on what is displayed. This exception datatype also keeps track of the original
 -- stack trace, meaning that it can be re-raised without messing up the stack.
 --
+-- `trycatch.pcall` always returns an exception of type `Exception`. It has a `tag` field
+-- that you can inspect in the catch portion of the try-catch. To tag your exceptions, use the
+-- `trycatch.error` function, which receives the tag as an extra parameter.
+--
 -- Example usage:
 --
---    local ok, err = trycatch.pcall(function() ...  end)
---    if not ok then
---        error(err)
+--    local ok, ret = trycatch.pcall(function()
+--         trycatch.error("xyz", "message")
+--    end)
+--    if ok then
+--        -- success
+--        return ret
+--    else
+--        if ret.tag == "xyz" then
+--            -- catch "xyz" exception
+--            return ret.msg
+--        else
+--            -- re-raise other exceptions
+--            error(ret)
+--        end
 --    end
 
 local Exception = util.Class()
 
-function Exception:init(err, stack_trace)
-    self.err = err
-    self.stack_trace = stack_trace
+function Exception:init(tag, msg, level)
+    self.tag = tag
+    self.msg = msg
+    self.stack_trace = debug.traceback("", level)
 end
 
 function Exception:__tostring()
-    return tostring(self.err) .. self.stack_trace
+    return tostring(self.msg) .. self.stack_trace
 end
 
 ---
 
 local function msg_handler(msg)
-    local stack_trace = debug.traceback("", 2)
-    return Exception.new(msg, stack_trace)
+    if getmetatable(msg) == Exception then
+        return msg
+    else
+        return Exception.new(false, msg, 3)
+    end
 end
 
 function trycatch.pcall(fn, ...)
     return xpcall(fn, msg_handler, ...)
+end
+
+function trycatch.error(tag, msg, level)
+    level = level or 1
+    error(Exception.new(tag, msg, level+3))
 end
 
 return trycatch
