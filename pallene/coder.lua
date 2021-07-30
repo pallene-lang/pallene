@@ -391,10 +391,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     table.insert(args, {"lua_State *" , "L",    ""})
     table.insert(args, {"Udata *"     , "G",    ""})
     table.insert(args, {"StackValue *", "base", ""})
-
-    if #func.captured_vars >= 1 then
-        table.insert(args, {"TValue*", "U", C.comment("upvalues")})
-    end
+    table.insert(args, {"TValue*", "U", C.comment("upvalues")})
 
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
@@ -491,12 +488,13 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dsts, f_id, base, xs)
+function Coder:call_pallene_function(dsts, f_id, base, xs, upvalue_list)
 
     local args = {}
     table.insert(args, "L")
     table.insert(args, "G")
     table.insert(args, base)
+    table.insert(args, upvalue_list or "NULL")
     for _, x in ipairs(xs) do
         table.insert(args, x)
     end
@@ -539,7 +537,6 @@ function Coder:lua_entry_point_definition(f_id)
     local fname = func.name
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
-    local captured_vars = func.captured_vars
 
     -- We unconditionally initialize the G userdata here, in case one of the tag checking tests
     -- needs to use it. We don't bother to make this initialization conditional because in the case
@@ -563,11 +560,6 @@ function Coder:lua_entry_point_definition(f_id)
     local arg_vars  = {}
     local arg_decls = {}
 
-    local num_upvals = 0
-    if #captured_vars >= 1 then
-        table.insert(arg_vars, "func->upvalue")
-        num_upvals = 1
-    end
     for i, typ in ipairs(arg_types) do
         local name = self:c_var(i)
         table.insert(arg_vars, name)
@@ -578,7 +570,7 @@ function Coder:lua_entry_point_definition(f_id)
 
     for i, typ in ipairs(arg_types) do
         local name = func.vars[i].name
-        local dst = arg_vars[num_upvals + i]
+        local dst = arg_vars[i]
         local src = string.format("s2v(base + %s)", C.integer(i))
         table.insert(init_args,
             self:get_stack_slot(typ, dst, src,
@@ -593,7 +585,8 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars)
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars,
+        "func->upvalue")
 
     local push_results = {}
     for i, typ in ipairs(ret_types) do
