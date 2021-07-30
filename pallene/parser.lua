@@ -1,11 +1,11 @@
 -- Copyright (c) 2020, The Pallene Developers
-        -- funcs = { is_local, module, name, method, ret_types, value }
 -- Pallene is licensed under the MIT license.
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
 local ast = require "pallene.ast"
 local util = require "pallene.util"
+local trycatch = require "pallene.trycatch"
 
 -- This module implements the Pallene parser. It is loosely based on the Lua parser from lparser.c,
 -- including the error messages. We use an LL(2) grammar, which requires one extra token of
@@ -14,7 +14,7 @@ local util = require "pallene.util"
 local Parser = util.Class()
 
 -- The Lua VM might have a hard time calling functions with too many arguments.
--- Lua itself does not allow more than 200 upvalues, function parameters or local variables 
+-- Lua itself does not allow more than 200 upvalues, function parameters or local variables
 -- since it uses 1-byte long unsigned numbers to store stack offsets for locals.
 local MaxParams = 200
 
@@ -983,7 +983,6 @@ end
 -- Syntax errors
 --
 
-
 function Parser:describe_token_name(name)
     if     name == "EOF"    then return "end of the file"
     elseif name == "NUMBER" then return "number"
@@ -1004,7 +1003,8 @@ function Parser:describe_token(tok)
 end
 
 function Parser:syntax_error(loc, fmt, ...)
-    coroutine.yield("syntax error: " .. loc:format_error(fmt, ...))
+    local msg = "syntax error: " .. loc:format_error(fmt, ...)
+    trycatch.error("syntax", msg)
 end
 
 function Parser:forced_syntax_error(expected_name)
@@ -1037,22 +1037,20 @@ end
 local parser = {}
 
 function parser.parse(lexer)
-    local co = coroutine.create(function()
+    local ok, ret = trycatch.pcall(function()
         return Parser.new(lexer):Program()
     end)
-    local ok, value = coroutine.resume(co)
     if ok then
-        if coroutine.status(co) == "dead" then
-            local prog_ast = value
-            return prog_ast, {}
-        else
-            local compiler_error_msg = value
-            return false, { compiler_error_msg }
-        end
+        local prog_ast = ret
+        return prog_ast, {}
     else
-        local unhandled_exception_msg = value
-        local stack_trace = debug.traceback(co)
-        error(unhandled_exception_msg .. "\n" .. stack_trace)
+        if ret.tag == "syntax" then
+            local err_msg = ret.msg
+            return false, { err_msg }
+        else
+            -- Internal error; re-throw
+            error(ret)
+        end
     end
 end
 
