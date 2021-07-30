@@ -47,11 +47,11 @@ local Exception = util.Class()
 function Exception:init(tag, msg, level)
     self.tag = tag
     self.msg = msg
-    self.stack_trace = debug.traceback("", level)
+    self.stack_trace = debug.traceback(tostring(msg), level)
 end
 
 function Exception:__tostring()
-    return tostring(self.msg) .. self.stack_trace
+    return self.stack_trace
 end
 
 ---
