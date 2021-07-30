@@ -392,10 +392,10 @@ function Coder:pallene_entry_point_declaration(f_id)
     table.insert(args, {"Udata *"     , "G",    ""})
     table.insert(args, {"StackValue *", "base", ""})
 
-    for i, upval in ipairs(func.captured_vars) do
-        local typ, c_name, comment = self:prepare_captured_var(i, upval.decl)
-        table.insert(args, {ctype(typ), c_name, comment})
+    if #func.captured_vars >= 1 then
+        table.insert(args, {"TValue*", "U", C.comment("upvalues")})
     end
+
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
         local typ, c_name, comment = self:prepare_local_var(func, v_id)
@@ -460,6 +460,15 @@ function Coder:pallene_entry_point_definition(f_id)
         local decl = C.declaration(ctype(typ), c_name)
         local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
         table.insert(prologue, decl..initializer..";"..comment)
+    end
+
+    for u_id, upval in ipairs(func.captured_vars) do
+        local typ, c_name = self:prepare_captured_var(u_id, upval.decl)
+        local decl = C.declaration(ctype(typ), c_name)..";";
+        local src  = string.format("&U[%d]", u_id)
+        local init = unchecked_get_slot(typ, c_name, src)..C.comment(upval.decl.name)
+        table.insert(prologue, decl);
+        table.insert(prologue, init);
     end
 
     local body = self:generate_cmd(func, func.body)
@@ -550,10 +559,11 @@ function Coder:lua_entry_point_definition(f_id)
 
     local arg_vars  = {}
     local arg_decls = {}
-    for i, captured_var in ipairs(captured_vars) do
-        local name = self:c_upval(i)
-        table.insert(arg_vars, name)
-        table.insert(arg_decls, C.declaration(ctype(captured_var.decl.typ), name)..";")
+
+    local num_upvals = 0
+    if #captured_vars >= 1 then
+        table.insert(arg_vars, "func->upvalue")
+        num_upvals = 1
     end
     for i, typ in ipairs(arg_types) do
         local name = self:c_var(i)
@@ -561,29 +571,18 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(arg_decls, C.declaration(ctype(typ), name)..";")
     end
 
-
     local init_args = {}
-    for u_id, upval in ipairs(captured_vars) do
-        local name = upval.decl.name
-        local typ  = upval.decl.typ
-        local dst  = arg_vars[u_id]
-        local src  = string.format("&func->upvalue[%s]", C.integer(u_id))
-        -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
-        -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
-        -- their types will be correct. So we can use the `unchecked_get_slot` instead.
-        table.insert(init_args, unchecked_get_slot(typ, dst, src) .. C.comment(name))
-    end
 
     for i, typ in ipairs(arg_types) do
         local name = func.vars[i].name
-        local dst = arg_vars[#captured_vars + i]
+        local dst = arg_vars[num_upvals + i]
         local src = string.format("s2v(base + %s)", C.integer(i))
         table.insert(init_args,
             self:get_stack_slot(typ, dst, src,
                 func.loc, "argument '%s'", C.string(name)))
     end
 
-    local ret_vars = {}
+    local ret_vars  = {}
     local ret_decls = {}
     for i, typ in ipairs(ret_types) do
         local ret = string.format("ret%d", i)
