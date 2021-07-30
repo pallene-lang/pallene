@@ -6,6 +6,7 @@
 local ast = require "pallene.ast"
 local builtins = require "pallene.builtins"
 local symtab = require "pallene.symtab"
+local trycatch = require "pallene.trycatch"
 local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
@@ -45,37 +46,40 @@ local util = require "pallene.util"
 
 local checker = {}
 
+local CheckerError = util.Class()
+function CheckerError:init(msg)
+    self.msg = msg
+end
+function CheckerError:__tostring()
+    return tostring(self.msg)
+end
+
 local Checker = util.Class()
 
 -- Type-check a Pallene module
 -- On success, returns the typechecked module for the program
 -- On failure, returns false and a list of compilation errors
 function checker.check(prog_ast)
-    local co = coroutine.create(function()
+    local ok, ret = trycatch.pcall(function()
         return Checker.new():check_program(prog_ast)
     end)
-    local ok, value = coroutine.resume(co)
     if ok then
-        if coroutine.status(co) == "dead" then
-            prog_ast = value
-            return prog_ast, {}
-        else
-            local compiler_error_msg = value
-            return false, { compiler_error_msg }
-        end
+        prog_ast = ret
+        return prog_ast, {}
     else
-        local unhandled_exception_msg = value
-        local stack_trace = debug.traceback(co)
-        error(unhandled_exception_msg .. "\n" .. stack_trace)
+        if getmetatable(ret.err) == CheckerError then
+            local err_msg = ret.err.msg
+            return false, { err_msg }
+        else
+            -- Internal error; re-throw
+            error(ret)
+        end
     end
 end
 
--- We use coroutines.yield to raise an exception if we encounter a type error in the user program.
--- Some other things we tried that did not work:
--- 1) Produce a dummy "Void" type on errors, and keep going to produce more errors; too finnicky.
--- 2) Use "error" to raise the exception; I couldn't implement the required "try-catch".
 local function type_error(loc, fmt, ...)
-    coroutine.yield("type error: " .. loc:format_error(fmt, ...))
+    local msg = "type error: " .. loc:format_error(fmt, ...)
+    error(CheckerError.new(msg))
 end
 
 local function check_type_is_condition(exp, fmt, ...)
