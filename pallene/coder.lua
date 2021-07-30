@@ -466,9 +466,12 @@ function Coder:pallene_entry_point_definition(f_id)
         local typ, c_name = self:prepare_captured_var(u_id, upval.decl)
         local decl = C.declaration(ctype(typ), c_name)..";";
         local src  = string.format("&U[%d]", u_id)
+        -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
+        -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
+        -- their types will be correct. So we use the `unchecked_get_slot` here instead.
         local init = unchecked_get_slot(typ, c_name, src)..C.comment(upval.decl.name)
-        table.insert(prologue, decl);
-        table.insert(prologue, init);
+        table.insert(prologue, decl)
+        table.insert(prologue, init)
     end
 
     local body = self:generate_cmd(func, func.body)
