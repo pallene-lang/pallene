@@ -1,5 +1,4 @@
 -- Copyright (c) 2020, The Pallene Developers
-        -- funcs = { is_local, module, name, method, ret_types, value }
 -- Pallene is licensed under the MIT license.
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
