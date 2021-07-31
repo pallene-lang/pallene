@@ -386,9 +386,9 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local args = {} -- { {ctype, name , comment} }
     table.insert(args, {"lua_State *" , "L",    ""})
-    table.insert(args, {"Udata *"     , "G",    ""})
     table.insert(args, {"StackValue *", "base", ""})
-    table.insert(args, {"TValue*", "U", C.comment("upvalues")})
+    table.insert(args, {"Udata *"     , "G",    ""})
+    table.insert(args, {"TValue * restrict ", "U", C.comment("upvalues")})
 
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
@@ -480,8 +480,8 @@ function Coder:call_pallene_function(dsts, has_upvalue, f_id, base, xs)
 
     local args = {}
     table.insert(args, "L")
-    table.insert(args, "G")
     table.insert(args, base)
+    table.insert(args, "G")
     table.insert(args, has_upvalue and "func->upvalue" or "NULL")
     for _, x in ipairs(xs) do
         table.insert(args, x)
