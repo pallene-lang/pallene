@@ -53,6 +53,8 @@ function Coder:init(module, modname, filename)
     self.modname = modname
     self.filename = filename
 
+    self.current_func = false
+
     self.upvalues = {} -- { coder.Upvalue }
     self.upvalue_of_metatable = {} -- typ  => integer
     self.upvalue_of_string    = {} -- str  => integer
@@ -309,7 +311,12 @@ end
 
 -- @returns the C parameter name for the upvalue u_id
 function Coder:c_upval(u_id)
-    return "uv" .. u_id
+    assert(self.current_func)
+    local typ = self.current_func.captured_vars[u_id].decl.typ
+    -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
+    -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
+    -- their types will be correct. So we directly cast it using `lua_value` without a tag check.
+    return lua_value(typ, string.format("&U[%d]", u_id))
 end
 
 -- @returns the C return variable name for the variable ret_i
@@ -354,13 +361,6 @@ function Coder:prepare_local_var(func, v_id)
     return typ, c_name, (p_name and " "..C.comment(p_name) or "")
 end
 
--- The information of a C local var for a given Pallene captured var.
-function Coder:prepare_captured_var(u_id, decl)
-    local c_name = self:c_upval(u_id)
-    local typ    = decl.typ
-    local p_name = decl.name
-    return typ, c_name, (p_name and " "..C.comment(p_name) or "")
-end
 
 --
 -- # Pallene entry point
@@ -389,13 +389,10 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local args = {} -- { {ctype, name , comment} }
     table.insert(args, {"lua_State *" , "L",    ""})
-    table.insert(args, {"Udata *"     , "G",    ""})
     table.insert(args, {"StackValue *", "base", ""})
+    table.insert(args, {"Udata *"     , "G",    ""})
+    table.insert(args, {"TValue * restrict ", "U", C.comment("upvalues")})
 
-    for i, upval in ipairs(func.captured_vars) do
-        local typ, c_name, comment = self:prepare_captured_var(i, upval.decl)
-        table.insert(args, {ctype(typ), c_name, comment})
-    end
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
         local typ, c_name, comment = self:prepare_local_var(func, v_id)
@@ -428,6 +425,8 @@ end
 function Coder:pallene_entry_point_definition(f_id)
     local func = self.module.functions[f_id]
     local arg_types = func.typ.arg_types
+
+    self.current_func = func
 
     local name_comment = func.name
     if func.loc then
@@ -462,6 +461,7 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, decl..initializer..";"..comment)
     end
 
+
     local body = self:generate_cmd(func, func.body)
 
     return (util.render([[
@@ -479,12 +479,13 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dsts, f_id, base, xs)
+function Coder:call_pallene_function(dsts, has_upvalue, f_id, base, xs)
 
     local args = {}
     table.insert(args, "L")
-    table.insert(args, "G")
     table.insert(args, base)
+    table.insert(args, "G")
+    table.insert(args, has_upvalue and "func->upvalue" or "NULL")
     for _, x in ipairs(xs) do
         table.insert(args, x)
     end
@@ -529,6 +530,8 @@ function Coder:lua_entry_point_definition(f_id)
     local ret_types = func.typ.ret_types
     local captured_vars = func.captured_vars
 
+    self.current_func = func
+
     -- We unconditionally initialize the G userdata here, in case one of the tag checking tests
     -- needs to use it. We don't bother to make this initialization conditional because in the case
     -- that really matters (small leaf functions that don't use G) the C compiler can optimize this
@@ -550,40 +553,25 @@ function Coder:lua_entry_point_definition(f_id)
 
     local arg_vars  = {}
     local arg_decls = {}
-    for i, captured_var in ipairs(captured_vars) do
-        local name = self:c_upval(i)
-        table.insert(arg_vars, name)
-        table.insert(arg_decls, C.declaration(ctype(captured_var.decl.typ), name)..";")
-    end
+
     for i, typ in ipairs(arg_types) do
         local name = self:c_var(i)
         table.insert(arg_vars, name)
         table.insert(arg_decls, C.declaration(ctype(typ), name)..";")
     end
 
-
     local init_args = {}
-    for u_id, upval in ipairs(captured_vars) do
-        local name = upval.decl.name
-        local typ  = upval.decl.typ
-        local dst  = arg_vars[u_id]
-        local src  = string.format("&func->upvalue[%s]", C.integer(u_id))
-        -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
-        -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
-        -- their types will be correct. So we can use the `unchecked_get_slot` instead.
-        table.insert(init_args, unchecked_get_slot(typ, dst, src) .. C.comment(name))
-    end
 
     for i, typ in ipairs(arg_types) do
         local name = func.vars[i].name
-        local dst = arg_vars[#captured_vars + i]
+        local dst = arg_vars[i]
         local src = string.format("s2v(base + %s)", C.integer(i))
         table.insert(init_args,
             self:get_stack_slot(typ, dst, src,
                 func.loc, "argument '%s'", C.string(name)))
     end
 
-    local ret_vars = {}
+    local ret_vars  = {}
     local ret_decls = {}
     for i, typ in ipairs(ret_types) do
         local ret = string.format("ret%d", i)
@@ -591,7 +579,9 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars)
+    local call_pallene = self:call_pallene_function(ret_vars, #captured_vars >= 1, f_id,
+        "L->top", arg_vars)
+
 
     local push_results = {}
     for i, typ in ipairs(ret_types) do
@@ -1408,7 +1398,8 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     local top = self:stack_top_at(func, cmd)
 
     local parts = {}
-    table.insert(parts, self:call_pallene_function(dsts, cmd.f_id, top, xs))
+    table.insert(parts, self:call_pallene_function(dsts, #func.captured_vars >= 1,
+        cmd.f_id, top, xs))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
