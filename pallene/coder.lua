@@ -53,7 +53,7 @@ function Coder:init(module, modname, filename)
     self.modname = modname
     self.filename = filename
 
-    self.current_func = nil
+    self.current_func = false
 
     self.upvalues = {} -- { coder.Upvalue }
     self.upvalue_of_metatable = {} -- typ  => integer
@@ -313,6 +313,9 @@ end
 function Coder:c_upval(u_id)
     assert(self.current_func)
     local typ = self.current_func.captured_vars[u_id].decl.typ
+    -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
+    -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
+    -- their types will be correct. So we directly cast it using `lua_value` without a tag check.
     return lua_value(typ, string.format("&U[%d]", u_id))
 end
 
