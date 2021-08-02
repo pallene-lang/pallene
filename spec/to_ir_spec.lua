@@ -30,7 +30,7 @@ describe("IR Generator", function()
         local t_vars = {}
         local t_captures = {}
 
-        for i = 1, 200 do
+        for i = 1, 199 do
             t_vars[i] = "local a"..i..": integer = "..i
             t_captures[i]  = "a"..i.." = ".."a"..i.." + 1"
         end
@@ -39,12 +39,14 @@ describe("IR Generator", function()
         local captures  = table.concat(t_captures, "\n")
         local code = util.render([[
             function m.test()
-                $decls  -- 200 locals
-                local f: () -> () = function ()
+                $decls  -- 199 locals
+                local f: () -> () = function () -- 200th local in "m.test"
                     local x = 100
+                    local y = 101
                     local f2: () -> () = function ()
                         $captures
-                        x = x + 1 -- 201th upvalue
+                        x = x + 1 -- 200th upvalue
+                        y = y + 1 -- 201st upvalue
                     end
                 end
             end

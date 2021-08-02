@@ -154,14 +154,16 @@ function ToIR:resolve_variable(decl)
             u_id = func_info.upval_id_of_decl[decl]
         elseif var._tag == "to_ir.Var.LocalVar" then
             u_id = ir.add_upvalue(func, decl.name, decl._type, ir.Value.LocalVar(var.id))
-            if u_id > MaxUpvalueCount then
-                ir_error(decl.loc, "too many upvalues (limit is %d)", MaxUpvalueCount)
-            end
         elseif var._tag == "to_ir.Var.Upvalue" then
             u_id = ir.add_upvalue(func, decl.name, decl._type, ir.Value.Upvalue(var.id))
         else
             typedecl.tag_error(var._tag)
         end
+
+        if u_id > MaxUpvalueCount then
+            ir_error(decl.loc, "too many upvalues (limit is %d)", MaxUpvalueCount)
+        end
+
         func_info.upval_id_of_decl[decl] = u_id
         var = to_ir.Var.Upvalue(u_id)
     end

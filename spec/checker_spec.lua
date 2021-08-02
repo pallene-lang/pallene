@@ -240,6 +240,25 @@ describe("Local variable declaration", function()
         ]], "variable 'a' is not declared")
     end)
 
+
+    it("disallows too many local variables", function()
+        local t_vars = {}
+        for i = 1, 201 do
+            t_vars[i] = "local a"..i..": integer = "..i
+        end
+
+        local var_decls = table.concat(t_vars, "\n")
+        local code = util.render([[
+            function m.test()
+                $decls
+            end
+        ]], {
+            decls = var_decls,
+        })
+        assert_error(code, "too many local variables (limit is 200)")
+    end)
+
+
 end)
 
 describe("Repeat-until loop", function()

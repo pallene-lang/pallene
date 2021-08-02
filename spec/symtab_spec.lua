@@ -9,7 +9,7 @@ describe("Pallene symbol table", function()
 
     it("can find some symbols", function()
         local st = symtab.new()
-        local d_a, d_a2, d_b = 1, 2, 3
+        local d_a, d_a2, d_b = { _tag = 1 }, { _tag = 2 }, { _tag = 3 }
         st:with_block(function()
             st:add_symbol("a", d_a)
             assert.are.same(st:find_symbol("a"), d_a)
