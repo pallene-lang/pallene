@@ -88,14 +88,12 @@ end
 --
 --
 
-
 function Checker:init()
     self.module_symbol = false       -- checker.Symbol.Module
     self.symbol_table = symtab.new() -- string => checker.Symbol
     self.ret_types_stack = {}        -- stack of types.T
     return self
 end
-
 
 --
 -- Symbol table

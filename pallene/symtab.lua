@@ -24,7 +24,6 @@ function Symtab:with_block(body, ...)
     self:close_block()
 end
 
-
 function Symtab:add_symbol(name, symbol)
     assert(#self.blocks > 0)
     local block = self.blocks[#self.blocks]
