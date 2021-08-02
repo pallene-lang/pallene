@@ -31,6 +31,9 @@ declare_type("Var", {
 
 local ToIR = util.Class()
 
+-- The Lua interpreter uses a byte sized number to refer to upvalues, and
+-- therefore supports a maximum of 255. To make sure we don't overflow that limit,
+-- we enforce a max upvalue count of 200 for Pallene.
 local MaxUpvalueCount = 200
 
 local function ir_error(loc, fmt, ...)
@@ -44,7 +47,6 @@ function to_ir.convert(prog_ast)
         return ToIR.new():convert_toplevel(prog_ast.tls)
     end)
 
-    local ir_module
     if not ok then
         if ret.tag == "to_ir" then
             return false, { ret.msg }
@@ -53,7 +55,7 @@ function to_ir.convert(prog_ast)
         end
     end
 
-    ir_module = ret
+    local ir_module = ret
     ir.clean_all(ir_module)
     return ir_module, {}
 end

@@ -88,7 +88,6 @@ end
 --
 --
 
-local MaxLocalVarCount = 200
 
 function Checker:init()
     self.module_symbol = false       -- checker.Symbol.Module
@@ -149,15 +148,7 @@ end
 function Checker:add_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(typedecl.match_tag(typ._tag, "types.T"))
-
-    local symbol = self.symbol_table:add_symbol(name, checker.Symbol.Value(typ, def))
-    local locvar_count = self.symbol_table:local_symbol_count()
-
-    if locvar_count > MaxLocalVarCount then
-        type_error(loc_of_def(def), "too many local variables (limit is %d)", MaxLocalVarCount)
-    end
-
-    return symbol
+    return self.symbol_table:add_symbol(name, checker.Symbol.Value(typ, def))
 end
 
 function Checker:add_module_symbol(name, typ, symbols)
