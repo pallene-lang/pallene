@@ -26,8 +26,8 @@ end
 
 function Symtab:add_symbol(name, symbol)
     assert(#self.blocks > 0)
-    local block = self.blocks
-    block[#block][name] = symbol
+    local block = self.blocks[#self.blocks]
+    block[name] = symbol
     return symbol
 end
 

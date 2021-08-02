@@ -95,7 +95,6 @@ function Checker:init()
     return self
 end
 
-
 --
 -- Symbol table
 --

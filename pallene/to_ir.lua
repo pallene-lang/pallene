@@ -7,6 +7,7 @@ local ir = require "pallene.ir"
 local types = require "pallene.types"
 local util = require "pallene.util"
 local typedecl = require "pallene.typedecl"
+local trycatch = require "pallene.trycatch"
 
 local to_ir = {}
 
@@ -30,11 +31,33 @@ declare_type("Var", {
 
 local ToIR = util.Class()
 
+-- The Lua interpreter uses a byte sized number to refer to upvalues, and
+-- therefore supports a maximum of 255. To make sure we don't overflow that limit,
+-- we enforce a max upvalue count of 200 for Pallene.
+local MaxUpvalueCount = 200
+
+local function ir_error(loc, fmt, ...)
+    local msg = "error: " .. loc:format_error(fmt, ...)
+    trycatch.error("to_ir", msg)
+end
+
 function to_ir.convert(prog_ast)
     assert(prog_ast._tag == "ast.Program.Program")
-    local module = ToIR.new():convert_toplevel(prog_ast.tls)
-    ir.clean_all(module)
-    return module, {}
+    local ok, ret = trycatch.pcall(function()
+        return ToIR.new():convert_toplevel(prog_ast.tls)
+    end)
+
+    if not ok then
+        if ret.tag == "to_ir" then
+            return false, { ret.msg }
+        else
+            error(ret)
+        end
+    end
+
+    local ir_module = ret
+    ir.clean_all(ir_module)
+    return ir_module, {}
 end
 
 function to_ir.FuncInfo(f_id, func)
@@ -138,6 +161,11 @@ function ToIR:resolve_variable(decl)
         else
             typedecl.tag_error(var._tag)
         end
+
+        if u_id > MaxUpvalueCount then
+            ir_error(decl.loc, "too many upvalues (limit is %d)", MaxUpvalueCount)
+        end
+
         func_info.upval_id_of_decl[decl] = u_id
         var = to_ir.Var.Upvalue(u_id)
     end
@@ -464,8 +492,6 @@ function ToIR:convert_stat(cmds, stat)
                 local var_info = self:resolve_variable(var._def.decl)
                 if var_info._tag == "to_ir.Var.LocalVar" then
                     table.insert(lhss, to_ir.LHS.Local(var_info.id))
-                elseif var_info._tag == "to_ir.Var.Upvalue" then
-                    error("Mutable upvalues not implemented")
                 elseif var_info._tag == "to_ir.Var.GlobalVar" then
                     table.insert(lhss, to_ir.LHS.Global(var_info.id))
                 else
