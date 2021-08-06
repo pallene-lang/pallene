@@ -42,10 +42,10 @@ function C.boolean(b)
 end
 
 function C.float(n)
-    -- 17 decimal digits should be able to accurately represent any IEE-754 double-precision
-    -- floating point number except for NaN and infinities. The HUGE_VAL macro is a part of math.h.
-    -- For more info, please see the quotefloat function in lstrlib.c, tostringbuff in lobject.c,
-    -- and https://stackoverflow.com/a/21162120
+    -- To keep things pretty, we try to find the shortest representation that still round trips.
+    -- For normal floats, the only way in standard C or Lua is to try every possible precision,
+    -- which is slow but works. For infinities, the HUGE_VAL macro is part of math.h.
+    -- NaNs are disallowed, because they cannot be represented as a C literal.
     if n ~= n then
         error("NaN cannot be round-tripped")
     elseif n == math.huge then
@@ -53,12 +53,21 @@ function C.float(n)
     elseif n == -math.huge then
         return "-HUGE_VAL"
     else
-        local s = string.format("%.17g", n)
-        if s:match("^%-?[0-9]+$") then
-            -- Looks like an integer. Add a decimal point to force to be double.
-            s = s .. ".0"
-        end
-        return s
+        -- We start at 6 to avoid exponent notation for small numbers, e.g. 10.0 -> 1e+01
+        -- We don't go straight to 17 because it might be ugly, e.g. 3.14 -> 3.1400000000000001
+        -- Be careful with floating point numbers that are also integers.
+        for p = 6, 17 do
+            local s = string.format("%."..p.."g", n)
+            if s:match("^%-?[0-9]+$") then
+                s = s .. ".0"
+            end
+            if tonumber(s) == n then
+                return s
+            end
+         end
+         -- 17 digits should have been enough to round trip any non-NaN, non-infinite double.
+         -- See https://stackoverflow.com/a/21162120 and DBL_DECIMAL_DIG in float.h
+         error("impossible")
     end
 end
 
