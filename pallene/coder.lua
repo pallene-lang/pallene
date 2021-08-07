@@ -479,13 +479,25 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dsts, has_upvalue, f_id, base, xs)
+function Coder:call_pallene_function(dsts, f_id, base, xs, cclosure)
+
+    local func       = self.module.functions[f_id]
+    local n_upvalues = #func.captured_vars
 
     local args = {}
     table.insert(args, "L")
     table.insert(args, base)
     table.insert(args, "G")
-    table.insert(args, has_upvalue and "func->upvalue" or "NULL")
+
+    local upvals
+    if n_upvalues >= 1 then
+        assert(cclosure)
+        upvals = cclosure.."->upvalue"
+    else
+        upvals = "NULL"
+    end
+    table.insert(args, upvals)
+
     for _, x in ipairs(xs) do
         table.insert(args, x)
     end
@@ -528,7 +540,6 @@ function Coder:lua_entry_point_definition(f_id)
     local fname = func.name
     local arg_types = func.typ.arg_types
     local ret_types = func.typ.ret_types
-    local captured_vars = func.captured_vars
 
     self.current_func = func
 
@@ -579,8 +590,7 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, #captured_vars >= 1, f_id,
-        "L->top", arg_vars)
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars, "func")
 
 
     local push_results = {}
@@ -1403,7 +1413,7 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     -- closures is always done using CallDyn at the moment, meaning CallStatic will never call
     -- a closure with upvalues.
     assert(#self.module.functions[cmd.f_id].captured_vars == 0)
-    table.insert(parts, self:call_pallene_function(dsts, false, cmd.f_id, top, xs))
+    table.insert(parts, self:call_pallene_function(dsts, cmd.f_id, top, xs))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
