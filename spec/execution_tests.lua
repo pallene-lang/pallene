@@ -2542,6 +2542,12 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return x - 1
                 end
             end
+
+            function m.count_from(n: integer): () -> (integer, any)
+                return function()
+                    return n + 1, m.count_from(n + 1)
+                end
+            end
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2598,7 +2604,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             ]])
         end)
 
-        it("Can captured upvalues that aren't initialized upon declaration", function()
+        it("Can capture upvalues that aren't initialized upon declaration", function()
             run_test([[
                 local count = test.make_counter(false)
                 assert(count() == 1)
@@ -2610,6 +2616,17 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 assert(count2() == 2)
             ]])
         end)
+
+        it("Can capture a surrounding function", function ()
+            run_test([[
+                local n, next = 0, test.count_from(0)
+                n, next = next()
+                assert(n == 1)
+                n, next = next()
+                assert(n == 2)
+            ]])
+        end)
+
     end)
 
     describe("tostring builtin", function ()

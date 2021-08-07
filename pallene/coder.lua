@@ -1398,8 +1398,12 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     local top = self:stack_top_at(func, cmd)
 
     local parts = {}
-    table.insert(parts, self:call_pallene_function(dsts, #func.captured_vars >= 1,
-        cmd.f_id, top, xs))
+
+    -- CallStatic is used in pallene-pallene calls. Any calls to higher order functions or
+    -- closures is always done using CallDyn at the moment, meaning CallStatic will never call
+    -- a closure with upvalues.
+    assert(#self.module.functions[cmd.f_id].captured_vars == 0)
+    table.insert(parts, self:call_pallene_function(dsts, false, cmd.f_id, top, xs))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
