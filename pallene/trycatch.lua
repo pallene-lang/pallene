@@ -7,24 +7,20 @@ local trycatch = {}
 
 local util = require "pallene.util"
 
--- Getting good stack traces can be tricky if we want to be able to re-raise an exception, which
--- happens when we have a try-catch pattern that only wants to catch some of the exceptions. If we
--- don't do anything, then it will show the stack trace from the point where the exception is
--- re-raised instead of the original stack trace. Another solution that is sometimes recommended is
--- to call debug.traceback and then include that inside the error string. However, the problem is
--- that Lua will still add the stack trace for the time that the exception is re-raised, resulting
--- in two stack traces being shown.
+-- Object-based error handling
+-- ---------------------------
 --
--- Our workaround is to use a custom exception datatype. When the error object is not a string, Lua
--- does not automatically add the second stack trace to the end. It only calls tostring, which gives
--- us more control on what is displayed. This exception datatype also keeps track of the original
--- stack trace, meaning that it can be re-raised without messing up the stack.
+-- Lua encourages programmers to use strings for error messages, but that doesn't work well if we
+-- want to implement a try-catch pattern. Firstly, each time that we re-raise a string exception,
+-- Lua adds another stack trace at the end. Secondly, if the exception is a string then it is hard
+-- to tell what kind of exception it is.
 --
--- `trycatch.pcall` always returns an exception of type `Exception`. It has a `tag` field
--- that you can inspect in the catch portion of the try-catch. To tag your exceptions, use the
--- `trycatch.error` function, which receives the tag as an extra parameter.
+-- Our solution is to wrap every exception in a custom Exception data type. Even if this exception
+-- is re-raised, it will still show the original stack trace. These exception objects also have an
+-- exception tag saying what kind of exception it is.
 --
--- Example usage:
+-- Example usage
+-- -------------
 --
 --    local ok, ret = trycatch.pcall(function()
 --         trycatch.error("xyz", "message")
