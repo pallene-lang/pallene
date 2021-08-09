@@ -489,6 +489,8 @@ function Coder:call_pallene_function(dsts, f_id, base, xs, cclosure)
     table.insert(args, base)
     table.insert(args, "G")
 
+    -- If the Pallene entry point of the closure being called doesn't have any upvalues,
+    -- we can simply pass NULL as it's `upvalues` parameter as it will be unused anyway.
     local upvals
     if n_upvalues >= 1 then
         assert(cclosure)
@@ -1409,11 +1411,15 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
 
     local parts = {}
 
-    -- CallStatic is used in pallene-pallene calls. Any calls to higher order functions or
-    -- closures is always done using CallDyn at the moment, meaning CallStatic will never call
-    -- a closure with upvalues.
-    assert(#self.module.functions[cmd.f_id].captured_vars == 0)
-    table.insert(parts, self:call_pallene_function(dsts, cmd.f_id, top, xs))
+    -- If the function being called is a module function, then it has a cclosure
+    -- assosciated with it. Toplevel local functions cannot be called with `CallStatic`
+    -- as of now.
+    local upvalues = false
+    if self.upvalue_of_function[cmd.f_id] then
+        local cclosure = self:function_upvalue_slot(cmd.f_id)
+        upvalues = string.format("clCvalue(%s)->upvalue", cclosure)
+    end
+    table.insert(parts, self:call_pallene_function(dsts, cmd.f_id, top, xs, upvalues))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
