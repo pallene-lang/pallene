@@ -921,9 +921,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         -- Evaluate the function call expression
         local f_val
-        if  def and (
-                def._tag == "checker.Def.Builtin" or
-                def._tag == "checker.Def.Function") then
+        if  def and def._tag == "checker.Def.Builtin" then
             f_val = false
         else
             f_val = self:exp_to_value(cmds, exp.exp)
@@ -963,9 +961,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif def and def._tag == "checker.Def.Function" then
-            local f_id = assert(self.fun_id_of_exp[def.func.value])
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_id, xs))
-
+            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
         else
             table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
         end

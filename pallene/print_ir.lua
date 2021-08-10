@@ -217,7 +217,7 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.NewRecord"  then rhs = "new ".. cmd.rec_typ.name .."()"
     elseif tag == "ir.Cmd.GetField"   then rhs = Field(cmd.src_rec, cmd.field_name)
     elseif tag == "ir.Cmd.SetField"   then rhs = Val(cmd.src_v)
-    elseif tag == "ir.Cmd.CallStatic" then rhs = Call(Fun(cmd.f_id),  Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallStatic" then rhs = Call(Fun(cmd.src_f.id),  Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallDyn"    then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
     else
         local tagname = assert(typedecl.match_tag(cmd._tag, "ir.Cmd"))

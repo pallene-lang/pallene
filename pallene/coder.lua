@@ -493,7 +493,6 @@ function Coder:call_pallene_function(dsts, f_id, base, xs, cclosure)
     -- we can simply pass NULL as it's `upvalues` parameter as it will be unused anyway.
     local upvals
     if n_upvalues >= 1 then
-        assert(cclosure)
         upvals = cclosure.."->upvalue"
     else
         upvals = "NULL"
@@ -1411,15 +1410,9 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
 
     local parts = {}
 
-    -- If the function being called is a module function, then it has a cclosure
-    -- assosciated with it. Toplevel local functions cannot be called with `CallStatic`
-    -- as of now.
-    local upvalues = false
-    if self.upvalue_of_function[cmd.f_id] then
-        local cclosure = self:function_upvalue_slot(cmd.f_id)
-        upvalues = string.format("clCvalue(%s)->upvalue", cclosure)
-    end
-    table.insert(parts, self:call_pallene_function(dsts, cmd.f_id, top, xs, upvalues))
+    local f_id = cmd.src_f.id
+    local cclosure = string.format("clCvalue(%s)", self:function_upvalue_slot(f_id))
+    table.insert(parts, self:call_pallene_function(dsts, f_id, top, xs, cclosure))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end

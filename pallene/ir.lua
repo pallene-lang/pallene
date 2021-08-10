@@ -169,7 +169,7 @@ local ir_cmd_constructors = {
     NewClosure = {"loc", "dst", "srcs", "f_id"},
 
     -- (dst is false if the return value is void, or unused)
-    CallStatic  = {"loc", "f_typ", "dsts",  "f_id", "srcs"},
+    CallStatic  = {"loc", "f_typ", "dsts", "src_f", "srcs"},
     CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},
 
     -- Builtin operations
