@@ -39,14 +39,17 @@ end
 describe("Pallene lexer", function()
 
     it("can lex some keywords", function()
-        assert_lex("and", {"and"}, {})
+        assert_lex("and",      {"and"},      {})
+        assert_lex("else",     {"else"},     {})
+        assert_lex("if",       {"if"},       {})
         assert_lex("function", {"function"}, {})
     end)
 
-    it("can lex keywords that contain other keywords", function()
-        assert_lex("if",     {"if"},     {})
-        assert_lex("else",   {"else"},   {})
+    it("can lex keywords that start with other keywords", function()
         assert_lex("elseif", {"elseif"}, {})
+    end)
+
+    it("can lex keywodds that contain other keywords", function()
         assert_lex("record", {"record"}, {}) -- (contains "or")
     end)
 
