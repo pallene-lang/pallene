@@ -627,6 +627,18 @@ describe("Lambda", function()
         ]], "missing type hint for lambda")
     end)
 
+    it("type hints are checked properly", function()
+        assert_error([[
+            local f: (integer) -> integer = function() return 1 end
+        ]], "expected 1 parameter(s) but found 0")
+    end)
+
+    it("non-function type hints are reported as errors", function ()
+        assert_error([[
+            local f: any = function() return 1 end
+        ]], "incorrect type hint for lambda")
+    end)
+
 end)
 
 describe("Unary operator", function()

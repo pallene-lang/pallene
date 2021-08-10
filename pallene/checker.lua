@@ -1080,11 +1080,11 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
 
     elseif tag == "ast.Exp.Lambda" then
 
-        -- These assertions are always true in the current version of Pallene, which does not allow
-        -- nested function expressions. Once we add function expressions to the parser then we
-        -- should convert these assertions into proper calls to type_error.
-        assert(expected_type._tag == "types.T.Function", "function expressions not implemented yet")
-        assert(#expected_type.arg_types == #exp.arg_decls, "function expressions not implemented yet")
+        if expected_type._tag ~= "types.T.Function" then
+            type_error(exp.loc, "incorrect type hint for lambda")
+        elseif #expected_type.arg_types ~= #exp.arg_decls then
+            type_error(exp.loc, "expected %d parameter(s) but found %d", #expected_type.arg_types, #exp.arg_decls)
+        end
 
         table.insert(self.ret_types_stack, expected_type.ret_types)
         self.symbol_table:with_block(function()
