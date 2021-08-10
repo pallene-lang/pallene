@@ -47,7 +47,7 @@ describe("Pallene lexer", function()
         assert_lex("if",     {"if"},     {})
         assert_lex("else",   {"else"},   {})
         assert_lex("elseif", {"elseif"}, {})
-        assert_lex("import", {"import"}, {})
+        assert_lex("record", {"record"}, {}) -- (contains "or")
     end)
 
     it("does not generate semantic values for keywords", function()
