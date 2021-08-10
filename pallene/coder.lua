@@ -1366,14 +1366,6 @@ end
 gen_cmd["NewClosure"] = function (self, cmd, _func)
     local func = self.module.functions[cmd.f_id]
 
-    local capture_upvalues = {}
-    for i, upval_info in ipairs(func.captured_vars) do
-        local typ   = upval_info.decl.typ
-        local c_val = self:c_value(upval_info.value)
-        table.insert(capture_upvalues, set_stack_slot(typ,
-            string.format("&ccl->upvalue[%s]", C.integer(i)), c_val))
-    end
-
     -- The number of upvalues must fit inside a byte (the nupvalues in the ClosureHeader).
     -- However, we must check this limit ourselves, because luaF_newCclosure doesn't. If we have too
     -- many upvalues then that internal Lua function can overflow and do weird things.
@@ -1385,16 +1377,28 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
             CClosure *ccl = luaF_newCclosure(L, $num_upvalues);
             ccl->f = $lua_entry_point;
             setuvalue(L, &ccl->upvalue[0], G);
-            $capture_upvalues
-
             setclCvalue(L, &$dst, ccl);
         }
     ]], {
         num_upvalues = C.integer(num_upvalues),
         dst = self:c_var(cmd.dst),
         lua_entry_point = self:lua_entry_point_name(cmd.f_id),
-        capture_upvalues = table.concat(capture_upvalues, "\n")
     })
+end
+
+gen_cmd["SetUpvalue"] = function(self, cmd, _func)
+    local func = self.module.functions[cmd.f_id]
+    local capture_upvalues = {}
+
+    local cclosure = string.format("clCvalue(&%s)", self:c_var(cmd.dst))
+    for i, upval_info in ipairs(func.captured_vars) do
+        local typ   = upval_info.decl.typ
+        local c_val = self:c_value(upval_info.value)
+        local upvalue_dst = string.format("&(%s->upvalue[%s])", cclosure, C.integer(i))
+        table.insert(capture_upvalues, set_stack_slot(typ, upvalue_dst, c_val))
+    end
+
+    return table.concat(capture_upvalues, "\n")
 end
 
 gen_cmd["CallStatic"] = function(self, cmd, func)

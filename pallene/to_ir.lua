@@ -886,12 +886,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local func = self.module.functions[f_id]
         self:convert_func(exp)
 
-        local upvalues = {}
+        table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
         for _, upval_info in ipairs(func.captured_vars) do
-            table.insert(upvalues, upval_info.value)
+            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, dst, upval_info.value, f_id))
         end
-
-        table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, upvalues, f_id))
 
     elseif tag == "ast.Exp.ExtraRet" then
         assert(self.dsts_of_call[exp.call_exp])
