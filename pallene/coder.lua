@@ -479,7 +479,7 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dsts, f_id, base, xs, cclosure)
+function Coder:call_pallene_function(dsts, f_id, base, cclosure, xs)
 
     local func       = self.module.functions[f_id]
     local n_upvalues = #func.captured_vars
@@ -591,7 +591,7 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", arg_vars, "func")
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", "func", arg_vars)
 
 
     local push_results = {}
@@ -1412,7 +1412,7 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
 
     local f_id = cmd.src_f.id
     local cclosure = string.format("clCvalue(%s)", self:function_upvalue_slot(f_id))
-    table.insert(parts, self:call_pallene_function(dsts, f_id, top, xs, cclosure))
+    table.insert(parts, self:call_pallene_function(dsts, f_id, top, cclosure, xs))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
