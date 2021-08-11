@@ -49,7 +49,7 @@ local is_keyword = {}
 do
     local strs = [[
         and break do else elseif end for false function goto if in local nil not or repeat return
-        then true until while   as import record typealias
+        then true until while   as record typealias
     ]]
     for s in string.gmatch(strs, "%S+") do
         is_keyword[s] = true
@@ -71,7 +71,7 @@ local Lexer = util.Class()
 
 function Lexer:init(file_name, input)
     self.file_name = file_name  -- Source code file name
-    self.input     = input      -- Source code string
+    self.input     = input      -- Source code string (entire file)
     self.pos       = 1          -- Absolute position in the input
     self.line      = 1          -- Line number for error messages
     self.col       = 1          -- Column number for error messages
