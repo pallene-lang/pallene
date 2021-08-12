@@ -396,7 +396,7 @@ function Converter:visit_var(var, update_fn)
             assert(self.update_ref_of_decl[decl])
             local depth = self.func_depth_of_decl[decl]
             -- depth == 1 when the decl is that of a global
-            if depth < self.func_depth and depth > 1 then
+            if depth < self.func_depth then
                 self.captured_decls[decl] = true
             end
             table.insert(self.update_ref_of_decl[decl], NodeUpdate(var, update_fn))
