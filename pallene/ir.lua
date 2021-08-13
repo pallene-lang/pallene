@@ -52,12 +52,14 @@ end
 
 function ir.Function(loc, name, typ)
     return {
-        loc = loc,          -- Location
-        name = name,        -- string
-        typ = typ,          -- Type
-        vars = {},          -- list of ir.VarDecl
-        captured_vars = {}, -- list of ir.UpvalInfo
-        body = false,       -- ir.Cmd
+        loc = loc,            -- Location
+        name = name,          -- string
+        typ = typ,            -- Type
+        vars = {},            -- list of ir.VarDecl
+        captured_vars = {},   -- list of ir.UpvalInfo
+        f_id_of_upvalue = {}, -- { integer => integer }
+        f_id_of_local = {},   -- { integer => integer }
+        body = false,         -- ir.Cmd
     }
 end
 

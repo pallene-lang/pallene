@@ -1414,8 +1414,21 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
 
     local parts = {}
 
-    local f_id = cmd.src_f.id
-    local cclosure = string.format("clCvalue(%s)", self:function_upvalue_slot(f_id))
+    local f_val = cmd.src_f
+    local f_id, cclosure
+    if f_val._tag == "ir.Value.Upvalue" then
+        f_id = assert(func.f_id_of_upvalue[f_val.id])
+        cclosure = string.format("clCvalue(&%s)", self:c_value(f_val))
+    elseif f_val._tag == "ir.Value.LocalVar" then
+        f_id = assert(func.f_id_of_local[f_val.id])
+        cclosure = string.format("clCvalue(&%s)", self:c_value(f_val))
+    elseif f_val._tag == "ir.Value.Function" then
+        f_id = f_val.id
+        cclosure = string.format("clCvalue(%s)", self:function_upvalue_slot(f_id))
+    else
+        typedecl.tag_error(f_val._tag)
+    end
+
     table.insert(parts, self:call_pallene_function(dsts, f_id, top, cclosure, xs))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")

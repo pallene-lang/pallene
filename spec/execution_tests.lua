@@ -2548,6 +2548,18 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return n + 1, m.count_from(n + 1)
                 end
             end
+
+            -- function statements can be captured as closures
+            function m.double(x: integer): integer
+                local function f(): integer
+                    return 2 * x
+                end
+                local function g(): integer
+                    return f()
+                end
+                return g()
+            end
+
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2625,6 +2637,10 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 n, next = next()
                 assert(n == 2)
             ]])
+        end)
+
+        it("Function statements can be captured as upvalues", function ()
+            run_test("assert(test.double(5) == 10)")
         end)
 
     end)
