@@ -665,7 +665,7 @@ function ToIR:convert_stat(cmds, stat)
             end
         end
 
-        -- To support mutual recursion, upvalues are captured *after* the closures
+        -- To support mutual recursion, upvalues are initialized *after* the closures
         -- have been created.
         for _, func in ipairs(stat.funcs) do
             if not self.toplevel_funcs[func] then
