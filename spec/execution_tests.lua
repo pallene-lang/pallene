@@ -2548,6 +2548,37 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return n + 1, m.count_from(n + 1)
                 end
             end
+
+            function m.double(x: integer): integer
+                local function f(): integer
+                    return 2 * x
+                end
+                local function g(): integer
+                    return f()
+                end
+                return g()
+            end
+
+            function m.oddeven(n: integer): string
+                local l_even, l_odd
+                function l_even(x: integer): boolean
+                    if x == 0 then
+                        return true
+                    else
+                        return l_odd(x-1)
+                    end
+                end
+                function l_odd(x: integer): boolean
+                    if x == 0 then
+                        return false
+                    else
+                        return l_even(x-1)
+                    end
+                end
+                if l_even(n) then return "even" end
+                return "odd"
+            end
+
         ]])
 
         it("works correctly with non-capturing closures", function ()
@@ -2625,6 +2656,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 n, next = next()
                 assert(n == 2)
             ]])
+        end)
+
+        it("Function statements can be captured as upvalues", function ()
+            run_test("assert(test.double(5) == 10)")
+        end)
+
+        it("Mutually recursive closures work as expected", function ()
+            run_test("assert(test.oddeven(50) == 'even')")
         end)
 
     end)

@@ -395,6 +395,15 @@ describe("Assignment statement", function()
         ]], "LHS of assignment is not a mutable variable")
     end)
 
+    it("cannot reassign a non-toplevel function statement", function ()
+        assert_error([[
+            function m.f()
+                local function g() end
+                g = g
+            end
+        ]], "LHS of assignment is not a mutable variable")
+    end)
+
     it("catches assignment to builtin (with correct type)", function ()
         assert_error([[
             function m.f(x: string)

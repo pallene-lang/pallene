@@ -83,6 +83,7 @@ function ToIR:init()
     self.func_stack     = {} -- list of function to_ir.FuncInfo
     self.call_exps      = {} -- { ast.Exp.CallFunc }
     self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
+    self.toplevel_funcs = {} -- { ast.FuncStat.FuncStat }
 end
 
 function ToIR:enter_function(f_id)
@@ -129,7 +130,9 @@ function ToIR:resolve_variable(decl)
         local glb_id = assert(self.glb_id_of_var[decl])
         return to_ir.Var.GlobalVar(glb_id)
     end
-    assert(decl._tag == "ast.Decl.Decl")
+
+    assert(decl._tag == "ast.Decl.Decl" or decl._tag == "ast.FuncStat.FuncStat")
+    assert(decl.name)
 
     local glb_id = self.glb_id_of_decl[decl]
     if glb_id then
@@ -139,7 +142,14 @@ function ToIR:resolve_variable(decl)
     local stack_id, var
     for i = 1, #self.func_stack do
         local loc_id = self.func_stack[i].loc_id_of_decl[decl]
+        local func   = self.func_stack[i].func
         if loc_id then
+            if (decl._tag == "ast.FuncStat.FuncStat"
+               and self.fun_id_of_exp[decl.value]
+               and not func.f_id_of_local[loc_id]) then
+
+                func.f_id_of_local[loc_id] = self.fun_id_of_exp[decl.value]
+            end
             var = to_ir.Var.LocalVar(loc_id)
             stack_id = i
             break
@@ -168,6 +178,12 @@ function ToIR:resolve_variable(decl)
 
         func_info.upval_id_of_decl[decl] = u_id
         var = to_ir.Var.Upvalue(u_id)
+
+        if (decl._tag == "ast.FuncStat.FuncStat"
+            and self.fun_id_of_exp[decl.value]
+            and not func.f_id_of_upvalue[u_id]) then
+            func.f_id_of_upvalue[u_id] = self.fun_id_of_exp[decl.value]
+        end
     end
 
     return var
@@ -175,6 +191,7 @@ end
 
 function ToIR:register_lambda(exp, name)
     assert(exp._tag == "ast.Exp.Lambda")
+    assert(not self.fun_id_of_exp[exp])
     local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
     self.fun_id_of_exp[exp] = f_id
     return f_id
@@ -214,6 +231,7 @@ function ToIR:convert_toplevel(prog_ast)
                     for _, func in ipairs(stat.funcs) do
                         assert(not stat.method)
                         local f_id = self:register_lambda(func.value, func.name)
+                        self.toplevel_funcs[func] = true
                         if func.module then
                             ir.add_exported_function(self.module, f_id)
                         end
@@ -624,8 +642,40 @@ function ToIR:convert_stat(cmds, stat)
         table.insert(cmds, ir.Cmd.Break())
 
     elseif tag == "ast.Stat.Functions" then
+
+        -- To handle LetRecs (`local f1, f2;`) , we register all the locals first.
+        for _, func in ipairs(stat.funcs) do
+            if not self.toplevel_funcs[func] then
+                self.loc_id_of_decl[func] = ir.add_local(self.func, func.name, func._type)
+            end
+
+            local exp = func.value
+            if not self.fun_id_of_exp[exp] then
+                self:register_lambda(exp, func.name)
+            end
+        end
+
         for _ , func in ipairs(stat.funcs) do
-            self:convert_func(func.value)
+            local exp = func.value
+            self:convert_func(exp)
+            if not self.toplevel_funcs[func] then
+                local dst  = self.loc_id_of_decl[func]
+                local f_id = self.fun_id_of_exp[exp]
+                table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
+            end
+        end
+
+        -- To support mutual recursion, upvalues are initialized *after* the closures
+        -- have been created.
+        for _, func in ipairs(stat.funcs) do
+            if not self.toplevel_funcs[func] then
+                local f_id  = self.fun_id_of_exp[func.value]
+                local dst   = self.loc_id_of_decl[func]
+                local f_val = self.module.functions[f_id]
+                for _, upval_info in ipairs(f_val.captured_vars) do
+                    table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, dst, upval_info.value, f_id))
+                end
+            end
         end
 
     else
@@ -769,27 +819,32 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
             local def = var._def
-            if     def._tag == "checker.Def.Variable" then
-                local var_info = self:resolve_variable(def.decl)
-                if var_info._tag == "to_ir.Var.LocalVar" then
-                    return ir.Value.LocalVar(var_info.id)
-                elseif var_info._tag == "to_ir.Var.Upvalue" then
-                    return ir.Value.Upvalue(var_info.id)
-                elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                    -- Fallthrough to default
-                else
-                    typedecl.tag_error(var_info._tag)
-                end
 
-            elseif def._tag == "checker.Def.Function" then
+            if def._tag == "checker.Def.Function" and self.toplevel_funcs[def.func] then
                 local id = self.fun_id_of_exp[def.func.value]
                 return ir.Value.Function(id)
+            end
 
+            local decl
+            if def._tag == "checker.Def.Variable" then
+                decl = def.decl
+            elseif def._tag == "checker.Def.Function" then
+                decl = def.func
             elseif def._tag == "checker.Def.Builtin" then
                 error("not implemented")
-
             else
                 typedecl.tag_error(def._tag)
+            end
+
+            local var_info = self:resolve_variable(decl)
+            if var_info._tag == "to_ir.Var.LocalVar" then
+                return ir.Value.LocalVar(var_info.id)
+            elseif var_info._tag == "to_ir.Var.Upvalue" then
+                return ir.Value.Upvalue(var_info.id)
+            elseif var_info._tag == "to_ir.Var.GlobalVar" then
+                -- Fallthrough to default
+            else
+                typedecl.tag_error(var_info._tag)
             end
 
         else
@@ -959,6 +1014,12 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif def and def._tag == "checker.Def.Function" then
+            -- CallStatic is used to call toplevel functions, which are always referenced
+            -- as upvalues or local variables. Currently, this can also mean `ir.Value.Function`s
+            -- functions declared at the toplevel.
+            assert(f_val._tag == "ir.Value.Upvalue"
+                or f_val._tag == "ir.Value.LocalVar"
+                or f_val._tag == "ir.Value.Function")
             table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
         else
             table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
