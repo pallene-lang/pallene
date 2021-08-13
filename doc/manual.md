@@ -382,6 +382,7 @@ end
 function even(n:integer): boolean
     if n == 0 then return true else return odd(n-1) end
 end
+```
 
 ## Expressions and Statements
 
@@ -577,3 +578,4 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
         '&' | '~' | '|' | '>>' | '<<' | '..' |
         '<' | '<=' | '>' | '>=' | '==' | '~=' |
         and | or
+
