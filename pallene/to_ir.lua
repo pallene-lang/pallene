@@ -648,26 +648,32 @@ function ToIR:convert_stat(cmds, stat)
             if not self.toplevel_funcs[func] then
                 self.loc_id_of_decl[func] = ir.add_local(self.func, func.name, func._type)
             end
+
+            local exp = func.value
+            if not self.fun_id_of_exp[exp] then
+                self:register_lambda(exp, func.name)
+            end
         end
 
         for _ , func in ipairs(stat.funcs) do
-            local fname = assert(func.name)
-            local exp   = func.value
-
-            if not self.fun_id_of_exp[exp] then
-                self:register_lambda(exp, fname)
-            end
-
+            local exp = func.value
             self:convert_func(exp)
-
             if not self.toplevel_funcs[func] then
-                local dst   = self.loc_id_of_decl[func]
-                local f_id  = self.fun_id_of_exp[exp]
-                local f_val = self.module.functions[f_id]
+                local dst  = self.loc_id_of_decl[func]
+                local f_id = self.fun_id_of_exp[exp]
                 table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
+            end
+        end
 
+        -- To support mutual recursion, upvalues are captured *after* the closures
+        -- have been created.
+        for _, func in ipairs(stat.funcs) do
+            if not self.toplevel_funcs[func] then
+                local f_id  = self.fun_id_of_exp[func.value]
+                local dst   = self.loc_id_of_decl[func]
+                local f_val = self.module.functions[f_id]
                 for _, upval_info in ipairs(f_val.captured_vars) do
-                    table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, dst, upval_info.value, f_id))
+                    table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, dst, upval_info.value, f_id))
                 end
             end
         end

@@ -2549,7 +2549,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
 
-            -- function statements can be captured as closures
             function m.double(x: integer): integer
                 local function f(): integer
                     return 2 * x
@@ -2558,6 +2557,26 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     return f()
                 end
                 return g()
+            end
+
+            function m.oddeven(n: integer): string
+                local l_even, l_odd
+                function l_even(x: integer): boolean
+                    if x == 0 then
+                        return true
+                    else
+                        return l_odd(x-1)
+                    end
+                end
+                function l_odd(x: integer): boolean
+                    if x == 0 then
+                        return false
+                    else
+                        return l_even(x-1)
+                    end
+                end
+                if l_even(n) then return "even" end
+                return "odd"
             end
 
         ]])
@@ -2641,6 +2660,10 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
         it("Function statements can be captured as upvalues", function ()
             run_test("assert(test.double(5) == 10)")
+        end)
+
+        it("Mutually recursive closures work as expected", function ()
+            run_test("assert(test.oddeven(50) == 'even')")
         end)
 
     end)
