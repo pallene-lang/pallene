@@ -82,7 +82,7 @@ function ToIR:init()
     self.call_exps      = {} -- { ast.Exp.CallFunc }
     self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
 
-    -- Map's an exported function's ID to it's local variable ID
+    -- Maps an exported function's ID to it's local variable ID
     -- in the `$init` function.
     self.loc_id_of_exported_func = {} -- { integer => integer }
 end

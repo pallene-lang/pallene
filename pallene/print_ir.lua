@@ -45,7 +45,6 @@ local function Val(val)
     elseif tag == "ir.Value.String"   then return C.string(val.value)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
     elseif tag == "ir.Value.Upvalue"  then return Upval(val.id)
-    elseif tag == "ir.Value.Function" then return Fun(val.id)
     else
         typedecl.tag_error(tag)
     end
@@ -196,8 +195,7 @@ local function Cmd(cmd)
     -- Leaf commands (single line)
 
     local lhs
-    if     tag == "ir.Cmd.SetGlobal" then lhs = Global(cmd.global_id)
-    elseif tag == "ir.Cmd.SetArr"    then lhs = Bracket(cmd.src_arr, cmd.src_i)
+    if     tag == "ir.Cmd.SetArr"    then lhs = Bracket(cmd.src_arr, cmd.src_i)
     elseif tag == "ir.Cmd.SetTable"  then lhs = Bracket(cmd.src_tab, cmd.src_k)
     elseif tag == "ir.Cmd.SetField"  then lhs = Field(cmd.src_rec, cmd.field_name)
     else
@@ -207,7 +205,6 @@ local function Cmd(cmd)
     local rhs
     if     tag == "ir.Cmd.Move"       then rhs = Val(cmd.src)
     elseif tag == "ir.Cmd.GetGlobal"  then rhs = Global(cmd.global_id)
-    elseif tag == "ir.Cmd.SetGlobal"  then rhs = Val(cmd.src)
     elseif tag == "ir.Cmd.Unop"       then rhs = Unop(cmd.op, cmd.src)
     elseif tag == "ir.Cmd.Binop"      then rhs = Binop(cmd.op, cmd.src1, cmd.src2)
     elseif tag == "ir.Cmd.GetArr"     then rhs = Bracket(cmd.src_arr, cmd.src_i)
