@@ -365,7 +365,7 @@ end
 --
 -- Pallene functions receive as parameters:
 --  - Lua state (L)
---  - Global upvalues table (G)
+--  - Global constants table (K)
 --  - Regular parameters (x1, x2, x3...)
 --  - Output parameters (ret2, ret3, ret4...)
 --
@@ -388,7 +388,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     local args = {} -- { {ctype, name , comment} }
     table.insert(args, {"lua_State *" , "L",    ""})
     table.insert(args, {"StackValue *", "base", ""})
-    table.insert(args, {"Udata *"     , "G",    ""})
+    table.insert(args, {"Udata *"     , "K",    ""})
     table.insert(args, {"TValue * restrict ", "U", C.comment("upvalues")})
 
     for i = 1, #arg_types do
@@ -484,7 +484,7 @@ function Coder:call_pallene_function(dsts, f_id, base, cclosure, xs)
     local args = {}
     table.insert(args, "L")
     table.insert(args, base)
-    table.insert(args, "G")
+    table.insert(args, "K")
 
     -- If the Pallene entry point of the closure being called doesn't have any upvalues,
     -- we can simply pass NULL as it's `upvalues` parameter as it will be unused anyway.
@@ -541,13 +541,13 @@ function Coder:lua_entry_point_definition(f_id)
 
     self.current_func = func
 
-    -- We unconditionally initialize the G userdata here, in case one of the tag checking tests
+    -- We unconditionally initialize the `K` userdata here, in case one of the tag checking tests
     -- needs to use it. We don't bother to make this initialization conditional because in the case
-    -- that really matters (small leaf functions that don't use G) the C compiler can optimize this
+    -- that really matters (small leaf functions that don't use `K`) the C compiler can optimize this
     -- read away after inlining the Pallene entry point.
     local init_global_userdata = [[
         CClosure *func = clCvalue(s2v(base));
-        Udata *G = uvalue(&func->upvalue[0]);
+        Udata *K = uvalue(&func->upvalue[0]);
     ]]
 
     local arity_check = util.render([[
@@ -684,7 +684,7 @@ function Coder:init_upvalues()
 end
 
 local function upvalue_slot(ix)
-    return string.format("&G->uv[%s].uv", C.integer(ix - 1))
+    return string.format("&K->uv[%s].uv", C.integer(ix - 1))
 end
 
 function Coder:metatable_upvalue_slot(typ)
@@ -834,7 +834,7 @@ function RecordCoder:declarations()
     end
 
     table.insert(declarations, util.render([[
-        static Udata *${constructor_name}(lua_State *L, Udata *G)
+        static Udata *${constructor_name}(lua_State *L, Udata *K)
         {
  #if $nvalues > USHRT_MAX
  #error "Record type is too large"
@@ -1287,7 +1287,7 @@ end
 gen_cmd["NewRecord"] = function(self, cmd, _func)
     local rc = self.record_coders[cmd.rec_typ]
     local rec = self:c_var(cmd.dst)
-    return (util.render([[$rec = $constructor(L, G);]] , {
+    return (util.render([[$rec = $constructor(L, K);]] , {
             rec = rec,
             constructor = rc:constructor_name(),
         }))
@@ -1346,7 +1346,7 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
         {
             CClosure *ccl = luaF_newCclosure(L, $num_upvalues);
             ccl->f = $lua_entry_point;
-            setuvalue(L, &ccl->upvalue[0], G);
+            setuvalue(L, &ccl->upvalue[0], K);
             setclCvalue(L, &$dst, ccl);
         }
     ]], {
