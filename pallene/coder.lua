@@ -55,9 +55,9 @@ function Coder:init(module, modname, filename)
 
     self.current_func = false
 
-    self.upvalues = {} -- { coder.Upvalue }
-    self.upvalue_of_metatable = {} -- typ  => integer
-    self.upvalue_of_string    = {} -- str  => integer
+    self.upvalues = {} -- { coder.Constant }
+    self.k_slot_of_metatable = {} -- typ  => integer
+    self.k_slot_of_string    = {} -- str  => integer
     self:init_upvalues()
 
     self.record_ids    = {}      -- types.T.Record => integer
@@ -340,10 +340,6 @@ function Coder:c_value(value)
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
         return self:c_upval(value.id)
-    elseif tag == "ir.Value.Function" then
-        local f_id = value.id
-        local typ = self.module.functions[f_id].typ
-        return lua_value(typ, self:function_upvalue_slot(f_id))
     elseif typedecl.match_tag(tag, "ir.Value") then
         typedecl.tag_error(tag, "unable to get C expression for this value type.")
     else
@@ -632,11 +628,9 @@ end
 -- This section of the program is responsible for keeping track of the "global" values in the module
 -- that need to be seen from every function. We store them in the uservalues of an userdata object.
 
-typedecl.declare(coder, "coder", "Upvalue", {
+typedecl.declare(coder, "coder", "Constant", {
     Metatable = {"typ"},
     String = {"str"},
-    Function = {"f_id"},
-    Global = {"g_id"},
 })
 
 function Coder:init_upvalues()
@@ -644,8 +638,8 @@ function Coder:init_upvalues()
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
         if not typ.is_upvalue_box then
-            table.insert(self.upvalues, coder.Upvalue.Metatable(typ))
-            self.upvalue_of_metatable[typ] = #self.upvalues
+            table.insert(self.upvalues, coder.Constant.Metatable(typ))
+            self.k_slot_of_metatable[typ] = #self.upvalues
         end
     end
 
@@ -655,9 +649,9 @@ function Coder:init_upvalues()
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.String" then
                     local str = v.value
-                    if not self.upvalue_of_string[str] then
-                        table.insert(self.upvalues, coder.Upvalue.String(str))
-                        self.upvalue_of_string[str] = #self.upvalues
+                    if not self.k_slot_of_string[str] then
+                        table.insert(self.upvalues, coder.Constant.String(str))
+                        self.k_slot_of_string[str] = #self.upvalues
                     end
                 end
             end
@@ -667,15 +661,6 @@ function Coder:init_upvalues()
     -- Functions
 
     local closures = {}
-    for _, func in ipairs(self.module.functions) do
-        for cmd in ir.iter(func.body) do
-            for _, v in ipairs(ir.get_srcs(cmd)) do
-                if v._tag == "ir.Value.Function" then
-                    table.insert(closures, v.id)
-                end
-            end
-        end
-    end
     for _, f_id in ipairs(self.module.exported_functions) do
         table.insert(closures, f_id)
     end
@@ -688,22 +673,12 @@ local function upvalue_slot(ix)
 end
 
 function Coder:metatable_upvalue_slot(typ)
-    local ix = assert(self.upvalue_of_metatable[typ])
+    local ix = assert(self.k_slot_of_metatable[typ])
     return upvalue_slot(ix)
 end
 
 function Coder:string_upvalue_slot(str)
-    local ix = assert(self.upvalue_of_string[str])
-    return upvalue_slot(ix)
-end
-
-function Coder:function_upvalue_slot(f_id)
-    local ix = assert(self.upvalue_of_function[f_id])
-    return upvalue_slot(ix)
-end
-
-function Coder:global_upvalue_slot(g_id)
-    local ix = assert(self.upvalue_of_global[g_id])
+    local ix = assert(self.k_slot_of_string[str])
     return upvalue_slot(ix)
 end
 
@@ -1695,7 +1670,7 @@ function Coder:generate_luaopen_function()
         local tag = upv._tag
         local is_upvalue_box = false
 
-        if     tag == "coder.Upvalue.Metatable" then
+        if     tag == "coder.Constant.Metatable" then
             is_upvalue_box = upv.typ.is_upvalue_box
             if not is_upvalue_box then
                 table.insert(init_constants, [[
@@ -1704,13 +1679,11 @@ function Coder:generate_luaopen_function()
                     lua_pushboolean(L, 0);
                     lua_settable(L, -3); ]])
             end
-        elseif tag == "coder.Upvalue.String" then
+        elseif tag == "coder.Constant.String" then
             table.insert(init_constants, util.render([[
                 lua_pushstring(L, $str);]], {
                     str = C.string(upv.str)
                 }))
-        elseif tag == "coder.Upvalue.Function" then
-            assert(false)
         else
             typedecl.tag_error(tag)
         end
