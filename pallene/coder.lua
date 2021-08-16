@@ -55,7 +55,7 @@ function Coder:init(module, modname, filename)
 
     self.current_func = false
 
-    self.upvalues = {} -- { coder.Constant }
+    self.constants = {} -- { coder.Constant }
     self.k_slot_of_metatable = {} -- typ  => integer
     self.k_slot_of_string    = {} -- str  => integer
     self:init_upvalues()
@@ -638,8 +638,8 @@ function Coder:init_upvalues()
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
         if not typ.is_upvalue_box then
-            table.insert(self.upvalues, coder.Constant.Metatable(typ))
-            self.k_slot_of_metatable[typ] = #self.upvalues
+            table.insert(self.constants, coder.Constant.Metatable(typ))
+            self.k_slot_of_metatable[typ] = #self.constants
         end
     end
 
@@ -650,8 +650,8 @@ function Coder:init_upvalues()
                 if v._tag == "ir.Value.String" then
                     local str = v.value
                     if not self.k_slot_of_string[str] then
-                        table.insert(self.upvalues, coder.Constant.String(str))
-                        self.k_slot_of_string[str] = #self.upvalues
+                        table.insert(self.constants, coder.Constant.String(str))
+                        self.k_slot_of_string[str] = #self.constants
                     end
                 end
             end
@@ -1666,7 +1666,7 @@ end
 function Coder:generate_luaopen_function()
 
     local init_constants = {}
-    for ix, upv in ipairs(self.upvalues) do
+    for ix, upv in ipairs(self.constants) do
         local tag = upv._tag
         local is_upvalue_box = false
 
@@ -1733,7 +1733,7 @@ function Coder:generate_luaopen_function()
         }
     ]], {
         name = "luaopen_" .. self.modname,
-        n_upvalues = C.integer(#self.upvalues),
+        n_upvalues = C.integer(#self.constants),
         init_constants = table.concat(init_constants, "\n"),
         init_initializers = init_initializers,
     }))
