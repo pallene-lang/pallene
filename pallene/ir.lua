@@ -28,11 +28,12 @@ end
 
 function ir.Module()
     return {
-        record_types       = {}, -- list of Type
-        functions          = {}, -- list of ir.Function
-        globals            = {}, -- list of ir.VarDecl
-        exported_functions = {}, -- list of function ids
-        exported_globals   = {}, -- list of variable ids
+        record_types       = {},  -- list of Type
+        functions          = {},  -- list of ir.Function
+        globals            = {},  -- list of ir.VarDecl
+        exported_functions = {},  -- list of function ids
+        exported_globals   = {},  -- list of variable ids
+        loc_id_of_exports  = nil, -- integer
     }
 end
 
@@ -86,8 +87,8 @@ function ir.add_exported_function(module, f_id)
     table.insert(module.exported_functions, f_id)
 end
 
-function ir.add_exported_global(module, g_id)
-    table.insert(module.exported_globals, g_id)
+function ir.add_exported_global(module, loc_id)
+    table.insert(module.exported_globals, loc_id)
 end
 
 --
@@ -134,8 +135,6 @@ local ir_cmd_constructors = {
 
     -- Variables
     Move       = {"loc", "dst", "src"},
-    GetGlobal  = {"loc", "dst", "global_id"},
-    SetGlobal  = {"loc",        "global_id", "src"},
 
     -- Primitive Values
     Unop       = {"loc", "dst", "op", "src"},
