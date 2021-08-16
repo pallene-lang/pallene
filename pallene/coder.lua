@@ -1392,9 +1392,6 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     elseif f_val._tag == "ir.Value.LocalVar" then
         f_id = assert(func.f_id_of_local[f_val.id])
         cclosure = string.format("clCvalue(&%s)", self:c_value(f_val))
-    elseif f_val._tag == "ir.Value.Function" then
-        f_id = f_val.id
-        cclosure = string.format("clCvalue(%s)", self:function_upvalue_slot(f_id))
     else
         typedecl.tag_error(f_val._tag)
     end

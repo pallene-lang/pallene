@@ -356,10 +356,6 @@ function Converter:visit_stat(stat)
                     -- should have been reported by the type checker at this point.
                     if not var._exported_as then
                         self.mutated_decls[decl] = true
-                        local update_init = function (new_exp)
-                            stat.exps[i] = new_exp
-                        end
-                        self.update_init_exp_of_decl[decl] = NodeUpdate(stat.exps[i], update_init)
                     end
                 end
             end

@@ -124,7 +124,6 @@ declare_type("Value", {
     String     = {"value"},
     LocalVar   = {"id"},
     Upvalue    = {"id"},
-    Function   = {"id"},
 })
 
 -- declare_type("Cmd"

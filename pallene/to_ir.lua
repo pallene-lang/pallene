@@ -81,7 +81,6 @@ function ToIR:init()
     self.func_stack     = {} -- list of function to_ir.FuncInfo
     self.call_exps      = {} -- { ast.Exp.CallFunc }
     self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
-    self.toplevel_funcs = {} -- { ast.FuncStat.FuncStat }
 
     -- Map's an exported function's ID to it's local variable ID
     -- in the `$init` function.
@@ -222,7 +221,6 @@ function ToIR:convert_toplevel(prog_ast)
                     for _, func in ipairs(stat.funcs) do
                         assert(not stat.method)
                         local f_id = self:register_lambda(func.value, func.name)
-                        self.toplevel_funcs[func] = true
                         if func.module then
                             n_exports = n_exports + 1
                             ir.add_exported_function(self.module, f_id)
@@ -836,11 +834,6 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         if     var._tag == "ast.Var.Name" then
             local def = var._def
 
-            if def._tag == "checker.Def.Function" and self.toplevel_funcs[def.func] then
-                local id = self.fun_id_of_exp[def.func.value]
-                return ir.Value.Function(id)
-            end
-
             local decl
             if def._tag == "checker.Def.Variable" then
                 decl = def.decl
@@ -1031,11 +1024,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         elseif def and def._tag == "checker.Def.Function" then
             -- CallStatic is used to call toplevel functions, which are always referenced
-            -- as upvalues or local variables. Currently, this can also mean `ir.Value.Function`s
-            -- functions declared at the toplevel.
-            assert(f_val._tag == "ir.Value.Upvalue"
-                or f_val._tag == "ir.Value.LocalVar"
-                or f_val._tag == "ir.Value.Function")
+            -- as upvalues or local variables.
+            assert(f_val._tag == "ir.Value.Upvalue" or f_val._tag == "ir.Value.LocalVar")
             table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
         else
             table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
