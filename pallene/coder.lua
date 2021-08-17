@@ -386,9 +386,9 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local args = {} -- { {ctype, name , comment} }
     table.insert(args, {"lua_State *" , "L",    ""})
-    table.insert(args, {"StackValue *", "base", ""})
-    table.insert(args, {"Udata * restrict "     , "K",    ""})
-    table.insert(args, {"TValue * restrict ", "U", C.comment("upvalues")})
+    table.insert(args, {"StackValue *", "base", ""})     -- Lua stack pointer
+    table.insert(args, {"Udata * restrict " , "K",  ""}) -- constants table
+    table.insert(args, {"TValue * restrict ", "U" , ""}) -- upvalue array
 
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
