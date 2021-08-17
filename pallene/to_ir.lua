@@ -78,12 +78,13 @@ function ToIR:init()
     self.module = ir.Module()
     self.rec_id_of_typ  = {} -- { types.T  => integer }
     self.fun_id_of_exp  = {} -- { ast.Exp  => integer }
-    self.glb_id_of_decl = {} -- { ast.Decl => integer } -- non-exported globals
-    self.glb_id_of_var  = {} -- { ast.Var  => integer } -- exported global
     self.func_stack     = {} -- list of function to_ir.FuncInfo
     self.call_exps      = {} -- { ast.Exp.CallFunc }
     self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
-    self.toplevel_funcs = {} -- { ast.FuncStat.FuncStat }
+
+    -- Maps an exported function's ID to it's local variable ID
+    -- in the `$init` function.
+    self.loc_id_of_exported_func = {} -- { integer => integer }
 end
 
 function ToIR:enter_function(f_id)
@@ -126,18 +127,11 @@ end
 -- If `decl` resolves to an upvalue, then it registers the upvalue in the intermediate
 -- and current function.
 function ToIR:resolve_variable(decl)
-    if decl._tag == "ast.Var.Name" then
-        local glb_id = assert(self.glb_id_of_var[decl])
-        return to_ir.Var.GlobalVar(glb_id)
-    end
+    assert(decl._tag == "ast.Decl.Decl"
+        or decl._tag == "ast.FuncStat.FuncStat"
+        or decl._tag == "ast.Var.Name")
 
-    assert(decl._tag == "ast.Decl.Decl" or decl._tag == "ast.FuncStat.FuncStat")
     assert(decl.name)
-
-    local glb_id = self.glb_id_of_decl[decl]
-    if glb_id then
-        return to_ir.Var.GlobalVar(glb_id)
-    end
 
     local stack_id, var
     for i = 1, #self.func_stack do
@@ -197,14 +191,30 @@ function ToIR:register_lambda(exp, name)
     return f_id
 end
 
+-- Exports the `func_or_var` by adding it to the module exports table.
+-- This must be called while generating IR for the `$init` function.
+-- @param func_or_var An ir.Function or ir.Variable representing the to-be-exported value.
+-- @param loc_id Local variable ID of the to-be-exported function or variable in `$init`.
+function ToIR:export_local(cmds, func_or_var, loc_id)
+    assert(#self.func_stack == 1)
+
+    local tv = ir.Value.LocalVar(self.module.loc_id_of_exports)
+    local kv = ir.Value.String(assert(func_or_var.name))
+    local fv = ir.Value.LocalVar(loc_id)
+    local src_typ = assert(func_or_var.typ)
+    table.insert(cmds, ir.Cmd.SetTable(func_or_var.loc, src_typ, tv, kv, fv))
+end
+
 function ToIR:convert_toplevel(prog_ast)
 
     -- Create the $init function (it must have ID = 1)
-    ir.add_function(self.module, false, "$init", types.T.Function({}, {}))
+    ir.add_function(self.module, false, "$init", types.T.Function({}, {types.T.Table({})}))
 
     -- Initialize the module-level variables
     self:enter_function(1)
     local cmds = {}
+
+    local n_exports = 0
     for _, tl_node in ipairs(prog_ast) do
         local tag = tl_node._tag
         if tag == "ast.Toplevel.Stats" then
@@ -214,25 +224,19 @@ function ToIR:convert_toplevel(prog_ast)
                     for _, var in ipairs(stat.vars) do
                         if var._exported_as then
                             assert(var._type)
-                            local g_id = ir.add_global(self.module, var.name, var._type)
-                            self.glb_id_of_var[var] = g_id
-                            ir.add_exported_global(self.module, g_id)
+                            local loc_id = ir.add_local(self.func, var.name, var._type)
+                            self.loc_id_of_decl[var] = loc_id
+                            ir.add_exported_global(self.module, loc_id)
+                            n_exports = n_exports + 1
                         end
-                    end
-
-                elseif stag == "ast.Stat.Decl" then
-                    for _, decl in ipairs(stat.decls) do
-                        assert(decl._type)
-                        local g_id = ir.add_global(self.module, decl.name, decl._type)
-                        self.glb_id_of_decl[decl] = g_id
                     end
 
                 elseif stag == "ast.Stat.Functions" then
                     for _, func in ipairs(stat.funcs) do
                         assert(not stat.method)
                         local f_id = self:register_lambda(func.value, func.name)
-                        self.toplevel_funcs[func] = true
                         if func.module then
+                            n_exports = n_exports + 1
                             ir.add_exported_function(self.module, f_id)
                         end
                     end
@@ -257,6 +261,29 @@ function ToIR:convert_toplevel(prog_ast)
             -- skip
         end
     end
+
+    -- Initialize the module exports as a lua table
+    local exports_type  = types.T.Table({})
+    self.module.loc_id_of_exports = ir.add_local(self.func, "$exports", exports_type)
+    table.insert(cmds, ir.Cmd.NewTable(self.func.loc,  self.module.loc_id_of_exports, ir.Value.Integer(n_exports)))
+    table.insert(cmds, ir.Cmd.CheckGC())
+
+    -- export the functions
+    for _, f_id in ipairs(self.module.exported_functions) do
+        local func   = self.module.functions[f_id]
+        local loc_id = assert(self.loc_id_of_exported_func[f_id])
+        self:export_local(cmds, func, loc_id)
+    end
+
+    -- export module variables
+    for _, loc_id in ipairs(self.module.exported_globals) do
+        local var  = self.func.vars[loc_id]
+        self:export_local(cmds, var, loc_id)
+    end
+
+    local v_exports = ir.Value.LocalVar(self.module.loc_id_of_exports)
+    table.insert(cmds, ir.Cmd.Return(self.func.loc, { v_exports }))
+
     self:exit_function(cmds)
 
     return self.module
@@ -510,8 +537,6 @@ function ToIR:convert_stat(cmds, stat)
                 local var_info = self:resolve_variable(var._def.decl)
                 if var_info._tag == "to_ir.Var.LocalVar" then
                     table.insert(lhss, to_ir.LHS.Local(var_info.id))
-                elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                    table.insert(lhss, to_ir.LHS.Global(var_info.id))
                 else
                     typedecl.tag_error(var_info._tag)
                 end
@@ -589,8 +614,6 @@ function ToIR:convert_stat(cmds, stat)
                 local ltag = lhs._tag
                 if     ltag == "to_ir.LHS.Local" then
                     table.insert(cmds, ir.Cmd.Move(loc, lhs.id, val))
-                elseif ltag == "to_ir.LHS.Global" then
-                    table.insert(cmds, ir.Cmd.SetGlobal(loc, lhs.id, val))
                 elseif ltag == "to_ir.LHS.Array" then
                     table.insert(cmds, ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val))
                 elseif ltag == "to_ir.LHS.Table" then
@@ -607,21 +630,13 @@ function ToIR:convert_stat(cmds, stat)
     elseif tag == "ast.Stat.Decl" then
         for _, decl in ipairs(stat.decls) do
             local typ = decl._type
-            if not self.glb_id_of_decl[decl] then
-                self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, typ)
-            end
+            self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, typ)
         end
 
         for i, exp in ipairs(stat.exps) do
             local decl = stat.decls[i]
             if decl then
-                local g_id = self.glb_id_of_decl[decl]
-                if g_id then
-                    local val = self:exp_to_value(cmds, exp)
-                    table.insert(cmds, ir.Cmd.SetGlobal(decl.loc, g_id, val))
-                else
-                    self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
-                end
+                self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
             else
                 -- Extra argument to RHS; compute it for side effects and discard result
                 local _ = self:exp_to_value(cmds, exp)
@@ -643,38 +658,40 @@ function ToIR:convert_stat(cmds, stat)
 
     elseif tag == "ast.Stat.Functions" then
 
-        -- To handle LetRecs (`local f1, f2;`) , we register all the locals first.
+        -- To handle LetRecs (`local f1, f2;`), we register all the locals first.
         for _, func in ipairs(stat.funcs) do
-            if not self.toplevel_funcs[func] then
-                self.loc_id_of_decl[func] = ir.add_local(self.func, func.name, func._type)
-            end
+            local loc_id = ir.add_local(self.func, func.name, func._type)
+            self.loc_id_of_decl[func] = loc_id
 
             local exp = func.value
             if not self.fun_id_of_exp[exp] then
                 self:register_lambda(exp, func.name)
+            end
+
+            local f_id = self.fun_id_of_exp[exp]
+            if func.module then
+                assert(#self.func_stack == 1)
+                self.loc_id_of_exported_func[f_id] = loc_id
             end
         end
 
         for _ , func in ipairs(stat.funcs) do
             local exp = func.value
             self:convert_func(exp)
-            if not self.toplevel_funcs[func] then
-                local dst  = self.loc_id_of_decl[func]
-                local f_id = self.fun_id_of_exp[exp]
-                table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
-            end
+
+            local dst  = self.loc_id_of_decl[func]
+            local f_id = self.fun_id_of_exp[exp]
+            table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
         end
 
         -- To support mutual recursion, upvalues are initialized *after* the closures
         -- have been created.
         for _, func in ipairs(stat.funcs) do
-            if not self.toplevel_funcs[func] then
-                local f_id  = self.fun_id_of_exp[func.value]
-                local dst   = self.loc_id_of_decl[func]
-                local f_val = self.module.functions[f_id]
-                for _, upval_info in ipairs(f_val.captured_vars) do
-                    table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, dst, upval_info.value, f_id))
-                end
+            local f_id  = self.fun_id_of_exp[func.value]
+            local dst   = self.loc_id_of_decl[func]
+            local f_val = self.module.functions[f_id]
+            for _, upval_info in ipairs(f_val.captured_vars) do
+                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, dst, upval_info.value, f_id))
             end
         end
 
@@ -819,11 +836,6 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
             local def = var._def
-
-            if def._tag == "checker.Def.Function" and self.toplevel_funcs[def.func] then
-                local id = self.fun_id_of_exp[def.func.value]
-                return ir.Value.Function(id)
-            end
 
             local decl
             if def._tag == "checker.Def.Variable" then
@@ -1015,11 +1027,8 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         elseif def and def._tag == "checker.Def.Function" then
             -- CallStatic is used to call toplevel functions, which are always referenced
-            -- as upvalues or local variables. Currently, this can also mean `ir.Value.Function`s
-            -- functions declared at the toplevel.
-            assert(f_val._tag == "ir.Value.Upvalue"
-                or f_val._tag == "ir.Value.LocalVar"
-                or f_val._tag == "ir.Value.Function")
+            -- as upvalues or local variables.
+            assert(f_val._tag == "ir.Value.Upvalue" or f_val._tag == "ir.Value.LocalVar")
             table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
         else
             table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))

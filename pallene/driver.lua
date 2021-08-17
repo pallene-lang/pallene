@@ -6,7 +6,7 @@
 local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
 local assignment_conversion = require "pallene.assignment_conversion"
-local constant_propagation = require "pallene.constant_propagation"
+-- local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
 local Lexer = require "pallene.Lexer"
 local parser = require "pallene.parser"
@@ -52,7 +52,7 @@ driver.list_of_compiler_passes = {"lexer", "ast", "checker", "assignment_convers
 --
 -- @opt_level is used here to enable or disable Pallene optimizations. Follows GCC convention of
 -- level "0" being no optimization. Currently, every other level will enable Pallene optimizations.
-function driver.compile_internal(filename, input, stop_after, opt_level)
+function driver.compile_internal(filename, input, stop_after, _opt_level)
     stop_after = stop_after or "optimize"
 
     local lexer = Lexer.new(filename, input)
@@ -86,12 +86,16 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
         return module, errs
     end
 
-    if opt_level > 0 then
-        module, errs = constant_propagation.run(module)
-        if stop_after == "constant_propagation" or not module then
-            return module, errs
-        end
-    end
+    -- After some changes to the representation of global and module variables,
+    -- the constant propagation pass is no longer functional. This pass remains
+    -- unused until a fix is in place.
+    --
+    -- if opt_level > 0 then
+    --     module, errs = constant_propagation.run(module)
+    --     if stop_after == "constant_propagation" or not module then
+    --         return module, errs
+    --     end
+    -- end
 
     if stop_after == "optimize" or not module then
         return module, {}

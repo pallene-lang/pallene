@@ -144,7 +144,7 @@ function Converter:apply_transformations()
 
     for decl in pairs(self.mutated_decls) do
         if self.captured_decls[decl] then
-            assert(not decl._exported_as)
+            assert(decl._tag == "ast.Decl.Decl" or decl._tag == "ast.Var.Name")
 
             -- 1. Create a record type `$T` to hold this captured var.
             -- 2. Transform  node from `local x = value` to `local x: $T =  { value = value }`
@@ -345,16 +345,26 @@ function Converter:visit_stat(stat)
 
     elseif tag == "ast.Stat.Assign" then
         for i, var in ipairs(stat.vars) do
+            if var._tag == "ast.Var.Name" then
+                if var._def._tag == "checker.Def.Variable" then
+                    local decl = assert(var._def.decl)
+                    self:register_decl(decl)
+
+                    -- `m.var = <exp>` statements are only allowed at the toplevel.
+                    -- Furthermore, each module variable can only be assigned to once, so mutable
+                    -- capturing is not possible. Any attempts to re-assign to a module variable
+                    -- should have been reported by the type checker at this point.
+                    if var._exported_as then
+                        assert(self.func_depth == 1)
+                    else
+                        self.mutated_decls[decl] = true
+                    end
+                end
+            end
+
             self:visit_var(var, function (new_var)
                 stat.vars[i] = new_var
             end)
-
-            if var._tag == "ast.Var.Name" and not var._exported_as then
-                if var._def._tag == "checker.Def.Variable" then
-                    local decl = assert(var._def.decl)
-                    self.mutated_decls[decl] = true
-                end
-            end
         end
 
         for _, exp in ipairs(stat.exps) do
@@ -395,8 +405,8 @@ function Converter:visit_var(var, update_fn)
         if var._def._tag == "checker.Def.Variable" then
             local decl = assert(var._def.decl)
             assert(self.update_ref_of_decl[decl])
+
             local depth = self.func_depth_of_decl[decl]
-            -- depth == 1 when the decl is that of a global
             if depth < self.func_depth then
                 self.captured_decls[decl] = true
             end
