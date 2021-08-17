@@ -92,7 +92,10 @@ local function lua_value(typ, src_slot)
     elseif tag == "types.T.Any"      then tmpl = "*($src)"
     else typedecl.tag_error(tag)
     end
-    return (util.render(tmpl, {src = src_slot}))
+
+    local res = util.render(tmpl, {src = src_slot})
+    -- Clean up *(&x)
+    return string.match(res, "^%*%(%&(.*)%)$") or res
 end
 
 local function unchecked_get_slot(typ, dst, src)
@@ -384,7 +387,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     local args = {} -- { {ctype, name , comment} }
     table.insert(args, {"lua_State *" , "L",    ""})
     table.insert(args, {"StackValue *", "base", ""})
-    table.insert(args, {"Udata *"     , "K",    ""})
+    table.insert(args, {"Udata * restrict "     , "K",    ""})
     table.insert(args, {"TValue * restrict ", "U", C.comment("upvalues")})
 
     for i = 1, #arg_types do
