@@ -354,7 +354,9 @@ function Converter:visit_stat(stat)
                     -- Furthermore, each module variable can only be assigned to once, so mutable
                     -- capturing is not possible. Any attempts to re-assign to a module variable
                     -- should have been reported by the type checker at this point.
-                    if not var._exported_as then
+                    if var._exported_as then
+                        assert(self.func_depth == 1)
+                    else
                         self.mutated_decls[decl] = true
                     end
                 end

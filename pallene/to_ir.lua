@@ -191,6 +191,20 @@ function ToIR:register_lambda(exp, name)
     return f_id
 end
 
+-- Exports the `func_or_var` by adding it to the module exports table.
+-- This must be called while generating IR for the `$init` function.
+-- @param func_or_var An ir.Function or ir.Variable representing the to-be-exported value.
+-- @param loc_id Local variable ID of the to-be-exported function or variable in `$init`.
+function ToIR:export_local(cmds, func_or_var, loc_id)
+    assert(#self.func_stack == 1)
+
+    local tv = ir.Value.LocalVar(self.module.loc_id_of_exports)
+    local kv = ir.Value.String(assert(func_or_var.name))
+    local fv = ir.Value.LocalVar(loc_id)
+    local src_typ = assert(func_or_var.typ)
+    table.insert(cmds, ir.Cmd.SetTable(func_or_var.loc, src_typ, tv, kv, fv))
+end
+
 function ToIR:convert_toplevel(prog_ast)
 
     -- Create the $init function (it must have ID = 1)
@@ -258,24 +272,13 @@ function ToIR:convert_toplevel(prog_ast)
     for _, f_id in ipairs(self.module.exported_functions) do
         local func   = self.module.functions[f_id]
         local loc_id = assert(self.loc_id_of_exported_func[f_id])
-
-        local tv = ir.Value.LocalVar( self.module.loc_id_of_exports)
-        local kv = ir.Value.String(func.name)
-        local fv = ir.Value.LocalVar(loc_id)
-        local src_typ = func.typ
-        table.insert(cmds, ir.Cmd.SetTable(func.loc, src_typ, tv, kv, fv))
+        self:export_local(cmds, func, loc_id)
     end
 
     -- export module variables
     for _, loc_id in ipairs(self.module.exported_globals) do
         local var  = self.func.vars[loc_id]
-        local name = assert(var.name)
-
-        local tv = ir.Value.LocalVar(self.module.loc_id_of_exports)
-        local kv = ir.Value.String(name)
-        local fv = ir.Value.LocalVar(loc_id)
-        local src_typ = var.typ
-        table.insert(cmds, ir.Cmd.SetTable(var.loc, src_typ, tv, kv, fv))
+        self:export_local(cmds, var, loc_id)
     end
 
     local v_exports = ir.Value.LocalVar(self.module.loc_id_of_exports)

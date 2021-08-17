@@ -658,14 +658,6 @@ function Coder:init_upvalues()
         end
     end
 
-    -- Functions
-
-    local closures = {}
-    for _, f_id in ipairs(self.module.exported_functions) do
-        table.insert(closures, f_id)
-    end
-
-    table.sort(closures) -- For determinism
 end
 
 local function upvalue_slot(ix)
