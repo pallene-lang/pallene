@@ -687,15 +687,12 @@ function ToIR:convert_stat(cmds, stat)
         -- To support mutual recursion, upvalues are initialized *after* the closures
         -- have been created.
         for _, func in ipairs(stat.funcs) do
-            local f_id  = self.fun_id_of_exp[func.value]
-            local loc_id = self.loc_id_of_decl[func]
-            local f_val = self.module.functions[f_id]
-
-            local src_f = ir.Value.LocalVar(loc_id)
-            for u_id, upval_info in ipairs(f_val.captured_vars) do
-                assert(upval_info.value._tag == "ir.Value.LocalVar")
-                local typ = upval_info.decl.typ
-                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, src_f, u_id, typ, upval_info.value))
+            local f_id = self.fun_id_of_exp[func.value]
+            local ir_func = self.module.functions[f_id]
+            if #ir_func.captured_vars >= 1 then
+                local f_var = self.loc_id_of_decl[func]
+                local src_f = ir.Value.LocalVar(f_var)
+                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, src_f, f_id))
             end
         end
 
@@ -954,14 +951,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
     elseif tag == "ast.Exp.Lambda" then
         local f_id = self:register_lambda(exp, "$lambda")
-        local func = self.module.functions[f_id]
         self:convert_func(exp)
 
         table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
-        local src_f = ir.Value.LocalVar(dst)
-        for u_id, upval_info in ipairs(func.captured_vars) do
-            local typ = upval_info.decl.typ
-            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, src_f, u_id, typ, upval_info.value))
+        local func = self.module.functions[f_id]
+        if #func.captured_vars >= 1 then
+            local src_f = ir.Value.LocalVar(dst)
+            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, src_f, f_id))
         end
 
     elseif tag == "ast.Exp.ExtraRet" then

@@ -1327,16 +1327,30 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
 end
 
 gen_cmd["SetUpvalue"] = function(self, cmd, _func)
-    local src_f = cmd.src_f
-    assert(src_f._tag == "ir.Value.LocalVar")
+    local func = self.module.functions[cmd.f_id]
 
-    local cclosure = string.format("clCvalue(&%s)", self:c_var(src_f.id))
-    local c_val = self:c_value(cmd.src)
+    assert(cmd.src_f._tag == "ir.Value.LocalVar")
+    local cclosure = string.format("clCvalue(&%s)", self:c_var(cmd.src_f.id))
 
-    local u_index = C.integer(cmd.u_id)
-    local upvalue_dst = string.format("&(%s->upvalue[%s])", cclosure, u_index)
+    local capture_upvalues = {}
+    for i, upval_info in ipairs(func.captured_vars) do
+        local typ   = upval_info.decl.typ
+        local c_val = self:c_value(upval_info.value)
+        local upvalue_dst = string.format("&(ccl->upvalue[%s])", C.integer(i))
+        table.insert(capture_upvalues, set_stack_slot(typ, upvalue_dst, c_val))
+    end
 
-    return set_stack_slot(cmd.dst_typ, upvalue_dst, c_val)
+    return util.render([[
+        /**/
+        {
+            CClosure* ccl = $cclosure;
+            $capture_upvalues
+        }
+        /**/
+    ]], {
+        cclosure = cclosure,
+        capture_upvalues = table.concat(capture_upvalues, "\n"),
+    })
 end
 
 gen_cmd["CallStatic"] = function(self, cmd, func)
