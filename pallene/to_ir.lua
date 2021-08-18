@@ -688,10 +688,14 @@ function ToIR:convert_stat(cmds, stat)
         -- have been created.
         for _, func in ipairs(stat.funcs) do
             local f_id  = self.fun_id_of_exp[func.value]
-            local dst   = self.loc_id_of_decl[func]
+            local loc_id = self.loc_id_of_decl[func]
             local f_val = self.module.functions[f_id]
-            for _, upval_info in ipairs(f_val.captured_vars) do
-                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, dst, upval_info.value, f_id))
+
+            local src_f = ir.Value.LocalVar(loc_id)
+            for u_id, upval_info in ipairs(f_val.captured_vars) do
+                assert(upval_info.value._tag == "ir.Value.LocalVar")
+                local typ = upval_info.decl.typ
+                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, src_f, u_id, typ, upval_info.value))
             end
         end
 
@@ -954,8 +958,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         self:convert_func(exp)
 
         table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
-        for _, upval_info in ipairs(func.captured_vars) do
-            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, dst, upval_info.value, f_id))
+        local src_f = ir.Value.LocalVar(dst)
+        for u_id, upval_info in ipairs(func.captured_vars) do
+            local typ = upval_info.decl.typ
+            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, src_f, u_id, typ, upval_info.value))
         end
 
     elseif tag == "ast.Exp.ExtraRet" then
