@@ -313,7 +313,7 @@ end
 -- @returns the C parameter name for the upvalue u_id
 function Coder:c_upval(u_id)
     assert(self.current_func)
-    local typ = self.current_func.captured_vars[u_id].decl.typ
+    local typ = self.current_func.captured_vars[u_id].typ
     -- Since upvalue boxes do not have metatables, type checking them at runtime is not possible.
     -- Moreover, since upvalues are only passed around internally by Pallene, it is ok to assume that
     -- their types will be correct. So we directly cast it using `lua_value` without a tag check.
@@ -1333,9 +1333,9 @@ gen_cmd["SetUpvalue"] = function(self, cmd, _func)
     local cclosure = string.format("clCvalue(&%s)", self:c_var(cmd.src_f.id))
 
     local capture_upvalues = {}
-    for i, upval_info in ipairs(func.captured_vars) do
-        local typ   = upval_info.decl.typ
-        local c_val = self:c_value(upval_info.value)
+    for i, val in ipairs(cmd.srcs) do
+        local typ   = func.captured_vars[i].typ
+        local c_val = self:c_value(val)
         local upvalue_dst = string.format("&(ccl->upvalue[%s])", C.integer(i))
         table.insert(capture_upvalues, set_stack_slot(typ, upvalue_dst, c_val))
     end

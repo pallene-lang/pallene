@@ -76,11 +76,12 @@ end
 function ToIR:init()
     -- Module-level variables
     self.module = ir.Module()
-    self.rec_id_of_typ  = {} -- { types.T  => integer }
-    self.fun_id_of_exp  = {} -- { ast.Exp  => integer }
-    self.func_stack     = {} -- list of function to_ir.FuncInfo
-    self.call_exps      = {} -- { ast.Exp.CallFunc }
-    self.dsts_of_call   = {} -- { ast.Exp => { var_id } }
+    self.rec_id_of_typ         = {} -- { types.T  => integer }
+    self.fun_id_of_exp         = {} -- { ast.Exp  => integer }
+    self.func_stack            = {} -- list of function to_ir.FuncInfo
+    self.call_exps             = {} -- { ast.Exp.CallFunc }
+    self.dsts_of_call          = {} -- { ast.Exp => { var_id } }
+    self.captured_vals_of_func = {} -- { ir.Function => list of ir.Values }
 
     -- Maps an exported function's ID to it's local variable ID
     -- in the `$init` function.
@@ -154,14 +155,20 @@ function ToIR:resolve_variable(decl)
     assert(stack_id)
     for i = stack_id + 1, #self.func_stack do
         local func_info = self.func_stack[i]
-        local func      = func_info.func
+        local func = func_info.func
+
+        local ir_func = self.module.functions[func_info.f_id]
+        local captured_vars  = self.captured_vals_of_func[ir_func]
+
         local u_id
         if func_info.upval_id_of_decl[decl] then
             u_id = func_info.upval_id_of_decl[decl]
         elseif var._tag == "to_ir.Var.LocalVar" then
-            u_id = ir.add_upvalue(func, decl.name, decl._type, ir.Value.LocalVar(var.id))
+            u_id = ir.add_upvalue(func, decl.name, decl._type)
+            table.insert(captured_vars, ir.Value.LocalVar(var.id))
         elseif var._tag == "to_ir.Var.Upvalue" then
-            u_id = ir.add_upvalue(func, decl.name, decl._type, ir.Value.Upvalue(var.id))
+            u_id = ir.add_upvalue(func, decl.name, decl._type)
+            table.insert(captured_vars, ir.Value.Upvalue(var.id))
         else
             typedecl.tag_error(var._tag)
         end
@@ -187,6 +194,10 @@ function ToIR:register_lambda(exp, name)
     assert(exp._tag == "ast.Exp.Lambda")
     assert(not self.fun_id_of_exp[exp])
     local f_id = ir.add_function(self.module, exp.loc, name, exp._type)
+
+    local ir_func = self.module.functions[f_id]
+    self.captured_vals_of_func[ir_func] = {}
+
     self.fun_id_of_exp[exp] = f_id
     return f_id
 end
@@ -208,7 +219,9 @@ end
 function ToIR:convert_toplevel(prog_ast)
 
     -- Create the $init function (it must have ID = 1)
-    ir.add_function(self.module, false, "$init", types.T.Function({}, {types.T.Table({})}))
+    local id = ir.add_function(self.module, false, "$init", types.T.Function({}, {types.T.Table({})}))
+    local init_func = self.module.functions[id]
+    self.captured_vals_of_func[init_func] = {}
 
     -- Initialize the module-level variables
     self:enter_function(1)
@@ -689,10 +702,16 @@ function ToIR:convert_stat(cmds, stat)
         for _, func in ipairs(stat.funcs) do
             local f_id = self.fun_id_of_exp[func.value]
             local ir_func = self.module.functions[f_id]
-            if #ir_func.captured_vars >= 1 then
+            local captured_vars = self.captured_vals_of_func[ir_func]
+            if #captured_vars >= 1 then
                 local f_var = self.loc_id_of_decl[func]
                 local src_f = ir.Value.LocalVar(f_var)
-                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, src_f, f_id))
+
+                local srcs = {}
+                for _, val in ipairs(captured_vars) do
+                    table.insert(srcs, val)
+                end
+                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, src_f, srcs, f_id))
             end
         end
 
@@ -955,9 +974,14 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
         local func = self.module.functions[f_id]
-        if #func.captured_vars >= 1 then
+        local captured_vars = self.captured_vals_of_func[func]
+        if #captured_vars >= 1 then
             local src_f = ir.Value.LocalVar(dst)
-            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, src_f, f_id))
+            local srcs = {}
+            for _, upval in ipairs(captured_vars) do
+                table.insert(srcs, upval)
+            end
+            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, src_f, srcs, f_id))
         end
 
     elseif tag == "ast.Exp.ExtraRet" then
