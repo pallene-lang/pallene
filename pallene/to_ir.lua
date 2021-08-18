@@ -711,7 +711,7 @@ function ToIR:convert_stat(cmds, stat)
                 for _, val in ipairs(captured_vars) do
                     table.insert(srcs, val)
                 end
-                table.insert(cmds, ir.Cmd.SetUpvalue(func.loc, src_f, srcs, f_id))
+                table.insert(cmds, ir.Cmd.SetUpvalues(func.loc, src_f, srcs, f_id))
             end
         end
 
@@ -981,7 +981,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             for _, upval in ipairs(captured_vars) do
                 table.insert(srcs, upval)
             end
-            table.insert(cmds, ir.Cmd.SetUpvalue(exp.loc, src_f, srcs, f_id))
+            table.insert(cmds, ir.Cmd.SetUpvalues(exp.loc, src_f, srcs, f_id))
         end
 
     elseif tag == "ast.Exp.ExtraRet" then

@@ -160,7 +160,7 @@ local ir_cmd_constructors = {
 
     -- Functions
     NewClosure = {"loc", "dst"  , "f_id"},
-    SetUpvalue = {"loc", "src_f", "srcs", "f_id"},
+    SetUpvalues = {"loc", "src_f", "srcs", "f_id"},
 
     -- (dst is false if the return value is void, or unused)
     CallStatic  = {"loc", "f_typ", "dsts", "src_f", "srcs"},
