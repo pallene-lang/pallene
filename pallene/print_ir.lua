@@ -195,9 +195,10 @@ local function Cmd(cmd)
     -- Leaf commands (single line)
 
     local lhs
-    if     tag == "ir.Cmd.SetArr"    then lhs = Bracket(cmd.src_arr, cmd.src_i)
-    elseif tag == "ir.Cmd.SetTable"  then lhs = Bracket(cmd.src_tab, cmd.src_k)
-    elseif tag == "ir.Cmd.SetField"  then lhs = Field(cmd.src_rec, cmd.field_name)
+    if     tag == "ir.Cmd.SetArr"      then lhs = Bracket(cmd.src_arr, cmd.src_i)
+    elseif tag == "ir.Cmd.SetTable"    then lhs = Bracket(cmd.src_tab, cmd.src_k)
+    elseif tag == "ir.Cmd.SetField"    then lhs = Field(cmd.src_rec, cmd.field_name)
+    elseif tag == "ir.Cmd.SetUpvalues" then lhs = Val(cmd.src_f) .. ".upvalues"
     else
         lhs = comma_concat(Vars(ir.get_dsts(cmd)))
     end
@@ -214,6 +215,8 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.NewRecord"  then rhs = "new ".. cmd.rec_typ.name .."()"
     elseif tag == "ir.Cmd.GetField"   then rhs = Field(cmd.src_rec, cmd.field_name)
     elseif tag == "ir.Cmd.SetField"   then rhs = Val(cmd.src_v)
+    elseif tag == "ir.Cmd.NewClosure" then rhs = Call("NewClosure", { Fun(cmd.f_id) })
+    elseif tag == "ir.Cmd.SetUpvalues"then rhs = comma_concat(Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallStatic" then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallDyn"    then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
     else
