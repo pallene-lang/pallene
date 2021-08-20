@@ -996,7 +996,6 @@ function Parser:syntax_error(loc, fmt, ...)
 end
 
 function Parser:abort_parsing()
-    table.insert(self.errors, "compilation aborted due to previous error")
     trycatch.error("syntax-error")
 end
 

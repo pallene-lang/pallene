@@ -55,36 +55,38 @@ driver.list_of_compiler_passes = {"lexer", "ast", "checker", "assignment_convers
 function driver.compile_internal(filename, input, stop_after, _opt_level)
     stop_after = stop_after or "optimize"
 
-    local lexer = Lexer.new(filename, input)
-    if stop_after == "lexer" then
-        return lexer, {}
+    local errs
+
+    local function abort()
+        if type(errs) == "string" then errs = { errs } end
+        table.insert(errs, "compilation aborted due to previous error")
+        return false, errs
     end
 
-    local prog_ast, errs = parser.parse(lexer)
-    if stop_after == "ast" or not prog_ast then
-        return prog_ast, errs
-    end
+    local lexer = Lexer.new(filename, input)
+    if stop_after == "lexer" then return lexer end
+
+    local prog_ast
+    prog_ast, errs = parser.parse(lexer)
+    if not prog_ast then return abort() end
+    if stop_after == "ast" then return prog_ast end
 
     prog_ast, errs = checker.check(prog_ast)
-    if stop_after == "checker" or not prog_ast then
-        return prog_ast, errs
-    end
+    if not prog_ast then return abort() end
+    if stop_after == "checker" then return prog_ast end
 
     prog_ast, errs = assignment_conversion.convert(prog_ast)
-    if stop_after == "assignment_conversion" or not prog_ast then
-        return prog_ast, errs
-    end
+    if not prog_ast then return abort() end
+    if stop_after == "assignment_conversion" then return prog_ast end
 
     local module
     module, errs = to_ir.convert(prog_ast)
-    if stop_after == "ir" or not module then
-        return module, errs
-    end
+    if not module then return abort() end
+    if stop_after == "ir" then return module end
 
     module, errs = uninitialized.verify_variables(module)
-    if stop_after == "uninitialized" or not module then
-        return module, errs
-    end
+    if not module then return abort() end
+    if stop_after == "uninitialized" then return module end
 
     -- After some changes to the representation of global and module variables,
     -- the constant propagation pass is no longer functional. This pass remains
@@ -92,15 +94,11 @@ function driver.compile_internal(filename, input, stop_after, _opt_level)
     --
     -- if opt_level > 0 then
     --     module, errs = constant_propagation.run(module)
-    --     if stop_after == "constant_propagation" or not module then
-    --         return module, errs
-    --     end
+    --     if not module then return abort() end
+    --     if stop_after == "constant_propagation" then return module end
     -- end
 
-    if stop_after == "optimize" or not module then
-        return module, {}
-    end
-
+    if stop_after == "optimize" then return module end
     error("impossible")
 end
 
