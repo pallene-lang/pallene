@@ -193,11 +193,8 @@ function Parser:Program()
         end
     else
         local loc = self.next.loc
-        if modname then
-            self:syntax_error(loc,  "must end by returning the module table; return %s", modname)
-        else
-            self:syntax_error(loc,  "must end by returning the module table")
-        end
+        local what = (modname or "<modname>")
+        self:syntax_error(loc,  "must end by returning the module table; return %s", what)
     end
 
     return ast.Program.Program(
