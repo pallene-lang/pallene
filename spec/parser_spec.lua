@@ -180,14 +180,18 @@ describe("Parser /", function()
     describe("Programs", function()
 
         it("must not be empty", function()
-            assert_program_error([[]], "empty modules are not allowed")
         end)
 
-        it("must start with a valid module declaration", function()
+        it("must start with a module declaration", function()
+            assert_program_error([[
+            ]], "must begin with a module declaration")
+
             assert_program_error([[
                 return m
             ]], "must begin with a module declaration")
+        end)
 
+        it("the module declaration must be valid", function()
             assert_program_error([[
                 local m, n = {}, {}
             ]], "cannot use a multiple-assignment to declare the module table")
@@ -221,7 +225,7 @@ describe("Parser /", function()
                 local m: module = {}
                 local i: integer = 2
                 return i
-            ]], "the module return statement must return exactly the module variable 'm'")
+            ]], "must return exactly the module variable 'm'")
         end)
     end)
 

@@ -20,6 +20,7 @@ local MaxParams = 200
 
 function Parser:init(lexer)
     self.lexer = lexer
+    self.errors = {}  -- list of string
     self.prev = false -- Token
     self.next = false -- Token
     self.look = false -- Token
@@ -126,41 +127,36 @@ end
 
 function Parser:Program()
 
-    local start_loc = self.lexer:loc()
+    local start_loc = self.next.loc
 
     -- local <modname>: module = {}
-    local modname
-    do
-        if self:peek("EOF") then
-            self:syntax_error(start_loc, "empty modules are not allowed")
-        end
-
+    local modname = false
+    if self:peek("local") and self:doublepeek("NAME") then
         local stat = self:Stat(true)
-        if not (stat and stat._tag == "ast.Stat.Decl") then
-            self:syntax_error(stat.loc,
-                "must begin with a module declaration; local <modname> = {}")
-        end
+        assert(stat._tag == "ast.Stat.Decl")
 
         if #stat.decls > 1 or #stat.exps > 1 then
             self:syntax_error(stat.loc,
                 "cannot use a multiple-assignment to declare the module table")
+        else
+            local decl = stat.decls[1]; assert(decl)
+            local exp  = stat.exps[1]
+            local ast_typ = decl.type
+
+            if ast_typ and not (ast_typ._tag == "ast.Type.Name" and ast_typ.name == "module") then
+                self:syntax_error(ast_typ.loc,
+                    "if the module variable has a type annotation, it must be exactly 'module'")
+            end
+
+            if not (exp and exp._tag == "ast.Exp.InitList" and #exp.fields == 0) then
+                self:syntax_error(stat.loc, "the module initializer must be exactly {}")
+            end
+
+            modname = decl.name
         end
-
-        assert(#stat.decls == 1)
-
-        local decl = stat.decls[1]
-        local exp  = stat.exps[1]
-
-        if decl.type and not (decl.type._tag == "ast.Type.Name" and decl.type.name == "module") then
-            self:syntax_error(decl.type.loc,
-                "if the module variable has a type annotation, it must be exactly 'module'")
-        end
-
-        if not (exp and exp._tag == "ast.Exp.InitList" and #exp.fields == 0) then
-            self:syntax_error(stat.loc, "the module initializer must be exactly {}")
-        end
-
-        modname = decl.name
+    else
+        self:syntax_error(start_loc,
+            "must begin with a module declaration; local <modname> = {}")
     end
 
     -- module contents
@@ -169,39 +165,40 @@ function Parser:Program()
         table.insert(tls, self:Toplevel())
     end
 
-    -- returm <modname>
-    if self:peek("EOF") then
-        self:syntax_error(self.lexer:loc(),
-            "must end by returning the module table; return %s", modname)
-    end
+    -- return <modname>
+    local end_loc = self.next.loc
+    if self:peek("return") then
+        local stat = self:Stat(true)
+        assert(stat._tag == "ast.Stat.Return")
 
-    local return_stat = self:Stat(true)
-    assert(return_stat._tag == "ast.Stat.Return")
+        if #stat.exps ~= 1 then
+            self:syntax_error(stat.loc,
+                "the module return statement must return a single value")
+        else
+            local exp = stat.exps[1]
+            if modname and not (
+                exp._tag == "ast.Exp.Var" and
+                exp.var._tag == "ast.Var.Name" and
+                exp.var.name == modname)
+            then
+                -- The checker also needs to check that this name has not been shadowed
+                self:syntax_error(exp.loc,
+                    "must return exactly the module variable '%s'", modname)
+            end
+        end
 
-    if not self:peek("EOF") then
-        local tok = self:e()
-        self:syntax_error(tok.loc, "the module return statement must be the last thing in the file")
-    end
-
-    if #return_stat.exps ~= 1 then
-        self:syntax_error(return_stat.loc,
-            "the module return statement must return a single value")
-    end
-
-    local returned_exp = return_stat.exps[1]
-
-    if not (
-        returned_exp._tag == "ast.Exp.Var" and
-        returned_exp.var._tag == "ast.Var.Name" and
-        returned_exp.var.name == modname)
-    then
-        -- The checker also needs to check that this name has not been shadowed
-        self:syntax_error(returned_exp.loc,
-            "the module return statement must return exactly the module variable '%s'", modname)
+        if not self:peek("EOF") then
+            self:syntax_error(self.next.loc,
+                "the module return statement must be the last thing in the file")
+        end
+    else
+        local loc = self.next.loc
+        local what = (modname or "<modname>")
+        self:syntax_error(loc,  "must end by returning the module table; return %s", what)
     end
 
     return ast.Program.Program(
-        start_loc, return_stat.loc, modname, tls, self.type_regions, self.comment_regions)
+        start_loc, end_loc, modname, tls, self.type_regions, self.comment_regions)
 end
 
 function Parser:Toplevel()
@@ -511,14 +508,17 @@ function Parser:FuncStat(is_local)
 
     local root = self:e("NAME").value
 
-    local field = false
-    if self:try(".") then
-        field = self:e("NAME").value
-        if self:try(".") then
-            self:syntax_error(self.prev.loc,
-                "more than one dot in the function name is not allowed")
-        end
+    local fields = {}
+    while self:try(".") do
+        table.insert(fields, self:e("NAME").value)
     end
+
+    if fields[2] then
+        self:syntax_error(self.prev.loc,
+            "more than one dot in the function name is not allowed")
+    end
+
+    local field = fields[1] or false
 
     local method = false
     if self:try(":") then
@@ -670,11 +670,10 @@ function Parser:Stat(is_toplevel)
 
     elseif self:peek("break") then
         local start = self:e()
-        if self.loop_depth > 0 then
-            return ast.Stat.Break(start.loc)
-        else
+        if self.loop_depth == 0 then
             self:syntax_error(start.loc, "break statement outside of a loop")
         end
+        return ast.Stat.Break(start.loc)
 
     elseif self:peek("return") then
         local start = self:e()
@@ -712,6 +711,7 @@ function Parser:Stat(is_toplevel)
             else
                 self:syntax_error(exp.loc,
                     "this expression in a statement position is not a function call")
+                self:abort_parsing()
             end
         end
     end
@@ -727,6 +727,7 @@ function Parser:to_var(exp)
         return exp.var
     else
         self:syntax_error(exp.loc, "this expression is not an lvalue")
+        self:abort_parsing()
     end
 end
 
@@ -817,9 +818,9 @@ function Parser:FuncExp()
         end
     end
 
-    if self:peek(":") then
-        local colon = self:e()
-        self:syntax_error(colon.loc, "Function expressions cannot be type annotated")
+    if self:try(":") then
+        local typ = self:Type()
+        self:syntax_error(typ.loc, "Function expressions cannot be type annotated")
     end
 
     local block = self:Block()
@@ -982,6 +983,18 @@ end
 --
 -- Syntax errors
 --
+-- For simple errors that we have a good idea how to recover from them, we report a syntax error and
+-- continue parsing. However, if we aren't immediately sure how to recover, we abort. We would
+-- rather stop early than potentially create a bunch of spurious errors.
+
+function Parser:syntax_error(loc, fmt, ...)
+    local msg = "syntax error: " .. loc:format_error(fmt, ...)
+    table.insert(self.errors, msg)
+end
+
+function Parser:abort_parsing()
+    trycatch.error("syntax-error")
+end
 
 function Parser:describe_token_name(name)
     if     name == "EOF"    then return "end of the file"
@@ -1002,19 +1015,15 @@ function Parser:describe_token(tok)
     end
 end
 
-function Parser:syntax_error(loc, fmt, ...)
-    local msg = "syntax error: " .. loc:format_error(fmt, ...)
-    trycatch.error("syntax", msg)
-end
-
 function Parser:forced_syntax_error(expected_name)
     self:e(expected_name)
-    error("unreachable")
+    self:abort_parsing()
 end
 
 function Parser:unexpected_token_error(non_terminal)
     local where = self:describe_token(self.next)
     self:syntax_error(self.next.loc, "unexpected %s while trying to parse %s", where, non_terminal)
+    self:abort_parsing()
 end
 
 function Parser:wrong_token_error(expected_name, open_tok)
@@ -1028,6 +1037,7 @@ function Parser:wrong_token_error(expected_name, open_tok)
         self:syntax_error(loc, "expected %s before %s, to close the %s at line %d",
             what, where, owhat, open_tok.loc.line)
     end
+    self:abort_parsing()
 end
 
 --
@@ -1037,20 +1047,26 @@ end
 local parser = {}
 
 function parser.parse(lexer)
+
+    local p = Parser.new(lexer)
+
     local ok, ret = trycatch.pcall(function()
-        return Parser.new(lexer):Program()
+        return p:Program()
     end)
-    if ok then
+
+    -- Re-throw internal errors
+    if not ok and ret.tag ~= "syntax-error" then
+        error(ret)
+    end
+
+    if p.errors[1] then
+        -- Had syntax errors
+        return false, p.errors
+    else
+        -- No syntax errors
+        assert(ok)
         local prog_ast = ret
         return prog_ast, {}
-    else
-        if ret.tag == "syntax" then
-            local err_msg = ret.msg
-            return false, { err_msg }
-        else
-            -- Internal error; re-throw
-            error(ret)
-        end
     end
 end
 
