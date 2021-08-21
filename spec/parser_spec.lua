@@ -354,7 +354,7 @@ describe("Parser /", function()
 
     describe("Break statements", function()
 
-        it("are not allowed outsize a loop", function()
+        it("are not allowed outside a loop", function()
             assert_statements_error([[
                 do
                     if x then
@@ -364,7 +364,7 @@ describe("Parser /", function()
             ]], "break statement outside of a loop")
         end)
 
-        it("are not allowed outsize a loop (using function stat)", function()
+        it("are not allowed outside a loop (using function stat)", function()
             assert_statements_error([[
                 while true do
                     local function inner()
@@ -374,7 +374,7 @@ describe("Parser /", function()
             ]], "break statement outside of a loop")
         end)
 
-        it("are not allowed outsize a loop (using function exp)", function()
+        it("are not allowed outside a loop (using function exp)", function()
             assert_statements_error([[
                 while true do
                     local inner: () -> () = function() break end
