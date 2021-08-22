@@ -551,7 +551,7 @@ function Parser:FuncStat(is_local)
         self:region_end()
     end
 
-    local block = self:Block()
+    local block = self:FuncBody()
     local _     = self:e("end", start)
 
     for _, decl in ipairs(params) do
@@ -823,10 +823,20 @@ function Parser:FuncExp()
         self:syntax_error(typ.loc, "Function expressions cannot be type annotated")
     end
 
-    local block = self:Block()
+    local block = self:FuncBody()
     local _     = self:e("end", start)
 
     return ast.Exp.Lambda(start.loc, params, block)
+end
+
+function Parser:FuncBody()
+    local outer_loop_depth = self.loop_depth
+    self.loop_depth = 0
+
+    local block = self:Block()
+
+    self.loop_depth = outer_loop_depth
+    return block
 end
 
 function Parser:SimpleExp()
