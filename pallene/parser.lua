@@ -24,11 +24,33 @@ function Parser:init(lexer)
     self.prev = false -- Token
     self.next = false -- Token
     self.look = false -- Token
-    self.loop_depth = 0       -- Are we inside a loop?
+
+    -- Are we inside a loop? (for break statements)
+    self.loop_depth = 0
+
+    -- Info for the Lua backend
     self.region_depth = 0     -- Are we inside a type annotation?
     self.type_regions = {}    -- Sequence of pairs. Ranges of type annotations in program.
     self.comment_regions = {} -- Sequence of pairs. Ranges of comments in the program.
+
+    -- Better error messages for missing "end" tokens (inspired by Luacheck and Rust)
+    self.curr_line   = 0
+    self.curr_indent = 0
+    self.indent_of_token = {}    -- { token => integer }
+    self.mismatched_openers = {} -- list of token
+    setmetatable(self.indent_of_token, { __mode = "k" })
+
     self:_advance(); self:_advance()
+end
+
+function Parser:_pay_attention_to_suspicious_indentation(open_tok, close_tok)
+    if  open_tok.loc.line ~= close_tok.loc.line then
+        local d1 = assert(self.indent_of_token[open_tok])
+        local d2 = assert(self.indent_of_token[close_tok])
+        if d1 > d2 then
+            table.insert(self.mismatched_openers, open_tok)
+        end
+    end
 end
 
 function Parser:_advance()
@@ -46,6 +68,13 @@ function Parser:_advance()
     self.prev = self.next
     self.next = self.look
     self.look = tok
+
+    if tok.loc.line > self.curr_line then
+        self.curr_line   = tok.loc.line
+        self.curr_indent = tok.loc.col
+    end
+    self.indent_of_token[tok] = self.curr_indent
+
     return self.prev
 end
 
@@ -70,6 +99,9 @@ function Parser:e(name, open_tok)
     name = name or self.next.name
     local tok = self:try(name)
     if tok then
+        if open_tok then
+            self:_pay_attention_to_suspicious_indentation(open_tok, tok)
+        end
         return tok
     else
         self:wrong_token_error(name, open_tok)
@@ -1058,6 +1090,7 @@ function Parser:wrong_token_error(expected_name, open_tok)
     local loc   = self.next.loc
     local what  = self:describe_token_name(expected_name)
     local where = self:describe_token(self.next)
+
     if not open_tok or loc.line == open_tok.loc.line then
         self:syntax_error(loc, "expected %s before %s", what, where)
     else
@@ -1065,6 +1098,19 @@ function Parser:wrong_token_error(expected_name, open_tok)
         self:syntax_error(loc, "expected %s before %s, to close the %s at line %d",
             what, where, owhat, open_tok.loc.line)
     end
+
+    if open_tok then
+        for _, susp_tok in ipairs(self.mismatched_openers) do
+            if susp_tok.loc.pos > open_tok.loc.pos then
+                local susp_what = self:describe_token(susp_tok)
+                self:syntax_error(susp_tok.loc,
+                    "...possibly because this %s is missing an %s (mismatched indentation)",
+                    susp_what, what)
+                break
+            end
+        end
+    end
+
     self:abort_parsing()
 end
 
