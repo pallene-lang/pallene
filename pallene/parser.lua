@@ -37,19 +37,18 @@ function Parser:init(lexer)
     self.curr_line   = 0
     self.curr_indent = 0
     self.indent_of_token = {}    -- { token => integer }
-    self.mismatched_openers = {} -- list of token
+    self.mismatched_indentation = {} -- list of tokens (2i+1 = open, 2i+2 = close)
     setmetatable(self.indent_of_token, { __mode = "k" })
 
     self:_advance(); self:_advance()
 end
 
 function Parser:_pay_attention_to_suspicious_indentation(open_tok, close_tok)
-    if  open_tok.loc.line ~= close_tok.loc.line then
-        local d1 = assert(self.indent_of_token[open_tok])
-        local d2 = assert(self.indent_of_token[close_tok])
-        if d1 > d2 then
-            table.insert(self.mismatched_openers, open_tok)
-        end
+    local d1 = assert(self.indent_of_token[open_tok])
+    local d2 = assert(self.indent_of_token[close_tok])
+    if d1 > d2 then
+        table.insert(self.mismatched_indentation, open_tok)
+        table.insert(self.mismatched_indentation, close_tok)
     end
 end
 
@@ -1087,27 +1086,40 @@ function Parser:unexpected_token_error(non_terminal)
 end
 
 function Parser:wrong_token_error(expected_name, open_tok)
-    local loc   = self.next.loc
+
+    local next_tok = self.next
+    local is_stolen_delimiter = false
+
+    if open_tok then
+        for i = 1, #self.mismatched_indentation, 2 do
+            local susp_open  = self.mismatched_indentation[i]
+            local susp_close = self.mismatched_indentation[i+1]
+            if expected_name == susp_close.name and susp_open.loc.pos > open_tok.loc.pos then
+                open_tok = susp_open
+                next_tok = susp_close
+                is_stolen_delimiter = true
+                break
+            end
+        end
+    end
+
+    local loc = next_tok.loc
     local what  = self:describe_token_name(expected_name)
-    local where = self:describe_token(self.next)
+    local where = self:describe_token(next_tok)
 
     if not open_tok or loc.line == open_tok.loc.line then
         self:syntax_error(loc, "expected %s before %s", what, where)
     else
         local owhat = self:describe_token_name(open_tok.name)
-        self:syntax_error(loc, "expected %s before %s, to close the %s at line %d",
-            what, where, owhat, open_tok.loc.line)
-    end
-
-    if open_tok then
-        for _, susp_tok in ipairs(self.mismatched_openers) do
-            if susp_tok.loc.pos > open_tok.loc.pos then
-                local susp_what = self:describe_token(susp_tok)
-                self:syntax_error(susp_tok.loc,
-                    "...possibly because this %s is missing an %s (mismatched indentation)",
-                    susp_what, what)
-                break
-            end
+        local oline = open_tok.loc.line
+        if is_stolen_delimiter then
+            self:syntax_error(loc,
+                "expected %s to close %s at line %d, before this less indented %s",
+                what, owhat, oline, what)
+        else
+            self:syntax_error(loc,
+                "expected %s before %s, to close the %s at line %d",
+                what, where, owhat, oline)
         end
     end
 
