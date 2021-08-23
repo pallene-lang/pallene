@@ -161,8 +161,14 @@ function Parser:Program()
 
     -- module contents
     local tls = {}
-    while not self:peek("EOF") and not self:peek("return") do
-        table.insert(tls, self:Toplevel())
+    while true do
+        if self:try(";") then
+            -- skip empty statement
+        elseif not self:peek("EOF") and not self:peek("return") then
+            table.insert(tls, self:Toplevel())
+        else
+            break
+        end
     end
 
     -- return <modname>
@@ -185,6 +191,10 @@ function Parser:Program()
                 self:syntax_error(exp.loc,
                     "must return exactly the module variable '%s'", modname)
             end
+        end
+
+        while self:try(";") do
+            -- trailing semi colons
         end
 
         if not self:peek("EOF") then

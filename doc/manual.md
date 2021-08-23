@@ -513,7 +513,7 @@ end
 Here is the complete syntax of Pallene in extended BNF.
 As usual, {A} means 0 or more As, and \[A\] means an optional A.
 
-    program ::= {toplevelrecord | topleveltypealias | toplevelvar | toplevelfunc}
+    program ::= {toplevelrecord | topleveltypealias | toplevelvar | toplevelfunc | ';'}
 
     toplevelrecord ::= record Name {recordfield} end
     recordfield ::= NAME ':' type [';']
