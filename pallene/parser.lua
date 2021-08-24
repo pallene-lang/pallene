@@ -70,16 +70,19 @@ end
 
 -- Check the next token without consuming it
 function Parser:peek(name)
-    assert(name)
-    assert(self.next.name)
-    return (name == self.next.name)
+    local x = assert(self.next.name)
+    return (name == x)
+end
+
+function Parser:peekSet(set)
+    local x = assert(self.next.name)
+    return (set[x] ~= nil)
 end
 
 -- Check the next-next token without consuming it
 function Parser:doublepeek(name)
-    assert(name)
-    assert(self.look.name)
-    return (name == self.look.name)
+    local x = assert(self.look.name)
+    return (name == x)
 end
 
 -- [E]xpect a token of a given type.
@@ -148,10 +151,75 @@ function Parser:region_end(skip_spaces)
     end
 end
 
-function Parser:skip_semis()
-    while self:try(";") do
+--
+-- FIRST sets
+--
+
+local function Set(str)
+    local t = {}
+    for name in str:gmatch("%S+") do
+        t[name] = true
+    end
+    return t
+end
+
+local function Union(sets)
+    local t = {}
+    for _, set in ipairs(sets) do
+        for k, _ in pairs(set) do
+            t[k] = true
+        end
+    end
+    return t
+end
+
+local is_primary_exp_first = Set 'NAME ('
+local is_simple_exp_first  = Set 'NUMBER STRING false function nil true ... {'
+local is_type_first        = Set 'NAME nil ( {'
+local is_stat_keyword      = Set 'break do for function if local repeat return while ;'
+local is_toplevel_keyword  = Set 'record typealias'
+
+local is_unary_operator    = Set 'not - ~ #'
+local is_right_associative = Set '^ ..'
+
+local unop_precedence = 12
+local binop_precedence = {}
+for prec, ops_str in pairs({
+    [14] = "^",
+  --[13] = reserved for '^'
+  --[12] = reserved for unary operators
+    [11] = "* % / //",
+    [10] = "+ -",
+    [ 9] = "..",
+  --[ 8] = reserved for '..'
+    [ 7] = "<< >>",
+    [ 6] = "&",
+    [ 5] = "~",
+    [ 4] = "|",
+    [ 3] = "== ~= < > <= >=",
+    [ 2] = "and",
+    [ 1] = "or",
+}) do
+    for op in ops_str:gmatch("%S+") do
+        binop_precedence[op] = prec
     end
 end
+
+local is_exp_first = Union({
+    is_primary_exp_first,
+    is_simple_exp_first,
+    is_unary_operator,
+})
+
+local is_stat_first = Union({
+    is_stat_keyword,
+    is_primary_exp_first,
+})
+
+local is_toplevel_first = Union({
+    is_toplevel_keyword,
+    is_stat_first,
+})
 
 --
 -- Toplevel
@@ -164,7 +232,7 @@ function Parser:Program()
     -- local <modname>: module = {}
     local modname = false
     if self:peek("local") and self:doublepeek("NAME") then
-        local stat = self:Stat(true)
+        local stat = self:Stat()
         assert(stat._tag == "ast.Stat.Decl")
 
         if #stat.decls > 1 or #stat.exps > 1 then
@@ -191,26 +259,41 @@ function Parser:Program()
             "must begin with a module declaration; local <modname> = {}")
     end
 
-    -- skip any trailing semi-colons after the module statement.
-    self:skip_semis()
-
     -- module contents
     local tls = {}
-    while not self:peek("EOF") and not self:peek("return") do
-        table.insert(tls, self:Toplevel())
+    local return_stat = false
+    while self:peekSet(is_toplevel_first) do
+
+        local tl = self:Toplevel()
+        table.insert(tls, tl)
+
+        if tl._tag == "ast.Toplevel.Stats" then
+            for _, stat in ipairs(tl.stats) do
+                if stat._tag == "ast.Stat.Assign" then
+                    for _, var in ipairs(stat.vars) do
+                        if var._tag ~= "ast.Var.Dot" then
+                            self:syntax_error(var.loc,
+                                "toplevel assignments are only possible with module fields")
+                        end
+                    end
+                end
+            end
+
+            local last = tl.stats[#tl.stats]
+            if last and last._tag == "ast.Stat.Return" then
+                return_stat = table.remove(tl.stats)
+                break
+            end
+        end
     end
 
     -- return <modname>
-    local end_loc = self.next.loc
-    if self:peek("return") then
-        local stat = self:Stat(true)
-        assert(stat._tag == "ast.Stat.Return")
-
-        if #stat.exps ~= 1 then
-            self:syntax_error(stat.loc,
+    if return_stat then
+        if #return_stat.exps ~= 1 then
+            self:syntax_error(return_stat.loc,
                 "the module return statement must return a single value")
         else
-            local exp = stat.exps[1]
+            local exp = return_stat.exps[1]
             if modname and not (
                 exp._tag == "ast.Exp.Var" and
                 exp.var._tag == "ast.Var.Name" and
@@ -227,14 +310,26 @@ function Parser:Program()
                 "the module return statement must be the last thing in the file")
         end
     else
-        local loc = self.next.loc
-        local what = (modname or "<modname>")
-        self:syntax_error(loc,  "must end by returning the module table; return %s", what)
+        if self:peek("EOF") then
+            local loc = self.next.loc
+            local what = (modname or "<modname>")
+            self:syntax_error(loc,  "must end by returning the module table; return %s", what)
+        else
+            self:unexpected_token_error("a toplevel element")
+        end
     end
 
+    local end_loc = self.next.loc
     return ast.Program.Program(
         start_loc, end_loc, modname, tls, self.type_regions, self.comment_regions)
 end
+
+local is_allowed_toplevel = Set [[
+    ast.Stat.Decl
+    ast.Stat.Assign
+    ast.Stat.Functions
+    ast.Stat.Return
+]]
 
 function Parser:Toplevel()
     if self:peek("typealias") then
@@ -244,8 +339,6 @@ function Parser:Toplevel()
         local _     = self:e("=")
         local typ   = self:Type()
         self:region_end()
-
-        self:skip_semis()
         return ast.Toplevel.Typealias(start.loc, id.value, typ)
 
     elseif self:peek("record") then
@@ -256,19 +349,25 @@ function Parser:Toplevel()
         while self:peek("NAME") do
             local decl = self:Decl()
             if not decl.type then self:forced_syntax_error(":") end
-            self:skip_semis()
+            self:try(";")
             table.insert(fields, decl)
         end
         self:e("end", start)
         self:region_end()
-
-        self:skip_semis()
         return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else
-        local stats = self:StatList(true)
-        assert(stats[1])
-        return ast.Toplevel.Stats(stats[1].loc, stats)
+        local stats = self:StatList()
+
+        for _, stat in ipairs(stats) do
+            if not is_allowed_toplevel[stat._tag] then
+                self:syntax_error(stat.loc,
+                    "toplevel statements can only be Returns, Declarations or Assignments")
+            end
+        end
+
+        local loc = stats[1] and stats[1].loc
+        return ast.Toplevel.Stats(loc, stats)
     end
 end
 
@@ -312,7 +411,7 @@ end
 function Parser:TypeList()
     local ts = {}
     local open = self:e("(")
-    if not self:peek(")") then
+    if self:peekSet(is_type_first) then
         table.insert(ts, self:Type())
         while self:try(",") do
             table.insert(ts, self:Type())
@@ -335,13 +434,15 @@ function Parser:SimpleType()
         local open = self:advance()
         if self:peek("}") or (self:peek("NAME") and self:doublepeek(":")) then
             local fields = {}
-            repeat
-                if self:peek("}") then break end
+            while self:peek("NAME") do
                 local id  = self:e("NAME")
                 local _   = self:e(":")
                 local typ = self:Type()
                 table.insert(fields, { name = id.value, type = typ })
-            until not self:FieldSep()
+                if not self:tryFieldSep() then
+                    break
+                end
+            end
             self:e("}", open)
             return ast.Type.Table(open.loc, fields)
         else
@@ -496,49 +597,16 @@ end
 -- Statements
 --
 
-function Parser:block_follow()
-    return self:peek("end") or
-           self:peek("else") or
-           self:peek("elseif") or
-           self:peek("until")
-end
-
-function Parser:toplevel_statlist_follow()
-    return self:peek("EOF") or
-           self:peek("return") or
-           self:peek("typealias") or
-           self:peek("record")
-end
-
-function Parser:StatList(is_toplevel)
-    local stats = {}
-    local follow_func = is_toplevel and
-        self.toplevel_statlist_follow or self.block_follow
-
-    while not follow_func(self) do
-        if self:try(";") then
-            -- skip empty statement
-        else
-            local stat = self:Stat(is_toplevel)
-            local _    = self:try(";")
-
-            if is_toplevel and
-               stat._tag ~= "ast.Stat.Decl" and
-               stat._tag ~= "ast.Stat.Assign" and
-               stat._tag ~= "ast.Stat.Functions"
-            then
-                self:syntax_error(stat.loc,
-                    "toplevel statements can only be Returns, Declarations or Assignments")
-            end
-
-            table.insert(stats, stat)
-            if stat._tag == "ast.Stat.Return" then
-                break
-            end
-        end
+function Parser:StatList()
+    local list = {}
+    while true do
+        while self:try(";") do end
+        if not self:peekSet(is_stat_first) then break end
+        local stat = self:Stat()
+        table.insert(list, stat)
+        if stat._tag == "ast.Stat.Return" then break end
     end
-
-    return self:find_letrecs(stats)
+    return self:find_letrecs(list)
 end
 
 function Parser:Block()
@@ -618,7 +686,7 @@ function Parser:FuncStat(is_local)
     return ast.Stat.Functions(start.loc, declared_names, { func })
 end
 
-function Parser:Stat(is_toplevel)
+function Parser:Stat()
     if self:peek("do") then
         local start = self:advance()
         local body  = self:Block()
@@ -720,13 +788,9 @@ function Parser:Stat(is_toplevel)
 
     elseif self:peek("return") then
         local start = self:advance()
-        if self:try(";") or self:block_follow() then
-            return ast.Stat.Return(start.loc, {})
-        else
-            local exp_list = self:ExpList1()
-            self:try(";")
-            return ast.Stat.Return(start.loc, exp_list)
-        end
+        local exps  = self:ExpList0()
+        self:try(";") -- Lua allows a single semicolon here
+        return ast.Stat.Return(start.loc, exps)
 
     elseif self:peek("function") then
         return self:FuncStat(false)
@@ -735,13 +799,6 @@ function Parser:Stat(is_toplevel)
         -- Assignment or function call
         local exp = self:SuffixedExp(true)
         if self:peek("=") or self:peek(",") then
-            if is_toplevel and exp._tag == "ast.Exp.Var" then
-                local var = exp.var
-                if var._tag ~= "ast.Var.Dot" then
-                    self:syntax_error(exp.loc,
-                        "toplevel assignments are only possible with module fields")
-                end
-            end
             local lhs = { self:to_var(exp) }
             while self:try(",") do
                 table.insert(lhs, self:to_var(self:SuffixedExp(false)))
@@ -913,10 +970,12 @@ function Parser:SimpleExp()
     elseif self:peek("{") then
         local open = self:advance()
         local fields = {}
-        repeat
-            if self:peek("}") then break end
+        while self:peekSet(is_exp_first) do
             table.insert(fields, self:Field())
-        until not self:FieldSep()
+            if not self:tryFieldSep() then
+                break
+            end
+        end
         self:e("}", open)
         return ast.Exp.InitList(open.loc, fields)
 
@@ -939,50 +998,13 @@ function Parser:CastExp()
     return exp
 end
 
-local is_unary_operator    = {} -- op => bool
-local is_right_associative = {} -- op => bool
-local binop_precedence = {} -- op => integer
-local unary_precedence = 12
-do
-    local unary_ops = "not - ~ #"
-    local right_ops = "^ .."
-    local binops = {
-        [14] = "^",
-      --[13] = reserved for '^'
-      --[12] = reserved for unary operators
-        [11] = "* % / //",
-        [10] = "+ -",
-        [ 9] = "..",
-      --[ 8] = reserved for '..'
-        [ 7] = "<< >>",
-        [ 6] = "&",
-        [ 5] = "~",
-        [ 4] = "|",
-        [ 3] = "== ~= < > <= >=",
-        [ 2] = "and",
-        [ 1] = "or",
-    }
-
-    for op in string.gmatch(unary_ops, "%S+") do
-        is_unary_operator[op] = true
-    end
-    for op in string.gmatch(right_ops, "%S+") do
-        is_right_associative[op] = true
-    end
-    for prec, ops_str in pairs(binops) do
-        for op in string.gmatch(ops_str, "%S+") do
-            binop_precedence[op] = prec
-        end
-    end
-end
-
 -- subexpr -> (castexp | unop subexpr) { binop subexpr }
 -- where 'binop' is any binary operator with a priority higher than 'limit'
 function Parser:SubExp(limit)
     local exp
     if is_unary_operator[self.next.name] then
         local op   = self:advance()
-        local uexp = self:SubExp(unary_precedence)
+        local uexp = self:SubExp(unop_precedence)
         exp = ast.Exp.Unop(op.loc, op.name, uexp)
     else
         exp = self:CastExp()
@@ -1004,6 +1026,14 @@ end
 
 function Parser:Exp()
     return self:SubExp(0)
+end
+
+function Parser:ExpList0()
+    if self:peekSet(is_exp_first) then
+        return self:ExpList1()
+    else
+        return {}
+    end
 end
 
 function Parser:ExpList1()
@@ -1031,7 +1061,7 @@ function Parser:Field()
     end
 end
 
-function Parser:FieldSep()
+function Parser:tryFieldSep()
     return self:try(",") or self:try(";")
 end
 
