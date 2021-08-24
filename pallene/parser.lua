@@ -121,6 +121,11 @@ function Parser:region_end(skip_spaces)
     end
 end
 
+function Parser:skip_semis()
+    while self:try(";") do
+    end
+end
+
 --
 -- Toplevel
 --
@@ -158,6 +163,9 @@ function Parser:Program()
         self:syntax_error(start_loc,
             "must begin with a module declaration; local <modname> = {}")
     end
+
+    -- skip any trailing semi-colons after the module statement.
+    self:skip_semis()
 
     -- module contents
     local tls = {}
@@ -209,6 +217,8 @@ function Parser:Toplevel()
         local _     = self:e("=")
         local typ   = self:Type()
         self:region_end()
+
+        self:skip_semis()
         return ast.Toplevel.Typealias(start.loc, id.value, typ)
 
     elseif self:peek("record") then
@@ -219,33 +229,19 @@ function Parser:Toplevel()
         while self:peek("NAME") do
             local decl = self:Decl()
             if not decl.type then self:forced_syntax_error(":") end
-            local _ = self:try(";")
+            self:skip_semis()
             table.insert(fields, decl)
         end
         self:e("end", start)
         self:region_end()
+
+        self:skip_semis()
         return ast.Toplevel.Record(start.loc, id.value, fields)
 
     else
-        local stats = {}
-        while
-            not self:peek("EOF") and
-            not self:peek("return") and
-            not self:peek("typealias") and
-            not self:peek("record")
-        do
-            local stat = self:Stat(true)
-            if stat._tag ~= "ast.Stat.Decl" and
-               stat._tag ~= "ast.Stat.Assign" and
-               stat._tag ~= "ast.Stat.Functions"
-            then
-                self:syntax_error(stat.loc,
-                    "toplevel statements can only be Returns, Declarations or Assignments")
-            end
-            table.insert(stats, stat)
-        end
+        local stats = self:StatList(true)
         assert(stats[1])
-        return ast.Toplevel.Stats(stats[1].loc, self:find_letrecs(stats))
+        return ast.Toplevel.Stats(stats[1].loc, stats)
     end
 end
 
@@ -257,7 +253,7 @@ function Parser:Type()
     if self:peek("(") then
         local loc = self.next.loc
         local aa  = self:TypeList()
-        local _   = self:e("->");
+        local _   = self:e("->")
         local bb  = self:RetTypes()
         return ast.Type.Function(loc, aa, bb)
     else
@@ -288,7 +284,7 @@ end
 
 function Parser:TypeList()
     local ts = {}
-    local open = self:e("(");
+    local open = self:e("(")
     if not self:peek(")") then
         table.insert(ts, self:Type())
         while self:try(",") do
@@ -480,14 +476,34 @@ function Parser:block_follow()
            self:peek("until")
 end
 
-function Parser:StatList()
+function Parser:toplevel_statlist_follow()
+    return self:peek("EOF") or
+           self:peek("return") or
+           self:peek("typealias") or
+           self:peek("record")
+end
+
+function Parser:StatList(is_toplevel)
     local stats = {}
-    while not self:block_follow() do
+    local follow_func = is_toplevel and
+        self.toplevel_statlist_follow or self.block_follow
+
+    while not follow_func(self) do
         if self:try(";") then
             -- skip empty statement
         else
-            local stat = self:Stat()
+            local stat = self:Stat(is_toplevel)
             local _    = self:try(";")
+
+            if is_toplevel and
+               stat._tag ~= "ast.Stat.Decl" and
+               stat._tag ~= "ast.Stat.Assign" and
+               stat._tag ~= "ast.Stat.Functions"
+            then
+                self:syntax_error(stat.loc,
+                    "toplevel statements can only be Returns, Declarations or Assignments")
+            end
+
             table.insert(stats, stat)
             if stat._tag == "ast.Stat.Return" then
                 break
@@ -677,10 +693,12 @@ function Parser:Stat(is_toplevel)
 
     elseif self:peek("return") then
         local start = self:e()
-        if self:peek(";") or self:block_follow() then
+        if self:try(";") or self:block_follow() then
             return ast.Stat.Return(start.loc, {})
         else
-            return ast.Stat.Return(start.loc, self:ExpList1())
+            local exp_list = self:ExpList1()
+            self:try(";")
+            return ast.Stat.Return(start.loc, exp_list)
         end
 
     elseif self:peek("function") then
