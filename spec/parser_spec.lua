@@ -227,6 +227,17 @@ describe("Parser /", function()
                 return i
             ]], "must return exactly the module variable 'm'")
         end)
+
+        it("can have semi-colons at the toplevel", function ()
+            assert_parses_successfuly([[
+                local m: module = {};
+                record Number
+                    num: integer;
+                end;
+                return m;
+            ]])
+        end)
+
     end)
 
     --
@@ -396,12 +407,6 @@ describe("Parser /", function()
             assert_statements_ast("return 10;", {
                 { _tag = "ast.Stat.Return", exps = { { _tag = "ast.Exp.Integer", value = 10 } } }
             })
-        end)
-
-        it("cannot be followed by a multiple semicolons", function()
-            assert_statements_error([[
-                return;;
-            ]], "expected 'end' before ';', to close the 'function' at line 2")
         end)
 
         it("must be the last statement in the block", function()
