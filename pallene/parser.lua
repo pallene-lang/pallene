@@ -697,7 +697,7 @@ function Parser:Stat(is_toplevel)
             return ast.Stat.Return(start.loc, {})
         else
             local exp_list = self:ExpList1()
-            self:skip_semis()
+            self:try(";")
             return ast.Stat.Return(start.loc, exp_list)
         end
 

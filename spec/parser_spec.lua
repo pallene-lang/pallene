@@ -409,6 +409,13 @@ describe("Parser /", function()
             })
         end)
 
+        it("cannot be followed by a multiple semicolons", function()
+            assert_program_error([[
+                local m: module = {}
+                return m;;
+            ]], "the module return statement must be the last thing in the file")
+        end)
+
         it("must be the last statement in the block", function()
             assert_statements_error([[
                 return 10
