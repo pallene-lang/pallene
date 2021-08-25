@@ -614,7 +614,7 @@ function Parser:Block()
     return ast.Stat.Block(self.prev.loc, self:StatList())
 end
 
-function Parser:FuncStat(is_local)
+function Parser:FuncStat()
     local start = self:e("function")
 
     local root = self:e("NAME").value
@@ -634,13 +634,6 @@ function Parser:FuncStat(is_local)
     local method = false
     if self:try(":") then
         method = self:e("NAME").value
-    end
-
-    if is_local and field then
-        self:syntax_error(start.loc, "local function name has a '.'")
-    end
-    if is_local and method then
-        self:syntax_error(start.loc, "local function name has a ':'")
     end
 
     local module, name
@@ -672,18 +665,9 @@ function Parser:FuncStat(is_local)
       end
     end
 
-    local declared_names
-    if is_local then
-        declared_names = { [name] = true }
-    else
-        declared_names = { }
-    end
-
-    local func = ast.FuncStat.FuncStat(
+    return ast.FuncStat.FuncStat(
         start.loc, module, name, method, return_types,
         ast.Exp.Lambda(start.loc, params, block))
-
-    return ast.Stat.Functions(start.loc, declared_names, { func })
 end
 
 function Parser:Stat()
@@ -772,7 +756,14 @@ function Parser:Stat()
     elseif self:peek("local") then
         local start = self:advance()
         if self:peek("function") then
-            return self:FuncStat(true)
+            local fn = self:FuncStat()
+            if fn.module then
+                self:syntax_error(fn.loc, "local function name has a '.'")
+            end
+            if fn.method then
+                self:syntax_error(start.loc, "local function name has a ':'")
+            end
+            return ast.Stat.Functions(start.loc, {[fn.name]=true}, {fn})
         else
             local decls = self:DeclList(); if #decls == 0 then self:forced_syntax_error("NAME") end
             local exps  = self:try("=") and self:ExpList1() or {}
@@ -793,7 +784,8 @@ function Parser:Stat()
         return ast.Stat.Return(start.loc, exps)
 
     elseif self:peek("function") then
-        return self:FuncStat(false)
+        local fn = self:FuncStat()
+        return ast.Stat.Functions(fn.loc, {}, {fn})
 
     else
         -- Assignment or function call
