@@ -43,15 +43,6 @@ function Parser:init(lexer)
     self:advance(); self:advance()
 end
 
-function Parser:pay_attention_to_suspicious_indentation(open_tok, close_tok)
-    local d1 = assert(self.indent_of_token[open_tok])
-    local d2 = assert(self.indent_of_token[close_tok])
-    if d1 > d2 then
-        table.insert(self.mismatched_indentation, open_tok)
-        table.insert(self.mismatched_indentation, close_tok)
-    end
-end
-
 function Parser:advance()
     local tok, err
     repeat
@@ -98,7 +89,13 @@ function Parser:e(name, open_tok)
     local tok = self:try(name)
     if tok then
         if open_tok then
-            self:pay_attention_to_suspicious_indentation(open_tok, tok)
+            -- Pay attention to suspicious indentation
+            local d1 = assert(self.indent_of_token[open_tok])
+            local d2 = assert(self.indent_of_token[tok])
+            if d1 > d2 then
+                table.insert(self.mismatched_indentation, open_tok)
+                table.insert(self.mismatched_indentation, tok)
+            end
         end
         return tok
     else
