@@ -70,7 +70,7 @@ end
 
 -- Does the token match the given kind of token?
 -- The kind may be either a token name or a set of token names.
-local function _token_matches(tok, kind)
+local function token_matches(tok, kind)
     local name = assert(tok.name)
     local typ = type(kind)
     if typ == "string" then
@@ -84,12 +84,12 @@ end
 
 -- Check the next token without consuming it
 function Parser:peek(kind)
-    return _token_matches(self.next, kind)
+    return token_matches(self.next, kind)
 end
 
 -- Check the next-next token without consuming it
 function Parser:doublepeek(kind)
-    return _token_matches(self.look, kind)
+    return token_matches(self.look, kind)
 end
 
 -- [E]xpect a token of a given type.
