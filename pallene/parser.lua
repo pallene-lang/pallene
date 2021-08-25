@@ -787,13 +787,13 @@ function Parser:Stat()
         local fn = self:FuncStat()
         return ast.Stat.Functions(fn.loc, {}, {fn})
 
-    else
+    elseif self:peekSet(is_primary_exp_first) then
         -- Assignment or function call
-        local exp = self:SuffixedExp(true)
+        local exp = self:SuffixedExp()
         if self:peek("=") or self:peek(",") then
             local lhs = { self:to_var(exp) }
             while self:try(",") do
-                table.insert(lhs, self:to_var(self:SuffixedExp(false)))
+                table.insert(lhs, self:to_var(self:SuffixedExp()))
             end
             local op  = self:e("=")
             local rhs = self:ExpList1()
@@ -808,6 +808,8 @@ function Parser:Stat()
                 self:abort_parsing()
             end
         end
+    else
+        self:unexpected_token_error("a statement")
     end
 end
 
@@ -829,7 +831,7 @@ end
 -- Expressions
 --
 
-function Parser:PrimaryExp(is_statement)
+function Parser:PrimaryExp()
     if self:peek("NAME") then
         local id = self:advance()
         return ast.Exp.Var(id.loc, ast.Var.Name(id.loc, id.value))
@@ -841,13 +843,12 @@ function Parser:PrimaryExp(is_statement)
         return ast.Exp.Paren(open.loc, exp)
 
     else
-        local what = (is_statement and "a statement" or "an expression")
-        self:unexpected_token_error(what)
+        self:unexpected_token_error("an expression")
     end
 end
 
-function Parser:SuffixedExp(is_statement)
-    local exp = self:PrimaryExp(is_statement)
+function Parser:SuffixedExp()
+    local exp = self:PrimaryExp()
     while true do
         if self:peek(".") then
             local start = self:advance()
@@ -974,7 +975,7 @@ function Parser:SimpleExp()
     elseif self:peek("function") then
         return self:FuncExp()
     else
-        return self:SuffixedExp(false)
+        return self:SuffixedExp()
     end
 end
 
