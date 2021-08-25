@@ -189,29 +189,6 @@ local is_toplevel_keyword  = Set 'record typealias'
 local is_unary_operator    = Set 'not - ~ #'
 local is_right_associative = Set '^ ..'
 
-local unop_precedence = 12
-local binop_precedence = {}
-for prec, ops_str in pairs({
-    [14] = "^",
-  --[13] = reserved for '^'
-  --[12] = reserved for unary operators
-    [11] = "* % / //",
-    [10] = "+ -",
-    [ 9] = "..",
-  --[ 8] = reserved for '..'
-    [ 7] = "<< >>",
-    [ 6] = "&",
-    [ 5] = "~",
-    [ 4] = "|",
-    [ 3] = "== ~= < > <= >=",
-    [ 2] = "and",
-    [ 1] = "or",
-}) do
-    for op in ops_str:gmatch("%S+") do
-        binop_precedence[op] = prec
-    end
-end
-
 local is_exp_first = Union({
     is_primary_exp_first,
     is_simple_exp_first,
@@ -996,6 +973,29 @@ function Parser:CastExp()
         exp = ast.Exp.Cast(op.loc, exp, typ)
     end
     return exp
+end
+
+local unop_precedence = 12
+local binop_precedence = {}
+for prec, ops_str in pairs({
+    [14] = "^",
+  --[13] = reserved for '^'
+  --[12] = reserved for unary operators
+    [11] = "* % / //",
+    [10] = "+ -",
+    [ 9] = "..",
+  --[ 8] = reserved for '..'
+    [ 7] = "<< >>",
+    [ 6] = "&",
+    [ 5] = "~",
+    [ 4] = "|",
+    [ 3] = "== ~= < > <= >=",
+    [ 2] = "and",
+    [ 1] = "or",
+}) do
+    for op in ops_str:gmatch("%S+") do
+        binop_precedence[op] = prec
+    end
 end
 
 -- subexpr -> (castexp | unop subexpr) { binop subexpr }
