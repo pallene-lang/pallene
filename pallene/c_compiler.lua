@@ -8,7 +8,7 @@ local util = require "pallene.util"
 local c_compiler = {}
 
 c_compiler.CC = "cc"
-c_compiler.CPPFLAGS = "-I./vm/src -I./runtime"
+c_compiler.CPPFLAGS = "-I./vm/src"
 c_compiler.CFLAGS_BASE = "-std=c99 -g -fPIC"
 c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
 c_compiler.CFLAGS_OPT = "-O2"
