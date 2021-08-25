@@ -40,10 +40,10 @@ function Parser:init(lexer)
     self.mismatched_indentation = {} -- list of tokens (2i+1 = open, 2i+2 = close)
     setmetatable(self.indent_of_token, { __mode = "k" })
 
-    self:_advance(); self:_advance()
+    self:advance(); self:advance()
 end
 
-function Parser:_pay_attention_to_suspicious_indentation(open_tok, close_tok)
+function Parser:pay_attention_to_suspicious_indentation(open_tok, close_tok)
     local d1 = assert(self.indent_of_token[open_tok])
     local d2 = assert(self.indent_of_token[close_tok])
     if d1 > d2 then
@@ -52,7 +52,7 @@ function Parser:_pay_attention_to_suspicious_indentation(open_tok, close_tok)
     end
 end
 
-function Parser:_advance()
+function Parser:advance()
     local tok, err
     repeat
         tok, err = self.lexer:next()
@@ -95,11 +95,10 @@ end
 -- If the name is not provided, match whatever token we just peek-ed.
 -- If the optional open_tok is provided then we are matching a closing token ({}, (), do end, etc).
 function Parser:e(name, open_tok)
-    name = name or self.next.name
     local tok = self:try(name)
     if tok then
         if open_tok then
-            self:_pay_attention_to_suspicious_indentation(open_tok, tok)
+            self:pay_attention_to_suspicious_indentation(open_tok, tok)
         end
         return tok
     else
@@ -112,7 +111,7 @@ function Parser:try(name)
     assert(name)
     assert(name ~= "EOF")
     if self:peek(name) then
-        return self:_advance()
+        return self:advance()
     else
         return false
     end
@@ -243,7 +242,7 @@ end
 function Parser:Toplevel()
     if self:peek("typealias") then
         self:region_begin()
-        local start = self:e()
+        local start = self:advance()
         local id    = self:e("NAME")
         local _     = self:e("=")
         local typ   = self:Type()
@@ -254,7 +253,7 @@ function Parser:Toplevel()
 
     elseif self:peek("record") then
         self:region_begin()
-        local start  = self:e()
+        local start  = self:advance()
         local id     = self:e("NAME")
         local fields = {}
         while self:peek("NAME") do
@@ -328,15 +327,15 @@ end
 
 function Parser:SimpleType()
     if self:peek("nil") then
-        local tok = self:e()
+        local tok = self:advance()
         return ast.Type.Nil(tok.loc)
 
     elseif self:peek("NAME") then
-        local tok = self:e()
+        local tok = self:advance()
         return ast.Type.Name(tok.loc, tok.value)
 
     elseif self:peek("{") then
-        local open = self:e()
+        local open = self:advance()
         if self:peek("}") or (self:peek("NAME") and self:doublepeek(":")) then
             local fields = {}
             repeat
@@ -366,7 +365,7 @@ function Parser:Decl()
     local id = self:e("NAME")
     if self:peek(":") then
         self:region_begin()
-        local _ = self:e()
+        local _ = self:advance()
         local typ   = self:Type()
         self:region_end()
         return ast.Decl.Decl(id.loc, id.value, typ)
@@ -593,7 +592,7 @@ function Parser:FuncStat(is_local)
     local return_types = {}
     if self:peek(":") then
         self:region_begin()
-        self:e()
+        self:advance()
         return_types = self:RetTypes()
         self:region_end()
     end
@@ -624,13 +623,13 @@ end
 
 function Parser:Stat(is_toplevel)
     if self:peek("do") then
-        local start = self:e()
+        local start = self:advance()
         local body  = self:Block()
         local _     = self:e("end", start)
         return body
 
     elseif self:peek("while") then
-        local start = self:e()
+        local start = self:advance()
         local cond  = self:Exp()
         local _     = self:e("do"); self:loop_begin()
         local body  = self:Block(); self:loop_end()
@@ -638,21 +637,21 @@ function Parser:Stat(is_toplevel)
         return ast.Stat.While(start.loc, cond, body)
 
     elseif self:peek("repeat") then
-        local start = self:e();     self:loop_begin()
+        local start = self:advance();     self:loop_begin()
         local body  = self:Block(); self:loop_end()
         local _     = self:e("until", start);
         local cond  = self:Exp()
         return ast.Stat.Repeat(start.loc, body, cond)
 
     elseif self:peek("if") then
-        local if_start = self:e()
+        local if_start = self:advance()
         local if_exp   = self:Exp()
         local _        = self:e("then")
         local if_body  = self:Block()
 
         local eifs = {}
         while self:peek("elseif") do
-            local ei_start = self:e()
+            local ei_start = self:advance()
             local ei_exp   = self:Exp()
             local _        = self:e("then")
             local ei_body  = self:Block()
@@ -675,7 +674,7 @@ function Parser:Stat(is_toplevel)
         return ast.Stat.If(if_start.loc, if_exp, if_body, e_body)
 
     elseif self:peek("for") then
-        local start = self:e()
+        local start = self:advance()
         local decl1 = self:Decl()
 
         if self:try("=") then
@@ -706,7 +705,7 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("local") then
-        local start = self:e()
+        local start = self:advance()
         if self:peek("function") then
             return self:FuncStat(true)
         else
@@ -716,14 +715,14 @@ function Parser:Stat(is_toplevel)
         end
 
     elseif self:peek("break") then
-        local start = self:e()
+        local start = self:advance()
         if self.loop_depth == 0 then
             self:syntax_error(start.loc, "break statement outside of a loop")
         end
         return ast.Stat.Break(start.loc)
 
     elseif self:peek("return") then
-        local start = self:e()
+        local start = self:advance()
         if self:try(";") or self:block_follow() then
             return ast.Stat.Return(start.loc, {})
         else
@@ -786,11 +785,11 @@ end
 
 function Parser:PrimaryExp(is_statement)
     if self:peek("NAME") then
-        local id = self:e()
+        local id = self:advance()
         return ast.Exp.Var(id.loc, ast.Var.Name(id.loc, id.value))
 
     elseif self:peek("(") then
-        local open = self:e()
+        local open = self:advance()
         local exp  = self:Exp()
         local _    = self:e(")", open)
         return ast.Exp.Paren(open.loc, exp)
@@ -805,18 +804,18 @@ function Parser:SuffixedExp(is_statement)
     local exp = self:PrimaryExp(is_statement)
     while true do
         if self:peek(".") then
-            local start = self:e()
+            local start = self:advance()
             local id    = self:e("NAME")
             exp = ast.Exp.Var(start.loc, ast.Var.Dot(start.loc, exp, id.value))
 
         elseif self:peek("[") then
-            local start = self:e()
+            local start = self:advance()
             local index = self:Exp()
             local _     = self:e("]", start)
             exp = ast.Exp.Var(start.loc, ast.Var.Bracket(start.loc, exp, index))
 
         elseif self:peek(":") then
-            local _    = self:e()
+            local _    = self:advance()
             local id   = self:e("NAME")
             local args = self:FuncArgs()
             exp = ast.Exp.CallMethod(exp.loc, exp, id.value, args)
@@ -890,32 +889,32 @@ end
 
 function Parser:SimpleExp()
     if     self:peek("NUMBER") then
-        local id = self:e()
+        local id = self:advance()
         if     math.type(id.value) == "integer" then return ast.Exp.Integer(id.loc, id.value)
         elseif math.type(id.value) == "float"   then return ast.Exp.Float(id.loc, id.value)
         else error("impossible") end
 
     elseif self:peek("STRING") then
-        local tok = self:e()
+        local tok = self:advance()
         return ast.Exp.String(tok.loc, tok.value)
 
     elseif self:peek("nil") then
-        local tok = self:e()
+        local tok = self:advance()
         return ast.Exp.Nil(tok.loc)
 
     elseif self:peek("true") then
-        local tok = self:e()
+        local tok = self:advance()
         return ast.Exp.Bool(tok.loc, true)
 
     elseif self:peek("false") then
-        local tok = self:e()
+        local tok = self:advance()
         return ast.Exp.Bool(tok.loc, false)
 
     elseif self:peek("...") then
         error("not implemented yet")
 
     elseif self:peek("{") then
-        local open = self:e()
+        local open = self:advance()
         local fields = {}
         repeat
             if self:peek("}") then break end
@@ -935,7 +934,7 @@ function Parser:CastExp()
     local exp = self:SimpleExp()
     while self:peek("as") do
         self:region_begin()
-        local op = self:e()
+        local op = self:advance()
         local typ = self:Type()
         self:region_end()
         exp = ast.Exp.Cast(op.loc, exp, typ)
@@ -985,7 +984,7 @@ end
 function Parser:SubExp(limit)
     local exp
     if is_unary_operator[self.next.name] then
-        local op   = self:e()
+        local op   = self:advance()
         local uexp = self:SubExp(unary_precedence)
         exp = ast.Exp.Unop(op.loc, op.name, uexp)
     else
@@ -998,7 +997,7 @@ function Parser:SubExp(limit)
             break
         end
 
-        local op   = self:e()
+        local op   = self:advance()
         local bexp = self:SubExp(is_right_associative[op.name] and prec-1 or prec)
         exp = ast.Exp.Binop(op.loc, exp, op.name, bexp)
     end
