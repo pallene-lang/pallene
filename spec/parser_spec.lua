@@ -902,4 +902,27 @@ describe("Parser /", function()
             })
         end)
     end)
+
+    describe("Missing 'end' errors", function()
+
+        it("point to the opening delimiter", function()
+            assert_program_error([[
+                local m = {}
+                local function foo()
+
+                return m
+            ]], "expected 'end' before end of the file, to close the 'function' at line 2")
+        end)
+
+        it("use indentation to find the actual location of the error", function()
+            assert_program_error([[
+                local m = {}
+                local function foo()
+                    if true then
+                end
+                return m
+            ]], "expected 'end' to close 'if' at line 3, before this less indented 'end'")
+        end)
+
+    end)
 end)
