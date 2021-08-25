@@ -68,21 +68,28 @@ function Parser:advance()
     return self.prev
 end
 
--- Check the next token without consuming it
-function Parser:peek(name)
-    local x = assert(self.next.name)
-    return (name == x)
+-- Does the token match the given kind of token?
+-- The kind may be either a token name or a set of token names.
+local function _token_matches(tok, kind)
+    local name = assert(tok.name)
+    local typ = type(kind)
+    if typ == "string" then
+        return (kind == name)
+    elseif typ == "table" then
+        return (kind[name] ~= nil)
+    else
+        assert(false)
+    end
 end
 
-function Parser:peekSet(set)
-    local x = assert(self.next.name)
-    return (set[x] ~= nil)
+-- Check the next token without consuming it
+function Parser:peek(kind)
+    return _token_matches(self.next, kind)
 end
 
 -- Check the next-next token without consuming it
-function Parser:doublepeek(name)
-    local x = assert(self.look.name)
-    return (name == x)
+function Parser:doublepeek(kind)
+    return _token_matches(self.look, kind)
 end
 
 -- [E]xpect a token of a given type.
@@ -262,7 +269,7 @@ function Parser:Program()
     -- module contents
     local tls = {}
     local return_stat = false
-    while self:peekSet(is_toplevel_first) do
+    while self:peek(is_toplevel_first) do
 
         local tl = self:Toplevel()
         table.insert(tls, tl)
@@ -411,7 +418,7 @@ end
 function Parser:TypeList()
     local ts = {}
     local open = self:e("(")
-    if self:peekSet(is_type_first) then
+    if self:peek(is_type_first) then
         table.insert(ts, self:Type())
         while self:try(",") do
             table.insert(ts, self:Type())
@@ -601,7 +608,7 @@ function Parser:StatList()
     local list = {}
     while true do
         while self:try(";") do end
-        if not self:peekSet(is_stat_first) then break end
+        if not self:peek(is_stat_first) then break end
         local stat = self:Stat()
         table.insert(list, stat)
         if stat._tag == "ast.Stat.Return" then break end
@@ -787,7 +794,7 @@ function Parser:Stat()
         local fn = self:FuncStat()
         return ast.Stat.Functions(fn.loc, {}, {fn})
 
-    elseif self:peekSet(is_primary_exp_first) then
+    elseif self:peek(is_primary_exp_first) then
         -- Assignment or function call
         local exp = self:SuffixedExp()
         if self:peek("=") or self:peek(",") then
@@ -963,7 +970,7 @@ function Parser:SimpleExp()
     elseif self:peek("{") then
         local open = self:advance()
         local fields = {}
-        while self:peekSet(is_exp_first) do
+        while self:peek(is_exp_first) do
             table.insert(fields, self:Field())
             if not self:tryFieldSep() then
                 break
@@ -1022,7 +1029,7 @@ function Parser:Exp()
 end
 
 function Parser:ExpList0()
-    if self:peekSet(is_exp_first) then
+    if self:peek(is_exp_first) then
         return self:ExpList1()
     else
         return {}
