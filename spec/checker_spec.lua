@@ -18,6 +18,7 @@ local util = require 'pallene.util'
 local function run_checker(code)
     -- "__test__.pln" does not exist on disk. The name is only used for error messages.
     local module, errs = driver.compile_internal("__test__.pln", code, "checker")
+    errs = errs or {}
     return module, table.concat(errs, "\n")
 end
 

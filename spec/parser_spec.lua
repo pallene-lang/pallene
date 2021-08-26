@@ -582,7 +582,6 @@ describe("Parser /", function()
                 function f() end
             ]], "missing a function definition for 'g'")
         end)
-
     end)
 
     -- TODO: Move this test to the type checker?
@@ -597,12 +596,6 @@ describe("Parser /", function()
 
     describe("Function call statements", function()
 
-        it("are the only expression allowed as a statement (1/2)", function()
-            assert_statements_error([[
-                (f)
-            ]], "this expression in a statement position is not a function call")
-        end)
-
         it("disallows too many arguments", function ()
             local t_args = {}
             for i = 1, 201 do
@@ -614,10 +607,16 @@ describe("Parser /", function()
             ]], "too many arguments (limit is 200)")
         end)
 
+        it("are the only expression allowed as a statement (1/2)", function()
+            assert_statements_error([[
+                (f)
+            ]], "this expression in a statement position is not a function call")
+        end)
+
         it("are the only expression allowed as a statement (2/2)", function()
             assert_statements_error([[
                 1 + 1
-            ]], "unexpected number")
+            ]], "expected 'end' before number, to close the 'function'")
         end)
     end)
 
