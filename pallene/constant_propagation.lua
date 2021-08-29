@@ -16,10 +16,32 @@ local function is_constant_value(v)
     elseif tag == "ir.Value.Float"    then return true
     elseif tag == "ir.Value.String"   then return true
     elseif tag == "ir.Value.LocalVar" then return false
-    elseif tag == "ir.Value.Function" then return true
+    elseif tag == "ir.Value.Upvalue"  then return false
     else
         typedecl.tag_error(tag)
     end
+end
+
+-- Stores the constant initializers for local variables and upvalues of a function.
+local function FuncData(func)
+    local fdata = {
+        n_writes_of_locvar      = {}, -- { loc_id => integer  }
+        is_upvalue_constant     = {}, -- { upv_id => boolean  }
+        locvar_constant_init    = {}, -- { loc_id => ir.Value }
+        constant_val_of_upvalue = {}, -- { upv_id => ir.Value }
+    }
+
+    for loc_id = 1, #func.vars do
+        fdata.locvar_constant_init[loc_id] = false
+        fdata.n_writes_of_locvar[loc_id] = 0
+    end
+
+    for u_id = 1, #func.captured_vars do
+        fdata.is_upvalue_constant[u_id] = false
+        fdata.constant_val_of_upvalue[u_id] = false
+    end
+
+    return fdata
 end
 
 -- Replaces toplevel constant variables by their respective values.
@@ -28,115 +50,105 @@ end
 -- Does not currently recognize non-trivial constant expressions as being constant.
 function constant_propagation.run(module)
 
-    local n_globals = #module.globals
+    -- 1) Find what toplevel variables are initialized to a constant.
 
-    -- 1) Find what toplevel variables are initialized to a constant in $init
-
-    local constant_initializer = {} -- { g_id => ir.Value? }
-    for i = 1, n_globals do
-        constant_initializer[i] = false
+    local data_of_func = {} -- list of FuncData
+    for _, func in ipairs(module.functions) do
+        table.insert(data_of_func, FuncData(func))
     end
 
-    do
-        -- DFS traversal to find SetGlobal instructions with a constant initializer. We ignore the
-        -- instructions inside If, Loop, and For statements, since those might be skipped.
-        local stack = { module.functions[1].body }
+
+    for f_id, func in ipairs(module.functions) do
+        -- DFS traversal to find the ir.Cmd.Move instructions which have constant
+        -- values as their src.
+        local f_data   = assert(data_of_func[f_id])
+
+        local stack =  { func.body }
         while #stack > 0 do
             local cmd = table.remove(stack)
             local tag = cmd._tag
-            if     tag == 'ir.Cmd.SetGlobal' then
+            if     tag == "ir.Cmd.Move" then
+                local id = cmd.dst
                 if is_constant_value(cmd.src) then
-                    constant_initializer[cmd.global_id] = cmd.src
+                    f_data.locvar_constant_init[id] = cmd.src
                 end
-            elseif tag == 'ir.Cmd.Seq' then
+
+            elseif tag == "ir.Cmd.Seq" then
                 for i = #cmd.cmds, 1, -1 do
                     table.insert(stack, cmd.cmds[i])
                 end
-            else
-                -- skip
+
+            elseif tag == "ir.Cmd.SetUpvalues" then
+                for u_id, value in ipairs(cmd.srcs) do
+                    local next_f = data_of_func[cmd.f_id]
+                    if value._tag == "ir.Value.LocalVar" then
+                        local const_init = f_data.locvar_constant_init[value.id]
+                        next_f.constant_val_of_upvalue[u_id] = const_init
+
+                    elseif value._tag == "ir.Value.Upvalue" then
+                        local const_init = f_data.constant_val_of_upvalue[value.id]
+                        next_f.constant_val_of_upvalue[u_id] = const_init
+                    end
+                end
+
             end
         end
     end
 
-    -- 2) Find what toplevel variables are never re-initialized or never used
+    -- 2) Find which local variables are never re-initialized.
 
-    local n_reads  = {} -- { g_id => int }
-    local n_writes = {} -- { g_id => int }
-    for i = 1, n_globals do
-        n_reads[i]  = 0
-        n_writes[i] = 0
-    end
+    for f_id, func in ipairs(module.functions) do
+        local f_data   = assert(data_of_func[f_id])
+        local n_writes = f_data.n_writes_of_locvar
 
-    for _, func in ipairs(module.functions) do
         for cmd in ir.iter(func.body) do
             local tag = cmd._tag
-            if     tag == "ir.Cmd.GetGlobal" then
-                local id = cmd.global_id
-                n_reads[id] = n_reads[id] + 1
-            elseif tag == "ir.Cmd.SetGlobal" then
-                local id = cmd.global_id
-                n_writes[id] = n_writes[id] + 1
+            if tag == "ir.Cmd.SetUpvalues" then
+                for u_id, value in ipairs(cmd.srcs) do
+                    local next_f = assert(data_of_func[cmd.f_id])
+
+                    if value._tag == "ir.Value.LocalVar" then
+                        next_f.is_upvalue_constant[u_id] = n_writes[value.id] == 1
+                            and f_data.locvar_constant_init[value.id]
+                    elseif value._tag == "ir.Value.Upvalue" then
+                        next_f.is_upvalue_constant[u_id] = f_data.is_upvalue_constant[value.id]
+                    end
+                end
+
             else
-                -- skip
+                local dsts = ir.get_dsts(cmd)
+                for _, dst_id in ipairs(dsts) do
+                    n_writes[dst_id] = n_writes[dst_id] + 1
+                end
             end
         end
     end
 
-    -- 3) Find out which constant globals should be propagated, and which unused constant globals
-    -- should be simply eliminated.
+    -- 3 Propagate the constants local variables and upvalues
 
-    local is_exported = {}
-    for _, g_id in ipairs(module.exported_globals) do
-        is_exported[g_id] = true
-    end
+    for f_id, func in ipairs(module.functions) do
+        local f_data = data_of_func[f_id]
+        local n_writes = f_data.n_writes_of_locvar
 
-    local new_globals = {}
-    local new_global_id = {} -- { g_id => g_id? }
-    for i = 1, n_globals do
-        if constant_initializer[i] and not is_exported[i] and (n_reads[i] == 0 or n_writes[i] == 1) then
-            new_global_id[i] = false
-        else
-            table.insert(new_globals, module.globals[i])
-            new_global_id[i] = #new_globals
-        end
-    end
-
-    -- 4) Propagate the constant globals, and rename the existing ones accordingly
-
-    for i, g_id in ipairs(module.exported_globals) do
-        module.exported_globals[i] = assert(new_global_id[g_id])
-    end
-
-    module.globals = new_globals
-
-    for _, func in ipairs(module.functions) do
         func.body = ir.map_cmd(func.body, function(cmd)
-            local tag = cmd._tag
-            if     tag == "ir.Cmd.GetGlobal" then
-                local old_id = cmd.global_id
-                local new_id = new_global_id[old_id]
-                if new_id then
-                    return ir.Cmd.GetGlobal(cmd.loc, cmd.dst, new_id)
-                else
-                    local v = assert(constant_initializer[old_id])
-                    return ir.Cmd.Move(cmd.loc, cmd.dst, v)
+            local inputs = ir.get_value_field_names(cmd)
+            for _, src_field in ipairs(inputs.src) do
+                local val = cmd[src_field]
+                if val._tag == "ir.Value.LocalVar"
+                   and n_writes[val.id] == 1
+                   and val.id > #func.typ.arg_types
+                   and f_data.locvar_constant_init[val.id] then
+
+                    cmd[src_field] = f_data.locvar_constant_init[val.id]
+                elseif val._tag == "ir.Value.Upvalue"
+                       and f_data.is_upvalue_constant[val.id] then
+
+                    cmd[src_field] = f_data.constant_val_of_upvalue[val.id]
                 end
-            elseif tag == "ir.Cmd.SetGlobal" then
-                local old_id = cmd.global_id
-                local new_id = new_global_id[old_id]
-                if new_id then
-                    return ir.Cmd.SetGlobal(cmd.loc, new_id, cmd.src)
-                else
-                    return ir.Cmd.Nop()
-                end
-            else
-                -- don't modify
-                return false
             end
+            return false
         end)
     end
-
-    -- 5) Done
 
     ir.clean_all(module)
     return module, {}
