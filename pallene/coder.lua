@@ -1309,7 +1309,7 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
     -- The number of upvalues must fit inside a byte (the nupvalues in the ClosureHeader).
     -- However, we must check this limit ourselves, because luaF_newCclosure doesn't. If we have too
     -- many upvalues then that internal Lua function can overflow and do weird things.
-    local num_upvalues = #func.captured_vars + 1
+    local num_upvalues = func.num_upvalues + 1
     assert(num_upvalues <= 255)
 
     return util.render([[
