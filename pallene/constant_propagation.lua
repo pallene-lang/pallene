@@ -131,17 +131,21 @@ function constant_propagation.run(module)
         for cmd in ir.iter(func.body) do
             if cmd._tag == "ir.Cmd.SetUpvalues" then
                 local next_f   = assert(data_of_func[cmd.f_id])
+                local ir_func  = module.functions[cmd.f_id]
                 local new_u_id = next_f.new_upvalue_id
 
                 local new_srcs = {}
+                local new_captured_vars = {}
                 for u_id, value in ipairs(cmd.srcs) do
                     if not next_f.is_upvalue_constant[u_id] then
                         table.insert(new_srcs, value)
                         new_u_id[u_id] = #new_srcs
+                        table.insert(new_captured_vars, ir_func.captured_vars[u_id])
                     end
                 end
 
                 cmd.srcs = new_srcs
+                ir_func.captured_vars = new_captured_vars
             end
         end
     end
