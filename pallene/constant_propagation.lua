@@ -29,6 +29,7 @@ local function FuncData(func)
         is_upvalue_constant     = {}, -- { upv_id => boolean  }
         locvar_constant_init    = {}, -- { loc_id => ir.Value }
         constant_val_of_upvalue = {}, -- { upv_id => ir.Value }
+        new_upvalue_id          = {}, -- { upv_id => upv_id   }
     }
 
     for loc_id = 1, #func.vars do
@@ -60,7 +61,8 @@ function constant_propagation.run(module)
 
     for f_id, func in ipairs(module.functions) do
         -- DFS traversal to find the ir.Cmd.Move instructions which have constant
-        -- values as their src.
+        -- values as their src. We skip initializers in loops to make sure we only count
+        -- the initializers which are guaranteed to be evaluated at runtime.
         local f_data   = assert(data_of_func[f_id])
 
         local stack =  { func.body }
@@ -124,11 +126,33 @@ function constant_propagation.run(module)
         end
     end
 
-    -- 3 Propagate the constants local variables and upvalues
+    -- 3) Remove propagated upvalues from the capture list.
+    for _, func in ipairs(module.functions) do
+        for cmd in ir.iter(func.body) do
+            if cmd._tag == "ir.Cmd.SetUpvalues" then
+                local next_f   = assert(data_of_func[cmd.f_id])
+                local new_u_id = next_f.new_upvalue_id
+
+                local new_srcs = {}
+                for u_id, value in ipairs(cmd.srcs) do
+                    if not next_f.is_upvalue_constant[u_id] then
+                        table.insert(new_srcs, value)
+                        new_u_id[u_id] = #new_srcs
+                    end
+                end
+
+                cmd.srcs = new_srcs
+            end
+        end
+    end
+
+
+    -- 4) Propagate the constants local variables and upvalues.
 
     for f_id, func in ipairs(module.functions) do
         local f_data = data_of_func[f_id]
         local n_writes = f_data.n_writes_of_locvar
+        local new_u_id = f_data.new_upvalue_id
 
         func.body = ir.map_cmd(func.body, function(cmd)
             local inputs = ir.get_value_field_names(cmd)
@@ -140,12 +164,17 @@ function constant_propagation.run(module)
                    and f_data.locvar_constant_init[val.id] then
 
                     cmd[src_field] = f_data.locvar_constant_init[val.id]
-                elseif val._tag == "ir.Value.Upvalue"
-                       and f_data.is_upvalue_constant[val.id] then
 
-                    cmd[src_field] = f_data.constant_val_of_upvalue[val.id]
+                elseif val._tag == "ir.Value.Upvalue" then
+                    if f_data.is_upvalue_constant[val.id] then
+                        cmd[src_field] = f_data.constant_val_of_upvalue[val.id]
+                    else
+                        local u_id = assert(new_u_id[val.id])
+                        cmd[src_field] = ir.Value.Upvalue(u_id)
+                    end
                 end
             end
+
             return false
         end)
     end
