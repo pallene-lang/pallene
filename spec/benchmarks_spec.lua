@@ -19,6 +19,13 @@ else
     print("Warning: not testing the LuaJIT benchmarks, because LuaJIT is not installed.")
 end
 
+setup(function()
+    -- Ensure that the benchmark executables are recompiled from scratch.
+    -- This is a hacky workaround; the proper fix would be to clean up the benchlib
+    -- and replace the current compilation logic by something simpler / saner.
+    util.execute("find benchmarks/ -name '*.so' -delete")
+end)
+
 local function test_benchmark(bench, params, expected_output)
     describe(bench .. " /", function()
         for _, impl in ipairs(impls) do
