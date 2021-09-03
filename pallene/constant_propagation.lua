@@ -151,29 +151,43 @@ function constant_propagation.run(module)
 
     -- 4) Propagate the constants local variables and upvalues.
 
+    -- Returns a new `ir.Value` representing `src_val` after constant propagation.
+    -- @param f_data  FuncData of the function whose IR contains `src_val`.
+    -- @param func    corresponding ir.Function
+    -- @param src_val The value that we may need to update.
+    local function updated_value(f_data, func, src_val)
+        if src_val._tag == "ir.Value.LocalVar"
+           and f_data.n_writes_of_locvar[src_val.id] == 1
+           and src_val.id > #func.typ.arg_types
+           and f_data.locvar_constant_init[src_val.id] then
+
+            return f_data.locvar_constant_init[src_val.id]
+
+        elseif src_val._tag == "ir.Value.Upvalue" then
+            if f_data.is_upvalue_constant[src_val.id] then
+                return f_data.constant_val_of_upvalue[src_val.id]
+            else
+                local u_id = assert(f_data.new_upvalue_id[src_val.id])
+                return  ir.Value.Upvalue(u_id)
+            end
+        end
+
+        return src_val
+    end
+
     for f_id, func in ipairs(module.functions) do
         local f_data = data_of_func[f_id]
-        local n_writes = f_data.n_writes_of_locvar
-        local new_u_id = f_data.new_upvalue_id
 
         func.body = ir.map_cmd(func.body, function(cmd)
             local inputs = ir.get_value_field_names(cmd)
             for _, src_field in ipairs(inputs.src) do
-                local val = cmd[src_field]
-                if val._tag == "ir.Value.LocalVar"
-                   and n_writes[val.id] == 1
-                   and val.id > #func.typ.arg_types
-                   and f_data.locvar_constant_init[val.id] then
+                cmd[src_field] = updated_value(f_data, func, cmd[src_field])
+            end
 
-                    cmd[src_field] = f_data.locvar_constant_init[val.id]
-
-                elseif val._tag == "ir.Value.Upvalue" then
-                    if f_data.is_upvalue_constant[val.id] then
-                        cmd[src_field] = f_data.constant_val_of_upvalue[val.id]
-                    else
-                        local u_id = assert(new_u_id[val.id])
-                        cmd[src_field] = ir.Value.Upvalue(u_id)
-                    end
+            for _, src_field in ipairs(inputs.srcs) do
+                local srcs = cmd[src_field]
+                for i, value in ipairs(srcs) do
+                    srcs[i] = updated_value(f_data, func, value)
                 end
             end
 
