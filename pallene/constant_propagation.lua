@@ -59,23 +59,16 @@ function constant_propagation.run(module)
 
     for f_id, func in ipairs(module.functions) do
         -- DFS traversal to find the ir.Cmd.Move instructions which have constant
-        -- values as their src. We skip initializers in loops to make sure we only count
-        -- the initializers which are guaranteed to be evaluated at runtime.
-        local f_data   = assert(data_of_func[f_id])
+        -- values as their src. We can look inside initializers in loops and if-statements because
+        -- the `uninitialized.lua` pass takes care of variables that are used before being initialized.
+        local f_data = assert(data_of_func[f_id])
 
-        local stack =  { func.body }
-        while #stack > 0 do
-            local cmd = table.remove(stack)
+        for cmd in ir.iter(func.body) do
             local tag = cmd._tag
             if     tag == "ir.Cmd.Move" then
                 local id = cmd.dst
                 if is_constant_value(cmd.src) then
                     f_data.locvar_constant_init[id] = cmd.src
-                end
-
-            elseif tag == "ir.Cmd.Seq" then
-                for i = #cmd.cmds, 1, -1 do
-                    table.insert(stack, cmd.cmds[i])
                 end
 
             elseif tag == "ir.Cmd.SetUpvalues" then
@@ -92,6 +85,10 @@ function constant_propagation.run(module)
                 end
 
             end
+        end
+
+        for loc_id = 1, #func.typ.arg_types do
+            f_data.locvar_constant_init[loc_id] = false
         end
     end
 
@@ -154,10 +151,9 @@ function constant_propagation.run(module)
     -- @param f_data  FuncData of the function whose IR contains `src_val`.
     -- @param func    corresponding ir.Function
     -- @param src_val The value that we may need to update.
-    local function updated_value(f_data, func, src_val)
+    local function updated_value(f_data, src_val)
         if src_val._tag == "ir.Value.LocalVar"
            and f_data.n_writes_of_locvar[src_val.id] == 1
-           and src_val.id > #func.typ.arg_types
            and f_data.locvar_constant_init[src_val.id]
         then
             return f_data.locvar_constant_init[src_val.id]
@@ -180,13 +176,13 @@ function constant_propagation.run(module)
         func.body = ir.map_cmd(func.body, function(cmd)
             local inputs = ir.get_value_field_names(cmd)
             for _, src_field in ipairs(inputs.src) do
-                cmd[src_field] = updated_value(f_data, func, cmd[src_field])
+                cmd[src_field] = updated_value(f_data, cmd[src_field])
             end
 
             for _, src_field in ipairs(inputs.srcs) do
                 local srcs = cmd[src_field]
                 for i, value in ipairs(srcs) do
-                    srcs[i] = updated_value(f_data, func, value)
+                    srcs[i] = updated_value(f_data, value)
                 end
             end
 
