@@ -26,7 +26,6 @@ end
 local function FuncData(func)
     local fdata = {
         n_writes_of_locvar      = {}, -- { loc_id => integer  }
-        is_upvalue_constant     = {}, -- { upv_id => boolean  }
         locvar_constant_init    = {}, -- { loc_id => ir.Value }
         constant_val_of_upvalue = {}, -- { upv_id => ir.Value }
         new_upvalue_id          = {}, -- { upv_id => upv_id   }
@@ -38,7 +37,6 @@ local function FuncData(func)
     end
 
     for u_id = 1, #func.captured_vars do
-        fdata.is_upvalue_constant[u_id] = false
         fdata.constant_val_of_upvalue[u_id] = false
     end
 
@@ -109,11 +107,10 @@ function constant_propagation.run(module)
                 for u_id, value in ipairs(cmd.srcs) do
                     local next_f = assert(data_of_func[cmd.f_id])
 
-                    if value._tag == "ir.Value.LocalVar" then
-                        next_f.is_upvalue_constant[u_id] = n_writes[value.id] == 1
-                            and f_data.locvar_constant_init[value.id]
+                    if value._tag == "ir.Value.LocalVar" and n_writes[value.id] ~= 1 then
+                        next_f.constant_val_of_upvalue[u_id] = false
                     elseif value._tag == "ir.Value.Upvalue" then
-                        next_f.is_upvalue_constant[u_id] = f_data.is_upvalue_constant[value.id]
+                        next_f.constant_val_of_upvalue[u_id] = f_data.constant_val_of_upvalue[value.id]
                     end
                 end
 
@@ -135,15 +132,17 @@ function constant_propagation.run(module)
                 local new_u_id = next_f.new_upvalue_id
 
                 local new_srcs = {}
+                local new_captured_vars = {}
                 for u_id, value in ipairs(cmd.srcs) do
-                    if not next_f.is_upvalue_constant[u_id] then
+                    if not next_f.constant_val_of_upvalue[u_id] then
                         table.insert(new_srcs, value)
+                        table.insert(new_captured_vars, ir_func.captured_vars[u_id])
                         new_u_id[u_id] = #new_srcs
                     end
                 end
 
                 cmd.srcs = new_srcs
-                ir_func.num_upvalues = #cmd.srcs
+                ir_func.captured_vars = new_captured_vars
             end
         end
     end
@@ -159,12 +158,12 @@ function constant_propagation.run(module)
         if src_val._tag == "ir.Value.LocalVar"
            and f_data.n_writes_of_locvar[src_val.id] == 1
            and src_val.id > #func.typ.arg_types
-           and f_data.locvar_constant_init[src_val.id] then
-
+           and f_data.locvar_constant_init[src_val.id]
+        then
             return f_data.locvar_constant_init[src_val.id]
 
         elseif src_val._tag == "ir.Value.Upvalue" then
-            if f_data.is_upvalue_constant[src_val.id] then
+            if f_data.constant_val_of_upvalue[src_val.id] then
                 return f_data.constant_val_of_upvalue[src_val.id]
             else
                 local u_id = assert(f_data.new_upvalue_id[src_val.id])

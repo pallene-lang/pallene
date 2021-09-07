@@ -44,17 +44,12 @@ function ir.VarDecl(name, typ)
 end
 
 function ir.Function(loc, name, typ)
-    -- We need to store the number of upvalues separately (instead of just using #captured_vars) because
-    -- even though the captured_vars table is append-only, the actual number of upvalues may change
-    -- after the constant propagation pass. We cannot mutate the `captured_vars` table to reflect this change
-    -- because we still need type information of the propagated upvalues (which become constant values).
     return {
         loc = loc,            -- Location
         name = name,          -- string
         typ = typ,            -- Type
         vars = {},            -- list of ir.VarDecl
         captured_vars = {},   -- list of ir.VarDecl
-        num_upvalues  = 0,    -- integer (number of upvalues)
         f_id_of_upvalue = {}, -- { integer => integer }
         f_id_of_local = {},   -- { integer => integer }
         body = false,         -- ir.Cmd
@@ -100,7 +95,6 @@ end
 function ir.add_upvalue(func, name, typ)
     local decl = ir.VarDecl(name, typ)
     table.insert(func.captured_vars, decl)
-    func.num_upvalues = #func.captured_vars
     return #func.captured_vars
 end
 
