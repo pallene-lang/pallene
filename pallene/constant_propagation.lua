@@ -49,7 +49,7 @@ end
 -- Does not currently recognize non-trivial constant expressions as being constant.
 function constant_propagation.run(module)
 
-    -- 1) Find what toplevel variables are initialized to a constant.
+    -- 1) Find which variables are initialized to a constant.
 
     local data_of_func = {} -- list of FuncData
     for _, func in ipairs(module.functions) do
@@ -79,13 +79,22 @@ function constant_propagation.run(module)
                         next_f.constant_val_of_upvalue[u_id] = const_init
 
                     elseif value._tag == "ir.Value.Upvalue" then
+                        -- A `NewClosure` or `SetUpvalues` instruction can only reference values in outer scopes,
+                        -- which exist in surrounding functions that have a numerically lesser `f_id`.
+                        -- Due to this, we can reliable tie the constant initializer of an inner upvalue in a nested
+                        -- function to the constantant initializer of the outer upvalue that it captures.
                         local const_init = f_data.constant_val_of_upvalue[value.id]
                         next_f.constant_val_of_upvalue[u_id] = const_init
+
+                    else
+                        typedecl.tag_error(value._tag)
                     end
                 end
 
             end
         end
+
+
 
         for loc_id = 1, #func.typ.arg_types do
             f_data.locvar_constant_init[loc_id] = false
@@ -101,13 +110,16 @@ function constant_propagation.run(module)
         for cmd in ir.iter(func.body) do
             local tag = cmd._tag
             if tag == "ir.Cmd.SetUpvalues" then
+                local next_f = assert(data_of_func[cmd.f_id])
                 for u_id, value in ipairs(cmd.srcs) do
-                    local next_f = assert(data_of_func[cmd.f_id])
-
-                    if value._tag == "ir.Value.LocalVar" and n_writes[value.id] ~= 1 then
-                        next_f.constant_val_of_upvalue[u_id] = false
+                    if value._tag == "ir.Value.LocalVar" then
+                        if n_writes[value.id] ~= 1 then
+                            next_f.constant_val_of_upvalue[u_id] = false
+                        end
                     elseif value._tag == "ir.Value.Upvalue" then
                         next_f.constant_val_of_upvalue[u_id] = f_data.constant_val_of_upvalue[value.id]
+                    else
+                        typedecl.tag_error(value._tag)
                     end
                 end
 
@@ -118,6 +130,32 @@ function constant_propagation.run(module)
                 end
             end
         end
+
+        -- Because of the way the previous compiler passes work, it is guaranteed that an upvalue that has a
+        -- constant initializer always references a local variable with a write count of 1. In other words,
+        -- IR like this is currently not possible:
+        -- ```
+        -- x1 <- 10
+        -- loop {
+        --     x2 = NewClosure()
+        --     x2.upvalues <- x1
+        --     x1 <- 20
+        -- }
+        -- ```
+        -- Since x1 is a "mutable upvalue", the assignment_conversion pass turns it into a record type.
+        -- With this loop, we assert this assumption.
+        for cmd in ir.iter(func.body) do
+            local tag = cmd._tag
+            if tag == "ir.Cmd.SetUpvalues" then
+                local next_f = assert(data_of_func[cmd.f_id])
+                for u_id, value in ipairs(cmd.srcs) do
+                    if value._tag == "ir.Value.LocalVar" and next_f.constant_val_of_upvalue[u_id] then
+                        assert(n_writes[value.id] == 1)
+                    end
+                end
+            end
+        end
+
     end
 
     -- 3) Remove propagated upvalues from the capture list.
