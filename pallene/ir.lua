@@ -30,7 +30,6 @@ function ir.Module()
     return {
         record_types       = {},  -- list of Type
         functions          = {},  -- list of ir.Function
-        globals            = {},  -- list of ir.VarDecl
         exported_functions = {},  -- list of function ids
         exported_globals   = {},  -- list of variable ids
         loc_id_of_exports  = nil, -- integer
@@ -159,7 +158,7 @@ local ir_cmd_constructors = {
     SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
-    NewClosure = {"loc", "dst"  , "f_id"},
+    NewClosure  = {"loc", "dst"  , "f_id"},
     SetUpvalues = {"loc", "src_f", "srcs", "f_id"},
 
     -- (dst is false if the return value is void, or unused)
@@ -207,6 +206,12 @@ for tag, fields in pairs(ir_cmd_constructors) do
         end
     end
     value_fields["ir.Cmd."..tag] = ff
+end
+
+
+-- Returns the value field names that contain inputs and outputs (ir.Value).
+function ir.get_value_field_names(cmd)
+    return assert(value_fields[cmd._tag])
 end
 
 -- Returns the inputs to the given command, a list of ir.Value.
