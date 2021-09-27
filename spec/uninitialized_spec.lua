@@ -78,6 +78,20 @@ describe("Uninitialized variable analysis: ", function()
         ]], "variable 'x' is used before being initialized")
     end)
 
+    it("catches use of uninitialized upvalue", function ()
+        assert_error([[
+            local m = {}
+            function m.foo()
+                local x: integer
+                if false then x = 1 end
+                local function g()
+                    x = x + 1
+                end
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
     it("assumes that loops might not execute", function()
         assert_error([[
             local m: module = {}
