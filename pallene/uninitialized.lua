@@ -132,7 +132,7 @@ local function test(cmd, uninit, loop)
         end
 
         -- Artificial initializers introduced by the compilers do not count.
-        if not cmd._is_upvalue_box_init then
+        if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
             for _, v_id in ipairs(ir.get_dsts(cmd)) do
                 uninit[v_id] = nil
             end

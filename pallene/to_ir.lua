@@ -965,13 +965,11 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     elseif tag == "ast.Exp.UpvalueRecord" then
         local typ = exp._type
         assert(typ._tag == "types.T.Record")
+        -- UpvalueRecords are only used initialize local variables that are mutably captured, and lack
+        -- an initializer upon declaration.
+        assert(typ.is_upvalue_box)
 
-        -- `UpvalueRecord`s are used to initialize local variables which are later used as mutable upvalues,
-        -- but do not have any initializer expression upon declaration. We mark this instruction to make sure
-        -- the later passes don't confuse this for a user-written initializer expression.
-        local cmd = ir.Cmd.NewRecord(loc, typ, dst)
-        cmd._is_upvalue_box_init = true
-        table.insert(cmds, cmd)
+        table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
         table.insert(cmds, ir.Cmd.CheckGC())
 
     elseif tag == "ast.Exp.Lambda" then
