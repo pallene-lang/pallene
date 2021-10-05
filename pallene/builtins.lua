@@ -23,6 +23,10 @@ builtins.modules = {
         write = T.Function({ T.String() }, {}),
     },
     math = {
+        abs  = T.Function({ T.Float() }, { T.Float() }),
+        exp  = T.Function({ T.Float() }, { T.Float() }),
+        log  = T.Function({ T.Float(), T.Float() }, { T.Float() }),
+        pow  = T.Function({ T.Float(), T.Float() }, { T.Float() }),
         sqrt = T.Function({ T.Float() }, { T.Float() }),
     },
     string = {

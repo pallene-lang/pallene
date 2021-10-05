@@ -167,6 +167,10 @@ local ir_cmd_constructors = {
 
     -- Builtin operations
     BuiltinIoWrite    = {"loc",         "srcs"},
+    BuiltinMathAbs    = {"loc", "dsts", "srcs"},
+    BuiltinMathExp    = {"loc", "dsts", "srcs"},
+    BuiltinMathLog    = {"loc", "dsts", "srcs"},
+    BuiltinMathPow    = {"loc", "dsts", "srcs"},
     BuiltinMathSqrt   = {"loc", "dsts", "srcs"},
     BuiltinStringChar = {"loc", "dsts", "srcs"},
     BuiltinStringSub  = {"loc", "dsts", "srcs"},

@@ -1437,6 +1437,42 @@ gen_cmd["BuiltinIoWrite"] = function(self, cmd, _func)
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 
+gen_cmd["BuiltinMathAbs"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(fabs)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathExp"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(exp)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathLog"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+    local b = self:c_value(cmd.srcs[2])
+	local base_num = tonumber(b)
+    if base_num == 1.0 then
+        return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
+	elseif base_num == 2.0 then
+        return util.render([[ $dst = l_mathop(log2)($v); ]], { dst = dst, v = v })
+	elseif base_num == 10.0 then
+        return util.render([[ $dst = l_mathop(log10)($v); ]], { dst = dst, v = v })
+    else
+        return util.render([[ $dst = l_mathop(log)($v)/l_mathop(log)($b); ]], 
+            { dst = dst, v = v, b = b })
+    end    
+end
+
+gen_cmd["BuiltinMathPow"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local x = self:c_value(cmd.srcs[1])
+    local y = self:c_value(cmd.srcs[2])
+    return util.render([[ $dst = l_mathop(pow)($x, $y); ]], { dst = dst, x = x, y = y })
+end
+
 gen_cmd["BuiltinMathSqrt"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])

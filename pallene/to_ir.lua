@@ -1030,6 +1030,18 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             if     bname == "io.write" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs))
+            elseif bname == "math.abs" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinMathAbs(loc, dsts, xs))
+            elseif bname == "math.exp" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinMathExp(loc, dsts, xs))
+            elseif bname == "math.log" then
+                assert(#xs == 2)
+                table.insert(cmds, ir.Cmd.BuiltinMathLog(loc, dsts, xs))
+            elseif bname == "math.pow" then
+                assert(#xs == 2)
+                table.insert(cmds, ir.Cmd.BuiltinMathPow(loc, dsts, xs))
             elseif bname == "math.sqrt" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, dsts, xs))
