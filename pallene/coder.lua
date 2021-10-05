@@ -1453,7 +1453,7 @@ gen_cmd["BuiltinMathLog"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
     local b = self:c_value(cmd.srcs[2])
-	local base_num = tonumber(b)
+    local base_num = tonumber(b)
     if base_num == 1.0 then
         return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
 	elseif base_num == 2.0 then
