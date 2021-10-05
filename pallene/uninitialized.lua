@@ -121,11 +121,21 @@ local function test(cmd, uninit, loop)
     elseif typedecl.match_tag(cmd._tag, "ir.Cmd") then
         for _, val in ipairs(ir.get_srcs(cmd)) do
             if val._tag == "ir.Value.LocalVar" then
+                -- `SetField` instructions can count as initializers when the target is an
+                -- upvalue box. This is because upvalue boxes are allocated, but not initialized
+                -- upon declaration.
+                if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box then
+                    uninit[val.id] = nil
+                end
                 check_use(val.id)
             end
         end
-        for _, v_id in ipairs(ir.get_dsts(cmd)) do
-            uninit[v_id] = nil
+
+        -- Artificial initializers introduced by the compilers do not count.
+        if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
+            for _, v_id in ipairs(ir.get_dsts(cmd)) do
+                uninit[v_id] = nil
+            end
         end
 
         if tag == "ir.Cmd.Return" then

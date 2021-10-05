@@ -965,6 +965,10 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     elseif tag == "ast.Exp.UpvalueRecord" then
         local typ = exp._type
         assert(typ._tag == "types.T.Record")
+        -- UpvalueRecords are only used initialize local variables that are mutably captured, and lack
+        -- an initializer upon declaration.
+        assert(typ.is_upvalue_box)
+
         table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
         table.insert(cmds, ir.Cmd.CheckGC())
 
