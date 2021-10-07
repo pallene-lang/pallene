@@ -1449,21 +1449,19 @@ gen_cmd["BuiltinMathExp"] = function(self, cmd, _func)
     return util.render([[ $dst = l_mathop(exp)($v); ]], { dst = dst, v = v })
 end
 
+-- We are introducing math.ln as a workaround for 1 param math.log
+gen_cmd["BuiltinMathLn"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+        return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
+end
+
 gen_cmd["BuiltinMathLog"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
     local b = self:c_value(cmd.srcs[2])
-    local base_num = tonumber(b)
-    if base_num == 1.0 then
-        return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
-	elseif base_num == 2.0 then
-        return util.render([[ $dst = l_mathop(log2)($v); ]], { dst = dst, v = v })
-	elseif base_num == 10.0 then
-        return util.render([[ $dst = l_mathop(log10)($v); ]], { dst = dst, v = v })
-    else
-        return util.render([[ $dst = l_mathop(log)($v)/l_mathop(log)($b); ]], 
-            { dst = dst, v = v, b = b })
-    end    
+    return util.render([[ $dst = pallene_log($v, $b); ]],
+        { dst = dst, v = v, b = b })
 end
 
 gen_cmd["BuiltinMathPow"] = function(self, cmd, _func)

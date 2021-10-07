@@ -1425,6 +1425,166 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    -- Note: Implementation currenly only supports float and uses fabs().
+    -- Test avoids differences that may be caused by needing integers.
+    describe("math.abs builtin", function()
+        compile([[
+            function m.absolute_value(x: float): float
+                return math.abs(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1.0 == test.absolute_value(1.0))
+                assert(7.0 == test.absolute_value(7.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(1.0 == test.absolute_value(-1.0))
+                assert(11.0 == test.absolute_value(-11.0))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.absolute_value(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.exp builtin", function()
+        compile([[
+            function m.exponential_value(x: float): float
+                return math.exp(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1.0 == test.exponential_value(0.0))
+                assert(2.718 == tonumber(string.format("%.3f", 
+                    test.exponential_value(1.0))))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(0.368 == tonumber(string.format("%.3f", 
+                    test.exponential_value(-1.0))))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.exponential_value(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.ln builtin", function()
+        compile([[
+            function m.natural_log(x: float): float
+                return math.ln(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.natural_log(1.0))
+                assert(0.693 == tonumber(string.format("%.3f", 
+                    test.natural_log(2.0))))
+                assert(2.303 == tonumber(string.format("%.3f", 
+                    test.natural_log(10.0))))
+            ]])
+        end)
+
+        it("returns NaN on negative numbers", function()
+            run_test([[
+                local x = test.natural_log(-1.0)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.natural_log(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.log builtin", function()
+        compile([[
+            function m.math_log(x: float, base: float): float
+                return math.log(x, base)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_log(1.0, 2.0))
+                assert(0.0 == test.math_log(1.0, 10.0))
+                assert(0.0 == test.math_log(1.0, 16.0))
+                assert(1.0 == test.math_log(2.0, 2.0))
+                assert(1.0 == test.math_log(10.0, 10.0))
+                assert(1.0 == test.math_log(16.0, 16.0))
+                assert(10.0 == test.math_log(1024.0, 2.0))
+                assert(2.0 == test.math_log(100.0, 10.0))
+                assert(2.5 == test.math_log(1024.0, 16.0))
+            ]])
+        end)
+
+        it("returns NaN on negative numbers", function()
+            run_test([[
+                local x = test.math_log(-100.0, 10.0)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_log(0.0 / 0.0, 0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.pow builtin", function()
+        compile([[
+            function m.math_pow(x: float, y: float): float
+                return math.pow(x, y)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1.0 == test.math_pow(1.0, 2.0))
+                assert(1.0 == test.math_pow(10.0, 0.0))
+                assert(8.0 == test.math_pow(2.0, 3.0))
+                assert(243.0 == test.math_pow(9.0, 2.5))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(81.0 == test.math_pow(-9.0, 2.0))
+                assert(0.25 == test.math_pow(2.0, -2.0))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_pow(0.0 / 0.0, 0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
     describe("math.sqrt builtin", function()
         compile([[
             function m.square_root(x: float): float

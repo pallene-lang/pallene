@@ -1040,6 +1040,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "math.exp" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathExp(loc, dsts, xs))
+            elseif bname == "math.ln" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinMathLn(loc, dsts, xs))
             elseif bname == "math.log" then
                 assert(#xs == 2)
                 table.insert(cmds, ir.Cmd.BuiltinMathLog(loc, dsts, xs))

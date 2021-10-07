@@ -61,6 +61,18 @@ function Translator:erase_region(start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
+-- This is a workaround to handle math.log built-in optimizations.
+-- Because Pallene currently cannot handle optional parameters,
+-- we've decided to introduce math.ln as a replacement for single param log(x).
+-- But for --emit-lua, we must do something to make the code work in pure Lua.
+-- For now, the easiest thing to do is inject math.ln = math.log at the top.
+-- A smarter routine would replace math.ln with math.log.
+function Translator:prepend_compatibility_code()
+    -- Note: We do not add a newline after this code injection in order to
+    -- preserve line number parity with the original .pln file.
+    -- It looks ugly, but correct line numbers are more useful.
+    self.partials[1] = "math.ln = math.log; " .. self.partials[1]
+end
 
 function translator.translate(input, prog_ast)
     local instance = Translator.new(input)
@@ -97,6 +109,9 @@ function translator.translate(input, prog_ast)
 
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
+
+    -- This prepends any compatibility shims we need. 
+    instance:prepend_compatibility_code()
 
     return table.concat(instance.partials)
 end
