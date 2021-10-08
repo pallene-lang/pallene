@@ -62,11 +62,6 @@ function Translator:erase_region(start_index, stop_index)
 end
 
 -- This is a workaround to handle math.log built-in optimizations.
--- Because Pallene currently cannot handle optional parameters,
--- we've decided to introduce math.ln as a replacement for single param log(x).
--- But for --emit-lua, we must do something to make the code work in pure Lua.
--- For now, the easiest thing to do is inject math.ln = math.log at the top.
--- A smarter routine would replace math.ln with math.log.
 function Translator:prepend_compatibility_code()
     -- Note: We do not add a newline after this code injection in order to
     -- preserve line number parity with the original .pln file.
