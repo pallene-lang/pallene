@@ -479,9 +479,13 @@ local x2 : integer = ns[4] -- run-time error
 
 The Pallene compiler has builtins for the following math library functions:
  * math.abs(x)
+ * math.ceil(x)
  * math.exp(x)
+ * math.floor(x)
+ * math.fmod(x, y)
  * math.ln(x)
  * math.log(x, base)
+ * math.modf(x)
  * math.pow(x, y)
  * math.sqrt(x)
 
@@ -489,6 +493,11 @@ All these functions currently require float arguments. The compiler will reject 
 
 At this time, math.log requires two parameters, and the compiler will reject one parameter calls.
 So as a workaround, use math.ln in place of the one parameter math.log.
+
+math.modf returns two values, an integer and a float. One minor difference from Lua is that Lua 
+may return a float for the first value if some reason it cannot return an integer, such as if
+the result is NaN (which only exists in floating point). In Pallene, the first value will always be
+converted to an integer.
 
 ## Pallene to Lua translator
 

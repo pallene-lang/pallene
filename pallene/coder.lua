@@ -1443,6 +1443,25 @@ gen_cmd["BuiltinMathAbs"] = function(self, cmd, _func)
     return util.render([[ $dst = l_mathop(fabs)($v); ]], { dst = dst, v = v })
 end
 
+gen_cmd["BuiltinMathCeil"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(ceil)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathFloor"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(floor)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathFmod"] = function(self, cmd, _func)
+    local dst = self:c_var(cmd.dsts[1])
+    local x = self:c_value(cmd.srcs[1])
+    local y = self:c_value(cmd.srcs[2])
+    return util.render([[ $dst = l_mathop(fmod)($x, $y); ]], { dst = dst, x = x, y = y })
+end
+
 gen_cmd["BuiltinMathExp"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
@@ -1467,6 +1486,13 @@ gen_cmd["BuiltinMathLog"] = function(self, cmd, _func)
     local b = self:c_value(cmd.srcs[2])
     return util.render([[ $dst = pallene_log($v, $b); ]],
         { dst = dst, v = v, b = b })
+end
+
+gen_cmd["BuiltinMathModf"] = function(self, cmd, _func)
+    local dst1 = self:c_var(cmd.dsts[1])
+    local dst2 = self:c_var(cmd.dsts[2])
+    local v = self:c_value(cmd.srcs[1])
+    return util.render([[ $dst2 = pallene_modf($v, &$dst1); ]], { dst1 = dst1, dst2 = dst2, v = v })
 end
 
 gen_cmd["BuiltinMathPow"] = function(self, cmd, _func)

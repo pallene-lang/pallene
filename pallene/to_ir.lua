@@ -1037,6 +1037,15 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "math.abs" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathAbs(loc, dsts, xs))
+            elseif bname == "math.ceil" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinMathCeil(loc, dsts, xs))
+            elseif bname == "math.floor" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinMathFloor(loc, dsts, xs))
+            elseif bname == "math.fmod" then
+                assert(#xs == 2)
+                table.insert(cmds, ir.Cmd.BuiltinMathFmod(loc, dsts, xs))
             elseif bname == "math.exp" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinMathExp(loc, dsts, xs))
@@ -1046,6 +1055,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "math.log" then
                 assert(#xs == 2)
                 table.insert(cmds, ir.Cmd.BuiltinMathLog(loc, dsts, xs))
+            elseif bname == "math.modf" then
+                assert(#xs == 1)
+                table.insert(cmds, ir.Cmd.BuiltinMathModf(loc, dsts, xs))
             elseif bname == "math.pow" then
                 assert(#xs == 2)
                 table.insert(cmds, ir.Cmd.BuiltinMathPow(loc, dsts, xs))

@@ -229,6 +229,20 @@ lua_Number pallene_log(lua_Integer x, lua_Integer base)
     }
 }
 
+static inline
+lua_Number pallene_modf(lua_Number n, lua_Integer* out)
+{
+    /* integer part (rounds toward zero) */
+    lua_Number ip = (n < 0) ? l_mathop(ceil)(n) : l_mathop(floor)(n);
+    lua_Integer fti = 0;
+    /* Note: In Lua, if NaN or cannot fit in an integer, modf returns a float.
+     * The best we can do is use the same mechanism to convert to int, but we will get 0 for NaN */
+    lua_numbertointeger(ip, &fti);
+    *out = fti;
+    /* fractional part (test needed for inf/-inf) */
+    return (n == ip) ? l_mathop(0.0) : (n - ip);
+}
+
 /* This version of lua_createtable bypasses the Lua stack, and can be inlined and optimized when the
  * allocation size is known at compilation time. */
 static inline
