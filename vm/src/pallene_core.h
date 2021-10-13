@@ -215,8 +215,11 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
     }
 }
 
+/* Based on math_log from lmathlib.c
+ * The C compiler should be able to get rid of the if statement if this function is inlined
+ * and the base parameter is a compile-time constant */
 static inline
-lua_Number pallene_log(lua_Integer x, lua_Integer base)
+lua_Number pallene_math_log(lua_Integer x, lua_Integer base)
 {
     if (base == l_mathop(10.0)) {
         return l_mathop(log10)(x);
