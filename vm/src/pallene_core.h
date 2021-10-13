@@ -215,6 +215,19 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
     }
 }
 
+static inline
+lua_Number pallene_log(lua_Integer x, lua_Integer base)
+{
+    if (base == l_mathop(10.0)) {
+        return l_mathop(log10)(x);
+#if !defined(LUA_USE_C89)
+    } else if (base == l_mathop(2.0)) {
+        return l_mathop(log2)(x);
+#endif
+    } else {
+        return l_mathop(log)(x)/l_mathop(log)(base);
+    }
+}
 
 /* This version of lua_createtable bypasses the Lua stack, and can be inlined and optimized when the
  * allocation size is known at compilation time. */

@@ -35,6 +35,10 @@ end)
 local function assert_translation(pallene_code, expected)
     assert(compile("__translation_test__.pln", pallene_code))
     local contents = assert(util.get_file_contents("__translation_test__.lua"))
+    -- The introduction of math.ln in Pallene to workaround single param math.log requires emitted
+    -- Lua code to handle this as well. The current workaround injects "math.ln = math.log; " at
+    -- the beginning of the emited Lua. This function needs to account for this injection.
+    expected = "math.ln = math.log; " .. expected
     assert.are.same(expected, contents)
 end
 

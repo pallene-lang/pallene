@@ -473,6 +473,23 @@ local x1 : integer = ns[1]
 local x2 : integer = ns[4] -- run-time error
 ```
 
+## Pallene Builtins
+
+### Math Library
+
+The Pallene compiler has builtins for the following math library functions:
+ * math.abs(x)
+ * math.exp(x)
+ * math.ln(x)
+ * math.log(x, base)
+ * math.pow(x, y)
+ * math.sqrt(x)
+
+All these functions currently require float arguments. The compiler will reject integer arguments.
+
+At this time, math.log requires two parameters, and the compiler will reject one parameter calls.
+So as a workaround, use math.ln in place of the one parameter math.log.
+
 ## Pallene to Lua translator
 
 There are situations where removal of type annotations are useful.
