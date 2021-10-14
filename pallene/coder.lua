@@ -1465,7 +1465,7 @@ gen_cmd["BuiltinMathLog"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
     local b = self:c_value(cmd.srcs[2])
-    return util.render([[ $dst = pallene_log($v, $b); ]],
+    return util.render([[ $dst = pallene_math_log($v, $b); ]],
         { dst = dst, v = v, b = b })
 end
 
