@@ -1446,13 +1446,13 @@ end
 gen_cmd["BuiltinMathCeil"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
-    return util.render([[ $dst = l_mathop(ceil)($v); ]], { dst = dst, v = v })
+    return util.render([[ $dst = (LUA_INTEGER)l_mathop(ceil)($v); ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinMathFloor"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
-    return util.render([[ $dst = l_mathop(floor)($v); ]], { dst = dst, v = v })
+    return util.render([[ $dst = (LUA_INTEGER)l_mathop(floor)($v); ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinMathFmod"] = function(self, cmd, _func)

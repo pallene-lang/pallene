@@ -1458,58 +1458,44 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
     describe("math.ceil builtin", function()
         compile([[
-            function m.ceil_value(x: float): float
+            function m.ceil_value(x: float): integer
                 return math.ceil(x)
             end
         ]])
 
         it("works on positive numbers", function()
             run_test([[
-                assert(1.0 == test.ceil_value(1.0))
-                assert(8.0 == test.ceil_value(7.7))
+                assert(1 == test.ceil_value(1.0))
+                assert(8 == test.ceil_value(7.7))
             ]])
         end)
 
         it("works on negative numbers", function()
             run_test([[
-                assert(-1.0 == test.ceil_value(-1.0))
-                assert(-11.0 == test.ceil_value(-11.7))
-            ]])
-        end)
-
-        it("returns NaN on NaN", function()
-            run_test([[
-                local x = test.ceil_value(0.0 / 0.0)
-                assert(x ~= x)
+                assert(-1 == test.ceil_value(-1.0))
+                assert(-11 == test.ceil_value(-11.7))
             ]])
         end)
     end)
 
     describe("math.floor builtin", function()
         compile([[
-            function m.floor_value(x: float): float
+            function m.floor_value(x: float): integer
                 return math.floor(x)
             end
         ]])
 
         it("works on positive numbers", function()
             run_test([[
-                assert(1.0 == test.floor_value(1.0))
-                assert(7.0 == test.floor_value(7.7))
+                assert(1 == test.floor_value(1.0))
+                assert(7 == test.floor_value(7.7))
             ]])
         end)
 
         it("works on negative numbers", function()
             run_test([[
-                assert(-1.0 == test.floor_value(-1.0))
-                assert(-12.0 == test.floor_value(-11.7))
-            ]])
-        end)
-
-        it("returns NaN on NaN", function()
-            run_test([[
-                local x = test.floor_value(0.0 / 0.0)
-                assert(x ~= x)
+                assert(-1 == test.floor_value(-1.0))
+                assert(-12 == test.floor_value(-11.7))
             ]])
         end)
     end)
