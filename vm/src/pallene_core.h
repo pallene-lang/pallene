@@ -220,7 +220,7 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 }
 
 static inline
-lua_Number pallene_ceil(lua_State *L, const char* file, int line, lua_Number n)
+lua_Number pallene_math_ceil(lua_State *L, const char* file, int line, lua_Number n)
 {
     lua_Number d = l_mathop(ceil)(n);
     lua_Integer fti = 0;
@@ -234,7 +234,7 @@ lua_Number pallene_ceil(lua_State *L, const char* file, int line, lua_Number n)
 }
 
 static inline
-lua_Number pallene_floor(lua_State *L, const char* file, int line, lua_Number n)
+lua_Number pallene_math_floor(lua_State *L, const char* file, int line, lua_Number n)
 {
     lua_Number d = l_mathop(floor)(n);
     lua_Integer fti = 0;
@@ -265,7 +265,7 @@ lua_Number pallene_math_log(lua_Integer x, lua_Integer base)
 }
 
 static inline
-lua_Number pallene_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Integer* out)
+lua_Number pallene_math_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Integer* out)
 {
     /* integer part (rounds toward zero) */
     lua_Number ip = (n < 0) ? l_mathop(ceil)(n) : l_mathop(floor)(n);
