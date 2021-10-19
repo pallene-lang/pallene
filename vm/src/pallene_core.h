@@ -219,32 +219,32 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
     }
 }
 
-static inline
-lua_Number pallene_math_ceil(lua_State *L, const char* file, int line, lua_Number n)
+/* Some Lua math functions return integer if the result fits in integer, or float if it doesn't.
+ * In Pallene, we can't return different types, so we instead raise an error if it doesn't fit 
+ * See also: pushnumint in lmathlib */
+static inline 
+lua_Integer pallene_checked_float_to_int(lua_State *L, const char* file, int line, lua_Number d)
 {
-    lua_Number d = l_mathop(ceil)(n);
-    lua_Integer fti = 0;
-    /* Note: In Lua, if NaN or cannot fit in an integer, ceil returns a float. */
-    if (lua_numbertointeger(d, &fti)) {
-        return fti;
-    }
-    else {
+    lua_Integer n;
+    if (lua_numbertointeger(d, &n)) {
+        return n;
+    } else {
         pallene_runtime_number_to_integer_error(L, file, line);
     }
 }
 
 static inline
-lua_Number pallene_math_floor(lua_State *L, const char* file, int line, lua_Number n)
+lua_Integer pallene_math_ceil(lua_State *L, const char* file, int line, lua_Number n)
+{
+    lua_Number d = l_mathop(ceil)(n);
+    return pallene_checked_float_to_int(L, file, line, d);
+}
+
+static inline
+lua_Integer pallene_math_floor(lua_State *L, const char* file, int line, lua_Number n)
 {
     lua_Number d = l_mathop(floor)(n);
-    lua_Integer fti = 0;
-    /* Note: In Lua, if NaN or cannot fit in an integer, floor returns a float. */
-    if (lua_numbertointeger(d, &fti)) {
-        return fti;
-    }
-    else {
-        pallene_runtime_number_to_integer_error(L, file, line);
-    }
+    return pallene_checked_float_to_int(L, file, line, d);
 }
 
 /* Based on math_log from lmathlib.c
@@ -269,16 +269,9 @@ lua_Number pallene_math_modf(lua_State *L, const char* file, int line, lua_Numbe
 {
     /* integer part (rounds toward zero) */
     lua_Number ip = (n < 0) ? l_mathop(ceil)(n) : l_mathop(floor)(n);
-    lua_Integer fti = 0;
-    /* Note: In Lua, if NaN or cannot fit in an integer, modf returns a float. */
-    if (lua_numbertointeger(ip, &fti)) {
-        *out = fti;
-        /* fractional part (test needed for inf/-inf) */
-        return (n == ip) ? l_mathop(0.0) : (n - ip);
-    }
-    else {
-        pallene_runtime_number_to_integer_error(L, file, line);
-    }
+    *out = pallene_checked_float_to_int(L, file, line, ip);
+    /* fractional part (test needed for inf/-inf) */
+    return (n == ip) ? l_mathop(0.0) : (n - ip);
 }
 
 /* This version of lua_createtable bypasses the Lua stack, and can be inlined and optimized when the
