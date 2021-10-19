@@ -265,13 +265,13 @@ lua_Number pallene_math_log(lua_Integer x, lua_Integer base)
 }
 
 static inline
-lua_Number pallene_math_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Integer* out)
+lua_Integer pallene_math_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Number* out)
 {
     /* integer part (rounds toward zero) */
     lua_Number ip = (n < 0) ? l_mathop(ceil)(n) : l_mathop(floor)(n);
-    *out = pallene_checked_float_to_int(L, file, line, ip);
     /* fractional part (test needed for inf/-inf) */
-    return (n == ip) ? l_mathop(0.0) : (n - ip);
+    *out = (n == ip) ? l_mathop(0.0) : (n - ip);
+    return pallene_checked_float_to_int(L, file, line, ip);
 }
 
 /* This version of lua_createtable bypasses the Lua stack, and can be inlined and optimized when the
