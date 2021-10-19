@@ -98,6 +98,15 @@ void pallene_runtime_mod_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
+void pallene_runtime_number_to_integer_error(
+    lua_State *L,
+    const char* file,
+    int line
+){
+    luaL_error(L, "file %s: line %d: conversion from float does not fit into integer", file, line);
+    PALLENE_UNREACHABLE;
+}
+
 void pallene_runtime_array_metatable_error(
     lua_State *L, const char* file, int line
 ){

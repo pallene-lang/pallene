@@ -54,6 +54,10 @@ void pallene_runtime_mod_by_zero_error(
     lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
 
+void pallene_runtime_number_to_integer_error(
+    lua_State *L, const char* file, int line)
+    PALLENE_NORETURN;
+
 void pallene_runtime_array_metatable_error(
     lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
@@ -215,6 +219,34 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
     }
 }
 
+static inline
+lua_Number pallene_ceil(lua_State *L, const char* file, int line, lua_Number n)
+{
+    lua_Number d = l_mathop(ceil)(n);
+    lua_Integer fti = 0;
+    /* Note: In Lua, if NaN or cannot fit in an integer, ceil returns a float. */
+    if (lua_numbertointeger(d, &fti)) {
+        return fti;
+    }
+    else {
+        pallene_runtime_number_to_integer_error(L, file, line);
+    }
+}
+
+static inline
+lua_Number pallene_floor(lua_State *L, const char* file, int line, lua_Number n)
+{
+    lua_Number d = l_mathop(floor)(n);
+    lua_Integer fti = 0;
+    /* Note: In Lua, if NaN or cannot fit in an integer, floor returns a float. */
+    if (lua_numbertointeger(d, &fti)) {
+        return fti;
+    }
+    else {
+        pallene_runtime_number_to_integer_error(L, file, line);
+    }
+}
+
 /* Based on math_log from lmathlib.c
  * The C compiler should be able to get rid of the if statement if this function is inlined
  * and the base parameter is a compile-time constant */
@@ -229,6 +261,23 @@ lua_Number pallene_math_log(lua_Integer x, lua_Integer base)
 #endif
     } else {
         return l_mathop(log)(x)/l_mathop(log)(base);
+    }
+}
+
+static inline
+lua_Number pallene_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Integer* out)
+{
+    /* integer part (rounds toward zero) */
+    lua_Number ip = (n < 0) ? l_mathop(ceil)(n) : l_mathop(floor)(n);
+    lua_Integer fti = 0;
+    /* Note: In Lua, if NaN or cannot fit in an integer, modf returns a float. */
+    if (lua_numbertointeger(ip, &fti)) {
+        *out = fti;
+        /* fractional part (test needed for inf/-inf) */
+        return (n == ip) ? l_mathop(0.0) : (n - ip);
+    }
+    else {
+        pallene_runtime_number_to_integer_error(L, file, line);
     }
 }
 
