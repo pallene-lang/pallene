@@ -863,7 +863,27 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
             elseif def._tag == "checker.Def.Function" then
                 decl = def.func
             elseif def._tag == "checker.Def.Builtin" then
-                error("not implemented")
+                if var._type._tag == "types.T.Float" then
+                    local bname = def.id
+                    if bname == "math.pi" then
+                        return ir.Value.Float(math.pi)
+                    elseif bname == "math.huge" then
+                        return ir.Value.Float(math.huge)
+                    else
+                        typedecl.tag_error(bname)
+                    end
+                elseif var._type._tag == "types.T.Integer" then
+                    local bname = def.id
+                    if bname == "math.maxinteger" then
+                        return ir.Value.Integer(math.maxinteger)
+                    elseif bname == "math.mininteger" then
+                        return ir.Value.Integer(math.mininteger)
+                    else
+                        typedecl.tag_error(bname)
+                    end
+                else
+                    error("not implemented")
+                end
             else
                 typedecl.tag_error(def._tag)
             end
