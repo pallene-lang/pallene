@@ -54,6 +54,10 @@ void pallene_runtime_mod_by_zero_error(
     lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
 
+void pallene_runtime_number_to_integer_error(
+    lua_State *L, const char* file, int line)
+    PALLENE_NORETURN;
+
 void pallene_runtime_array_metatable_error(
     lua_State *L, const char* file, int line)
     PALLENE_NORETURN;
@@ -215,6 +219,34 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
     }
 }
 
+/* Some Lua math functions return integer if the result fits in integer, or float if it doesn't.
+ * In Pallene, we can't return different types, so we instead raise an error if it doesn't fit 
+ * See also: pushnumint in lmathlib */
+static inline 
+lua_Integer pallene_checked_float_to_int(lua_State *L, const char* file, int line, lua_Number d)
+{
+    lua_Integer n;
+    if (lua_numbertointeger(d, &n)) {
+        return n;
+    } else {
+        pallene_runtime_number_to_integer_error(L, file, line);
+    }
+}
+
+static inline
+lua_Integer pallene_math_ceil(lua_State *L, const char* file, int line, lua_Number n)
+{
+    lua_Number d = l_mathop(ceil)(n);
+    return pallene_checked_float_to_int(L, file, line, d);
+}
+
+static inline
+lua_Integer pallene_math_floor(lua_State *L, const char* file, int line, lua_Number n)
+{
+    lua_Number d = l_mathop(floor)(n);
+    return pallene_checked_float_to_int(L, file, line, d);
+}
+
 /* Based on math_log from lmathlib.c
  * The C compiler should be able to get rid of the if statement if this function is inlined
  * and the base parameter is a compile-time constant */
@@ -230,6 +262,16 @@ lua_Number pallene_math_log(lua_Integer x, lua_Integer base)
     } else {
         return l_mathop(log)(x)/l_mathop(log)(base);
     }
+}
+
+static inline
+lua_Integer pallene_math_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Number* out)
+{
+    /* integer part (rounds toward zero) */
+    lua_Number ip = (n < 0) ? l_mathop(ceil)(n) : l_mathop(floor)(n);
+    /* fractional part (test needed for inf/-inf) */
+    *out = (n == ip) ? l_mathop(0.0) : (n - ip);
+    return pallene_checked_float_to_int(L, file, line, ip);
 }
 
 /* This version of lua_createtable bypasses the Lua stack, and can be inlined and optimized when the

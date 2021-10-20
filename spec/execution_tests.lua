@@ -1456,6 +1456,83 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("math.ceil builtin", function()
+        compile([[
+            function m.ceil_value(x: float): integer
+                return math.ceil(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1 == test.ceil_value(1.0))
+                assert(8 == test.ceil_value(7.7))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-1 == test.ceil_value(-1.0))
+                assert(-11 == test.ceil_value(-11.7))
+            ]])
+        end)
+    end)
+
+    describe("math.floor builtin", function()
+        compile([[
+            function m.floor_value(x: float): integer
+                return math.floor(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1 == test.floor_value(1.0))
+                assert(7 == test.floor_value(7.7))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-1 == test.floor_value(-1.0))
+                assert(-12 == test.floor_value(-11.7))
+            ]])
+        end)
+    end)
+
+    describe("math.fmod builtin", function()
+        compile([[
+            function m.fmod_value(x: float, y: float): float
+                return math.fmod(x, y)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.fmod_value(8.0, 2.0))
+                assert(2.0 == test.fmod_value(8.0, 3.0))
+                assert(1.4 == test.fmod_value(1.4, 3.0))
+                assert(0.5 == test.fmod_value(8.0, 2.5))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(2.0 == test.fmod_value(8.0, -3.0))
+                assert(-2.0 == test.fmod_value(-8.0, 3.0))
+                assert(-1.4 == test.fmod_value(-1.4, 3.0))
+                assert(-0.5 == test.fmod_value(-8.0, 2.5))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.fmod_value(0.0 / 0.0, 0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
     describe("math.exp builtin", function()
         compile([[
             function m.exponential_value(x: float): float
@@ -1547,6 +1624,36 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[
                 local x = test.math_log(0.0 / 0.0, 0.0 / 0.0)
                 assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.modf builtin", function()
+        compile([[
+            function m.math_modf(x: float): (integer, float)
+                return math.modf(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                local integral, fractional = test.math_modf(1.0)
+                assert(1 == integral)
+                assert(0.0 == tonumber(string.format("%.1f", fractional)))
+                local integral, fractional = test.math_modf(2.3)
+                assert(2 == integral)
+                assert(0.3 == tonumber(string.format("%.1f", fractional)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                local integral, fractional = test.math_modf(-1.0)
+                assert(-1 == integral)
+                assert(0.0 == tonumber(string.format("%.1f", fractional)))
+                local integral, fractional = test.math_modf(-2.3)
+                assert(-2 == integral)
+                assert(-0.3 == tonumber(string.format("%.1f", fractional)))
             ]])
         end)
     end)
