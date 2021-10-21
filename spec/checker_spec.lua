@@ -405,7 +405,7 @@ describe("Assignment statement", function()
         ]], "LHS of assignment is not a mutable variable")
     end)
 
-    it("catches assignment to builtin (with correct type)", function ()
+    it("catches assignment to builtin function (with correct type)", function ()
         assert_error([[
             function m.f(x: string)
             end
@@ -416,13 +416,21 @@ describe("Assignment statement", function()
         ]], "LHS of assignment is not a mutable variable")
     end)
 
-    it("catches assignment to builtin (with wrong type)", function ()
+    it("catches assignment to builtin function (with wrong type)", function ()
         assert_error([[
             function m.f(x: integer)
             end
 
             function m.g()
                 io.write = m.f
+            end
+        ]], "LHS of assignment is not a mutable variable")
+    end)
+
+    it("catches assignment to builtin constant", function()
+        assert_error([[
+            function m.g()
+                math.pi = 3.0
             end
         ]], "LHS of assignment is not a mutable variable")
     end)
