@@ -33,6 +33,11 @@ builtins.modules = {
         modf  = T.Function({ T.Float() }, { T.Integer(), T.Float() }),
         pow   = T.Function({ T.Float(), T.Float() }, { T.Float() }),
         sqrt  = T.Function({ T.Float() }, { T.Float() }),
+        -- constant numbers
+        huge        = T.Float(),
+        mininteger  = T.Integer(),
+        maxinteger  = T.Integer(),
+        pi          = T.Float(),
     },
     string = {
         char = T.Function({ T.Integer() }, { T.String() }),

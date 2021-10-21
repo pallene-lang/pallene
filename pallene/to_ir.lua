@@ -863,7 +863,15 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
             elseif def._tag == "checker.Def.Function" then
                 decl = def.func
             elseif def._tag == "checker.Def.Builtin" then
-                error("not implemented")
+                local bname  = def.id
+                if     bname == "math.pi"   then return ir.Value.Float(math.pi)
+                elseif bname == "math.huge" then return ir.Value.Float(math.huge)
+                elseif bname == "math.maxinteger" then return ir.Value.Integer(math.maxinteger)
+                elseif bname == "math.mininteger" then return ir.Value.Integer(math.mininteger)
+                else
+                    -- See https://github.com/pallene-lang/pallene/issues/337
+                    error("not implemented")
+                end
             else
                 typedecl.tag_error(def._tag)
             end

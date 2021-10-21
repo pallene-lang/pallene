@@ -477,19 +477,23 @@ local x2 : integer = ns[4] -- run-time error
 
 ### Math Library
 
-The Pallene compiler has builtins for the following math library functions:
+The Pallene compiler has builtins for the following math library functions and constants:
  * math.abs(x)
  * math.ceil(x)
  * math.exp(x)
  * math.floor(x)
  * math.fmod(x, y)
+ * math.huge
  * math.ln(x)
  * math.log(x, base)
+ * math.maxinteger
+ * math.mininteger
  * math.modf(x)
+ * math.pi
  * math.pow(x, y)
  * math.sqrt(x)
 
-All these functions currently require float arguments. The compiler will reject integer arguments.
+All the functions currently require float arguments. The compiler will reject integer arguments.
 
 At this time, math.log requires two parameters, and the compiler will reject one parameter calls.
 So as a workaround, use math.ln in place of the one parameter math.log.

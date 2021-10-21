@@ -1425,6 +1425,62 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("math.huge builtin", function()
+        compile([[
+            function m.get_huge(): float
+                return math.huge
+            end
+        ]])
+
+        it("Pallene huge equals Lua huge", function()
+            run_test([[
+                assert(math.huge == test.get_huge())
+            ]])
+        end)
+    end)
+
+    describe("math.mininteger builtin", function()
+        compile([[
+            function m.get_mininteger(): integer
+                return math.mininteger
+            end
+        ]])
+
+        it("Pallene mininteger equals Lua mininteger", function()
+            run_test([[
+                assert(math.mininteger == test.get_mininteger())
+            ]])
+        end)
+    end)
+
+    describe("math.maxinteger builtin", function()
+        compile([[
+            function m.get_maxinteger(): integer
+                return math.maxinteger
+            end
+        ]])
+
+        it("Pallene maxinteger equals Lua maxinteger", function()
+            run_test([[
+                assert(math.maxinteger == test.get_maxinteger())
+            ]])
+        end)
+    end)
+
+    describe("math.pi builtin", function()
+        compile([[
+            function m.get_pi(): float
+                return math.pi
+            end
+        ]])
+
+        it("Pallene pi equals Lua pi", function()
+            run_test([[
+                assert(math.pi == test.get_pi())
+            ]])
+        end)
+    end)
+
     -- Note: Implementation currenly only supports float and uses fabs().
     -- Test avoids differences that may be caused by needing integers.
     describe("math.abs builtin", function()
