@@ -1511,7 +1511,7 @@ end
 gen_cmd["BuiltinMathSqrt"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
-    return util.render([[ $dst = sqrt($v); ]], { dst = dst, v = v })
+    return util.render([[ $dst = l_mathop(sqrt)($v); ]], { dst = dst, v = v })
 end
 
 gen_cmd["BuiltinStringChar"] = function(self, cmd, _func)
