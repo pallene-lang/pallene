@@ -3,6 +3,11 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- COMPILER PASSES
+-- ===============
+-- This module is responsible for the main compiler pipeline. It's job is to
+-- invoke the compiler passes in the right order, passing the data as needed.
+
 local c_compiler = require "pallene.c_compiler"
 local checker = require "pallene.checker"
 local assignment_conversion = require "pallene.assignment_conversion"

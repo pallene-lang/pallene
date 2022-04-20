@@ -3,6 +3,10 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- SYMBOL TABLE
+-- ============
+-- Used by the typechecker
+
 local util = require "pallene.util"
 
 local Symtab = util.Class()

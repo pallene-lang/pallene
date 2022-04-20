@@ -3,6 +3,24 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- CONSTANT PROPAGATION
+-- ====================
+-- This optimization pass replaces const variables by their respective
+-- literals. Doing this will help later intra-procedural optimization,
+-- by allowing the inner functions to see that they are using a constant.
+-- For example:
+--
+--     local N = 42
+--     local function foo(): integer
+--        return N
+--     end
+--
+-- is converted into this:
+--
+--     local function foo(): integer
+--         return 42
+--     end
+
 local ir = require "pallene.ir"
 local typedecl = require "pallene.typedecl"
 
@@ -43,9 +61,9 @@ local function FuncData(func)
     return fdata
 end
 
--- Replaces toplevel constant variables by their respective values.
+-- Replaces outer constant variables by their respective values.
 --
--- Currently assumes that the toplevel constant variable is initialized with a constant literal.
+-- Currently assumes that the outer constant variable is initialized with a constant literal.
 -- Does not currently recognize non-trivial constant expressions as being constant.
 function constant_propagation.run(module)
 

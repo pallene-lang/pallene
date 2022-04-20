@@ -3,16 +3,18 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local lpeg = require "lpeg"
-local re = require "re"
-local Location = require "pallene.Location"
-local util = require "pallene.util"
-
+-- PALLENE LEXER
+-- =============
 -- This module implements the Pallene lexer, which is loosely based on the Lua lexer from llex.c.
 -- In particular, we also reuse most of the error messages. One small difference is that we don't
 -- write the "near xxx" when a lexer error happens inside a string, because that info is redundant
 -- with the column numbers that we provide and Lua doesn't. Another difference is that we raise an
 -- error if we encounter an unexpected symbol, instead of punting that to the parser.
+
+local lpeg = require "lpeg"
+local re = require "re"
+local Location = require "pallene.Location"
+local util = require "pallene.util"
 
 local P  = lpeg.P
 local RE = re.compile

@@ -3,10 +3,10 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local typedecl = require "pallene.typedecl"
-
--- Pallene IR is a lower level representation of Pallene that is easier for the optimizer and the
--- coder generator to work with.
+-- PALLENE INTERMEDIATE REPRESENTATION
+-- ===================================
+-- A lower level representation of Pallene that is easier for the optimizer
+-- and the code generator to work with.
 --
 -- * Each module is represented as an ir.Module
 -- * Functions, global variables, records, etc are identified by a numeric ID.
@@ -19,6 +19,8 @@ local typedecl = require "pallene.typedecl"
 -- There is still some statement-level nesting, with if.Cmd.Loop, ir.Cmd.If, etc. We think that
 -- structured control flow is easier to reason about then an unstructured control flow graph built
 -- around basic blocks and gotos.
+
+local typedecl = require "pallene.typedecl"
 
 local ir = {}
 
@@ -158,6 +160,8 @@ local ir_cmd_constructors = {
     SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
+    -- note: the reason NewClosure and SetUpvalues are separate operations is so
+    -- we can create self-referential closures, for recursion or mutual recursion.
     NewClosure  = {"loc", "dst"  , "f_id"},
     SetUpvalues = {"loc", "src_f", "srcs", "f_id"},
 

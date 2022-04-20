@@ -3,6 +3,15 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- INVOKING THE C COMPILER
+-- =======================
+-- Functions for calling the system C compiler.
+-- Currently, the MacOS functionality is not tested regularly; none of the devs
+-- still use it and it is not tested by the CI. Furthermore, we do not support
+-- Windows. This is unfortunate. Maybe we should give this resposibility to
+-- an external library that is better at this sort of thing.
+-- https://github.com/pallene-lang/pallene/issues/516
+
 local util = require "pallene.util"
 
 local c_compiler = {}

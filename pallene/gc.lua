@@ -6,8 +6,8 @@
 local ir = require "pallene.ir"
 local types = require "pallene.types"
 
-local gc = {}
-
+-- GARBAGE COLLECTION
+-- ==================
 -- For proper garbage collection in Pallene we must ensure that at every potential garbage
 -- collection site all the live GC values must be saved to the the Lua stack, where the GC can see
 -- them. The way that we do this is that whenever we assign to a local variable that has a GC type
@@ -34,20 +34,22 @@ local gc = {}
 --   4) Use SSA form or some form of reaching definitions analysis so that we we only need to mirror
 --      the writes that reach a GC site, instead of always mirroring all writes to a variable if one
 --      of them reaches a GC site.
---
+
+local gc = {}
+
 function gc.compute_stack_slots(func)
 
     local flat_cmds = ir.flatten_cmd(func.body)
 
-    -- 1) Compute approximated live intervals for GC variables defined by the function. Input
-    -- variables are only counted if they are redefined, since their original value was already
-    -- saved by the caller.
+    -- 1) Compute approximated live intervals for GC variables defined by the function. Function
+    -- parameters are only counted if they are redefined, since their original value was already
+    -- saved by the caller. Also note that we only care about variables, not about upvalues.
+    -- The latter are already exposed to the GC via the function closures.
 
     local defined_variables = {} -- { var_id }, sorted by first definition
     local last_use          = {} -- { var_id => integer }
     local first_definition  = {} -- { var_id => integer }
 
-    -- Upvalues can always be reached by the GC via their closures.
     for i, cmd in ipairs(flat_cmds) do
         for _, val in ipairs(ir.get_srcs(cmd)) do
             if val._tag == "ir.Value.LocalVar" then
@@ -64,7 +66,7 @@ function gc.compute_stack_slots(func)
         end
     end
 
-    -- 2) Find which variables are live at each GC slot.
+    -- 2) Find which variables are live at each GC spot in the program.
 
     local live_gc_vars = {} -- { cmd => {var_id}? }
     for i, cmd in ipairs(flat_cmds) do
@@ -95,8 +97,8 @@ function gc.compute_stack_slots(func)
         end
     end
 
-    -- 3) Allocate variables to stack slots, ensuring that variables with overlapping lifetimes use
-    -- different stack slots. IMPORTANT: stack slots are 0-based, to match C
+    -- 3) Allocate variables to Lua stack slots, ensuring that variables with overlapping lifetimes
+    -- different stack slots. IMPORTANT: stack slots are 0-based. The C we generate prefers that.
 
     local max_frame_size = 0
     local slot_of_variable = {} -- { var_id => integer? }

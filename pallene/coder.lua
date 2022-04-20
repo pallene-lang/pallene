@@ -3,6 +3,11 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- COMPILING PALLENE IR DOWN TO C
+-- ==============================
+-- This compiler pass converts a Pallene IR module into to executable C code.
+-- This file is fairly long. For navigation, look for the sectioning comments.
+
 local C = require "pallene.C"
 local gc = require "pallene.gc"
 local ir = require "pallene.ir"

@@ -3,9 +3,12 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
---
+-- C CODE GENERATION
+-- =================
 -- This module contains some helper functions for generating C code.
---
+-- To keep the output readable and debuggable, at the end we re-indent the
+-- program, based on the braces and curly braces. We find that this method
+-- is simpler than trying to generate indented things right out of the gate.
 
 local re = require "re"
 
