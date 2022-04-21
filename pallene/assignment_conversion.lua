@@ -6,7 +6,7 @@
 --
 -- ASSIGNMENT CONVERSION
 -- =====================
--- This Compiler pass handles mutable captured variables inside nested closures by
+-- This compiler pass handles mutable captured variables inside nested closures by
 -- transforming AST Nodes that reference or re-assign to them. All captured variables
 -- are 'boxed' inside records. For example, consider this code:
 -- ```
