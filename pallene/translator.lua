@@ -101,7 +101,7 @@ function translator.translate(input, prog_ast)
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
 
-    -- This prepends any compatibility shims we need. 
+    -- This prepends any compatibility shims we need.
     instance:prepend_compatibility_code()
 
     return table.concat(instance.partials)
