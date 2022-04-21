@@ -76,9 +76,9 @@ function constant_propagation.run(module)
 
 
     for f_id, func in ipairs(module.functions) do
-        -- DFS traversal to find the ir.Cmd.Move instructions which have constant
-        -- values as their src. We can look inside initializers in loops and if-statements because
-        -- the `uninitialized.lua` pass takes care of variables that are used before being initialized.
+        -- DFS traversal to find the ir.Cmd.Move instructions which have constant srcs.
+        -- We can look inside initializers in loops and if-statements because the uninitialized.lua
+        -- pass takes care of variables that are used before being initialized.
         local f_data = assert(data_of_func[f_id])
 
         for cmd in ir.iter(func.body) do
@@ -97,10 +97,10 @@ function constant_propagation.run(module)
                         next_f.constant_val_of_upvalue[u_id] = const_init
 
                     elseif value._tag == "ir.Value.Upvalue" then
-                        -- A `NewClosure` or `InitUpvalues` instruction can only reference values in
-                        -- outer scopes. That is, from a surrounding functions with a smaller f_id.
-                        -- Due to this, if the outer variable is initialized to a constant, we can
-                        -- reliable tie that to the upvalue we are seeing right now.
+                        -- A NewClosure or InitUpvalues instruction can only reference values in
+                        -- outer scopes, in surrounding functions that have a lower f_id. Therefore,
+                        -- if we access the functions in depth-first order then when we process a
+                        -- captured upvalue we will already know whether it is a constant or not.
                         local const_init = f_data.constant_val_of_upvalue[value.id]
                         next_f.constant_val_of_upvalue[u_id] = const_init
 
@@ -111,8 +111,6 @@ function constant_propagation.run(module)
 
             end
         end
-
-
 
         for loc_id = 1, #func.typ.arg_types do
             f_data.locvar_constant_init[loc_id] = false
@@ -149,19 +147,18 @@ function constant_propagation.run(module)
             end
         end
 
-        -- Because of the way the previous compiler passes work, it is guaranteed that an upvalue that has a
-        -- constant initializer always references a local variable with a write count of 1. In other words,
-        -- IR like this is currently not possible:
-        -- ```
-        -- x1 <- 10
-        -- loop {
-        --     x2 = NewClosure()
-        --     x2.upvalues <- x1
-        --     x1 <- 20
-        -- }
-        -- ```
-        -- Since x1 is a "mutable upvalue", the assignment_conversion pass turns it into a record type.
-        -- With this loop, we assert this assumption.
+        -- In the following loop, we verify the assumption that an upvalue with a const initializer
+        -- always references a local variable with a write count of 1. The reason for this is that
+        -- the assignment_conversion converts mutable variables into a box where the contents are
+        -- mutable but the binding itself is immutable. For example, the following is impossible:
+        --
+        --     x1 <- 10
+        --     loop {
+        --         x2 = NewClosure()
+        --         x2.upvalues <- x1
+        --         x1 <- 20
+        --     }
+        --
         for cmd in ir.iter(func.body) do
             local tag = cmd._tag
             if tag == "ir.Cmd.InitUpvalues" then
@@ -176,26 +173,25 @@ function constant_propagation.run(module)
 
     end
 
+    --
     -- 3) Remove propagated upvalues from the capture list.
+    --
+
     for _, func in ipairs(module.functions) do
         for cmd in ir.iter(func.body) do
             if cmd._tag == "ir.Cmd.InitUpvalues" then
                 local next_f   = assert(data_of_func[cmd.f_id])
-                local ir_func  = module.functions[cmd.f_id]
                 local new_u_id = next_f.new_upvalue_id
 
                 local new_srcs = {}
-                local new_captured_vars = {}
                 for u_id, value in ipairs(cmd.srcs) do
                     if not next_f.constant_val_of_upvalue[u_id] then
                         table.insert(new_srcs, value)
-                        table.insert(new_captured_vars, ir_func.captured_vars[u_id])
                         new_u_id[u_id] = #new_srcs
                     end
                 end
 
                 cmd.srcs = new_srcs
-                ir_func.captured_vars = new_captured_vars
             end
         end
     end
@@ -203,17 +199,20 @@ function constant_propagation.run(module)
 
     -- 4) Propagate the constants local variables and upvalues.
 
+    local function is_propagated_local(f_data, v_id)
+        return (f_data.n_writes_of_locvar[v_id] == 1 and f_data.locvar_constant_init[v_id])
+    end
+
     -- Returns a new `ir.Value` representing `src_val` after constant propagation.
     -- @param f_data  FuncData of the function whose IR contains `src_val`.
-    -- @param func    corresponding ir.Function
     -- @param src_val The value that we may need to update.
     local function updated_value(f_data, src_val)
-        if src_val._tag == "ir.Value.LocalVar"
-           and f_data.n_writes_of_locvar[src_val.id] == 1
-           and f_data.locvar_constant_init[src_val.id]
-        then
-            return f_data.locvar_constant_init[src_val.id]
-
+        if src_val._tag == "ir.Value.LocalVar" then
+            if is_propagated_local(f_data, src_val.id) then
+                return f_data.locvar_constant_init[src_val.id]
+            else
+                return src_val
+            end
         elseif src_val._tag == "ir.Value.Upvalue" then
             if f_data.constant_val_of_upvalue[src_val.id] then
                 return f_data.constant_val_of_upvalue[src_val.id]
@@ -221,13 +220,28 @@ function constant_propagation.run(module)
                 local u_id = assert(f_data.new_upvalue_id[src_val.id])
                 return  ir.Value.Upvalue(u_id)
             end
+        else
+            return src_val
         end
-
-        return src_val
     end
 
     for f_id, func in ipairs(module.functions) do
         local f_data = data_of_func[f_id]
+
+        do
+            local i = 0
+            local new_captured_vars = {}
+            local new_f_id_of_upvalue = {}
+            for u_id, val in ipairs(f_data.constant_val_of_upvalue) do
+                if not val then
+                    i = i + 1
+                    new_captured_vars[i] = func.captured_vars[u_id]
+                    new_f_id_of_upvalue[i] = func.f_id_of_upvalue[u_id]
+                end
+            end
+            func.captured_vars = new_captured_vars
+            func.f_id_of_upvalue = new_f_id_of_upvalue
+        end
 
         func.body = ir.map_cmd(func.body, function(cmd)
             local inputs = ir.get_value_field_names(cmd)
