@@ -835,7 +835,7 @@ end
 
 -- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a fresh variable, and add
 -- intermediate computations to the @cmds list.
-function ToIR:exp_to_value(cmds, exp, _recursive)
+function ToIR:exp_to_value(cmds, exp, is_recursive)
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
         return ir.Value.Nil()
@@ -895,7 +895,7 @@ function ToIR:exp_to_value(cmds, exp, _recursive)
         return self:exp_to_value(cmds, exp.exp)
     end
 
-    if _recursive then
+    if is_recursive then
         -- Avoid infinite loop due to type error
         error(string.format(
             "Neither exp_to_value or exp_to_assignment handled tag %q)",
