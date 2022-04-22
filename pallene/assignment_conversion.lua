@@ -3,27 +3,21 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local util     = require "pallene.util"
-local typedecl = require "pallene.typedecl"
-local types    = require "pallene.types"
-local ast      = require "pallene.ast"
-local checker  = require "pallene.checker"
-
-local converter = {}
-
 --
---  ASSIGNMENT CONVERSION
--- ======================
--- This Compiler pass handles mutable captured variables inside nested closures by
+-- ASSIGNMENT CONVERSION
+-- =====================
+-- This compiler pass handles mutable captured variables inside nested closures by
 -- transforming AST Nodes that reference or re-assign to them. All captured variables
 -- are 'boxed' inside records. For example, consider this code:
 -- ```
 -- function m.foo()
 --     local x: integer = 10
---     local set_x: (integer) -> () = function (y)
---          x = y
+--     local function set(v: integer)
+--          x = v
 --     end
---     local get_x: () -> integer = function () return x end
+--     local function get(): integer
+--          return x
+--     end
 -- end
 --```
 -- The AST representation of the above snippet, will be converted in this pass to
@@ -35,12 +29,22 @@ local converter = {}
 --
 -- function m.foo()
 --     local x: $T = { value = 10 }
---     local set_x: (integer) -> () = function (y)
---          x.value = y
+--     local function set(v:integer)
+--          x.value = v
 --     end
---     local get_x: () -> integer = function () return x.value end
+--     local function get(): integer
+--          return x.value
+--     end
 -- end
 -- ```
+
+local util     = require "pallene.util"
+local typedecl = require "pallene.typedecl"
+local types    = require "pallene.types"
+local ast      = require "pallene.ast"
+local checker  = require "pallene.checker"
+
+local converter = {}
 
 local Converter = util.Class()
 

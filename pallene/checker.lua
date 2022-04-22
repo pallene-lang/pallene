@@ -3,17 +3,9 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local ast = require "pallene.ast"
-local builtins = require "pallene.builtins"
-local symtab = require "pallene.symtab"
-local trycatch = require "pallene.trycatch"
-local types = require "pallene.types"
-local typedecl = require "pallene.typedecl"
-local util = require "pallene.util"
-
 --
--- WHAT THE TYPE CHECKER DOES
--- ==========================
+-- PALLENE TYPE CHECKING
+-- =====================
 --
 -- This compiler pass checks if the types are correct and resolves the scope of all identifiers.
 -- It produces a modified AST that is annotated with the following information:
@@ -39,10 +31,17 @@ local util = require "pallene.util"
 --   * We insert an explicit call to tofloat in some arithmetic operations. For example int + float.
 --   * We add an explicit +1 or +1.0 step in numeric for loops without a loop step.
 --
--- For these transformations to work you should always use the return value from the check_exp and
--- check_var functions. For example, instead of just `check_exp(foo.exp)` you should always write
--- `foo.exp = check_exp(foo.exp)`.
---
+-- IMPORTANT: For these transformations to work you should always use the return value from the
+-- check_exp and check_var functions. For example, instead of just `check_exp(foo.exp)` you should
+-- always write `foo.exp = check_exp(foo.exp)`.
+
+local ast = require "pallene.ast"
+local builtins = require "pallene.builtins"
+local symtab = require "pallene.symtab"
+local trycatch = require "pallene.trycatch"
+local types = require "pallene.types"
+local typedecl = require "pallene.typedecl"
+local util = require "pallene.util"
 
 local checker = {}
 
@@ -787,6 +786,7 @@ end
 -- Infers the type of expression @exp, ignoring the surrounding type context.
 -- Returns the typechecked expression. This may be either the original expression, or an inner
 -- expression if we are dropping a redundant type conversion.
+-- IMPORTANT: don't forget to use the return value
 function Checker:check_exp_synthesize(exp)
     if exp._type then
         -- This expression was already type-checked before, probably due to expand_function_returns.
@@ -1010,6 +1010,8 @@ end
 --
 -- errmsg_fmt: format string describing where we got @expected_type from
 -- ... : arguments to the "errmsg_fmt" format string
+--
+-- IMPORTANT: don't forget to use the return value
 function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
     if not expected_type then
         error("expected_type is required")
@@ -1130,6 +1132,7 @@ end
 
 -- Typechecks an initializer `x : ast_typ = exp`, where the type annotation is optional.
 -- Sets decl._type and exp._type
+-- IMPORTANT: you know the drill; Don't forget to use the return value.
 function Checker:check_initializer_exp(decl, exp, err_fmt, ...)
     assert(decl)
     assert(exp)

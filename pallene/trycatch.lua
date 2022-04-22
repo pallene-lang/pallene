@@ -8,7 +8,7 @@ local trycatch = {}
 local util = require "pallene.util"
 
 -- Object-based error handling
--- ---------------------------
+-- ===========================
 --
 -- Lua encourages programmers to use strings for error messages, but that doesn't work well if we
 -- want to implement a try-catch pattern. Firstly, each time that we re-raise a string exception,

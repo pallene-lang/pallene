@@ -3,13 +3,15 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- PALLENE PARSER
+-- ==============
+-- This is loosely based on the recursive descent Lua parser from lparser.c,
+-- including the error messages. We use an LL(2) grammar, which requires one
+-- extra token of lookahead.
+
 local ast = require "pallene.ast"
 local util = require "pallene.util"
 local trycatch = require "pallene.trycatch"
-
--- This module implements the Pallene parser. It is loosely based on the Lua parser from lparser.c,
--- including the error messages. We use an LL(2) grammar, which requires one extra token of
--- lookahead.
 
 local Parser = util.Class()
 

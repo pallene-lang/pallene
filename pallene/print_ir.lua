@@ -3,14 +3,16 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- IR PRETTY PRINTER
+-- =================
+-- Generates a human-readable representation of the IR.
+
 local C = require "pallene.C"
 local ir = require "pallene.ir"
 local util = require "pallene.util"
 local typedecl = require "pallene.typedecl"
 
---
--- Generates a human-readable representation of the IR.
---
+
 
 local function comma_concat(ss)
     return table.concat(ss, ", ")

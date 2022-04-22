@@ -3,6 +3,8 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- TAGGED UNIONS
+-- =============
 -- Pallene uses a lot of tagged unions / variant records. In Lua we represent
 -- them as tables with a `_tag` field that is an unique string. Since there are
 -- so many of them, we made a helper function to help construct these objects,
