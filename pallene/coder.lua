@@ -1331,7 +1331,7 @@ gen_cmd["NewClosure"] = function (self, cmd, _func)
     })
 end
 
-gen_cmd["SetUpvalues"] = function(self, cmd, _func)
+gen_cmd["InitUpvalues"] = function(self, cmd, _func)
     local func = self.module.functions[cmd.f_id]
 
     assert(cmd.src_f._tag == "ir.Value.LocalVar")

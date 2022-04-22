@@ -160,10 +160,10 @@ local ir_cmd_constructors = {
     SetField   = {"loc", "rec_typ",        "src_rec", "field_name", "src_v"},
 
     -- Functions
-    -- note: the reason NewClosure and SetUpvalues are separate operations is so
+    -- note: the reason NewClosure and InitUpvalues are separate operations is so
     -- we can create self-referential closures, for recursion or mutual recursion.
-    NewClosure  = {"loc", "dst"  , "f_id"},
-    SetUpvalues = {"loc", "src_f", "srcs", "f_id"},
+    NewClosure   = {"loc", "dst", "f_id"},
+    InitUpvalues = {"loc", "src_f", "srcs", "f_id"},
 
     -- (dst is false if the return value is void, or unused)
     CallStatic  = {"loc", "f_typ", "dsts", "src_f", "srcs"},

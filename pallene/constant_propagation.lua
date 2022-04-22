@@ -89,7 +89,7 @@ function constant_propagation.run(module)
                     f_data.locvar_constant_init[id] = cmd.src
                 end
 
-            elseif tag == "ir.Cmd.SetUpvalues" then
+            elseif tag == "ir.Cmd.InitUpvalues" then
                 for u_id, value in ipairs(cmd.srcs) do
                     local next_f = data_of_func[cmd.f_id]
                     if value._tag == "ir.Value.LocalVar" then
@@ -97,10 +97,10 @@ function constant_propagation.run(module)
                         next_f.constant_val_of_upvalue[u_id] = const_init
 
                     elseif value._tag == "ir.Value.Upvalue" then
-                        -- A `NewClosure` or `SetUpvalues` instruction can only reference values in outer scopes,
-                        -- which exist in surrounding functions that have a numerically lesser `f_id`.
-                        -- Due to this, we can reliable tie the constant initializer of an inner upvalue in a nested
-                        -- function to the constantant initializer of the outer upvalue that it captures.
+                        -- A `NewClosure` or `InitUpvalues` instruction can only reference values in
+                        -- outer scopes. That is, from a surrounding functions with a smaller f_id.
+                        -- Due to this, if the outer variable is initialized to a constant, we can
+                        -- reliable tie that to the upvalue we are seeing right now.
                         local const_init = f_data.constant_val_of_upvalue[value.id]
                         next_f.constant_val_of_upvalue[u_id] = const_init
 
@@ -127,7 +127,7 @@ function constant_propagation.run(module)
 
         for cmd in ir.iter(func.body) do
             local tag = cmd._tag
-            if tag == "ir.Cmd.SetUpvalues" then
+            if tag == "ir.Cmd.InitUpvalues" then
                 local next_f = assert(data_of_func[cmd.f_id])
                 for u_id, value in ipairs(cmd.srcs) do
                     if value._tag == "ir.Value.LocalVar" then
@@ -164,7 +164,7 @@ function constant_propagation.run(module)
         -- With this loop, we assert this assumption.
         for cmd in ir.iter(func.body) do
             local tag = cmd._tag
-            if tag == "ir.Cmd.SetUpvalues" then
+            if tag == "ir.Cmd.InitUpvalues" then
                 local next_f = assert(data_of_func[cmd.f_id])
                 for u_id, value in ipairs(cmd.srcs) do
                     if value._tag == "ir.Value.LocalVar" and next_f.constant_val_of_upvalue[u_id] then
@@ -179,7 +179,7 @@ function constant_propagation.run(module)
     -- 3) Remove propagated upvalues from the capture list.
     for _, func in ipairs(module.functions) do
         for cmd in ir.iter(func.body) do
-            if cmd._tag == "ir.Cmd.SetUpvalues" then
+            if cmd._tag == "ir.Cmd.InitUpvalues" then
                 local next_f   = assert(data_of_func[cmd.f_id])
                 local ir_func  = module.functions[cmd.f_id]
                 local new_u_id = next_f.new_upvalue_id
