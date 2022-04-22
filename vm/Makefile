@@ -40,17 +40,13 @@ PLATS= guess aix bsd c89 freebsd generic linux linux-readline macosx mingw posix
 
 # What to install.
 TO_BIN= lua luac
-TO_INC= lua.hpp \
-        lapi.h lauxlib.h lcode.h lctype.h ldebug.h ldo.h lfunc.h lgc.h ljumptab.h \
-        llex.h llimits.h lmem.h lobject.h lopcodes.h lopnames.h lparser.h lprefix.h \
-        lstate.h lstring.h ltable.h ltm.h luaconf.h lua.h lualib.h lundump.h lvm.h \
-        lzio.h pallene_core.h
+TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp
 TO_LIB= liblua.a
 TO_MAN= lua.1 luac.1
 
 # Lua version and release.
 V= 5.4
-R= $V.3
+R= $V.4
 
 # Targets start here.
 all:	$(PLAT)
