@@ -1599,7 +1599,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         it("works on positive numbers", function()
             run_test([[
                 assert(1.0 == test.exponential_value(0.0))
-                assert(2.718 == tonumber(string.format("%.3f", 
+                assert(2.718 == tonumber(string.format("%.3f",
                     test.exponential_value(1.0))))
             ]])
         end)
