@@ -220,9 +220,9 @@ lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 }
 
 /* Some Lua math functions return integer if the result fits in integer, or float if it doesn't.
- * In Pallene, we can't return different types, so we instead raise an error if it doesn't fit 
+ * In Pallene, we can't return different types, so we instead raise an error if it doesn't fit
  * See also: pushnumint in lmathlib */
-static inline 
+static inline
 lua_Integer pallene_checked_float_to_int(lua_State *L, const char* file, int line, lua_Number d)
 {
     lua_Integer n;

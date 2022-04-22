@@ -1,5 +1,6 @@
 #!/bin/sh
 
+space=' '
 tab='	'
 ok=yes
 
@@ -22,11 +23,19 @@ for file in \
     examples/*/*.lua examples/*/*.pln \
     vm/src/pallene_core.c vm/src/pallene_core.h
 do
-    if grep "^$tab" "$file"; then
+    if grep --line-number "[$space$tab]$" "$file"; then
+        # Forbid trailing whitespace because some editors like to automatically delete it.
+        # Such whitespace can cause spurious diffs later down the road, when someone is working on
+        # an unrelated pull request and their editor "helpfully" deletes the trailing whitespace.
+        error "File $file has a line that ends in whitespace"
+    fi
+
+    if grep --line-number "^$tab" "$file"; then
+        # Standardize on spaces because mixing tabs and spaces is endless pain.
         error "File $file has tab-based indentation"
     fi
 
-    if ! grep --quiet 'SPDX-License-Identifier' "$file"; then
+    if ! grep --line-number --quiet 'SPDX-License-Identifier' "$file"; then
         error "File $file is missing a copyright header"
     fi
 done

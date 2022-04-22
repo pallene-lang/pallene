@@ -1452,7 +1452,7 @@ gen_cmd["BuiltinMathCeil"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
     local line = cmd.loc.line
-    return util.render([[ $dst = pallene_math_ceil(L, PALLENE_SOURCE_FILE, $line, $v); ]], { 
+    return util.render([[ $dst = pallene_math_ceil(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
@@ -1460,7 +1460,7 @@ gen_cmd["BuiltinMathFloor"] = function(self, cmd, _func)
     local dst = self:c_var(cmd.dsts[1])
     local v = self:c_value(cmd.srcs[1])
     local line = cmd.loc.line
-    return util.render([[ $dst = pallene_math_floor(L, PALLENE_SOURCE_FILE, $line, $v); ]], { 
+    return util.render([[ $dst = pallene_math_floor(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
@@ -1502,7 +1502,7 @@ gen_cmd["BuiltinMathModf"] = function(self, cmd, _func)
     local dst2 = self:c_var(cmd.dsts[2])
     local v = self:c_value(cmd.srcs[1])
     local line = cmd.loc.line
-    return util.render([[ $dst1 = pallene_math_modf(L, PALLENE_SOURCE_FILE, $line, $v, &$dst2); ]], { 
+    return util.render([[ $dst1 = pallene_math_modf(L, PALLENE_SOURCE_FILE, $line, $v, &$dst2); ]], {
         dst1 = dst1, dst2 = dst2, v = v, line = C.integer(line) })
 end
 
