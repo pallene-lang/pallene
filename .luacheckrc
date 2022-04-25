@@ -21,8 +21,6 @@
 ignore = {
     "212/self", -- Unused argument "self"
 
-    "214/_ENV", -- Used variable "env"
-
     "411/ok",    -- Redefining local "ok"
     "411/errs?", -- Redefining local "err" or "errs"
 
