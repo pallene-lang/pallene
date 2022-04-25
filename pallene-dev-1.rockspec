@@ -1,3 +1,4 @@
+rockspec_format = "3.0"
 package = "pallene"
 version = "dev-1"
 source = {
@@ -6,12 +7,16 @@ source = {
 description = {
    summary = "Pallene compiler",
    detailed = [[
-Compiler for the Pallene programming language.]],
+       Compiler for Pallene, a typed and AOT-compiled companion language for Lua.
+
+       Attention: You must use PUC-Lua 5.4.4 exactly. Pallene depends on undocumented internal Lua
+       APIs which change even on minor bugfix patches. If you try to install Pallene on a different
+       revision of Lua 5.4, you will get a build error]],
    homepage = "http://github.com/pallene-lang/pallene",
    license = "MIT"
 }
 dependencies = {
-   "lua >= 5.3",
+   "lua = 5.4",
    "lpeg >= 1.0",
    "inspect >= 3.1.0",
    "argparse >= 0.7.0",
@@ -19,30 +24,38 @@ dependencies = {
 build = {
    type = "builtin",
    modules = {
-      ["pallene.ast"] =            "pallene/ast.lua",
-      ["pallene.builtins"] =       "pallene/builtins.lua",
-      ["pallene.C"] =              "pallene/C.lua",
-      ["pallene.c_compiler"] =     "pallene/c_compiler.lua",
-      ["pallene.checker"] =        "pallene/checker.lua",
-      ["pallene.coder"] =          "pallene/coder.lua",
-      ["pallene.gc"] =             "pallene/gc.lua",
-      ["pallene.ir"] =             "pallene/ir.lua",
-      ["pallene.Lexer"] =          "pallene/Lexer.lua",
-      ["pallene.Location"] =       "pallene/Location.lua",
-      ["pallene.parser"] =         "pallene/parser.lua",
-      ["pallene.print_ir"] =       "pallene/print_ir.lua",
-      ["pallene.symtab"] =         "pallene/symtab.lua",
-      ["pallene.to_ir"] =          "pallene/to_ir.lua",
-      ["pallene.typedecl"] =       "pallene/typedecl.lua",
-      ["pallene.types"] =          "pallene/types.lua",
-      ["pallene.uninitialized"] =  "pallene/uninitialized.lua",
-      ["pallene.util"] =           "pallene/util.lua",
-      ["pallene.translator"] =     "pallene/translator.lua",
-      ["pallene.trycatch"] =       "pallene/trycatch.lua",
+      ["pallene.assignment_conversion.lua"] = "pallene/assignment_conversion.lua",
+      ["pallene.ast.lua"] = "pallene/ast.lua",
+      ["pallene.builtins.lua"] = "pallene/builtins.lua",
+      ["pallene.C.lua"] = "pallene/C.lua",
+      ["pallene.c_compiler.lua"] = "pallene/c_compiler.lua",
+      ["pallene.checker.lua"] = "pallene/checker.lua",
+      ["pallene.coder.lua"] = "pallene/coder.lua",
+      ["pallene.constant_propagation.lua"] = "pallene/constant_propagation.lua",
+      ["pallene.driver.lua"] = "pallene/driver.lua",
+      ["pallene.gc.lua"] = "pallene/gc.lua",
+      ["pallene.ir.lua"] = "pallene/ir.lua",
+      ["pallene.Lexer.lua"] = "pallene/Lexer.lua",
+      ["pallene.Location.lua"] = "pallene/Location.lua",
+      ["pallene.parser.lua"] = "pallene/parser.lua",
+      ["pallene.print_ir.lua"] = "pallene/print_ir.lua",
+      ["pallene.symtab.lua"] = "pallene/symtab.lua",
+      ["pallene.to_ir.lua"] = "pallene/to_ir.lua",
+      ["pallene.translator.lua"] = "pallene/translator.lua",
+      ["pallene.trycatch.lua"] = "pallene/trycatch.lua",
+      ["pallene.typedecl.lua"] = "pallene/typedecl.lua",
+      ["pallene.types.lua"] = "pallene/types.lua",
+      ["pallene.uninitialized.lua"] = "pallene/uninitialized.lua",
+      ["pallene.util.lua"] = "pallene/util.lua",
+      -- Generated files:
+      ["pallene._corelib"] = "pallene/_corelib.c",
    },
    install = {
       bin = {
          "pallenec"
       }
    }
+}
+test = {
+    type = "busted"
 }

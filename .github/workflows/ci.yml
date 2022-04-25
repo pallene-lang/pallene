@@ -48,9 +48,7 @@ jobs:
             - uses: leafo/gh-actions-luarocks@v4.0.0
 
             - name: Build
-              run: |
-                  luarocks make
-                  (cd vm && make linux)
+              run: ./run-build.sh
 
             - name: Install Busted
               run: luarocks install busted

@@ -1,29 +1,10 @@
-/* Copyright (c) 2020, The Pallene Developers
- * Pallene is licensed under the MIT license.
- * Please refer to the LICENSE and AUTHORS files for details
- * SPDX-License-Identifier: MIT */
-
-#define LUA_CORE
-
-#include "pallene_core.h"
-
-#include "lua.h"
-#include "lauxlib.h"
-
-#include "lmem.h"
-#include "lobject.h"
-#include "lstate.h"
-#include "lstring.h"
-#include "ltm.h"
-#include "ltable.h"
-
-#include <string.h>
-#include <stdarg.h>
-#include <locale.h>
+/*----------------------------------------*/
+/* Pallene library functions (not inline) */
+/*----------------------------------------*/
 
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
-const char *pallene_tag_name(int raw_tag)
+LUAI_FUNC const char *pallene_tag_name(int raw_tag)
 {
     if (raw_tag == LUA_VNUMINT) {
         return "integer";
@@ -34,7 +15,7 @@ const char *pallene_tag_name(int raw_tag)
     }
 }
 
-void pallene_runtime_tag_check_error(
+LUAI_FUNC l_noret pallene_runtime_tag_check_error(
     lua_State *L,
     const char* file,
     int line,
@@ -67,7 +48,7 @@ void pallene_runtime_tag_check_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_arity_error(
+LUAI_FUNC l_noret pallene_runtime_arity_error(
     lua_State *L,
     const char *name,
     int expected,
@@ -82,7 +63,7 @@ void pallene_runtime_arity_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_divide_by_zero_error(
+LUAI_FUNC l_noret pallene_runtime_divide_by_zero_error(
     lua_State *L,
     const char* file,
     int line
@@ -91,7 +72,7 @@ void pallene_runtime_divide_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_mod_by_zero_error(
+LUAI_FUNC l_noret pallene_runtime_mod_by_zero_error(
     lua_State *L,
     const char* file,
     int line
@@ -100,7 +81,7 @@ void pallene_runtime_mod_by_zero_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_number_to_integer_error(
+LUAI_FUNC l_noret pallene_runtime_number_to_integer_error(
     lua_State *L,
     const char* file,
     int line
@@ -109,14 +90,15 @@ void pallene_runtime_number_to_integer_error(
     PALLENE_UNREACHABLE;
 }
 
-void pallene_runtime_array_metatable_error(
+LUAI_FUNC l_noret pallene_runtime_array_metatable_error(
     lua_State *L, const char* file, int line
 ){
     luaL_error(L, "file %s: line %d: arrays in Pallene must not have a metatable", file, line);
     PALLENE_UNREACHABLE;
 }
 
-static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
+static
+void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
 {
     char *b = out_buf;
     for (size_t i = 0; i < n; i ++) {
@@ -126,7 +108,7 @@ static void copy_strings_to_buffer(char *out_buf, size_t n, TString **ss)
     }
 }
 
-TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
+LUAI_FUNC TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
 {
     size_t out_len = 0;
     for (size_t i = 0; i < n; i++) {
@@ -155,7 +137,7 @@ TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
 
 /* Grows the table so that it can fit index "i"
  * Our strategy is to grow to the next available power of 2. */
-void pallene_grow_array(lua_State *L, const char* file, int line, Table *arr, unsigned int ui)
+LUAI_FUNC void pallene_grow_array(lua_State *L, const char* file, int line, Table *arr, unsigned int ui)
 {
     if (ui >= MAXASIZE) {
         luaL_error(L, "file %s: line %d: invalid index for Pallene array", file, line);
@@ -170,7 +152,7 @@ void pallene_grow_array(lua_State *L, const char* file, int line, Table *arr, un
     luaH_resizearray(L, arr, new_size);
 }
 
-void pallene_io_write(lua_State *L, TString *str)
+LUAI_FUNC void pallene_io_write(lua_State *L, TString *str)
 {
     (void) L; /* unused parameter */
     const char *s = getstr(str);
@@ -178,7 +160,7 @@ void pallene_io_write(lua_State *L, TString *str)
     fwrite(s, 1, len, stdout);
 }
 
-TString* pallene_string_char(lua_State *L, const char* file, int line, lua_Integer c)
+LUAI_FUNC TString* pallene_string_char(lua_State *L, const char* file, int line, lua_Integer c)
 {
     if (l_castS2U(c) > UCHAR_MAX) {
         luaL_error(L, "file %s: line %d: char value out of range", file, line);
@@ -193,8 +175,7 @@ TString* pallene_string_char(lua_State *L, const char* file, int line, lua_Integ
 /* Translate a relative initial string position. (Negative means back from end)
  * Clip result to [1, inf). See posrelatI() in lstrlib.c
  */
-static
-size_t get_start_pos(lua_Integer pos, size_t len)
+LUAI_FUNC size_t get_start_pos(lua_Integer pos, size_t len)
 {
     if (pos > 0) {
         return (size_t)pos;
@@ -209,8 +190,7 @@ size_t get_start_pos(lua_Integer pos, size_t len)
 
 /* Clip i between [0, len]. Negative means back from end.
  * See getendpos() in lstrlib.c */
-static
-size_t get_end_pos(lua_Integer pos, size_t len)
+LUAI_FUNC size_t get_end_pos(lua_Integer pos, size_t len)
 {
     if (pos > (lua_Integer)len) {
         return len;
@@ -223,7 +203,7 @@ size_t get_end_pos(lua_Integer pos, size_t len)
     }
 }
 
-TString* pallene_string_sub(
+LUAI_FUNC TString* pallene_string_sub(
         lua_State *L, TString *str, lua_Integer istart, lua_Integer iend)
 {
     const char *s = getstr(str);
@@ -242,7 +222,7 @@ TString* pallene_string_sub(
  * Compare two strings 'ls' x 'rs', returning an integer less-equal-greater than zero if 'ls' is
  * less-equal-greater than 'rs'. The code is a little tricky because it allows '\0' in the strings
  * and it uses 'strcoll' (to respect locales) for each segments of the strings. */
-int pallene_l_strcmp (const TString *ls, const TString *rs) {
+LUAI_FUNC int pallene_l_strcmp (const TString *ls, const TString *rs) {
   const char *l = getstr(ls);
   size_t ll = tsslen(ls);
   const char *r = getstr(rs);
@@ -264,15 +244,15 @@ int pallene_l_strcmp (const TString *ls, const TString *rs) {
   }
 }
 
-TString *pallene_type_builtin(lua_State *L, TValue v) {
+LUAI_FUNC TString *pallene_type_builtin(lua_State *L, TValue v) {
     return luaS_new(L, lua_typename(L, ttype(&v)));
 }
 
 /* This is defined at lobject.c before tostringbuff function definition, where it is used */
-#define MAXNUMBER2STR	50
+#define MAXNUMBER2STR	44
 
 /* Based on function luaL_tolstring */
-TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
+LUAI_FUNC TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
     int len;
     char buff[MAXNUMBER2STR];
     switch (ttype(&v)) {
@@ -291,7 +271,7 @@ TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
         case LUA_TSTRING:
             return luaS_new(L, svalue(&v));
         case LUA_TBOOLEAN:
-            return luaS_new(L, ((pallene_is_truthy(&v)) ? "true" : "false"));
+            return luaS_new(L, ((ttistrue(&v)) ? "true" : "false"));
         default: {
             luaL_error(L, "file %s: line %d: tostring called with unsuported type '%s'", file, line,
                 lua_typename(L, ttype(&v)));

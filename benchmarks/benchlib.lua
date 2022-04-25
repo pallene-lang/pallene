@@ -2,7 +2,7 @@ local util = require "pallene.util"
 
 local benchlib = {}
 
-benchlib.DEFAULT_LUA = "./vm/src/lua"
+benchlib.DEFAULT_LUA = "lua"
 
 -- @param lua_path:       Lua interpreter to use
 -- @param benchmark_path: Path to the benchmark file

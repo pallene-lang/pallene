@@ -1,82 +1,10 @@
-/* Copyright (c) 2020, The Pallene Developers
- * Pallene is licensed under the MIT license.
- * Please refer to the LICENSE and AUTHORS files for details
- * SPDX-License-Identifier: MIT */
-
-#ifndef PALLENE_CORE_H
-#define PALLENE_CORE_H
-
-// This list on includes should include basically everything we need.
-// It is copied from lapi.c (grep for PALLENE LINKER HACK for more details)
-
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
-
-#include "lapi.h"
-#include "ldebug.h"
-#include "ldo.h"
-#include "lfunc.h"
-#include "lgc.h"
-#include "lmem.h"
-#include "lobject.h"
-#include "lstate.h"
-#include "lstring.h"
-#include "ltable.h"
-#include "ltm.h"
-#include "lundump.h"
-#include "lvm.h"
+/* --------------------------------------------------- */
+/* Inline functions and macros for the Pallene library */
+/* --------------------------------------------------- */
 
 #include <math.h>
 
-const char *pallene_tag_name(int raw_tag);
-
-l_noret pallene_runtime_tag_check_error(
-    lua_State *L, const char* file, int line, int expected_tag, int received_tag,
-    const char *description_fmt, ...);
-
-l_noret pallene_runtime_arity_error(
-    lua_State *L, const char *name, int expected, int received);
-
-l_noret pallene_runtime_divide_by_zero_error(
-    lua_State *L, const char* file, int line);
-
-l_noret pallene_runtime_mod_by_zero_error(
-    lua_State *L, const char* file, int line);
-
-l_noret pallene_runtime_number_to_integer_error(
-    lua_State *L, const char* file, int line);
-
-l_noret pallene_runtime_array_metatable_error(
-    lua_State *L, const char* file, int line);
-
-TString *pallene_string_concatN(
-    lua_State *L, size_t n, TString **ss);
-
-void pallene_grow_array(
-    lua_State *L, const char* file, int line, Table *arr, unsigned int ui);
-
-void pallene_io_write(
-    lua_State *L, TString *str);
-
-TString* pallene_string_char(
-    lua_State *L, const char* file, int line, lua_Integer c);
-
-TString* pallene_string_sub(
-    lua_State *L, TString *str, lua_Integer start, lua_Integer end);
-
-int pallene_l_strcmp(
-    const TString *ls, const TString *rs);
-
-TString *pallene_type_builtin(
-    lua_State *L, TValue v);
-
-TString *pallene_tostring(
-    lua_State *L, const char* file, int line, TValue v);
-
-/* --------------------------- */
-/* Inline functions and macros */
-/* --------------------------- */
+struct PalleneLib pallene_lib;
 
 static inline
 int pallene_is_truthy(const TValue *v)
@@ -391,5 +319,3 @@ TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache)
 #define PALLENE_FLT_FOR_LOOP_END \
         } \
     }
-
-#endif

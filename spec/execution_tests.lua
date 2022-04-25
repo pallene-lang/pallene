@@ -87,7 +87,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         })))
 
         assert(util.execute(
-            string.format("./vm/src/lua %s > %s",
+            string.format("lua %s > %s",
                 util.shell_quote(file_script),
                 util.shell_quote(file_output))))
     end
