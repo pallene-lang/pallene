@@ -242,7 +242,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
         check_tag = util.render([[
-            if (PALLENE_UNLIKELY(!$test)) {
+            if (l_unlikely(!$test)) {
                 pallene_runtime_tag_check_error(L,
                     $file, $line, $expected_tag, rawtt($slot),
                     ${description_fmt}${opt_comma}${extra_args});
@@ -556,7 +556,7 @@ function Coder:lua_entry_point_definition(f_id)
 
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
-        if (PALLENE_UNLIKELY(nargs != $nargs)) {
+        if (l_unlikely(nargs != $nargs)) {
             pallene_runtime_arity_error(L, $fname, $nargs, nargs);
         }
     ]], {
@@ -1237,7 +1237,7 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
             TValue keyv; ${init_keyv}
             static int cache = -1;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
-            if (PALLENE_UNLIKELY(isabstkey(slot))) {
+            if (l_unlikely(isabstkey(slot))) {
                 TValue valv; ${init_valv}
                 luaH_newkey(L, $tab, &keyv, &valv);
             } else {
