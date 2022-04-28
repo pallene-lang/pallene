@@ -29,38 +29,26 @@
 
 #include <math.h>
 
-#define PALLENE_NORETURN __attribute__((noreturn))
-#define PALLENE_UNREACHABLE __builtin_unreachable()
-
-#define PALLENE_LIKELY(x)   __builtin_expect(!!(x), 1)
-#define PALLENE_UNLIKELY(x) __builtin_expect(!!(x), 0)
-
 const char *pallene_tag_name(int raw_tag);
 
-void pallene_runtime_tag_check_error(
+l_noret pallene_runtime_tag_check_error(
     lua_State *L, const char* file, int line, int expected_tag, int received_tag,
-    const char *description_fmt, ...)
-    PALLENE_NORETURN;
+    const char *description_fmt, ...);
 
-void pallene_runtime_arity_error(
-    lua_State *L, const char *name, int expected, int received)
-    PALLENE_NORETURN;
+l_noret pallene_runtime_arity_error(
+    lua_State *L, const char *name, int expected, int received);
 
-void pallene_runtime_divide_by_zero_error(
-    lua_State *L, const char* file, int line)
-    PALLENE_NORETURN;
+l_noret pallene_runtime_divide_by_zero_error(
+    lua_State *L, const char* file, int line);
 
-void pallene_runtime_mod_by_zero_error(
-    lua_State *L, const char* file, int line)
-    PALLENE_NORETURN;
+l_noret pallene_runtime_mod_by_zero_error(
+    lua_State *L, const char* file, int line);
 
-void pallene_runtime_number_to_integer_error(
-    lua_State *L, const char* file, int line)
-    PALLENE_NORETURN;
+l_noret pallene_runtime_number_to_integer_error(
+    lua_State *L, const char* file, int line);
 
-void pallene_runtime_array_metatable_error(
-    lua_State *L, const char* file, int line)
-    PALLENE_NORETURN;
+l_noret pallene_runtime_array_metatable_error(
+    lua_State *L, const char* file, int line);
 
 TString *pallene_string_concatN(
     lua_State *L, size_t n, TString **ss);
@@ -195,7 +183,7 @@ lua_Integer pallene_int_modi(
 static inline
 lua_Integer pallene_shiftL(lua_Integer x, lua_Integer y)
 {
-    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_NBITS)) {
+    if (l_likely(l_castS2U(y) < PALLENE_NBITS)) {
         return intop(<<, x, y);
     } else {
         if (l_castS2U(-y) < PALLENE_NBITS) {
@@ -208,7 +196,7 @@ lua_Integer pallene_shiftL(lua_Integer x, lua_Integer y)
 static inline
 lua_Integer pallene_shiftR(lua_Integer x, lua_Integer y)
 {
-    if (PALLENE_LIKELY(l_castS2U(y) < PALLENE_NBITS)) {
+    if (l_likely(l_castS2U(y) < PALLENE_NBITS)) {
         return intop(>>, x, y);
     } else {
         if (l_castS2U(-y) < PALLENE_NBITS) {
@@ -297,7 +285,7 @@ void pallene_renormalize_array(
     int line
 ){
     lua_Unsigned ui = (lua_Unsigned) i - 1;
-    if (PALLENE_UNLIKELY(ui >= arr->alimit)) {
+    if (l_unlikely(ui >= arr->alimit)) {
         pallene_grow_array(L, file, line, arr, ui);
     }
 }

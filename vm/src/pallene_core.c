@@ -21,6 +21,8 @@
 #include <stdarg.h>
 #include <locale.h>
 
+#define PALLENE_UNREACHABLE __builtin_unreachable()
+
 const char *pallene_tag_name(int raw_tag)
 {
     if (raw_tag == LUA_VNUMINT) {
@@ -129,7 +131,7 @@ TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss)
     size_t out_len = 0;
     for (size_t i = 0; i < n; i++) {
         size_t l = tsslen(ss[i]);
-        if (PALLENE_UNLIKELY(l >= (MAX_SIZE/sizeof(char)) - out_len)) {
+        if (l_unlikely(l >= (MAX_SIZE/sizeof(char)) - out_len)) {
             luaL_error(L, "string length overflow");
         }
         out_len += l;
