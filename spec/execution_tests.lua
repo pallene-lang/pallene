@@ -2277,6 +2277,27 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    -- https://github.com/pallene-lang/pallene/issues/508
+    describe("Issue 508:", function()
+        compile([[
+            local N = 42
+
+            function m.f()
+            end
+
+            function m.g(): integer
+                local x = N
+                m.f()
+                return x
+            end
+        ]])
+        it("Constant propagation correctly renumbers the upvalues", function()
+            run_test([[
+                assert(42 == test.g())
+            ]])
+        end)
+    end)
+
     describe("Uninitialized variables", function()
         compile([[
             function m.sign(x: integer): integer

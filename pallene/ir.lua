@@ -52,8 +52,8 @@ function ir.Function(loc, name, typ)
         typ = typ,            -- Type
         vars = {},            -- list of ir.VarDecl
         captured_vars = {},   -- list of ir.VarDecl
-        f_id_of_upvalue = {}, -- { integer => integer }
-        f_id_of_local = {},   -- { integer => integer }
+        f_id_of_upvalue = {}, -- { u_id => integer }
+        f_id_of_local = {},   -- { v_id => integer }
         body = false,         -- ir.Cmd
     }
 end

@@ -115,7 +115,7 @@ local function pretty_print_ir(filename)
     local input, err = driver.load_input(filename)
     if not input then util.abort(err) end
 
-    local module, errs = driver.compile_internal(filename, input, "ir")
+    local module, errs = driver.compile_internal(filename, input, "optimize", opt_level)
     if not module then util.abort(table.concat(errs, "\n")) end
 
     io.stdout:write(print_ir(module))
