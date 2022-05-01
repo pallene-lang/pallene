@@ -20,7 +20,6 @@ c_compiler.CC = "cc"
 c_compiler.CPPFLAGS = "-I./vm/src"
 c_compiler.CFLAGS_BASE = "-std=c99 -g -fPIC"
 c_compiler.CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
-c_compiler.CFLAGS_OPT = "-O2"
 c_compiler.S_FLAGS = "-fverbose-asm"
 c_compiler.USER_CFlAGS = os.getenv("CFLAGS") or ""
 
@@ -54,7 +53,6 @@ function c_compiler.compile_c_to_s(in_filename, out_filename, _, opt_level)
         c_compiler.CPPFLAGS,
         c_compiler.CFLAGS_BASE,
         c_compiler.CFLAGS_WARN,
-        c_compiler.CFLAGS_OPT,
         c_compiler.S_FLAGS,
         opt_level and "-O"..opt_level or "",
         c_compiler.USER_CFlAGS,
