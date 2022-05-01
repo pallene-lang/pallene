@@ -131,8 +131,7 @@ end
 
 local compiler_steps = {
     { name = "pln", f = compile_pallene_to_c },
-    { name = "c",   f = c_compiler.compile_c_to_s },
-    { name = "s",   f = c_compiler.compile_s_to_o },
+    { name = "c",   f = c_compiler.compile_c_to_o },
     { name = "o",   f = c_compiler.compile_o_to_so},
     { name = "so",  f = false },
 }
