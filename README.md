@@ -14,97 +14,85 @@ Compared to LuaJIT, Pallene aims to offer more predictable run-time performance.
 
 ## Building the Pallene Compiler
 
-In order to use this source distribution of the Pallene compiler, you need to
-install its Lua library dependencies and compile its run-time library.
+Pallene requires a special version of Lua, which you will likely need to build from source.
+You will also likely need to build and install Luarocks from source.
 
-### Prerequisites
+### Install the special Lua
 
-Before you build Pallene, you need to install a C compiler (e.g. `gcc`) and `make` on your system.
-Ubuntu users can run the following commands to install these tools.
-```
-sudo apt update
-sudo apt install build-essential
-```
-
-If you are on Linux, we also recommend that you install the Readline library.
+First, you need to install a Pallene-compatible version of Lua.
+This version of Lua is patched to expose some extra C APIs that Pallene needs.
+You can download it from [our other repository](https://www.github.com/pallene-lang/lua-internals).
+Make sure to get version 5.4.4, because the minor patch number is important.
 
 ```sh
-sudo apt install libreadline-dev # for Ubuntu & Debian-based distros
-sudo dnf install readline-devel  # for Fedora
+wget https://www.github.com/pallene-lang/lua-internals/relelases/tag/v5.4.4
+tar xf lua-internals-5.4.4.tar.gz
+cd lua-internals-5.4.4
+make linux-readline -j4
+sudo make install
 ```
 
-Another optional dependency is GNU parallel, which speeds up how long it takes to run the test suite.
+To check if you have installed the right version of Lua, run `lua -v`.
+It needs to say `Lua 5.x.x with core API`.
+If the message doesn't have the "with core API", that means you're using vanilla Lua.
+
+### Install Luarocks from source
+
+You will probably also need to install Luarocks from source.
+We can't use the Luarocks from the package manager because that way it won't use the custom version of Lua we just installed.
+
+For more information on how to install Luarocks, please see the [Luarocks wiki](https://github.com/luarocks/luarocks/wiki/Installation-instructions-for-Unix).
+In the configure step, use the `--with-lua` flag to point to where we installed the custom Lua.
 
 ```sh
-sudo apt install parallel # for Ubuntu & Debian-based distros
-sudo dnf install parallel # for Fedora
+wget https://luarocks.org/releases/luarocks-3.9.0.tar.gz
+tar xf luarocks-3.9.0.tar.gz
+cd luarocks-3.9.0
+./configure --with-lua=/usr/local
+make
+sudo make install
 ```
 
-Pallene requires Lua 5.3 or newer to be installed on your system.
-You can either install it [from source](https://www.lua.org/ftp/) or via the package manager for your Linux distro.
-If you install via the package manager then make sure to also install the Lua headers, which are often in a separate "development" package.
-
-After Lua 5.3 is installed, download the source code of LuaRocks from
-[https://github.com/luarocks/luarocks/releases](https://github.com/luarocks/luarocks/releases). Follow
-the build instructions appropriate for your platform and install it on your system.
-
-If LuaRocks is configured to use older versions of Lua, you may not be able to
-install the dependencies as described in the next section. Therefore, please
-configure LuaRocks to use Lua 5.3. You can use the following command to configure
-LuaRocks to use Lua 5.3 when compiling it:
-`./configure --lua-version=5.3`
-
-### Installing Lua dependencies
-
-The easiest way to install these dependencies is with the [LuaRocks](http://luarocks.org) package manager:
+By default, Luarocks installs packages to the root directory, which requires sudo.
+If you are like me, you might prefer to intall to your home directory by default.
 
 ```sh
-$ luarocks install --local --only-deps pallene-dev-1.rockspec
+# Run this one time
+luarocks config local_by_default true
 ```
 
-If you use the --local flag when installing packages from Luarocks, you may
-also need to configure the appropriate environment variables on your terminal configuration file.
-If you are using bash you can do (as stated in `luarocks --help path`):
-```sh
-$ echo 'eval `luarocks path`' >> ~/.bashrc
-```
-For further information, consult the [Luarocks documentation](https://github.com/luarocks/luarocks/wiki/path).
-
-### Compiling the custom interpreter
-
-Pallene must be run against a custom-built version of the Lua interpreter.
-This custom version of Lua 5.4 doesn't have to be the same one that you will use to run the compiler itself,
-or to install the Luarocks packages.
-
-To compile the custom version of Lua, follow the instructions found the [Lua README](https://www.lua.org/manual/5.4/readme.html), also found in the vm/doc/readme.html file.
-
-For Linux, these are the commands you need to run:
+Remember that in order for the local rocks tree to work, you must to set some environment variables
 
 ```sh
-cd vm
-make linux-readline -j
+# Add this line to your ~/.bashrc
+eval "$(luarocks path)"
 ```
 
-## Usage
+### Build and install Pallene
+
+Finally, we can use Luarocks to build and install the Pallene compiler.
+This will also download and install the necessary Lua dependencies.
+
+```
+luarocks make pallene-dev-1.rockspec
+```
+
+## Using Pallene
 
 To compile a `foo.pln` file to a `foo.so` module call `pallenec` as follows.
 
-Note: Your current working directory must be the root of this repository, due to
-[Bug #16](https://github.com/pallene-lang/pallene/issues/16).
-
-
 ```sh
-$ ./pallenec foo.pln
+$ pallenec foo.pln
 ```
 
-To run Pallene, you must currently use the bundled version of the Lua
-interpreter (again, see [Bug #16](https://github.com/pallene-lang/pallene/issues/16)).
+The resulting `foo.so` can be used by Lua via the usual `require` mechanism.
 
 ```sh
-$ ./vm/src/lua -l foo
+$ lua -l foo
 ```
 
-It is possible to change compiler optimization level, for the Pallene compiler and C compiler. Here are some examples:
+It is possible to change the compiler optimization level, for the Pallene compiler and C compiler.
+Here are some examples:
 
 ```sh
 # execute no optimization (Pallene and C compiler)
@@ -120,7 +108,7 @@ $ env CFLAGS="-O2" ./pallenec test.pln -O0
 $ ./pallenec test.pln
 ```
 
-**Note**: For the C compiler only, the setting set using `CFLAGS` override the setting set by flag `-O`.
+**Note**: For the C compiler only, the setting set using `CFLAGS` overrides the setting set by flag `-O`.
 
 For more compiler options, see `./pallenec --help`
 

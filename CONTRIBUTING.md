@@ -29,21 +29,23 @@ $ luarocks install busted
 ```
 
 To run the test suite, run the `./run-tests` script in this project's root directory.
-Tip: if GNU parallel is installed, it can speed things up by running multiple tests in parallel.
 
 ```sh
 $ ./run-tests                       # Run all tests
 $ ./run-tests spec/parser_spec.lua  # Run just one of the test suite files
 ```
 
+**Tip:** We recommend having [GNU parallel](https://www.gnu.org/software/parallel/) installed.
+This optional dependency speeds things up by running multiple tests at the same time.
+
 The `./run-tests` script accepts the same command-line flags as `busted`.
-If you are debugging an unhandled exception in a test case, the following ones might help:
+If you are debugging an unhandled exception in a test case, the following flags might help:
 
 Flag                  | Effect
 --------------------- | --------------------------------------------------------
 ./run-tests -v        | Verbose output, including the stack trace
 ./run-tests -k        | Run all tests even if some tests are failing
-./run-tests -o gtest  | Changes the output formatting.<br>This may be clearer if you are using print statements for debugging.
+./run-tests -o gtest  | The gtest output format might be easier to read if you are using print statements for debugging.
 
 For convenience, when the test script is run without any parameters, it also runs the linter at the end.
 
@@ -77,8 +79,7 @@ To run benchmarks with LuaJIT, use the `--lua` option:
 ./benchmarks/run benchmarks/sieve/lua.lua --lua=luajit
 ```
 
-If you change the ".pln" file of a benchmark, or if you change our Pallene-to-Lua translator in "translator.lua",
-please run the `./benchmarks/generate_lua` script to regenerate the ".lua" files for the benchmarks.
+If you change the ".pln" file of a benchmark please run the `./benchmarks/generate_lua` script to regenerate the corresponding ".lua" file.
 
 # Git workflow
 
