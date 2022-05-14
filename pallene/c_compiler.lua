@@ -17,7 +17,7 @@ local util = require "pallene.util"
 local c_compiler = {}
 
 local CC = "cc"
-local CPPFLAGS = "-I./vm/src"
+local CPPFLAGS = ""
 local CFLAGS_BASE = "-std=c99 -g -fPIC"
 local CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
 local USER_CFlAGS = os.getenv("CFLAGS") or ""

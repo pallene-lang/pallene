@@ -36,7 +36,7 @@ $ ./pallenec sum.pln
 The `sum.so` file can be loaded from within Lua with `require`, as usual:
 
 ```
-$ ./vm/src/lua
+$ lua
 > sum = require "sum"
 > print(sum.sum_floats({10.0, 20.0, 30.0})) --> 60.0
 ```
@@ -498,11 +498,11 @@ All the functions currently require float arguments. The compiler will reject in
 At this time, math.log requires two parameters, and the compiler will reject one parameter calls.
 So as a workaround, use math.ln in place of the one parameter math.log.
 
-math.modf returns two values, an integer and a float. One minor difference from Lua is that Lua 
+math.modf returns two values, an integer and a float. One minor difference from Lua is that Lua
 may return a float for the first value if some reason it cannot return an integer, such as if
 the result is NaN (which only exists in floating point). In Pallene, the first value will always be
-converted to an integer unless the conversion fails, in which case a runtime error is raised. 
-This is also true of the return values for math.ceil and math.floor, where Pallene will always 
+converted to an integer unless the conversion fails, in which case a runtime error is raised.
+This is also true of the return values for math.ceil and math.floor, where Pallene will always
 return an integer or raise a runtime error.
 
 ## Pallene to Lua translator

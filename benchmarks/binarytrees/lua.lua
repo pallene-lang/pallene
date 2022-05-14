@@ -1,4 +1,4 @@
-local m;m = {}
+math.ln = math.log; local m = {}
 
 function m.BottomUpTree(depth)
     if depth > 0 then
