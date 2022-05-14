@@ -20,8 +20,7 @@ echo
 echo "--- Other checks ---"
 for file in \
     pallene/*.lua spec/*.lua \
-    examples/*/*.lua examples/*/*.pln \
-    vm/src/pallene_core.c vm/src/pallene_core.h
+    examples/*/*.lua examples/*/*.pln
 do
     if grep --line-number "[$space$tab]$" "$file"; then
         # Forbid trailing whitespace because some editors like to automatically delete it.
