@@ -88,22 +88,15 @@ It is possible to change the compiler optimization level, for the Pallene compil
 Here are some examples:
 
 ```sh
-# execute no optimization (Pallene and C compiler)
+# disable Pallene optimization passes
 pallenec test.pln -O0
 
-# execute Pallene compiler optimizations and C compiler level 3 optimizations
-pallenec test.pln -O3
-
-# execute no optimizations for Pallene compiler but executes C compiler level 2 optimizations
-env CFLAGS="-O2" pallenec test.pln -O0
-
-# execute all default optimizations (same as -O2)
+# disable C compiler optimization
+export CFLAGS='-O0'
 pallenec test.pln
 ```
 
-**Note**: For the C compiler only, the setting set using `CFLAGS` overrides the setting set by flag `-O`.
-
-For more compiler options, see `pallenec --help`
+For more compiler options, see `./pallenec --help`
 
 ## Developing Pallene
 

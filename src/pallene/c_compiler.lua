@@ -18,7 +18,7 @@ local c_compiler = {}
 
 local CC = "cc"
 local CPPFLAGS = ""
-local CFLAGS_BASE = "-std=c99 -g -fPIC"
+local CFLAGS_BASE = "-std=c99 -g -fPIC -O2"
 local CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
 local USER_CFlAGS = os.getenv("CFLAGS") or ""
 
@@ -47,13 +47,11 @@ local function run_cc(args)
     return true, {}
 end
 
--- The third argument is the mod_name, which is not used by this
-function c_compiler.compile_c_to_o(in_filename, out_filename, _, opt_level)
+function c_compiler.compile_c_to_o(in_filename, out_filename)
     return run_cc({
         CPPFLAGS,
         CFLAGS_BASE,
         CFLAGS_WARN,
-        opt_level and "-O"..opt_level or "",
         USER_CFlAGS,
         "-x c",
         "-o", util.shell_quote(out_filename),
