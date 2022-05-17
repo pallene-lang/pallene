@@ -45,10 +45,6 @@ function driver.load_input(path)
     return util.get_file_contents(path)
 end
 
--- List of available compiler passes, used by `pallenec --dump`.
--- If a new compiler pass is created, please add it to this list.
-driver.list_of_compiler_passes = {"lexer", "ast", "checker", "assignment_conversion", "ir", "uninitialized", "constant_propagation"}
-
 --
 -- Run AST and IR passes, up-to and including the specified pass. This is meant for unit tests.
 --
