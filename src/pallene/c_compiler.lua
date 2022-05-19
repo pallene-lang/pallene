@@ -16,11 +16,8 @@ local util = require "pallene.util"
 
 local c_compiler = {}
 
-local CC = "cc"
-local CPPFLAGS = ""
-local CFLAGS_BASE = "-std=c99 -g -fPIC -O2"
-local CFLAGS_WARN = "-Wall -Wundef -Wpedantic -Wno-unused"
-local USER_CFlAGS = os.getenv("CFLAGS") or ""
+local CC       = os.getenv("CC")       or "cc"
+local CFLAGS   = os.getenv("CFLAGS")   or "-O2"
 
 local function get_uname()
     local ok, err, uname = util.outputs_of_execute("uname -s")
@@ -49,10 +46,8 @@ end
 
 function c_compiler.compile_c_to_o(in_filename, out_filename)
     return run_cc({
-        CPPFLAGS,
-        CFLAGS_BASE,
-        CFLAGS_WARN,
-        USER_CFlAGS,
+        "-fPIC",
+        CFLAGS,
         "-x c",
         "-o", util.shell_quote(out_filename),
         "-c", util.shell_quote(in_filename),
