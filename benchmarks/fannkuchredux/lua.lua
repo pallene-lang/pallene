@@ -1,4 +1,4 @@
-local m = {}
+math.ln = math.log; local m = {}
 
 function m.fannkuch(N)
 

@@ -1,7 +1,7 @@
-local m, ALIVE, DEAD;m = {}
+math.ln = math.log; local m = {}
 
-ALIVE = "*"
-DEAD  = " "
+local ALIVE = "*"
+local DEAD  = " "
 
 -- Create a new grid for the simulation.
 function m.new_canvas(N, M)
