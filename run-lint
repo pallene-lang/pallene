@@ -14,13 +14,15 @@ error() {
 }
 
 echo "--- Lua Lint ---"
-luacheck pallene/ spec/ examples/ "$@" || exit 1
+luacheck src/ spec/ examples/ "$@" || exit 1
 echo
 
 echo "--- Other checks ---"
 for file in \
-    pallene/*.lua spec/*.lua \
-    examples/*/*.lua examples/*/*.pln
+    src/pallene/*.lua \
+    spec/*.lua        \
+    examples/*/*.lua  \
+    examples/*/*.pln
 do
     if grep --line-number "[$space$tab]$" "$file"; then
         # Forbid trailing whitespace because some editors like to automatically delete it.
