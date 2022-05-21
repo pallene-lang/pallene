@@ -38,28 +38,29 @@ end
 set old_branch (git branch --show-current)
 git switch --detach --quiet
 
-git for-each-ref refs/heads --format="%(refname):%(upstream):%(upstream:remotename)" |
-while read -d':' localref upstream remote
+git for-each-ref refs/heads --format="%(refname)|%(refname:short)|%(upstream)|%(upstream:remotename)" |
+while read -d'|' localref branch upstream remote
     # Is this branch tracking an upstream branch?
-    if [ -z "$upstream" ]; continue; end
+    if [ -z "$upstream" ]
+        continue
+    end
 
+    printf "LOCALREF %s\n" $branch
     # Does said upstream branch still exist?
     if rev-exists $upstream
         if is-ancestor $localref $upstream
             # Fast forward the local branch
             git fetch . $upstream:$localref
-
         else if is-ancestor $upstream $localref
             # Upload the local changes
             git push $remote $localref
-
         else
             echo "It looks like someone rebased $localref or $upstream."
         end
     else
         # Maybe this PR has been merged?
         if is-ancestor $localref $remote/HEAD
-            git update-ref -d $localref
+            git branch -d $branch
         end
     end
 end
