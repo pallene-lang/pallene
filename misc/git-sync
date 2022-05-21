@@ -38,29 +38,31 @@ end
 set old_branch (git branch --show-current)
 git switch --detach --quiet
 
-git for-each-ref refs/heads --format="%(refname)|%(refname:short)|%(upstream)|%(upstream:remotename)" |
-while read -d'|' localref branch upstream remote
+git for-each-ref refs/heads --format="%(refname)|%(refname:short)|%(upstream)|%(upstream:short)|%(upstream:remotename)" |
+while read -d'|' localref branch upstreamref upstream remote
     # Is this branch tracking an upstream branch?
-    if [ -z "$upstream" ]
+    if [ -z "$upstreamref" ]
         continue
     end
 
-    printf "LOCALREF %s\n" $branch
     # Does said upstream branch still exist?
-    if rev-exists $upstream
-        if is-ancestor $localref $upstream
+    if rev-exists $upstreamref
+        if is-ancestor $localref $upstreamref
             # Fast forward the local branch
-            git fetch . $upstream:$localref
-        else if is-ancestor $upstream $localref
+            git fetch . $upstreamref:$localref
+        else if is-ancestor $upstreamref $localref
             # Upload the local changes
             git push $remote $localref
         else
-            echo "It looks like someone rebased $localref or $upstream."
+            echo "It looks like someone rebased $branch or $upstream."
         end
     else
-        # Maybe this PR has been merged?
         if is-ancestor $localref $remote/HEAD
+            # PR was merged, it is safe to automatically delete the branch.
             git branch -d $branch
+        else
+            # PR was squashed or rebased. The algorithm isn't sure if we should delete.
+            echo "You might want to delete $branch, because $upstream was deleted."
         end
     end
 end
