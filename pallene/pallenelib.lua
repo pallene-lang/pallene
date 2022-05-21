@@ -35,6 +35,7 @@
 
 return [==[
 #define LUA_CORE
+#include <lua.h>
 #include <lauxlib.h>
 #include <luacore.h>
 

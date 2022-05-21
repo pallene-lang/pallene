@@ -23,7 +23,7 @@ on:
         branches: [ master ]
 
 env:
-    LUA_VERSION: 5.4.4
+    LUA_VERSION: 5.4.4-2
     LUAROCKS_VERSION: 3.9.0
 
 jobs:
