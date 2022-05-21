@@ -219,8 +219,10 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.SetField"   then rhs = Val(cmd.src_v)
     elseif tag == "ir.Cmd.NewClosure" then rhs = Call("NewClosure", { Fun(cmd.f_id) })
     elseif tag == "ir.Cmd.InitUpvalues" then rhs = comma_concat(Vals(cmd.srcs))
-    elseif tag == "ir.Cmd.CallStatic" then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
-    elseif tag == "ir.Cmd.CallDyn"    then rhs = Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallStatic" then
+        rhs = "CallStatic ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallDyn" then
+        rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
     else
         local tagname = assert(typedecl.match_tag(cmd._tag, "ir.Cmd"))
         rhs = Call(tagname, Vals(ir.get_srcs(cmd)))
