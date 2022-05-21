@@ -20,7 +20,7 @@ build = {
    type = "builtin",
    install = {
       bin = {
-         "pallenec"
+         "bin/pallenec",
       }
    }
 }

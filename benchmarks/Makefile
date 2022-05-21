@@ -5,11 +5,11 @@ notarget:
 	@echo "example: make benchmarks/matmul/pallene.so"
 
 %.so: %.pln
-	./pallenec $<
+	pallenec $<
 
 %.so: %.c
-	./pallenec --compile-c $<
+	pallenec --compile-c $<
 
 %/lua.lua: %/pallene.pln
-	./pallenec --emit-lua $<
+	pallenec --emit-lua $<
 	mv $(basename $<).lua $@
