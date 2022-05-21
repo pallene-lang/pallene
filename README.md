@@ -1,48 +1,42 @@
 # Pallene
 [![Actions Status](https://github.com/pallene-lang/pallene/workflows/Github%20Actions%20CI/badge.svg)](https://github.com/pallene-lang/pallene/actions)
 
-Pallene is a statically typed, ahead-of-time-compiled sister language to
-[Lua](https://www.lua.org), with a focus on performance. It is also a
-[friendly fork](http://lua-users.org/lists/lua-l/2018-09/msg00255.html) of the
-[Titan](https://www.github.com/titan-lang/titan) language.
-
-Pallene is intended for writing performance sensitive code that interacts with
+Pallene is a statically typed and ahead-of-time compiled sister language to
+[Lua](https://www.lua.org), with a focus on performance.
+It is intended for writing performance sensitive code that interacts with
 Lua, a space that is currently filled by C modules and by LuaJIT. Compared to
 C, Pallene should offer better support for interacting with Lua data types,
 bypassing the unfriendly syntax and performance overhead of the Lua-C API.
 Compared to LuaJIT, Pallene aims to offer more predictable run-time performance.
 
-## Building the Pallene Compiler
+## Installing Pallene
 
-Pallene requires a special version of Lua, which you will likely need to build from source.
-You will also likely need to build and install Luarocks from source.
+Pallene requires a special version of Lua, which you will need to build from source.
+You will also need to install the Luarocks package manager.
 
 ### Install the special Lua
 
-First, you need to install a Pallene-compatible version of Lua.
-This version of Lua is patched to expose some extra C APIs that Pallene needs.
-You can download it from [our other repository](https://www.github.com/pallene-lang/lua-internals).
-Make sure to get version 5.4.4, because the minor patch number is important.
+You must download and compile the Lua from [our other repository](https://www.github.com/pallene-lang/lua-internals).
+This version of Lua is patched to expose some additional C APIs that Pallene needs.
 
 ```sh
-wget https://www.github.com/pallene-lang/lua-internals/relelases/tag/v5.4.4
-tar xf lua-internals-5.4.4.tar.gz
-cd lua-internals-5.4.4
+git clone https://www.github.com/pallene-lang/lua-internals/
+cd lua-internals
 make linux-readline -j4
 sudo make install
 ```
 
 To check if you have installed the right version of Lua, run `lua -v`.
 It needs to say `Lua 5.x.x with core API`.
-If the message doesn't have the "with core API", that means you're using vanilla Lua.
+If it doesn't have the "with core API", that means you're using vanilla Lua.
 
-### Install Luarocks from source
+### Install Luarocks
 
-You will probably also need to install Luarocks from source.
-We can't use the Luarocks from the package manager because that way it won't use the custom version of Lua we just installed.
-
-For more information on how to install Luarocks, please see the [Luarocks wiki](https://github.com/luarocks/luarocks/wiki/Installation-instructions-for-Unix).
-In the configure step, use the `--with-lua` flag to point to where we installed the custom Lua.
+The next step is to get the Luarocks package manager.
+Because we built our Lua from source, we must also [build Luarocks from source](https://github.com/luarocks/luarocks/wiki/Installation-instructions-for-Unix).
+You can't download Luarocks from your Linux distro, because that would use the wrong version of Lua.
+To build Luarocks, unpack the sources and run `configure`, `make`, and `make install`.
+In the configure step, use `--with-lua` to point to our special Lua.
 
 ```sh
 wget https://luarocks.org/releases/luarocks-3.9.0.tar.gz
@@ -53,42 +47,41 @@ make
 sudo make install
 ```
 
-By default, Luarocks installs packages to the root directory, which requires sudo.
-If you are like me, you might prefer to intall to your home directory by default.
+By default, Luarocks installs packages into /usr/local, which requires sudo.
+If you prefer to install to your home directory by default, enable the `local_by_default` setting.
 
 ```sh
-# Run this one time
 luarocks config local_by_default true
 ```
 
-Remember that in order for the local rocks tree to work, you must to set some environment variables
+Remember that in order for the local rocks tree to work, you must to set the PATH and LUA_PATH environment variables.
 
 ```sh
 # Add this line to your ~/.bashrc
 eval "$(luarocks path)"
 ```
 
-### Build and install Pallene
+### Install Pallene
 
 Finally, we can use Luarocks to build and install the Pallene compiler.
-This will also download and install the necessary Lua dependencies.
+This will also download and install the necessary Lua libraries.
 
-```
+```sh
 luarocks make pallene-dev-1.rockspec
 ```
 
 ## Using Pallene
 
-To compile a `foo.pln` file to a `foo.so` module call `pallenec` as follows.
+To compile a `foo.pln` file to a `foo.so` module, call `pallenec` as follows.
 
 ```sh
-$ pallenec foo.pln
+pallenec foo.pln
 ```
 
-The resulting `foo.so` can be used by Lua via the usual `require` mechanism.
+The resulting `foo.so` can be loaded via the usual `require` mechanism.
 
 ```sh
-$ lua -l foo
+lua -l foo
 ```
 
 It is possible to change the compiler optimization level, for the Pallene compiler and C compiler.
@@ -96,24 +89,24 @@ Here are some examples:
 
 ```sh
 # execute no optimization (Pallene and C compiler)
-$ ./pallenec test.pln -O0
+pallenec test.pln -O0
 
 # execute Pallene compiler optimizations and C compiler level 3 optimizations
-$ ./pallenec test.pln -O3
+pallenec test.pln -O3
 
 # execute no optimizations for Pallene compiler but executes C compiler level 2 optimizations
-$ env CFLAGS="-O2" ./pallenec test.pln -O0
+env CFLAGS="-O2" pallenec test.pln -O0
 
 # execute all default optimizations (same as -O2)
-$ ./pallenec test.pln
+pallenec test.pln
 ```
 
 **Note**: For the C compiler only, the setting set using `CFLAGS` overrides the setting set by flag `-O`.
 
-For more compiler options, see `./pallenec --help`
+For more compiler options, see `pallenec --help`
 
 ## Developing Pallene
 
-If you want to develop Pallene, it is helpful to know how to configure your
-editor to preserve our style standards, and to know how to run the test suite.
+If you want to contribute to Pallene, it is helpful to know how to run our test suite
+and how to configure your text editor to preserve our style standard.
 For all the details, please consult the [CONTRIBUTING](CONTRIBUTING.md) file.
