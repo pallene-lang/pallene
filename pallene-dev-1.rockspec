@@ -24,3 +24,6 @@ build = {
       }
    }
 }
+test = {
+   type = "busted"
+}
