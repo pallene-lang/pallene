@@ -1800,10 +1800,22 @@ function Coder:generate_luaopen_function()
         init_function = self:lua_entry_point_name(1),
     })
 
+    -- NOTE: Version compatibility
+    -- ---------------------------
+    -- We have both a compile-time and a run-time test. The compile-time test ensures that the
+    -- version of Lua is exactly the one that this version of Pallene supports. The run-time test
+    -- checks that the Lua version didn't change behind our backs, after the Pallene module was
+    -- compiled. For example, if you update the Lua library but don't recompile the Pallene module.
+
     return (util.render([[
         int ${name}(lua_State *L)
         {
-            luaL_checkversion(L);
+
+            #if LUA_VERSION_RELEASE_NUM != 50404
+            #error "Lua version must be exactly 5.4.4"
+            #endif
+
+            luaL_checkcoreversion(L);
 
             /**/
             /* Constants */
