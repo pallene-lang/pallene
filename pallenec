@@ -60,7 +60,7 @@ local function compile_up_to(stop_after)
     return out
 end
 
-local function print_ir()
+local function do_print_ir()
     local module = compile_up_to("optimize")
     io.stdout:write(print_ir(module))
 end
@@ -68,6 +68,6 @@ end
 if     args.emit_c      then compile("pln", "c")
 elseif args.emit_lua    then compile("pln", "lua")
 elseif args.compile_c   then compile("c" ,  "so")
-elseif args.dump_ir     then print_ir()
+elseif args.print_ir    then do_print_ir()
 else --[[default]]           compile("pln", "so")
 end
