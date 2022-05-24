@@ -1,0 +1,3 @@
+#!/usr/bin/env lua
+local pallenec = require "pallene.pallenec"
+pallenec.main()

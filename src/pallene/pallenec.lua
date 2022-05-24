@@ -1,11 +1,11 @@
-#!/usr/bin/env lua
-
 local argparse = require "argparse"
 
 local driver = require "pallene.driver"
 local print_ir = require "pallene.print_ir"
 local util = require "pallene.util"
 local C = require "pallene.C"
+
+local pallenec = {}
 
 --
 -- Command-line options
@@ -65,9 +65,13 @@ local function do_print_ir()
     io.stdout:write(print_ir(module))
 end
 
-if     args.emit_c      then compile("pln", "c")
-elseif args.emit_lua    then compile("pln", "lua")
-elseif args.compile_c   then compile("c" ,  "so")
-elseif args.print_ir    then do_print_ir()
-else --[[default]]           compile("pln", "so")
+function pallenec.main()
+    if     args.emit_c      then compile("pln", "c")
+    elseif args.emit_lua    then compile("pln", "lua")
+    elseif args.compile_c   then compile("c" ,  "so")
+    elseif args.print_ir    then do_print_ir()
+    else --[[default]]           compile("pln", "so")
+    end
 end
+
+return pallenec
