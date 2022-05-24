@@ -30,7 +30,7 @@ return m
 If we put this subroutine in a file named `sum.pln` and pass this file to the `pallenec` compiler, it will output a `sum.so` Lua extension module:
 
 ```
-$ ./pallenec sum.pln
+$ pallenec sum.pln
 ```
 
 The `sum.so` file can be loaded from within Lua with `require`, as usual:

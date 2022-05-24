@@ -7,7 +7,7 @@ local util = require "pallene.util"
 
 local function assert_example(example, expected_output)
     local plnfile = util.shell_quote("examples/"..example.."/"..example..".pln")
-    local ok, err = util.execute("./pallenec "..plnfile)
+    local ok, err = util.execute("pallenec "..plnfile)
     assert(ok, err)
 
     local luafile = util.shell_quote("examples/"..example.."/main.lua")
