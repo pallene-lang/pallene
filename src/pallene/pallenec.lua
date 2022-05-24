@@ -19,7 +19,7 @@ local pallenec = {}
 local compiler_name = arg[0]
 
 -- Command-line options
-local args
+local opts
 do
     local p = argparse("pallenec", "Pallene compiler")
     p:argument("source_file", "File to compile")
@@ -39,20 +39,20 @@ do
 
     p:option("-o --output", "Output file path")
 
-    args = p:parse()
+    opts = p:parse()
 end
 
 local function compile(in_ext, out_ext)
-    local ok, errs = driver.compile(compiler_name, args.O, in_ext, out_ext, args.source_file,
-        args.output)
+    local ok, errs = driver.compile(compiler_name, opts.O, in_ext, out_ext, opts.source_file,
+        opts.output)
     if not ok then util.abort(table.concat(errs, "\n")) end
 end
 
 local function compile_up_to(stop_after)
-    local input, err = driver.load_input(args.source_file)
+    local input, err = driver.load_input(opts.source_file)
     if err then util.abort(err) end
 
-    local out, errs = driver.compile_internal(args.source_file, input, stop_after, args.O)
+    local out, errs = driver.compile_internal(opts.source_file, input, stop_after, opts.O)
     if not out then util.abort(table.concat(errs, "\n")) end
 
     return out
@@ -64,10 +64,10 @@ local function do_print_ir()
 end
 
 function pallenec.main()
-    if     args.emit_c      then compile("pln", "c")
-    elseif args.emit_lua    then compile("pln", "lua")
-    elseif args.compile_c   then compile("c" ,  "so")
-    elseif args.print_ir    then do_print_ir()
+    if     opts.emit_c      then compile("pln", "c")
+    elseif opts.emit_lua    then compile("pln", "lua")
+    elseif opts.compile_c   then compile("c" ,  "so")
+    elseif opts.print_ir    then do_print_ir()
     else --[[default]]           compile("pln", "so")
     end
 end
