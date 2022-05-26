@@ -17,9 +17,9 @@ echo "--- Test Suite ---"
 # need to press Ctrl-C once and busted usually gets to exit gracefully.
 FLAGS=(--verbose --no-keep-going)
 
-# To speed things up, we tell the C compiler to skip optimizations.
-# Don't worry, the continuous integration server still tests with optimizations.
-export CFLAGS=-O0
+# To speed things up, we tell the C compiler to skip optimizations. (It's OK, the CI still uses -O2)
+# Also, add some compiler flags to verify standard compliance.
+export CFLAGS='-O0 -std=c99 -Wall -Werror -Wundef -Wpedantic -Wno-unused'
 
 if [ "$#" -eq 0 ]; then
     if command -v parallel >/dev/null; then
