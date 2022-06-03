@@ -37,7 +37,7 @@ function C.string(s)
 end
 
 function C.integer(n)
-    return string.format("%i", n)
+    return string.format("%d", n)
 end
 
 function C.boolean(b)
