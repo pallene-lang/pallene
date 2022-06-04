@@ -37,7 +37,16 @@ function C.string(s)
 end
 
 function C.integer(n)
-    return string.format("%i", n)
+    -- We must special case the MIN_INTEGER, otherwise gcc -Wall will complain about the C constant
+    -- literal being so large that it becomes unsigned. The issue is that -9223372036854775808 is
+    -- parsed as the unary negation of a positive integer literal which is too big to for int64_t.
+    if n == math.maxinteger then
+        return "LUA_MAXINTEGER"
+    elseif n == math.mininteger then
+        return "LUA_MININTEGER"
+    else
+        return string.format("%d", n)
+    end
 end
 
 function C.boolean(b)
