@@ -39,9 +39,9 @@ To build Luarocks, unpack the sources and run `configure`, `make`, and `make ins
 In the configure step, use `--with-lua` to point to our special Lua.
 
 ```sh
-wget https://luarocks.org/releases/luarocks-3.9.0.tar.gz
-tar xf luarocks-3.9.0.tar.gz
-cd luarocks-3.9.0
+wget https://luarocks.org/releases/luarocks-3.9.1.tar.gz
+tar xf luarocks-3.9.1.tar.gz
+cd luarocks-3.9.1
 ./configure --with-lua=/usr/local
 make
 sudo make install
