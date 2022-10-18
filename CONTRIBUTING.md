@@ -118,3 +118,21 @@ make clean
 make MYCFLAGS=-DLUAI_ASSERT=1 linux-readline -j4
 sudo make install
 ```
+
+# Debugging segfaults with address sanitizer
+
+To use the address sanitizer, you must first compile Lua with address sanizer enabled.
+
+
+```sh
+cd lua-internals
+make clean
+make MYLDFLAGS=-fsanitize=address -j4
+sudo make install
+```
+
+Then you must also build the Pallene module with address sanitizer
+
+```sh
+CFLAGS='-fsanitize=address -g' pallenec --compile-c foo.c
+```

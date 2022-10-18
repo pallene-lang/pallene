@@ -3055,6 +3055,68 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             run_test([[ assert(1 == test.f()) ]])
         end)
     end)
+
+    describe("growing the Lua stack", function()
+        compile([[
+            -- A function that uses a lot of stack space
+            -- and needs to grow the Lua stack.
+            function m.f(i: integer, sep:string): string
+                if i == 0 then
+                    return ""
+                else
+                    -- A bunch of non-constant GC variables
+                    -- that live all the way to the end.
+                    local x01 = "a" .. sep
+                    local x02 = "b" .. sep
+                    local x03 = "c" .. sep
+                    local x04 = "d" .. sep
+                    local x05 = "e" .. sep
+                    local x06 = "f" .. sep
+                    local x07 = "g" .. sep
+                    local x08 = "h" .. sep
+                    local x09 = "i" .. sep
+                    local x10 = "j" .. sep
+                    local x11 = "k" .. sep
+                    local x12 = "l" .. sep
+                    local x13 = "m" .. sep
+                    local x14 = "n" .. sep
+                    local x15 = "o" .. sep
+                    local x16 = "p" .. sep
+                    local x17 = "q" .. sep
+                    local x18 = "r" .. sep
+                    local x19 = "s" .. sep
+                    local x20 = "t" .. sep
+                    local x21 = "u" .. sep
+                    local x22 = "v" .. sep
+                    local x23 = "w" .. sep
+                    local x24 = "x" .. sep
+                    local x25 = "y" .. sep
+                    local x26 = "z" .. sep
+
+                    -- This function call is a garbage collection point
+                    -- and should cause the vars to be saved to the stack.
+                    local y = m.f(i-1, sep)
+
+                    return (
+                        y ..
+                        x01 .. x02 .. x03 .. x04 .. x05 ..
+                        x06 .. x07 .. x08 .. x09 .. x10 ..
+                        x11 .. x12 .. x13 .. x14 .. x15 ..
+                        x16 .. x17 .. x18 .. x19 .. x20 ..
+                        x21 .. x22 .. x23 .. x24 .. x25 .. x26
+                    )
+                end
+            end
+        ]])
+
+        it("works", function()
+            run_test([[
+                local n = 10
+                local s = string.rep("abcdefghijklmnopqrstuvwxyz", n)
+                assert(s == test.f(n, ""))
+            ]])
+        end)
+    end)
 end
 
 return execution_tests
