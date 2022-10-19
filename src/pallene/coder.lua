@@ -392,7 +392,6 @@ function Coder:pallene_entry_point_declaration(f_id)
 
     local args = {} -- { {ctype, name , comment} }
     table.insert(args, {"lua_State *" , "L",    ""})
-    table.insert(args, {"StackValue *", "base", ""})     -- Lua stack pointer
     table.insert(args, {"Udata * restrict " , "K",  ""}) -- constants table
     table.insert(args, {"TValue * restrict ", "U" , ""}) -- upvalue array
 
@@ -437,6 +436,7 @@ function Coder:pallene_entry_point_definition(f_id)
     end
 
     local prologue = {}
+    table.insert(prologue, "StackValue *base = L->top;");
     table.insert(prologue, self:savestack())
 
     local max_frame_size = self.gc[func].max_frame_size
@@ -444,7 +444,7 @@ function Coder:pallene_entry_point_definition(f_id)
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
             luaD_checkstackaux(L,
-                (base - L->stack) + $slots_needed,
+                $slots_needed,
                 (void)0,
                 $restore_stack);
         ]], {
@@ -482,14 +482,13 @@ function Coder:pallene_entry_point_definition(f_id)
     }))
 end
 
-function Coder:call_pallene_function(dsts, f_id, base, cclosure, xs)
+function Coder:call_pallene_function(dsts, f_id, cclosure, xs)
 
     local func       = self.module.functions[f_id]
     local n_upvalues = #func.captured_vars
 
     local args = {}
     table.insert(args, "L")
-    table.insert(args, base)
     table.insert(args, "K")
 
     -- If the Pallene entry point of the closure being called doesn't have any upvalues,
@@ -594,7 +593,7 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "L->top", "func", arg_vars)
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "func", arg_vars)
 
 
     local push_results = {}
@@ -883,15 +882,18 @@ end
 -- The savestack function needs to be called before the function calls that may reallocate the
 -- stack. Calling it once in the function prologue works. Don't worry if the base_offset variable
 -- goes unused because the C compiler can optimize that.
+--
+-- The update_stack_top should be called before function calls and GC points. We need to update
+-- the stack top before a GC point so the GC can look at the right set of variables. We also need
+-- to do it before function calls because the stack-gowing logic relies on having the right "top".
 
-function Coder:stack_top_at(func, cmd)
+function Coder:update_stack_top(func, cmd)
     local offset = 0
     for _, v_id in ipairs(self.gc[func].live_gc_vars[cmd]) do
         local slot = self.gc[func].slot_of_variable[v_id]
         offset = math.max(offset, slot + 1)
     end
-
-    return util.render("base + $offset", { offset = C.integer(offset) })
+    return util.render("L->top = base + $offset;", { offset = C.integer(offset) })
 end
 
 function Coder:savestack()
@@ -1373,7 +1375,6 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     for _, x in ipairs(cmd.srcs) do
         table.insert(xs, self:c_value(x))
     end
-    local top = self:stack_top_at(func, cmd)
 
     local parts = {}
 
@@ -1389,7 +1390,8 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
         typedecl.tag_error(f_val._tag)
     end
 
-    table.insert(parts, self:call_pallene_function(dsts, f_id, top, cclosure, xs))
+    table.insert(parts, self:update_stack_top(func, cmd))
+    table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
@@ -1424,13 +1426,13 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     end
 
     return util.render([[
-        L->top = $top;
+        ${update_stack_top};
         ${push_arguments}
         lua_call(L, $nargs, $nrets);
         ${pop_results}
         ${restore_stack}
     ]], {
-        top = self:stack_top_at(func, cmd),
+        update_stack_top = self:update_stack_top(func, cmd),
         push_arguments = table.concat(push_arguments, "\n"),
         pop_results = table.concat(pop_results, "\n"),
         nargs = C.integer(#f_typ.arg_types),
@@ -1669,9 +1671,8 @@ gen_cmd["For"] = function(self, cmd, func)
 end
 
 gen_cmd["CheckGC"] = function(self, cmd, func)
-    local top = self:stack_top_at(func, cmd)
-    return util.render([[ luaC_condGC(L, L->top = $top, (void)0); ]], {
-        top = top })
+    return util.render([[ luaC_condGC(L, ${update_stack_top}, (void)0); ]], {
+        update_stack_top = self:update_stack_top(func, cmd) })
 end
 
 function Coder:generate_cmd(func, cmd)
