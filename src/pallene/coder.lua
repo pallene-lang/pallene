@@ -443,10 +443,10 @@ function Coder:pallene_entry_point_definition(f_id)
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
-            luaD_checkstackaux(L,
-                $slots_needed,
-                (void)0,
-                $restore_stack);
+            luaD_checkstackaux(L, $slots_needed, (void)0, $restore_stack);
+            if (L->ci->top < base + $slots_needed) {
+                L->ci->top = base + $slots_needed;
+            }
         ]], {
             slots_needed = C.integer(slots_needed),
             restore_stack = self:restorestack():match("^(.-);$"),
