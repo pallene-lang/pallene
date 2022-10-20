@@ -63,6 +63,7 @@ static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* fi
 static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line);
+static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L);
 
 /* Arithmetic operators */
 static lua_Integer pallene_int_divi(lua_State *L, lua_Integer m, lua_Integer n, const char* file, int line);
@@ -205,6 +206,12 @@ static void pallene_runtime_number_to_integer_error(lua_State *L, const char* fi
 static void pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line)
 {
     luaL_error(L, "file %s: line %d: arrays in Pallene must not have a metatable", file, line);
+    PALLENE_UNREACHABLE;
+}
+
+static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L)
+{
+    luaL_error(L, "stack overflow");
     PALLENE_UNREACHABLE;
 }
 

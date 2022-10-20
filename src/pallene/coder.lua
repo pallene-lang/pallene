@@ -436,22 +436,18 @@ function Coder:pallene_entry_point_definition(f_id)
     end
 
     local prologue = {}
-    table.insert(prologue, "StackValue *base = L->top;");
-    table.insert(prologue, self:savestack())
 
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
-            luaD_checkstackaux(L, $slots_needed, (void)0, $restore_stack);
-            if (L->ci->top < base + $slots_needed) {
-                L->ci->top = base + $slots_needed;
-            }
+            if (!lua_checkstack(L, $n)) { pallene_runtime_cant_grow_stack_error(L); }
         ]], {
-            slots_needed = C.integer(slots_needed),
-            restore_stack = self:restorestack():match("^(.-);$"),
+            n = C.integer(slots_needed)
         }))
     end
+    table.insert(prologue, "StackValue *base = L->top;");
+    table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
 
     for v_id = #arg_types + 1, #func.vars do
@@ -1426,7 +1422,7 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     end
 
     return util.render([[
-        ${update_stack_top};
+        ${update_stack_top}
         ${push_arguments}
         lua_call(L, $nargs, $nrets);
         ${pop_results}
