@@ -857,8 +857,8 @@ function Coder:init_gc()
         for cmd in ir.iter(func.body) do
             if cmd._tag == "ir.Cmd.CallDyn" then
                 local nsrcs = #cmd.srcs
-                local ndst  = 1
-                max = math.max(max, nsrcs+1, ndst)
+                local ndst  = #cmd.dsts
+                max = math.max(max, nsrcs+1, ndst+1)
             end
         end
         self.max_lua_call_stack_usage[func] = max
