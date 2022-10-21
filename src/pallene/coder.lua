@@ -856,6 +856,10 @@ function Coder:init_gc()
         local max = 0
         for cmd in ir.iter(func.body) do
             if cmd._tag == "ir.Cmd.CallDyn" then
+                -- Although in the end the fn call leaves only ndst items in
+                -- the stack, we actually need ndst+1 to appease the apicheck
+                -- assertions. That's because the callee keeps the fn closure
+                -- in the stack until it's right about to return.
                 local nsrcs = #cmd.srcs
                 local ndst  = #cmd.dsts
                 max = math.max(max, nsrcs+1, ndst+1)

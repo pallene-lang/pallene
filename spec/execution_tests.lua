@@ -3056,7 +3056,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    describe("growing the Lua stack", function()
+    describe("the Lua stack", function()
         compile([[
             -- A function that uses a lot of stack space
             -- and needs to grow the Lua stack.
@@ -3107,13 +3107,33 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                     )
                 end
             end
+
+            typealias func = (integer) -> (nil,nil,nil)
+            function m.rets(i: integer, s:string, g:func): string
+                if i == 0 then
+                    return ""
+                else
+                    local x = s..""
+                    local a,b,c = g(1)
+                    local z = m.rets(i-1, s, g)
+                    return x..z
+                end
+            end
         ]])
 
-        it("works", function()
+        it("can grow", function()
             run_test([[
                 local n = 10
                 local s = string.rep("abcdefghijklmnopqrstuvwxyz", n)
                 assert(s == test.f(n, ""))
+            ]])
+        end)
+
+        it("allocates enough space for ret values", function()
+            run_test([[
+                local function g() return nil,nil,nil end
+                local s = string.rep("a", 64)
+                assert(s == test.rets(64, "a", g))
             ]])
         end)
     end)
