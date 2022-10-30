@@ -22,13 +22,16 @@ This version of Lua is patched to expose some additional C APIs that Pallene nee
 ```sh
 git clone https://www.github.com/pallene-lang/lua-internals/
 cd lua-internals
-make linux-readline -j4
+make guess -j4
 sudo make install
 ```
 
-To check if you have installed the right version of Lua, run `lua -v`.
+If you are on Linux and would like the up arrow to work in the Lua REPL,
+then run `make linux-readline` instead of `make guess`.
+After Lua is installed, run `lua -v` to check if you have the right version.
 It needs to say `Lua 5.x.x with core API`.
-If it doesn't have the "with core API", that means you're using vanilla Lua.
+If it doesn't have the "with core API",
+that means you're using the default Lua instead of the special Lua.
 
 ### Install Luarocks
 
