@@ -122,50 +122,44 @@ describe("Pallene types", function()
     end)
 
     describe("consistency", function()
-        it("it always true for value", function()
+        it("allows 'any' on either side", function()
             assert.truthy(types.consistent(types.T.Any(), types.T.Any()))
             assert.truthy(types.consistent(types.T.Any(), types.T.Integer()))
             assert.truthy(types.consistent(types.T.Integer(), types.T.Any()))
         end)
 
-        it("works for arrays", function()
-            local t1 = types.T.Array(types.T.Any())
-            local t2 = types.T.Array(types.T.Integer())
-            local t3 = types.T.Array(types.T.Array(types.T.Integer))
-            assert.truthy(types.consistent(t1, t2))
-            assert.truthy(types.consistent(t1, t3))
-            assert.falsy(types.consistent(t2, t3))
+        it("allows types with same tag", function()
+            assert.truthy(types.consistent(
+                types.T.Integer(),
+                types.T.Integer()
+            ))
+
+            assert.truthy(types.consistent(
+                types.T.Array(types.T.Integer()),
+                types.T.Array(types.T.Integer())
+            ))
+
+            assert.truthy(types.consistent(
+                types.T.Array(types.T.Integer()),
+                types.T.Array(types.T.String())
+            ))
+
+            assert.truthy(types.consistent(
+                types.T.Function({types.T.Integer()}, {types.T.Integer()}),
+                types.T.Function({types.T.String(), types.T.String()}, {})
+            ))
         end)
 
-        it("works for tables", function()
-            local t1 = types.T.Table({x = types.T.Any()})
-            local t2 = types.T.Table({x = types.T.Integer()})
-            local t3 = types.T.Table({x = types.T.Array(types.T.Integer)})
-            assert.truthy(types.consistent(t1, t2))
-            assert.truthy(types.consistent(t1, t3))
-            assert.falsy(types.consistent(t2, t3))
-        end)
+        it("forbids different tags", function()
+            assert.falsy(types.consistent(
+                types.T.Integer(),
+                types.T.String()
+            ))
 
-        it("works for arrays", function()
-            local t1 = types.T.Array(types.T.Any())
-            local t2 = types.T.Array(types.T.Integer())
-            local t3 = types.T.Array(types.T.Array(types.T.Integer))
-            assert.truthy(types.consistent(t1, t2))
-            assert.truthy(types.consistent(t1, t3))
-            assert.falsy(types.consistent(t2, t3))
-        end)
-
-
-        it("works for functions with same arity", function()
-            local v = types.T.Any()
-            local i = types.T.Integer()
-            local s = types.T.String()
-            local f1 = types.T.Function({v, v}, {v})
-            local f2 = types.T.Function({i, i}, {i})
-            local f3 = types.T.Function({s, s}, {s})
-            assert.truthy(types.consistent(f1, f2))
-            assert.truthy(types.consistent(f1, f3))
-            assert.falsy(types.consistent(f2, f3))
+            assert.falsy(types.consistent(
+                types.T.Array(types.T.Integer()),
+                types.T.Function({types.T.Integer()},{types.T.Integer()})
+            ))
         end)
     end)
 end)

@@ -25,7 +25,8 @@ declare_type("T", {
         "name",          -- for tostring only
         "field_names",   -- same order as the source type declaration
         "field_types",   -- map { string => types.T }
-        "is_upvalue_box" -- whether this is an artificial upvalue record (check assignment_conversion.lua)
+        "is_upvalue_box" -- whether this is an artificial upvalue record
+                         --  (check assignment_conversion.lua)
     },
 })
 
@@ -114,21 +115,14 @@ function types.indices(t)
     end
 end
 
--- This helper function implements both the type equality relation and the gradual type
--- consistency relation from gradual typing.  Gradual type consistency is a relaxed form of equality
--- where the "any" type is considered to be consistent with all other types.
-local function equivalent(t1, t2, is_gradual)
-    assert(is_gradual ~= nil)
+function types.equals(t1, t2)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
     assert(typedecl.match_tag(tag1, "types.T"))
     assert(typedecl.match_tag(tag2, "types.T"))
 
-    if is_gradual and (tag1 == "types.T.Any" or tag2 == "types.T.Any") then
-        return true
-
-    elseif tag1 ~= tag2 then
+    if tag1 ~= tag2 then
         return false
 
     elseif tag1 == "types.T.Any" or
@@ -141,7 +135,7 @@ local function equivalent(t1, t2, is_gradual)
         return true
 
     elseif tag1 == "types.T.Array" then
-        return equivalent(t1.elem, t2.elem, is_gradual)
+        return types.equals(t1.elem, t2.elem)
 
     elseif tag1 == "types.T.Table" then
         local f1 = t1.fields
@@ -160,7 +154,7 @@ local function equivalent(t1, t2, is_gradual)
         end
 
         for name in pairs(f2) do
-            if not equivalent(f1[name], f2[name], is_gradual) then
+            if not types.equals(f1[name], f2[name]) then
                 return false
             end
         end
@@ -173,7 +167,7 @@ local function equivalent(t1, t2, is_gradual)
         end
 
         for i = 1, #t1.arg_types do
-            if not equivalent(t1.arg_types[i], t2.arg_types[i], is_gradual) then
+            if not types.equals(t1.arg_types[i], t2.arg_types[i]) then
                 return false
             end
         end
@@ -183,7 +177,7 @@ local function equivalent(t1, t2, is_gradual)
         end
 
         for i = 1, #t1.ret_types do
-            if not equivalent(t1.ret_types[i], t2.ret_types[i], is_gradual) then
+            if not types.equals(t1.ret_types[i], t2.ret_types[i]) then
                 return false
             end
         end
@@ -200,12 +194,14 @@ local function equivalent(t1, t2, is_gradual)
     end
 end
 
-function types.equals(t1, t2)
-    return equivalent(t1, t2, false)
-end
-
+-- We consider types to be consistent if type casts between them are allowed.
+-- We forbid type casts that are 100% guaranteed to fail, e.g. int=>string.
+-- This is looser than the consistency requirement from gradual typing.
 function types.consistent(t1, t2)
-    return equivalent(t1, t2, true)
+    return (
+        t1._tag == "types.T.Any" or
+        t2._tag == "types.T.Any" or
+        t1._tag == t2._tag)
 end
 
 local function join_type_list(list)
