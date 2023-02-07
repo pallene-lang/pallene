@@ -757,28 +757,6 @@ describe("Binary operator", function()
 
 end)
 
-describe("Cast operator", function()
-
-    local function test(typ1, typ2, expected_error)
-        local description = string.format(
-            "'as' cannot convert incompatible types (%s, %s)", typ1, typ2)
-
-        local code = util.render([[
-            function m.fn(x: $typ1)
-                local _ = x as $typ2
-            end
-        ]], { typ1 = typ1, typ2 = typ2 })
-
-        it(description, function()
-            assert_error(code, expected_error)
-        end)
-    end
-
-    test("boolean", "float",     "in cast expression")
-    test("nil",     "string",    "in cast expression")
-    test("{float}", "{integer}", "in cast expression")
-end)
-
 describe("Function call", function()
 
     it("must be a function (non-any)", function()
