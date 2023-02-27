@@ -53,33 +53,35 @@ function C.boolean(b)
     return (b and "1" or "0")
 end
 
+
 function C.float(n)
-    -- To keep things pretty, we try to find the shortest representation that still round trips.
-    -- For normal floats, the only way in standard C or Lua is to try every possible precision,
-    -- which is slow but works. For infinities, the HUGE_VAL macro is part of math.h.
-    -- NaNs are disallowed, because they cannot be represented as a C literal.
     if n ~= n then
         error("NaN cannot be round-tripped")
     elseif n == math.huge then
-        return "HUGE_VAL"
+        return "HUGE_VAL" -- from math.h
     elseif n == -math.huge then
         return "-HUGE_VAL"
     else
-        -- We start at 6 to avoid exponent notation for small numbers, e.g. 10.0 -> 1e+01
-        -- We don't go straight to 17 because it might be ugly, e.g. 3.14 -> 3.1400000000000001
-        -- Be careful with floating point numbers that are also integers.
         for p = 6, 17 do
-            local s = string.format("%."..p.."g", n)
+            -- Represent the number using as few decimal digits as possible.
+            -- Start with 6, to avoid exponential notation for small numbers e.g. 1e+01
+            -- End with 17, which should be enough for any double.
+            -- See https://stackoverflow.com/a/21162120
+            local fmt = "%."..p.."g"
+            local s = string.format(fmt, n)
+
+            -- Watch out for whole numbers.
+            -- We want a float literal, not an integer literal.
             if s:match("^%-?[0-9]+$") then
-                s = s .. ".0"
+               s = s .. ".0"
             end
+
+            -- Does it round trip?
             if tonumber(s) == n then
                 return s
             end
-         end
-         -- 17 digits should have been enough to round trip any non-NaN, non-infinite double.
-         -- See https://stackoverflow.com/a/21162120 and DBL_DECIMAL_DIG in float.h
-         error("impossible")
+        end
+        error("impossible")
     end
 end
 
