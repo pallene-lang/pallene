@@ -516,7 +516,7 @@ There are situations where removal of type annotations are useful.
  * In the benchmarks that do not use LuaJIT features, we could generate the Lua version of the code from the Pallene version.
 
 With the help of the Pallene to Lua translator, users can remove Pallene type annotations to generate plain Lua.
-You can run the compiler with the flag `--emit-lua` flag to cause the compiler to generate plain Lua instead of C.
+You can run the compiler with the flag `--emit-lua` to cause the compiler to generate plain Lua instead of C.
 
 Consider the following example written in Pallene.
 ```
