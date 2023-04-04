@@ -167,7 +167,7 @@ Pallene's `for-in` loops carry some semantic importance that might be of relevan
 An example of such a loop might look like this:
 
 ```lua
-local function sum_list(xs: {integer}) do
+local function sum_list(xs: {integer})
     local sum: integer = 0
     for _, x: integer in ipairs(xs) do
         sum = sum + x
