@@ -483,6 +483,7 @@ local m: module = {}
 local xs: {any} = {10, "hello", 3.14}
 
 local function f(x: any, y: any): any
+    return nil as nil
 end
 
 return m
@@ -492,6 +493,7 @@ local m = {}
 local xs = {10, "hello", 3.14}
 
 local function f(x, y)
+    return nil
 end
 
 return m

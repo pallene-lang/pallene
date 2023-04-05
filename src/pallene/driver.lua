@@ -154,7 +154,15 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
         return false, { err }
     end
 
-    local prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
+    -- Perform compilation steps up to (including) variable verifications.
+    local prog_ast, errs = driver.compile_internal(input_file_name, input, "uninitialized")
+    if not prog_ast then
+        return false, errs
+    end
+
+    -- Redo the compilation, this time stopping after the syntax checker to have
+    -- an AST that we can translate to lua.
+    prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
     if not prog_ast then
         return false, errs
     end
