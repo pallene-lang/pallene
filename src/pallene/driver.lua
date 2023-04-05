@@ -149,6 +149,12 @@ end
 local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
     assert(input_ext == "pln")
 
+    local preserve_columns = false
+    if output_ext == "lua_pc" then
+        preserve_columns = true
+        output_ext = "lua"
+    end
+
     local input, err = driver.load_input(input_file_name)
     if not input then
         return false, { err }
@@ -167,7 +173,7 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
         return false, errs
     end
 
-    local translation = translator.translate(input, prog_ast)
+    local translation = translator.translate(input, prog_ast, preserve_columns)
 
     assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
     return true, {}
@@ -188,7 +194,7 @@ function driver.compile(argv0, opt_level, input_ext, output_ext, input_file_name
 
     local mod_name = string.gsub(output_base_name, "/", "_")
 
-    if output_ext == "lua" then
+    if output_ext == "lua" or output_ext == "lua_pc" then
         return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
