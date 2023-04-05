@@ -520,8 +520,8 @@ return m
 local m         = {}
 local xs        = {10, "hello", 3.14}
 
-local function f(x     , y     )     
-    return nil       
+local function f(x     , y     )     ]] .. "\n" .. [[
+    return nil       ]] .. "\n" .. [[
 end
 
 return m
