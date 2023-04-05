@@ -9,9 +9,13 @@
 local util = require "pallene.util"
 local execution_tests = require "spec.execution_tests"
 
-local function compile(filename, pallene_code)
+local function compile(filename, pallene_code, preserve_columns)
     assert(util.set_file_contents(filename, pallene_code))
-    local cmd = string.format("pallenec %s --emit-lua", util.shell_quote(filename))
+    local flag = "--emit-lua"
+    if preserve_columns then
+        flag = "--emit-lua-preserve-columns"
+    end
+    local cmd = string.format("pallenec %s " .. flag, util.shell_quote(filename))
     local ok, _, _, error_message = util.outputs_of_execute(cmd)
     return ok, error_message
 end
@@ -32,8 +36,8 @@ end)
 -- Translation tests
 --------------------
 
-local function assert_translation(pallene_code, expected)
-    assert(compile("__translation_test__.pln", pallene_code))
+local function assert_translation(pallene_code, expected, preserve_columns)
+    assert(compile("__translation_test__.pln", pallene_code, preserve_columns))
     local contents = assert(util.get_file_contents("__translation_test__.lua"))
     -- The introduction of math.ln in Pallene to workaround single param math.log requires emitted
     -- Lua code to handle this as well. The current workaround injects "math.ln = math.log; " at
@@ -483,6 +487,7 @@ local m: module = {}
 local xs: {any} = {10, "hello", 3.14}
 
 local function f(x: any, y: any): any
+    return nil as nil
 end
 
 return m
@@ -492,10 +497,35 @@ local m = {}
 local xs = {10, "hello", 3.14}
 
 local function f(x, y)
+    return nil
 end
 
 return m
 ]])
+    end)
+
+    it("Remove any type annotation (preserving columns)", function ()
+        assert_translation(
+[[
+local m: module = {}
+local xs: {any} = {10, "hello", 3.14}
+
+local function f(x: any, y: any): any
+    return nil as nil
+end
+
+return m
+]],
+[[
+local m         = {}
+local xs        = {10, "hello", 3.14}
+
+local function f(x     , y     )     ]] .. "\n" .. [[
+    return nil       ]] .. "\n" .. [[
+end
+
+return m
+]], true)
     end)
 
     it("Remove function shapes", function ()

@@ -30,8 +30,13 @@ local translator = {}
 
 local Translator = util.Class()
 
-function Translator:init(input)
+function Translator:init(input, preserve_columns)
     self.input = input -- string
+    if preserve_columns then
+        self.eraser = " " -- insert a space for each removed character
+    else
+        self.eraser = "" -- insert nothing when removing characters
+    end
     self.last_index = 1 -- integer
     self.partials = {} -- list of strings
     return self
@@ -51,7 +56,7 @@ function Translator:erase_region(start_index, stop_index)
     self:add_previous(start_index - 1)
 
     local region = self.input:sub(start_index, stop_index)
-    local partial = region:gsub("[^\n\r]", "")
+    local partial = region:gsub("[^\n\r]", self.eraser)
     table.insert(self.partials, partial)
 
     self.last_index = stop_index + 1
@@ -65,8 +70,8 @@ function Translator:prepend_compatibility_code()
     self.partials[1] = "math.ln = math.log; " .. self.partials[1]
 end
 
-function translator.translate(input, prog_ast)
-    local instance = Translator.new(input)
+function translator.translate(input, prog_ast, preserve_columns)
+    local instance = Translator.new(input, preserve_columns)
 
     -- Erase all type regions, while preserving comments
     -- As a sanity check, assert that the comment regions are either inside or outside the type
