@@ -9,7 +9,7 @@
 -- invoke the compiler passes in the right order, passing the data as needed.
 
 local c_compiler = require "pallene.c_compiler"
-local checker = require "pallene.checker"
+local typechecker = require "pallene.typechecker"
 local assignment_conversion = require "pallene.assignment_conversion"
 local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
@@ -72,9 +72,9 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     if not prog_ast then return abort() end
     if stop_after == "ast" then return prog_ast end
 
-    prog_ast, errs = checker.check(prog_ast)
+    prog_ast, errs = typechecker.check(prog_ast)
     if not prog_ast then return abort() end
-    if stop_after == "checker" then return prog_ast end
+    if stop_after == "typechecker" then return prog_ast end
 
     prog_ast, errs = assignment_conversion.convert(prog_ast)
     if not prog_ast then return abort() end
@@ -160,9 +160,9 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
         return false, errs
     end
 
-    -- Redo the compilation, this time stopping after the syntax checker to have
+    -- Redo the compilation, this time stopping after the type checker to have
     -- an AST that we can translate to lua.
-    prog_ast, errs = driver.compile_internal(input_file_name, input, "checker")
+    prog_ast, errs = driver.compile_internal(input_file_name, input, "typechecker")
     if not prog_ast then
         return false, errs
     end

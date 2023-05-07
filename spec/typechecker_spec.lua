@@ -6,24 +6,24 @@
 local driver = require 'pallene.driver'
 local util = require 'pallene.util'
 
--- Organization of the Checker Test Suite
--- --------------------------------------
+-- Organization of the Type Checker Test Suite
+-- -------------------------------------------
 --
 -- Try to order the tests by the order that things appear in parser.lua.
 -- This way, it's easier to know if a test case is missing.
 --
--- Try to have a test case for every named error. Look for functions in the checker.lua that take
+-- Try to have a test case for every named error. Look for functions in the typechecker.lua that take
 -- an error string as a paremeter. For example, type_error and check_exp_verify.
 
-local function run_checker(code)
+local function run_typechecker(code)
     -- "__test__.pln" does not exist on disk. The name is only used for error messages.
-    local module, errs = driver.compile_internal("__test__.pln", code, "checker")
+    local module, errs = driver.compile_internal("__test__.pln", code, "typechecker")
     errs = errs or {}
     return module, table.concat(errs, "\n")
 end
 
 local function assert_error(body, expected_err)
-    local module, errs = run_checker(util.render([[
+    local module, errs = run_typechecker(util.render([[
         local m: module = {}
         $body
         return m

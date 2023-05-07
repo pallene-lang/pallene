@@ -365,7 +365,7 @@ function ToIR:convert_stat(cmds, stat)
         local is_ipairs = (
             e1._tag == "ast.Exp.CallFunc" and
             e1.exp._tag == "ast.Exp.Var" and
-            e1.exp.var._def._tag == "checker.Def.Builtin" and
+            e1.exp.var._def._tag == "typechecker.Def.Builtin" and
             e1.exp.var._def.id == "ipairs")
 
 
@@ -535,7 +535,7 @@ function ToIR:convert_stat(cmds, stat)
                 for j = i+1, #vars do
                     local var = vars[j]
                     if  var._tag == "ast.Var.Name" and
-                        var._def._tag == "checker.Def.Variable" and
+                        var._def._tag == "typechecker.Def.Variable" and
                         self.loc_id_of_decl[var._def.decl] == val.id
                     then
                         local v = ir.add_local(self.func, false, exp._type)
@@ -550,7 +550,7 @@ function ToIR:convert_stat(cmds, stat)
         local lhss = {}
         for i, var in ipairs(vars) do
             if     var._tag == "ast.Var.Name" then
-                assert(var._def._tag == "checker.Def.Variable")
+                assert(var._def._tag == "typechecker.Def.Variable")
                 local var_info = self:resolve_variable(var._def.decl)
                 if var_info._tag == "to_ir.Var.LocalVar" then
                     table.insert(lhss, to_ir.LHS.Local(var_info.id))
@@ -862,11 +862,11 @@ function ToIR:exp_to_value(cmds, exp, is_recursive)
             local def = var._def
 
             local decl
-            if def._tag == "checker.Def.Variable" then
+            if def._tag == "typechecker.Def.Variable" then
                 decl = def.decl
-            elseif def._tag == "checker.Def.Function" then
+            elseif def._tag == "typechecker.Def.Function" then
                 decl = def.func
-            elseif def._tag == "checker.Def.Builtin" then
+            elseif def._tag == "typechecker.Def.Builtin" then
                 local bname  = def.id
                 if     bname == "math.pi"   then return ir.Value.Float(math.pi)
                 elseif bname == "math.huge" then return ir.Value.Float(math.huge)
@@ -1028,7 +1028,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
 
         -- Evaluate the function call expression
         local f_val
-        if  def and def._tag == "checker.Def.Builtin" then
+        if  def and def._tag == "typechecker.Def.Builtin" then
             f_val = false
         else
             f_val = self:exp_to_value(cmds, exp.exp)
@@ -1041,7 +1041,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         end
 
         -- Generate the function call command
-        if     def and def._tag == "checker.Def.Builtin" then
+        if     def and def._tag == "typechecker.Def.Builtin" then
             local bname = def.id
             if     bname == "io.write" then
                 assert(#xs == 1)
@@ -1094,7 +1094,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 typedecl.tag_error(bname)
             end
 
-        elseif def and def._tag == "checker.Def.Function" then
+        elseif def and def._tag == "typechecker.Def.Function" then
             -- CallStatic is used to call toplevel functions, which are always referenced
             -- as upvalues or local variables.
             assert(f_val._tag == "ir.Value.Upvalue" or f_val._tag == "ir.Value.LocalVar")
@@ -1110,7 +1110,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local var = exp.var
         if     var._tag == "ast.Var.Name" then
             local def = var._def
-            if def._tag == "checker.Def.Variable" then
+            if def._tag == "typechecker.Def.Variable" then
                 local var_info = self:resolve_variable(def.decl)
 
                 if var_info._tag == "to_ir.Var.LocalVar" or var_info._tag == "to_ir.Var.Upvalue" then

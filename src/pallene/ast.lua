@@ -74,7 +74,7 @@ declare_type("Exp", {
     Binop         = {"loc", "lhs", "op", "rhs"},
     Cast          = {"loc", "exp", "target"},
     Paren         = {"loc", "exp"},
-    ExtraRet      = {"loc", "call_exp", "i"}, -- Inserted by checker.lua
+    ExtraRet      = {"loc", "call_exp", "i"}, -- Inserted by typechecker.lua
     ToFloat       = {"loc", "exp"},           -- Inserted by checker.lua
     UpvalueRecord = {"loc"},                  -- Inserted by assignment_conversion.lua
 })
