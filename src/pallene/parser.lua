@@ -285,7 +285,7 @@ function Parser:Program()
                 exp.var._tag == "ast.Var.Name" and
                 exp.var.name == modname)
             then
-                -- The checker also needs to check that this name has not been shadowed
+                -- The type checker also needs to check that this name has not been shadowed
                 self:syntax_error(exp.loc,
                     "must return exactly the module variable '%s'", modname)
             end

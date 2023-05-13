@@ -60,7 +60,7 @@ local function compile_up_to(stop_after)
 end
 
 local function do_check()
-    compile_up_to("checker")
+    compile_up_to("uninitialized")
 end
 
 local function do_print_ir()

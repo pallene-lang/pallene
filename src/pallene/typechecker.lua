@@ -17,7 +17,7 @@
 --      - ast.Toplevel.Record
 --      - ast.FuncStat.FuncStat
 --
---   * _def: A checker.Def that describes the meaning of that name
+--   * _def: A typechecker.Def that describes the meaning of that name
 --      - ast.Var.Name
 --
 --   * _exported_as: A string telling that this var is exported, and which module field name.
@@ -43,22 +43,22 @@ local types = require "pallene.types"
 local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
-local checker = {}
+local typechecker = {}
 
-local Checker = util.Class()
+local Typechecker = util.Class()
 
 -- Type-check a Pallene module
 -- On success, returns the typechecked module for the program
 -- On failure, returns false and a list of compilation errors
-function checker.check(prog_ast)
+function typechecker.check(prog_ast)
     local ok, ret = trycatch.pcall(function()
-        return Checker.new():check_program(prog_ast)
+        return Typechecker.new():check_program(prog_ast)
     end)
     if ok then
         prog_ast = ret
         return prog_ast, {}
     else
-        if ret.tag == "checker" then
+        if ret.tag == "typechecker" then
             local err_msg = ret.msg
             return false, { err_msg }
         else
@@ -70,7 +70,7 @@ end
 
 local function type_error(loc, fmt, ...)
     local msg = "type error: " .. loc:format_error(fmt, ...)
-    trycatch.error("checker", msg)
+    trycatch.error("typechecker", msg)
 end
 
 local function check_type_is_condition(exp, fmt, ...)
@@ -87,9 +87,9 @@ end
 --
 --
 
-function Checker:init()
-    self.module_symbol = false       -- checker.Symbol.Module
-    self.symbol_table = symtab.new() -- string => checker.Symbol
+function Typechecker:init()
+    self.module_symbol = false       -- typechecker.Symbol.Module
+    self.symbol_table = symtab.new() -- string => typechecker.Symbol
     self.ret_types_stack = {}        -- stack of types.T
     return self
 end
@@ -99,7 +99,7 @@ end
 --
 
 local function declare_type(type_name, cons)
-    typedecl.declare(checker, "checker", type_name, cons)
+    typedecl.declare(typechecker, "typechecker", type_name, cons)
 end
 
 --
@@ -125,49 +125,49 @@ declare_type("Def", {
 
 local function loc_of_def(def)
     local tag = def._tag
-    if     tag == "checker.Def.Variable" then
+    if     tag == "typechecker.Def.Variable" then
         return def.decl.loc
-    elseif tag == "checker.Def.Function" then
+    elseif tag == "typechecker.Def.Function" then
         return def.func.loc
-    elseif tag == "checker.Def.Builtin" then
+    elseif tag == "typechecker.Def.Builtin" then
         error("builtin does not have a location")
     else
         typedecl.tag_error(tag)
     end
 end
 
-function Checker:add_type_symbol(name, typ)
+function Typechecker:add_type_symbol(name, typ)
     assert(type(name) == "string")
     assert(typedecl.match_tag(typ._tag, "types.T"))
-    return self.symbol_table:add_symbol(name, checker.Symbol.Type(typ))
+    return self.symbol_table:add_symbol(name, typechecker.Symbol.Type(typ))
 end
 
-function Checker:add_value_symbol(name, typ, def)
+function Typechecker:add_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(typedecl.match_tag(typ._tag, "types.T"))
-    return self.symbol_table:add_symbol(name, checker.Symbol.Value(typ, def))
+    return self.symbol_table:add_symbol(name, typechecker.Symbol.Value(typ, def))
 end
 
-function Checker:add_module_symbol(name, typ, symbols)
+function Typechecker:add_module_symbol(name, typ, symbols)
     assert(type(name) == "string")
     assert((not typ) or typedecl.match_tag(typ._tag, "types.T"))
-    return self.symbol_table:add_symbol(name, checker.Symbol.Module(typ, symbols))
+    return self.symbol_table:add_symbol(name, typechecker.Symbol.Module(typ, symbols))
 end
 
-function Checker:export_value_symbol(name, typ, def)
+function Typechecker:export_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(typedecl.match_tag(typ._tag, "types.T"))
     assert(self.module_symbol)
     if self.module_symbol.symbols[name] then
         type_error(loc_of_def(def), "multiple definitions for module field '%s'", name)
     end
-    self.module_symbol.symbols[name] = checker.Symbol.Value(typ, def)
+    self.module_symbol.symbols[name] = typechecker.Symbol.Value(typ, def)
 end
 
 --
 --
 
-function Checker:from_ast_type(ast_typ)
+function Typechecker:from_ast_type(ast_typ)
     local tag = ast_typ._tag
     if     tag == "ast.Type.Nil" then
         return types.T.Nil()
@@ -181,15 +181,15 @@ function Checker:from_ast_type(ast_typ)
         end
 
         local stag = sym._tag
-        if     stag == "checker.Symbol.Type" then
+        if     stag == "typechecker.Symbol.Type" then
             return sym.typ
-        elseif stag == "checker.Symbol.Module" then
+        elseif stag == "typechecker.Symbol.Module" then
             if sym.typ then
                 return sym.typ
             else
                 type_error(ast_typ.loc, "module '%s' is not a type", name)
             end
-        elseif stag == "checker.Symbol.Value" then
+        elseif stag == "typechecker.Symbol.Value" then
             type_error(ast_typ.loc, "'%s' is not a type", name)
         else
             typedecl.tag_error(stag)
@@ -225,7 +225,7 @@ function Checker:from_ast_type(ast_typ)
     end
 end
 
-function Checker:check_program(prog_ast)
+function Typechecker:check_program(prog_ast)
 
     assert(prog_ast._tag == "ast.Program.Program")
     local module_name = prog_ast.module_name
@@ -240,14 +240,14 @@ function Checker:check_program(prog_ast)
     -- 2) Add builtins to symbol table.
     -- The order does not matter because they are distinct.
     for name, typ in pairs(builtins.functions) do
-        self:add_value_symbol(name, typ, checker.Def.Builtin(name))
+        self:add_value_symbol(name, typ, typechecker.Def.Builtin(name))
     end
 
     for mod_name, funs in pairs(builtins.modules) do
         local symbols = {}
         for fun_name, typ in pairs(funs) do
             local id = mod_name .. "." .. fun_name
-            symbols[fun_name] = checker.Symbol.Value(typ, checker.Def.Builtin(id))
+            symbols[fun_name] = typechecker.Symbol.Value(typ, typechecker.Def.Builtin(id))
         end
         local typ = (mod_name == "string") and types.T.String() or false
         self:add_module_symbol(mod_name, typ, symbols)
@@ -298,7 +298,7 @@ end
 
 -- If the last expression in @rhs is a function call that returns multiple values, add ExtraRet
 -- nodes to the end of the list.
-function Checker:expand_function_returns(rhs)
+function Typechecker:expand_function_returns(rhs)
     local N = #rhs
     local last = rhs[N]
     if  last and (last._tag == "ast.Exp.CallFunc" or last._tag == "ast.Exp.CallMethod") then
@@ -310,7 +310,7 @@ function Checker:expand_function_returns(rhs)
     end
 end
 
-function Checker:is_the_module_variable(exp)
+function Typechecker:is_the_module_variable(exp)
     -- Check if the expression is the module variable without calling check_exp.
     -- Doing that would have raised an exception because it is not a value.
     return (
@@ -319,7 +319,7 @@ function Checker:is_the_module_variable(exp)
         (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
 end
 
-function Checker:check_stat(stat, is_toplevel)
+function Typechecker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
 
@@ -349,7 +349,7 @@ function Checker:check_stat(stat, is_toplevel)
         end
 
         for _, decl in ipairs(stat.decls) do
-            self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
+            self:add_value_symbol(decl.name, decl._type, typechecker.Def.Variable(decl))
         end
 
     elseif tag == "ast.Stat.Block" then
@@ -404,7 +404,7 @@ function Checker:check_stat(stat, is_toplevel)
         stat.step = self:check_exp_verify(stat.step, loop_type, "numeric for-loop step")
 
         self.symbol_table:with_block(function()
-            self:add_value_symbol(stat.decl.name, stat.decl._type, checker.Def.Variable(stat.decl))
+            self:add_value_symbol(stat.decl.name, stat.decl._type, typechecker.Def.Variable(stat.decl))
             self:check_stat(stat.block, false)
         end)
 
@@ -472,7 +472,7 @@ function Checker:check_stat(stat, is_toplevel)
                 else
                     stat.decls[i]._type = ret_types[i]
                 end
-                self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
+                self:add_value_symbol(decl.name, decl._type, typechecker.Def.Variable(decl))
             end
             self:check_stat(stat.block, false)
         end)
@@ -488,13 +488,13 @@ function Checker:check_stat(stat, is_toplevel)
                 local name = var.name
                 var = ast.Var.Name(var.loc, name)
                 var._type = false -- will be set by the initializer
-                var._def = checker.Def.Variable(var)
+                var._def = typechecker.Def.Variable(var)
                 var._exported_as = name
                 stat.vars[i] = var
             else
                 -- Regular assignment
                 stat.vars[i] = self:check_var(stat.vars[i])
-                if stat.vars[i]._def and stat.vars[i]._def._tag ~= "checker.Def.Variable" then
+                if stat.vars[i]._def and stat.vars[i]._def._tag ~= "typechecker.Def.Variable" then
                     type_error(stat.loc, "LHS of assignment is not a mutable variable")
                 end
             end
@@ -581,7 +581,7 @@ function Checker:check_stat(stat, is_toplevel)
                 if not sym then
                     type_error(func.loc, "module '%s' is not declared", func.module)
                 end
-                if sym._tag ~= "checker.Symbol.Module" then
+                if sym._tag ~= "typechecker.Symbol.Module" then
                     type_error(func.loc, "'%s' is not a module", func.module)
                 end
                 if not is_toplevel then
@@ -590,11 +590,11 @@ function Checker:check_stat(stat, is_toplevel)
                 if sym ~= self.module_symbol then
                     type_error(func.loc, "attempting to assign a function to an external module")
                 end
-                self:export_value_symbol(func.name, typ, checker.Def.Function(func))
+                self:export_value_symbol(func.name, typ, typechecker.Def.Function(func))
             else
                 -- Local function
                 assert(stat.declared_names[func.name])
-                self:add_value_symbol(func.name, typ, checker.Def.Function(func))
+                self:add_value_symbol(func.name, typ, typechecker.Def.Function(func))
             end
 
             func._type = typ
@@ -615,7 +615,7 @@ end
 --
 -- If the given var is of the form x.y.z, try to convert it to a Var.Name
 --
-function Checker:try_flatten_to_qualified_name(outer_var)
+function Typechecker:try_flatten_to_qualified_name(outer_var)
     -- TODO: We use O(N²) time if there is a long chain of dots that is not a qualified name.
     --       It might be possible to avoid this with a bit of memoization.
 
@@ -644,14 +644,14 @@ function Checker:try_flatten_to_qualified_name(outer_var)
 
     local sym = root_sym
     for _, field in ipairs(fields) do
-        if sym._tag ~= "checker.Symbol.Module" then return false end -- Retry recursively.
+        if sym._tag ~= "typechecker.Symbol.Module" then return false end -- Retry recursively.
         sym = sym.symbols[field]
         if not sym then
             type_error(outer_var.loc, "module field '%s' does not exist", field)
         end
     end
 
-    if sym._tag ~= "checker.Symbol.Value" then
+    if sym._tag ~= "typechecker.Symbol.Value" then
         type_error(outer_var.loc, "module field '%s' is not a value", rev_fields[1]) -- TODO
     end
 
@@ -667,7 +667,7 @@ function Checker:try_flatten_to_qualified_name(outer_var)
     return q
 end
 
-function Checker:check_var(var)
+function Typechecker:check_var(var)
     local tag = var._tag
     if     tag == "ast.Var.Name" then
         local sym = self.symbol_table:find_symbol(var.name)
@@ -676,12 +676,12 @@ function Checker:check_var(var)
         end
 
         local stag = sym._tag
-        if     stag == "checker.Symbol.Type" then
+        if     stag == "typechecker.Symbol.Type" then
             type_error(var.loc, "type '%s' is not a value", var.name)
-        elseif stag == "checker.Symbol.Value" then
+        elseif stag == "typechecker.Symbol.Value" then
             var._type = sym.typ
             var._def  = sym.def
-        elseif stag == "checker.Symbol.Module" then
+        elseif stag == "typechecker.Symbol.Module" then
             type_error(var.loc, "module '%s' is not a value", var.name)
         else
             typedecl.tag_error(stag)
@@ -728,7 +728,7 @@ local function is_numeric_type(typ)
     return typ._tag == "types.T.Integer" or typ._tag == "types.T.Float"
 end
 
-function Checker:coerce_numeric_exp_to_float(exp)
+function Typechecker:coerce_numeric_exp_to_float(exp)
     local tag = exp._type._tag
     if     tag == "types.T.Float" then
         return exp
@@ -744,7 +744,7 @@ end
 -- Check (synthesize) the type of a function call expression.
 -- If the function returns 0 arguments, it is only allowed in a statement context.
 -- Void functions in an expression context are a constant source of headaches.
-function Checker:check_fun_call(exp, is_stat)
+function Typechecker:check_fun_call(exp, is_stat)
     assert(exp._tag == "ast.Exp.CallFunc")
 
     exp.exp = self:check_exp_synthesize(exp.exp)
@@ -787,7 +787,7 @@ end
 -- Returns the typechecked expression. This may be either the original expression, or an inner
 -- expression if we are dropping a redundant type conversion.
 -- IMPORTANT: don't forget to use the return value
-function Checker:check_exp_synthesize(exp)
+function Typechecker:check_exp_synthesize(exp)
     if exp._type then
         -- This expression was already type-checked before, probably due to expand_function_returns.
         return exp
@@ -974,7 +974,7 @@ function Checker:check_exp_synthesize(exp)
         -- We check the child expression with verify instead of synthesize because Pallene cases
         -- also act as type annotations for things like empty array literals: ({} as {value}).
         -- However, this means that the call to verify almost always inserts a redundant cast node.
-        -- To keep the --dump-checker output clean, we get rid of it.  By the way, the Pallene to
+        -- To keep the --dump-typechecker output clean, we get rid of it.  By the way, the Pallene to
         -- Lua translator cares that we remove the inner one instead of the outer one because the
         -- outer one has source locations and the inner one doesn't.
         while
@@ -1012,7 +1012,7 @@ end
 -- ... : arguments to the "errmsg_fmt" format string
 --
 -- IMPORTANT: don't forget to use the return value
-function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
+function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
     if not expected_type then
         error("expected_type is required")
     end
@@ -1092,7 +1092,7 @@ function Checker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
         self.symbol_table:with_block(function()
             for i, decl in ipairs(exp.arg_decls) do
                 decl._type = assert(expected_type.arg_types[i])
-                self:add_value_symbol(decl.name, decl._type, checker.Def.Variable(decl))
+                self:add_value_symbol(decl.name, decl._type, typechecker.Def.Variable(decl))
             end
             self:check_stat(exp.body, false)
         end)
@@ -1133,7 +1133,7 @@ end
 -- Typechecks an initializer `x : ast_typ = exp`, where the type annotation is optional.
 -- Sets decl._type and exp._type
 -- IMPORTANT: you know the drill; Don't forget to use the return value.
-function Checker:check_initializer_exp(decl, exp, err_fmt, ...)
+function Typechecker:check_initializer_exp(decl, exp, err_fmt, ...)
     assert(decl)
     assert(exp)
     if decl.type then
@@ -1150,4 +1150,4 @@ function Checker:check_initializer_exp(decl, exp, err_fmt, ...)
     end
 end
 
-return checker
+return typechecker

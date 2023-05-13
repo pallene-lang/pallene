@@ -483,6 +483,7 @@ local m: module = {}
 local xs: {any} = {10, "hello", 3.14}
 
 local function f(x: any, y: any): any
+    return nil
 end
 
 return m
@@ -492,8 +493,27 @@ local m = {}
 local xs = {10, "hello", 3.14}
 
 local function f(x, y)
+    return nil
 end
 
+return m
+]])
+    end)
+
+   it("Remove casts in return statement", function ()
+        assert_translation(
+[[
+local m: module = {}
+local function f(): (any, any)
+    return nil as nil, 1 as integer
+end
+return m
+]],
+[[
+local m = {}
+local function f()
+    return nil, 1
+end
 return m
 ]])
     end)

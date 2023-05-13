@@ -42,7 +42,7 @@ local util     = require "pallene.util"
 local typedecl = require "pallene.typedecl"
 local types    = require "pallene.types"
 local ast      = require "pallene.ast"
-local checker  = require "pallene.checker"
+local typechecker = require "pallene.typechecker"
 
 local converter = {}
 
@@ -189,7 +189,7 @@ function Converter:apply_transformations()
                 ---   -- capture and mutate $n
                 --- end
                 local param = ast.Exp.Var(decl.loc, ast.Var.Name(decl.loc, decl.name))
-                param.var._def = checker.Def.Variable(decl)
+                param.var._def = typechecker.Def.Variable(decl)
                 param.var._type = assert(decl._type)
                 param._type = decl._type
 
@@ -232,7 +232,7 @@ function Converter:apply_transformations()
                     -- references to captured parameters get replaced by references to `value` field of
                     -- their proxy variables.
                     local proxy_var = ast.Var.Name(old_var.loc, "$"..decl.name)
-                    proxy_var._def  = checker.Def.Variable(proxy_decl)
+                    proxy_var._def  = typechecker.Def.Variable(proxy_decl)
                     dot_exp         = ast.Exp.Var(loc, proxy_var)
                 else
                     dot_exp = ast.Exp.Var(loc, old_var)
@@ -350,7 +350,7 @@ function Converter:visit_stat(stat)
     elseif tag == "ast.Stat.Assign" then
         for i, var in ipairs(stat.vars) do
             if var._tag == "ast.Var.Name" then
-                if var._def._tag == "checker.Def.Variable" then
+                if var._def._tag == "typechecker.Def.Variable" then
                     local decl = assert(var._def.decl)
                     self:register_decl(decl)
 
@@ -406,7 +406,7 @@ function Converter:visit_var(var, update_fn)
     local vtag = var._tag
 
     if vtag == "ast.Var.Name" and not var._exported_as then
-        if var._def._tag == "checker.Def.Variable" then
+        if var._def._tag == "typechecker.Def.Variable" then
             local decl = assert(var._def.decl)
             assert(self.update_ref_of_decl[decl])
 

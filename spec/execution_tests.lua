@@ -475,7 +475,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
 
         local tests = {
 
-            -- Non-comparison operators, same order as checker.lua
+            -- Non-comparison operators, same order as typechecker.lua
 
             { "add_ii",    "+",   "integer", "integer", "integer" },
             { "add_if",    "+",   "integer", "float",   "float" },
