@@ -971,12 +971,10 @@ function Typechecker:check_exp_synthesize(exp)
         exp._type = self:from_ast_type(exp.target)
         exp.exp = self:check_exp_verify(exp.exp, exp._type, "cast expression")
 
-        -- We check the child expression with verify instead of synthesize because Pallene cases
+        -- We check the child expression with verify instead of synthesize because Pallene casts
         -- also act as type annotations for things like empty array literals: ({} as {value}).
         -- However, this means that the call to verify almost always inserts a redundant cast node.
-        -- To keep the --dump-typechecker output clean, we get rid of it.  By the way, the Pallene to
-        -- Lua translator cares that we remove the inner one instead of the outer one because the
-        -- outer one has source locations and the inner one doesn't.
+        -- Let's clean that up! We keep the outer cast, because it has source locations attached.
         while
             exp.exp._tag == 'ast.Exp.Cast' and
             exp.exp.target == false and
