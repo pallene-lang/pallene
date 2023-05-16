@@ -5,41 +5,39 @@
 
 -- TAGGED UNIONS
 -- =============
--- Pallene uses a lot of tagged unions / variant records. In Lua we represent
--- them as tables with a `_tag` field that is an unique string. Since there are
--- so many of them, we made a helper function to help construct these objects,
--- which resides in this module.
+-- Pallene's compiler uses many tagged unions / variant records. We represent
+-- them as tables with a string `_tag`. This module exports helper functions for
+-- custructing such tagged unions.
 --
--- For example, inside the `ast` module there is the following block of code:
--- ```
--- declare_type("Var", {
---     Name    = {"loc", "name"},
---     Bracket = {"loc", "t", "k"},
---     Dot     = {"loc", "exp", "name"}
--- })
--- ```
--- and what it does is create three functions, `ast.Var.Name`, `ast.Var.Bracket`, and `ast.Var.Dot`.
+-- For example, the following block of code in the `ast` module creates
+-- three constructor functions called `ast.Var.Name`, `ast.Var.Bracket`, and
+-- `ast.Var.Dot`.
 --
--- The `ast.Var.Name` function receives two parameters (the source code location and the name) and
--- returns a table that looks like this:
--- ```
--- {
---     _tag = "ast.Var.Name",
---     loc = loc,
---     name = name,
--- }
--- ```
+--     declare_type("Var", {
+--         Name    = {"loc", "name"},
+--         Bracket = {"loc", "t", "k"},
+--         Dot     = {"loc", "exp", "name"}
+--     })
+--
+-- And we can call them like this
+--
+--     node = ast.Var.Name(loc, name)
+--
+-- and it produces a table like this:
+--
+--     {
+--         _tag = "ast.Var.Name",
+--         loc = loc,
+--         name = name,
+--     }
+
 local typedecl = {}
 
--- Unique tag names:
---
--- We keep track of all the type tags that we define, so that no two constructors attempt to use the
--- same type tag.
-
+-- Ensure that each constructor has an unique type tag.
 local existing_tags = {}
 
 local function is_valid_name_component(s)
-    -- In particular, this rules out the separator character "."
+    -- In particular this does not allow ".", which is our separator
     return string.match(s, "[A-Za-z_][A-Za-z_0-9]*")
 end
 
@@ -59,9 +57,9 @@ end
 -- Create a properly-namespaced algebraic datatype. Objects belonging to this type can be pattern
 -- matched by inspecting their _tag field. See `ast.lua` and `types.lua` for usage examples.
 --
--- @param module Module table where the type is being defined
--- @param mod_name Name of the type's module (only used by tostring)
--- @param type_name Name of the type
+-- @param module       Module table where the type is being defined
+-- @param mod_name     Name of the type's module (only used by tostring)
+-- @param type_name    Name of the type
 -- @param constructors Table describing the constructors of the ADT.
 function typedecl.declare(module, mod_name, type_name, constructors)
     module[type_name] = {}
@@ -105,7 +103,7 @@ end
 
 -- Throw an error at the given tag.
 --
--- @param tag The type tag (or token string) at which the error is to be thown (string)
+-- @param tag     The type tag (or token string) at which the error is to be thown (string)
 -- @param message The optional error message. (?string)
 function typedecl.tag_error(tag, message)
     message = message or "input has the wrong type or an elseif case is missing"
