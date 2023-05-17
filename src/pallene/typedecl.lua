@@ -33,8 +33,10 @@
 
 local typedecl = {}
 
--- Ensure that each constructor has an unique type tag.
-local existing_tags = {}
+-- Ensure type tags are unique
+-- And keep track of who is the "parent" type
+local typename_of = {} -- For example, "ast.Exp.Name" => "ast.Exp"
+local consname_of = {} -- For example, "ast.Exp.Name" => "
 
 local function is_valid_name_component(s)
     -- In particular this does not allow ".", which is our separator
@@ -45,17 +47,20 @@ local function make_tag(mod_name, type_name, cons_name)
     assert(is_valid_name_component(mod_name))
     assert(is_valid_name_component(type_name))
     assert(is_valid_name_component(cons_name))
-    local tag = mod_name .. "." .. type_name .. "." .. cons_name
-    if existing_tags[tag] then
-        error("tag name '" .. tag .. "' is already being used")
+    local typ = mod_name .. "." .. type_name
+    local tag = typ      .. "." .. cons_name
+    if typename_of[tag] then
+        error(string.format("tag name %q is already being used", tag))
     else
-        existing_tags[tag] = true
+        typename_of[tag] = typ
+        consname_of[tag] = cons_name
+        return tag
     end
-    return tag
 end
 
--- Create a properly-namespaced algebraic datatype. Objects belonging to this type can be pattern
--- matched by inspecting their _tag field. See `ast.lua` and `types.lua` for usage examples.
+-- Create a namespaced algebraic datatype.
+-- These objects can be pattern matched by their _tag.
+-- See `ast.lua` and `types.lua` for usage examples.
 --
 -- @param module       Module table where the type is being defined
 -- @param mod_name     Name of the type's module (only used by tostring)
@@ -82,23 +87,12 @@ function typedecl.declare(module, mod_name, type_name, constructors)
     end
 end
 
--- Check if the given type tag belongs to the specified type.
--- If it does, returns the last component of the tag name.
---
--- Examples:
---    typedecl.match_tag("ast.Exp.Bool", "ast.Exp")   --> "Bool"
---    typedecl.match_tag("ast.Stat.While", "ast.Exp") --> false
-function typedecl.match_tag(tag, tag_prefix)
-    local n = #tag_prefix
+function typedecl.typename(tag)
+    return typename_of[tag]
+end
 
-    if type(tag) == "string" and
-       string.sub(tag, 1, n) == tag_prefix and
-       string.byte(tag, n + 1) == 46 -- "."
-    then
-        return string.sub(tag, n + 2)
-    else
-        return false
-    end
+function typedecl.consname(tag)
+    return consname_of[tag]
 end
 
 -- Throw an error at the given tag.

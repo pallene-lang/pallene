@@ -6,29 +6,36 @@
 local typedecl = require "pallene.typedecl"
 
 describe("Typedecl", function()
+
+    setup(function()
+        local foo = {}
+        typedecl.declare(foo, "foo", "Bar", {
+            ABC = {"a", "b", "c"},
+            DEF = {"d", "e", "f"},
+        })
+    end)
+
     it("forbids repeated tags", function()
         assert.has_error(function()
             local mod = {}
             typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
             typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
-        end, "tag name 'TESTTYPE.Foo.Bar' is already being used")
+        end, [[tag name "TESTTYPE.Foo.Bar" is already being used]])
     end)
 
-    describe("match_tag", function ()
-        it("returns the tag name", function ()
-            assert.equals("baz", typedecl.match_tag("foo.Bar.baz", "foo.Bar"))
-        end)
+    it("typeof works for declared type", function ()
+        assert.equals("foo.Bar", typedecl.typename("foo.Bar.ABC"))
+    end)
 
-        it("doesn't crash with a non-string tag", function()
-            assert.equals(false, typedecl.match_tag(nil, "types.T"))
-        end)
+    it("typeof rejects undeclared types", function ()
+        assert.equals(nil,  typedecl.typename("foo.Bar.LMN"))
+    end)
 
-        it("doesn't treat a '.' in the prefix string as regex", function ()
-            assert.equals(false, typedecl.match_tag("foo.Bar.baz", "f.o.Bar"))
-        end)
+    it("consname works for declared type", function ()
+        assert.equals("ABC", typedecl.consname("foo.Bar.ABC"))
+    end)
 
-        it("doesn't require a '.' at the end of prefix.", function ()
-            assert.equals(false, typedecl.match_tag("types.T.Float", "types.T."))
-        end)
+    it("consname rejects undeclared type", function ()
+        assert.equals(nil, typedecl.consname("foo.Bar.LMN"))
     end)
 end)

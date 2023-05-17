@@ -129,7 +129,7 @@ function Converter:visit_prog(prog_ast)
             end
         else
             -- skip record declarations and type aliases
-            assert(typedecl.match_tag(tl_node._tag, "ast.Toplevel"))
+            assert(typedecl.typename(tl_node._tag) == "ast.Toplevel")
         end
     end
 end
@@ -461,7 +461,7 @@ function Converter:visit_exp(exp)
         self:visit_exp(exp.lhs)
         self:visit_exp(exp.rhs)
 
-    elseif not typedecl.match_tag(tag, "ast.Exp") then
+    elseif typedecl.typename(tag) ~= "ast.Exp" then
         typedecl.tag_error(tag)
     end
 end
