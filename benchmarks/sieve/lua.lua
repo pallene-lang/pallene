@@ -1,4 +1,4 @@
-local m;m = {}
+math.ln = math.log; local m = {}
 
 function m.sieve(N)
     local is_prime = {}

@@ -1,4 +1,4 @@
-local m, A, MultiplyAv, MultiplyAtv, MultiplyAtAv;m = {}
+math.ln = math.log; local m = {}
 
 -- Return A[i][j], for the infinite matrix A
 --
@@ -6,13 +6,13 @@ local m, A, MultiplyAv, MultiplyAtv, MultiplyAtAv;m = {}
 --      1/3  1/5  ... ...
 --      1/6  ...  ... ...
 --      ...  ...  ... ...
-function A(i, j)
+local function A(i, j)
     local ij = i + j
     return 1.0 / ((ij-1) * (ij-2) * 0.5 + i)
 end
 
 -- Multiply vector v by matrix A
-function MultiplyAv(N, v, out)
+local function MultiplyAv(N, v, out)
     for i = 1, N do
         local s = 0.0
         for j = 1, N do
@@ -23,7 +23,7 @@ function MultiplyAv(N, v, out)
 end
 
 -- Multiply vector v by matrix A transposed
-function MultiplyAtv(N, v, out)
+local function MultiplyAtv(N, v, out)
     for i=1, N do
         local s = 0.0
         for j = 1, N do
@@ -34,7 +34,7 @@ function MultiplyAtv(N, v, out)
 end
 
 -- Multiply vector v by matrix A and then by matrix A transposed
-function MultiplyAtAv(N, v, out)
+local function MultiplyAtAv(N, v, out)
     local u = {}
     MultiplyAv(N, v, u)
     MultiplyAtv(N, u, out)
