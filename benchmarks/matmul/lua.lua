@@ -1,4 +1,4 @@
-local m;m = {}
+math.ln = math.log; local m = {}
 
 function m.matmul(A, B)
     local C = {}

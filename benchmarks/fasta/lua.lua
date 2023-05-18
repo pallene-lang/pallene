@@ -1,18 +1,18 @@
-local m, IM, IA, IC, seed, random, WIDTH, print_fasta_header, linear_search;m = {}
+math.ln = math.log; local m = {}
 
-IM   = 139968
-IA   = 3877
-IC   = 29573
+local IM   = 139968
+local IA   = 3877
+local IC   = 29573
 
-seed = 42
-function random(max)
+local seed = 42
+local function random(max)
     seed = (seed * IA + IC) % IM
     return max * seed / IM;
 end
 
-WIDTH = 60
+local WIDTH = 60
 
-function print_fasta_header(id, desc)
+local function print_fasta_header(id, desc)
     io.write(">" .. id .. " " .. desc .. "\n")
 end
 
@@ -41,7 +41,7 @@ function m.repeat_fasta(id, desc, alu, n)
     end
 end
 
-function linear_search(ps, p)
+local function linear_search(ps, p)
     for i = 1, #ps do
         if ps[i]>= p then
             return i
