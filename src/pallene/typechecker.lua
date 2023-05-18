@@ -138,25 +138,25 @@ end
 
 function Typechecker:add_type_symbol(name, typ)
     assert(type(name) == "string")
-    assert(typedecl.match_tag(typ._tag, "types.T"))
+    assert(typedecl.typename(typ._tag) == "types.T")
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Type(typ))
 end
 
 function Typechecker:add_value_symbol(name, typ, def)
     assert(type(name) == "string")
-    assert(typedecl.match_tag(typ._tag, "types.T"))
+    assert(typedecl.typename(typ._tag) == "types.T")
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Value(typ, def))
 end
 
 function Typechecker:add_module_symbol(name, typ, symbols)
     assert(type(name) == "string")
-    assert((not typ) or typedecl.match_tag(typ._tag, "types.T"))
+    assert((not typ) or typedecl.typename(typ._tag) == "types.T")
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Module(typ, symbols))
 end
 
 function Typechecker:export_value_symbol(name, typ, def)
     assert(type(name) == "string")
-    assert(typedecl.match_tag(typ._tag, "types.T"))
+    assert(typedecl.typename(typ._tag) == "types.T")
     assert(self.module_symbol)
     if self.module_symbol.symbols[name] then
         type_error(loc_of_def(def), "multiple definitions for module field '%s'", name)
@@ -734,7 +734,7 @@ function Typechecker:coerce_numeric_exp_to_float(exp)
         return exp
     elseif tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
-    elseif typedecl.match_tag(tag, "types.T") then
+    elseif typedecl.typename(tag) == "types.T" then
         typedecl.tag_error(tag, "this type cannot be coerced to float.")
     else
         typedecl.tag_error(tag)

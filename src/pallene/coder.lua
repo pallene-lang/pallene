@@ -349,7 +349,7 @@ function Coder:c_value(value)
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
         return self:c_upval(value.id)
-    elseif typedecl.match_tag(tag, "ir.Value") then
+    elseif typedecl.tagname(tag) == "ir.Value" then
         typedecl.tag_error(tag, "unable to get C expression for this value type.")
     else
         typedecl.tag_error(tag)
@@ -1676,7 +1676,8 @@ gen_cmd["CheckGC"] = function(self, cmd, func)
 end
 
 function Coder:generate_cmd(func, cmd)
-    local name = assert(typedecl.match_tag(cmd._tag, "ir.Cmd"))
+    assert(typedecl.typename(cmd._tag) == "ir.Cmd")
+    local name = typedecl.consname(cmd._tag)
     local f = assert(gen_cmd[name], "impossible")
     local out = f(self, cmd, func)
 
