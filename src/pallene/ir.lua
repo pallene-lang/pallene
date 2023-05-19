@@ -20,13 +20,10 @@
 -- structured control flow is easier to reason about then an unstructured control flow graph built
 -- around basic blocks and gotos.
 
-local tagged_union = require "pallene.tagged_union"
-
 local ir = {}
 
-local function declare_type(type_name, cons)
-    tagged_union.declare(ir, "ir", type_name, cons)
-end
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(ir, "ir")
 
 function ir.Module()
     return {
@@ -110,7 +107,7 @@ end
 -- Pallene IR
 --
 
-declare_type("Value", {
+define_union("Value", {
     Nil        = {},
     Bool       = {"value"},
     Integer    = {"value"},
@@ -120,7 +117,7 @@ declare_type("Value", {
     Upvalue    = {"id"},
 })
 
--- declare_type("Cmd"
+-- define_union("Cmd"
 local ir_cmd_constructors = {
     -- [IMPORTANT] Please use this naming convention:
     --  - "src" fields contain an "ir.Value".
@@ -202,7 +199,7 @@ local ir_cmd_constructors = {
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
 }
-declare_type("Cmd", ir_cmd_constructors)
+define_union("Cmd", ir_cmd_constructors)
 
 -- We need to know, for each kind of command, which fields contain inputs (ir.Value) and which
 -- fields refer to outputs (local variable ID). We use a common naming convention for this.

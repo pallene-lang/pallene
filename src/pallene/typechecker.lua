@@ -35,15 +35,17 @@
 -- check_exp and check_var functions. For example, instead of just `check_exp(foo.exp)` you should
 -- always write `foo.exp = check_exp(foo.exp)`.
 
+local typechecker = {}
+
 local ast = require "pallene.ast"
 local builtins = require "pallene.builtins"
 local symtab = require "pallene.symtab"
 local trycatch = require "pallene.trycatch"
 local types = require "pallene.types"
-local tagged_union = require "pallene.tagged_union"
 local util = require "pallene.util"
 
-local typechecker = {}
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(typechecker, "typechecker")
 
 local Typechecker = util.Class()
 
@@ -98,15 +100,11 @@ end
 -- Symbol table
 --
 
-local function declare_type(type_name, cons)
-    tagged_union.declare(typechecker, "typechecker", type_name, cons)
-end
-
 --
 -- Type information, meant for for the type checker
 -- For each name in scope, the type checker wants to know if it is a value and what is its type.
 --
-declare_type("Symbol", {
+define_union("Symbol", {
     Type   = { "typ"  },
     Value  = { "typ", "def" },
     Module = { "typ", "symbols" }, -- Note: a module name can also be a type (e.g. "string")
@@ -116,7 +114,7 @@ declare_type("Symbol", {
 -- Provenance information, meant for the code generator
 -- For each name in the AST, we add an annotation to tell the codegen where it comes from.
 --
-declare_type("Def", {
+define_union("Def", {
     Variable = { "decl" }, -- ast.Decl
     Function = { "func" }, -- ast.FuncStat
     Builtin  = { "id"   }, -- string

@@ -7,19 +7,17 @@
 -- =========
 -- This compiler pass converts the Pallene syntax tree to the low level IR.
 
+local to_ir = {}
+
 local ir = require "pallene.ir"
 local types = require "pallene.types"
 local util = require "pallene.util"
-local tagged_union = require "pallene.tagged_union"
 local trycatch = require "pallene.trycatch"
 
-local to_ir = {}
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(to_ir, "to_ir")
 
-local function declare_type(type_name, cons)
-    tagged_union.declare(to_ir, "to_ir", type_name, cons)
-end
-
-declare_type("LHS", {
+define_union("LHS", {
     Local  = {"id"},
     Global = {"id"},
     Array  = {"typ", "arr", "i"},
@@ -27,7 +25,7 @@ declare_type("LHS", {
     Record = {"typ", "rec", "field"},
 })
 
-declare_type("Var", {
+define_union("Var", {
     LocalVar   = {"id"},
     Upvalue    = {"id"},
     GlobalVar  = {"id"},

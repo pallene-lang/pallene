@@ -8,15 +8,17 @@
 -- This compiler pass converts a Pallene IR module into to executable C code.
 -- This file is fairly long. For navigation, look for the sectioning comments.
 
+local coder = {}
+
 local C = require "pallene.C"
 local gc = require "pallene.gc"
 local ir = require "pallene.ir"
 local pallenelib = require "pallene.pallenelib"
 local types = require "pallene.types"
-local tagged_union = require "pallene.tagged_union"
 local util = require "pallene.util"
 
-local coder = {}
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(coder, "coder")
 
 local Coder
 local RecordCoder
@@ -633,7 +635,7 @@ end
 -- This section of the program is responsible for keeping track of the "global" values in the module
 -- that need to be seen from every function. We store them in the uservalues of an userdata object.
 
-tagged_union.declare(coder, "coder", "Constant", {
+define_union("Constant", {
     Metatable = {"typ"},
     String = {"str"},
 })

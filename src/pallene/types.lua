@@ -3,15 +3,12 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local tagged_union = require "pallene.tagged_union"
-
 local types = {}
 
-local function declare_type(type_name, cons)
-    tagged_union.declare(types, "types", type_name, cons)
-end
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(types, "types")
 
-declare_type("T", {
+define_union("T", {
     Any      = {},
     Nil      = {},
     Boolean  = {},
