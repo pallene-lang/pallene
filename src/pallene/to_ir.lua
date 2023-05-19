@@ -572,7 +572,8 @@ function ToIR:convert_stat(cmds, stat)
                     local typ = var.exp._type
                     table.insert(lhss, to_ir.LHS.Record(typ, t, var.name))
                 elseif tagged_union.tag_is_type(ttag) then
-                    tagged_union.error(ttag, "type not indexable.")
+                    -- Not indexable
+                    assert(false)
                 else
                     tagged_union.error(ttag)
                 end
@@ -1254,7 +1255,8 @@ function ToIR:value_is_truthy(cmds, exp, val)
         table.insert(cmds, ir.Cmd.IsTruthy(exp.loc, b, val))
         return ir.Value.LocalVar(b)
     elseif tagged_union.tag_is_type(typ) then
-        tagged_union.error(typ._tag, "unable to test this type for truthiness.")
+        -- Cannot be tested for truthyness
+        assert(false)
     else
         tagged_union.error(typ._tag)
     end

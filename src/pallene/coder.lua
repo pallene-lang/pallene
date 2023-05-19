@@ -182,7 +182,7 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
     elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
-    elseif tag == "types.T.Any"      then tagged_union.error(tag, "'Any' is not a Lua type tag.")
+    elseif tag == "types.T.Any"      then assert(false) -- 'Any' is not a type tag
     else tagged_union.error(tag)
     end
 end
@@ -352,8 +352,6 @@ function Coder:c_value(value)
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
         return self:c_upval(value.id)
-    elseif tagged_union.tagname(tag) == "ir.Value" then
-        tagged_union.error(tag, "unable to get C expression for this value type.")
     else
         tagged_union.error(tag)
     end

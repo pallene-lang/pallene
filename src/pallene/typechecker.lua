@@ -380,6 +380,7 @@ function Typechecker:check_stat(stat, is_toplevel)
 
         local loop_type = stat.decl._type
 
+
         if  loop_type._tag ~= "types.T.Integer" and
             loop_type._tag ~= "types.T.Float"
         then
@@ -394,7 +395,7 @@ function Typechecker:check_stat(stat, is_toplevel)
             elseif loop_type._tag == "types.T.Float" then
                 stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
             else
-                tagged_union.error(loop_type._tag, "loop type is not a number.")
+                assert(false)
             end
         end
 
@@ -733,7 +734,8 @@ function Typechecker:coerce_numeric_exp_to_float(exp)
     elseif tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
     elseif tagged_union.typename(tag) == "types.T" then
-        tagged_union.error(tag, "this type cannot be coerced to float.")
+        -- Cannot be coerced to float
+        assert(false)
     else
         tagged_union.error(tag)
     end

@@ -106,7 +106,9 @@ function types.indices(t)
         return t.field_types
 
     elseif tagged_union.typename(tag) == "types.T" then
-        tagged_union.error(tag, "cannot index this type.")
+        -- Not indexable
+        assert(false)
+
     else
         tagged_union.error(tag)
     end
