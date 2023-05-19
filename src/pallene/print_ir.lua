@@ -48,7 +48,7 @@ local function Val(val)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
     elseif tag == "ir.Value.Upvalue"  then return Upval(val.id)
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 

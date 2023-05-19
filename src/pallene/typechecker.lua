@@ -130,7 +130,7 @@ local function loc_of_def(def)
     elseif tag == "typechecker.Def.Builtin" then
         error("builtin does not have a location")
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -190,7 +190,7 @@ function Typechecker:from_ast_type(ast_typ)
         elseif stag == "typechecker.Symbol.Value" then
             type_error(ast_typ.loc, "'%s' is not a type", name)
         else
-            tagged_union.tag_error(stag)
+            tagged_union.error(stag)
         end
 
     elseif tag == "ast.Type.Array" then
@@ -219,7 +219,7 @@ function Typechecker:from_ast_type(ast_typ)
         return types.T.Function(p_types, ret_types)
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -283,7 +283,7 @@ function Typechecker:check_program(prog_ast)
             tl_node._type = typ
 
         else
-            tagged_union.tag_error(tag)
+            tagged_union.error(tag)
         end
     end
 
@@ -394,7 +394,7 @@ function Typechecker:check_stat(stat, is_toplevel)
             elseif loop_type._tag == "types.T.Float" then
                 stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
             else
-                tagged_union.tag_error(loop_type._tag, "loop type is not a number.")
+                tagged_union.error(loop_type._tag, "loop type is not a number.")
             end
         end
 
@@ -604,7 +604,7 @@ function Typechecker:check_stat(stat, is_toplevel)
         end
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 
     return stat
@@ -682,7 +682,7 @@ function Typechecker:check_var(var)
         elseif stag == "typechecker.Symbol.Module" then
             type_error(var.loc, "module '%s' is not a value", var.name)
         else
-            tagged_union.tag_error(stag)
+            tagged_union.error(stag)
         end
 
     elseif tag == "ast.Var.Dot" then
@@ -717,7 +717,7 @@ function Typechecker:check_var(var)
         var._type = arr_type.elem
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
     return var
 end
@@ -733,9 +733,9 @@ function Typechecker:coerce_numeric_exp_to_float(exp)
     elseif tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
     elseif tagged_union.typename(tag) == "types.T" then
-        tagged_union.tag_error(tag, "this type cannot be coerced to float.")
+        tagged_union.error(tag, "this type cannot be coerced to float.")
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -846,7 +846,7 @@ function Typechecker:check_exp_synthesize(exp)
             check_type_is_condition(exp.exp, "'not' operator")
             exp._type = types.T.Boolean()
         else
-            tagged_union.tag_error(op)
+            tagged_union.error(op)
         end
 
     elseif tag == "ast.Exp.Binop" then
@@ -956,7 +956,7 @@ function Typechecker:check_exp_synthesize(exp)
             exp._type = types.T.Integer()
 
         else
-            tagged_union.tag_error(op)
+            tagged_union.error(op)
         end
 
     elseif tag == "ast.Exp.CallFunc" then
@@ -993,7 +993,7 @@ function Typechecker:check_exp_synthesize(exp)
         exp._type = types.T.Float()
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 
     return exp
@@ -1028,7 +1028,7 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                         field.exp, expected_type.elem,
                         "array initializer")
                 else
-                    tagged_union.tag_error(ftag)
+                    tagged_union.error(ftag)
                 end
             end
         elseif expected_type._tag == "types.T.Module" then
@@ -1060,7 +1060,7 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                         field.exp, field_type,
                         "table initializer")
                 else
-                    tagged_union.tag_error(ftag)
+                    tagged_union.error(ftag)
                 end
             end
 

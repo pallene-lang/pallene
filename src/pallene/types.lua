@@ -46,7 +46,7 @@ function types.is_gc(t)
         return true
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -69,7 +69,7 @@ function types.is_condition(t)
         return false
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 
 end
@@ -93,7 +93,7 @@ function types.is_indexable(t)
         return false
 
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -106,9 +106,9 @@ function types.indices(t)
         return t.field_types
 
     elseif tagged_union.typename(tag) == "types.T" then
-        tagged_union.tag_error(tag, "cannot index this type.")
+        tagged_union.error(tag, "cannot index this type.")
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -186,7 +186,7 @@ function types.equals(t1, t2)
         return t1 == t2
 
     else
-        return tagged_union.tag_error(tag1,
+        return tagged_union.error(tag1,
             string.format("attempt to check equivalence of types %s and %s.", tag1, tag2))
     end
 end
@@ -241,7 +241,7 @@ function types.tostring(t)
     elseif tag == "types.T.Record" then
         return t.name
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 

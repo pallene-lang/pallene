@@ -97,7 +97,7 @@ function tagged_union.consname(tag)
 end
 
 -- Use this in the last "else" of a tagged union switch-case.
-function tagged_union.tag_error(tag, message)
+function tagged_union.error(tag, message)
     message = message or "input has the wrong type or an elseif case is missing"
     error(string.format("unhandled case '%s': %s", tag, message))
 end

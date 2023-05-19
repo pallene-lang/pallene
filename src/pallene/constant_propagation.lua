@@ -36,7 +36,7 @@ local function is_constant_value(v)
     elseif tag == "ir.Value.LocalVar" then return false
     elseif tag == "ir.Value.Upvalue"  then return false
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -105,7 +105,7 @@ function constant_propagation.run(module)
                         next_f.constant_val_of_upvalue[u_id] = const_init
 
                     else
-                        tagged_union.tag_error(value._tag)
+                        tagged_union.error(value._tag)
                     end
                 end
 
@@ -135,7 +135,7 @@ function constant_propagation.run(module)
                     elseif value._tag == "ir.Value.Upvalue" then
                         next_f.constant_val_of_upvalue[u_id] = f_data.constant_val_of_upvalue[value.id]
                     else
-                        tagged_union.tag_error(value._tag)
+                        tagged_union.error(value._tag)
                     end
                 end
 

@@ -390,7 +390,7 @@ function Converter:visit_stat(stat)
     elseif  tag == "ast.Stat.Break" then
         -- empty
     else
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -462,7 +462,7 @@ function Converter:visit_exp(exp)
         self:visit_exp(exp.rhs)
 
     elseif tagged_union.typename(tag) ~= "ast.Exp" then
-        tagged_union.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
