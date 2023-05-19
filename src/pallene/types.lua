@@ -3,15 +3,12 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local typedecl = require "pallene.typedecl"
-
 local types = {}
 
-local function declare_type(type_name, cons)
-    typedecl.declare(types, "types", type_name, cons)
-end
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(types, "types")
 
-declare_type("T", {
+define_union("T", {
     Any      = {},
     Nil      = {},
     Boolean  = {},
@@ -49,7 +46,7 @@ function types.is_gc(t)
         return true
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -72,7 +69,7 @@ function types.is_condition(t)
         return false
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 
 end
@@ -96,7 +93,7 @@ function types.is_indexable(t)
         return false
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -108,10 +105,12 @@ function types.indices(t)
     elseif tag == "types.T.Record" then
         return t.field_types
 
-    elseif typedecl.typename(tag) == "types.T" then
-        typedecl.tag_error(tag, "cannot index this type.")
+    elseif tagged_union.typename(tag) == "types.T" then
+        -- Not indexable
+        assert(false)
+
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -119,8 +118,8 @@ function types.equals(t1, t2)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
-    assert(typedecl.typename(tag1) == "types.T")
-    assert(typedecl.typename(tag2) == "types.T")
+    assert(tagged_union.typename(tag1) == "types.T")
+    assert(tagged_union.typename(tag2) == "types.T")
 
     if tag1 ~= tag2 then
         return false
@@ -189,7 +188,7 @@ function types.equals(t1, t2)
         return t1 == t2
 
     else
-        return typedecl.tag_error(tag1,
+        return tagged_union.error(tag1,
             string.format("attempt to check equivalence of types %s and %s.", tag1, tag2))
     end
 end
@@ -244,7 +243,7 @@ function types.tostring(t)
     elseif tag == "types.T.Record" then
         return t.name
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 

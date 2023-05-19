@@ -3,13 +3,14 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local typedecl = require "pallene.typedecl"
+local mod = {}
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(mod, "TagUnionTest")
 
 describe("Typedecl", function()
 
     setup(function()
-        local foo = {}
-        typedecl.declare(foo, "foo", "Bar", {
+        define_union("Bar", {
             ABC = {"a", "b", "c"},
             DEF = {"d", "e", "f"},
         })
@@ -17,25 +18,24 @@ describe("Typedecl", function()
 
     it("forbids repeated tags", function()
         assert.has_error(function()
-            local mod = {}
-            typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
-            typedecl.declare(mod, "TESTTYPE", "Foo", { Bar = {"x"} })
-        end, [[tag name "TESTTYPE.Foo.Bar" is already being used]])
+            define_union("Foo", { Bar = {"x"} })
+            define_union("Foo", { Bar = {"x"} })
+        end, [[tag name "TagUnionTest.Foo.Bar" is already being used]])
     end)
 
     it("typeof works for declared type", function ()
-        assert.equals("foo.Bar", typedecl.typename("foo.Bar.ABC"))
+        assert.equals("TagUnionTest.Bar", tagged_union.typename("TagUnionTest.Bar.ABC"))
     end)
 
     it("typeof rejects undeclared types", function ()
-        assert.equals(nil,  typedecl.typename("foo.Bar.LMN"))
+        assert.equals(nil,  tagged_union.typename("TagUnionTest.Bar.LMN"))
     end)
 
     it("consname works for declared type", function ()
-        assert.equals("ABC", typedecl.consname("foo.Bar.ABC"))
+        assert.equals("ABC", tagged_union.consname("TagUnionTest.Bar.ABC"))
     end)
 
     it("consname rejects undeclared type", function ()
-        assert.equals(nil, typedecl.consname("foo.Bar.LMN"))
+        assert.equals(nil, tagged_union.consname("TagUnionTest.Bar.LMN"))
     end)
 end)

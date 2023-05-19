@@ -35,15 +35,17 @@
 -- check_exp and check_var functions. For example, instead of just `check_exp(foo.exp)` you should
 -- always write `foo.exp = check_exp(foo.exp)`.
 
+local typechecker = {}
+
 local ast = require "pallene.ast"
 local builtins = require "pallene.builtins"
 local symtab = require "pallene.symtab"
 local trycatch = require "pallene.trycatch"
 local types = require "pallene.types"
-local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
-local typechecker = {}
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(typechecker, "typechecker")
 
 local Typechecker = util.Class()
 
@@ -98,15 +100,11 @@ end
 -- Symbol table
 --
 
-local function declare_type(type_name, cons)
-    typedecl.declare(typechecker, "typechecker", type_name, cons)
-end
-
 --
 -- Type information, meant for for the type checker
 -- For each name in scope, the type checker wants to know if it is a value and what is its type.
 --
-declare_type("Symbol", {
+define_union("Symbol", {
     Type   = { "typ"  },
     Value  = { "typ", "def" },
     Module = { "typ", "symbols" }, -- Note: a module name can also be a type (e.g. "string")
@@ -116,7 +114,7 @@ declare_type("Symbol", {
 -- Provenance information, meant for the code generator
 -- For each name in the AST, we add an annotation to tell the codegen where it comes from.
 --
-declare_type("Def", {
+define_union("Def", {
     Variable = { "decl" }, -- ast.Decl
     Function = { "func" }, -- ast.FuncStat
     Builtin  = { "id"   }, -- string
@@ -132,31 +130,31 @@ local function loc_of_def(def)
     elseif tag == "typechecker.Def.Builtin" then
         error("builtin does not have a location")
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
 function Typechecker:add_type_symbol(name, typ)
     assert(type(name) == "string")
-    assert(typedecl.typename(typ._tag) == "types.T")
+    assert(tagged_union.typename(typ._tag) == "types.T")
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Type(typ))
 end
 
 function Typechecker:add_value_symbol(name, typ, def)
     assert(type(name) == "string")
-    assert(typedecl.typename(typ._tag) == "types.T")
+    assert(tagged_union.typename(typ._tag) == "types.T")
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Value(typ, def))
 end
 
 function Typechecker:add_module_symbol(name, typ, symbols)
     assert(type(name) == "string")
-    assert((not typ) or typedecl.typename(typ._tag) == "types.T")
+    assert((not typ) or tagged_union.typename(typ._tag) == "types.T")
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Module(typ, symbols))
 end
 
 function Typechecker:export_value_symbol(name, typ, def)
     assert(type(name) == "string")
-    assert(typedecl.typename(typ._tag) == "types.T")
+    assert(tagged_union.typename(typ._tag) == "types.T")
     assert(self.module_symbol)
     if self.module_symbol.symbols[name] then
         type_error(loc_of_def(def), "multiple definitions for module field '%s'", name)
@@ -192,7 +190,7 @@ function Typechecker:from_ast_type(ast_typ)
         elseif stag == "typechecker.Symbol.Value" then
             type_error(ast_typ.loc, "'%s' is not a type", name)
         else
-            typedecl.tag_error(stag)
+            tagged_union.error(stag)
         end
 
     elseif tag == "ast.Type.Array" then
@@ -221,7 +219,7 @@ function Typechecker:from_ast_type(ast_typ)
         return types.T.Function(p_types, ret_types)
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -285,7 +283,7 @@ function Typechecker:check_program(prog_ast)
             tl_node._type = typ
 
         else
-            typedecl.tag_error(tag)
+            tagged_union.error(tag)
         end
     end
 
@@ -382,6 +380,7 @@ function Typechecker:check_stat(stat, is_toplevel)
 
         local loop_type = stat.decl._type
 
+
         if  loop_type._tag ~= "types.T.Integer" and
             loop_type._tag ~= "types.T.Float"
         then
@@ -396,7 +395,7 @@ function Typechecker:check_stat(stat, is_toplevel)
             elseif loop_type._tag == "types.T.Float" then
                 stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
             else
-                typedecl.tag_error(loop_type._tag, "loop type is not a number.")
+                assert(false)
             end
         end
 
@@ -606,7 +605,7 @@ function Typechecker:check_stat(stat, is_toplevel)
         end
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 
     return stat
@@ -684,7 +683,7 @@ function Typechecker:check_var(var)
         elseif stag == "typechecker.Symbol.Module" then
             type_error(var.loc, "module '%s' is not a value", var.name)
         else
-            typedecl.tag_error(stag)
+            tagged_union.error(stag)
         end
 
     elseif tag == "ast.Var.Dot" then
@@ -719,7 +718,7 @@ function Typechecker:check_var(var)
         var._type = arr_type.elem
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
     return var
 end
@@ -734,10 +733,11 @@ function Typechecker:coerce_numeric_exp_to_float(exp)
         return exp
     elseif tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
-    elseif typedecl.typename(tag) == "types.T" then
-        typedecl.tag_error(tag, "this type cannot be coerced to float.")
+    elseif tagged_union.typename(tag) == "types.T" then
+        -- Cannot be coerced to float
+        assert(false)
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -848,7 +848,7 @@ function Typechecker:check_exp_synthesize(exp)
             check_type_is_condition(exp.exp, "'not' operator")
             exp._type = types.T.Boolean()
         else
-            typedecl.tag_error(op)
+            tagged_union.error(op)
         end
 
     elseif tag == "ast.Exp.Binop" then
@@ -958,7 +958,7 @@ function Typechecker:check_exp_synthesize(exp)
             exp._type = types.T.Integer()
 
         else
-            typedecl.tag_error(op)
+            tagged_union.error(op)
         end
 
     elseif tag == "ast.Exp.CallFunc" then
@@ -995,7 +995,7 @@ function Typechecker:check_exp_synthesize(exp)
         exp._type = types.T.Float()
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 
     return exp
@@ -1030,7 +1030,7 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                         field.exp, expected_type.elem,
                         "array initializer")
                 else
-                    typedecl.tag_error(ftag)
+                    tagged_union.error(ftag)
                 end
             end
         elseif expected_type._tag == "types.T.Module" then
@@ -1062,7 +1062,7 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                         field.exp, field_type,
                         "table initializer")
                 else
-                    typedecl.tag_error(ftag)
+                    tagged_union.error(ftag)
                 end
             end
 

@@ -8,15 +8,17 @@
 -- This compiler pass converts a Pallene IR module into to executable C code.
 -- This file is fairly long. For navigation, look for the sectioning comments.
 
+local coder = {}
+
 local C = require "pallene.C"
 local gc = require "pallene.gc"
 local ir = require "pallene.ir"
 local pallenelib = require "pallene.pallenelib"
 local types = require "pallene.types"
-local typedecl = require "pallene.typedecl"
 local util = require "pallene.util"
 
-local coder = {}
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(coder, "coder")
 
 local Coder
 local RecordCoder
@@ -45,7 +47,8 @@ local function ctype(typ)
     elseif tag == "types.T.Table"    then return "Table *"
     elseif tag == "types.T.Record"   then return "Udata *"
     elseif tag == "types.T.Any"      then return "TValue"
-    else   typedecl.tag_error(tag)
+    else
+        tagged_union.error(typ)
     end
 end
 
@@ -96,7 +99,7 @@ local function lua_value(typ, src_slot)
     elseif tag == "types.T.Table"    then tmpl = "hvalue($src)"
     elseif tag == "types.T.Record"   then tmpl = "uvalue($src)"
     elseif tag == "types.T.Any"      then tmpl = "*($src)"
-    else typedecl.tag_error(tag)
+    else tagged_union.error(tag)
     end
 
     local res = util.render(tmpl, {src = src_slot})
@@ -126,7 +129,7 @@ local function set_stack_slot(typ, dst_slot, value)
     elseif tag == "types.T.Table"    then tmpl = "sethvalue(L, $dst, $src);"
     elseif tag == "types.T.Record"   then tmpl = "setuvalue(L, $dst, $src);"
     elseif tag == "types.T.Any"      then tmpl = "setobj(L, $dst, &$src);"
-    else typedecl.tag_error(tag)
+    else tagged_union.error(tag)
     end
 
     return (util.render(tmpl, { dst = dst_slot, src = value }))
@@ -179,8 +182,8 @@ local function pallene_type_tag(typ)
     elseif tag == "types.T.Array"    then return "LUA_TTABLE"
     elseif tag == "types.T.Table"    then return "LUA_TTABLE"
     elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
-    elseif tag == "types.T.Any"      then typedecl.tag_error(tag, "'Any' is not a Lua type tag.")
-    else typedecl.tag_error(tag)
+    elseif tag == "types.T.Any"      then assert(false) -- 'Any' is not a type tag
+    else tagged_union.error(tag)
     end
 end
 
@@ -349,10 +352,8 @@ function Coder:c_value(value)
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
         return self:c_upval(value.id)
-    elseif typedecl.tagname(tag) == "ir.Value" then
-        typedecl.tag_error(tag, "unable to get C expression for this value type.")
     else
-        typedecl.tag_error(tag)
+        tagged_union.error(tag)
     end
 end
 
@@ -633,7 +634,7 @@ end
 -- This section of the program is responsible for keeping track of the "global" values in the module
 -- that need to be seen from every function. We store them in the uservalues of an userdata object.
 
-typedecl.declare(coder, "coder", "Constant", {
+define_union("Constant", {
     Metatable = {"typ"},
     String = {"str"},
 })
@@ -1387,7 +1388,7 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
         f_id = assert(func.f_id_of_local[f_val.id])
         cclosure = string.format("clCvalue(&%s)", self:c_value(f_val))
     else
-        typedecl.tag_error(f_val._tag)
+        tagged_union.error(f_val._tag)
     end
 
     table.insert(parts, self:update_stack_top(func, cmd))
@@ -1651,7 +1652,7 @@ gen_cmd["For"] = function(self, cmd, func)
     elseif typ._tag == "types.T.Float" then
         macro = "PALLENE_FLT_FOR_LOOP"
     else
-        typedecl.tag_error(typ._tag)
+        tagged_union.error(typ._tag)
     end
 
     return (util.render([[
@@ -1676,8 +1677,8 @@ gen_cmd["CheckGC"] = function(self, cmd, func)
 end
 
 function Coder:generate_cmd(func, cmd)
-    assert(typedecl.typename(cmd._tag) == "ir.Cmd")
-    local name = typedecl.consname(cmd._tag)
+    assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
+    local name = tagged_union.consname(cmd._tag)
     local f = assert(gen_cmd[name], "impossible")
     local out = f(self, cmd, func)
 
@@ -1782,7 +1783,7 @@ function Coder:generate_luaopen_function()
                     str = C.string(upv.str)
                 }))
         else
-            typedecl.tag_error(tag)
+            tagged_union.error(tag)
         end
 
         if not is_upvalue_box then

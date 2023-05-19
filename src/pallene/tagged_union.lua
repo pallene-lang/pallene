@@ -5,38 +5,35 @@
 
 -- TAGGED UNIONS
 -- =============
--- Pallene's compiler uses many tagged unions / variant records. We represent
--- them as tables with a string `_tag`. This module exports helper functions for
--- custructing such tagged unions.
+-- Pallene's compiler uses many tagged unions / variant records.
+-- This module helps create and use such tagged unions.
 --
--- For example, the following block of code in the `ast` module creates
--- three constructor functions called `ast.Var.Name`, `ast.Var.Bracket`, and
--- `ast.Var.Dot`.
+-- Example usage: the code below defines a new tagged union in the "ast" namespace.
 --
---     declare_type("Var", {
+--     local tagged_union = require 'pallene.tagged_union'
+--     local define_union = tagged_union.in_namespace(ast, "ast")
+--
+--     define_union("Var", {
 --         Name    = {"loc", "name"},
 --         Bracket = {"loc", "t", "k"},
 --         Dot     = {"loc", "exp", "name"}
 --     })
 --
--- And we can call them like this
+-- It generates suitable constructor functions:
 --
 --     node = ast.Var.Name(loc, name)
 --
--- and it produces a table like this:
+-- The constructor produces a variant record containing a _tag field:
 --
---     {
---         _tag = "ast.Var.Name",
---         loc = loc,
---         name = name,
---     }
+--     { _tag = "ast.Var.Name", loc = loc, name = name }
+--
 
-local typedecl = {}
+local tagged_union = {}
 
--- Ensure type tags are unique
--- And keep track of who is the "parent" type
+-- These associative arrays ensure that type tags are unique.
+-- They also compute the "parent" type faster than substring manipulation.
 local typename_of = {} -- For example, "ast.Exp.Name" => "ast.Exp"
-local consname_of = {} -- For example, "ast.Exp.Name" => "
+local consname_of = {} -- For example, "ast.Exp.Name" => "Name"
 
 local function is_valid_name_component(s)
     -- In particular this does not allow ".", which is our separator
@@ -51,23 +48,19 @@ local function make_tag(mod_name, type_name, cons_name)
     local tag = typ      .. "." .. cons_name
     if typename_of[tag] then
         error(string.format("tag name %q is already being used", tag))
-    else
-        typename_of[tag] = typ
-        consname_of[tag] = cons_name
-        return tag
     end
+    typename_of[tag] = typ
+    consname_of[tag] = cons_name
+    return tag
 end
 
--- Create a namespaced algebraic datatype.
--- These objects can be pattern matched by their _tag.
--- See `ast.lua` and `types.lua` for usage examples.
---
+-- Create a tagged union constructor
 -- @param module       Module table where the type is being defined
--- @param mod_name     Name of the type's module (only used by tostring)
+-- @param mod_name     Name of the module
 -- @param type_name    Name of the type
--- @param constructors Table describing the constructors of the ADT.
-function typedecl.declare(module, mod_name, type_name, constructors)
-    module[type_name] = {}
+-- @param constructors Name of the constructor => fields of the record
+local function define_union(mod_table, mod_name, type_name, constructors)
+    mod_table[type_name] = {}
     for cons_name, fields in pairs(constructors) do
         local tag = make_tag(mod_name, type_name, cons_name)
         local function cons(...)
@@ -83,25 +76,29 @@ function typedecl.declare(module, mod_name, type_name, constructors)
             end
             return node
         end
-        module[type_name][cons_name] = cons
+        mod_table[type_name][cons_name] = cons
     end
 end
 
-function typedecl.typename(tag)
+function tagged_union.in_namespace(mod_table, mod_name)
+    assert(type(mod_table) == "table")
+    assert(type(mod_name) == "string")
+    return function(type_name, constructors)
+        return define_union(mod_table, mod_name, type_name, constructors)
+    end
+end
+
+function tagged_union.typename(tag)
     return typename_of[tag]
 end
 
-function typedecl.consname(tag)
+function tagged_union.consname(tag)
     return consname_of[tag]
 end
 
--- Throw an error at the given tag.
---
--- @param tag     The type tag (or token string) at which the error is to be thown (string)
--- @param message The optional error message. (?string)
-function typedecl.tag_error(tag, message)
-    message = message or "input has the wrong type or an elseif case is missing"
-    error(string.format("unhandled case '%s': %s", tag, message))
+-- Use this in the last "else" of a tagged union switch-case.
+function tagged_union.error(tag)
+    error(string.format("pattern-match failure: %s", tag))
 end
 
-return typedecl
+return tagged_union

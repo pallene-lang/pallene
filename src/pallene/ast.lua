@@ -3,19 +3,16 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local typedecl = require "pallene.typedecl"
-
 local ast = {}
 
-local function declare_type(type_name, cons)
-    typedecl.declare(ast, "ast", type_name, cons)
-end
+local tagged_union = require "pallene.tagged_union"
+local define_union = tagged_union.in_namespace(ast, "ast")
 
-declare_type("Program", {
+define_union("Program", {
     Program = {"loc", "ret_loc", "module_name", "tls", "type_regions", "comment_regions"}
 })
 
-declare_type("Type", {
+define_union("Type", {
     Nil      = {"loc"},
     Name     = {"loc", "name"},
     Array    = {"loc", "subtype"},
@@ -23,17 +20,17 @@ declare_type("Type", {
     Function = {"loc", "arg_types", "ret_types"},
 })
 
-declare_type("Toplevel", {
+define_union("Toplevel", {
     Stats     = {"loc", "stats"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
 })
 
-declare_type("Decl", {
+define_union("Decl", {
     Decl = {"loc", "name", "type"},
 })
 
-declare_type("Stat", {
+define_union("Stat", {
     Block     = {"loc", "stats"},
     While     = {"loc", "condition", "block"},
     Repeat    = {"loc", "block", "condition"},
@@ -48,18 +45,18 @@ declare_type("Stat", {
     Functions = {"loc", "declared_names", "funcs"}, -- For mutual recursion (see parser.lua)
 })
 
-declare_type("FuncStat", {
+define_union("FuncStat", {
     FuncStat = {"loc", "module", "name", "method", "ret_types", "value"},
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
-declare_type("Var", {
+define_union("Var", {
     Name    = {"loc", "name"},
     Bracket = {"loc", "t", "k"},
     Dot     = {"loc", "exp", "name"}
 })
 
-declare_type("Exp", {
+define_union("Exp", {
     Nil           = {"loc"},
     Bool          = {"loc", "value"},
     Integer       = {"loc", "value"},
@@ -79,7 +76,7 @@ declare_type("Exp", {
     UpvalueRecord = {"loc"},                  -- Inserted by assignment_conversion.lua
 })
 
-declare_type("Field", {
+define_union("Field", {
     List = {"loc", "exp"},
     Rec  = {"loc", "name", "exp"},
 })
