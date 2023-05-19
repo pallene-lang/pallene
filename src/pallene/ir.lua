@@ -20,12 +20,12 @@
 -- structured control flow is easier to reason about then an unstructured control flow graph built
 -- around basic blocks and gotos.
 
-local typedecl = require "pallene.typedecl"
+local tagged_union = require "pallene.tagged_union"
 
 local ir = {}
 
 local function declare_type(type_name, cons)
-    typedecl.declare(ir, "ir", type_name, cons)
+    tagged_union.declare(ir, "ir", type_name, cons)
 end
 
 function ir.Module()

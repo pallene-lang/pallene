@@ -3,12 +3,12 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local typedecl = require "pallene.typedecl"
+local tagged_union = require "pallene.tagged_union"
 
 local ast = {}
 
 local function declare_type(type_name, cons)
-    typedecl.declare(ast, "ast", type_name, cons)
+    tagged_union.declare(ast, "ast", type_name, cons)
 end
 
 declare_type("Program", {

@@ -10,7 +10,7 @@
 local C = require "pallene.C"
 local ir = require "pallene.ir"
 local util = require "pallene.util"
-local typedecl = require "pallene.typedecl"
+local tagged_union = require "pallene.tagged_union"
 
 
 
@@ -48,7 +48,7 @@ local function Val(val)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
     elseif tag == "ir.Value.Upvalue"  then return Upval(val.id)
     else
-        typedecl.tag_error(tag)
+        tagged_union.tag_error(tag)
     end
 end
 
@@ -223,8 +223,8 @@ local function Cmd(cmd)
         rhs = "CallStatic ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallDyn" then
         rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
-    elseif typedecl.typename(cmd._tag) == "ir.Cmd" then
-        local name = typedecl.consname(cmd._tag)
+    elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
+        local name = tagged_union.consname(cmd._tag)
         rhs = Call(name, Vals(ir.get_srcs(cmd)))
     end
 

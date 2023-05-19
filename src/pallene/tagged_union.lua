@@ -31,7 +31,7 @@
 --         name = name,
 --     }
 
-local typedecl = {}
+local tagged_union = {}
 
 -- Ensure type tags are unique
 -- And keep track of who is the "parent" type
@@ -66,7 +66,7 @@ end
 -- @param mod_name     Name of the type's module (only used by tostring)
 -- @param type_name    Name of the type
 -- @param constructors Table describing the constructors of the ADT.
-function typedecl.declare(module, mod_name, type_name, constructors)
+function tagged_union.declare(module, mod_name, type_name, constructors)
     module[type_name] = {}
     for cons_name, fields in pairs(constructors) do
         local tag = make_tag(mod_name, type_name, cons_name)
@@ -87,11 +87,11 @@ function typedecl.declare(module, mod_name, type_name, constructors)
     end
 end
 
-function typedecl.typename(tag)
+function tagged_union.typename(tag)
     return typename_of[tag]
 end
 
-function typedecl.consname(tag)
+function tagged_union.consname(tag)
     return consname_of[tag]
 end
 
@@ -99,9 +99,9 @@ end
 --
 -- @param tag     The type tag (or token string) at which the error is to be thown (string)
 -- @param message The optional error message. (?string)
-function typedecl.tag_error(tag, message)
+function tagged_union.tag_error(tag, message)
     message = message or "input has the wrong type or an elseif case is missing"
     error(string.format("unhandled case '%s': %s", tag, message))
 end
 
-return typedecl
+return tagged_union

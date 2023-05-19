@@ -10,13 +10,13 @@
 local ir = require "pallene.ir"
 local types = require "pallene.types"
 local util = require "pallene.util"
-local typedecl = require "pallene.typedecl"
+local tagged_union = require "pallene.tagged_union"
 local trycatch = require "pallene.trycatch"
 
 local to_ir = {}
 
 local function declare_type(type_name, cons)
-    typedecl.declare(to_ir, "to_ir", type_name, cons)
+    tagged_union.declare(to_ir, "to_ir", type_name, cons)
 end
 
 declare_type("LHS", {
@@ -174,7 +174,7 @@ function ToIR:resolve_variable(decl)
             u_id = ir.add_upvalue(func, decl.name, decl._type)
             table.insert(captured_vars, ir.Value.Upvalue(var.id))
         else
-            typedecl.tag_error(var._tag)
+            tagged_union.tag_error(var._tag)
         end
 
         if u_id > MaxUpvalueCount then
@@ -265,7 +265,7 @@ function ToIR:convert_toplevel(prog_ast)
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
         else
-            typedecl.tag_error(tag)
+            tagged_union.tag_error(tag)
         end
     end
 
@@ -555,7 +555,7 @@ function ToIR:convert_stat(cmds, stat)
                 if var_info._tag == "to_ir.Var.LocalVar" then
                     table.insert(lhss, to_ir.LHS.Local(var_info.id))
                 else
-                    typedecl.tag_error(var_info._tag)
+                    tagged_union.tag_error(var_info._tag)
                 end
 
             elseif var._tag == "ast.Var.Bracket" then
@@ -573,14 +573,14 @@ function ToIR:convert_stat(cmds, stat)
                 elseif ttag == "types.T.Record" then
                     local typ = var.exp._type
                     table.insert(lhss, to_ir.LHS.Record(typ, t, var.name))
-                elseif typedecl.tag_is_type(ttag) then
-                    typedecl.tag_error(ttag, "type not indexable.")
+                elseif tagged_union.tag_is_type(ttag) then
+                    tagged_union.tag_error(ttag, "type not indexable.")
                 else
-                    typedecl.tag_error(ttag)
+                    tagged_union.tag_error(ttag)
                 end
 
             else
-                typedecl.tag_error(var._tag)
+                tagged_union.tag_error(var._tag)
             end
         end
 
@@ -639,7 +639,7 @@ function ToIR:convert_stat(cmds, stat)
                 elseif ltag == "to_ir.LHS.Record" then
                     table.insert(cmds, ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val))
                 else
-                    typedecl.tag_error(ltag)
+                    tagged_union.tag_error(ltag)
                 end
             end
         end
@@ -720,7 +720,7 @@ function ToIR:convert_stat(cmds, stat)
         end
 
     else
-        typedecl.tag_error(tag)
+        tagged_union.tag_error(tag)
     end
 end
 
@@ -877,7 +877,7 @@ function ToIR:exp_to_value(cmds, exp, is_recursive)
                     error("not implemented")
                 end
             else
-                typedecl.tag_error(def._tag)
+                tagged_union.tag_error(def._tag)
             end
 
             local var_info = self:resolve_variable(decl)
@@ -888,7 +888,7 @@ function ToIR:exp_to_value(cmds, exp, is_recursive)
             elseif var_info._tag == "to_ir.Var.GlobalVar" then
                 -- Fallthrough to default
             else
-                typedecl.tag_error(var_info._tag)
+                tagged_union.tag_error(var_info._tag)
             end
 
         else
@@ -971,7 +971,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             -- Fallthrough to default
 
         else
-            typedecl.tag_error(typ._tag)
+            tagged_union.tag_error(typ._tag)
         end
 
     elseif tag == "ast.Exp.UpvalueRecord" then
@@ -1091,7 +1091,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinTostring(loc, dsts, xs))
             else
-                typedecl.tag_error(bname)
+                tagged_union.tag_error(bname)
             end
 
         elseif def and def._tag == "typechecker.Def.Function" then
@@ -1118,7 +1118,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 elseif var_info._tag == "to_ir.Var.GlobalVar" then
                     table.insert(cmds, ir.Cmd.GetGlobal(loc, dst, var_info.id))
                 else
-                    typedecl.tag_error(var_info._tag)
+                    tagged_union.tag_error(var_info._tag)
                 end
             else
                 use_exp_to_value = true
@@ -1142,13 +1142,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
               elseif typ._tag == "types.T.Record" then
                   cmd = ir.Cmd.GetField(loc, typ, dst, rec, field)
               else
-                  typedecl.tag_error(typ._tag)
+                  tagged_union.tag_error(typ._tag)
               end
 
               table.insert(cmds, cmd)
 
         else
-            typedecl.tag_error(var._tag)
+            tagged_union.tag_error(var._tag)
         end
 
     elseif tag == "ast.Exp.Unop" then
@@ -1255,10 +1255,10 @@ function ToIR:value_is_truthy(cmds, exp, val)
         local b = ir.add_local(self.func, false, types.T.Boolean())
         table.insert(cmds, ir.Cmd.IsTruthy(exp.loc, b, val))
         return ir.Value.LocalVar(b)
-    elseif typedecl.tag_is_type(typ) then
-        typedecl.tag_error(typ._tag, "unable to test this type for truthiness.")
+    elseif tagged_union.tag_is_type(typ) then
+        tagged_union.tag_error(typ._tag, "unable to test this type for truthiness.")
     else
-        typedecl.tag_error(typ._tag)
+        tagged_union.tag_error(typ._tag)
     end
 end
 

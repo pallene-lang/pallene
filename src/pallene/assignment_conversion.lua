@@ -39,7 +39,7 @@
 -- ```
 
 local util     = require "pallene.util"
-local typedecl = require "pallene.typedecl"
+local tagged_union = require "pallene.tagged_union"
 local types    = require "pallene.types"
 local ast      = require "pallene.ast"
 local typechecker = require "pallene.typechecker"
@@ -129,7 +129,7 @@ function Converter:visit_prog(prog_ast)
             end
         else
             -- skip record declarations and type aliases
-            assert(typedecl.typename(tl_node._tag) == "ast.Toplevel")
+            assert(tagged_union.typename(tl_node._tag) == "ast.Toplevel")
         end
     end
 end
@@ -390,7 +390,7 @@ function Converter:visit_stat(stat)
     elseif  tag == "ast.Stat.Break" then
         -- empty
     else
-        typedecl.tag_error(tag)
+        tagged_union.tag_error(tag)
     end
 end
 
@@ -461,8 +461,8 @@ function Converter:visit_exp(exp)
         self:visit_exp(exp.lhs)
         self:visit_exp(exp.rhs)
 
-    elseif typedecl.typename(tag) ~= "ast.Exp" then
-        typedecl.tag_error(tag)
+    elseif tagged_union.typename(tag) ~= "ast.Exp" then
+        tagged_union.tag_error(tag)
     end
 end
 
