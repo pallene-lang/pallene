@@ -161,9 +161,9 @@ end
 function Coder:push_to_stack(typ, value)
     return (util.render([[
         ${set_stack_slot}
-        L->top++;
+        L->top.p++;
     ]],{
-        set_stack_slot = set_stack_slot(typ, "s2v(L->top)", value),
+        set_stack_slot = set_stack_slot(typ, "s2v(L->top.p)", value),
     }))
 end
 
@@ -447,7 +447,7 @@ function Coder:pallene_entry_point_definition(f_id)
             n = C.integer(slots_needed)
         }))
     end
-    table.insert(prologue, "StackValue *base = L->top;");
+    table.insert(prologue, "StackValue *base = L->top.p;");
     table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
 
@@ -601,7 +601,7 @@ function Coder:lua_entry_point_definition(f_id)
     return (util.render([[
         ${fun_decl}
         {
-            StackValue *base = L->ci->func;
+            StackValue *base = L->ci->func.p;
             ${init_global_userdata}
             /**/
             ${arity_check}
@@ -894,7 +894,7 @@ function Coder:update_stack_top(func, cmd)
         local slot = self.gc[func].slot_of_variable[v_id]
         offset = math.max(offset, slot + 1)
     end
-    return util.render("L->top = base + $offset;", { offset = C.integer(offset) })
+    return util.render("L->top.p = base + $offset;", { offset = C.integer(offset) })
 end
 
 function Coder:savestack()
@@ -1417,8 +1417,8 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
         local get_slot = self:get_stack_slot(typ, dsts[i], "slot", cmd.loc, "return value #%d", i)
         table.insert(pop_results, util.render([[
             {
-                L->top--;
-                TValue *slot = s2v(L->top);
+                L->top.p--;
+                TValue *slot = s2v(L->top.p);
                 $get_slot
             }
         ]], {
@@ -1815,8 +1815,8 @@ function Coder:generate_luaopen_function()
         int ${name}(lua_State *L)
         {
 
-            #if LUA_VERSION_RELEASE_NUM != 50404
-            #error "Lua version must be exactly 5.4.4"
+            #if LUA_VERSION_RELEASE_NUM != 50406
+            #error "Lua version must be exactly 5.4.6"
             #endif
 
             luaL_checkcoreversion(L);
