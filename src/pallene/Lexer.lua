@@ -28,11 +28,9 @@ local find_newline = (1 - newline)^0 * newline
 local comment_line = RE"[^\n\r]*" * newline^-1
 
 local longstring_open    = P("[") * P("=")^0 * P("[")
-local longstring_close   = P("]") * P("=")^0 * P("]")
-local longstring_content = (P(1) - longstring_close)^1
 
 local string_delimiter  = RE"[\"\']"
-local string_content    = RE"[^\"\'\n\r\\]+"
+local string_content    = RE"[^\n\r]"
 local string_hex_number = RE"[0-9A-Fa-f][0-9A-Fa-f]?"
 local string_dec_number = RE"[0-9][0-9]?[0-9]?"
 local string_u_number   = RE"[0-9A-Fa-f]+"
@@ -115,18 +113,8 @@ end
 
 function Lexer:read_short_string(delimiter)
     local parts = {}
-    while true do
-        if self:try(string_delimiter) then
-            if self.matched == delimiter then
-                break
-            else
-                table.insert(parts, self.matched)
-            end
-
-        elseif self:try(string_content) then
-            table.insert(parts, self.matched)
-
-        elseif self:try("\\") then
+    while not self:try(delimiter) do
+        if self:try("\\") then
             if self:try(newline)
                 then table.insert(parts, "\n")
 
@@ -177,6 +165,9 @@ function Lexer:read_short_string(delimiter)
                 return false, "unfinished string"
             end
 
+        elseif self:try(string_content) then
+            table.insert(parts, self.matched)
+
         else
             return false, "unfinished string"
         end
@@ -184,21 +175,15 @@ function Lexer:read_short_string(delimiter)
     return table.concat(parts)
 end
 
-function Lexer:read_long_string(delimiter_length, what)
+function Lexer:read_long_string(delimiter_size, what)
     local firstline = self.line
+    local close = "]" .. string.rep("=", delimiter_size) .. "]"
+
     self:try(newline)
     local parts = {}
-    while true do
-        if self:try(longstring_close) then
-            if #self.matched == delimiter_length then
-                break
-            else
-                table.insert(parts, self.matched)
-            end
-
-        elseif self:try(longstring_content) then
+    while not self:try(close) do
+        if self:try(one_char) then
             table.insert(parts, self.matched)
-
         else
             return false, string.format("unfinished %s (starting at line %d)", what, firstline)
         end
@@ -212,7 +197,7 @@ function Lexer:_next()
 
     elseif self:try("--") then
         if self:try(longstring_open) then
-            local s, err = self:read_long_string(#self.matched, "long comment")
+            local s, err = self:read_long_string(#self.matched-2, "long comment")
             if not s then return false, err end
             return "COMMENT", s
         else
@@ -226,7 +211,7 @@ function Lexer:_next()
         return "STRING", s
 
     elseif self:try(longstring_open) then
-        local s, err = self:read_long_string(#self.matched, "long string")
+        local s, err = self:read_long_string(#self.matched-2, "long string")
         if not s then return false, err end
         return "STRING", s
 

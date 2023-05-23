@@ -226,6 +226,7 @@ describe("Pallene lexer", function()
     end)
 
     it("can lex long strings with overlaping close brackets", function()
+        assert_lex("[==[Hi]]==]", {"STRING"}, {"Hi]"})
         assert_lex("[==[ Hi ]]]]=]==]", {"STRING"}, {" Hi ]]]]="})
     end)
 
