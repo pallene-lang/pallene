@@ -572,7 +572,9 @@ function Typechecker:check_stat(stat, is_toplevel)
 
             local typ = types.T.Function(arg_types, ret_types)
 
-            assert(not func.method) -- not yet implemented
+            if func.method then -- not yet implemented
+                type_error(func.loc, "method syntax has not been implemented in Pallene yet")
+            end
 
             if func.module then
                 -- Module function
@@ -745,7 +747,11 @@ end
 -- If the function returns 0 arguments, it is only allowed in a statement context.
 -- Void functions in an expression context are a constant source of headaches.
 function Typechecker:check_fun_call(exp, is_stat)
-    assert(exp._tag == "ast.Exp.CallFunc")
+    assert(exp._tag == "ast.Exp.CallFunc" or exp._tag == "ast.Exp.CallMethod")
+
+    if exp._tag == "ast.Exp.CallMethod" then -- not yet implemented
+        type_error(exp.loc, "method syntax has not been implemented in Pallene yet")
+    end
 
     exp.exp = self:check_exp_synthesize(exp.exp)
 
