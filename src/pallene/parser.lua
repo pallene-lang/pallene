@@ -860,9 +860,9 @@ function Parser:SuffixedExp()
             exp = ast.Exp.Var(start.loc, ast.Var.Bracket(start.loc, exp, index))
 
         elseif self:peek(":") then
-            local _    = self:advance()
-            local id   = self:e("NAME")
-            local args = self:FuncArgs()
+            local _ = self:advance()
+            local _ = self:e("NAME")  -- id
+            local _ = self:FuncArgs() -- args
             self:syntax_error(self.prev.loc,
                 "Pallene does not yet support method calls")
             self:abort_parsing()
