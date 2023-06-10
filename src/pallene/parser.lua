@@ -51,6 +51,7 @@ function Parser:advance()
         tok, err = self.lexer:next()
         if not tok then
             self:syntax_error(self.lexer:loc(), "%s", err)
+            self:abort_parsing()
         end
         if tok.name == "COMMENT" then
             table.insert(self.comment_regions, { tok.loc.pos, tok.end_pos })
