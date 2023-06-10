@@ -442,7 +442,7 @@ function Converter:visit_exp(exp)
     elseif tag == "ast.Exp.Lambda" then
         self:visit_lambda(exp)
 
-    elseif tag == "ast.Exp.CallFunc" or tag == "ast.Exp.CallMethod" then
+    elseif tag == "ast.Exp.CallFunc" then
         self:visit_exp(exp.exp)
         for _, arg in ipairs(exp.args) do
             self:visit_exp(arg)

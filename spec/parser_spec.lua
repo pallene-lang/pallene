@@ -744,25 +744,6 @@ describe("Parser /", function()
         end)
     end)
 
-    describe("Method calls without parenthesis", function()
-
-        it("for string literals", function()
-            assert_expression_ast([[ o:m "asd" ]], {
-                _tag = "ast.Exp.CallMethod",
-                method = "m",
-                args = { { _tag = "ast.Exp.String", value = "asd" } }
-            })
-        end)
-
-        it("for table literals", function()
-            assert_expression_ast([[ o:m {} ]], {
-                _tag = "ast.Exp.CallMethod",
-                method = "m",
-                args = { { _tag = "ast.Exp.InitList" } }
-            })
-        end)
-    end)
-
     describe("Cast expressions", function()
 
         it("have lower precedence than suffixes", function()

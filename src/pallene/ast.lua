@@ -46,7 +46,7 @@ define_union("Stat", {
 })
 
 define_union("FuncStat", {
-    FuncStat = {"loc", "module", "name", "method", "ret_types", "value"},
+    FuncStat = {"loc", "module", "name", "ret_types", "value"},
 })
 
 -- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
@@ -65,7 +65,6 @@ define_union("Exp", {
     InitList      = {"loc", "fields"},
     Lambda        = {"loc", "arg_decls", "body"},
     CallFunc      = {"loc", "exp", "args"},
-    CallMethod    = {"loc", "exp", "method", "args"},
     Var           = {"loc", "var"},
     Unop          = {"loc", "op", "exp"},
     Binop         = {"loc", "lhs", "op", "rhs"},
