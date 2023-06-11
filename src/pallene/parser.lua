@@ -50,8 +50,7 @@ function Parser:advance()
     repeat
         tok, err = self.lexer:next()
         if not tok then
-            self:syntax_error(self.lexer:loc(), "%s", err)
-            self:abort_parsing()
+            self:abort_with_syntax_error(self.lexer:loc(), "%s", err)
         end
         if tok.name == "COMMENT" then
             table.insert(self.comment_regions, { tok.loc.pos, tok.end_pos })
@@ -223,7 +222,7 @@ function Parser:Program()
         assert(stat._tag == "ast.Stat.Decl")
 
         if #stat.decls > 1 or #stat.exps > 1 then
-            self:syntax_error(stat.loc,
+            self:recoverable_syntax_error(stat.loc,
                 "cannot use a multiple-assignment to declare the module table")
         else
             local decl = stat.decls[1]; assert(decl)
@@ -231,18 +230,18 @@ function Parser:Program()
             local ast_typ = decl.type
 
             if ast_typ and not (ast_typ._tag == "ast.Type.Name" and ast_typ.name == "module") then
-                self:syntax_error(ast_typ.loc,
+                self:recoverable_syntax_error(ast_typ.loc,
                     "if the module variable has a type annotation, it must be exactly 'module'")
             end
 
             if not (exp and exp._tag == "ast.Exp.InitList" and #exp.fields == 0) then
-                self:syntax_error(stat.loc, "the module initializer must be exactly {}")
+                self:recoverable_syntax_error(stat.loc, "the module initializer must be exactly {}")
             end
 
             modname = decl.name
         end
     else
-        self:syntax_error(start_loc,
+        self:recoverable_syntax_error(start_loc,
             "must begin with a module declaration; local <modname> = {}")
     end
 
@@ -259,7 +258,7 @@ function Parser:Program()
                 if stat._tag == "ast.Stat.Assign" then
                     for _, var in ipairs(stat.vars) do
                         if var._tag ~= "ast.Var.Dot" then
-                            self:syntax_error(var.loc,
+                            self:recoverable_syntax_error(var.loc,
                                 "toplevel assignments are only possible with module fields")
                         end
                     end
@@ -277,7 +276,7 @@ function Parser:Program()
     -- return <modname>
     if return_stat then
         if #return_stat.exps ~= 1 then
-            self:syntax_error(return_stat.loc,
+            self:recoverable_syntax_error(return_stat.loc,
                 "the module return statement must return a single value")
         else
             local exp = return_stat.exps[1]
@@ -287,20 +286,20 @@ function Parser:Program()
                 exp.var.name == modname)
             then
                 -- The type checker also needs to check that this name has not been shadowed
-                self:syntax_error(exp.loc,
+                self:recoverable_syntax_error(exp.loc,
                     "must return exactly the module variable '%s'", modname)
             end
         end
 
         if not self:peek("EOF") then
-            self:syntax_error(self.next.loc,
+            self:recoverable_syntax_error(self.next.loc,
                 "the module return statement must be the last thing in the file")
         end
     else
         if self:peek("EOF") then
             local loc = self.next.loc
             local what = (modname or "<modname>")
-            self:syntax_error(loc,  "must end by returning the module table; return %s", what)
+            self:recoverable_syntax_error(loc, "must end by returning the module table; return %s", what)
         else
             self:unexpected_token_error("a toplevel element")
         end
@@ -348,7 +347,7 @@ function Parser:Toplevel()
 
         for _, stat in ipairs(stats) do
             if not is_allowed_toplevel[stat._tag] then
-                self:syntax_error(stat.loc,
+                self:recoverable_syntax_error(stat.loc,
                     "toplevel statements can only be Returns, Declarations or Assignments")
             end
         end
@@ -540,11 +539,11 @@ function Parser:find_letrecs(stats)
             local declared_names = {}
             for _, decl in ipairs(forw_decls) do
                 if decl.type then
-                    self:syntax_error(decl.loc,
+                    self:recoverable_syntax_error(decl.loc,
                         "type annotations are not allowed in a function forward declaration")
                 end
                 if declared_names[decl.name] then
-                    self:syntax_error(decl.loc,
+                    self:recoverable_syntax_error(decl.loc,
                         "duplicate forward declaration for '%s'", decl.name)
                 end
                 declared_names[decl.name] = true
@@ -554,7 +553,7 @@ function Parser:find_letrecs(stats)
             for _, func in ipairs(funcs) do
                 if not func.module then
                     if not declared_names[func.name] then
-                        self:syntax_error(func.loc,
+                        self:recoverable_syntax_error(func.loc,
                             "function '%s' was not forward declared", func.name)
                     end
                     defined_names[func.name] = true
@@ -563,7 +562,7 @@ function Parser:find_letrecs(stats)
 
             for _, decl in ipairs(forw_decls) do
                 if not defined_names[decl.name] then
-                    self:syntax_error(decl.loc,
+                    self:recoverable_syntax_error(decl.loc,
                         "missing a function definition for '%s'", decl.name)
                 end
             end
@@ -610,12 +609,10 @@ function Parser:FuncStat(is_local)
     local method = false
     if is_local then
         if self:peek(".") then
-            self:syntax_error(self.next.loc, "local function name has a '.'")
-            self:abort_parsing()
+            self:abort_with_syntax_error(self.next.loc, "local function name has a '.'")
         end
         if self:peek(":") then
-            self:syntax_error(self.next.loc, "local function name has a ':'")
-            self:abort_parsing()
+            self:abort_with_syntax_error(self.next.loc, "local function name has a ':'")
         end
     else
         local fields = {}
@@ -625,7 +622,7 @@ function Parser:FuncStat(is_local)
 
         field = fields[1] or false
         if fields[2] then
-            self:syntax_error(self.prev.loc,
+            self:recoverable_syntax_error(self.prev.loc,
                 "more than one dot in the function name is not allowed")
         end
 
@@ -635,9 +632,8 @@ function Parser:FuncStat(is_local)
     end
 
     if method then
-        self:syntax_error(self.prev.loc,
+        self:abort_with_syntax_error(self.prev.loc,
             "Pallene does not yet implement method definitions")
-        self:abort_parsing()
     end
 
     local module, name
@@ -664,7 +660,7 @@ function Parser:FuncStat(is_local)
 
     for _, decl in ipairs(params) do
       if not decl.type then
-        self:syntax_error(decl.loc,
+        self:recoverable_syntax_error(decl.loc,
           "parameter '%s' is missing a type annotation", decl.name)
       end
     end
@@ -771,7 +767,7 @@ function Parser:Stat()
     elseif self:peek("break") then
         local start = self:advance()
         if self.loop_depth == 0 then
-            self:syntax_error(start.loc, "break statement outside of a loop")
+            self:recoverable_syntax_error(start.loc, "break statement outside of a loop")
         end
         return ast.Stat.Break(start.loc)
 
@@ -801,9 +797,8 @@ function Parser:Stat()
             if exp._tag == "ast.Exp.CallFunc" then
                 return ast.Stat.Call(exp.loc, exp)
             else
-                self:syntax_error(exp.loc,
+                self:abort_with_syntax_error(exp.loc,
                     "this expression in a statement position is not a function call")
-                self:abort_parsing()
             end
         end
     else
@@ -820,8 +815,7 @@ function Parser:to_var(exp)
     if exp._tag == "ast.Exp.Var" then
         return exp.var
     else
-        self:syntax_error(exp.loc, "this expression is not an lvalue")
-        self:abort_parsing()
+        self:abort_with_syntax_error(exp.loc, "this expression is not an lvalue")
     end
 end
 
@@ -863,9 +857,8 @@ function Parser:SuffixedExp()
             local _ = self:advance()
             local _ = self:e("NAME")  -- id
             local _ = self:FuncArgs() -- args
-            self:syntax_error(self.prev.loc,
+            self:recoverable_syntax_error(self.prev.loc,
                 "Pallene does not yet support method calls")
-            self:abort_parsing()
 
         elseif self:peek("(") or self:peek("STRING") or self:peek("{") then
             local args = self:FuncArgs()
@@ -885,7 +878,7 @@ function Parser:FuncArgs()
         local exps = self:peek(")") and {} or self:ExpList1()
         local _    = self:e(")", open)
         if #exps > MaxParams then
-            self:syntax_error(exps[MaxParams + 1].loc,
+            self:recoverable_syntax_error(exps[MaxParams + 1].loc,
                 "too many arguments (limit is %d)", MaxParams)
         end
         return exps
@@ -896,7 +889,7 @@ function Parser:FuncParams()
     local oparen = self:e("(")
     local params = self:DeclList()
     if #params > MaxParams then
-        self:syntax_error(params[MaxParams + 1].loc,
+        self:recoverable_syntax_error(params[MaxParams + 1].loc,
             "too many parameters (limit is %d)", MaxParams)
     end
     local _ = self:e(")", oparen)
@@ -909,13 +902,15 @@ function Parser:FuncExp()
 
     for _, decl in ipairs(params) do
         if decl.type then
-            self:syntax_error(decl.loc, "Function expressions cannot be type annotated")
+            self:recoverable_syntax_error(decl.loc,
+                "Function expressions cannot be type annotated")
         end
     end
 
     if self:try(":") then
         local typ = self:Type()
-        self:syntax_error(typ.loc, "Function expressions cannot be type annotated")
+        self:recoverable_syntax_error(typ.loc,
+            "Function expressions cannot be type annotated")
     end
 
     local block = self:FuncBody()
@@ -1084,17 +1079,21 @@ end
 --
 -- Syntax errors
 --
--- For simple errors that we have a good idea how to recover from them, we report a syntax error and
--- continue parsing. However, if we aren't immediately sure how to recover, we abort. We would
--- rather stop early than potentially create a bunch of spurious errors.
 
-function Parser:syntax_error(loc, fmt, ...)
+function Parser:abort_parsing()
+    trycatch.error("syntax-error")
+end
+
+-- For simple errors that we can recover from.
+function Parser:recoverable_syntax_error(loc, fmt, ...)
     local msg = "syntax error: " .. loc:format_error(fmt, ...)
     table.insert(self.errors, msg)
 end
 
-function Parser:abort_parsing()
-    trycatch.error("syntax-error")
+-- For syntax errors that we cannot recover from.
+function Parser:abort_with_syntax_error(...)
+    self:recoverable_syntax_error(...)
+    self:abort_parsing()
 end
 
 function Parser:describe_token_name(name)
@@ -1123,8 +1122,9 @@ end
 
 function Parser:unexpected_token_error(non_terminal)
     local where = self:describe_token(self.next)
-    self:syntax_error(self.next.loc, "unexpected %s while trying to parse %s", where, non_terminal)
-    self:abort_parsing()
+    self:abort_with_syntax_error(self.next.loc,
+        "unexpected %s while trying to parse %s",
+        where, non_terminal)
 end
 
 function Parser:wrong_token_error(expected_name, open_tok)
@@ -1150,22 +1150,22 @@ function Parser:wrong_token_error(expected_name, open_tok)
     local where = self:describe_token(next_tok)
 
     if not open_tok or loc.line == open_tok.loc.line then
-        self:syntax_error(loc, "expected %s before %s", what, where)
+        self:abort_with_syntax_error(loc,
+            "expected %s before %s",
+            what, where)
     else
         local owhat = self:describe_token_name(open_tok.name)
         local oline = open_tok.loc.line
         if is_stolen_delimiter then
-            self:syntax_error(loc,
+            self:abort_with_syntax_error(loc,
                 "expected %s to close %s at line %d, before this less indented %s",
                 what, owhat, oline, what)
         else
-            self:syntax_error(loc,
+            self:abort_with_syntax_error(loc,
                 "expected %s before %s, to close the %s at line %d",
                 what, where, owhat, oline)
         end
     end
-
-    self:abort_parsing()
 end
 
 --
