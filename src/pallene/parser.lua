@@ -636,7 +636,7 @@ function Parser:FuncStat(is_local)
 
     if method then
         self:syntax_error(self.prev.loc,
-            "Pallene does not yet implement method function definitions")
+            "Pallene does not yet implement method definitions")
         self:abort_parsing()
     end
 
