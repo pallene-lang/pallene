@@ -299,7 +299,7 @@ end
 function Typechecker:expand_function_returns(rhs)
     local N = #rhs
     local last = rhs[N]
-    if  last and (last._tag == "ast.Exp.CallFunc" or last._tag == "ast.Exp.CallMethod") then
+    if  last and (last._tag == "ast.Exp.CallFunc") then
         last = self:check_exp_synthesize(last)
         rhs[N] = last
         for i = 2, #last._types do
@@ -572,10 +572,6 @@ function Typechecker:check_stat(stat, is_toplevel)
 
             local typ = types.T.Function(arg_types, ret_types)
 
-            if func.method then -- not yet implemented
-                type_error(func.loc, "method syntax has not been implemented in Pallene yet")
-            end
-
             if func.module then
                 -- Module function
                 local sym = self.symbol_table:find_symbol(func.module)
@@ -747,11 +743,7 @@ end
 -- If the function returns 0 arguments, it is only allowed in a statement context.
 -- Void functions in an expression context are a constant source of headaches.
 function Typechecker:check_fun_call(exp, is_stat)
-    assert(exp._tag == "ast.Exp.CallFunc" or exp._tag == "ast.Exp.CallMethod")
-
-    if exp._tag == "ast.Exp.CallMethod" then -- not yet implemented
-        type_error(exp.loc, "method syntax has not been implemented in Pallene yet")
-    end
+    assert(exp._tag == "ast.Exp.CallFunc")
 
     exp.exp = self:check_exp_synthesize(exp.exp)
 
@@ -969,9 +961,6 @@ function Typechecker:check_exp_synthesize(exp)
 
     elseif tag == "ast.Exp.CallFunc" then
         exp = self:check_fun_call(exp, false)
-
-    elseif tag == "ast.Exp.CallMethod" then
-        error("not implemented")
 
     elseif tag == "ast.Exp.Cast" then
         exp._type = self:from_ast_type(exp.target)

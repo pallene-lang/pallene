@@ -601,26 +601,43 @@ function Parser:Block()
     return ast.Stat.Block(self.prev.loc, self:StatList())
 end
 
-function Parser:FuncStat()
+function Parser:FuncStat(is_local)
     local start = self:e("function")
+    local root  = self:e("NAME").value
 
-    local root = self:e("NAME").value
 
-    local fields = {}
-    while self:try(".") do
-        table.insert(fields, self:e("NAME").value)
-    end
-
-    if fields[2] then
-        self:syntax_error(self.prev.loc,
-            "more than one dot in the function name is not allowed")
-    end
-
-    local field = fields[1] or false
-
+    local field  = false
     local method = false
-    if self:try(":") then
-        method = self:e("NAME").value
+    if is_local then
+        if self:peek(".") then
+            self:syntax_error(self.next.loc, "local function name has a '.'")
+            self:abort_parsing()
+        end
+        if self:peek(":") then
+            self:syntax_error(self.next.loc, "local function name has a ':'")
+            self:abort_parsing()
+        end
+    else
+        local fields = {}
+        while self:try(".") do
+            table.insert(fields, self:e("NAME").value)
+        end
+
+        field = fields[1] or false
+        if fields[2] then
+            self:syntax_error(self.prev.loc,
+                "more than one dot in the function name is not allowed")
+        end
+
+        if self:try(":") then
+            method = self:e("NAME").value
+        end
+    end
+
+    if method then
+        self:syntax_error(self.prev.loc,
+            "Pallene does not yet implement method definitions")
+        self:abort_parsing()
     end
 
     local module, name
@@ -653,7 +670,7 @@ function Parser:FuncStat()
     end
 
     return ast.FuncStat.FuncStat(
-        start.loc, module, name, method, return_types,
+        start.loc, module, name, return_types,
         ast.Exp.Lambda(start.loc, params, block))
 end
 
@@ -743,13 +760,7 @@ function Parser:Stat()
     elseif self:peek("local") then
         local start = self:advance()
         if self:peek("function") then
-            local fn = self:FuncStat()
-            if fn.module then
-                self:syntax_error(fn.loc, "local function name has a '.'")
-            end
-            if fn.method then
-                self:syntax_error(start.loc, "local function name has a ':'")
-            end
+            local fn = self:FuncStat(true)
             return ast.Stat.Functions(start.loc, {[fn.name]=true}, {fn})
         else
             local decls = self:DeclList(); if #decls == 0 then self:forced_syntax_error("NAME") end
@@ -771,7 +782,7 @@ function Parser:Stat()
         return ast.Stat.Return(start.loc, exps)
 
     elseif self:peek("function") then
-        local fn = self:FuncStat()
+        local fn = self:FuncStat(false)
         return ast.Stat.Functions(fn.loc, {}, {fn})
 
     elseif self:peek(is_primary_exp_first) then
@@ -787,7 +798,7 @@ function Parser:Stat()
             return ast.Stat.Assign(op.loc, lhs, rhs)
 
         else
-            if exp._tag == "ast.Exp.CallFunc" or exp._tag == "ast.Exp.CallMethod" then
+            if exp._tag == "ast.Exp.CallFunc" then
                 return ast.Stat.Call(exp.loc, exp)
             else
                 self:syntax_error(exp.loc,
@@ -849,10 +860,12 @@ function Parser:SuffixedExp()
             exp = ast.Exp.Var(start.loc, ast.Var.Bracket(start.loc, exp, index))
 
         elseif self:peek(":") then
-            local _    = self:advance()
-            local id   = self:e("NAME")
-            local args = self:FuncArgs()
-            exp = ast.Exp.CallMethod(exp.loc, exp, id.value, args)
+            local _ = self:advance()
+            local _ = self:e("NAME")  -- id
+            local _ = self:FuncArgs() -- args
+            self:syntax_error(self.prev.loc,
+                "Pallene does not yet support method calls")
+            self:abort_parsing()
 
         elseif self:peek("(") or self:peek("STRING") or self:peek("{") then
             local args = self:FuncArgs()

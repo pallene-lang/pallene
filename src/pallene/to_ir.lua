@@ -248,7 +248,6 @@ function ToIR:convert_toplevel(prog_ast)
 
                 elseif stag == "ast.Stat.Functions" then
                     for _, func in ipairs(stat.funcs) do
-                        assert(not stat.method)
                         local f_id = self:register_lambda(func.value, func.name)
                         if func.module then
                             n_exports = n_exports + 1
@@ -920,7 +919,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     local use_exp_to_value = false
 
     if not dst then
-        assert(tag == "ast.Exp.CallFunc" or tag == "ast.Exp.CallMethod")
+        assert(tag == "ast.Exp.CallFunc")
     end
 
     if     tag == "ast.Exp.InitList" then
@@ -1101,9 +1100,6 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         else
             table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
         end
-
-    elseif tag == "ast.Exp.CallMethod" then
-        error("not implemented")
 
     elseif tag == "ast.Exp.Var" then
         local var = exp.var
