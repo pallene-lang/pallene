@@ -41,6 +41,14 @@ do
     fi
 done
 
+if grep --line-number -E \
+    "^[$space$tab]*self:(check_exp|check_var|check_initializer)" \
+    src/pallene/typechecker.lua;
+then
+    # Using grep to catch this logic error isn't ideal, but it's better than nothing.
+    error "You should not ignore the return value here"
+fi
+
 if [ "$ok" != yes ]; then
     exit 1
 fi

@@ -33,7 +33,7 @@
 --
 -- IMPORTANT: For these transformations to work you should always use the return value from the
 -- check_exp and check_var functions. For example, instead of just `check_exp(foo.exp)` you should
--- always write `foo.exp = check_exp(foo.exp)`.
+-- always write `foo.exp = check_exp(foo.exp)`. Our linter script enforces this.
 
 local typechecker = {}
 
