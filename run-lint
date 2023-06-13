@@ -14,7 +14,7 @@ error() {
 }
 
 echo "--- Lua Lint ---"
-luacheck src/ spec/ examples/ "$@" || exit 1
+luacheck src/ spec/ examples/ "$@" || error "Luacheck found problems"
 echo
 
 echo "--- Other checks ---"
