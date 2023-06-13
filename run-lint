@@ -2,11 +2,12 @@
 
 space=' '
 tab='	'
-ok=yes
 
 red='\033[1;31m'
 green='\033[1;32m'
 reset='\033[0m'
+
+ok=yes
 
 error() {
     printf "${red}ERROR${reset} %s\n" "$*"
