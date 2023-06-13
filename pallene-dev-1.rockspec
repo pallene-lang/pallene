@@ -18,11 +18,6 @@ dependencies = {
 }
 build = {
    type = "builtin",
-   install = {
-      bin = {
-         "bin/pallenec",
-      }
-   }
 }
 test = {
    type = "busted"
