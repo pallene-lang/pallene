@@ -32,7 +32,7 @@ do
         error "File $file has a line that ends in whitespace"
     fi
 
-    if grep --line-number "^$tab" "$file"; then
+    if grep --line-number "^$space*$tab" "$file"; then
         # Standardize on spaces because mixing tabs and spaces is endless pain.
         error "File $file has tab-based indentation"
     fi
