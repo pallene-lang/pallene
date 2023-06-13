@@ -83,7 +83,7 @@ If you change the ".pln" file of a benchmark please run the `./benchmarks/genera
 
 # Git workflow
 
-The `misc/` directory contains some scripts that I find useful in my day-to-day interactions with Git.
+The `dev/` directory contains some scripts that I find useful in my day-to-day interactions with Git.
 They are not required, but maybe you'll also find them useful.
 
 The `pre-commit` hook ensures that you never commit directly to the master branch,
