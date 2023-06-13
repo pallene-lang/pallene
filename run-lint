@@ -2,11 +2,12 @@
 
 space=' '
 tab='	'
-ok=yes
 
 red='\033[1;31m'
 green='\033[1;32m'
 reset='\033[0m'
+
+ok=yes
 
 error() {
     printf "${red}ERROR${reset} %s\n" "$*"
@@ -14,7 +15,7 @@ error() {
 }
 
 echo "--- Lua Lint ---"
-luacheck src/ spec/ examples/ "$@" || exit 1
+luacheck src/ spec/ examples/ "$@" || error "Luacheck found problems"
 echo
 
 echo "--- Other checks ---"
@@ -31,7 +32,7 @@ do
         error "File $file has a line that ends in whitespace"
     fi
 
-    if grep --line-number "^$tab" "$file"; then
+    if grep --line-number "^$space*$tab" "$file"; then
         # Standardize on spaces because mixing tabs and spaces is endless pain.
         error "File $file has tab-based indentation"
     fi
@@ -40,6 +41,14 @@ do
         error "File $file is missing a copyright header"
     fi
 done
+
+if grep --line-number -E \
+    "^[$space$tab]*self:(check_exp|check_var|check_initializer)" \
+    src/pallene/typechecker.lua;
+then
+    # Using grep to catch this logic error isn't ideal, but it's better than nothing.
+    error "You should not ignore the return value here"
+fi
 
 if [ "$ok" != yes ]; then
     exit 1
