@@ -8,41 +8,41 @@ local types = require "pallene.types"
 describe("Pallene types", function()
 
     it("pretty-prints types", function()
-        assert.same("{ integer }", types.tostring(types.T.Array(types.T.Integer())))
+        assert.same("{ integer }", types.tostring(types.T.Array(types.T.Integer)))
         assert.same("{ x: float, y: float }", types.tostring(
-                types.T.Table({x = types.T.Float(), y = types.T.Float()})))
+                types.T.Table({x = types.T.Float, y = types.T.Float})))
     end)
 
     it("is_gc works", function()
-        assert.falsy(types.is_gc(types.T.Integer()))
-        assert.truthy(types.is_gc(types.T.String()))
-        assert.truthy(types.is_gc(types.T.Array(types.T.Integer())))
-        assert.truthy(types.is_gc(types.T.Table({x = types.T.Float()})))
+        assert.falsy(types.is_gc(types.T.Integer))
+        assert.truthy(types.is_gc(types.T.String))
+        assert.truthy(types.is_gc(types.T.Array(types.T.Integer)))
+        assert.truthy(types.is_gc(types.T.Table({x = types.T.Float})))
         assert.truthy(types.is_gc(types.T.Function({}, {})))
     end)
 
     describe("equality", function()
 
         it("works for primitive types", function()
-            assert.truthy(types.equals(types.T.Integer(), types.T.Integer()))
-            assert.falsy(types.equals(types.T.Integer(), types.T.String()))
+            assert.truthy(types.equals(types.T.Integer, types.T.Integer))
+            assert.falsy(types.equals(types.T.Integer, types.T.String))
         end)
 
         it("is true for two identical tables", function()
             local t1 = types.T.Table({
-                    y = types.T.Integer(), x = types.T.Integer()})
+                    y = types.T.Integer, x = types.T.Integer})
             local t2 = types.T.Table({
-                    x = types.T.Integer(), y = types.T.Integer()})
+                    x = types.T.Integer, y = types.T.Integer})
             assert.truthy(types.equals(t1, t2))
             assert.truthy(types.equals(t2, t1))
         end)
 
         it("is false for tables with different number of fields", function()
-            local t1 = types.T.Table({x = types.T.Integer()})
-            local t2 = types.T.Table({x = types.T.Integer(),
-                    y = types.T.Integer()})
-            local t3 = types.T.Table({x = types.T.Integer(),
-                    y = types.T.Integer(), z = types.T.Integer()})
+            local t1 = types.T.Table({x = types.T.Integer})
+            local t2 = types.T.Table({x = types.T.Integer,
+                    y = types.T.Integer})
+            local t3 = types.T.Table({x = types.T.Integer,
+                    y = types.T.Integer, z = types.T.Integer})
             assert.falsy(types.equals(t1, t2))
             assert.falsy(types.equals(t2, t1))
             assert.falsy(types.equals(t2, t3))
@@ -52,39 +52,39 @@ describe("Pallene types", function()
         end)
 
         it("is false for tables with different field names", function()
-            local t1 = types.T.Table({x = types.T.Integer()})
-            local t2 = types.T.Table({y = types.T.Integer()})
+            local t1 = types.T.Table({x = types.T.Integer})
+            local t2 = types.T.Table({y = types.T.Integer})
             assert.falsy(types.equals(t1, t2))
             assert.falsy(types.equals(t2, t1))
         end)
 
         it("is false for tables with different field types", function()
-            local t1 = types.T.Table({x = types.T.Integer()})
-            local t2 = types.T.Table({x = types.T.Float()})
+            local t1 = types.T.Table({x = types.T.Integer})
+            local t2 = types.T.Table({x = types.T.Float})
             assert.falsy(types.equals(t1, t2))
             assert.falsy(types.equals(t2, t1))
         end)
 
         it("is true for identical functions", function()
-            local f1 = types.T.Function({types.T.String(), types.T.Integer()}, {types.T.Boolean()})
-            local f2 = types.T.Function({types.T.String(), types.T.Integer()}, {types.T.Boolean()})
+            local f1 = types.T.Function({types.T.String, types.T.Integer}, {types.T.Boolean})
+            local f2 = types.T.Function({types.T.String, types.T.Integer}, {types.T.Boolean})
             assert.truthy(types.equals(f1, f2))
         end)
 
         it("is false for functions with different input types", function()
-            local f1 = types.T.Function({types.T.String(), types.T.Boolean()}, {types.T.Boolean()})
-            local f2 = types.T.Function({types.T.Integer(), types.T.Integer()}, {types.T.Boolean()})
+            local f1 = types.T.Function({types.T.String, types.T.Boolean}, {types.T.Boolean})
+            local f2 = types.T.Function({types.T.Integer, types.T.Integer}, {types.T.Boolean})
             assert.falsy(types.equals(f1, f2))
         end)
 
         it("is false for functions with different output types", function()
-            local f1 = types.T.Function({types.T.String(), types.T.Integer()}, {types.T.Boolean()})
-            local f2 = types.T.Function({types.T.String(), types.T.Integer()}, {types.T.Integer()})
+            local f1 = types.T.Function({types.T.String, types.T.Integer}, {types.T.Boolean})
+            local f2 = types.T.Function({types.T.String, types.T.Integer}, {types.T.Integer})
             assert.falsy(types.equals(f1, f2))
         end)
 
         it("is false for functions with different input arity", function()
-            local s = types.T.String()
+            local s = types.T.String
             local f1 = types.T.Function({}, {s})
             local f2 = types.T.Function({s}, {s})
             local f3 = types.T.Function({s, s}, {s})
@@ -97,7 +97,7 @@ describe("Pallene types", function()
         end)
 
         it("is false for functions with different output arity", function()
-            local s = types.T.String()
+            local s = types.T.String
             local f1 = types.T.Function({s}, {})
             local f2 = types.T.Function({s}, {s})
             local f3 = types.T.Function({s}, {s, s})
@@ -123,42 +123,42 @@ describe("Pallene types", function()
 
     describe("consistency", function()
         it("allows 'any' on either side", function()
-            assert.truthy(types.consistent(types.T.Any(), types.T.Any()))
-            assert.truthy(types.consistent(types.T.Any(), types.T.Integer()))
-            assert.truthy(types.consistent(types.T.Integer(), types.T.Any()))
+            assert.truthy(types.consistent(types.T.Any, types.T.Any))
+            assert.truthy(types.consistent(types.T.Any, types.T.Integer))
+            assert.truthy(types.consistent(types.T.Integer, types.T.Any))
         end)
 
         it("allows types with same tag", function()
             assert.truthy(types.consistent(
-                types.T.Integer(),
-                types.T.Integer()
+                types.T.Integer,
+                types.T.Integer
             ))
 
             assert.truthy(types.consistent(
-                types.T.Array(types.T.Integer()),
-                types.T.Array(types.T.Integer())
+                types.T.Array(types.T.Integer),
+                types.T.Array(types.T.Integer)
             ))
 
             assert.truthy(types.consistent(
-                types.T.Array(types.T.Integer()),
-                types.T.Array(types.T.String())
+                types.T.Array(types.T.Integer),
+                types.T.Array(types.T.String)
             ))
 
             assert.truthy(types.consistent(
-                types.T.Function({types.T.Integer()}, {types.T.Integer()}),
-                types.T.Function({types.T.String(), types.T.String()}, {})
+                types.T.Function({types.T.Integer}, {types.T.Integer}),
+                types.T.Function({types.T.String, types.T.String}, {})
             ))
         end)
 
         it("forbids different tags", function()
             assert.falsy(types.consistent(
-                types.T.Integer(),
-                types.T.String()
+                types.T.Integer,
+                types.T.String
             ))
 
             assert.falsy(types.consistent(
-                types.T.Array(types.T.Integer()),
-                types.T.Function({types.T.Integer()},{types.T.Integer()})
+                types.T.Array(types.T.Integer),
+                types.T.Function({types.T.Integer},{types.T.Integer})
             ))
         end)
     end)

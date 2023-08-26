@@ -280,7 +280,7 @@ function ToIR:convert_toplevel(prog_ast)
     local exports_type  = types.T.Table({})
     self.module.loc_id_of_exports = ir.add_local(self.func, "$exports", exports_type)
     table.insert(cmds, ir.Cmd.NewTable(self.func.loc,  self.module.loc_id_of_exports, ir.Value.Integer(n_exports)))
-    table.insert(cmds, ir.Cmd.CheckGC())
+    table.insert(cmds, ir.Cmd.CheckGC)
 
     -- export the functions
     for _, f_id in ipairs(self.module.exported_functions) do
@@ -321,7 +321,7 @@ function ToIR:convert_stat(cmds, stat)
         local body = {}
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop, ir.Cmd.Break))
         self:convert_stat(body, stat.block)
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
@@ -330,7 +330,7 @@ function ToIR:convert_stat(cmds, stat)
         self:convert_stat(body, stat.block)
         local cond     = self:exp_to_value(body, stat.condition)
         local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
+        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break, ir.Cmd.Nop))
         table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
 
     elseif tag == "ast.Stat.If" then
@@ -395,12 +395,12 @@ function ToIR:convert_stat(cmds, stat)
 
             -- the table passed as argument to `ipairs`
             local arr =  ipairs_args[1]
-            assert(types.equals(arr._type, types.T.Array(types.T.Any())))
+            assert(types.equals(arr._type, types.T.Array(types.T.Any)))
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
             self:exp_to_assignment(cmds, v_arr, arr)
 
             -- local i_num: integer = 1
-            local v_inum = ir.add_local(self.func, "$"..decls[1].name.."_num", types.T.Integer())
+            local v_inum = ir.add_local(self.func, "$"..decls[1].name.."_num", types.T.Integer)
             local start = ir.Value.Integer(1)
             table.insert(cmds, ir.Cmd.Move(stat.loc, v_inum, start))
 
@@ -408,15 +408,15 @@ function ToIR:convert_stat(cmds, stat)
             local body = {}
 
             -- x_dyn = xs[i_num]
-            local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any())
+            local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any)
             local src_arr =  ir.Value.LocalVar(v_arr)
             local src_i =  ir.Value.LocalVar(v_inum)
-            table.insert(body, ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
+            table.insert(body, ir.Cmd.GetArr(stat.loc, types.T.Any, v_x_dyn, src_arr, src_i))
 
             -- if x_dyn == nil then break end
-            local v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
+            local v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean)
             table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_x_dyn)))
-            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond_checknil), ir.Cmd.Break(), ir.Cmd.Nop()))
+            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond_checknil), ir.Cmd.Break, ir.Cmd.Nop))
 
             -- local i: T1 = i_num as T1
             local v_i = ir.add_local(self.func, decls[1].name, decls[1]._type)
@@ -424,7 +424,7 @@ function ToIR:convert_stat(cmds, stat)
             if decls[1]._type._tag == "types.T.Integer" then
                 table.insert(body, ir.Cmd.Move(stat.loc, v_i, ir.Value.LocalVar(v_inum)))
             else
-                table.insert(body, ir.Cmd.ToDyn(stat.loc, types.T.Integer(), v_i, ir.Value.LocalVar(v_inum)))
+                table.insert(body, ir.Cmd.ToDyn(stat.loc, types.T.Integer, v_i, ir.Value.LocalVar(v_inum)))
             end
 
             -- local x = x_dyn as T2
@@ -473,7 +473,7 @@ function ToIR:convert_stat(cmds, stat)
 
             local v_lhs_dyn = {}
             for _, decl in ipairs(decls) do
-                local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any())
+                local v = ir.add_local(self.func, "$" .. decl.name .. "_dyn", types.T.Any)
                 table.insert(v_lhs_dyn, v)
             end
 
@@ -488,9 +488,9 @@ function ToIR:convert_stat(cmds, stat)
             table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
 
             -- if i == nil then break end
-            local v_cond = ir.add_local(self.func, false, types.T.Boolean())
+            local v_cond = ir.add_local(self.func, false, types.T.Boolean)
             table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_lhs_dyn[1])))
-            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
+            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break, ir.Cmd.Nop))
 
             -- cast loop LHS to annotated types.
             for i, decl in ipairs(decls) do
@@ -669,7 +669,7 @@ function ToIR:convert_stat(cmds, stat)
         table.insert(cmds, ir.Cmd.Return(stat.loc, vals))
 
     elseif tag == "ast.Stat.Break" then
-        table.insert(cmds, ir.Cmd.Break())
+        table.insert(cmds, ir.Cmd.Break)
 
     elseif tag == "ast.Stat.Functions" then
 
@@ -840,7 +840,7 @@ end
 function ToIR:exp_to_value(cmds, exp, is_recursive)
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
-        return ir.Value.Nil()
+        return ir.Value.Nil
 
     elseif tag == "ast.Exp.Bool" then
         return ir.Value.Bool(exp.value)
@@ -927,7 +927,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         if     typ._tag == "types.T.Array" then
             local n = ir.Value.Integer(#exp.fields)
             table.insert(cmds, ir.Cmd.NewArr(loc, dst, n))
-            table.insert(cmds, ir.Cmd.CheckGC())
+            table.insert(cmds, ir.Cmd.CheckGC)
             for i, field in ipairs(exp.fields) do
                 assert(field._tag == "ast.Field.List")
                 local av = ir.Value.LocalVar(dst)
@@ -940,7 +940,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         elseif typ._tag == "types.T.Table" then
             local n = ir.Value.Integer(#exp.fields)
             table.insert(cmds, ir.Cmd.NewTable(loc, dst, n))
-            table.insert(cmds, ir.Cmd.CheckGC())
+            table.insert(cmds, ir.Cmd.CheckGC)
             for _, field in ipairs(exp.fields) do
                 assert(field._tag == "ast.Field.Rec")
                 local tv = ir.Value.LocalVar(dst)
@@ -958,7 +958,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
             table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
-            table.insert(cmds, ir.Cmd.CheckGC())
+            table.insert(cmds, ir.Cmd.CheckGC)
             for _, field_name in ipairs(typ.field_names) do
                 local f_exp = assert(field_exps[field_name])
                 local dv = ir.Value.LocalVar(dst)
@@ -980,7 +980,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         assert(typ.is_upvalue_box)
 
         table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
-        table.insert(cmds, ir.Cmd.CheckGC())
+        table.insert(cmds, ir.Cmd.CheckGC)
 
     elseif tag == "ast.Exp.Lambda" then
         local f_id = self:register_lambda(exp, "$lambda")
@@ -1077,11 +1077,11 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             elseif bname == "string.char" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, dsts, xs))
-                table.insert(cmds, ir.Cmd.CheckGC())
+                table.insert(cmds, ir.Cmd.CheckGC)
             elseif bname == "string.sub" then
                 assert(#xs == 3)
                 table.insert(cmds, ir.Cmd.BuiltinStringSub(loc, dsts, xs))
-                table.insert(cmds, ir.Cmd.CheckGC())
+                table.insert(cmds, ir.Cmd.CheckGC)
             elseif bname == "type" then
                 assert(#xs == 1)
                 table.insert(cmds, ir.Cmd.BuiltinType(loc, dsts, xs))
@@ -1164,7 +1164,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             xs[i] = self:exp_to_value(cmds, x_exp)
         end
         table.insert(cmds, ir.Cmd.Concat(loc, dst, xs))
-        table.insert(cmds, ir.Cmd.CheckGC())
+        table.insert(cmds, ir.Cmd.CheckGC)
 
     elseif tag == "ast.Exp.Binop" then
         local op = exp.op
@@ -1247,7 +1247,7 @@ function ToIR:value_is_truthy(cmds, exp, val)
     if typ._tag == "types.T.Boolean" then
         return val
     elseif typ._tag == "types.T.Any" then
-        local b = ir.add_local(self.func, false, types.T.Boolean())
+        local b = ir.add_local(self.func, false, types.T.Boolean)
         table.insert(cmds, ir.Cmd.IsTruthy(exp.loc, b, val))
         return ir.Value.LocalVar(b)
     elseif tagged_union.tag_is_type(typ) then
