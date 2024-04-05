@@ -245,17 +245,23 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
     else
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
+        local expected_type = pallene_type_tag(typ)
+        if expected_type == "LUA_TUSERDATA" then
+            expected_type = C.string(typ.name)
+        else
+            expected_type = "pallene_tag_name(" .. expected_type .. ")"
+        end
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
                 pallene_runtime_tag_check_error(L,
-                    $file, $line, $expected_tag, rawtt($slot),
+                    $file, $line, $expected_type, pallene_type_name(L, $slot),
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
             test = self:test_tag(typ, slot),
             file = C.string(loc and loc.file_name or "<anonymous>"),
             line = C.integer(loc and loc.line or 0),
-            expected_tag = pallene_type_tag(typ),
+            expected_type = expected_type,
             slot = slot,
             description_fmt = C.string(description_fmt),
             opt_comma = (#extra_args == 0 and "" or ", "),
@@ -1771,11 +1777,13 @@ function Coder:generate_luaopen_function()
         if     tag == "coder.Constant.Metatable" then
             is_upvalue_box = upv.typ.is_upvalue_box
             if not is_upvalue_box then
-                table.insert(init_constants, [[
-                    lua_newtable(L);
+                table.insert(init_constants, util.render([[
+                    luaL_newmetatable(L, $type_name);
                     lua_pushstring(L, "__metatable");
                     lua_pushboolean(L, 0);
-                    lua_settable(L, -3); ]])
+                    lua_settable(L, -3); ]], {
+                        type_name = C.string(upv.typ.name)
+                    }))
             end
         elseif tag == "coder.Constant.String" then
             table.insert(init_constants, util.render([[

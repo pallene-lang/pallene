@@ -48,6 +48,7 @@ return [==[
 
 /* Type tags */
 static const char *pallene_tag_name(int raw_tag);
+static const char *pallene_type_name(lua_State *L, const TValue *raw_type);
 static int pallene_is_truthy(const TValue *v);
 static int pallene_is_record(const TValue *v, const TValue *meta_table);
 static int pallene_bvalue(TValue *obj);
@@ -57,7 +58,8 @@ static void pallene_setbvalue(TValue *obj, int b);
 static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v);
 
 /* Runtime errors */
-static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line, int expected_tag, int received_tag,const char *description_fmt, ...);
+static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line,
+                                const char *expected_type, const char *received_type, const char *description_fmt, ...);
 static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received);
 static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line);
@@ -107,6 +109,17 @@ static const char *pallene_tag_name(int raw_tag)
     }
 }
 
+static const char *pallene_type_name(lua_State *L, const TValue *raw_type)
+{
+    if (rawtt(raw_type) == LUA_VNUMINT) {
+        return "integer";
+    } else if (rawtt(raw_type) == LUA_VNUMFLT) {
+        return "float";
+    } else {
+        return luaT_objtypename(L, raw_type);
+    }
+}
+
 static int pallene_is_truthy(const TValue *v)
 {
     return !l_isfalse(v);
@@ -147,14 +160,11 @@ static void pallene_runtime_tag_check_error(
     lua_State *L,
     const char* file,
     int line,
-    int expected_tag,
-    int received_tag,
+    const char *expected_type,
+    const char *received_type,
     const char *description_fmt,
     ...
 ){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
-
     /* This code is inspired by luaL_error */
     luaL_where(L, 1);
     if (line > 0) {
