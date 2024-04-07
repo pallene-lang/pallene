@@ -173,15 +173,15 @@ end
 
 local function pallene_type_tag(typ)
     local tag = typ._tag
-    if     tag == "types.T.Nil"      then return "LUA_TNIL"
-    elseif tag == "types.T.Boolean"  then return "LUA_TBOOLEAN"
-    elseif tag == "types.T.Integer"  then return "LUA_VNUMINT"
-    elseif tag == "types.T.Float"    then return "LUA_VNUMFLT"
-    elseif tag == "types.T.String"   then return "LUA_TSTRING"
-    elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
-    elseif tag == "types.T.Array"    then return "LUA_TTABLE"
-    elseif tag == "types.T.Table"    then return "LUA_TTABLE"
-    elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
+    if     tag == "types.T.Nil"      then return "nil"
+    elseif tag == "types.T.Boolean"  then return "boolean"
+    elseif tag == "types.T.Integer"  then return "integer"
+    elseif tag == "types.T.Float"    then return "float"
+    elseif tag == "types.T.String"   then return "string"
+    elseif tag == "types.T.Function" then return "function"
+    elseif tag == "types.T.Array"    then return "table"
+    elseif tag == "types.T.Table"    then return "table"
+    elseif tag == "types.T.Record"   then return typ.name
     elseif tag == "types.T.Any"      then assert(false) -- 'Any' is not a type tag
     else tagged_union.error(tag)
     end
@@ -248,14 +248,14 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
                 pallene_runtime_tag_check_error(L,
-                    $file, $line, $expected_tag, rawtt($slot),
+                    $file, $line, $expected_type, $slot,
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
             test = self:test_tag(typ, slot),
             file = C.string(loc and loc.file_name or "<anonymous>"),
             line = C.integer(loc and loc.line or 0),
-            expected_tag = pallene_type_tag(typ),
+            expected_type = C.string(pallene_type_tag(typ)),
             slot = slot,
             description_fmt = C.string(description_fmt),
             opt_comma = (#extra_args == 0 and "" or ", "),
@@ -1771,11 +1771,13 @@ function Coder:generate_luaopen_function()
         if     tag == "coder.Constant.Metatable" then
             is_upvalue_box = upv.typ.is_upvalue_box
             if not is_upvalue_box then
-                table.insert(init_constants, [[
-                    lua_newtable(L);
+                table.insert(init_constants, util.render([[
+                    luaL_newmetatable(L, $type_name);
                     lua_pushstring(L, "__metatable");
                     lua_pushboolean(L, 0);
-                    lua_settable(L, -3); ]])
+                    lua_settable(L, -3); ]], {
+                        type_name = C.string(upv.typ.name)
+                    }))
             end
         elseif tag == "coder.Constant.String" then
             table.insert(init_constants, util.render([[

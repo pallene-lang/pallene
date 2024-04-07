@@ -47,7 +47,7 @@ return [==[
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
 /* Type tags */
-static const char *pallene_tag_name(int raw_tag);
+static const char *pallene_type_name(lua_State *L, const TValue *v);
 static int pallene_is_truthy(const TValue *v);
 static int pallene_is_record(const TValue *v, const TValue *meta_table);
 static int pallene_bvalue(TValue *obj);
@@ -57,7 +57,8 @@ static void pallene_setbvalue(TValue *obj, int b);
 static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v);
 
 /* Runtime errors */
-static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line, int expected_tag, int received_tag,const char *description_fmt, ...);
+static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line,
+                                const char *expected_type_name, const TValue *received_type, const char *description_fmt, ...);
 static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received);
 static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line);
@@ -96,14 +97,14 @@ static TString *pallene_tostring(lua_State *L, const char* file, int line, TValu
 static void pallene_io_write(lua_State *L, TString *str);
 
 
-static const char *pallene_tag_name(int raw_tag)
+static const char *pallene_type_name(lua_State *L, const TValue *v)
 {
-    if (raw_tag == LUA_VNUMINT) {
+    if (rawtt(v) == LUA_VNUMINT) {
         return "integer";
-    } else if (raw_tag == LUA_VNUMFLT) {
+    } else if (rawtt(v) == LUA_VNUMFLT) {
         return "float";
     } else {
-        return ttypename(novariant(raw_tag));
+        return luaT_objtypename(L, v);
     }
 }
 
@@ -147,13 +148,12 @@ static void pallene_runtime_tag_check_error(
     lua_State *L,
     const char* file,
     int line,
-    int expected_tag,
-    int received_tag,
+    const char *expected_type_name,
+    const TValue *received_type,
     const char *description_fmt,
     ...
 ){
-    const char *expected_type = pallene_tag_name(expected_tag);
-    const char *received_type = pallene_tag_name(received_tag);
+    const char *received_type_name = pallene_type_name(L, received_type);
 
     /* This code is inspired by luaL_error */
     luaL_where(L, 1);
@@ -170,7 +170,7 @@ static void pallene_runtime_tag_check_error(
         va_end(argp);
     }
     lua_pushfstring(L, ", expected %s but found %s",
-        expected_type, received_type);
+        expected_type_name, received_type_name);
     lua_concat(L, 5);
     lua_error(L);
     PALLENE_UNREACHABLE;
