@@ -1390,11 +1390,9 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
 
         it("check record tags", function()
-            -- TODO: change this message to mention the relevant record types
-            -- instead of only saying "userdata"
             run_test([[
                 local prim = test.make_prim(123)
-                assert_pallene_error("expected userdata but found userdata", test.get_x, prim)
+                assert_pallene_error("expected Foo but found Prim", test.get_x, prim)
             ]])
         end)
 
