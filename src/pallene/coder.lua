@@ -173,15 +173,15 @@ end
 
 local function pallene_type_tag(typ)
     local tag = typ._tag
-    if     tag == "types.T.Nil"      then return "LUA_TNIL"
-    elseif tag == "types.T.Boolean"  then return "LUA_TBOOLEAN"
-    elseif tag == "types.T.Integer"  then return "LUA_VNUMINT"
-    elseif tag == "types.T.Float"    then return "LUA_VNUMFLT"
-    elseif tag == "types.T.String"   then return "LUA_TSTRING"
-    elseif tag == "types.T.Function" then return "LUA_TFUNCTION"
-    elseif tag == "types.T.Array"    then return "LUA_TTABLE"
-    elseif tag == "types.T.Table"    then return "LUA_TTABLE"
-    elseif tag == "types.T.Record"   then return "LUA_TUSERDATA"
+    if     tag == "types.T.Nil"      then return "nil"
+    elseif tag == "types.T.Boolean"  then return "boolean"
+    elseif tag == "types.T.Integer"  then return "integer"
+    elseif tag == "types.T.Float"    then return "float"
+    elseif tag == "types.T.String"   then return "string"
+    elseif tag == "types.T.Function" then return "function"
+    elseif tag == "types.T.Array"    then return "table"
+    elseif tag == "types.T.Table"    then return "table"
+    elseif tag == "types.T.Record"   then return typ.name
     elseif tag == "types.T.Any"      then assert(false) -- 'Any' is not a type tag
     else tagged_union.error(tag)
     end
@@ -245,12 +245,6 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
     else
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
-        local expected_type = pallene_type_tag(typ)
-        if expected_type == "LUA_TUSERDATA" then
-            expected_type = C.string(typ.name)
-        else
-            expected_type = "pallene_tag_name(" .. expected_type .. ")"
-        end
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
                 pallene_runtime_tag_check_error(L,
@@ -261,7 +255,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
             test = self:test_tag(typ, slot),
             file = C.string(loc and loc.file_name or "<anonymous>"),
             line = C.integer(loc and loc.line or 0),
-            expected_type = expected_type,
+            expected_type = C.string(pallene_type_tag(typ)),
             slot = slot,
             description_fmt = C.string(description_fmt),
             opt_comma = (#extra_args == 0 and "" or ", "),

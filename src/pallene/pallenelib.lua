@@ -47,7 +47,6 @@ return [==[
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
 /* Type tags */
-static const char *pallene_tag_name(int raw_tag);
 static const char *pallene_type_name(lua_State *L, const TValue *v);
 static int pallene_is_truthy(const TValue *v);
 static int pallene_is_record(const TValue *v, const TValue *meta_table);
@@ -97,17 +96,6 @@ static TString *pallene_type_builtin(lua_State *L, TValue v);
 static TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v);
 static void pallene_io_write(lua_State *L, TString *str);
 
-
-static const char *pallene_tag_name(int raw_tag)
-{
-    if (raw_tag == LUA_VNUMINT) {
-        return "integer";
-    } else if (raw_tag == LUA_VNUMFLT) {
-        return "float";
-    } else {
-        return ttypename(novariant(raw_tag));
-    }
-}
 
 static const char *pallene_type_name(lua_State *L, const TValue *v)
 {
@@ -182,7 +170,7 @@ static void pallene_runtime_tag_check_error(
         va_end(argp);
     }
     lua_pushfstring(L, ", expected %s but found %s",
-        expected_type, received_type_name);
+        expected_type_name, received_type_name);
     lua_concat(L, 5);
     lua_error(L);
     PALLENE_UNREACHABLE;
