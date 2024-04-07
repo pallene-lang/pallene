@@ -254,7 +254,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
                 pallene_runtime_tag_check_error(L,
-                    $file, $line, $expected_type, pallene_type_name(L, $slot),
+                    $file, $line, $expected_type, $slot,
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
