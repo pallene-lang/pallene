@@ -627,5 +627,9 @@ static void pallene_io_write(lua_State *L, TString *str)
         } \
     }
 
+/* Custom stack-trace management. */
+#define PALLENE_FRAMEENTER(L, from_lua)    /* Dummy */
+#define PALLENE_SETLINE(L, line)           /* Dummy */
+#define PALLENE_FRAMEEXIT(L, value)        /* Dummy */
 
 ]==]
