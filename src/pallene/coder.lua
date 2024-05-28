@@ -395,6 +395,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     table.insert(args, {"lua_State *" , "L",    ""})
     table.insert(args, {"Udata * restrict " , "K",  ""}) -- constants table
     table.insert(args, {"TValue * restrict ", "U" , ""}) -- upvalue array
+    table.insert(args, {"ptrdiff_t ", "frame_sig", ""})
 
     for i = 1, #arg_types do
         local v_id = ir.arg_var(func, i)
@@ -440,16 +441,24 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
+    table.insert(prologue, util.render([[
+        PALLENE_FRAMEENTER(L, "$name", frame_sig);
+        /**/
+    ]], {
+        name = func.name
+    }));
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
-            if (!lua_checkstack(L, $n)) { pallene_runtime_cant_grow_stack_error(L); }
+            if (!lua_checkstack(L, $n)) { pallene_runtime_cant_grow_stack_error(L, $line); }
         ]], {
-            n = C.integer(slots_needed)
+            n    = C.integer(slots_needed),
+            line = C.integer(func.loc and func.loc.line or 0)
         }))
     end
     table.insert(prologue, "StackValue *base = L->top.p;");
     table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
+
 
     for v_id = #arg_types + 1, #func.vars do
         -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
@@ -470,16 +479,18 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
             /**/
             ${body}
+            ${void_frameexit}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         prologue = table.concat(prologue, "\n"),
         body = body,
+        void_frameexit = #func.typ.ret_types == 0 and "PALLENE_FRAMEEXIT(L);" or ""
     }))
 end
 
-function Coder:call_pallene_function(dsts, f_id, cclosure, xs)
+function Coder:call_pallene_function(dsts, f_id, cclosure, xs, lua_entry)
 
     local func       = self.module.functions[f_id]
     local n_upvalues = #func.captured_vars
@@ -497,6 +508,9 @@ function Coder:call_pallene_function(dsts, f_id, cclosure, xs)
         upvals = "NULL"
     end
     table.insert(args, upvals)
+
+    -- The frame signature.
+    table.insert(args, "(ptrdiff_t) "..(lua_entry ~= nil and lua_entry or "NULL"))
 
     for _, x in ipairs(xs) do
         table.insert(args, x)
@@ -555,11 +569,12 @@ function Coder:lua_entry_point_definition(f_id)
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
         if (l_unlikely(nargs != $nargs)) {
-            pallene_runtime_arity_error(L, $fname, $nargs, nargs);
+            pallene_runtime_arity_error(L, $fname, $nargs, nargs, $line);
         }
     ]], {
         nargs = C.integer(#arg_types),
         fname = C.string(fname),
+        line  = C.integer(func.loc and func.loc.line or 0)
     })
 
     local arg_vars  = {}
@@ -590,7 +605,8 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "func", arg_vars)
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "func", arg_vars,
+        self:lua_entry_point_name(f_id))
 
 
     local push_results = {}
@@ -1392,7 +1408,9 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     end
 
     table.insert(parts, self:update_stack_top(func, cmd))
-    table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs))
+    table.insert(parts, string.format("PALLENE_SETLINE(%d);\n",
+        func.loc and func.loc.line or 0))
+    table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs, nil))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
@@ -1429,12 +1447,14 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
     return util.render([[
         ${update_stack_top}
         ${push_arguments}
+        PALLENE_SETLINE($line);
         lua_call(L, $nargs, $nrets);
         ${pop_results}
         ${restore_stack}
     ]], {
         update_stack_top = self:update_stack_top(func, cmd),
         push_arguments = table.concat(push_arguments, "\n"),
+        line = C.integer(func.loc and func.loc.line or 0),
         pop_results = table.concat(pop_results, "\n"),
         nargs = C.integer(#f_typ.arg_types),
         nrets = C.integer(#f_typ.ret_types),
@@ -1573,7 +1593,7 @@ end
 
 gen_cmd["Return"] = function(self, cmd)
     if #cmd.srcs == 0 then
-        return [[ return; ]]
+        return [[ PALLENE_FRAMEEXIT(L); ]]
     else
         -- We assign the dsts from right to left, in order to match Lua's semantics when a
         -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
@@ -1585,7 +1605,7 @@ gen_cmd["Return"] = function(self, cmd)
                 util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = src }))
         end
         local src1 = self:c_value(cmd.srcs[1])
-        table.insert(returns, util.render([[ return $v; ]], { v = src1 }))
+        table.insert(returns, util.render([[ PALLENE_FRAMEEXIT(L, $v); ]], { v = src1 }))
         return table.concat(returns, "\n")
     end
 end
@@ -1715,7 +1735,8 @@ function Coder:generate_module_header()
 
     table.insert(out, "/* This file was generated by the Pallene compiler. Do not edit by hand */")
     table.insert(out, "")
-    table.insert(out, string.format("#define PALLENE_SOURCE_FILE %s", C.string(self.filename)))
+    table.insert(out, string.format("#define PALLENE_SOURCE_FILE        %s", C.string(self.filename)))
+    table.insert(out, string.format("#define PALLENE_SOURCE_FILE_WO_EXT %s", C.string(self.filename:match('([^%.]+)'))));
     table.insert(out, "")
 
     table.insert(out, "/* ------------------------ */")
@@ -1821,6 +1842,10 @@ function Coder:generate_luaopen_function()
             #error "Lua version must be exactly 5.4.6"
             #endif
 
+            /* Initialize Pallene Tracer. */
+            /**/
+            pallene_tracer_init(L);
+            /**/
             luaL_checkcoreversion(L);
 
             /**/
