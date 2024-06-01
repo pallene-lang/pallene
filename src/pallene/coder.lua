@@ -1843,7 +1843,6 @@ function Coder:generate_luaopen_function()
             #endif
 
             /* Initialize Pallene Tracer. */
-            /**/
             pallene_tracer_init(L);
             /**/
             luaL_checkcoreversion(L);
