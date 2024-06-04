@@ -48,37 +48,64 @@ return [==[
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
 /* Part of Pallene Tracer. */
-#define PALLENE_FRAMEENTER(L, name, sig) pt_frame_t _frame = {                                  \
-                                             .fn_name = PALLENE_SOURCE_FILE_WO_EXT "." name,    \
-                                             .mod_name = PALLENE_SOURCE_FILE,                   \
-                                             .line = -1                                         \
-                                         };                                                     \
-                                        pallene_tracer_frameenter(L, &_frame, sig)
+#define PALLENE_C_FRAMEENTER(L, name)   pt_fn_details_t _details = {                             \
+                                            .fn_name  = name,                                    \
+                                            .mod_name = PALLENE_SOURCE_FILE                      \
+                                        };                                                       \
+                                        pt_frame_t _frame = {                                    \
+                                            .type = PALLENE_TRACER_FRAME_TYPE_C,                 \
+                                            .shared = {                                          \
+                                                .details = &_details                             \
+                                            }                                                    \
+                                        };                                                       \
+                                        pallene_tracer_frameenter(L, &_frame)
+
+#define PALLENE_LUA_FRAMEENTER(L, sig)  pt_frame_t _frame = {                                    \
+                                            .type = PALLENE_TRACER_FRAME_TYPE_LUA,               \
+                                            .shared = {                                          \
+                                                .frame_sig = sig                                 \
+                                            }                                                    \
+                                        };                                                       \
+                                        pallene_tracer_frameenter(L, &_frame)
+
 #define PALLENE_GLOBAL_SETLINE(L, line) pallene_tracer_global_setline(L, line)
 #define PALLENE_SETLINE(line)           pallene_tracer_setline(&_frame, line)
-#define PALLENE_FRAMEEXIT(L, ...)       pallene_tracer_frameexit(L);                            \
+#define PALLENE_FRAMEEXIT(L, ...)       pallene_tracer_frameexit(L);                             \
                                         return __VA_ARGS__
 
-/* Pallene Tracer related data-structures. */
-typedef struct pt_frame {
-    /* Here we would store the function name and the module name. */
+
+/* PALLENE TRACER RELATED DATA-STRUCTURES. */
+
+/* Whether the frame is a Pallene->Pallene or Lua->Pallene call. */
+typedef enum frame_type {
+    PALLENE_TRACER_FRAME_TYPE_C,
+    PALLENE_TRACER_FRAME_TYPE_LUA
+} frame_type_t;
+
+/* Details of a single function such as what is the name
+   and where it is from. */
+typedef struct pt_fn_details {
     const char *const fn_name;
     const char *const mod_name;
+} pt_fn_details_t;
 
-    /* Line number. */
+/* A single frame representation. */
+typedef struct pt_frame {
+    frame_type_t type;
     int line;
 
-    /* The frame signature. */
-    ptrdiff_t frame_sig;
+    union {
+            const pt_fn_details_t *details;
+            const void *frame_sig;
+    } shared;
 
-    struct pt_frame *next;
     struct pt_frame *prev;
 } pt_frame_t;
 
 /* Pallene Tracer. */
-static void pallene_tracer_frameenter(lua_State *L, pt_frame_t * restrict frame, ptrdiff_t sig);
+static void pallene_tracer_frameenter(lua_State *L, pt_frame_t *restrict frame);
 static void pallene_tracer_global_setline(lua_State *L, int line);
-static void pallene_tracer_setline(pt_frame_t * restrict frame, int line);
+static void pallene_tracer_setline(pt_frame_t *restrict frame, int line);
 static void pallene_tracer_frameexit(lua_State *L);
 static int  pallene_tracer_debug_traceback(lua_State *L);
 static void pallene_tracer_init(lua_State *L);
@@ -135,190 +162,254 @@ static void pallene_io_write(lua_State *L, TString *str);
 
 /* Pallene tracer implementation. */
 
-static void pallene_tracer_frameenter(lua_State *L, pt_frame_t * restrict frame, ptrdiff_t sig) {
-    pt_frame_t *head, *tail;
+/* Private routines. */
 
-    lua_getglobal(L, "__pallene_tracer_stack_head");
-    head = (pt_frame_t *) lua_topointer(L, -1);
-    lua_getglobal(L, "__pallene_tracer_stack_tail");
-    tail = (pt_frame_t *) lua_topointer(L, -1);
-    lua_pop(L, 2);
+static bool _findfield(lua_State *L, int fn_idx, int level) {
+    if(level == 0 || !lua_istable(L, -1))
+        return false;
+
+    lua_pushnil(L);    /* Initial key. */
+
+    while(lua_next(L, -2)) {
+        /* We are only interested in String keys. */
+        if(lua_type(L, -2) == LUA_TSTRING) {
+            /* Avoid "_G" recursion in global table. The global table is also part of
+               global table. */
+            if(!strcmp(lua_tostring(L, -2), "_G")) {
+                /* Remove value and continue. */
+                lua_pop(L, 1);
+                continue;
+            }
+
+            /* Is it the function we are looking for? */
+            if(lua_rawequal(L, fn_idx, -1)) {
+                /* Remove value and keep name. */
+                lua_pop(L, 1);
+
+                return true;
+            }
+            /* If not go one level deeper and get the value recursively. */
+            if(_findfield(L, fn_idx, level - 1)) {
+                /* Remove the table but keep name. */
+                lua_remove(L, -2);
+
+                /* Add a "." in between. */
+                lua_pushliteral(L, ".");
+                lua_insert(L, -2);
+
+                /* Concatenate last 3 values, resulting "table.some_func". */
+                lua_concat(L, 3);
+
+                return true;
+            }
+        }
+
+        /* Pop the value. */
+        lua_pop(L, 1);
+    }
+
+    return false;
+}
+
+/* Pushes a function name if found in the global table and returns true.
+   Returns false otherwise. */
+/* Expects the funtion to be pushed in the stack. */
+static bool _pgf_name(lua_State *L) {
+    int top = lua_gettop(L);
+
+    lua_pushglobaltable(L);
+
+    if(_findfield(L, top, 2)) {
+        lua_remove(L, -2);
+
+        return true;
+    }
+
+    lua_pop(L, 1);
+    return false;
+}
+
+/* Private routines end. */
+
+static void pallene_tracer_frameenter(lua_State *L, pt_frame_t *restrict frame) {
+    /* Retrieve the end of the stack. */
+    lua_getglobal(L, "__pallene_tracer_stack");
+    pt_frame_t *stack = (pt_frame_t *) lua_topointer(L, -1);
+    lua_pop(L, 1);
 
     /* If there is no frame in the stack. */
-    if(head == NULL) {
-        /* Just to be safe. */
+    /* No matter what type of frame we got (Lua or plain C), it will be
+       in the general stack. */
+    if(l_unlikely(stack == NULL)) {
         frame->prev = NULL;
-        frame->next = NULL;
-
-        /* There is no other signature. */
-        frame->frame_sig = sig;
-
-        head = frame;
-        tail = frame;
+        stack = frame;
 
         goto out;
     }
 
-    /* The frame signature. */
-    /* If we don't have any frame signature, that denotes the call was made from Pallene
-       environment. */
-    if(sig) frame->frame_sig = sig;
-    else    frame->frame_sig = tail->frame_sig;
-
-    tail ->next = frame;
-    frame->prev = tail;
-
-    tail = frame;
+    frame->prev = stack;
+    stack = frame;
 
 out:
-    /* Now update the registry. */
-    lua_pushlightuserdata(L, head);
-    lua_setglobal(L, "__pallene_tracer_stack_head");
-    lua_pushlightuserdata(L, tail);
-    lua_setglobal(L, "__pallene_tracer_stack_tail");
+    lua_pushlightuserdata(L, stack);
+    lua_setglobal(L, "__pallene_tracer_stack");
 }
 
 static void pallene_tracer_global_setline(lua_State *L, int line) {
-    lua_getglobal(L, "__pallene_tracer_stack_tail");
-    pt_frame_t *tail = (pt_frame_t *) lua_topointer(L, -1);
+    lua_getglobal(L, "__pallene_tracer_stack");
+    pt_frame_t *stack = (pt_frame_t *) lua_topointer(L, -1);
     lua_pop(L, 1);
 
-    if(tail != NULL)
-        tail->line = line;
+    if(stack != NULL)
+        stack->line = line;
 }
 
-static void pallene_tracer_setline(pt_frame_t * restrict frame, int line) {
+static void pallene_tracer_setline(pt_frame_t *restrict frame, int line) {
     frame->line = line;
 }
 
 static void pallene_tracer_frameexit(lua_State *L) {
-    pt_frame_t *head, *tail;
-
-    lua_getglobal(L, "__pallene_tracer_stack_head");
-    head = (pt_frame_t *) lua_topointer(L, -1);
-    lua_getglobal(L, "__pallene_tracer_stack_tail");
-    tail = (pt_frame_t *) lua_topointer(L, -1);
-    lua_pop(L, 2);
+    /* Retrieve the end of the stack. */
+    lua_getglobal(L, "__pallene_tracer_stack");
+    pt_frame_t *stack = (pt_frame_t *) lua_topointer(L, -1);
+    lua_pop(L, 1);
 
     /* We are popping the very last frame. */
-    if(tail->prev == NULL) {
-        tail = NULL;
-        head = NULL;
-
+    if(stack->prev == NULL) {
+        stack = NULL;
         goto out;
     }
 
-    tail->prev->next = NULL;
-    tail = tail->prev;
+    stack = stack->prev;
 
 out:
-    /* Now update the registry. */
-    lua_pushlightuserdata(L, head);
-    lua_setglobal(L, "__pallene_tracer_stack_head");
-    lua_pushlightuserdata(L, tail);
-    lua_setglobal(L, "__pallene_tracer_stack_tail");
+    lua_pushlightuserdata(L, stack);
+    lua_setglobal(L, "__pallene_tracer_stack");
 }
 
 static int pallene_tracer_debug_traceback(lua_State *L) {
-    /* The debug traceback function frame. */
-    pt_frame_t self = {
-        .fn_name  = "pallene_tracer_debug_traceback",
-        .mod_name = "pallene_debug",
-        .line     = 0
-    };
-    pallene_tracer_frameenter(L, &self, (ptrdiff_t) pallene_tracer_debug_traceback);
-
     const char *message = lua_tostring(L, 1);
     fprintf(stderr, "Runtime error: %s\nStack traceback: \n", message);
 
-    lua_getglobal(L, "__pallene_tracer_stack_tail");
-    pt_frame_t *frame = (pt_frame_t *) lua_topointer(L, -1);
+    /* Lua: 1, Pallene: 0 */
+    int context = 1;
+    int level = 1;
+    bool l_stack = true;
+    void *f_sig  = NULL;
+
+    lua_getglobal(L, "__pallene_tracer_stack");
+    pt_frame_t *stack = (pt_frame_t *) lua_topointer(L, -1);
     lua_pop(L, 1);
 
-    /* For context switch from Pallene to Lua or vice versa. */
-    /* We use the respective call-stack depending on the context.
-     * In Lua context we use the Lua call-stack and in Pallene context
-     * we use our self-maintained call stack. */
-    /* 1: Lua, 0: Pallene */
-    int context = 1;
+    /* To store lua call stack information, to use it in both contexts. */
+    lua_Debug ar;
 
-    /* Current level of depth we are at in the Lua call stack. */
-    int level   = 0;
+    /* We will restore to this top everytime. */
+    int top = lua_gettop(L);
 
-    /* Are we done iterating through all the call-frames in the Lua stack? */
-    bool gstack  = 0;
-
-    /* Which context we were in previously? */
-    /* The numeric representation is same as `context`. */
-    int prev_context = 1;
-
-    /* The frame signature. */
-    ptrdiff_t frame_sig = frame->frame_sig;
-
-    while(gstack || frame != NULL) {
-        if(context) {
-            /* Get lua call stack information. */
-            lua_Debug ar;
-
-            if(!(gstack = lua_getstack(L, level, &ar)))
+    while(l_stack || stack != NULL) {
+        /* Generally, we would spend most of our time dealing with Pallene->Pallene calls. */
+        if(l_unlikely(context == 1)) {
+            if(!(l_stack = lua_getstack(L, level++, &ar)))
                 continue;
 
-            level++;
-
             /* We need more info for a good traceback entry. */
+            /* Also push the function on the stack. */
             lua_getinfo(L, "Slntf", &ar);
 
             /* We have got a C frame. Time to make a context switch. */
             if(lua_iscfunction(L, -1)) {
-                frame_sig = (ptrdiff_t) lua_tocfunction(L, -1);
-
+                /* Set the signature and switch to Pallene stack. */
+                f_sig = (void *) lua_tocfunction(L, -1);
                 context = 0;
             } else {
-                fprintf(stderr, "    %s:%d: in function '%s'\n", ar.short_src, ar.currentline,
-                        ar.name != NULL ? ar.name : "<anonymous>");
+                /* It's a regular Lua function. */
+
+                /* Do we have a name? */
+                if(*ar.namewhat != '\0')
+                    lua_pushfstring(L, "function '%s'", ar.name);
+                /* Is it the main chunk? */
+                else if(*ar.what == 'm')
+                    lua_pushliteral(L, "<main>");
+                /* Can we deduce the name from the global table? */
+                else if(_pgf_name(L))
+                    lua_pushfstring(L, "function '%s'", lua_tostring(L, -1));
+                else lua_pushliteral(L, "function '<?>'");
+
+                fprintf(stderr, "    %s:%d: in %s\n", ar.short_src,
+                    ar.currentline, lua_tostring(L, -1));
             }
 
-            lua_pop(L, 1);
-            prev_context = 1;
+            lua_settop(L, top);
         } else {
-            /* If the frame signature does not match, then it's just a normal
-               C function  */
-            if(frame == NULL || frame->frame_sig != frame_sig) {
-                /* If we switched from Lua and the frame signature is
-                   not known, then function is just a C function oblivious to Pallene and Lua. */
-                if(prev_context == 1)
-                    fprintf(stderr, "    C Function: 0x%lx\n", (void *) frame_sig);
+            /* We can still use the debug structure storing the last Lua call info. */
+            lua_getinfo(L, "f", &ar);
+
+            /* Deduce name from global table. */
+            if(_pgf_name(L))
+                lua_pushfstring(L, "C: in function '%s'", lua_tostring(L, -1));
+            else lua_pushfstring(L, "C: in function '0x%p'", f_sig);
+
+            if(stack == NULL) {
+                if(f_sig != NULL)
+                    fprintf(stderr, "    %s\n", lua_tostring(L, -1));
 
                 context = 1;
-                goto pallene_stack_done;
+                goto end;
             }
 
-            fprintf(stderr, "    %s:%d: in function '%s'\n", frame->mod_name, frame->line,
-                    frame->fn_name);
+            if(f_sig != NULL) {
+                /* Check if the frame signature matches. */
+                pt_frame_t *check = stack;
 
-            /* We are done, now go to the previous frame. */
-            frame = frame->prev;
+                while(check->type != PALLENE_TRACER_FRAME_TYPE_LUA)
+                    check = check->prev;
 
-pallene_stack_done:
-            prev_context = 0;
+                /* It's an untracked C function. */
+                if(f_sig != check->shared.frame_sig) {
+                    fprintf(stderr, "    %s\n", lua_tostring(L, -1));
+
+                    /* Now we switch to Lua stack. */
+                    context = 1;
+                    goto end;
+                }
+
+                /* Bingo! We have found a signature. Erase the signature so that
+                   in the next iteration we don't care about rechecking the
+                   frame signature agian. */
+                f_sig = NULL;
+            }
+
+            /* If we find a Lua interface, we simply ignore and switch. */
+            if(stack->type == PALLENE_TRACER_FRAME_TYPE_LUA) {
+                stack = stack->prev;
+
+                context = 1;
+                goto end;
+            }
+
+            fprintf(stderr, "    %s:%d: in function '%s'\n", stack->shared.details->mod_name,
+                stack->line, stack->shared.details->fn_name);
+
+            stack = stack->prev;
+
+        end:
+            lua_settop(L, top);
         }
     }
-
-    /* Self frame. */
-    pallene_tracer_frameexit(L);
 
     return 0;
 }
 
 static void pallene_tracer_init(lua_State *L) {
-    lua_getglobal(L, "__pallene_tracer_stack_head");
+    lua_getglobal(L, "__pallene_tracer_stack");
 
-    /* Setup the stack head, tail and custom pallene traceback fn. */
+    /* Setup the state and pallene traceback fn. */
     if(l_likely(lua_isnil(L, -1) == true)) {
+        /* The first value is the tail of the LinkedList stack. */
         lua_pushlightuserdata(L, NULL);
-        lua_setglobal(L, "__pallene_tracer_stack_head");
-        lua_pushlightuserdata(L, NULL);
-        lua_setglobal(L, "__pallene_tracer_stack_tail");
+
+        lua_setglobal(L, "__pallene_tracer_stack");
 
         /* The debug traceback fn. */
         lua_register(L, "pallene_tracer_debug_traceback", pallene_tracer_debug_traceback);
