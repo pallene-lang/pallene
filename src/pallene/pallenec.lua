@@ -34,7 +34,7 @@ do
     )
 
     -- No Pallene tracebacks
-    p:flag("--no-traceback", "No function traceback using Pallene Tracer")
+    p:flag("--use-traceback", "Use Pallene Tracer function traceback for debugging")
 
     p:option("-O", "Optimization level")
         :args(1):convert(tonumber)
@@ -73,7 +73,7 @@ end
 
 function pallenec.main()
     local flags = {
-        no_traceback = opts.no_traceback and true or false
+        use_traceback = opts.use_traceback and true or false
     }
 
     if     opts.emit_c      then compile("pln", "c", flags)

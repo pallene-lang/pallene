@@ -48,31 +48,30 @@ return [==[
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
 /* Part of Pallene Tracer. */
-#define PALLENE_C_FRAMEENTER(L, name)   pt_fn_details_t _details = {                             \
-                                            .fn_name  = name,                                    \
-                                            .mod_name = PALLENE_SOURCE_FILE                      \
-                                        };                                                       \
-                                        pt_frame_t _frame = {                                    \
-                                            .type = PALLENE_TRACER_FRAME_TYPE_C,                 \
-                                            .shared = {                                          \
-                                                .details = &_details                             \
-                                            }                                                    \
-                                        };                                                       \
-                                        pallene_tracer_frameenter(L, &_frame)
+#define PALLENE_C_FRAMEENTER(L, name)                            \
+        static pt_fn_details_t _details = {                      \
+            .fn_name  = name,                                    \
+            .mod_name = PALLENE_SOURCE_FILE                      \
+        };                                                       \
+        static pt_frame_t _frame = {                             \
+            .type = PALLENE_TRACER_FRAME_TYPE_C,                 \
+            .shared = {                                          \
+                .details = &_details                             \
+            }                                                    \
+        };                                                       \
+        pallene_tracer_frameenter(L, &_frame)
 
-#define PALLENE_LUA_FRAMEENTER(L, sig)  pt_frame_t _frame = {                                    \
-                                            .type = PALLENE_TRACER_FRAME_TYPE_LUA,               \
-                                            .shared = {                                          \
-                                                .frame_sig = sig                                 \
-                                            }                                                    \
-                                        };                                                       \
-                                        pallene_tracer_frameenter(L, &_frame)
+#define PALLENE_LUA_FRAMEENTER(L, sig)                           \
+        static pt_frame_t _frame = {                                    \
+            .type = PALLENE_TRACER_FRAME_TYPE_LUA,               \
+            .shared = {                                          \
+                .frame_sig = sig                                 \
+            }                                                    \
+        };                                                       \
+        pallene_tracer_frameenter(L, &_frame)
 
-#define PALLENE_GLOBAL_SETLINE(L, line) pallene_tracer_global_setline(L, line)
 #define PALLENE_SETLINE(line)           pallene_tracer_setline(&_frame, line)
-#define PALLENE_FRAMEEXIT(L, ...)       pallene_tracer_frameexit(L);                             \
-                                        return __VA_ARGS__
-
+#define PALLENE_FRAMEEXIT(...)          pallene_tracer_frameexit(L);
 
 /* PALLENE TRACER RELATED DATA-STRUCTURES. */
 
@@ -96,7 +95,7 @@ typedef struct pt_frame {
 
     union {
             const pt_fn_details_t *details;
-            const void *frame_sig;
+            const lua_CFunction frame_sig;
     } shared;
 
     struct pt_frame *prev;
@@ -104,7 +103,6 @@ typedef struct pt_frame {
 
 /* Pallene Tracer. */
 static void pallene_tracer_frameenter(lua_State *L, pt_frame_t *restrict frame);
-static void pallene_tracer_global_setline(lua_State *L, int line);
 static void pallene_tracer_setline(pt_frame_t *restrict frame, int line);
 static void pallene_tracer_frameexit(lua_State *L);
 static int  pallene_tracer_debug_traceback(lua_State *L);
@@ -123,12 +121,12 @@ static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v);
 /* Runtime errors */
 static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line,
                                 const char *expected_type_name, const TValue *received_type, const char *description_fmt, ...);
-static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received, int line);
+static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received);
 static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line);
-static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L, int line);
+static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L);
 
 /* Arithmetic operators */
 static lua_Integer pallene_int_divi(lua_State *L, lua_Integer m, lua_Integer n, const char* file, int line);
@@ -255,15 +253,6 @@ out:
     lua_setglobal(L, "__pallene_tracer_stack");
 }
 
-static void pallene_tracer_global_setline(lua_State *L, int line) {
-    lua_getglobal(L, "__pallene_tracer_stack");
-    pt_frame_t *stack = (pt_frame_t *) lua_topointer(L, -1);
-    lua_pop(L, 1);
-
-    if(stack != NULL)
-        stack->line = line;
-}
-
 static void pallene_tracer_setline(pt_frame_t *restrict frame, int line) {
     frame->line = line;
 }
@@ -295,7 +284,7 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
     int context = 1;
     int level = 1;
     bool l_stack = true;
-    void *f_sig  = NULL;
+    lua_CFunction f_sig  = NULL;
 
     lua_getglobal(L, "__pallene_tracer_stack");
     pt_frame_t *stack = (pt_frame_t *) lua_topointer(L, -1);
@@ -320,7 +309,7 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
             /* We have got a C frame. Time to make a context switch. */
             if(lua_iscfunction(L, -1)) {
                 /* Set the signature and switch to Pallene stack. */
-                f_sig = (void *) lua_tocfunction(L, -1);
+                f_sig = lua_tocfunction(L, -1);
                 context = 0;
             } else {
                 /* It's a regular Lua function. */
@@ -348,7 +337,7 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
             /* Deduce name from global table. */
             if(_pgf_name(L))
                 lua_pushfstring(L, "C: in function '%s'", lua_tostring(L, -1));
-            else lua_pushfstring(L, "C: in function '0x%p'", f_sig);
+            else lua_pushliteral(L, "C: in function '<?>'");
 
             if(stack == NULL) {
                 if(f_sig != NULL)
@@ -491,14 +480,12 @@ static void pallene_runtime_tag_check_error(
     lua_pushfstring(L, ", expected %s but found %s",
         expected_type_name, received_type_name);
     lua_concat(L, 5);
-    PALLENE_GLOBAL_SETLINE(L, line);
     lua_error(L);
     PALLENE_UNREACHABLE;
 }
 
-static void pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received, int line)
+static void pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received)
 {
-    PALLENE_GLOBAL_SETLINE(L, line);
     luaL_error(L,
         "wrong number of arguments to function '%s', expected %d but received %d",
         name, expected, received
@@ -508,35 +495,30 @@ static void pallene_runtime_arity_error(lua_State *L, const char *name, int expe
 
 static void pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line)
 {
-    PALLENE_GLOBAL_SETLINE(L, line);
     luaL_error(L, "file %s: line %d: attempt to divide by zero", file, line);
     PALLENE_UNREACHABLE;
 }
 
 static void pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line)
 {
-    PALLENE_GLOBAL_SETLINE(L, line);
     luaL_error(L, "file %s: line %d: attempt to perform 'n%%0'", file, line);
     PALLENE_UNREACHABLE;
 }
 
 static void pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line)
 {
-    PALLENE_GLOBAL_SETLINE(L, line);
     luaL_error(L, "file %s: line %d: conversion from float does not fit into integer", file, line);
     PALLENE_UNREACHABLE;
 }
 
 static void pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line)
 {
-    PALLENE_GLOBAL_SETLINE(L, line);
     luaL_error(L, "file %s: line %d: arrays in Pallene must not have a metatable", file, line);
     PALLENE_UNREACHABLE;
 }
 
-static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L, int line)
+static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L)
 {
-    PALLENE_GLOBAL_SETLINE(L, line);
     luaL_error(L, "stack overflow");
     PALLENE_UNREACHABLE;
 }
