@@ -5,18 +5,21 @@
 
 local pallene = require 'spec.traceback.depth_recursion.depth_recursion'
 
-function _G.lua_fn(depth)
+-- luacheck: globals lua_fn
+function lua_fn(depth)
     if depth == 0 then
         error "Depth reached 0!"
     end
 
-    pallene.pallene_fn(_G.lua_fn, depth - 1)
+    pallene.pallene_fn(lua_fn, depth - 1)
 end
 
 -- Should be local.
 -- Making it global so that it is visible in the traceback.
-function _G.wrapper()
-    _G.lua_fn(10)
+-- luacheck: globals wrapper
+function wrapper()
+    lua_fn(10)
 end
 
-xpcall(_G.wrapper, _G.pallene_tracer_debug_traceback)
+-- luacheck: globals pallene_tracer_debug_traceback
+xpcall(wrapper, pallene_tracer_debug_traceback)

@@ -7,8 +7,10 @@ local rect = require 'spec.traceback.rect.rect'
 
 -- Should be local.
 -- Making it global so that it is visible in the traceback.
-function _G.wrapper()
+-- luacheck: globals wrapper
+function wrapper()
     print(rect.area { width = "Huh, gotcha!", height = 16.0 })
 end
 
-xpcall(_G.wrapper, _G.pallene_tracer_debug_traceback)
+-- luacheck: globals pallene_tracer_debug_traceback
+xpcall(wrapper, pallene_tracer_debug_traceback)

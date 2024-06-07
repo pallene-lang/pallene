@@ -26,70 +26,70 @@ end
 
 it("Rectangle", function()
     assert_test("rect", [[
-Runtime error: spec/traceback/rect/main.lua:11: file spec/traceback/rect/rect.pln: line 10: wrong type for downcasted value, expected float but found string
+Runtime error: spec/traceback/rect/main.lua:12: file spec/traceback/rect/rect.pln: line 10: wrong type for downcasted value, expected float but found string
 Stack traceback:
     spec/traceback/rect/rect.pln:10: in function 'universal_calc_area'
     spec/traceback/rect/rect.pln:13: in function 'area'
-    spec/traceback/rect/main.lua:11: in function 'wrapper'
+    spec/traceback/rect/main.lua:12: in function 'wrapper'
     C: in function 'xpcall'
-    spec/traceback/rect/main.lua:14: in <main>
+    spec/traceback/rect/main.lua:16: in <main>
     C: in function '<?>'
 ]])
 end)
 
 it("Multi-module Lua", function()
     assert_test("module_lua", [[
-Runtime error: spec/traceback/module_lua/main.lua:20: Any normal error from Lua!
+Runtime error: spec/traceback/module_lua/main.lua:25: Any normal error from Lua!
 Stack traceback:
     C: in function 'error'
-    spec/traceback/module_lua/main.lua:20: in function 'lua_3'
+    spec/traceback/module_lua/main.lua:25: in function 'lua_3'
     spec/traceback/module_lua/module_lua.pln:12: in function 'pallene_2'
-    spec/traceback/module_lua/main.lua:14: in function 'lua_2'
+    spec/traceback/module_lua/main.lua:18: in function 'lua_2'
     spec/traceback/module_lua/module_lua.pln:8: in function 'pallene_1'
-    spec/traceback/module_lua/main.lua:10: in function 'callback'
+    spec/traceback/module_lua/main.lua:12: in function 'callback'
     ./spec/traceback/module_lua/another_module.lua:7: in function 'call_lua_callback'
-    spec/traceback/module_lua/main.lua:26: in function 'wrapper'
+    spec/traceback/module_lua/main.lua:32: in function 'wrapper'
     C: in function 'xpcall'
-    spec/traceback/module_lua/main.lua:29: in <main>
+    spec/traceback/module_lua/main.lua:36: in <main>
     C: in function '<?>'
 ]])
 end)
 
 it("Multi-module Pallene", function()
     assert_test("module_pallene", [[
-Runtime error: spec/traceback/module_pallene/main.lua:10: There's an error in everyday life. Shame!
+Runtime error: spec/traceback/module_pallene/main.lua:11: There's an error in everyday life. Shame!
 Stack traceback:
     C: in function 'error'
-    spec/traceback/module_pallene/main.lua:10: in function 'lua_2'
+    spec/traceback/module_pallene/main.lua:11: in function 'lua_2'
     spec/traceback/module_pallene/module_pallene_alt.pln:8: in function 'alternate_everyday_fn'
-    spec/traceback/module_pallene/main.lua:14: in function 'lua_1'
+    spec/traceback/module_pallene/main.lua:16: in function 'lua_1'
     spec/traceback/module_pallene/module_pallene.pln:8: in function 'normal_everyday_fn'
-    spec/traceback/module_pallene/main.lua:20: in function 'wrapper'
+    spec/traceback/module_pallene/main.lua:23: in function 'wrapper'
     C: in function 'xpcall'
-    spec/traceback/module_pallene/main.lua:23: in <main>
+    spec/traceback/module_pallene/main.lua:27: in <main>
     C: in function '<?>'
 ]])
 end)
 
 it("Depth recursion", function()
     assert_test("depth_recursion", [[
-Runtime error: spec/traceback/depth_recursion/main.lua:10: Depth reached 0!
+Runtime error: spec/traceback/depth_recursion/main.lua:11: Depth reached 0!
 Stack traceback:
     C: in function 'error'
-    spec/traceback/depth_recursion/main.lua:10: in function 'lua_fn'
+    spec/traceback/depth_recursion/main.lua:11: in function 'lua_fn'
     spec/traceback/depth_recursion/depth_recursion.pln:8: in function 'pallene_fn'
-    spec/traceback/depth_recursion/main.lua:13: in function 'lua_fn'
+    spec/traceback/depth_recursion/main.lua:14: in function 'lua_fn'
     spec/traceback/depth_recursion/depth_recursion.pln:8: in function 'pallene_fn'
-    spec/traceback/depth_recursion/main.lua:13: in function 'lua_fn'
+    spec/traceback/depth_recursion/main.lua:14: in function 'lua_fn'
     spec/traceback/depth_recursion/depth_recursion.pln:8: in function 'pallene_fn'
-    spec/traceback/depth_recursion/main.lua:13: in function 'lua_fn'
+    spec/traceback/depth_recursion/main.lua:14: in function 'lua_fn'
     spec/traceback/depth_recursion/depth_recursion.pln:8: in function 'pallene_fn'
-    spec/traceback/depth_recursion/main.lua:13: in function 'lua_fn'
+    spec/traceback/depth_recursion/main.lua:14: in function 'lua_fn'
     spec/traceback/depth_recursion/depth_recursion.pln:8: in function 'pallene_fn'
-    spec/traceback/depth_recursion/main.lua:13: in function 'lua_fn'
-    spec/traceback/depth_recursion/main.lua:19: in function 'wrapper'
+    spec/traceback/depth_recursion/main.lua:14: in function 'lua_fn'
+    spec/traceback/depth_recursion/main.lua:21: in function 'wrapper'
     C: in function 'xpcall'
-    spec/traceback/depth_recursion/main.lua:22: in <main>
+    spec/traceback/depth_recursion/main.lua:25: in <main>
     C: in function '<?>'
 ]])
 end)
