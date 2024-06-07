@@ -5,8 +5,10 @@
 
 local rect = require 'spec.traceback.rect.rect'
 
-local function wrapper()
+-- Should be local.
+-- Making it global so that it is visible in the traceback.
+function _G.wrapper()
     print(rect.area { width = "Huh, gotcha!", height = 16.0 })
 end
 
-xpcall(wrapper, pallene_tracer_debug_traceback)
+xpcall(_G.wrapper, _G.pallene_tracer_debug_traceback)

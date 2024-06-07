@@ -6,22 +6,24 @@
 local another_module = require 'spec.traceback.module_lua.another_module'
 local pallene = require 'spec.traceback.module_lua.module_lua'
 
-function lua_1()
-    pallene.pallene_1(lua_2)
+function _G.lua_1()
+    pallene.pallene_1(_G.lua_2)
 end
 
-function lua_2()
-    pallene.pallene_2(lua_3, 33, 79)
+function _G.lua_2()
+    pallene.pallene_2(_G.lua_3, 33, 79)
 end
 
-function lua_3(sum)
+function _G.lua_3(sum)
     print("The summation is: ", sum)
 
     error "Any normal error from Lua!"
 end
 
-local function wrapper()
-    another_module.call_lua_callback(lua_1)
+-- Should be local.
+-- Making it global so that it is visible in the traceback.
+function _G.wrapper()
+    another_module.call_lua_callback(_G.lua_1)
 end
 
-xpcall(wrapper, pallene_tracer_debug_traceback)
+xpcall(_G.wrapper, _G.pallene_tracer_debug_traceback)
