@@ -53,7 +53,7 @@ return [==[
             .fn_name  = name,                                    \
             .mod_name = PALLENE_SOURCE_FILE                      \
         };                                                       \
-        static pt_frame_t _frame = {                             \
+        pt_frame_t _frame = {                             \
             .type = PALLENE_TRACER_FRAME_TYPE_C,                 \
             .shared = {                                          \
                 .details = &_details                             \
@@ -62,7 +62,7 @@ return [==[
         pallene_tracer_frameenter(L, &_frame)
 
 #define PALLENE_LUA_FRAMEENTER(L, sig)                           \
-        static pt_frame_t _frame = {                                    \
+        pt_frame_t _frame = {                                    \
             .type = PALLENE_TRACER_FRAME_TYPE_LUA,               \
             .shared = {                                          \
                 .frame_sig = sig                                 \
@@ -278,7 +278,7 @@ out:
 
 static int pallene_tracer_debug_traceback(lua_State *L) {
     const char *message = lua_tostring(L, 1);
-    fprintf(stderr, "Runtime error: %s\nStack traceback: \n", message);
+    fprintf(stderr, "Runtime error: %s\nStack traceback:\n", message);
 
     /* Lua: 1, Pallene: 0 */
     int context = 1;

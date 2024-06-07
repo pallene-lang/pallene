@@ -3,10 +3,10 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local rect = require 'spec.traceback.rect.rect'
-
-local function wrapper()
-    print(rect.area { width = "Huh, gotcha!", height = 16.0 })
+local function call_lua_callback(callback)
+    callback()
 end
 
-xpcall(wrapper, pallene_tracer_debug_traceback)
+return {
+    call_lua_callback = call_lua_callback
+}

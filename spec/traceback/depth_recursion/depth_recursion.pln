@@ -1,0 +1,17 @@
+-- Copyright (c) 2024, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+local mod: module = {}
+
+function mod.pallene_fn(lua_fn: integer -> (), depth: integer)
+    if depth == 0 then
+        -- Call 'lua_fn' for the last time so that we can raise an error.
+        lua_fn(depth)
+    end
+
+    lua_fn(depth - 1)
+end
+
+return mod

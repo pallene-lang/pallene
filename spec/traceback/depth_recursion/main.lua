@@ -3,10 +3,18 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local rect = require 'spec.traceback.rect.rect'
+local pallene = require 'spec.traceback.depth_recursion.depth_recursion'
+
+function lua_fn(depth)
+    if depth == 0 then
+        error "Depth reached 0!"
+    end
+
+    pallene.pallene_fn(lua_fn, depth - 1)
+end
 
 local function wrapper()
-    print(rect.area { width = "Huh, gotcha!", height = 16.0 })
+    lua_fn(10)
 end
 
 xpcall(wrapper, pallene_tracer_debug_traceback)

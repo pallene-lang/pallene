@@ -3,10 +3,11 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local rect = require 'spec.traceback.rect.rect'
+local mod: module = {}
 
-local function wrapper()
-    print(rect.area { width = "Huh, gotcha!", height = 16.0 })
+function mod.alternate_everyday_fn(callback: () -> ())
+    callback()
 end
 
-xpcall(wrapper, pallene_tracer_debug_traceback)
+return mod
+
