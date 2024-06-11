@@ -1,0 +1,17 @@
+-- Copyright (c) 2024, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+local mod: module = {}
+typealias rect = { width: any, height: any }
+
+function mod.universal_calc_area(x: any, y: any): any
+    return (x as float * y as float) as any
+end
+
+function mod.area(r: rect): float
+    return mod.universal_calc_area(r.width, r.height) as float
+end
+
+return mod

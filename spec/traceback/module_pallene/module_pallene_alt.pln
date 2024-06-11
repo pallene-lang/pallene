@@ -1,0 +1,13 @@
+-- Copyright (c) 2024, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+local mod: module = {}
+
+function mod.alternate_everyday_fn(callback: () -> ())
+    callback()
+end
+
+return mod
+

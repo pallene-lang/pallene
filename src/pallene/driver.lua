@@ -99,7 +99,7 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     error("impossible")
 end
 
-local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_level)
+local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_level, flags)
     local input, err = driver.load_input(pallene_filename)
     if not input then
         return false, { err }
@@ -111,7 +111,7 @@ local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_
     end
 
     local c_code
-    c_code, errs = coder.generate(module, mod_name, pallene_filename)
+    c_code, errs = coder.generate(module, mod_name, pallene_filename, flags)
     if not c_code then
         return false, errs
     end
@@ -178,7 +178,8 @@ end
 -- Writes the resulting output to [output_file_name] with extension [output_ext].
 -- If [output_file_name] is nil then the output is written to a file in the same
 -- directory as [input_file_name] and  having the same  base name as the input file.
-function driver.compile(argv0, opt_level, input_ext, output_ext, input_file_name, output_file_name)
+function driver.compile(argv0, opt_level, input_ext, output_ext,
+                        input_file_name, output_file_name, flags)
     local input_base_name, err = check_source_filename(argv0, input_file_name, input_ext)
     if not input_base_name then return false, {err} end
 
@@ -212,7 +213,7 @@ function driver.compile(argv0, opt_level, input_ext, output_ext, input_file_name
             local f = compiler_steps[i].f
             local src = file_names[i]
             local out = file_names[i+1]
-            ok, errs = f(src, out, mod_name, opt_level)
+            ok, errs = f(src, out, mod_name, opt_level, flags)
             if not ok then break end
         end
 

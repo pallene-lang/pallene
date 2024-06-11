@@ -23,8 +23,8 @@ local define_union = tagged_union.in_namespace(coder, "coder")
 local Coder
 local RecordCoder
 
-function coder.generate(module, modname, pallene_filename)
-    local c = Coder.new(module, modname, pallene_filename)
+function coder.generate(module, modname, pallene_filename, flags)
+    local c = Coder.new(module, modname, pallene_filename, flags)
     local code = c:generate_module_header() .. c:generate_module_body()
     return code, {}
 end
@@ -57,10 +57,11 @@ end
 --
 
 Coder = util.Class()
-function Coder:init(module, modname, filename)
+function Coder:init(module, modname, filename, flags)
     self.module = module
     self.modname = modname
     self.filename = filename
+    self.flags = flags
 
     self.current_func = false
 
@@ -212,13 +213,20 @@ end
 -- Raise an error if the given table contains a metatable. Pallene would rather raise an error in
 -- these cases instead of invoking the metatable operations, which may impair program optimization
 -- even if they are never called.
-local function check_no_metatable(src, loc)
+local function check_no_metatable(self, src, loc)
+    local setline = ""
+    if self.flags.use_traceback then
+        setline = string.format("PALLENE_SETLINE(%d);", loc.line)
+    end
+
     return (util.render([[
         if ($src->metatable) {
+            ${setline}
             pallene_runtime_array_metatable_error(L, PALLENE_SOURCE_FILE, $line);
         }
     ]], {
         src = src,
+        setline = setline,
         line = C.integer(loc.line),
     }))
 end
@@ -245,14 +253,22 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
     else
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
+
+        local setline = ""
+        if self.flags.use_traceback then
+            setline = string.format("PALLENE_SETLINE(%d);", loc.line)
+        end
+
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
+                ${setline}
                 pallene_runtime_tag_check_error(L,
                     $file, $line, $expected_type, $slot,
                     ${description_fmt}${opt_comma}${extra_args});
             }
         ]], {
             test = self:test_tag(typ, slot),
+            setline = setline,
             file = C.string(loc and loc.file_name or "<anonymous>"),
             line = C.integer(loc and loc.line or 0),
             expected_type = C.string(pallene_type_tag(typ)),
@@ -289,7 +305,7 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
             }
         ]], {
             slot = slot,
-            check_no_metatable = check_no_metatable(tab, loc),
+            check_no_metatable = check_no_metatable(self, tab, loc),
         }))
     end
 
@@ -440,16 +456,39 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
+
+    local setline = ""
+    local void_frameexit = ""
+    if self.flags.use_traceback then
+        table.insert(prologue, util.render([[
+            PALLENE_C_FRAMEENTER(L, "$name");
+            /**/
+        ]], {
+            name = func.name
+        }));
+
+        setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
+
+        if #func.typ.ret_types == 0 then
+            void_frameexit = "PALLENE_FRAMEEXIT(L);"
+        end
+    end
+
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
-            if (!lua_checkstack(L, $n)) { pallene_runtime_cant_grow_stack_error(L); }
+            if (!lua_checkstack(L, $n)) {
+                ${setline}
+                pallene_runtime_cant_grow_stack_error(L);
+            }
         ]], {
-            n = C.integer(slots_needed)
+            n    = C.integer(slots_needed),
+            setline = setline,
         }))
     end
     table.insert(prologue, "StackValue *base = L->top.p;");
     table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
+
 
     for v_id = #arg_types + 1, #func.vars do
         -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
@@ -470,12 +509,14 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
             /**/
             ${body}
+            ${void_fe}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         prologue = table.concat(prologue, "\n"),
         body = body,
+        void_fe = void_frameexit
     }))
 end
 
@@ -552,13 +593,28 @@ function Coder:lua_entry_point_definition(f_id)
         Udata *K = uvalue(&func->upvalue[0]);
     ]]
 
+    local frameenter = ""
+    local setline = ""
+    local frameexit  = ""
+    if self.flags.use_traceback then
+        frameenter = util.render([[ PALLENE_LUA_FRAMEENTER(L, $fun_name); ]], {
+            fun_name = self:lua_entry_point_name(f_id),
+        })
+
+        setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
+
+        frameexit = "PALLENE_FRAMEEXIT(L);"
+    end
+
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
         if (l_unlikely(nargs != $nargs)) {
+            ${setline}
             pallene_runtime_arity_error(L, $fname, $nargs, nargs);
         }
     ]], {
         nargs = C.integer(#arg_types),
+        setline = setline,
         fname = C.string(fname),
     })
 
@@ -590,8 +646,8 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "func", arg_vars)
-
+    local call_pallene = self:call_pallene_function(ret_vars, f_id, "func", arg_vars,
+        self:lua_entry_point_name(f_id))
 
     local push_results = {}
     for i, typ in ipairs(ret_types) do
@@ -601,6 +657,7 @@ function Coder:lua_entry_point_definition(f_id)
     return (util.render([[
         ${fun_decl}
         {
+            ${lua_fenter}
             StackValue *base = L->ci->func.p;
             ${init_global_userdata}
             /**/
@@ -613,10 +670,12 @@ function Coder:lua_entry_point_definition(f_id)
             ${ret_decls}
             ${call_pallene}
             ${push_results}
+            ${lua_fexit}
             return $nresults;
         }
     ]], {
         fun_decl = self:lua_entry_point_declaration(f_id),
+        lua_fenter = frameenter,
         init_global_userdata = init_global_userdata,
         arity_check = arity_check,
         arg_decls = table.concat(arg_decls, "\n"),
@@ -624,7 +683,8 @@ function Coder:lua_entry_point_definition(f_id)
         ret_decls = table.concat(ret_decls, "\n"),
         call_pallene = call_pallene,
         push_results = table.concat(push_results, "\n"),
-        nresults = C.integer(#ret_types),
+        lua_fexit = frameexit,
+        nresults = C.integer(#ret_types)
     }))
 end
 
@@ -937,7 +997,7 @@ gen_cmd["Unop"] = function(self, cmd, _func)
             ${check_no_metatable}
             $dst = luaH_getn($x);
         ]], {
-            check_no_metatable = check_no_metatable(x, cmd.loc),
+            check_no_metatable = check_no_metatable(self, x, cmd.loc),
             line = C.integer(cmd.loc.line),
             dst = dst,
             x = x
@@ -1392,7 +1452,13 @@ gen_cmd["CallStatic"] = function(self, cmd, func)
     end
 
     table.insert(parts, self:update_stack_top(func, cmd))
-    table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs))
+
+    if self.flags.use_traceback then
+        table.insert(parts, string.format("PALLENE_SETLINE(%d);\n",
+            func.loc and func.loc.line or 0))
+    end
+
+    table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs, nil))
     table.insert(parts, self:restorestack())
     return table.concat(parts, "\n")
 end
@@ -1426,15 +1492,24 @@ gen_cmd["CallDyn"] = function(self, cmd, func)
         }))
     end
 
+    local setline = ""
+    if self.flags.use_traceback then
+        setline = util.render([[ PALLENE_SETLINE($line); ]], {
+            line = C.integer(func.loc and func.loc.line or 0)
+        })
+    end
+
     return util.render([[
         ${update_stack_top}
         ${push_arguments}
+        ${setline}
         lua_call(L, $nargs, $nrets);
         ${pop_results}
         ${restore_stack}
     ]], {
         update_stack_top = self:update_stack_top(func, cmd),
         push_arguments = table.concat(push_arguments, "\n"),
+        setline = setline,
         pop_results = table.concat(pop_results, "\n"),
         nargs = C.integer(#f_typ.arg_types),
         nrets = C.integer(#f_typ.ret_types),
@@ -1572,8 +1647,14 @@ gen_cmd["Seq"] = function(self, cmd, func)
 end
 
 gen_cmd["Return"] = function(self, cmd)
+    local frameexit = ""
+    if self.flags.use_traceback then
+        frameexit = "PALLENE_FRAMEEXIT(L);"
+    end
+
     if #cmd.srcs == 0 then
-        return [[ return; ]]
+        return util.render([[ ${fexit}
+        return; ]], { fexit = frameexit })
     else
         -- We assign the dsts from right to left, in order to match Lua's semantics when a
         -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
@@ -1585,7 +1666,8 @@ gen_cmd["Return"] = function(self, cmd)
                 util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = src }))
         end
         local src1 = self:c_value(cmd.srcs[1])
-        table.insert(returns, util.render([[ return $v; ]], { v = src1 }))
+        table.insert(returns, util.render([[ ${fexit}
+        return $v; ]], { fexit = frameexit, v = src1 }))
         return table.concat(returns, "\n")
     end
 end
@@ -1806,6 +1888,17 @@ function Coder:generate_luaopen_function()
         init_function = self:lua_entry_point_name(1),
     })
 
+    local init_pt = ""
+
+    if self.flags.use_traceback then
+        init_pt = [[
+            /* Initialize Pallene Tracer. */
+            pallene_tracer_init(L);
+            /**/
+        ]]
+    end
+
+
     -- NOTE: Version compatibility
     -- ---------------------------
     -- We have both a compile-time and a run-time test. The compile-time test ensures that the
@@ -1821,6 +1914,7 @@ function Coder:generate_luaopen_function()
             #error "Lua version must be exactly 5.4.6"
             #endif
 
+            ${init_pt}
             luaL_checkcoreversion(L);
 
             /**/
@@ -1845,6 +1939,7 @@ function Coder:generate_luaopen_function()
         }
     ]], {
         name = "luaopen_" .. self.modname,
+        init_pt = init_pt,
         n_upvalues = C.integer(#self.constants),
         init_constants = table.concat(init_constants, "\n"),
         init_initializers = init_initializers,
