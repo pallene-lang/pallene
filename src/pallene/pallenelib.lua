@@ -76,6 +76,13 @@ return [==[
 /* Pallene stack reference entry for the registry. */
 #define PALLENE_TRACER_STACK_ENTRY      "__PALLENE_TRACER_STACK"
 
+/* Traceback elipsis threshold. */
+#define PALLENE_TRACEBACK_TOP_THRESHOLD      10
+/* This should always be 2 fewer than top threshold, for symmetry.
+   Becuase we will always have 2 tail frames lingering around at
+   at the end which is not captured by '_countlevels'. */
+#define PALLENE_TRACEBACK_BOTTOM_THRESHOLD    8
+
 /* PALLENE TRACER RELATED DATA-STRUCTURES. */
 
 /* Whether the frame is a Pallene->Pallene or Lua->Pallene call. */
@@ -237,6 +244,58 @@ static bool _pgf_name(lua_State *L) {
     return false;
 }
 
+/* Returns the maximum number of levels in Lua stack. */
+static int _countlevels (lua_State *L) {
+    lua_Debug ar;
+    int li = 1, le = 1;
+
+    /* Find an upper bound */
+    while (lua_getstack(L, le, &ar)) {
+        li = le, le *= 2;
+    }
+
+    /* Do a binary search */
+    while (li < le) {
+        int m = (li + le)/2;
+
+        if (lua_getstack(L, m, &ar)) li = m + 1;
+        else le = m;
+    }
+
+    return le - 1;
+}
+
+/* Counts the number of white and black frames in the Pallene call stack. */
+static void _countframes(pt_frame_t *frame, int *mwhite, int *mblack) {
+    *mwhite = *mblack = 0;
+
+    while(frame != NULL) {
+        *mwhite += (frame->type == PALLENE_TRACER_FRAME_TYPE_C);
+        *mblack += (frame->type == PALLENE_TRACER_FRAME_TYPE_LUA);
+        frame = frame->prev;
+    }
+}
+
+/* Responsible for printing and controlling some of the traceback fn parameters. */
+static void _dbg_print(const char *buf, bool *elipsis, int *pframes, int nframes) {
+    /* We have printed the frame, even tho it might not be visible ;). */
+    (*pframes)++;
+
+    /* Should we print? Are we in the point in top or bottom printing threshold? */
+    bool should_print = (*pframes <= PALLENE_TRACEBACK_TOP_THRESHOLD)
+        || ((nframes - *pframes) <= PALLENE_TRACEBACK_BOTTOM_THRESHOLD);
+
+    if(should_print)
+        fprintf(stderr, buf);
+    else if(*elipsis) {
+        fprintf(stderr, "\n    ... (Skipped %d frames) ...\n\n",
+            nframes - (PALLENE_TRACEBACK_TOP_THRESHOLD
+            + PALLENE_TRACEBACK_BOTTOM_THRESHOLD));
+
+        *elipsis = false;
+    }
+}
+
 /* Private routines end. */
 
 static void pallene_tracer_frameenter(pt_cont_t *cont, pt_frame_t *restrict frame) {
@@ -266,13 +325,34 @@ static void pallene_tracer_frameexit(pt_cont_t *cont) {
     cont->stack = cont->stack->prev;
 }
 
+/* Helper macro specific to this function only :). */
+#define DBG_PRINT() _dbg_print(buf, &elipsis, &pframes, nframes)
 static int pallene_tracer_debug_traceback(lua_State *L) {
-    const char *message = lua_tostring(L, 1);
-    fprintf(stderr, "Runtime error: %s\nStack traceback:\n", message);
-
     lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_STACK_ENTRY);
     pt_frame_t *stack = ((pt_cont_t *) lua_touserdata(L, -1))->stack;
     lua_pop(L, 1);
+
+    /* Max number of white and black frames. */
+    int mwhite, mblack;
+    _countframes(stack, &mwhite, &mblack);
+    /* Max levels of Lua stack. */
+    int mlevel = _countlevels(L);
+
+    /* Total frames we are going to print. */
+    /* Black frames are used for switching and we will start from
+       Lua stack level 1. */
+    int nframes = mlevel + mwhite - mblack - 1;
+    /* Amount of frames printed. */
+    int pframes = 0;
+    /* Should we print elipsis? */
+    bool elipsis = nframes > (PALLENE_TRACEBACK_TOP_THRESHOLD
+        + PALLENE_TRACEBACK_BOTTOM_THRESHOLD);
+
+    /* Buffer to store a single frame line to be printed. */
+    char buf[1024];
+
+    const char *message = lua_tostring(L, 1);
+    fprintf(stderr, "Runtime error: %s\nStack traceback:\n", message);
 
     lua_Debug ar;
     int top = lua_gettop(L);
@@ -294,9 +374,10 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
                 if(lua_tocfunction(L, -1) == check->shared.frame_sig) {
                     /* Now print all the frames in Pallene stack. */
                     while(stack != check) {
-                        fprintf(stderr, "    %s:%d: in function '%s'\n",
+                        sprintf(buf, "    %s:%d: in function '%s'\n",
                             stack->shared.details->mod_name,
                             stack->line, stack->shared.details->fn_name);
+                        DBG_PRINT();
 
                         stack = stack->prev;
                     }
@@ -317,7 +398,8 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
                 lua_pushfstring(L, "%s", lua_tostring(L, -1));
             else lua_pushliteral(L, "<?>");
 
-            fprintf(stderr, "    C: in function '%s'\n", lua_tostring(L, -1));
+            sprintf(buf, "    C: in function '%s'\n", lua_tostring(L, -1));
+            DBG_PRINT();
         } else {
             /* It's a Lua frame. */
 
@@ -332,8 +414,9 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
                 lua_pushfstring(L, "function '%s'", lua_tostring(L, -1));
             else lua_pushliteral(L, "function '<?>'");
 
-            fprintf(stderr, "    %s:%d: in %s\n", ar.short_src,
+            sprintf(buf, "    %s:%d: in %s\n", ar.short_src,
                 ar.currentline, lua_tostring(L, -1));
+            DBG_PRINT();
         }
 
         lua_settop(L, top);
@@ -341,6 +424,7 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
 
     return 0;
 }
+#undef DBG_PRINT
 
 static pt_cont_t *pallene_tracer_init(lua_State *L) {
     pt_cont_t *cont = NULL;

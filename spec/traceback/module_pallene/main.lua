@@ -3,12 +3,12 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local pallene = require 'spec.traceback.module_pallene.module_pallene'
-local pallene_alt = require 'spec.traceback.module_pallene.module_pallene_alt'
+local pallene = require "spec.traceback.module_pallene.module_pallene"
+local pallene_alt = require "spec.traceback.module_pallene.module_pallene_alt"
 
 -- luacheck: globals lua_2
 function lua_2()
-    error "There's an error in everyday life. Shame!"
+    error "There's an error in everyday life. Alas!"
 end
 
 -- luacheck: globals lua_1

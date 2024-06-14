@@ -3,8 +3,8 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local another_module = require 'spec.traceback.module_lua.another_module'
-local pallene = require 'spec.traceback.module_lua.module_lua'
+local another_module = require "spec.traceback.module_lua.another_module"
+local pallene = require "spec.traceback.module_lua.module_lua"
 
 -- luacheck: globals lua_1
 function lua_1()

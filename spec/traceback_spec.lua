@@ -57,7 +57,7 @@ end)
 
 it("Multi-module Pallene", function()
     assert_test("module_pallene", [[
-Runtime error: spec/traceback/module_pallene/main.lua:11: There's an error in everyday life. Shame!
+Runtime error: spec/traceback/module_pallene/main.lua:11: There's an error in everyday life. Alas!
 Stack traceback:
     C: in function 'error'
     spec/traceback/module_pallene/main.lua:11: in function 'lua_2'
@@ -94,3 +94,46 @@ Stack traceback:
 ]])
 end)
 
+it("Stack overflow", function()
+    assert_test("stack_overflow", [[
+Runtime error: C stack overflow
+Stack traceback:
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+
+    ... (Skipped 379 frames) ...
+
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/stack_overflow.pln:8: in function 'no_overflow'
+    spec/traceback/stack_overflow/main.lua:10: in function 'please_dont_overflow'
+    spec/traceback/stack_overflow/main.lua:15: in function 'wrapper'
+    C: in function 'xpcall'
+    spec/traceback/stack_overflow/main.lua:19: in <main>
+    C: in function '<?>'
+]])
+end)
+
+it("Anonymous lua functions", function()
+    assert_test("anon_lua", [[
+Runtime error: spec/traceback/anon_lua/main.lua:10: Error from an anonymous Lua fn!
+Stack traceback:
+    C: in function 'error'
+    spec/traceback/anon_lua/main.lua:10: in function '<?>'
+    spec/traceback/anon_lua/anon_lua.pln:8: in function 'call_anon_lua_fn'
+    spec/traceback/anon_lua/main.lua:9: in function '<?>'
+    C: in function 'xpcall'
+    spec/traceback/anon_lua/main.lua:15: in <main>
+    C: in function '<?>'
+]])
+end)
