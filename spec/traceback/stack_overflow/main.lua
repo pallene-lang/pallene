@@ -3,22 +3,16 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
-local pallene = require "spec.traceback.depth_recursion.depth_recursion"
+local so = require "spec.traceback.stack_overflow.stack_overflow"
 
--- luacheck: globals lua_fn
-function lua_fn(depth)
-    if depth == 0 then
-        error "Depth reached 0!"
-    end
-
-    pallene.pallene_fn(lua_fn, depth - 1)
+-- luacheck: globals please_dont_overflow
+function please_dont_overflow()
+    so.no_overflow(please_dont_overflow)
 end
 
--- Should be local.
--- Making it global so that it is visible in the traceback.
 -- luacheck: globals wrapper
 function wrapper()
-    lua_fn(10)
+    please_dont_overflow()
 end
 
 -- luacheck: globals pallene_tracer_debug_traceback

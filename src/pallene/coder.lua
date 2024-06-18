@@ -461,7 +461,9 @@ function Coder:pallene_entry_point_definition(f_id)
     local void_frameexit = ""
     if self.flags.use_traceback then
         table.insert(prologue, util.render([[
-            PALLENE_C_FRAMEENTER(L, "$name");
+            /**/
+            pt_cont_t *cont = pvalue(&K->uv[0].uv);
+            PALLENE_C_FRAMEENTER(cont, "$name");
             /**/
         ]], {
             name = func.name
@@ -470,7 +472,7 @@ function Coder:pallene_entry_point_definition(f_id)
         setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
 
         if #func.typ.ret_types == 0 then
-            void_frameexit = "PALLENE_FRAMEEXIT(L);"
+            void_frameexit = "PALLENE_FRAMEEXIT(cont);"
         end
     end
 
@@ -594,27 +596,26 @@ function Coder:lua_entry_point_definition(f_id)
     ]]
 
     local frameenter = ""
-    local setline = ""
     local frameexit  = ""
     if self.flags.use_traceback then
-        frameenter = util.render([[ PALLENE_LUA_FRAMEENTER(L, $fun_name); ]], {
+        frameenter = util.render([[
+            /**/
+            pt_cont_t *cont = pvalue(&K->uv[0].uv);
+            PALLENE_LUA_FRAMEENTER(cont, $fun_name);
+            /**/
+        ]], {
             fun_name = self:lua_entry_point_name(f_id),
         })
-
-        setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
-
-        frameexit = "PALLENE_FRAMEEXIT(L);"
+        frameexit = "PALLENE_FRAMEEXIT(cont);"
     end
 
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
         if (l_unlikely(nargs != $nargs)) {
-            ${setline}
             pallene_runtime_arity_error(L, $fname, $nargs, nargs);
         }
     ]], {
         nargs = C.integer(#arg_types),
-        setline = setline,
         fname = C.string(fname),
     })
 
@@ -657,9 +658,9 @@ function Coder:lua_entry_point_definition(f_id)
     return (util.render([[
         ${fun_decl}
         {
-            ${lua_fenter}
             StackValue *base = L->ci->func.p;
             ${init_global_userdata}
+            ${lua_fenter}
             /**/
             ${arity_check}
             /**/
@@ -675,8 +676,8 @@ function Coder:lua_entry_point_definition(f_id)
         }
     ]], {
         fun_decl = self:lua_entry_point_declaration(f_id),
-        lua_fenter = frameenter,
         init_global_userdata = init_global_userdata,
+        lua_fenter = frameenter,
         arity_check = arity_check,
         arg_decls = table.concat(arg_decls, "\n"),
         init_args = table.concat(init_args, "\n/**/\n"),
@@ -697,9 +698,15 @@ end
 define_union("Constant", {
     Metatable = {"typ"},
     String = {"str"},
+    DebugUserdata = {}
 })
 
 function Coder:init_upvalues()
+
+    -- If we are using tracebacks
+    if self.flags.use_traceback then
+        table.insert(self.constants, coder.Constant.DebugUserdata())
+    end
 
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
@@ -1649,7 +1656,7 @@ end
 gen_cmd["Return"] = function(self, cmd)
     local frameexit = ""
     if self.flags.use_traceback then
-        frameexit = "PALLENE_FRAMEEXIT(L);"
+        frameexit = "PALLENE_FRAMEEXIT(cont);"
     end
 
     if #cmd.srcs == 0 then
@@ -1866,6 +1873,12 @@ function Coder:generate_luaopen_function()
                 lua_pushstring(L, $str);]], {
                     str = C.string(upv.str)
                 }))
+        -- Will be used if compiling with `--use-traceback`
+        elseif tag == "coder.Constant.DebugUserdata" then
+            table.insert(init_constants, [[
+                /* Initialize Pallene Tracer. */
+                lua_pushlightuserdata(L, (void *) pallene_tracer_init(L));
+            ]]);
         else
             tagged_union.error(tag)
         end
@@ -1888,17 +1901,6 @@ function Coder:generate_luaopen_function()
         init_function = self:lua_entry_point_name(1),
     })
 
-    local init_pt = ""
-
-    if self.flags.use_traceback then
-        init_pt = [[
-            /* Initialize Pallene Tracer. */
-            pallene_tracer_init(L);
-            /**/
-        ]]
-    end
-
-
     -- NOTE: Version compatibility
     -- ---------------------------
     -- We have both a compile-time and a run-time test. The compile-time test ensures that the
@@ -1914,7 +1916,6 @@ function Coder:generate_luaopen_function()
             #error "Lua version must be exactly 5.4.6"
             #endif
 
-            ${init_pt}
             luaL_checkcoreversion(L);
 
             /**/
@@ -1939,7 +1940,6 @@ function Coder:generate_luaopen_function()
         }
     ]], {
         name = "luaopen_" .. self.modname,
-        init_pt = init_pt,
         n_upvalues = C.integer(#self.constants),
         init_constants = table.concat(init_constants, "\n"),
         init_initializers = init_initializers,
