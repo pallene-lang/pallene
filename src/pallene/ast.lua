@@ -43,13 +43,14 @@ define_union("Stat", {
     Return    = {"loc", "exps"},
     Break     = {"loc"},
     Functions = {"loc", "declared_names", "funcs"}, -- For mutual recursion (see parser.lua)
+    Switch    = {"loc", "exp", "cases", "default"}, -- New Switch statement
+    TryCatch  = {"loc", "try_block", "catch_decl", "catch_block"}, -- New Try-Catch block
 })
 
 define_union("FuncStat", {
     FuncStat = {"loc", "module", "name", "ret_types", "value"},
 })
 
--- Things that can appear in the LHS of an assignment. For example: x, x[i], x.name
 define_union("Var", {
     Name    = {"loc", "name"},
     Bracket = {"loc", "t", "k"},
@@ -79,5 +80,44 @@ define_union("Field", {
     List = {"loc", "exp"},
     Rec  = {"loc", "name", "exp"},
 })
+
+-- Utility function to traverse the AST
+function ast.traverse(node, visitor)
+    if type(node) ~= "table" or not node._tag then return end
+    if visitor.pre then visitor.pre(node) end
+
+    for k, v in pairs(node) do
+        if k ~= "_tag" then
+            if type(v) == "table" and v._tag then
+                ast.traverse(v, visitor)
+            elseif type(v) == "table" then
+                for _, item in ipairs(v) do
+                    ast.traverse(item, visitor)
+                end
+            end
+        end
+    end
+
+    if visitor.post then visitor.post(node) end
+end
+
+-- Utility function to pretty-print the AST
+function ast.pretty_print(node, indent)
+    indent = indent or 0
+    local indent_str = string.rep("  ", indent)
+    
+    if type(node) ~= "table" or not node._tag then
+        return tostring(node)
+    end
+
+    local result = indent_str .. node._tag .. " {\n"
+    for k, v in pairs(node) do
+        if k ~= "_tag" then
+            result = result .. indent_str .. "  " .. k .. " = " .. ast.pretty_print(v, indent + 1) .. ",\n"
+        end
+    end
+    result = result .. indent_str .. "}"
+    return result
+end
 
 return ast
