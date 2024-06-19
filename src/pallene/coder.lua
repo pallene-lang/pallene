@@ -462,8 +462,7 @@ function Coder:pallene_entry_point_definition(f_id)
     if self.flags.use_traceback then
         table.insert(prologue, util.render([[
             /**/
-            pt_cont_t *cont = pvalue(&K->uv[0].uv);
-            PALLENE_C_FRAMEENTER(cont, "$name");
+            PALLENE_C_FRAMEENTER(L, "$name");
             /**/
         ]], {
             name = func.name
@@ -472,7 +471,7 @@ function Coder:pallene_entry_point_definition(f_id)
         setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
 
         if #func.typ.ret_types == 0 then
-            void_frameexit = "PALLENE_FRAMEEXIT(cont);"
+            void_frameexit = "PALLENE_FRAMEEXIT();"
         end
     end
 
@@ -597,25 +596,31 @@ function Coder:lua_entry_point_definition(f_id)
 
     local frameenter = ""
     local frameexit  = ""
+    local nargs = #arg_types
+    local cargs = nargs
     if self.flags.use_traceback then
         frameenter = util.render([[
             /**/
-            pt_cont_t *cont = pvalue(&K->uv[0].uv);
-            PALLENE_LUA_FRAMEENTER(cont, $fun_name);
+            PALLENE_LUA_FRAMEENTER(L, $fun_name);
             /**/
         ]], {
             fun_name = self:lua_entry_point_name(f_id),
         })
-        frameexit = "PALLENE_FRAMEEXIT(cont);"
+        -- It's as simple as popping the finalizer.
+        frameexit = "lua_pop(L, 1);"
+
+        -- We will be having our finalizer on top of our stack.
+        cargs = cargs + 1
     end
 
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
-        if (l_unlikely(nargs != $nargs)) {
+        if (l_unlikely(nargs != $cargs)) {
             pallene_runtime_arity_error(L, $fname, $nargs, nargs);
         }
     ]], {
-        nargs = C.integer(#arg_types),
+        cargs = C.integer(cargs),
+        nargs = C.integer(nargs),
         fname = C.string(fname),
     })
 
@@ -670,8 +675,8 @@ function Coder:lua_entry_point_definition(f_id)
             /**/
             ${ret_decls}
             ${call_pallene}
-            ${push_results}
             ${lua_fexit}
+            ${push_results}
             return $nresults;
         }
     ]], {
@@ -698,7 +703,8 @@ end
 define_union("Constant", {
     Metatable = {"typ"},
     String = {"str"},
-    DebugUserdata = {}
+    DebugUserdata = {},
+    DebugMetatable = {},
 })
 
 function Coder:init_upvalues()
@@ -706,6 +712,7 @@ function Coder:init_upvalues()
     -- If we are using tracebacks
     if self.flags.use_traceback then
         table.insert(self.constants, coder.Constant.DebugUserdata())
+        table.insert(self.constants, coder.Constant.DebugMetatable())
     end
 
     -- Metatables
@@ -1656,7 +1663,7 @@ end
 gen_cmd["Return"] = function(self, cmd)
     local frameexit = ""
     if self.flags.use_traceback then
-        frameexit = "PALLENE_FRAMEEXIT(cont);"
+        frameexit = "PALLENE_FRAMEEXIT();"
     end
 
     if #cmd.srcs == 0 then
@@ -1879,6 +1886,10 @@ function Coder:generate_luaopen_function()
                 /* Initialize Pallene Tracer. */
                 lua_pushlightuserdata(L, (void *) pallene_tracer_init(L));
             ]]);
+        elseif tag == "coder.Constant.DebugMetatable" then
+            table.insert(init_constants, [[
+                /* `pallene_tracer_init` fn pushes the finalizer metatable into the stack. */
+            ]])
         else
             tagged_union.error(tag)
         end

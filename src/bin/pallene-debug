@@ -1,0 +1,50 @@
+#!/usr/bin/env lua
+
+if #arg == 0 then
+    io.stderr:write("pallene-debug: need a file to debug. Abort!\n")
+    os.exit(1)
+end
+
+-- File to run.
+local filename = arg[1]
+-- Remove the filename from the argument so that
+-- it is identical to the arguments list if we had run
+-- the file explicitly.
+table.remove(arg, 1)
+
+-- Try opening the file.
+local file, err = io.open(filename, "r")
+if not file then
+    io.stderr:write("pallene-debug: could not open file: "..err.."\n")
+    os.exit(1)
+end
+
+-- Try reading from the file.
+local content = file:read("*all")
+if not content then
+    io.stderr:write("pallene-debug: could not read file '"..filename.."'. Abort!\n")
+    os.exit(1)
+end
+-- We no longer need the file.
+file:close()
+
+-- Silently run the code, loading the Pallene/Pallene Tracer compatible
+-- modules so that we can figure out whether we have Pallene Tracer or not.
+local _, _ = pcall(load(content))
+
+-- Check whether we have Pallene Tracer enabled.
+if not pallene_tracer_debug_traceback then
+    io.stderr:write("pallene-debug: could not find debug traceback fn: Make sure you include Pallene modules and compile them with `--use-traceback` flag.\n")
+    os.exit(1)
+end
+
+-- Inject the wrapper code.
+content = [[
+function __pallene_debug_wrapper()
+]]..content..[[
+end
+
+xpcall(__pallene_debug_wrapper, pallene_tracer_debug_traceback)
+]]
+
+load(content, filename)()
