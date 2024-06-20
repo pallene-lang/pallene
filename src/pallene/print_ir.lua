@@ -235,23 +235,116 @@ local function Cmd(cmd)
     end
 end
 
-local function print_ir(module)
-    local parts = {}
-    for f_id, func in ipairs(module.functions) do
-        local vs = {}
-        for i = 1, #func.typ.arg_types do
-            vs[i] = i
-        end
+local function Cmd2(cmd)
+    local tag = cmd._tag
 
-        table.insert(parts, util.render([[
-            function $proto {
-                $body
-            }]], {
-            proto = Call(Fun(f_id), Vars(vs)),
-            body  = Cmd(func.body),
-        }))
+    local lhs
+    if     tag == "ir.Cmd.Nop" then
+        return "nop"
+    elseif tag == "ir.Cmd.Return" then
+        return "return " .. comma_concat(Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.SetArr"      then lhs = Bracket(cmd.src_arr, cmd.src_i)
+    elseif tag == "ir.Cmd.SetTable"    then lhs = Bracket(cmd.src_tab, cmd.src_k)
+    elseif tag == "ir.Cmd.SetField"    then lhs = Field(cmd.src_rec, cmd.field_name)
+    elseif tag == "ir.Cmd.InitUpvalues" then lhs = Val(cmd.src_f) .. ".upvalues"
+    else
+        lhs = comma_concat(Vars(ir.get_dsts(cmd)))
     end
-    return C.reformat(table.concat(parts, "\n\n"))
+
+    local rhs
+    if     tag == "ir.Cmd.Move"       then rhs = Val(cmd.src)
+    elseif tag == "ir.Cmd.GetGlobal"  then rhs = Global(cmd.global_id)
+    elseif tag == "ir.Cmd.Unop"       then rhs = Unop(cmd.op, cmd.src)
+    elseif tag == "ir.Cmd.Binop"      then rhs = Binop(cmd.op, cmd.src1, cmd.src2)
+    elseif tag == "ir.Cmd.GetArr"     then rhs = Bracket(cmd.src_arr, cmd.src_i)
+    elseif tag == "ir.Cmd.SetArr"     then rhs = Val(cmd.src_v)
+    elseif tag == "ir.Cmd.GetTable"   then rhs = Bracket(cmd.src_tab, cmd.src_k)
+    elseif tag == "ir.Cmd.SetTable"   then rhs = Val(cmd.src_v)
+    elseif tag == "ir.Cmd.NewRecord"  then rhs = "new ".. cmd.rec_typ.name .."()"
+    elseif tag == "ir.Cmd.GetField"   then rhs = Field(cmd.src_rec, cmd.field_name)
+    elseif tag == "ir.Cmd.SetField"   then rhs = Val(cmd.src_v)
+    elseif tag == "ir.Cmd.NewClosure" then rhs = Call("NewClosure", { Fun(cmd.f_id) })
+    elseif tag == "ir.Cmd.InitUpvalues" then rhs = comma_concat(Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallStatic" then
+        rhs = "CallStatic ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallDyn" then
+        rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
+        local name = tagged_union.consname(cmd._tag)
+        rhs = Call(name, Vals(ir.get_srcs(cmd)))
+    end
+
+    if lhs == "" then
+        return rhs
+    else
+        return lhs.." <- "..rhs
+    end
+end
+
+local function print_block(block, index)
+    local parts = {}
+    local space = "    "
+    for i, cmd in ipairs(block.cmds) do
+        parts[i] = space .. Cmd2(cmd)
+    end
+    if block.jmp_false then
+        table.insert(parts,
+                space .. "jmpf " ..
+                block.jmp_false.target .. ", " ..
+                Val(block.jmp_false.src_condition))
+    end
+    if block.next and block.next ~= index + 1 then
+        table.insert(parts, space .. "jmp "  .. block.next)
+    end
+    local str = table.concat(parts, "\n")
+    return #str > 0 and str .. "\n" or ""
+end
+
+local function print_block_list(blocks)
+    local parts = {}
+    for i, b in ipairs(blocks) do
+        parts[i] = util.render(
+                "  $num:\n$body",
+                {num = tostring(i), body = print_block(b, i)})
+    end
+    return table.concat(parts)
+end
+
+
+local function print_ir(module, mode)
+    if mode == "blocks" then
+        local parts = {}
+        for f_id, func in ipairs(module.functions) do
+            local vs = {}
+            for i = 1, #func.typ.arg_types do
+                vs[i] = i
+            end
+
+            table.insert(parts, util.render(
+                "function $proto {\n$body}\n", {
+                proto = Call(Fun(f_id), Vars(vs)),
+                body  = print_block_list(func.blocks),
+            }))
+        end
+        return table.concat(parts, "\n")
+    else
+        local parts = {}
+        for f_id, func in ipairs(module.functions) do
+            local vs = {}
+            for i = 1, #func.typ.arg_types do
+                vs[i] = i
+            end
+
+            table.insert(parts, util.render([[
+                function $proto {
+                    $body
+                }]], {
+                proto = Call(Fun(f_id), Vars(vs)),
+                body  = Cmd(func.body),
+            }))
+        end
+        return C.reformat(table.concat(parts, "\n\n"))
+    end
 end
 
 return print_ir
