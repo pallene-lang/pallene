@@ -3,148 +3,96 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+-- In this module we detect when variables are used before being initialized and when control flows
+-- to the end of a non-void function without returning. The analysis is fundamentally a dataflow
+-- one, but we don't check for convergence (this set of properties seem to converge in one pass) and
+-- we don't merge the properties of one basic block with one that it jumps to if the "jumped to"
+-- block has a lower id, that is, we don't consider backwards jumps (that's how we deal with loops
+-- for now).  Make sure that you call ir.clean first, so that it does the right thing in the
+-- presence of `while true` loops.
+--
+-- `uninit` is the set of variables that are potentially uninitialized.
+
 local ir = require "pallene.ir"
 local tagged_union = require "pallene.tagged_union"
 
 local uninitialized = {}
 
--- B <- A
-local function copy(A)
-    local B = {}
-    for v, _ in pairs(A) do
-        B[v] = true
+
+local function TState() -- Transfer State
+    return {
+        uninit = {},              -- list of booleans
+        falls_through = false,    -- boolean
+    }
+end
+
+local function copy_state(A)
+    local B = TState()
+    for v, _ in pairs(A.uninit) do
+        B.uninit[v] = true
     end
+    B.falls_through = A.falls_through
     return B
 end
 
--- A <- A ∪ B
-local function merge(A, B)
-    for v, _ in pairs(B) do
-        A[v] = true
+local function merge_state(A, B)
+    for v, _ in pairs(B.uninit) do
+        A.uninit[v] = true
     end
+    A.falls_through = A.falls_through or B.falls_through
 end
 
-local function new_loop()
-    return { is_infinite = true, uninit = {} }
-end
-
--- This function detects when variables are used before being initialized, and when control flows to
--- the end of a non-void function without returning. The analysis is fundamentally a dataflow one,
--- but we exploit the structured control flow to finish it into a single pass. In the end it sort of
--- looks like an abstract interpretation. The analysis assumes that both branches of an if statement
--- can be taken. Make sure that you call ir.clean first, so that it does the right thing in the
--- presence of `while true` loops.
---
--- `uninit` is the set of variables that are potentially uninitialized just before the command
--- executes. We take the liberty of mutating this set in-place, so make a copy beforehand if you
--- need to.
---
--- If we are inside a loop, `loop` models what will happen once we break out of the loop.
--- `loop.is_infinite` is true if think the loop will surely loop forever. `loop.uninit` is the set
--- of potentially uninitialized variables after the loop.
---
--- If the execution can possibly fall through to the next command, returns `true` and the updated
--- set of uninitialized variables. Returns false if the execution unconditionally jumps or gets
--- stuck in an infinite loop.
---
-local function test(cmd, uninit, loop)
-
-    local function check_use(v)
-        if uninit[v] then
-            coroutine.yield({v = v, cmd = cmd})
+local function test(cmd, state)
+    assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
+    for _, val in ipairs(ir.get_srcs(cmd)) do
+        if val._tag == "ir.Value.LocalVar" then
+            -- `SetField` instructions can count as initializers when the target is an
+            -- upvalue box. This is because upvalue boxes are allocated, but not initialized
+            -- upon declaration.
+            if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box then
+                state.uninit[val.id] = nil
+            end
         end
     end
 
-    local tag = cmd._tag
-    if     tag == "ir.Cmd.Nop" then
-        return true, uninit
-
-    elseif tag == "ir.Cmd.Seq" then
-        for _, c in ipairs(cmd.cmds) do
-            local ft
-            ft, uninit = test(c, uninit, loop)
-            if not ft then return false end
+    -- Artificial initializers introduced by the compilers do not count.
+    if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
+        for _, v_id in ipairs(ir.get_dsts(cmd)) do
+            state.uninit[v_id] = nil
         end
-        return true, uninit
+    end
 
-    elseif tag == "ir.Cmd.Break" then
-        assert(loop)
-        loop.is_infinite = false
-        merge(loop.uninit, uninit)
-        return false
-
-    elseif tag == "ir.Cmd.If" then
-        check_use(cmd.condition)
-
-        local ft1, uninit1 = test(cmd.then_, copy(uninit), loop)
-        local ft2, uninit2 = test(cmd.else_,      uninit , loop)
-
-        if ft1 and ft2 then
-            merge(uninit1, uninit2)
-            return true, uninit1
-        elseif ft1 then
-            return true, uninit1
-        elseif ft2 then
-            return true, uninit2
-        else
-            return false
-        end
-
-    elseif tag == "ir.Cmd.Loop" then
-        loop = new_loop()
-        test(cmd.body, uninit, loop)
-
-        if loop.is_infinite then
-            return false
-        else
-            return true, loop.uninit
-        end
-
-    elseif tag == "ir.Cmd.For" then
-        check_use(cmd.start)
-        check_use(cmd.limit)
-        check_use(cmd.step)
-
-        loop = new_loop()
-        loop.is_infinite = false
-        merge(loop.uninit, uninit)
-
-        uninit[cmd.dst] = nil
-        test(cmd.body, uninit, loop)
-
-        if loop.is_infinite then
-            return false
-        else
-            return true, loop.uninit
-        end
-
-    elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
-        for _, val in ipairs(ir.get_srcs(cmd)) do
-            if val._tag == "ir.Value.LocalVar" then
-                -- `SetField` instructions can count as initializers when the target is an
-                -- upvalue box. This is because upvalue boxes are allocated, but not initialized
-                -- upon declaration.
-                if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box then
-                    uninit[val.id] = nil
-                end
-                check_use(val.id)
-            end
-        end
-
-        -- Artificial initializers introduced by the compilers do not count.
-        if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
-            for _, v_id in ipairs(ir.get_dsts(cmd)) do
-                uninit[v_id] = nil
-            end
-        end
-
-        if tag == "ir.Cmd.Return" then
-            return false
-        else
-            return true, uninit
-        end
+    if cmd._tag == "ir.Cmd.Return" then
+        state.falls_through = false
     else
-        error("impossible")
+        state.falls_through = true
+    end
+end
+
+local function flow_analysis(block_list, state_list)
+    for i,block in ipairs(block_list) do
+        local state = copy_state(state_list[i])
+        for _,cmd in ipairs(block.cmds) do
+            test(cmd, state)
+        end
+        if(block.next and block.next > i) then
+            merge_state(state_list[block.next], state)
+        end
+        if(block.jmp_false and block.jmp_false.target > i) then
+            merge_state(state_list[block.jmp_false.target], state)
+        end
+    end
+end
+
+local function check_uninit(block, input_state)
+    local state = copy_state(input_state)
+    for _,cmd in ipairs(block.cmds) do
+        test(cmd,state)
+        for _, val in ipairs(ir.get_srcs(cmd)) do
+            if val._tag == "ir.Value.LocalVar" and state.uninit[val.id] then
+                coroutine.yield({v = val.id, loc = cmd.loc})
+            end
+        end
     end
 end
 
@@ -158,27 +106,37 @@ function uninitialized.verify_variables(module)
         local nargs = #func.typ.arg_types
         local nret  = #func.typ.ret_types
 
-        local falls_through
-        local analysis = coroutine.wrap(function()
-            local uninit = {}
-            for i = nargs+1, nvars do
-                uninit[i] = true
+        local states = {}
+        for b_i = 1, #func.blocks do
+            states[b_i] = TState()
+        end
+        local entry = states[1]
+        for v_i = nargs+1, nvars do
+            entry.uninit[v_i] = true
+        end
+
+        flow_analysis(func.blocks, states)
+
+        local check = coroutine.wrap(function()
+            for i,b in ipairs(func.blocks) do
+                local st = states[i]
+                check_uninit(b, st)
             end
-            falls_through = test(func.body, uninit, false)
         end)
 
         local reported_variables = {} -- (only one error message per variable)
-        for o in analysis do
-            local cmd, v = o.cmd, o.v
+        for o in check do
+            local v, loc = o.v, o.loc
             if not reported_variables[v] then
                 reported_variables[v] = true
                 local name = assert(func.vars[v].name)
-                table.insert(errors, cmd.loc:format_error(
+                table.insert(errors, loc:format_error(
                         "error: variable '%s' is used before being initialized", name))
             end
         end
 
-        if falls_through and nret > 0 then
+        local exit = states[#func.blocks]
+        if exit.falls_through and nret > 0 then
             table.insert(errors, func.loc:format_error(
                 "control reaches end of function with non-empty return type"))
         end
