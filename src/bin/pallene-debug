@@ -1,50 +1,50 @@
 #!/usr/bin/env lua
 
-if #arg == 0 then
-    io.stderr:write("pallene-debug: need a file to debug. Abort!\n")
+local argparse = require "argparse"
+
+local opts
+do
+    local p = argparse("pallene-debug", "Pallene debugger script for call-stack backtrace")
+
+    p:argument("lua_script", "Lua file to debug with Pallene module")
+    p:argument("args",       "Arguments passed to Lua script")       :args("*")
+
+    opts = p:parse()
+end
+
+local fn, err = loadfile(opts.lua_script)
+
+-- Was loading and parsing the file successful?
+if not fn then
+    io.stderr:write("pallene-debug: "..err.."\n")
     os.exit(1)
 end
 
--- File to run.
-local filename = arg[1]
--- Remove the filename from the argument so that
--- it is identical to the arguments list if we had run
--- the file explicitly.
-table.remove(arg, 1)
+-- Supress I/O.
+local original_print = print
+local original_io_write = io.write
 
--- Try opening the file.
-local file, err = io.open(filename, "r")
-if not file then
-    io.stderr:write("pallene-debug: could not open file: "..err.."\n")
-    os.exit(1)
-end
+print    = function() end
+io.write = function() end
 
--- Try reading from the file.
-local content = file:read("*all")
-if not content then
-    io.stderr:write("pallene-debug: could not read file '"..filename.."'. Abort!\n")
-    os.exit(1)
-end
--- We no longer need the file.
-file:close()
+-- Run the script initially so that we can figure out whether
+-- we have Pallene modules that is compiled with `--use-traceback` flag.
+local _, _ = pcall(fn)
 
--- Silently run the code, loading the Pallene/Pallene Tracer compatible
--- modules so that we can figure out whether we have Pallene Tracer or not.
-local _, _ = pcall(load(content))
+-- Restore I/O.
+print    = original_print
+io.write = original_io_write
 
--- Check whether we have Pallene Tracer enabled.
+-- We need the traceback fn.
 if not pallene_tracer_debug_traceback then
-    io.stderr:write("pallene-debug: could not find debug traceback fn: Make sure you include Pallene modules and compile them with `--use-traceback` flag.\n")
+    io.stderr:write("pallene-debug: could not find debug traceback fn: Make sure you include Pallene modules which are compiled with `--use-traceback` flag.\n")
     os.exit(1)
 end
 
--- Inject the wrapper code.
-content = [[
-function __pallene_debug_wrapper()
-]]..content..[[
+-- Add a wrapper function.
+local function wrapper()
+    fn(table.unpack(opts.args))
 end
 
-xpcall(__pallene_debug_wrapper, pallene_tracer_debug_traceback)
-]]
-
-load(content, filename)()
+-- Moment of truth.
+xpcall(wrapper, pallene_tracer_debug_traceback)
