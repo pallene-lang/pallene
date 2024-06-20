@@ -348,7 +348,7 @@ function ir.clean(cmd)
             end
         end
         if     #out == 0 then
-            return ir.Cmd.Nop()
+            return ir.Cmd.Nop
         elseif #out == 1 then
             return out[1]
         else
@@ -363,7 +363,7 @@ function ir.clean(cmd)
         local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
 
         if t_empty and e_empty then
-            return ir.Cmd.Nop()
+            return ir.Cmd.Nop
         elseif v._tag == "ir.Value.Bool" and v.value == true then
             return cmd.then_
         elseif v._tag == "ir.Value.Bool" and v.value == false then

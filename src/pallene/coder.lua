@@ -363,7 +363,7 @@ function Coder:c_value(value)
         return C.float(value.value)
     elseif tag == "ir.Value.String" then
         local str = value.value
-        return lua_value(types.T.String(), self:string_upvalue_slot(str))
+        return lua_value(types.T.String, self:string_upvalue_slot(str))
     elseif tag == "ir.Value.LocalVar" then
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
@@ -1322,7 +1322,7 @@ gen_cmd["SetTable"] = function(self, cmd, _func)
         tab = tab,
         key = key,
         val = val,
-        init_keyv = set_stack_slot(types.T.String(), "&keyv", key),
+        init_keyv = set_stack_slot(types.T.String, "&keyv", key),
         init_valv = set_stack_slot(src_typ, "&valv", val),
         -- Here we use set_stack_slot slot on a heap object, because
         -- we call the barrier by hand outside the if statement.
