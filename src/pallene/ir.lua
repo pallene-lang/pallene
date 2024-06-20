@@ -52,6 +52,7 @@ function ir.Function(loc, name, typ)
         f_id_of_upvalue = {}, -- { u_id => integer }
         f_id_of_local = {},   -- { v_id => integer }
         body = false,         -- ir.Cmd
+        blocks = false,       -- list of ir.BasicBlock
     }
 end
 
@@ -166,6 +167,8 @@ local ir_cmd_constructors = {
     CallStatic  = {"loc", "f_typ", "dsts", "src_f", "srcs"},
     CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},
 
+    RuntimeError = {"loc", "msg"},
+
     -- Builtin operations
     BuiltinIoWrite    = {"loc",         "srcs"},
     BuiltinMathAbs    = {"loc", "dsts", "srcs"},
@@ -186,15 +189,15 @@ local ir_cmd_constructors = {
     --
     -- Control flow
     --
-    Nop     = {},
-    Seq     = {"cmds"},
+    Nop        = {},
+    Seq        = {"cmds"},
 
-    Return  = {"loc", "srcs"},
-    Break   = {},
-    Loop    = {"body"},
+    Return     = {"loc", "srcs"},
+    Break      = {},
+    Loop       = {"body"},
 
-    If      = {"loc", "src_condition", "then_", "else_"},
-    For     = {"loc", "dst", "src_start", "src_limit", "src_step", "body"},
+    If         = {"loc", "src_condition", "then_", "else_"},
+    For        = {"loc", "dst", "src_start", "src_limit", "src_step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -256,6 +259,21 @@ function ir.get_dsts(cmd)
         end
     end
     return dsts
+end
+
+local function JmpIfFalse(target, src_condition)
+    return {
+        target = target,               -- index of target basic block
+        src_condition = src_condition, -- ir.Value
+    }
+end
+
+function ir.BasicBlock()
+    return {
+        cmds = {},           -- list of ir.Cmd
+        next = false,        -- index of next basic block if no conditional jump is taken
+        jmp_false = false,   -- JmpIfFalse
+    }
 end
 
 -- Iterate over the cmds with a pre-order traversal.
@@ -388,6 +406,136 @@ end
 function ir.clean_all(module)
     for _, func in ipairs(module.functions) do
         func.body = ir.clean(func.body)
+    end
+end
+
+-- temporary stuff
+-- convert legacy intermediate representation (i.r. tree) to list of basic blocks
+
+local types = require "pallene.types"
+
+local function is_last_block_uninitialized(blocks)
+    local b = blocks[#blocks]
+    return not b.next and not b.jmp_false and #b.cmds == 0
+end
+
+local function finish_block(list)
+    local b = list[#list]
+    if not b.next then
+        b.next = #list + 1
+    end
+    table.insert(list, ir.BasicBlock())
+    return #list
+end
+
+local fill_blocks_with_cmd
+
+function fill_blocks_with_cmd(func, listb, cmd)
+    local blocks = listb.block_list
+    local break_stack = listb.break_stack
+    local tag = cmd._tag
+    assert(tagged_union.typename(tag) == "ir.Cmd")
+    if tag == "ir.Cmd.Seq" then
+        for _, c in ipairs(cmd.cmds) do
+            fill_blocks_with_cmd(func, listb, c)
+        end
+    elseif tag == "ir.Cmd.If" then
+        local begin_if = #blocks
+        finish_block(blocks)
+        local end_then = #blocks
+        fill_blocks_with_cmd(func, listb, cmd.then_)
+        local begin_else = finish_block(blocks)
+        fill_blocks_with_cmd(func, listb, cmd.else_)
+        -- Only insert a new block if last block isn't empty. This saves us from having a bunch of
+        -- trailing empty blocks when making a chain of "elseif" statements
+        if not is_last_block_uninitialized(blocks) then
+            finish_block(blocks)
+        end
+        local end_if = #blocks
+
+        blocks[begin_if].jmp_false = JmpIfFalse(begin_else, cmd.src_condition)
+        blocks[end_then].next = end_if
+    elseif tag == "ir.Cmd.Break" then
+        local id = #blocks
+        finish_block(blocks)
+
+        -- Each loop has a corresponding list of block indices that use a break statement. The
+        -- different lists are kept on a stack that follows the nesting of the loops. After the
+        -- generation of the blocks for a certain loop, we traverse the corresponding loop's list
+        -- and set the right target for the blocks.
+        assert(#break_stack > 0)
+        local top_break_list = break_stack[#break_stack]
+        table.insert(top_break_list, id)
+    elseif tag == "ir.Cmd.Loop" then
+        local break_blocks = {}
+        table.insert(break_stack, break_blocks)
+
+        local begin_loop = finish_block(blocks)
+        fill_blocks_with_cmd(func, listb, cmd.body)
+        local end_loop = #blocks
+        local after_loop = finish_block(blocks)
+
+        blocks[end_loop].next = begin_loop
+        for _, index in ipairs(break_blocks) do
+            blocks[index].next = after_loop
+        end
+    elseif tag == "ir.Cmd.For" then
+        local iter_var = cmd.dst
+        local iter_src = ir.Value.LocalVar(iter_var)
+        local step_zero = ir.add_local(func, false, types.T.Boolean())
+        local init_seq = ir.Cmd.Seq {
+            ir.Cmd.Move(cmd.loc, iter_var, cmd.src_start),
+            ir.Cmd.Binop(cmd.loc, step_zero, "IntEq", cmd.src_step, ir.Value.Integer(0)),
+            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(step_zero),
+                      ir.Cmd.RuntimeError(cmd.loc, "'for' step is zero"), ir.Cmd.Nop()),
+        }
+        local iter_type = func.vars[iter_var].typ
+        local max_var = ir.add_local(func, false, iter_type)
+        local min_var = ir.add_local(func, false, iter_type)
+        local step_sign = ir.add_local(func, false, types.T.Boolean())
+        local loop_test_var = ir.add_local(func, false, types.T.Boolean())
+        local loop_seq = ir.Cmd.Seq {
+            ir.Cmd.Binop(cmd.loc, step_sign, "IntGeq", cmd.src_step, ir.Value.Integer(0)),
+            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(step_sign),
+                      ir.Cmd.Seq {
+                          ir.Cmd.Move(cmd.loc, max_var, cmd.src_limit),
+                          ir.Cmd.Move(cmd.loc, min_var, iter_src),
+                      },
+                      ir.Cmd.Seq {
+                          ir.Cmd.Move(cmd.loc, max_var, iter_src),
+                          ir.Cmd.Move(cmd.loc, min_var, cmd.src_limit),
+                      }),
+            ir.Cmd.Binop(cmd.loc, loop_test_var, "IntGt",
+                         ir.Value.LocalVar(min_var), ir.Value.LocalVar(max_var)),
+            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(loop_test_var),
+                      ir.Cmd.Break(), ir.Cmd.Nop()),
+            cmd.body,
+            ir.Cmd.Binop(cmd.loc, iter_var, "IntAdd", iter_src, cmd.src_step),
+        }
+        local loop_cmd = ir.Cmd.Loop(loop_seq)
+
+        fill_blocks_with_cmd(func, listb, init_seq)
+        fill_blocks_with_cmd(func, listb, loop_cmd)
+    else
+        local current_block = blocks[#blocks]
+        table.insert(current_block.cmds, cmd)
+    end
+end
+
+function ir.generate_basic_blocks(module)
+    for _, func in ipairs(module.functions) do
+        local blocks = {}
+        table.insert(blocks, ir.BasicBlock()) -- first block must remain empty, it is the "entry"
+                                              -- block used on the flow graph
+        finish_block(blocks)
+        local list_builder = {
+            block_list = blocks,
+            break_stack = {},
+        }
+        fill_blocks_with_cmd(func, list_builder, func.body)
+        finish_block(blocks) -- last block must be empty, it is the "exit" block
+                             -- used on the flow graph
+        func.blocks = blocks
     end
 end
 

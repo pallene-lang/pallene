@@ -83,6 +83,8 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     local module
     module, errs = to_ir.convert(prog_ast)
     if not module then return abort() end
+    local ir = require "pallene.ir"
+    ir.generate_basic_blocks(module)
     if stop_after == "ir" then return module end
 
     module, errs = uninitialized.verify_variables(module)
