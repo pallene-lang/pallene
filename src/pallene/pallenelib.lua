@@ -44,11 +44,19 @@ return [==[
 #include <locale.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
-/* Part of Pallene Tracer. */
-#define PALLENE_C_FRAMEENTER(cont, name)                         \
+/* PALLENE TRACER MACROS */
+
+/* Prepares finalizer function for Lua interface calls. */
+#define PALLENE_PREPARE_FINALIZER()                              \
+        setobj(L, s2v(L->top.p++), &K->uv[1].uv);                \
+        lua_toclose(L, -1)
+
+#define PALLENE_C_FRAMEENTER(L, name)                            \
+        pt_cont_t *cont = pvalue(&K->uv[0].uv);                  \
         static pt_fn_details_t _details = {                      \
             .fn_name  = name,                                    \
             .mod_name = PALLENE_SOURCE_FILE                      \
@@ -59,22 +67,30 @@ return [==[
                 .details = &_details                             \
             }                                                    \
         };                                                       \
-        pallene_tracer_frameenter(cont, &_frame)
+        pallene_tracer_frameenter(L, cont, &_frame)
 
-#define PALLENE_LUA_FRAMEENTER(cont, sig)                        \
+#define PALLENE_LUA_FRAMEENTER(L, sig)                           \
+        pt_cont_t *cont = pvalue(&K->uv[0].uv);                  \
         pt_frame_t _frame = {                                    \
             .type = PALLENE_TRACER_FRAME_TYPE_LUA,               \
             .shared = {                                          \
                 .frame_sig = sig                                 \
             }                                                    \
         };                                                       \
-        pallene_tracer_frameenter(cont, &_frame)
+        pallene_tracer_frameenter(L, cont, &_frame);             \
+        PALLENE_PREPARE_FINALIZER()
 
-#define PALLENE_SETLINE(line)           pallene_tracer_setline(&_frame, line)
-#define PALLENE_FRAMEEXIT(cont)         pallene_tracer_frameexit(cont)
+#define PALLENE_SETLINE(line)           pallene_tracer_setline(cont, line)
+#define PALLENE_FRAMEEXIT()             pallene_tracer_frameexit(cont)
 
 /* Pallene stack reference entry for the registry. */
-#define PALLENE_TRACER_STACK_ENTRY      "__PALLENE_TRACER_STACK"
+#define PALLENE_TRACER_CONTAINER_ENTRY  "__PALLENE_TRACER_CONTAINER"
+
+/* Finalizer metatable key. */
+#define PALLENE_TRACER_METATABLE_ENTRY  "__PALLENE_TRACER_METATABLE"
+
+/* The size of the Pallene call stack. */
+#define PALLENE_MAX_CALLSTACK           2000000
 
 /* Traceback elipsis threshold. */
 #define PALLENE_TRACEBACK_TOP_THRESHOLD      10
@@ -104,11 +120,9 @@ typedef struct pt_frame {
     int line;
 
     union {
-            const pt_fn_details_t *details;
-            const lua_CFunction frame_sig;
+            pt_fn_details_t *details;
+            lua_CFunction frame_sig;
     } shared;
-
-    struct pt_frame *prev;
 } pt_frame_t;
 
 /* For Full Userdata allocation. That userdata is the module singular
@@ -116,14 +130,16 @@ typedef struct pt_frame {
 /* 'cont' stands for 'container'. */
 typedef struct pt_cont {
     pt_frame_t *stack;
+    int count;
 } pt_cont_t;
 
 /* Pallene Tracer. */
-static void       pallene_tracer_frameenter(pt_cont_t *cont, pt_frame_t *restrict frame);
-static void       pallene_tracer_setline(pt_frame_t *restrict frame, int line);
+static void       pallene_tracer_frameenter(lua_State *L, pt_cont_t *cont, pt_frame_t *restrict frame);
+static void       pallene_tracer_setline(pt_cont_t *cont, int line);
 static void       pallene_tracer_frameexit(pt_cont_t *cont);
 static int        pallene_tracer_debug_traceback(lua_State *L);
 static pt_cont_t *pallene_tracer_init(lua_State *L);
+static int        pallene_tracer_finalizer(lua_State *L);
 
 /* Type tags */
 static const char *pallene_type_name(lua_State *L, const TValue *v);
@@ -144,6 +160,7 @@ static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file,
 static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L);
+static l_noret pallene_runtime_callstack_overflow_error(lua_State *L);
 
 /* Arithmetic operators */
 static lua_Integer pallene_int_divi(lua_State *L, lua_Integer m, lua_Integer n, const char* file, int line);
@@ -175,7 +192,7 @@ static TString *pallene_type_builtin(lua_State *L, TValue v);
 static TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v);
 static void pallene_io_write(lua_State *L, TString *str);
 
-/* Pallene tracer implementation. */
+/* PALLENE TRACER IMPLEMENTATION */
 
 /* Private routines. */
 
@@ -204,7 +221,7 @@ static bool _findfield(lua_State *L, int fn_idx, int level) {
                 return true;
             }
             /* If not go one level deeper and get the value recursively. */
-            if(_findfield(L, fn_idx, level - 1)) {
+            else if(_findfield(L, fn_idx, level - 1)) {
                 /* Remove the table but keep name. */
                 lua_remove(L, -2);
 
@@ -266,13 +283,12 @@ static int _countlevels (lua_State *L) {
 }
 
 /* Counts the number of white and black frames in the Pallene call stack. */
-static void _countframes(pt_frame_t *frame, int *mwhite, int *mblack) {
+static void _countframes(pt_cont_t *cont, int *mwhite, int *mblack) {
     *mwhite = *mblack = 0;
 
-    while(frame != NULL) {
-        *mwhite += (frame->type == PALLENE_TRACER_FRAME_TYPE_C);
-        *mblack += (frame->type == PALLENE_TRACER_FRAME_TYPE_LUA);
-        frame = frame->prev;
+    for(int i = 0; i < cont->count; i++) {
+        *mwhite += (cont->stack[i].type == PALLENE_TRACER_FRAME_TYPE_C);
+        *mblack += (cont->stack[i].type == PALLENE_TRACER_FRAME_TYPE_LUA);
     }
 }
 
@@ -296,45 +312,48 @@ static void _dbg_print(const char *buf, bool *elipsis, int *pframes, int nframes
     }
 }
 
-/* Private routines end. */
+/* Frees the heap-allocated resources. */
+static int _free_resources(lua_State *L) {
+    pt_cont_t *cont = (pt_cont_t *) lua_touserdata(L, 1);
 
-static void pallene_tracer_frameenter(pt_cont_t *cont, pt_frame_t *restrict frame) {
-    /* If there is no frame in the Pallene stack. */
-    if(l_unlikely(cont->stack == NULL)) {
-        frame->prev = NULL;
-        cont->stack = frame;
+    free(cont->stack);
 
-        return;
-    }
-
-    frame->prev = cont->stack;
-    cont->stack = frame;
+    return 0;
 }
 
-static void pallene_tracer_setline(pt_frame_t *restrict frame, int line) {
-    frame->line = line;
+/* Private routines end. */
+
+static void pallene_tracer_frameenter(lua_State *L, pt_cont_t *cont, pt_frame_t *restrict frame) {
+    /* If we ran out of Pallene frames. */
+    if(l_unlikely(cont->count + 1 >= PALLENE_MAX_CALLSTACK)) {
+        pallene_runtime_callstack_overflow_error(L);
+    }
+
+    cont->stack[cont->count++] = *frame;
+}
+
+static void pallene_tracer_setline(pt_cont_t *cont, int line) {
+    if(cont->count != 0)
+        cont->stack[cont->count - 1].line = line;
 }
 
 static void pallene_tracer_frameexit(pt_cont_t *cont) {
-    /* We are popping the very last frame. */
-    if(cont->stack->prev == NULL) {
-        cont->stack = NULL;
-        return;
-    }
-
-    cont->stack = cont->stack->prev;
+    cont->count -= (cont->count > 0);
 }
 
 /* Helper macro specific to this function only :). */
 #define DBG_PRINT() _dbg_print(buf, &elipsis, &pframes, nframes)
 static int pallene_tracer_debug_traceback(lua_State *L) {
-    lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_STACK_ENTRY);
-    pt_frame_t *stack = ((pt_cont_t *) lua_touserdata(L, -1))->stack;
+    lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_CONTAINER_ENTRY);
+    pt_cont_t *cont = (pt_cont_t *) lua_touserdata(L, -1);
+    pt_frame_t *stack = cont->stack;
+    /* The point where we are in the Pallene stack. */
+    int index = cont->count - 1;
     lua_pop(L, 1);
 
     /* Max number of white and black frames. */
     int mwhite, mblack;
-    _countframes(stack, &mwhite, &mblack);
+    _countframes(cont, &mwhite, &mblack);
     /* Max levels of Lua stack. */
     int mlevel = _countlevels(L);
 
@@ -364,28 +383,26 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
 
         /* If the frame is a C frame. */
         if(lua_iscfunction(L, -1)) {
-            if(stack != NULL) {
+            if(index >= 0) {
                 /* Check whether this frame is tracked (Pallene C frames). */
-                pt_frame_t *check = stack;
-                while(check->type != PALLENE_TRACER_FRAME_TYPE_LUA)
-                    check = check->prev;
+                int check = index;
+                while(stack[check].type != PALLENE_TRACER_FRAME_TYPE_LUA)
+                    check--;
 
                 /* If the frame signature matches, we switch to printing Pallene frames. */
-                if(lua_tocfunction(L, -1) == check->shared.frame_sig) {
+                if(lua_tocfunction(L, -1) == stack[check].shared.frame_sig) {
                     /* Now print all the frames in Pallene stack. */
-                    while(stack != check) {
+                    for(; index > check; index--) {
                         sprintf(buf, "    %s:%d: in function '%s'\n",
-                            stack->shared.details->mod_name,
-                            stack->line, stack->shared.details->fn_name);
+                            stack[index].shared.details->mod_name,
+                            stack[index].line, stack[index].shared.details->fn_name);
                         DBG_PRINT();
-
-                        stack = stack->prev;
                     }
 
-                    /* 'check' is guaranteed to be a Lua interface frame.
-                       Which is basically our 'stack' at this point. So,
+                    /* 'check' idx is guaranteed to be a Lua interface frame.
+                       Which is basically our 'stack' index at this point. So,
                        we simply ignore the Lua interface frame. */
-                    stack = stack->prev;
+                    index--;
 
                     /* We are done. */
                     lua_settop(L, top);
@@ -426,26 +443,64 @@ static int pallene_tracer_debug_traceback(lua_State *L) {
 }
 #undef DBG_PRINT
 
+/* This function is expected to push the finalizer metatable in the stack. */
 static pt_cont_t *pallene_tracer_init(lua_State *L) {
     pt_cont_t *cont = NULL;
 
     /* Try getting the userdata. */
-    lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_STACK_ENTRY);
+    lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_CONTAINER_ENTRY);
 
     /* If we don't find any userdata, create one. */
     if(l_unlikely(lua_isnil(L, -1) == 1)) {
         cont = (pt_cont_t *) lua_newuserdata(L, sizeof(pt_cont_t));
-        cont->stack = NULL;
+        cont->stack = malloc(PALLENE_MAX_CALLSTACK * sizeof(pt_frame_t));
+        cont->count = 0;
 
-        lua_setfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_STACK_ENTRY);
+        lua_newtable(L);
+        lua_pushcfunction(L, _free_resources);
+        lua_setfield(L, -2, "__gc");
+        lua_setmetatable(L, -2);
+
+        /* This is our finalizer which will reside in the value stack. */
+        lua_newtable(L);
+        lua_newtable(L);
+        lua_pushvalue(L, -3);
+
+        /* Our finalizer fn. */
+        lua_pushcclosure(L, pallene_tracer_finalizer, 1);
+        lua_setfield(L, -2, "__close");
+        lua_setmetatable(L, -2);
+
+        /* Metatable registry. */
+        lua_setfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_METATABLE_ENTRY);
+
+        /* Stack container registry .*/
+        lua_setfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_CONTAINER_ENTRY);
 
         /* The debug traceback fn. */
         lua_register(L, "pallene_tracer_debug_traceback", pallene_tracer_debug_traceback);
+
+        /* Push the metatable in the stack. */
+        lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_METATABLE_ENTRY);
     } else {
         cont = lua_touserdata(L, -1);
+        lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_METATABLE_ENTRY);
     }
 
     return cont;
+}
+
+static int pallene_tracer_finalizer(lua_State *L) {
+    /* Get the userdata. */
+    pt_cont_t *cont = (pt_cont_t *) lua_touserdata(L, lua_upvalueindex(1));
+
+    int idx = cont->count - 1;
+    while(cont->stack[idx].type != PALLENE_TRACER_FRAME_TYPE_LUA)
+        idx--;
+
+    cont->count = idx;
+
+    return 0;
 }
 
 static const char *pallene_type_name(lua_State *L, const TValue *v)
@@ -495,7 +550,7 @@ static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v)
     }
 }
 
-static void pallene_runtime_tag_check_error(
+static l_noret pallene_runtime_tag_check_error(
     lua_State *L,
     const char* file,
     int line,
@@ -527,7 +582,7 @@ static void pallene_runtime_tag_check_error(
     PALLENE_UNREACHABLE;
 }
 
-static void pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received)
+static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received)
 {
     luaL_error(L,
         "wrong number of arguments to function '%s', expected %d but received %d",
@@ -536,25 +591,25 @@ static void pallene_runtime_arity_error(lua_State *L, const char *name, int expe
     PALLENE_UNREACHABLE;
 }
 
-static void pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line)
+static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line)
 {
     luaL_error(L, "file %s: line %d: attempt to divide by zero", file, line);
     PALLENE_UNREACHABLE;
 }
 
-static void pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line)
+static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line)
 {
     luaL_error(L, "file %s: line %d: attempt to perform 'n%%0'", file, line);
     PALLENE_UNREACHABLE;
 }
 
-static void pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line)
+static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line)
 {
     luaL_error(L, "file %s: line %d: conversion from float does not fit into integer", file, line);
     PALLENE_UNREACHABLE;
 }
 
-static void pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line)
+static l_noret pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line)
 {
     luaL_error(L, "file %s: line %d: arrays in Pallene must not have a metatable", file, line);
     PALLENE_UNREACHABLE;
@@ -563,6 +618,11 @@ static void pallene_runtime_array_metatable_error(lua_State *L, const char* file
 static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L)
 {
     luaL_error(L, "stack overflow");
+    PALLENE_UNREACHABLE;
+}
+
+static l_noret pallene_runtime_callstack_overflow_error(lua_State *L) {
+    luaL_error(L, "pallene callstack overflow");
     PALLENE_UNREACHABLE;
 }
 
