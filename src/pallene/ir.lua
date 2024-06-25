@@ -329,37 +329,9 @@ function ir.iter(block_list)
     return coroutine.wrap(function() go() end)
 end
 
--- Iterate over the cmds with a pre-order traversal.
-function ir.old_iter(root_cmd)
-
-    local function go(cmd)
-        coroutine.yield(cmd)
-
-        local tag = cmd._tag
-        if     tag == "ir.Cmd.Seq" then
-            for _, c in ipairs(cmd.cmds) do
-                go(c)
-            end
-        elseif tag == "ir.Cmd.If" then
-            go(cmd.then_)
-            go(cmd.else_)
-        elseif tag == "ir.Cmd.Loop" then
-            go(cmd.body)
-        elseif tag == "ir.Cmd.For" then
-            go(cmd.body)
-        else
-            -- no recursion needed
-        end
-    end
-
-    return coroutine.wrap(function()
-        go(root_cmd)
-    end)
-end
-
 function ir.flatten_cmd(block_list)
     local res = {}
-    for cmd in ir.old_iter(block_list) do
+    for cmd in ir.iter(block_list) do
         table.insert(res, cmd)
     end
     return res
