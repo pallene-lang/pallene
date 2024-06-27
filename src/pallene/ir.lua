@@ -51,8 +51,7 @@ function ir.Function(loc, name, typ)
         captured_vars = {},   -- list of ir.VarDecl
         f_id_of_upvalue = {}, -- { u_id => integer }
         f_id_of_local = {},   -- { v_id => integer }
-        body = false,         -- ir.Cmd
-        blocks = false,       -- list of ir.BasicBlock
+        blocks = {},          -- list of ir.BasicBlock
         ret_vars = {},        -- list of id's of return variables
     }
 end
@@ -266,7 +265,7 @@ function ir.get_dsts(cmd)
     return dsts
 end
 
-local function JmpIfFalse(target, src_condition)
+function ir.JmpIfFalse(target, src_condition)
     return {
         target = target,               -- index of target basic block
         src_condition = src_condition, -- ir.Value
@@ -337,94 +336,26 @@ function ir.flatten_cmd(block_list)
     return res
 end
 
--- Transform an ir.Cmd, via a mapping function that modifies individual nodes.
--- If the mapping function returns a falsy value, the original version of the node is kept.
-function ir.map_cmd(block_list, f)
-    local visited = {}
-    for i = 1, #block_list do
-        visited[i] = false
-    end
-    local function go(block_id)
-        if visited[block_id] then
-            return
-        end
-        visited[block_id] = true
-        local block = block_list[block_id]
-        for i,cmd in ipairs(block.cmds) do
-            block.cmds[i] = f(cmd) or cmd
-        end
-        if block.next then go(block.next) end
-        if block.jmp_false then go(block.jmp_false.target) end
-    end
-    go(1)
-end
-
--- Remove some kinds of silly control flow
---   - Empty If
---   - if statements w/ constant condition
---   - Nop and Seq statements inside Seq
---   - Seq commands w/ no statements
---   - Seq commans w/ only one element
-function ir.clean(cmd)
-    local tag = cmd._tag
-    if tag == "ir.Cmd.Nop" then
-        return cmd
-
-    elseif tag == "ir.Cmd.Seq" then
-        local out = {}
-        for _, c in ipairs(cmd.cmds) do
-            c = ir.clean(c)
-            if c._tag == "ir.Cmd.Nop" then
-                -- skip
-            elseif c._tag == "ir.Cmd.Seq" then
-                for _, cc in ipairs(c.cmds) do
-                    table.insert(out, cc)
-                end
+-- Remove jumps that are never taken
+function ir.clean(func)
+    for _, block in ipairs(func.blocks) do
+        if block.jmp_false and block.jmp_false.src_condition._tag == "ir.Value.Bool" then
+            local val = block.jmp_false.src_condition.value
+            if val == true then
+                block.jmp_false = false
+            elseif val == false then
+                block.next = block.jmp_false.target
+                block.jmp_false = false
             else
-                table.insert(out, c)
+                assert(false, "if value is of type ir.Value.Bool then it should be true or false")
             end
         end
-        if     #out == 0 then
-            return ir.Cmd.Nop()
-        elseif #out == 1 then
-            return out[1]
-        else
-            return ir.Cmd.Seq(out)
-        end
-
-    elseif tag == "ir.Cmd.If" then
-        local v = cmd.src_condition
-        cmd.then_ = ir.clean(cmd.then_)
-        cmd.else_ = ir.clean(cmd.else_)
-        local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")
-        local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
-
-        if t_empty and e_empty then
-            return ir.Cmd.Nop()
-        elseif v._tag == "ir.Value.Bool" and v.value == true then
-            return cmd.then_
-        elseif v._tag == "ir.Value.Bool" and v.value == false then
-            return cmd.else_
-        else
-            return cmd
-        end
-
-    elseif tag == "ir.Cmd.Loop" then
-        cmd.body = ir.clean(cmd.body)
-        return cmd
-
-    elseif tag == "ir.Cmd.For" then
-        cmd.body = ir.clean(cmd.body)
-        return cmd
-
-    else
-        return cmd
     end
 end
 
 function ir.clean_all(module)
     for _, func in ipairs(module.functions) do
-        func.body = ir.clean(func.body)
+        ir.clean(func)
     end
 end
 
@@ -438,18 +369,11 @@ local function is_last_block_uninitialized(blocks)
     return not b.next and not b.jmp_false and #b.cmds == 0
 end
 
-local function finish_block(list)
-    local b = list[#list]
-    if not b.next then
-        b.next = #list + 1
-    end
-    table.insert(list, ir.BasicBlock())
-    return #list
-end
-
 local fill_blocks_with_cmd
 
 function fill_blocks_with_cmd(func, listb, cmd)
+    local JmpIfFalse = function() end
+    local finish_block = function() end
     local blocks = listb.block_list
     local break_stack = listb.break_stack
     local tag = cmd._tag
@@ -532,7 +456,7 @@ function fill_blocks_with_cmd(func, listb, cmd)
     end
 end
 
-local function add_ret_vars(func)
+function ir.add_ret_vars(func)
     for _,typ in ipairs(func.typ.ret_types) do
         local var = ir.add_local(func, false, typ)
         table.insert(func.ret_vars, var)
@@ -540,9 +464,11 @@ local function add_ret_vars(func)
 end
 
 function ir.generate_basic_blocks(module)
+    local finish_block = function() end
+    local add_ret_vars = function() end
     for _, func in ipairs(module.functions) do
         add_ret_vars(func)
-        local blocks = {}
+        local blocks = func.blocks
         table.insert(blocks, ir.BasicBlock()) -- first block must remain empty, it is the "entry"
                                               -- block used on the flow graph
         finish_block(blocks)
@@ -558,7 +484,6 @@ function ir.generate_basic_blocks(module)
             local ret_block = blocks[ret_id]
             ret_block.next = exit
         end
-        func.blocks = blocks
     end
 end
 

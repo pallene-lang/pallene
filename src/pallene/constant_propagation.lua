@@ -243,21 +243,24 @@ function constant_propagation.run(module)
             func.f_id_of_upvalue = new_f_id_of_upvalue
         end
 
-        ir.map_cmd(func.blocks, function(cmd)
-            local inputs = ir.get_value_field_names(cmd)
-            for _, src_field in ipairs(inputs.src) do
-                cmd[src_field] = updated_value(f_data, cmd[src_field])
-            end
+        for _,block in ipairs(func.blocks) do
+            for _,cmd in ipairs(block.cmds) do
+                local inputs = ir.get_value_field_names(cmd)
+                for _, src_field in ipairs(inputs.src) do
+                    cmd[src_field] = updated_value(f_data, cmd[src_field])
+                end
 
-            for _, src_field in ipairs(inputs.srcs) do
-                local srcs = cmd[src_field]
-                for i, value in ipairs(srcs) do
-                    srcs[i] = updated_value(f_data, value)
+                for _, src_field in ipairs(inputs.srcs) do
+                    local srcs = cmd[src_field]
+                    for i, value in ipairs(srcs) do
+                        srcs[i] = updated_value(f_data, value)
+                    end
                 end
             end
-
-            return false
-        end)
+            if block.jmp_false then
+                block.jmp_false.src_condition = updated_value(f_data, block.jmp_false.src_condition)
+            end
+        end
     end
 
     ir.clean_all(module)
