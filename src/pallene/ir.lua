@@ -104,6 +104,13 @@ function ir.arg_var(func, i)
     return i
 end
 
+function ir.add_ret_vars(func)
+    for _,typ in ipairs(func.typ.ret_types) do
+        local var = ir.add_local(func, false, typ)
+        table.insert(func.ret_vars, var)
+    end
+end
+
 --
 -- Pallene IR
 --
@@ -187,21 +194,11 @@ local ir_cmd_constructors = {
     --
     -- Control flow
     --
-    Nop        = {},
-    Seq        = {"cmds"},
-
     InitFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
                   "src_start", "src_limit", "src_step"},
 
     IterFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
                   "src_start", "src_limit", "src_step"},
-
-    Return     = {"loc", "srcs"},
-    Break      = {},
-    Loop       = {"body"},
-
-    If         = {"loc", "src_condition", "then_", "else_"},
-    For        = {"loc", "dst", "src_start", "src_limit", "src_step", "body"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -356,134 +353,6 @@ end
 function ir.clean_all(module)
     for _, func in ipairs(module.functions) do
         ir.clean(func)
-    end
-end
-
--- temporary stuff
--- convert legacy intermediate representation (i.r. tree) to list of basic blocks
-
-local types = require "pallene.types"
-
-local function is_last_block_uninitialized(blocks)
-    local b = blocks[#blocks]
-    return not b.next and not b.jmp_false and #b.cmds == 0
-end
-
-local fill_blocks_with_cmd
-
-function fill_blocks_with_cmd(func, listb, cmd)
-    local JmpIfFalse = function() end
-    local finish_block = function() end
-    local blocks = listb.block_list
-    local break_stack = listb.break_stack
-    local tag = cmd._tag
-    assert(tagged_union.typename(tag) == "ir.Cmd")
-    if tag == "ir.Cmd.Seq" then
-        for _, c in ipairs(cmd.cmds) do
-            fill_blocks_with_cmd(func, listb, c)
-        end
-    elseif tag == "ir.Cmd.If" then
-        local begin_if = #blocks
-        finish_block(blocks)
-        fill_blocks_with_cmd(func, listb, cmd.then_)
-        local end_then = #blocks
-        local begin_else = finish_block(blocks)
-        fill_blocks_with_cmd(func, listb, cmd.else_)
-        -- Only insert a new block if last block isn't empty. This saves us from having a bunch of
-        -- trailing empty blocks when making a chain of "elseif" statements
-        if not is_last_block_uninitialized(blocks) then
-            finish_block(blocks)
-        end
-        local end_if = #blocks
-
-        blocks[begin_if].jmp_false = JmpIfFalse(begin_else, cmd.src_condition)
-        blocks[end_then].next = end_if
-    elseif tag == "ir.Cmd.Break" then
-        local id = #blocks
-        finish_block(blocks)
-
-        -- Each loop has a corresponding list of block indices that use a break statement. The
-        -- different lists are kept on a stack that follows the nesting of the loops. After the
-        -- generation of the blocks for a certain loop, we traverse the corresponding loop's list
-        -- and set the right target for the blocks.
-        assert(#break_stack > 0)
-        local top_break_list = break_stack[#break_stack]
-        table.insert(top_break_list, id)
-    elseif tag == "ir.Cmd.Loop" then
-        local break_blocks = {}
-        table.insert(break_stack, break_blocks)
-
-        local begin_loop = finish_block(blocks)
-        fill_blocks_with_cmd(func, listb, cmd.body)
-        local end_loop = #blocks
-        local after_loop = finish_block(blocks)
-
-        blocks[end_loop].next = begin_loop
-        for _, index in ipairs(break_blocks) do
-            blocks[index].next = after_loop
-        end
-        table.remove(break_stack)
-    elseif tag == "ir.Cmd.For" then
-        local dest_var = cmd.dst
-        local dest_type = func.vars[dest_var].typ
-        local count = ir.add_local(func, false, dest_type)
-        local iter = ir.add_local(func, false, dest_type)
-        local cond_enter = ir.add_local(func, false, types.T.Boolean())
-        local cond_loop = ir.add_local(func, false, types.T.Boolean())
-        local init_for = ir.Cmd.InitFor(
-                cmd.loc, dest_var, cond_enter, iter, count,
-                cmd.src_start, cmd.src_limit, cmd.src_step)
-        local loop_cmd = ir.Cmd.Loop(ir.Cmd.Seq{
-            cmd.body,
-            ir.Cmd.IterFor(cmd.loc, dest_var, cond_loop, iter, count,
-                           cmd.src_start, cmd.src_limit, cmd.src_step),
-            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(cond_loop), ir.Cmd.Break(), ir.Cmd.Nop()),
-        })
-        local if_cmd = ir.Cmd.If(cmd.loc, ir.Value.LocalVar(cond_enter), loop_cmd, ir.Cmd.Nop())
-        fill_blocks_with_cmd(func, listb, init_for)
-        fill_blocks_with_cmd(func, listb, if_cmd)
-    elseif tag == "ir.Cmd.Return" then
-        assert(#cmd.srcs <= #func.ret_vars)
-        for i,src in ipairs(cmd.srcs) do
-            local v = func.ret_vars[i]
-            fill_blocks_with_cmd(func, listb, ir.Cmd.Move(cmd.loc, v, src))
-        end
-        table.insert(listb.ret_list, #blocks)
-        finish_block(blocks)
-    else
-        local current_block = blocks[#blocks]
-        table.insert(current_block.cmds, cmd)
-    end
-end
-
-function ir.add_ret_vars(func)
-    for _,typ in ipairs(func.typ.ret_types) do
-        local var = ir.add_local(func, false, typ)
-        table.insert(func.ret_vars, var)
-    end
-end
-
-function ir.generate_basic_blocks(module)
-    local finish_block = function() end
-    local add_ret_vars = function() end
-    for _, func in ipairs(module.functions) do
-        add_ret_vars(func)
-        local blocks = func.blocks
-        table.insert(blocks, ir.BasicBlock()) -- first block must remain empty, it is the "entry"
-                                              -- block used on the flow graph
-        finish_block(blocks)
-        local list_builder = {
-            block_list = blocks,
-            break_stack = {},
-            ret_list = {},
-        }
-        fill_blocks_with_cmd(func, list_builder, func.body)
-        local exit = finish_block(blocks) -- last block must be empty, it is the "exit" block
-                                          -- used on the flow graph
-        for _, ret_id in ipairs(list_builder.ret_list) do
-            local ret_block = blocks[ret_id]
-            ret_block.next = exit
-        end
     end
 end
 

@@ -473,9 +473,7 @@ function Coder:pallene_entry_point_definition(f_id)
         }));
 
         setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
-        if #func.typ.ret_types == 0 then
-            frameexit = "PALLENE_FRAMEEXIT();"
-        end
+        frameexit = "PALLENE_FRAMEEXIT();"
     end
 
     if slots_needed > 0 then
@@ -1676,35 +1674,8 @@ gen_cmd["Nop"] = function(self, _cmd, _func)
     return ""
 end
 
-gen_cmd["Return"] = function(self, cmd)
-    local frameexit = ""
-    if self.flags.use_traceback then
-        frameexit = "PALLENE_FRAMEEXIT();"
-    end
-
-    if #cmd.srcs == 0 then
-        return util.render([[ ${fexit}
-        return; ]], { fexit = frameexit })
-    else
-        -- We assign the dsts from right to left, in order to match Lua's semantics when a
-        -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
-        -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
-        local returns = {}
-        for i = #cmd.srcs, 2, -1 do
-            local src = self:c_value(cmd.srcs[i])
-            table.insert(returns,
-                util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = src }))
-        end
-        local src1 = self:c_value(cmd.srcs[1])
-        table.insert(returns, util.render([[ ${fexit}
-        return $v; ]], { fexit = frameexit, v = src1 }))
-        return table.concat(returns, "\n")
-    end
-end
-
 gen_cmd["InitFor"] = function(self, cmd, func)
     local typ = func.vars[cmd.dst_i].typ
-
     local macro
     if     typ._tag == "types.T.Integer" then
         macro = "PALLENE_INT_INIT_FOR_LOOP"
