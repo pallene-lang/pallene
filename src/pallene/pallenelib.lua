@@ -983,60 +983,49 @@ static void pallene_io_write(lua_State *L, TString *str)
 /* To avoid looping infinitely due to integer overflow, lua 5.4 carefully computes the number of
  * iterations before starting the loop (see op_forprep). the code that implements this behavior does
  * not look like a regular c for loop, so to help improve the readability of the generated c code we
- * hide it behind the following set of macros. note that some of the open braces in the begin macro
- * are only closed in the end macro, so they must always be used together. we assume that the c
- * compiler will be able to optimize the common case where the step parameter is a compile-time
- * constant. */
+ * hide it behind the following set of macros. we assume that the c compiler will be able to
+ * optimize the common case where the step parameter is a compile-time constant. */
 
-#define PALLENE_INT_FOR_LOOP_BEGIN(i, A, B, C) \
+#define PALLENE_INT_INIT_FOR_LOOP(i_, cond_, itervar_, count_, A, B, C) \
     { \
-        lua_Integer _init  = A; \
-        lua_Integer _limit = B; \
-        lua_Integer _step  = C; \
+        lua_Integer _start  = A; \
+        lua_Integer _limit  = B; \
+        lua_Integer _step   = C; \
         if (_step == 0 ) { \
             luaL_error(L, "'for' step is zero"); \
         } \
-        if (_step > 0 ? (_init <= _limit) : (_init >= _limit)) {        \
-            lua_Unsigned _uinit  = l_castS2U(_init);                    \
-            lua_Unsigned _ulimit = l_castS2U(_limit);                   \
-            lua_Unsigned _count = ( _step > 0                           \
-                ? (_ulimit - _uinit) / _step                            \
-                : (_uinit - _ulimit) / (l_castS2U(-(_step + 1)) + 1u)); \
-            lua_Integer _loopvar = _init; \
-            while (1) { \
-                i = _loopvar; \
-                {
-                    /* Loop body goes here*/
-
-#define PALLENE_INT_FOR_LOOP_END \
-                } \
-                if (_count == 0) break; \
-                _loopvar += _step; \
-                _count -= 1; \
-            } \
-        } \
+        cond_ = _step > 0 ? (_start <= _limit) : (_start >= _limit); \
+        count_ = ( _step > 0 \
+            ? (l_castS2U(_limit) - l_castS2U(_start)) / _step \
+            : (l_castS2U(_start) - l_castS2U(_limit)) / (l_castS2U(-(_step + 1)) + 1u)); \
+        i_ = itervar_ = _start; \
     }
 
+#define PALLENE_INT_ITER_FOR_LOOP(i_, cond_, itervar_, count_, start_, limit_, step_) \
+    cond_    = (count_ == 0); \
+    itervar_ = l_castS2U(itervar_) + l_castS2U(step_); \
+    i_       = itervar_; \
+    count_   = l_castS2U(count_) - 1llu;
 
-#define PALLENE_FLT_FOR_LOOP_BEGIN(i, A, B, C) \
+#define PALLENE_FLT_INIT_FOR_LOOP(i_, cond_, itervar_, count_, A, B, C) \
     { \
-        lua_Number _init  = A; \
-        lua_Number _limit = B; \
-        lua_Number _step  = C; \
-        if (_step == 0.0) { \
+        lua_Number _start  = A; \
+        lua_Number _limit  = B; \
+        lua_Number _step   = C; \
+        if (_step == 0 ) { \
             luaL_error(L, "'for' step is zero"); \
         } \
-        for ( \
-            lua_Number _loopvar = _init; \
-            (_step > 0.0 ? (_loopvar <= _limit) : (_loopvar >= _limit)); \
-            _loopvar += _step \
-        ){ \
-            i = _loopvar;
-            /* Loop body goes here*/
-
-#define PALLENE_FLT_FOR_LOOP_END \
-        } \
+        cond_ = _step > 0 ? (_start <= _limit) : (_start >= _limit); \
+        i_ = itervar_ = _start; \
     }
 
+#define PALLENE_FLT_ITER_FOR_LOOP(i_, cond_, itervar_, count_, A, B, C) \
+    { \
+        lua_Number _limit  = B; \
+        lua_Number _step   = C; \
+        itervar_ += _step; \
+        i_       = itervar_; \
+        cond_ = _step > 0.0 ? (itervar_ > _limit) : (itervar_ < _limit); \
+    }
 
 ]==]

@@ -373,6 +373,10 @@ function Coder:c_value(value)
     end
 end
 
+function Coder:c_label(index)
+    return "L" .. index
+end
+
 -- The information for creating a C local var for a given Pallene local var.
 function Coder:prepare_local_var(func, v_id)
     local c_name = self:c_var(v_id)
@@ -502,7 +506,7 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, decl..initializer..";"..comment)
     end
 
-    local body = self:generate_cmd(func, func.body)
+    local body = self:generate_blocks(func)
 
     return (util.render([[
         ${name_comment}
@@ -1652,14 +1656,6 @@ gen_cmd["Nop"] = function(self, _cmd, _func)
     return ""
 end
 
-gen_cmd["Seq"] = function(self, cmd, func)
-    local out = {}
-    for _, c in ipairs(cmd.cmds) do
-        table.insert(out, self:generate_cmd(func, c))
-    end
-    return table.concat(out, "\n")
-end
-
 gen_cmd["Return"] = function(self, cmd)
     local frameexit = ""
     if self.flags.use_traceback then
@@ -1686,90 +1682,86 @@ gen_cmd["Return"] = function(self, cmd)
     end
 end
 
-gen_cmd["Break"] = function(self, _cmd, _func)
-    return [[ break; ]]
-end
-
-gen_cmd["If"] = function(self, cmd, func)
-    local condition = self:c_value(cmd.src_condition)
-    local then_ = self:generate_cmd(func, cmd.then_)
-    local else_ = self:generate_cmd(func, cmd.else_)
-
-    local A = (then_ ~= "")
-    local B = (else_ ~= "")
-
-    local tmpl
-    if A and (not B) then
-        tmpl = [[
-            if ($condition) {
-                ${then_}
-            }
-        ]]
-    elseif (not A) and B then
-        tmpl = [[
-            if (!$condition) {
-                ${else_}
-            }
-        ]]
-    else
-        tmpl = [[
-            if ($condition) {
-                ${then_}
-            } else {
-                ${else_}
-            }
-        ]]
-    end
-
-    return util.render(tmpl, {
-        condition = condition,
-        then_ = then_,
-        else_ = else_,
-    })
-end
-
-gen_cmd["Loop"] = function(self, cmd, func)
-    local body = self:generate_cmd(func, cmd.body)
-    return (util.render([[
-        while (1) {
-            ${body}
-        }
-    ]], {
-        body = body
-    }))
-end
-
-gen_cmd["For"] = function(self, cmd, func)
-    local typ = func.vars[cmd.dst].typ
+gen_cmd["InitFor"] = function(self, cmd, func)
+    local typ = func.vars[cmd.dst_i].typ
 
     local macro
     if     typ._tag == "types.T.Integer" then
-        macro = "PALLENE_INT_FOR_LOOP"
+        macro = "PALLENE_INT_INIT_FOR_LOOP"
     elseif typ._tag == "types.T.Float" then
-        macro = "PALLENE_FLT_FOR_LOOP"
+        macro = "PALLENE_FLT_INIT_FOR_LOOP"
     else
         tagged_union.error(typ._tag)
     end
 
     return (util.render([[
-        ${macro}_BEGIN($x, $start, $limit, $step)
-        {
-            $body
-        }
-        ${macro}_END
+        ${macro}($i, $cond, $iter, $count, $start, $limit, $step)
     ]], {
         macro = macro,
-        x     = self:c_var(cmd.dst),
+        i     = self:c_var(cmd.dst_i),
+        cond  = self:c_var(cmd.dst_cond),
+        iter  = self:c_var(cmd.dst_iter),
+        count = self:c_var(cmd.dst_count),
         start = self:c_value(cmd.src_start),
         limit = self:c_value(cmd.src_limit),
         step  = self:c_value(cmd.src_step),
-        body  = self:generate_cmd(func, cmd.body)
+    }))
+end
+
+gen_cmd["IterFor"] = function(self, cmd, func)
+    local typ = func.vars[cmd.dst_i].typ
+
+    local macro
+    if     typ._tag == "types.T.Integer" then
+        macro = "PALLENE_INT_ITER_FOR_LOOP"
+    elseif typ._tag == "types.T.Float" then
+        macro = "PALLENE_FLT_ITER_FOR_LOOP"
+    else
+        tagged_union.error(typ._tag)
+    end
+
+    return (util.render([[
+        ${macro}($i, $cond, $iter, $count, $start, $limit, $step)
+    ]], {
+        macro = macro,
+        i     = self:c_var(cmd.dst_i),
+        cond  = self:c_var(cmd.dst_cond),
+        iter  = self:c_var(cmd.dst_iter),
+        count = self:c_var(cmd.dst_count),
+        start = self:c_value(cmd.src_start),
+        limit = self:c_value(cmd.src_limit),
+        step  = self:c_value(cmd.src_step),
     }))
 end
 
 gen_cmd["CheckGC"] = function(self, cmd, func)
     return util.render([[ luaC_condGC(L, ${update_stack_top}, (void)0); ]], {
         update_stack_top = self:update_stack_top(func, cmd) })
+end
+
+function Coder:generate_blocks(func)
+    local out = ""
+    for i,block in ipairs(func.blocks) do
+        -- putting a "(void)0" at the label so compiler doesn't complain about dangling labels
+        local content = self:c_label(i) .. ":(void)0;\n"
+        for _,cmd in ipairs(block.cmds) do
+            content = content .. self:generate_cmd(func, cmd) .. "\n"
+        end
+        local jump_cond = ""
+        if block.jmp_false then
+            jump_cond = util.render("if(!($v)) {goto $l;}\n", {
+                v = self:c_value(block.jmp_false.src_condition),
+                l = self:c_label(block.jmp_false.target),
+            })
+        end
+        local jump = ""
+        if block.next and block.next ~= i + 1 then
+            jump = "goto " .. self:c_label(block.next) .. ";\n"
+        end
+        content = content .. jump_cond .. jump
+        out = out .. content
+    end
+    return out
 end
 
 function Coder:generate_cmd(func, cmd)

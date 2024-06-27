@@ -167,8 +167,6 @@ local ir_cmd_constructors = {
     CallStatic  = {"loc", "f_typ", "dsts", "src_f", "srcs"},
     CallDyn     = {"loc", "f_typ", "dsts", "src_f", "srcs"},
 
-    RuntimeError = {"loc", "msg"},
-
     -- Builtin operations
     BuiltinIoWrite    = {"loc",         "srcs"},
     BuiltinMathAbs    = {"loc", "dsts", "srcs"},
@@ -191,6 +189,12 @@ local ir_cmd_constructors = {
     --
     Nop        = {},
     Seq        = {"cmds"},
+
+    InitFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
+                  "src_start", "src_limit", "src_step"},
+
+    IterFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
+                  "src_start", "src_limit", "src_step"},
 
     Return     = {"loc", "srcs"},
     Break      = {},
@@ -442,8 +446,8 @@ function fill_blocks_with_cmd(func, listb, cmd)
     elseif tag == "ir.Cmd.If" then
         local begin_if = #blocks
         finish_block(blocks)
-        local end_then = #blocks
         fill_blocks_with_cmd(func, listb, cmd.then_)
+        local end_then = #blocks
         local begin_else = finish_block(blocks)
         fill_blocks_with_cmd(func, listb, cmd.else_)
         -- Only insert a new block if last block isn't empty. This saves us from having a bunch of
@@ -479,43 +483,26 @@ function fill_blocks_with_cmd(func, listb, cmd)
         for _, index in ipairs(break_blocks) do
             blocks[index].next = after_loop
         end
+        table.remove(break_stack)
     elseif tag == "ir.Cmd.For" then
-        local iter_var = cmd.dst
-        local iter_src = ir.Value.LocalVar(iter_var)
-        local step_zero = ir.add_local(func, false, types.T.Boolean())
-        local init_seq = ir.Cmd.Seq {
-            ir.Cmd.Move(cmd.loc, iter_var, cmd.src_start),
-            ir.Cmd.Binop(cmd.loc, step_zero, "IntEq", cmd.src_step, ir.Value.Integer(0)),
-            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(step_zero),
-                      ir.Cmd.RuntimeError(cmd.loc, "'for' step is zero"), ir.Cmd.Nop()),
-        }
-        local iter_type = func.vars[iter_var].typ
-        local max_var = ir.add_local(func, false, iter_type)
-        local min_var = ir.add_local(func, false, iter_type)
-        local step_sign = ir.add_local(func, false, types.T.Boolean())
-        local loop_test_var = ir.add_local(func, false, types.T.Boolean())
-        local loop_seq = ir.Cmd.Seq {
-            ir.Cmd.Binop(cmd.loc, step_sign, "IntGeq", cmd.src_step, ir.Value.Integer(0)),
-            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(step_sign),
-                      ir.Cmd.Seq {
-                          ir.Cmd.Move(cmd.loc, max_var, cmd.src_limit),
-                          ir.Cmd.Move(cmd.loc, min_var, iter_src),
-                      },
-                      ir.Cmd.Seq {
-                          ir.Cmd.Move(cmd.loc, max_var, iter_src),
-                          ir.Cmd.Move(cmd.loc, min_var, cmd.src_limit),
-                      }),
-            ir.Cmd.Binop(cmd.loc, loop_test_var, "IntGt",
-                         ir.Value.LocalVar(min_var), ir.Value.LocalVar(max_var)),
-            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(loop_test_var),
-                      ir.Cmd.Break(), ir.Cmd.Nop()),
+        local dest_var = cmd.dst
+        local dest_type = func.vars[dest_var].typ
+        local count = ir.add_local(func, false, dest_type)
+        local iter = ir.add_local(func, false, dest_type)
+        local cond_enter = ir.add_local(func, false, types.T.Boolean())
+        local cond_loop = ir.add_local(func, false, types.T.Boolean())
+        local init_for = ir.Cmd.InitFor(
+                cmd.loc, dest_var, cond_enter, iter, count,
+                cmd.src_start, cmd.src_limit, cmd.src_step)
+        local loop_cmd = ir.Cmd.Loop(ir.Cmd.Seq{
             cmd.body,
-            ir.Cmd.Binop(cmd.loc, iter_var, "IntAdd", iter_src, cmd.src_step),
-        }
-        local loop_cmd = ir.Cmd.Loop(loop_seq)
-
-        fill_blocks_with_cmd(func, listb, init_seq)
-        fill_blocks_with_cmd(func, listb, loop_cmd)
+            ir.Cmd.IterFor(cmd.loc, dest_var, cond_loop, iter, count,
+                           cmd.src_start, cmd.src_limit, cmd.src_step),
+            ir.Cmd.If(cmd.loc, ir.Value.LocalVar(cond_loop), ir.Cmd.Break(), ir.Cmd.Nop()),
+        })
+        local if_cmd = ir.Cmd.If(cmd.loc, ir.Value.LocalVar(cond_enter), loop_cmd, ir.Cmd.Nop())
+        fill_blocks_with_cmd(func, listb, init_for)
+        fill_blocks_with_cmd(func, listb, if_cmd)
     else
         local current_block = blocks[#blocks]
         table.insert(current_block.cmds, cmd)
