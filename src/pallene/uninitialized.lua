@@ -22,7 +22,6 @@ local uninitialized = {}
 local function TState() -- Transfer State
     return {
         uninit = {},              -- list of booleans
-        falls_through = false,    -- boolean
     }
 end
 
@@ -31,7 +30,6 @@ local function copy_state(A)
     for v, _ in pairs(A.uninit) do
         B.uninit[v] = true
     end
-    B.falls_through = A.falls_through
     return B
 end
 
@@ -39,7 +37,6 @@ local function merge_state(A, B)
     for v, _ in pairs(B.uninit) do
         A.uninit[v] = true
     end
-    A.falls_through = A.falls_through or B.falls_through
 end
 
 local function test(cmd, state)
@@ -60,12 +57,6 @@ local function test(cmd, state)
         for _, v_id in ipairs(ir.get_dsts(cmd)) do
             state.uninit[v_id] = nil
         end
-    end
-
-    if cmd._tag == "ir.Cmd.Return" then
-        state.falls_through = false
-    else
-        state.falls_through = true
     end
 end
 
@@ -104,7 +95,6 @@ function uninitialized.verify_variables(module)
 
         local nvars = #func.vars
         local nargs = #func.typ.arg_types
-        local nret  = #func.typ.ret_types
 
         local states = {}
         for b_i = 1, #func.blocks do
@@ -136,9 +126,12 @@ function uninitialized.verify_variables(module)
         end
 
         local exit = states[#func.blocks]
-        if exit.falls_through and nret > 0 then
-            table.insert(errors, func.loc:format_error(
-                "control reaches end of function with non-empty return type"))
+        if #func.ret_vars > 0 then
+            local ret1 = func.ret_vars[1]
+            if exit.uninit[ret1] then
+                table.insert(errors, func.loc:format_error(
+                    "control reaches end of function with non-empty return type"))
+            end
         end
     end
 

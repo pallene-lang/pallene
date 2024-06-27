@@ -53,6 +53,7 @@ function ir.Function(loc, name, typ)
         f_id_of_local = {},   -- { v_id => integer }
         body = false,         -- ir.Cmd
         blocks = false,       -- list of ir.BasicBlock
+        ret_vars = {},        -- list of id's of return variables
     }
 end
 
@@ -503,14 +504,30 @@ function fill_blocks_with_cmd(func, listb, cmd)
         local if_cmd = ir.Cmd.If(cmd.loc, ir.Value.LocalVar(cond_enter), loop_cmd, ir.Cmd.Nop())
         fill_blocks_with_cmd(func, listb, init_for)
         fill_blocks_with_cmd(func, listb, if_cmd)
+    elseif tag == "ir.Cmd.Return" then
+        assert(#cmd.srcs <= #func.ret_vars)
+        for i,src in ipairs(cmd.srcs) do
+            local v = func.ret_vars[i]
+            fill_blocks_with_cmd(func, listb, ir.Cmd.Move(cmd.loc, v, src))
+        end
+        table.insert(listb.ret_list, #blocks)
+        finish_block(blocks)
     else
         local current_block = blocks[#blocks]
         table.insert(current_block.cmds, cmd)
     end
 end
 
+local function add_ret_vars(func)
+    for _,typ in ipairs(func.typ.ret_types) do
+        local var = ir.add_local(func, false, typ)
+        table.insert(func.ret_vars, var)
+    end
+end
+
 function ir.generate_basic_blocks(module)
     for _, func in ipairs(module.functions) do
+        add_ret_vars(func)
         local blocks = {}
         table.insert(blocks, ir.BasicBlock()) -- first block must remain empty, it is the "entry"
                                               -- block used on the flow graph
@@ -518,10 +535,15 @@ function ir.generate_basic_blocks(module)
         local list_builder = {
             block_list = blocks,
             break_stack = {},
+            ret_list = {},
         }
         fill_blocks_with_cmd(func, list_builder, func.body)
-        finish_block(blocks) -- last block must be empty, it is the "exit" block
-                             -- used on the flow graph
+        local exit = finish_block(blocks) -- last block must be empty, it is the "exit" block
+                                          -- used on the flow graph
+        for _, ret_id in ipairs(list_builder.ret_list) do
+            local ret_block = blocks[ret_id]
+            ret_block.next = exit
+        end
         func.blocks = blocks
     end
 end

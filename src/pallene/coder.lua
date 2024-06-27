@@ -462,7 +462,7 @@ function Coder:pallene_entry_point_definition(f_id)
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
 
     local setline = ""
-    local void_frameexit = ""
+    local frameexit = ""
     if self.flags.use_traceback then
         table.insert(prologue, util.render([[
             /**/
@@ -473,9 +473,8 @@ function Coder:pallene_entry_point_definition(f_id)
         }));
 
         setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
-
         if #func.typ.ret_types == 0 then
-            void_frameexit = "PALLENE_FRAMEEXIT();"
+            frameexit = "PALLENE_FRAMEEXIT();"
         end
     end
 
@@ -494,7 +493,6 @@ function Coder:pallene_entry_point_definition(f_id)
     table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
 
-
     for v_id = #arg_types + 1, #func.vars do
         -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
         -- "Any". Nils and Booleans only set the type tag of the TValue and leave the "._value"
@@ -508,20 +506,42 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local body = self:generate_blocks(func)
 
+    local ret_mult = ""
+    local ret = ""
+    if #func.ret_vars > 0 then
+        -- We assign the dsts from right to left, in order to match Lua's semantics when a
+        -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
+        -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
+        local returns = {}
+        for i = #func.ret_vars, 2, -1 do
+            local var = self:c_var(func.ret_vars[i])
+            table.insert(returns,
+                util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
+        end
+        ret_mult = table.concat(returns, "\n")
+
+        local var1 = self:c_var(func.ret_vars[1])
+        ret = "return " .. var1 .. ";"
+    end
+
     return (util.render([[
         ${name_comment}
         ${fun_decl} {
             ${prologue}
             /**/
             ${body}
-            ${void_fe}
+            ${ret_mult}
+            ${frameexit}
+            ${ret}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         prologue = table.concat(prologue, "\n"),
         body = body,
-        void_fe = void_frameexit
+        ret_mult = ret_mult,
+        frameexit = frameexit,
+        ret = ret,
     }))
 end
 
