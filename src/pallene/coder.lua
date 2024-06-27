@@ -749,7 +749,7 @@ function Coder:init_upvalues()
 
     -- String Literals
     for _, func in ipairs(self.module.functions) do
-        for cmd in ir.iter(func.body) do
+        for cmd in ir.iter(func.blocks) do
             for _, v in ipairs(ir.get_srcs(cmd)) do
                 if v._tag == "ir.Value.String" then
                     local str = v.value
@@ -953,7 +953,7 @@ function Coder:init_gc()
 
     for _, func in ipairs(self.module.functions) do
         local max = 0
-        for cmd in ir.iter(func.body) do
+        for cmd in ir.iter(func.blocks) do
             if cmd._tag == "ir.Cmd.CallDyn" then
                 -- Although in the end the fn call leaves only ndst items in
                 -- the stack, we actually need ndst+1 to appease the apicheck

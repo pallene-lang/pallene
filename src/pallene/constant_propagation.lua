@@ -81,7 +81,7 @@ function constant_propagation.run(module)
         -- pass takes care of variables that are used before being initialized.
         local f_data = assert(data_of_func[f_id])
 
-        for cmd in ir.iter(func.body) do
+        for cmd in ir.iter(func.blocks) do
             local tag = cmd._tag
             if     tag == "ir.Cmd.Move" then
                 local id = cmd.dst
@@ -123,7 +123,7 @@ function constant_propagation.run(module)
         local f_data   = assert(data_of_func[f_id])
         local n_writes = f_data.n_writes_of_locvar
 
-        for cmd in ir.iter(func.body) do
+        for cmd in ir.iter(func.blocks) do
             local tag = cmd._tag
             if tag == "ir.Cmd.InitUpvalues" then
                 local next_f = assert(data_of_func[cmd.f_id])
@@ -159,7 +159,7 @@ function constant_propagation.run(module)
         --         x1 <- 20
         --     }
         --
-        for cmd in ir.iter(func.body) do
+        for cmd in ir.iter(func.blocks) do
             local tag = cmd._tag
             if tag == "ir.Cmd.InitUpvalues" then
                 local next_f = assert(data_of_func[cmd.f_id])
@@ -178,7 +178,7 @@ function constant_propagation.run(module)
     --
 
     for _, func in ipairs(module.functions) do
-        for cmd in ir.iter(func.body) do
+        for cmd in ir.iter(func.blocks) do
             if cmd._tag == "ir.Cmd.InitUpvalues" then
                 local next_f   = assert(data_of_func[cmd.f_id])
                 local new_u_id = next_f.new_upvalue_id
@@ -243,7 +243,7 @@ function constant_propagation.run(module)
             func.f_id_of_upvalue = new_f_id_of_upvalue
         end
 
-        func.body = ir.map_cmd(func.body, function(cmd)
+        ir.map_cmd(func.blocks, function(cmd)
             local inputs = ir.get_value_field_names(cmd)
             for _, src_field in ipairs(inputs.src) do
                 cmd[src_field] = updated_value(f_data, cmd[src_field])

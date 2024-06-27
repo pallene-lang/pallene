@@ -281,8 +281,56 @@ function ir.BasicBlock()
     }
 end
 
+-- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
+-- returned list might be smaller than the block list.
+function ir.get_depth_search_topological_sort(block_list)
+    local order = {}
+    local visited = {}
+    for i,_ in ipairs(block_list) do
+        visited[i] = false
+    end
+    local function depth_search(block_i)
+        if not visited[block_i] then
+            visited[block_i] = true
+            local block = block_list[block_i]
+            if block.next  then
+                depth_search(block.next)
+            end
+            if block.jmp_false  then
+                depth_search(block.jmp_false.target)
+            end
+            order[#order + 1] = block_i
+        end
+    end
+
+    depth_search(1)
+    -- The actual block order is the reverse of what was calculated so far. We could have calculated
+    -- the right order from the start, but the existence of unreacheable blocks makes it harder than
+    -- usual. Hence why we're doing it this way.
+    local actual_order = {}
+    for i = #order, 1, -1 do
+        table.insert(actual_order, order[i])
+    end
+
+    return actual_order
+end
+
+-- Iterate over the cmds of basic blocks.
+function ir.iter(block_list)
+    local order = ir.get_depth_search_topological_sort(block_list)
+    local function go()
+        for _,block_i in ipairs(order) do
+            local block = block_list[block_i]
+            for _, cmd in ipairs(block.cmds) do
+                coroutine.yield(cmd)
+            end
+        end
+    end
+    return coroutine.wrap(function() go() end)
+end
+
 -- Iterate over the cmds with a pre-order traversal.
-function ir.iter(root_cmd)
+function ir.old_iter(root_cmd)
 
     local function go(cmd)
         coroutine.yield(cmd)
@@ -309,40 +357,34 @@ function ir.iter(root_cmd)
     end)
 end
 
-function ir.flatten_cmd(root_cmd)
+function ir.flatten_cmd(block_list)
     local res = {}
-    for cmd in ir.iter(root_cmd) do
+    for cmd in ir.old_iter(block_list) do
         table.insert(res, cmd)
     end
     return res
 end
 
 -- Transform an ir.Cmd, via a mapping function that modifies individual nodes.
--- Returns the new root node. Child nodes are modified in-place.
 -- If the mapping function returns a falsy value, the original version of the node is kept.
-function ir.map_cmd(root_cmd, f)
-    local function go(cmd)
-        -- Transform child nodes recursively
-        local tag = cmd._tag
-        if     tag == "ir.Cmd.Seq" then
-            for i = 1, #cmd.cmds do
-                cmd.cmds[i] = go(cmd.cmds[i])
-            end
-        elseif tag == "ir.Cmd.If" then
-            cmd.then_ = go(cmd.then_)
-            cmd.else_ = go(cmd.else_)
-        elseif tag == "ir.Cmd.Loop" then
-            cmd.body = go(cmd.body)
-        elseif tag == "ir.Cmd.For" then
-            cmd.body = go(cmd.body)
-        else
-            -- no child nodes
-        end
-
-        -- Transform parent node
-        return f(cmd) or cmd
+function ir.map_cmd(block_list, f)
+    local visited = {}
+    for i = 1, #block_list do
+        visited[i] = false
     end
-    return go(root_cmd)
+    local function go(block_id)
+        if visited[block_id] then
+            return
+        end
+        visited[block_id] = true
+        local block = block_list[block_id]
+        for i,cmd in ipairs(block.cmds) do
+            block.cmds[i] = f(cmd) or cmd
+        end
+        if block.next then go(block.next) end
+        if block.jmp_false then go(block.jmp_false.target) end
+    end
+    go(1)
 end
 
 -- Remove some kinds of silly control flow

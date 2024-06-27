@@ -42,23 +42,42 @@ end
 
 local function flow_analysis(block_list, uninit_sets, kill_sets)
     local function merge_uninit(A, B, kill)
+        local changed = false
         for v, _ in pairs(B) do
             if not kill[v] then
+                if not A[v] then
+                    changed = true
+                end
                 A[v] = true
             end
         end
+        return changed
     end
 
-    for i,block in ipairs(block_list) do
-        local uninit = uninit_sets[i]
-        local kill = kill_sets[i]
-        if(block.next and block.next > i) then
-            merge_uninit(uninit_sets[block.next], uninit, kill)
+    local block_order = ir.get_depth_search_topological_sort(block_list)
+
+    local function block_analysis(block_i)
+        local block = block_list[block_i]
+        local uninit = uninit_sets[block_i]
+        local kill = kill_sets[block_i]
+        local changed = false
+        if block.next  then
+            local c = merge_uninit(uninit_sets[block.next], uninit, kill)
+            changed = c or changed
         end
-        if(block.jmp_false and block.jmp_false.target > i) then
-            merge_uninit(uninit_sets[block.jmp_false.target], uninit, kill)
+        if block.jmp_false  then
+            local c = merge_uninit(uninit_sets[block.jmp_false.target], uninit, kill)
+            changed = c or changed
         end
+        return changed
     end
+
+    repeat
+        local changed = false
+        for _,block_i in ipairs(block_order) do
+            changed = block_analysis(block_i) or changed
+        end
+    until not changed
 end
 
 local function check_uninit(block, input_uninit)
@@ -89,6 +108,7 @@ function uninitialized.verify_variables(module)
         local nvars = #func.vars
         local nargs = #func.typ.arg_types
 
+        -- initialize sets
         local kill_sets = {}
         local uninit_sets = {}
         for _,b in ipairs(func.blocks) do
@@ -101,8 +121,10 @@ function uninitialized.verify_variables(module)
             entry_uninit[v_i] = true
         end
 
+        -- solve flow equations
         flow_analysis(func.blocks, uninit_sets, kill_sets)
 
+        -- check for errors
         local check = coroutine.wrap(function()
             for i,b in ipairs(func.blocks) do
                 local uninit = uninit_sets[i]
