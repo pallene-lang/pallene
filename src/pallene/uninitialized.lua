@@ -12,42 +12,22 @@
 -- presence of `while true` loops.
 --
 -- `uninit` is the set of variables that are potentially uninitialized.
+-- `kill` is the set of variables that are initialized at a given block.
 
 local ir = require "pallene.ir"
 local tagged_union = require "pallene.tagged_union"
 
 local uninitialized = {}
 
-
-local function TState() -- Transfer State
-    return {
-        uninit = {},              -- list of booleans
-    }
-end
-
-local function copy_state(A)
-    local B = TState()
-    for v, _ in pairs(A.uninit) do
-        B.uninit[v] = true
-    end
-    return B
-end
-
-local function merge_state(A, B)
-    for v, _ in pairs(B.uninit) do
-        A.uninit[v] = true
-    end
-end
-
-local function test(cmd, state)
+local function fill_set(cmd, set, val)
     assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
-    for _, val in ipairs(ir.get_srcs(cmd)) do
-        if val._tag == "ir.Value.LocalVar" then
+    for _, src in ipairs(ir.get_srcs(cmd)) do
+        if src._tag == "ir.Value.LocalVar" then
             -- `SetField` instructions can count as initializers when the target is an
             -- upvalue box. This is because upvalue boxes are allocated, but not initialized
             -- upon declaration.
             if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box then
-                state.uninit[val.id] = nil
+                set[src.id] = val
             end
         end
     end
@@ -55,36 +35,49 @@ local function test(cmd, state)
     -- Artificial initializers introduced by the compilers do not count.
     if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
         for _, v_id in ipairs(ir.get_dsts(cmd)) do
-            state.uninit[v_id] = nil
+            set[v_id] = val
         end
     end
 end
 
-local function flow_analysis(block_list, state_list)
-    for i,block in ipairs(block_list) do
-        local state = copy_state(state_list[i])
-        for _,cmd in ipairs(block.cmds) do
-            test(cmd, state)
-        end
-        if(block.next and block.next > i) then
-            merge_state(state_list[block.next], state)
-        end
-        if(block.jmp_false and block.jmp_false.target > i) then
-            merge_state(state_list[block.jmp_false.target], state)
-        end
-    end
-end
-
-local function check_uninit(block, input_state)
-    local state = copy_state(input_state)
-    for _,cmd in ipairs(block.cmds) do
-        test(cmd,state)
-        for _, val in ipairs(ir.get_srcs(cmd)) do
-            if val._tag == "ir.Value.LocalVar" and state.uninit[val.id] then
-                coroutine.yield({v = val.id, loc = cmd.loc})
+local function flow_analysis(block_list, uninit_sets, kill_sets)
+    local function merge_uninit(A, B, kill)
+        for v, _ in pairs(B) do
+            if not kill[v] then
+                A[v] = true
             end
         end
     end
+
+    for i,block in ipairs(block_list) do
+        local uninit = uninit_sets[i]
+        local kill = kill_sets[i]
+        if(block.next and block.next > i) then
+            merge_uninit(uninit_sets[block.next], uninit, kill)
+        end
+        if(block.jmp_false and block.jmp_false.target > i) then
+            merge_uninit(uninit_sets[block.jmp_false.target], uninit, kill)
+        end
+    end
+end
+
+local function check_uninit(block, input_uninit)
+    for _,cmd in ipairs(block.cmds) do
+        fill_set(cmd, input_uninit, nil)
+        for _, src in ipairs(ir.get_srcs(cmd)) do
+            if src._tag == "ir.Value.LocalVar" and input_uninit[src.id] then
+                coroutine.yield({v = src.id, loc = cmd.loc})
+            end
+        end
+    end
+end
+
+local function gen_kill_set(block)
+    local kill = {}
+    for _,cmd in ipairs(block.cmds) do
+        fill_set(cmd, kill, true)
+    end
+    return kill
 end
 
 function uninitialized.verify_variables(module)
@@ -96,21 +89,24 @@ function uninitialized.verify_variables(module)
         local nvars = #func.vars
         local nargs = #func.typ.arg_types
 
-        local states = {}
-        for b_i = 1, #func.blocks do
-            states[b_i] = TState()
+        local kill_sets = {}
+        local uninit_sets = {}
+        for _,b in ipairs(func.blocks) do
+            local kill = gen_kill_set(b)
+            table.insert(kill_sets, kill)
+            table.insert(uninit_sets, {})
         end
-        local entry = states[1]
+        local entry_uninit = uninit_sets[1]
         for v_i = nargs+1, nvars do
-            entry.uninit[v_i] = true
+            entry_uninit[v_i] = true
         end
 
-        flow_analysis(func.blocks, states)
+        flow_analysis(func.blocks, uninit_sets, kill_sets)
 
         local check = coroutine.wrap(function()
             for i,b in ipairs(func.blocks) do
-                local st = states[i]
-                check_uninit(b, st)
+                local uninit = uninit_sets[i]
+                check_uninit(b, uninit)
             end
         end)
 
@@ -125,10 +121,11 @@ function uninitialized.verify_variables(module)
             end
         end
 
-        local exit = states[#func.blocks]
+        local exit_uninit = uninit_sets[#func.blocks]
         if #func.ret_vars > 0 then
             local ret1 = func.ret_vars[1]
-            if exit.uninit[ret1] then
+            if exit_uninit[ret1] then
+                assert(func.loc)
                 table.insert(errors, func.loc:format_error(
                     "control reaches end of function with non-empty return type"))
             end
