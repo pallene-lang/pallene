@@ -302,21 +302,19 @@ function ir.get_depth_search_topological_sort(block_list)
     depth_search(1)
     -- The actual block order is the reverse of what was calculated so far. We could have calculated
     -- the right order from the start, but the existence of unreacheable blocks makes it harder than
-    -- usual. Hence why we're doing it this way.
-    local actual_order = {}
+    -- usual (hence why we're doing it this way).
+    local reverse_order = {}
     for i = #order, 1, -1 do
-        table.insert(actual_order, order[i])
+        table.insert(reverse_order, order[i])
     end
 
-    return actual_order
+    return reverse_order
 end
 
--- Iterate over the cmds of basic blocks.
+-- Iterate over the cmds of basic blocks using a naive ordering.
 function ir.iter(block_list)
-    local order = ir.get_depth_search_topological_sort(block_list)
     local function go()
-        for _,block_i in ipairs(order) do
-            local block = block_list[block_i]
+        for _,block in ipairs(block_list) do
             for _, cmd in ipairs(block.cmds) do
                 coroutine.yield(cmd)
             end
