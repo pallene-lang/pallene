@@ -257,9 +257,6 @@ function constant_propagation.run(module)
                     end
                 end
             end
-            if block.jmp_false then
-                block.jmp_false.src_condition = updated_value(f_data, block.jmp_false.src_condition)
-            end
         end
     end
 

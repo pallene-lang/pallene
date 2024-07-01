@@ -78,23 +78,24 @@ end
 --
 
 function BlockBuilder:init(block_list)
-    self.block_list = block_list    -- list of ir.BasicBlock
-    self.break_stack = {}
-    self.ret_list = {}
+    self.block_list = block_list -- { ir.BasicBlock }
+    self.ret_list = {}           -- { block_id } ids of blocks that come from return statements
+    self.break_stack = {}        -- { { block_id } } we keep track of blocks that come from break
+                                 -- statements so we can reference them when leaving a loop
 end
 
 function BlockBuilder:finish_block()
     local list = self.block_list
     local b = list[#list]
-    if not b.next then
-        b.next = #list + 1
+    if not b.jmp then
+        b.jmp = #list + 1
     end
     table.insert(list, ir.BasicBlock())
     return #list
 end
 
 function BlockBuilder:start_block_list()
-     -- first block must remain empty, it is the "entry" block used on the flow graph
+     -- first block must be empty, it is the "entry" block used on the flow graph
     table.insert(self.block_list, ir.BasicBlock())
     self:finish_block()
 end
@@ -104,7 +105,7 @@ function BlockBuilder:finish_block_list()
     local exit = self:finish_block()
     for _, ret_id in ipairs(self.ret_list) do
         local ret_block = self.block_list[ret_id]
-        ret_block.next = exit
+        ret_block.jmp = exit
     end
 end
 
@@ -119,7 +120,7 @@ end
 
 function BlockBuilder:is_last_block_uninitialized()
     local b = self.block_list[#self.block_list]
-    return not b.next and not b.jmp_false and #b.cmds == 0
+    return not b.jmp and not b.jmp_false and #b.cmds == 0
 end
 
 function BlockBuilder:get_block(block_id)
@@ -135,7 +136,7 @@ function BlockBuilder:exit_loop(break_destination)
     assert(#self.break_stack > 0)
     local break_blocks = table.remove(self.break_stack)
     for _, index in ipairs(break_blocks) do
-        self.block_list[index].next = break_destination
+        self.block_list[index].jmp = break_destination
     end
 end
 
@@ -403,13 +404,14 @@ function ToIR:convert_stat(bb, stat)
         local cond     = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
         local loop_test = bb:last_block_id()
+        bb:append_cmd(ir.Cmd.CondSrc(stat.loc, cond_bool))
         local loop_body = bb:finish_block()
         self:convert_stat(bb, stat.block)
         local loop_end = bb:last_block_id()
-        bb:get_block(loop_end).next = loop_begin
+        bb:get_block(loop_end).jmp = loop_begin
         local after_loop = bb:finish_block()
-        bb:get_block(loop_test).jmp_false = ir.JmpIfFalse(after_loop, cond_bool)
-        bb:get_block(loop_test).next = loop_body
+        bb:get_block(loop_test).jmp_false = after_loop
+        bb:get_block(loop_test).jmp = loop_body
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Repeat" then
@@ -419,15 +421,17 @@ function ToIR:convert_stat(bb, stat)
         local cond     = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
         local loop_end = bb:last_block_id()
+        bb:append_cmd(ir.Cmd.CondSrc(stat.loc, cond_bool))
         local after_loop = bb:finish_block()
-        bb:get_block(loop_end).jmp_false = ir.JmpIfFalse(loop_begin, cond_bool)
-        bb:get_block(loop_end).next = after_loop
+        bb:get_block(loop_end).jmp_false = loop_begin
+        bb:get_block(loop_end).jmp = after_loop
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.If" then
-        local cond     = self:exp_to_value(bb, stat.condition)
+        local cond = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
         local if_begin = bb:last_block_id()
+        bb:append_cmd(ir.Cmd.CondSrc(stat.loc, cond_bool))
         local then_begin = bb:finish_block()
         self:convert_stat(bb, stat.then_)
         local then_end = bb:last_block_id()
@@ -440,9 +444,9 @@ function ToIR:convert_stat(bb, stat)
         end
         local if_end = bb:last_block_id()
 
-        bb:get_block(if_begin).jmp_false = ir.JmpIfFalse(else_begin, cond_bool)
-        bb:get_block(if_begin).next = then_begin
-        bb:get_block(then_end).next = if_end
+        bb:get_block(if_begin).jmp_false = else_begin
+        bb:get_block(if_begin).jmp = then_begin
+        bb:get_block(then_end).jmp = if_end
 
     elseif tag == "ast.Stat.ForNum" then
         local start = self:exp_to_value(bb, stat.start)
@@ -469,15 +473,17 @@ function ToIR:convert_stat(bb, stat)
         bb:append_cmd(init_for)
         bb:enter_loop()
         local before_loop = bb:last_block_id()
+        bb:append_cmd(ir.Cmd.CondSrc(stat.loc, ir.Value.LocalVar(cond_enter)))
         local loop_begin = bb:finish_block()
         self:convert_stat(bb, stat.block)
         bb:append_cmd(iter_for)
         local loop_end = bb:last_block_id()
+        bb:append_cmd(ir.Cmd.CondSrc(stat.loc, ir.Value.LocalVar(cond_loop)))
         local after_loop = bb:finish_block()
-        bb:get_block(before_loop).jmp_false = ir.JmpIfFalse(after_loop, ir.Value.LocalVar(cond_enter))
-        bb:get_block(before_loop).next = loop_begin
-        bb:get_block(loop_end).jmp_false = ir.JmpIfFalse(loop_begin, ir.Value.LocalVar(cond_loop))
-        bb:get_block(loop_end).next = after_loop
+        bb:get_block(before_loop).jmp_false = after_loop
+        bb:get_block(before_loop).jmp = loop_begin
+        bb:get_block(loop_end).jmp_false = loop_begin
+        bb:get_block(loop_end).jmp = after_loop
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.ForIn" then
@@ -498,7 +504,6 @@ function ToIR:convert_stat(bb, stat)
         local after_loop_test
         local loop_end
         local after_loop
-        local v_cond_checknil
         if is_ipairs then
             -- `ipairs` are desugared down to regular for-loops
             -- ```
@@ -546,9 +551,10 @@ function ToIR:convert_stat(bb, stat)
             bb:append_cmd(ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
 
             -- if x_dyn == nil then break end
-            v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
-            bb:append_cmd(ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_x_dyn)))
+            local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
+            bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_x_dyn)))
             loop_test = bb:last_block_id()
+            bb:append_cmd(ir.Cmd.CondSrc(stat.loc, ir.Value.LocalVar(cond_checknil)))
             after_loop_test = bb:finish_block()
 
             -- local i: T1 = i_num as T1
@@ -619,9 +625,10 @@ function ToIR:convert_stat(bb, stat)
             bb:append_cmd(ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
 
             -- if i == nil then break end
-            v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
-            bb:append_cmd(ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_lhs_dyn[1])))
+            local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
+            bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_lhs_dyn[1])))
             loop_test = bb:last_block_id()
+            bb:append_cmd(ir.Cmd.CondSrc(stat.loc, ir.Value.LocalVar(cond_checknil)))
             after_loop_test = bb:finish_block()
 
             -- cast loop LHS to annotated types.
@@ -641,10 +648,9 @@ function ToIR:convert_stat(bb, stat)
             after_loop = bb:finish_block()
         end
 
-        bb:get_block(loop_test).jmp_false =
-                ir.JmpIfFalse(after_loop_test, ir.Value.LocalVar(v_cond_checknil))
-        bb:get_block(loop_test).next = after_loop
-        bb:get_block(loop_end).next = loop_begin
+        bb:get_block(loop_test).jmp_false = after_loop_test
+        bb:get_block(loop_test).jmp = after_loop
+        bb:get_block(loop_end).jmp = loop_begin
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Assign" then
@@ -1314,27 +1320,29 @@ function ToIR:exp_to_assignment(bb, dst, exp)
 
     elseif tag == "ast.Exp.Binop" then
         local op = exp.op
-        if     op == "and" then
+        if op == "and" then
             self:exp_to_assignment(bb, dst, exp.lhs)
             local v = ir.Value.LocalVar(dst)
             local cond_bool = self:value_is_truthy(bb, exp.lhs, v)
             local if_begin = bb:last_block_id()
+            bb:append_cmd(ir.Cmd.CondSrc(loc, cond_bool))
             local then_begin = bb:finish_block()
             self:exp_to_assignment(bb, dst, exp.rhs)
             local if_end = bb:finish_block()
-                bb:get_block(if_begin).jmp_false = ir.JmpIfFalse(if_end, cond_bool)
-                bb:get_block(if_begin).next = then_begin
+            bb:get_block(if_begin).jmp_false = if_end
+            bb:get_block(if_begin).jmp = then_begin
 
             elseif op == "or" then
                 self:exp_to_assignment(bb, dst, exp.lhs)
                 local v = ir.Value.LocalVar(dst)
                 local cond_bool = self:value_is_truthy(bb, exp.lhs, v)
                 local if_begin = bb:last_block_id()
-                local beginElse = bb:finish_block()
+                bb:append_cmd(ir.Cmd.CondSrc(loc, cond_bool))
+                local begin_else = bb:finish_block()
                 self:exp_to_assignment(bb, dst, exp.rhs)
                 local if_end = bb:finish_block()
-                bb:get_block(if_begin).jmp_false = ir.JmpIfFalse(beginElse, cond_bool)
-                bb:get_block(if_begin).next = if_end
+                bb:get_block(if_begin).jmp_false = begin_else
+                bb:get_block(if_begin).jmp = if_end
 
         elseif op == ".." then
             -- Flatten (a .. (b .. (c .. d))) into (a .. b .. c .. d)

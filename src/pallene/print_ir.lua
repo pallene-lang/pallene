@@ -171,13 +171,14 @@ local function print_block(block, index)
         parts[i] = space .. Cmd(cmd)
     end
     if block.jmp_false then
+        local cond = ir.get_jmp_conditional(block)
         table.insert(parts,
                 space .. "jmpf " ..
-                block.jmp_false.target .. ", " ..
-                Val(block.jmp_false.src_condition))
+                block.jmp_false .. ", " ..
+                Val(cond))
     end
-    if block.next and block.next ~= index + 1 then
-        table.insert(parts, space .. "jmp "  .. block.next)
+    if block.jmp and block.jmp ~= index + 1 then
+        table.insert(parts, space .. "jmp "  .. block.jmp)
     end
     local str = table.concat(parts, "\n")
     return #str > 0 and str .. "\n" or ""
@@ -202,10 +203,19 @@ local function print_ir(module)
             vs[i] = i
         end
 
+        local body = print_block_list(func.blocks)
+        if #func.ret_vars > 0 then
+            local ret = "    return "
+            for _,v in ipairs(func.ret_vars) do
+                ret = ret .. Var(v) .. ','
+            end
+            ret = string.sub(ret, 1, #ret - 1)
+            body = body .. ret .. "\n"
+        end
         table.insert(parts, util.render(
             "function $proto {\n$body}\n", {
             proto = Call(Fun(f_id), Vars(vs)),
-            body  = print_block_list(func.blocks),
+            body  = body,
         }))
     end
     return table.concat(parts, "\n")

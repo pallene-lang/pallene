@@ -51,8 +51,8 @@ function ir.Function(loc, name, typ)
         captured_vars = {},   -- list of ir.VarDecl
         f_id_of_upvalue = {}, -- { u_id => integer }
         f_id_of_local = {},   -- { v_id => integer }
-        blocks = {},          -- list of ir.BasicBlock
-        ret_vars = {},        -- list of id's of return variables
+        blocks = {},          -- { ir.BasicBlock }
+        ret_vars = {},        -- { v_id }, list of return variables
     }
 end
 
@@ -200,6 +200,12 @@ local ir_cmd_constructors = {
     IterFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
                   "src_start", "src_limit", "src_step"},
 
+    -- This is a special command made to assist the conditional jump. If this command is present at
+    -- a basic block, it must always be the last one on the list. Since on this i.r. the jumps are
+    -- not commands per se, they're not seen when we loop throught lists of commands, so it's useful
+    -- to encapsulate the conditional into it's own command.
+    CondSrc    = {"loc", "src"},
+
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
 }
@@ -272,9 +278,16 @@ end
 function ir.BasicBlock()
     return {
         cmds = {},           -- list of ir.Cmd
-        next = false,        -- index of next basic block if no conditional jump is taken
-        jmp_false = false,   -- JmpIfFalse
+        jmp = false,         -- block_id?
+        jmp_false = false,  -- block_id?
     }
+end
+
+function ir.get_jmp_conditional(block)
+    assert(#block.cmds > 0)
+    local cmd = block.cmds[#block.cmds]
+    assert(cmd._tag == "ir.Cmd.CondSrc", "must be the last command inside block")
+    return cmd.src
 end
 
 -- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
@@ -289,11 +302,11 @@ function ir.get_depth_search_topological_sort(block_list)
         if not visited[block_i] then
             visited[block_i] = true
             local block = block_list[block_i]
-            if block.next  then
-                depth_search(block.next)
+            if block.jmp  then
+                depth_search(block.jmp)
             end
-            if block.jmp_false  then
-                depth_search(block.jmp_false.target)
+            if block.jmp_false then
+                depth_search(block.jmp_false)
             end
             order[#order + 1] = block_i
         end
@@ -334,15 +347,19 @@ end
 -- Remove jumps that are never taken
 function ir.clean(func)
     for _, block in ipairs(func.blocks) do
-        if block.jmp_false and block.jmp_false.src_condition._tag == "ir.Value.Bool" then
-            local val = block.jmp_false.src_condition.value
-            if val == true then
-                block.jmp_false = false
-            elseif val == false then
-                block.next = block.jmp_false.target
-                block.jmp_false = false
-            else
-                assert(false, "if value is of type ir.Value.Bool then it should be true or false")
+        if block.jmp_false then
+            local cond = ir.get_jmp_conditional(block)
+            if cond._tag == "ir.Value.Bool" then
+                if cond.value == true then
+                    block.jmp_false = false
+                elseif cond.value == false then
+                    block.jmp = block.jmp_false
+                    block.jmp_false = false
+                    table.remove(block.cmds)
+                else
+                    assert(false,
+                    "if value is of type ir.Value.Bool then it should be true or false")
+                end
             end
         end
     end

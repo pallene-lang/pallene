@@ -1670,10 +1670,6 @@ end
 -- Control flow
 --
 
-gen_cmd["Nop"] = function(self, _cmd, _func)
-    return ""
-end
-
 gen_cmd["InitFor"] = function(self, cmd, func)
     local typ = func.vars[cmd.dst_i].typ
     local macro
@@ -1725,6 +1721,10 @@ gen_cmd["IterFor"] = function(self, cmd, func)
     }))
 end
 
+gen_cmd["CondSrc"] = function(self, _cmd, _func)
+    return ""
+end
+
 gen_cmd["CheckGC"] = function(self, cmd, func)
     return util.render([[ luaC_condGC(L, ${update_stack_top}, (void)0); ]], {
         update_stack_top = self:update_stack_top(func, cmd) })
@@ -1740,14 +1740,15 @@ function Coder:generate_blocks(func)
         end
         local jump_cond = ""
         if block.jmp_false then
+            local cond_val = ir.get_jmp_conditional(block)
             jump_cond = util.render("if(!($v)) {goto $l;}\n", {
-                v = self:c_value(block.jmp_false.src_condition),
-                l = self:c_label(block.jmp_false.target),
+                v = self:c_value(cond_val),
+                l = self:c_label(block.jmp_false),
             })
         end
         local jump = ""
-        if block.next and block.next ~= i + 1 then
-            jump = "goto " .. self:c_label(block.next) .. ";\n"
+        if block.jmp and block.jmp ~= i + 1 then
+            jump = "goto " .. self:c_label(block.jmp) .. ";\n"
         end
         content = content .. jump_cond .. jump
         out = out .. content
