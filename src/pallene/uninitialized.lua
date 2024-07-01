@@ -61,12 +61,14 @@ local function flow_analysis(block_list, uninit_sets, kill_sets)
         local uninit = uninit_sets[block_i]
         local kill = kill_sets[block_i]
         local changed = false
-        if block.jmp  then
-            local c = merge_uninit(uninit_sets[block.jmp], uninit, kill)
+        local jmp = ir.get_jmp(block)
+        local jmp_false = ir.get_jmpIfFalse(block)
+        if jmp  then
+            local c = merge_uninit(uninit_sets[jmp.target], uninit, kill)
             changed = c or changed
         end
-        if block.jmp_false  then
-            local c = merge_uninit(uninit_sets[block.jmp_false], uninit, kill)
+        if jmp_false  then
+            local c = merge_uninit(uninit_sets[jmp_false.target], uninit, kill)
             changed = c or changed
         end
         return changed

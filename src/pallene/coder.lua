@@ -1721,8 +1721,17 @@ gen_cmd["IterFor"] = function(self, cmd, func)
     }))
 end
 
-gen_cmd["CondSrc"] = function(self, _cmd, _func)
-    return ""
+gen_cmd["Jmp"] = function(self, cmd, _func)
+    local jmp = "goto " .. self:c_label(cmd.target) .. ";"
+    return jmp
+end
+
+gen_cmd["JmpIfFalse"] = function(self, cmd, _func)
+    local jmp_cond = util.render("if(!($v)) {goto $l;}", {
+        v = self:c_value(cmd.src_cond),
+        l = self:c_label(cmd.target),
+    })
+    return jmp_cond
 end
 
 gen_cmd["CheckGC"] = function(self, cmd, func)
@@ -1732,25 +1741,15 @@ end
 
 function Coder:generate_blocks(func)
     local out = ""
-    for i,block in ipairs(func.blocks) do
-        -- putting a "(void)0" at the label so compiler doesn't complain about dangling labels
-        local content = self:c_label(i) .. ":(void)0;\n"
+    for block_id,block in ipairs(func.blocks) do
+        -- putting "(void)0" at the label so the C compiler doesn't complain about dangling labels
+        local content = self:c_label(block_id) .. ":(void)0;\n"
         for _,cmd in ipairs(block.cmds) do
-            content = content .. self:generate_cmd(func, cmd) .. "\n"
+            if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_id + 1 then
+                local cmd_str = self:generate_cmd(func, cmd) .. "\n"
+                content = content .. cmd_str .. "\n"
+            end
         end
-        local jump_cond = ""
-        if block.jmp_false then
-            local cond_val = ir.get_jmp_conditional(block)
-            jump_cond = util.render("if(!($v)) {goto $l;}\n", {
-                v = self:c_value(cond_val),
-                l = self:c_label(block.jmp_false),
-            })
-        end
-        local jump = ""
-        if block.jmp and block.jmp ~= i + 1 then
-            jump = "goto " .. self:c_label(block.jmp) .. ";\n"
-        end
-        content = content .. jump_cond .. jump
         out = out .. content
     end
     return out

@@ -200,11 +200,8 @@ local ir_cmd_constructors = {
     IterFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
                   "src_start", "src_limit", "src_step"},
 
-    -- This is a special command made to assist the conditional jump. If this command is present at
-    -- a basic block, it must always be the last one on the list. Since on this i.r. the jumps are
-    -- not commands per se, they're not seen when we loop throught lists of commands, so it's useful
-    -- to encapsulate the conditional into it's own command.
-    CondSrc    = {"loc", "src"},
+    Jmp        = {"target"},
+    JmpIfFalse = {"loc", "src_cond", "target"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -268,26 +265,42 @@ function ir.get_dsts(cmd)
     return dsts
 end
 
-function ir.JmpIfFalse(target, src_condition)
-    return {
-        target = target,               -- index of target basic block
-        src_condition = src_condition, -- ir.Value
-    }
-end
-
 function ir.BasicBlock()
     return {
         cmds = {},           -- list of ir.Cmd
-        jmp = false,         -- block_id?
-        jmp_false = false,  -- block_id?
     }
 end
 
-function ir.get_jmp_conditional(block)
-    assert(#block.cmds > 0)
+function ir.get_jmp(block)
     local cmd = block.cmds[#block.cmds]
-    assert(cmd._tag == "ir.Cmd.CondSrc", "must be the last command inside block")
-    return cmd.src
+    if not cmd or cmd._tag ~= "ir.Cmd.Jmp" then
+        return false
+    else
+        return cmd
+    end
+end
+
+function ir.get_jmpIfFalse(block)
+    if #block.cmds < 2 then
+        return false
+    else
+        local cmd = block.cmds[#block.cmds - 1]
+        if cmd._tag == "ir.Cmd.JmpIfFalse" then
+            return cmd
+        else
+            return false
+        end
+    end
+end
+
+local function remove_jmpIfFalse(block)
+    local jmp_false_index = #block.cmds - 1
+    local jmp_false = block.cmds[jmp_false_index]
+    assert(jmp_false)
+    local jmp = block.cmds[#block.cmds]
+    assert(jmp)
+    block.cmds[jmp_false_index] = jmp
+    table.remove(block.cmds)
 end
 
 -- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
@@ -302,11 +315,13 @@ function ir.get_depth_search_topological_sort(block_list)
         if not visited[block_i] then
             visited[block_i] = true
             local block = block_list[block_i]
-            if block.jmp  then
-                depth_search(block.jmp)
+            local jmp = ir.get_jmp(block)
+            local jmp_false = ir.get_jmpIfFalse(block)
+            if jmp  then
+                depth_search(jmp.target)
             end
-            if block.jmp_false then
-                depth_search(block.jmp_false)
+            if jmp_false then
+                depth_search(jmp_false.target)
             end
             order[#order + 1] = block_i
         end
@@ -347,20 +362,13 @@ end
 -- Remove jumps that are never taken
 function ir.clean(func)
     for _, block in ipairs(func.blocks) do
-        if block.jmp_false then
-            local cond = ir.get_jmp_conditional(block)
-            if cond._tag == "ir.Value.Bool" then
-                if cond.value == true then
-                    block.jmp_false = false
-                elseif cond.value == false then
-                    block.jmp = block.jmp_false
-                    block.jmp_false = false
-                    table.remove(block.cmds)
-                else
-                    assert(false,
-                    "if value is of type ir.Value.Bool then it should be true or false")
-                end
+        local jmp_false = ir.get_jmpIfFalse(block)
+        if jmp_false and jmp_false.src_cond._tag == "ir.Value.Bool" then
+            if jmp_false.src_cond.value == false then
+                local jmp = ir.get_jmp(block)
+                jmp.target = jmp_false.target
             end
+            remove_jmpIfFalse(block)
         end
     end
 end

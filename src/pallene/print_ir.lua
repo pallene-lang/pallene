@@ -150,8 +150,9 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.InitUpvalues" then rhs = comma_concat(Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallStatic" then
         rhs = "CallStatic ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
-    elseif tag == "ir.Cmd.CallDyn" then
-        rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallDyn" then rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.JmpIfFalse" then rhs = "jmpf " .. Val(cmd.src_cond) .. ", " .. cmd.target
+    elseif tag == "ir.Cmd.Jmp" then rhs = "jmp " .. cmd.target
     elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
         local name = tagged_union.consname(cmd._tag)
         rhs = Call(name, Vals(ir.get_srcs(cmd)))
@@ -164,21 +165,13 @@ local function Cmd(cmd)
     end
 end
 
-local function print_block(block, index)
+local function print_block(block, block_id)
     local parts = {}
     local space = "    "
     for i, cmd in ipairs(block.cmds) do
-        parts[i] = space .. Cmd(cmd)
-    end
-    if block.jmp_false then
-        local cond = ir.get_jmp_conditional(block)
-        table.insert(parts,
-                space .. "jmpf " ..
-                block.jmp_false .. ", " ..
-                Val(cond))
-    end
-    if block.jmp and block.jmp ~= index + 1 then
-        table.insert(parts, space .. "jmp "  .. block.jmp)
+        if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_id + 1 then
+            parts[i] = space .. Cmd(cmd)
+        end
     end
     local str = table.concat(parts, "\n")
     return #str > 0 and str .. "\n" or ""
