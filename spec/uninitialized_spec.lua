@@ -78,6 +78,61 @@ describe("Uninitialized variable analysis: ", function()
         ]], "variable 'x' is used before being initialized")
     end)
 
+    it("catches use of uninitialized variable inside \"if\"", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo()
+                local x:boolean
+                if x  then end
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
+    it("catches use of uninitialized variable inside \"while\"", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo()
+                local x:boolean
+                while x do end
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
+    it("catches use of uninitialized variable inside \"repeat until\"", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo()
+                local x:boolean
+                repeat until x
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
+    it("catches use of uninitialized variable inside \"for\"", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo()
+                local x:integer
+                for i = 1, x, x do end
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
+    it("catches use of uninitialized variable inside \"for in\"", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo()
+                local x:{integer}
+                for i,j in ipairs(x) do end
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
     it("catches use of uninitialized upvalue", function ()
         assert_error([[
             local m = {}

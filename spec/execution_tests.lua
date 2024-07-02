@@ -2318,6 +2318,14 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 end
             end
 
+            function m.non_breaking_loop2(): integer
+                local i = 1
+                repeat
+                    if i == 42 then return i end
+                    i = i + 1
+                until false
+            end
+
             function m.initialize_inside_loop(): integer
                 local x: integer
                 repeat

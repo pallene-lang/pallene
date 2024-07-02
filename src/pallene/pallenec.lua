@@ -66,9 +66,9 @@ local function do_check()
     compile_up_to("uninitialized")
 end
 
-local function do_print_ir()
+local function do_print_ir(mode)
     local module = compile_up_to("optimize")
-    io.stdout:write(print_ir(module))
+    io.stdout:write(print_ir(module, mode))
 end
 
 function pallenec.main()

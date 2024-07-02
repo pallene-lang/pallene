@@ -39,7 +39,7 @@ local gc = {}
 
 function gc.compute_stack_slots(func)
 
-    local flat_cmds = ir.flatten_cmd(func.body)
+    local flat_cmds = ir.flatten_cmd(func.blocks)
 
     -- 1) Compute approximated live intervals for GC variables defined by the function. Function
     -- parameters are only counted if they are redefined, since their original value was already
