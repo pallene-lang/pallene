@@ -196,18 +196,17 @@ local function print_ir(module)
             vs[i] = i
         end
 
-        local body = print_block_list(func.blocks)
-        if #func.ret_vars > 0 then
-            local ret = "    return "
-            for _,v in ipairs(func.ret_vars) do
-                ret = ret .. Var(v) .. ','
-            end
-            ret = string.sub(ret, 1, #ret - 1)
-            body = body .. ret .. "\n"
+        local rs = {}
+        for i,v in ipairs(func.ret_vars) do
+            rs[i] = Var(v)
         end
+        local rets = (#rs > 0) and (': ' .. comma_concat(rs)) or ""
+
+        local body = print_block_list(func.blocks)
+
         table.insert(parts, util.render(
             "function $proto {\n$body}\n", {
-            proto = Call(Fun(f_id), Vars(vs)),
+            proto = Call(Fun(f_id), Vars(vs), Vars(rets)) .. rets,
             body  = body,
         }))
     end
