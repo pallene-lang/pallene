@@ -986,7 +986,7 @@ static void pallene_io_write(lua_State *L, TString *str)
  * hide it behind the following set of macros. we assume that the c compiler will be able to
  * optimize the common case where the step parameter is a compile-time constant. */
 
-#define PALLENE_INT_INIT_FOR_LOOP(i_, cond_, itervar_, count_, A, B, C) \
+#define PALLENE_INT_FOR_PREP(i_, cond_, itervar_, count_, A, B, C) \
     { \
         lua_Integer _start  = A; \
         lua_Integer _limit  = B; \
@@ -1001,13 +1001,13 @@ static void pallene_io_write(lua_State *L, TString *str)
         i_ = itervar_ = _start; \
     }
 
-#define PALLENE_INT_ITER_FOR_LOOP(i_, cond_, itervar_, count_, start_, limit_, step_) \
+#define PALLENE_INT_FOR_STEP(i_, cond_, itervar_, count_, start_, limit_, step_) \
     cond_    = (count_ == 0); \
     itervar_ = l_castS2U(itervar_) + l_castS2U(step_); \
     i_       = itervar_; \
     count_   = l_castS2U(count_) - 1llu;
 
-#define PALLENE_FLT_INIT_FOR_LOOP(i_, cond_, itervar_, count_, A, B, C) \
+#define PALLENE_FLT_FOR_PREP(i_, cond_, itervar_, count_, A, B, C) \
     { \
         lua_Number _start  = A; \
         lua_Number _limit  = B; \
@@ -1019,7 +1019,7 @@ static void pallene_io_write(lua_State *L, TString *str)
         i_ = itervar_ = _start; \
     }
 
-#define PALLENE_FLT_ITER_FOR_LOOP(i_, cond_, itervar_, count_, A, B, C) \
+#define PALLENE_FLT_FOR_STEP(i_, cond_, itervar_, count_, A, B, C) \
     { \
         lua_Number _limit  = B; \
         lua_Number _step   = C; \

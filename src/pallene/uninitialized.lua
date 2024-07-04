@@ -3,13 +3,10 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
--- In this module we detect when variables are used before being initialized and when control flows
--- to the end of a non-void function without returning. The analysis is fundamentally a dataflow
--- one, but we don't check for convergence (this set of properties seem to converge in one pass) and
--- we don't merge the properties of one basic block with one that it jumps to if the "jumped to"
--- block has a lower id, that is, we don't consider backwards jumps (that's how we deal with loops
--- for now).  Make sure that you call ir.clean first, so that it does the right thing in the
--- presence of `while true` loops.
+-- In this module we use data-flow analysis to detect when variables are used before being
+-- initialized and when control flows to the end of a non-void function without returning. Make sure
+-- that you call ir.clean first, so that it does the right thing in the presence of `while true`
+-- loops.
 --
 -- `uninit` is the set of variables that are potentially uninitialized.
 -- `kill` is the set of variables that are initialized at a given block.
@@ -82,17 +79,6 @@ local function flow_analysis(block_list, uninit_sets, kill_sets)
     until not changed
 end
 
-local function check_uninit(block, input_uninit)
-    for _,cmd in ipairs(block.cmds) do
-        fill_set(cmd, input_uninit, nil)
-        for _, src in ipairs(ir.get_srcs(cmd)) do
-            if src._tag == "ir.Value.LocalVar" and input_uninit[src.id] then
-                coroutine.yield({v = src.id, loc = cmd.loc})
-            end
-        end
-    end
-end
-
 local function gen_kill_set(block)
     local kill = {}
     for _,cmd in ipairs(block.cmds) do
@@ -127,21 +113,23 @@ function uninitialized.verify_variables(module)
         flow_analysis(func.blocks, uninit_sets, kill_sets)
 
         -- check for errors
-        local check = coroutine.wrap(function()
-            for i,b in ipairs(func.blocks) do
-                local uninit = uninit_sets[i]
-                check_uninit(b, uninit)
-            end
-        end)
-
         local reported_variables = {} -- (only one error message per variable)
-        for o in check do
-            local v, loc = o.v, o.loc
-            if not reported_variables[v] then
-                reported_variables[v] = true
-                local name = assert(func.vars[v].name)
-                table.insert(errors, loc:format_error(
-                        "error: variable '%s' is used before being initialized", name))
+        for block_i, block in ipairs(func.blocks) do
+            local input_uninit = uninit_sets[block_i]
+            for _, cmd in ipairs(block.cmds) do
+                local loc = cmd.loc
+                fill_set(cmd, input_uninit, nil)
+                for _, src in ipairs(ir.get_srcs(cmd)) do
+                    local v = src.id
+                    if src._tag == "ir.Value.LocalVar" and input_uninit[v] then
+                        if not reported_variables[v] then
+                            reported_variables[v] = true
+                            local name = assert(func.vars[v].name)
+                            table.insert(errors, loc:format_error(
+                                "error: variable '%s' is used before being initialized", name))
+                        end
+                    end
+                end
             end
         end
 

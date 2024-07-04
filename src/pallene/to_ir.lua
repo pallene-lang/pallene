@@ -404,14 +404,14 @@ function ToIR:convert_stat(bb, stat)
         local loop_begin = bb:finish_block()
         local cond     = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
-        local loop_test_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(stat.loc, cond_bool, 0))
-        local loop_test_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
+        local step_test_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(stat.loc, cond_bool, 0))
+        local step_test_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
         local loop_body = bb:finish_block()
         self:convert_stat(bb, stat.block)
         bb:append_cmd(ir.Cmd.Jmp(loop_begin))
         local after_loop = bb:finish_block()
-        loop_test_jmpIfFalse.target = after_loop
-        loop_test_jmp.target = loop_body
+        step_test_jmpIfFalse.target = after_loop
+        step_test_jmp.target = loop_body
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Repeat" then
@@ -463,10 +463,10 @@ function ToIR:convert_stat(bb, stat)
         local cond_enter = ir.add_local(self.func, false, types.T.Boolean())
         local cond_loop = ir.add_local(self.func, false, types.T.Boolean())
 
-        local init_for = ir.Cmd.InitFor(
+        local init_for = ir.Cmd.ForPrep(
                 stat.loc, v, cond_enter, iter, count,
                 start, limit, step)
-        local iter_for = ir.Cmd.IterFor(
+        local iter_for = ir.Cmd.ForStep(
                 stat.loc, v, cond_loop, iter, count,
                 start, limit, step)
 
@@ -500,12 +500,10 @@ function ToIR:convert_stat(bb, stat)
             e1.exp.var._def.id == "ipairs")
 
         bb:enter_loop()
-        local loop_begin
-        local loop_test_jmpIfFalse
-        local loop_test_jmp
-        local after_loop_test
-        local loop_end_jmp
-        local after_loop
+        local step_test_jmpIfFalse -- ir.Cmd.JmpIfFalse of block that tests if it should break loop
+        local step_test_jmp        -- ir.Cmd.Jmp of block that tests if it should break loop
+        local after_loop           -- first block outside loop after loop body
+        local after_step_test      -- first block after block that tests loop breaking
         if is_ipairs then
             -- `ipairs` are desugared down to regular for-loops
             -- ```
@@ -544,7 +542,7 @@ function ToIR:convert_stat(bb, stat)
             local start = ir.Value.Integer(1)
             bb:append_cmd(ir.Cmd.Move(stat.loc, v_inum, start))
 
-            loop_begin = bb:finish_block()
+            local loop_begin = bb:finish_block()
 
             -- x_dyn = xs[i_num]
             local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any())
@@ -555,10 +553,10 @@ function ToIR:convert_stat(bb, stat)
             -- if x_dyn == nil then break end
             local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
             bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_x_dyn)))
-            loop_test_jmpIfFalse = bb:append_cmd(
+            step_test_jmpIfFalse = bb:append_cmd(
                     ir.Cmd.JmpIfFalse(stat.loc, ir.Value.LocalVar(cond_checknil), 0))
-            loop_test_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
-            after_loop_test = bb:finish_block()
+            step_test_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
+            after_step_test = bb:finish_block()
 
             -- local i: T1 = i_num as T1
             local v_i = ir.add_local(self.func, decls[1].name, decls[1]._type)
@@ -583,7 +581,7 @@ function ToIR:convert_stat(bb, stat)
             -- i_num = i_num + 1
             local loop_step = ir.Value.Integer(1)
             bb:append_cmd(ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
-            loop_end_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
+            bb:append_cmd(ir.Cmd.Jmp(loop_begin))
             after_loop = bb:finish_block()
         else
 
@@ -622,7 +620,7 @@ function ToIR:convert_stat(bb, stat)
             self:exp_to_assignment(bb, v_ctrl, exps[3])
 
             --Body of the `while` loop.
-            loop_begin = bb:finish_block()
+            local loop_begin = bb:finish_block()
             local itertype = exps[1]._type
             local args = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
             bb:append_cmd(ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
@@ -630,10 +628,10 @@ function ToIR:convert_stat(bb, stat)
             -- if i == nil then break end
             local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
             bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_lhs_dyn[1])))
-            loop_test_jmpIfFalse = bb:append_cmd(
+            step_test_jmpIfFalse = bb:append_cmd(
                     ir.Cmd.JmpIfFalse(stat.loc, ir.Value.LocalVar(cond_checknil), 0))
-            loop_test_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
-            after_loop_test = bb:finish_block()
+            step_test_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
+            after_step_test = bb:finish_block()
 
             -- cast loop LHS to annotated types.
             for i, decl in ipairs(decls) do
@@ -648,13 +646,12 @@ function ToIR:convert_stat(bb, stat)
             end
 
             self:convert_stat(bb, stat.block)
-            loop_end_jmp = bb:append_cmd(ir.Cmd.Jmp(0))
+            bb:append_cmd(ir.Cmd.Jmp(loop_begin))
             after_loop = bb:finish_block()
         end
 
-        loop_test_jmpIfFalse.target = after_loop_test
-        loop_test_jmp.target = after_loop
-        loop_end_jmp.target = loop_begin
+        step_test_jmpIfFalse.target = after_step_test
+        step_test_jmp.target = after_loop
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Assign" then

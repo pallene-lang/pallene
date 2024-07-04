@@ -81,7 +81,8 @@ function constant_propagation.run(module)
         -- pass takes care of variables that are used before being initialized.
         local f_data = assert(data_of_func[f_id])
 
-        for cmd in ir.iter(func.blocks) do
+        for _,block in ipairs(func.blocks) do
+        for _,cmd in ipairs(block.cmds) do
             local tag = cmd._tag
             if     tag == "ir.Cmd.Move" then
                 local id = cmd.dst
@@ -108,8 +109,8 @@ function constant_propagation.run(module)
                         tagged_union.error(value._tag)
                     end
                 end
-
             end
+        end
         end
 
         for loc_id = 1, #func.typ.arg_types do
@@ -123,26 +124,29 @@ function constant_propagation.run(module)
         local f_data   = assert(data_of_func[f_id])
         local n_writes = f_data.n_writes_of_locvar
 
-        for cmd in ir.iter(func.blocks) do
-            local tag = cmd._tag
-            if tag == "ir.Cmd.InitUpvalues" then
-                local next_f = assert(data_of_func[cmd.f_id])
-                for u_id, value in ipairs(cmd.srcs) do
-                    if value._tag == "ir.Value.LocalVar" then
-                        if n_writes[value.id] ~= 1 then
-                            next_f.constant_val_of_upvalue[u_id] = false
+        for _,block in ipairs(func.blocks) do
+            for _,cmd in ipairs(block.cmds) do
+                local tag = cmd._tag
+                if tag == "ir.Cmd.InitUpvalues" then
+                    local next_f = assert(data_of_func[cmd.f_id])
+                    for u_id, value in ipairs(cmd.srcs) do
+                        if value._tag == "ir.Value.LocalVar" then
+                            if n_writes[value.id] ~= 1 then
+                                next_f.constant_val_of_upvalue[u_id] = false
+                            end
+                        elseif value._tag == "ir.Value.Upvalue" then
+                            next_f.constant_val_of_upvalue[u_id] =
+                                    f_data.constant_val_of_upvalue[value.id]
+                        else
+                            tagged_union.error(value._tag)
                         end
-                    elseif value._tag == "ir.Value.Upvalue" then
-                        next_f.constant_val_of_upvalue[u_id] = f_data.constant_val_of_upvalue[value.id]
-                    else
-                        tagged_union.error(value._tag)
                     end
-                end
 
-            else
-                local dsts = ir.get_dsts(cmd)
-                for _, dst_id in ipairs(dsts) do
-                    n_writes[dst_id] = n_writes[dst_id] + 1
+                else
+                    local dsts = ir.get_dsts(cmd)
+                    for _, dst_id in ipairs(dsts) do
+                        n_writes[dst_id] = n_writes[dst_id] + 1
+                    end
                 end
             end
         end
@@ -159,18 +163,21 @@ function constant_propagation.run(module)
         --         x1 <- 20
         --     }
         --
-        for cmd in ir.iter(func.blocks) do
-            local tag = cmd._tag
-            if tag == "ir.Cmd.InitUpvalues" then
-                local next_f = assert(data_of_func[cmd.f_id])
-                for u_id, value in ipairs(cmd.srcs) do
-                    if value._tag == "ir.Value.LocalVar" and next_f.constant_val_of_upvalue[u_id] then
-                        assert(n_writes[value.id] == 1)
+        for _,block in ipairs(func.blocks) do
+            for _,cmd in ipairs(block.cmds) do
+                local tag = cmd._tag
+                if tag == "ir.Cmd.InitUpvalues" then
+                    local next_f = assert(data_of_func[cmd.f_id])
+                    for u_id, value in ipairs(cmd.srcs) do
+                        if value._tag == "ir.Value.LocalVar" and
+                            next_f.constant_val_of_upvalue[u_id]
+                        then
+                            assert(n_writes[value.id] == 1)
+                        end
                     end
                 end
             end
         end
-
     end
 
     --
@@ -178,20 +185,22 @@ function constant_propagation.run(module)
     --
 
     for _, func in ipairs(module.functions) do
-        for cmd in ir.iter(func.blocks) do
-            if cmd._tag == "ir.Cmd.InitUpvalues" then
-                local next_f   = assert(data_of_func[cmd.f_id])
-                local new_u_id = next_f.new_upvalue_id
+        for _,block in ipairs(func.blocks) do
+            for _,cmd in ipairs(block.cmds) do
+                if cmd._tag == "ir.Cmd.InitUpvalues" then
+                    local next_f   = assert(data_of_func[cmd.f_id])
+                    local new_u_id = next_f.new_upvalue_id
 
-                local new_srcs = {}
-                for u_id, value in ipairs(cmd.srcs) do
-                    if not next_f.constant_val_of_upvalue[u_id] then
-                        table.insert(new_srcs, value)
-                        new_u_id[u_id] = #new_srcs
+                    local new_srcs = {}
+                    for u_id, value in ipairs(cmd.srcs) do
+                        if not next_f.constant_val_of_upvalue[u_id] then
+                            table.insert(new_srcs, value)
+                            new_u_id[u_id] = #new_srcs
+                        end
                     end
-                end
 
-                cmd.srcs = new_srcs
+                    cmd.srcs = new_srcs
+                end
             end
         end
     end

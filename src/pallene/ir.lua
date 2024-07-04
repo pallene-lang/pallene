@@ -194,10 +194,10 @@ local ir_cmd_constructors = {
     --
     -- Control flow
     --
-    InitFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
+    ForPrep    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
                   "src_start", "src_limit", "src_step"},
 
-    IterFor    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
+    ForStep    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
                   "src_start", "src_limit", "src_step"},
 
     Jmp        = {"target"},
@@ -339,22 +339,12 @@ function ir.get_depth_search_topological_sort(block_list)
     return reverse_order
 end
 
--- Iterate over the cmds of basic blocks using a naive ordering.
-function ir.iter(block_list)
-    local function go()
-        for _,block in ipairs(block_list) do
-            for _, cmd in ipairs(block.cmds) do
-                coroutine.yield(cmd)
-            end
-        end
-    end
-    return coroutine.wrap(function() go() end)
-end
-
 function ir.flatten_cmd(block_list)
     local res = {}
-    for cmd in ir.iter(block_list) do
-        table.insert(res, cmd)
+    for _,block in ipairs(block_list) do
+        for _,cmd in ipairs(block.cmds) do
+            table.insert(res, cmd)
+        end
     end
     return res
 end
