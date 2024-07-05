@@ -271,63 +271,70 @@ function ir.BasicBlock()
     }
 end
 
-function ir.get_jmp(block)
-    local cmd = block.cmds[#block.cmds]
-    if not cmd or cmd._tag ~= "ir.Cmd.Jmp" then
-        return false
-    else
-        return cmd
-    end
+local function is_jump(cmd)
+    return cmd._tag == "ir.Cmd.Jmp" or cmd._tag == "ir.Cmd.JmpIfFalse"
 end
 
-function ir.get_jmpIfFalse(block)
-    if #block.cmds < 2 then
+function ir.get_jump(block)
+    local cmd = block.cmds[#block.cmds]
+    if not cmd or not is_jump(cmd) then
         return false
-    else
-        local cmd = block.cmds[#block.cmds - 1]
-        if cmd._tag == "ir.Cmd.JmpIfFalse" then
-            return cmd
-        else
-            return false
+    end
+    return cmd
+end
+
+function ir.get_successor_list(block_list)
+    local succ_list = {}    -- { block_id -> { block_id } }
+    for i = 1, #block_list do
+        succ_list[i] = {}
+    end
+    for block_i, block in ipairs(block_list) do
+        local block_succs = succ_list[block_i]
+        local jump = ir.get_jump(block)
+        if jump then
+            table.insert(block_succs, jump.target)
+            if jump._tag == "ir.Cmd.JmpIfFalse" then
+                table.insert(block_succs, block_i + 1)
+            end
         end
     end
+    return succ_list
 end
 
-local function remove_jmpIfFalse(block)
-    local jmp_false_index = #block.cmds - 1
-    local jmp_false = block.cmds[jmp_false_index]
-    assert(jmp_false)
-    local jmp = block.cmds[#block.cmds]
-    assert(jmp)
-    block.cmds[jmp_false_index] = jmp
-    table.remove(block.cmds)
+function ir.get_predecessor_list(block_list)
+    local pred_list = {}    -- { block_id -> { block_id } }
+    for i = 1, #block_list do
+        pred_list[i] = {}
+    end
+    for block_i, block in ipairs(block_list) do
+        local jump = ir.get_jump(block)
+        if jump then
+            table.insert(pred_list[jump.target], block_i)
+        end
+    end
+    return pred_list
 end
 
 -- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
 -- returned list might be smaller than the block list.
-function ir.get_depth_search_topological_sort(block_list)
+function ir.get_successor_depth_search_topological_sort(successor_list)
     local order = {}
     local visited = {}
-    for i,_ in ipairs(block_list) do
+    for i,_ in ipairs(successor_list) do
         visited[i] = false
     end
     local function depth_search(block_i)
         if not visited[block_i] then
             visited[block_i] = true
-            local block = block_list[block_i]
-            local jmp = ir.get_jmp(block)
-            local jmp_false = ir.get_jmpIfFalse(block)
-            if jmp  then
-                depth_search(jmp.target)
-            end
-            if jmp_false then
-                depth_search(jmp_false.target)
+            local block_succs = successor_list[block_i]
+            for _,succ in ipairs(block_succs) do
+                depth_search(succ)
             end
             order[#order + 1] = block_i
         end
     end
 
-    depth_search(1)
+    depth_search(1) -- start at "enter" block
     -- The actual block order is the reverse of what was calculated so far. We could have calculated
     -- the right order from the start, but the existence of unreacheable blocks makes it harder than
     -- usual (hence why we're doing it this way).
@@ -337,6 +344,49 @@ function ir.get_depth_search_topological_sort(block_list)
     end
 
     return reverse_order
+end
+
+-- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
+-- returned list might be smaller than the block list.
+function ir.get_predecessor_depth_search_topological_sort(predecessor_list)
+    local order = {}
+    local visited = {}
+    for i,_ in ipairs(predecessor_list) do
+        visited[i] = false
+    end
+    local function depth_search(block_i)
+        if not visited[block_i] then
+            visited[block_i] = true
+            local block_preds = predecessor_list[block_i]
+            for _,pred in ipairs(block_preds) do
+                depth_search(pred)
+            end
+            order[#order + 1] = block_i
+        end
+    end
+
+    depth_search(#predecessor_list) -- start at "exit" block
+    -- The actual block order is the reverse of what was calculated so far. We could have calculated
+    -- the right order from the start, but the existence of unreacheable blocks makes it harder than
+    -- usual (hence why we're doing it this way).
+    local reverse_order = {}
+    for i = #order, 1, -1 do
+        table.insert(reverse_order, order[i])
+    end
+
+    return reverse_order
+end
+
+-- Iterate over the cmds of basic blocks using a naive ordering.
+function ir.iter(block_list)
+    local function go()
+        for _,block in ipairs(block_list) do
+            for _, cmd in ipairs(block.cmds) do
+                coroutine.yield(cmd)
+            end
+        end
+    end
+    return coroutine.wrap(function() go() end)
 end
 
 function ir.flatten_cmd(block_list)
@@ -351,14 +401,18 @@ end
 
 -- Remove jumps that are never taken
 function ir.clean(func)
-    for _, block in ipairs(func.blocks) do
-        local jmp_false = ir.get_jmpIfFalse(block)
-        if jmp_false and jmp_false.src_cond._tag == "ir.Value.Bool" then
-            if jmp_false.src_cond.value == false then
-                local jmp = ir.get_jmp(block)
-                jmp.target = jmp_false.target
+    for block_id, block in ipairs(func.blocks) do
+        local jump = ir.get_jump(block)
+        if jump and jump._tag == "ir.Cmd.JmpIfFalse" and jump.src_cond._tag == "ir.Value.Bool" then
+            assert(type(jump.src_cond.value) == "boolean")
+            local new_jump = ir.Cmd.Jmp(nil)
+            if jump.src_cond.value then
+                new_jump.target = block_id + 1
+            else
+                new_jump.target = jump.target
             end
-            remove_jmpIfFalse(block)
+            table.remove(block.cmds)
+            table.insert(block.cmds, new_jump)
         end
     end
 end

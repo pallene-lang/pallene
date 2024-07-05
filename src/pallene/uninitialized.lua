@@ -51,21 +51,16 @@ local function flow_analysis(block_list, uninit_sets, kill_sets)
         return changed
     end
 
-    local block_order = ir.get_depth_search_topological_sort(block_list)
+    local succ_list = ir.get_successor_list(block_list)
+    local block_order = ir.get_successor_depth_search_topological_sort(succ_list)
 
     local function block_analysis(block_i)
-        local block = block_list[block_i]
+        local block_succs = succ_list[block_i]
         local uninit = uninit_sets[block_i]
         local kill = kill_sets[block_i]
         local changed = false
-        local jmp = ir.get_jmp(block)
-        local jmp_false = ir.get_jmpIfFalse(block)
-        if jmp  then
-            local c = merge_uninit(uninit_sets[jmp.target], uninit, kill)
-            changed = c or changed
-        end
-        if jmp_false  then
-            local c = merge_uninit(uninit_sets[jmp_false.target], uninit, kill)
+        for _,succ in ipairs(block_succs) do
+            local c = merge_uninit(uninit_sets[succ], uninit, kill)
             changed = c or changed
         end
         return changed
@@ -97,8 +92,12 @@ function uninitialized.verify_variables(module)
         local nargs = #func.typ.arg_types
 
         -- initialize sets
-        local kill_sets = {}
-        local uninit_sets = {}
+
+        -- variables that are initialized inside a given block
+        local kill_sets = {}    -- { block_id -> {var_id -> bool?} }
+
+        -- variables that are uninitialized when entering a given block
+        local uninit_sets = {}  -- { block_id -> {var_id -> bool?} }
         for _,b in ipairs(func.blocks) do
             local kill = gen_kill_set(b)
             table.insert(kill_sets, kill)
@@ -152,5 +151,3 @@ function uninitialized.verify_variables(module)
 end
 
 return uninitialized
-
-
