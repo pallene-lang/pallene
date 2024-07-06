@@ -1728,10 +1728,11 @@ gen_cmd["Jmp"] = function(self, cmd, _func)
     return "goto " .. self:c_label(cmd.target) .. ";"
 end
 
-gen_cmd["JmpIfFalse"] = function(self, cmd, _func)
-    return util.render("if(!($v)) {goto $l;}", {
+gen_cmd["JmpIf"] = function(self, cmd, _func)
+    return util.render("if($v) {goto $t;} else {goto $f;}", {
         v = self:c_value(cmd.src_cond),
-        l = self:c_label(cmd.target),
+        t = self:c_label(cmd.target_true),
+        f = self:c_label(cmd.target_false),
     })
 end
 

@@ -151,7 +151,8 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.CallStatic" then
         rhs = "CallStatic ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallDyn" then rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
-    elseif tag == "ir.Cmd.JmpIfFalse" then rhs = "jmpf " .. Val(cmd.src_cond) .. ", " .. cmd.target
+    elseif tag == "ir.Cmd.JmpIf" then
+        rhs = "jmpIf " .. Val(cmd.src_cond) .. ", " .. cmd.target_true .. ", " .. cmd.target_false
     elseif tag == "ir.Cmd.Jmp" then rhs = "jmp " .. cmd.target
     elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
         local name = tagged_union.consname(cmd._tag)

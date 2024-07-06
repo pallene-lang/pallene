@@ -201,7 +201,7 @@ local ir_cmd_constructors = {
                   "src_start", "src_limit", "src_step"},
 
     Jmp        = {"target"},
-    JmpIfFalse = {"loc", "src_cond", "target"},
+    JmpIf      = {"loc", "src_cond", "target_true", "target_false"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -272,7 +272,7 @@ function ir.BasicBlock()
 end
 
 local function is_jump(cmd)
-    return cmd._tag == "ir.Cmd.Jmp" or cmd._tag == "ir.Cmd.JmpIfFalse"
+    return cmd._tag == "ir.Cmd.Jmp" or cmd._tag == "ir.Cmd.JmpIf"
 end
 
 function ir.get_jump(block)
@@ -292,9 +292,13 @@ function ir.get_successor_list(block_list)
         local block_succs = succ_list[block_i]
         local jump = ir.get_jump(block)
         if jump then
-            table.insert(block_succs, jump.target)
-            if jump._tag == "ir.Cmd.JmpIfFalse" then
-                table.insert(block_succs, block_i + 1)
+            if jump._tag == "ir.Cmd.Jmp" then
+                table.insert(block_succs, jump.target)
+            elseif jump._tag == "ir.Cmd.JmpIf" then
+                table.insert(block_succs, jump.target_true)
+                table.insert(block_succs, jump.target_false)
+            else
+                assert(false, "not a jump command")
             end
         end
     end
@@ -309,7 +313,14 @@ function ir.get_predecessor_list(block_list)
     for block_i, block in ipairs(block_list) do
         local jump = ir.get_jump(block)
         if jump then
-            table.insert(pred_list[jump.target], block_i)
+            if jump._tag == "ir.Cmd.Jmp" then
+                table.insert(pred_list[jump.target], block_i)
+            elseif jump._tag == "ir.Cmd.JmpIf" then
+                table.insert(pred_list[jump.target_true ], block_i)
+                table.insert(pred_list[jump.target_false], block_i)
+            else
+                assert(false, "not a jump command")
+            end
         end
     end
     return pred_list
@@ -401,15 +412,15 @@ end
 
 -- Remove jumps that are never taken
 function ir.clean(func)
-    for block_id, block in ipairs(func.blocks) do
+    for _, block in ipairs(func.blocks) do
         local jump = ir.get_jump(block)
-        if jump and jump._tag == "ir.Cmd.JmpIfFalse" and jump.src_cond._tag == "ir.Value.Bool" then
+        if jump and jump._tag == "ir.Cmd.JmpIf" and jump.src_cond._tag == "ir.Value.Bool" then
             assert(type(jump.src_cond.value) == "boolean")
-            local new_jump = ir.Cmd.Jmp(nil)
+            local new_jump
             if jump.src_cond.value then
-                new_jump.target = block_id + 1
+                new_jump = ir.Cmd.Jmp(jump.target_true)
             else
-                new_jump.target = jump.target
+                new_jump = ir.Cmd.Jmp(jump.target_false)
             end
             table.remove(block.cmds)
             table.insert(block.cmds, new_jump)

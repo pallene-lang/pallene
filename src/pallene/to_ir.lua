@@ -96,18 +96,15 @@ function BlockBuilder:finish_block()
 end
 
 function BlockBuilder:start_block_list()
-     -- first block only has a jump, it is the "entry" block used on the flow graph
     table.insert(self.block_list, ir.BasicBlock())
-    self:finish_block()
 end
 
 function BlockBuilder:finish_block_list()
-     -- last block must be empty, it is the "exit" block used on the flow graph
-    local exit = self:finish_block()
+    local last_id = #self.block_list
     for _, ret_id in ipairs(self.ret_list) do
         local ret_block = self.block_list[ret_id]
         local jump = assert(ir.get_jump(ret_block))
-        jump.target = exit
+        jump.target = last_id
     end
 end
 
@@ -405,12 +402,13 @@ function ToIR:convert_stat(bb, stat)
         local loop_begin = bb:finish_block()
         local cond     = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
-        local step_test_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(stat.loc, cond_bool, 0))
-        bb:finish_block()
+        local step_test_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, cond_bool, nil, nil))
+        local loop_body = bb:finish_block()
         self:convert_stat(bb, stat.block)
         bb:append_cmd(ir.Cmd.Jmp(loop_begin))
         local after_loop = bb:finish_block()
-        step_test_jmpIfFalse.target = after_loop
+        step_test_jmpIf.target_true  = loop_body
+        step_test_jmpIf.target_false = after_loop
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Repeat" then
@@ -419,16 +417,17 @@ function ToIR:convert_stat(bb, stat)
         self:convert_stat(bb, stat.block)
         local cond     = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
-        local loop_end_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(stat.loc, cond_bool, 0))
+        local loop_end_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, cond_bool, nil, nil))
         local after_loop = bb:finish_block()
-        loop_end_jmpIfFalse.target = loop_begin
+        loop_end_jmpIf.target_true  = after_loop
+        loop_end_jmpIf.target_false = loop_begin
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.If" then
         local cond = self:exp_to_value(bb, stat.condition)
         local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
-        local if_begin_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(stat.loc, cond_bool, 0))
-        bb:finish_block()
+        local if_begin_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, cond_bool, nil, nil))
+        local then_begin = bb:finish_block()
         self:convert_stat(bb, stat.then_)
         local then_end_jmp = bb:append_cmd(ir.Cmd.Jmp(nil))
         local else_begin = bb:finish_block()
@@ -440,7 +439,8 @@ function ToIR:convert_stat(bb, stat)
         end
         local if_end = bb:last_block_id()
 
-        if_begin_jmpIfFalse.target = else_begin
+        if_begin_jmpIf.target_true  = then_begin
+        if_begin_jmpIf.target_false = else_begin
         then_end_jmp.target = if_end
 
     elseif tag == "ast.Stat.ForNum" then
@@ -467,15 +467,19 @@ function ToIR:convert_stat(bb, stat)
 
         bb:append_cmd(init_for)
         bb:enter_loop()
-        local before_loop_jmpIfFalse = bb:append_cmd(
-                ir.Cmd.JmpIfFalse(stat.loc, ir.Value.LocalVar(cond_enter), 0))
+        local before_loop_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_enter), nil, nil))
         local loop_begin = bb:finish_block()
         self:convert_stat(bb, stat.block)
         bb:append_cmd(iter_for)
-        bb:append_cmd(ir.Cmd.JmpIfFalse(stat.loc, ir.Value.LocalVar(cond_loop), loop_begin))
-        bb:finish_block()
+        local step_test_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_loop), nil, nil))
         local after_loop = bb:finish_block()
-        before_loop_jmpIfFalse.target = after_loop
+
+        before_loop_jmpIf.target_true  = loop_begin
+        before_loop_jmpIf.target_false = after_loop
+
+        step_test_jmpIf.target_true  = after_loop
+        step_test_jmpIf.target_false = loop_begin
+
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.ForIn" then
@@ -490,8 +494,7 @@ function ToIR:convert_stat(bb, stat)
             e1.exp.var._def.id == "ipairs")
 
         bb:enter_loop()
-        local step_test_jmpIfFalse -- ir.Cmd.JmpIfFalse of block that tests if it should break loop
-        local step_test_jmp        -- ir.Cmd.Jmp of block that tests if it should break loop
+        local step_test_jmpIf -- ir.Cmd.JmpIf of block that tests if it should break loop
         local after_loop           -- first block outside loop after loop body
         local after_step_test      -- first block after block that tests loop breaking
         if is_ipairs then
@@ -543,10 +546,8 @@ function ToIR:convert_stat(bb, stat)
             -- if x_dyn == nil then break end
             local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
             bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_x_dyn)))
-            step_test_jmpIfFalse = bb:append_cmd(
-                    ir.Cmd.JmpIfFalse(stat.loc, ir.Value.LocalVar(cond_checknil), 0))
-            bb:finish_block()
-            step_test_jmp = bb:append_cmd(ir.Cmd.Jmp(nil))
+            step_test_jmpIf= bb:append_cmd(
+                    ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_checknil), nil, nil))
             after_step_test = bb:finish_block()
 
             -- local i: T1 = i_num as T1
@@ -619,10 +620,8 @@ function ToIR:convert_stat(bb, stat)
             -- if i == nil then break end
             local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
             bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_lhs_dyn[1])))
-            step_test_jmpIfFalse = bb:append_cmd(
-                    ir.Cmd.JmpIfFalse(stat.loc, ir.Value.LocalVar(cond_checknil), 0))
-            bb:finish_block()
-            step_test_jmp = bb:append_cmd(ir.Cmd.Jmp(nil))
+            step_test_jmpIf = bb:append_cmd(
+                    ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_checknil), nil, nil))
             after_step_test = bb:finish_block()
 
             -- cast loop LHS to annotated types.
@@ -642,8 +641,8 @@ function ToIR:convert_stat(bb, stat)
             after_loop = bb:finish_block()
         end
 
-        step_test_jmpIfFalse.target = after_step_test
-        step_test_jmp.target = after_loop
+        step_test_jmpIf.target_true  = after_loop
+        step_test_jmpIf.target_false = after_step_test
         bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Assign" then
@@ -1317,24 +1316,23 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             self:exp_to_assignment(bb, dst, exp.lhs)
             local v = ir.Value.LocalVar(dst)
             local cond_bool = self:value_is_truthy(bb, exp.lhs, v)
-            local if_begin_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(loc, cond_bool, 0))
-            bb:finish_block()
+            local if_begin_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(loc, cond_bool, nil, nil))
+            local then_begin = bb:finish_block()
             self:exp_to_assignment(bb, dst, exp.rhs)
             local if_end = bb:finish_block()
-            if_begin_jmpIfFalse.target = if_end
+            if_begin_jmpIf.target_true  = then_begin
+            if_begin_jmpIf.target_false = if_end
 
             elseif op == "or" then
                 self:exp_to_assignment(bb, dst, exp.lhs)
                 local v = ir.Value.LocalVar(dst)
                 local cond_bool = self:value_is_truthy(bb, exp.lhs, v)
-                local if_begin_jmpIfFalse = bb:append_cmd(ir.Cmd.JmpIfFalse(loc, cond_bool, 0))
-                bb:finish_block()
-                local if_begin_jmp = bb:append_cmd(ir.Cmd.Jmp(nil))
+                local if_begin_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(loc, cond_bool, nil, nil))
                 local begin_else = bb:finish_block()
                 self:exp_to_assignment(bb, dst, exp.rhs)
                 local if_end = bb:finish_block()
-                if_begin_jmpIfFalse.target = begin_else
-                if_begin_jmp.target = if_end
+                if_begin_jmpIf.target_true  = if_end
+                if_begin_jmpIf.target_false = begin_else
 
         elseif op == ".." then
             -- Flatten (a .. (b .. (c .. d))) into (a .. b .. c .. d)
