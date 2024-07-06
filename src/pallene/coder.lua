@@ -513,12 +513,15 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(returns,
             util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
     end
+
     local ret_mult = table.concat(returns, "\n")
-    local var1 = ""
+
+    local ret_stat
     if #func.ret_vars > 0 then
-        var1 = " " .. self:c_var(func.ret_vars[1])
+        ret_stat = "return " .. self:c_var(func.ret_vars[1]) .. ";"
+    else
+        ret_stat = "return;"
     end
-    local ret = "return" .. var1 .. ";"
 
     return (util.render([[
         ${name_comment}
@@ -528,7 +531,7 @@ function Coder:pallene_entry_point_definition(f_id)
             ${body}
             ${ret_mult}
             ${frameexit}
-            ${ret}
+            ${ret_stat}
         }
     ]], {
         name_comment = C.comment(name_comment),
@@ -537,7 +540,7 @@ function Coder:pallene_entry_point_definition(f_id)
         body = body,
         ret_mult = ret_mult,
         frameexit = frameexit,
-        ret = ret,
+        ret_stat = ret_stat,
     }))
 end
 
@@ -1722,12 +1725,24 @@ gen_cmd["ForStep"] = function(self, cmd, func)
     }))
 end
 
-gen_cmd["Jmp"] = function(self, cmd, _func)
-    return "goto " .. self:c_label(cmd.target) .. ";"
+gen_cmd["Jmp"] = function(self, cmd, _func, block_id)
+    if cmd.target ~= block_id + 1 then
+        return "goto " .. self:c_label(cmd.target) .. ";"
+    else
+        return "" -- fallthrough
+    end
 end
 
-gen_cmd["JmpIf"] = function(self, cmd, _func)
-    return util.render("if($v) {goto $t;} else {goto $f;}", {
+gen_cmd["JmpIf"] = function(self, cmd, _func, block_id)
+    local template
+    if cmd.target_false == block_id + 1 then
+        template = "if ($v) goto $t;"
+    elseif cmd.target_true == block_id + 1 then
+        template = "if (!$v) goto $f;"
+    else
+        template = "if ($v) goto $t; else goto $f;"
+    end
+    return util.render(template, {
         v = self:c_value(cmd.src_cond),
         t = self:c_label(cmd.target_true),
         f = self:c_label(cmd.target_false),
@@ -1741,25 +1756,21 @@ end
 
 function Coder:generate_blocks(func)
     local out = {}
-    for block_id,block in ipairs(func.blocks) do
-        table.insert(out, util.render("$label:\n", {
-                label = self:c_label(block_id),
-        }))
+    for block_id, block in ipairs(func.blocks) do
+        table.insert(out, self:c_label(block_id)..":\n")
         for _,cmd in ipairs(block.cmds) do
-            if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_id + 1 then
-                local cmd_str = self:generate_cmd(func, cmd) .. "\n"
-                table.insert(out, cmd_str)
-            end
+            table.insert(out, self:generate_cmd(func, block_id, cmd))
+            table.insert(out, "\n")
         end
     end
     return table.concat(out)
 end
 
-function Coder:generate_cmd(func, cmd)
+function Coder:generate_cmd(func, block_id, cmd)
     assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
     local name = tagged_union.consname(cmd._tag)
     local f = assert(gen_cmd[name], "impossible")
-    local out = f(self, cmd, func)
+    local out = f(self, cmd, func, block_id)
 
     for _, v_id in ipairs(ir.get_dsts(cmd)) do
         local n = self.gc[func].slot_of_variable[v_id]
