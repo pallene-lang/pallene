@@ -504,23 +504,21 @@ function Coder:pallene_entry_point_definition(f_id)
 
     local body = self:generate_blocks(func)
 
-    local ret_mult = ""
-    local ret = ""
-    if #func.ret_vars > 0 then
-        -- We assign the dsts from right to left, in order to match Lua's semantics when a
-        -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
-        -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
-        local returns = {}
-        for i = #func.ret_vars, 2, -1 do
-            local var = self:c_var(func.ret_vars[i])
-            table.insert(returns,
-                util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
-        end
-        ret_mult = table.concat(returns, "\n")
-
-        local var1 = self:c_var(func.ret_vars[1])
-        ret = "return " .. var1 .. ";"
+    -- We assign the dsts from right to left, in order to match Lua's semantics when a
+    -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
+    -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
+    local returns = {}
+    for i = #func.ret_vars, 2, -1 do
+        local var = self:c_var(func.ret_vars[i])
+        table.insert(returns,
+            util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
     end
+    local ret_mult = table.concat(returns, "\n")
+    local var1 = ""
+    if #func.ret_vars > 0 then
+        var1 = " " .. self:c_var(func.ret_vars[1])
+    end
+    local ret = "return" .. var1 .. ";"
 
     return (util.render([[
         ${name_comment}
@@ -1744,12 +1742,8 @@ end
 function Coder:generate_blocks(func)
     local out = {}
     for block_id,block in ipairs(func.blocks) do
-        -- putting "(void)0" at the last label so the C compiler doesn't complain about dangling
-        -- labels
-        local void_str = (block_id == #func.blocks) and "(void)0;" or ""
-        table.insert(out, util.render("$label:$void_str\n", {
+        table.insert(out, util.render("$label:\n", {
                 label = self:c_label(block_id),
-                void_str = void_str,
         }))
         for _,cmd in ipairs(block.cmds) do
             if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_id + 1 then
