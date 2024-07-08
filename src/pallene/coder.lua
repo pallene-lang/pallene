@@ -373,6 +373,10 @@ function Coder:c_value(value)
     end
 end
 
+function Coder:c_label(index)
+    return "B" .. index
+end
+
 -- The information for creating a C local var for a given Pallene local var.
 function Coder:prepare_local_var(func, v_id)
     local c_name = self:c_var(v_id)
@@ -458,7 +462,7 @@ function Coder:pallene_entry_point_definition(f_id)
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
 
     local setline = ""
-    local void_frameexit = ""
+    local frameexit = ""
     if self.flags.use_traceback then
         table.insert(prologue, util.render([[
             /**/
@@ -469,10 +473,7 @@ function Coder:pallene_entry_point_definition(f_id)
         }));
 
         setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
-
-        if #func.typ.ret_types == 0 then
-            void_frameexit = "PALLENE_FRAMEEXIT();"
-        end
+        frameexit = "PALLENE_FRAMEEXIT();"
     end
 
     if slots_needed > 0 then
@@ -490,7 +491,6 @@ function Coder:pallene_entry_point_definition(f_id)
     table.insert(prologue, self:savestack())
     table.insert(prologue, "/**/")
 
-
     for v_id = #arg_types + 1, #func.vars do
         -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
         -- "Any". Nils and Booleans only set the type tag of the TValue and leave the "._value"
@@ -502,7 +502,23 @@ function Coder:pallene_entry_point_definition(f_id)
         table.insert(prologue, decl..initializer..";"..comment)
     end
 
-    local body = self:generate_cmd(func, func.body)
+    local body = self:generate_blocks(func)
+
+    -- We assign the dsts from right to left, in order to match Lua's semantics when a
+    -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
+    -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
+    local returns = {}
+    for i = #func.ret_vars, 2, -1 do
+        local var = self:c_var(func.ret_vars[i])
+        table.insert(returns,
+            util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
+    end
+    local ret_mult = table.concat(returns, "\n")
+    local var1 = ""
+    if #func.ret_vars > 0 then
+        var1 = " " .. self:c_var(func.ret_vars[1])
+    end
+    local ret = "return" .. var1 .. ";"
 
     return (util.render([[
         ${name_comment}
@@ -510,14 +526,18 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
             /**/
             ${body}
-            ${void_fe}
+            ${ret_mult}
+            ${frameexit}
+            ${ret}
         }
     ]], {
         name_comment = C.comment(name_comment),
         fun_decl = self:pallene_entry_point_declaration(f_id),
         prologue = table.concat(prologue, "\n"),
         body = body,
-        void_fe = void_frameexit
+        ret_mult = ret_mult,
+        frameexit = frameexit,
+        ret = ret,
     }))
 end
 
@@ -725,19 +745,20 @@ function Coder:init_upvalues()
 
     -- String Literals
     for _, func in ipairs(self.module.functions) do
-        for cmd in ir.iter(func.body) do
-            for _, v in ipairs(ir.get_srcs(cmd)) do
-                if v._tag == "ir.Value.String" then
-                    local str = v.value
-                    if not self.k_slot_of_string[str] then
-                        table.insert(self.constants, coder.Constant.String(str))
-                        self.k_slot_of_string[str] = #self.constants
+        for _, block in ipairs(func.blocks) do
+            for _, cmd in ipairs(block.cmds) do
+                for _, v in ipairs(ir.get_srcs(cmd)) do
+                    if v._tag == "ir.Value.String" then
+                        local str = v.value
+                        if not self.k_slot_of_string[str] then
+                            table.insert(self.constants, coder.Constant.String(str))
+                            self.k_slot_of_string[str] = #self.constants
+                        end
                     end
                 end
             end
         end
     end
-
 end
 
 local function upvalue_slot(ix)
@@ -929,15 +950,17 @@ function Coder:init_gc()
 
     for _, func in ipairs(self.module.functions) do
         local max = 0
-        for cmd in ir.iter(func.body) do
-            if cmd._tag == "ir.Cmd.CallDyn" then
-                -- Although in the end the fn call leaves only ndst items in
-                -- the stack, we actually need ndst+1 to appease the apicheck
-                -- assertions. That's because the callee keeps the fn closure
-                -- in the stack until it's right about to return.
-                local nsrcs = #cmd.srcs
-                local ndst  = #cmd.dsts
-                max = math.max(max, nsrcs+1, ndst+1)
+        for _,block in ipairs(func.blocks) do
+            for _,cmd in ipairs(block.cmds) do
+                if cmd._tag == "ir.Cmd.CallDyn" then
+                    -- Although in the end the fn call leaves only ndst items in
+                    -- the stack, we actually need ndst+1 to appease the apicheck
+                    -- assertions. That's because the callee keeps the fn closure
+                    -- in the stack until it's right about to return.
+                    local nsrcs = #cmd.srcs
+                    local ndst  = #cmd.dsts
+                    max = math.max(max, nsrcs+1, ndst+1)
+                end
             end
         end
         self.max_lua_call_stack_usage[func] = max
@@ -1648,128 +1671,88 @@ end
 -- Control flow
 --
 
-gen_cmd["Nop"] = function(self, _cmd, _func)
-    return ""
-end
-
-gen_cmd["Seq"] = function(self, cmd, func)
-    local out = {}
-    for _, c in ipairs(cmd.cmds) do
-        table.insert(out, self:generate_cmd(func, c))
-    end
-    return table.concat(out, "\n")
-end
-
-gen_cmd["Return"] = function(self, cmd)
-    local frameexit = ""
-    if self.flags.use_traceback then
-        frameexit = "PALLENE_FRAMEEXIT();"
-    end
-
-    if #cmd.srcs == 0 then
-        return util.render([[ ${fexit}
-        return; ]], { fexit = frameexit })
-    else
-        -- We assign the dsts from right to left, in order to match Lua's semantics when a
-        -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
-        -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
-        local returns = {}
-        for i = #cmd.srcs, 2, -1 do
-            local src = self:c_value(cmd.srcs[i])
-            table.insert(returns,
-                util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = src }))
-        end
-        local src1 = self:c_value(cmd.srcs[1])
-        table.insert(returns, util.render([[ ${fexit}
-        return $v; ]], { fexit = frameexit, v = src1 }))
-        return table.concat(returns, "\n")
-    end
-end
-
-gen_cmd["Break"] = function(self, _cmd, _func)
-    return [[ break; ]]
-end
-
-gen_cmd["If"] = function(self, cmd, func)
-    local condition = self:c_value(cmd.src_condition)
-    local then_ = self:generate_cmd(func, cmd.then_)
-    local else_ = self:generate_cmd(func, cmd.else_)
-
-    local A = (then_ ~= "")
-    local B = (else_ ~= "")
-
-    local tmpl
-    if A and (not B) then
-        tmpl = [[
-            if ($condition) {
-                ${then_}
-            }
-        ]]
-    elseif (not A) and B then
-        tmpl = [[
-            if (!$condition) {
-                ${else_}
-            }
-        ]]
-    else
-        tmpl = [[
-            if ($condition) {
-                ${then_}
-            } else {
-                ${else_}
-            }
-        ]]
-    end
-
-    return util.render(tmpl, {
-        condition = condition,
-        then_ = then_,
-        else_ = else_,
-    })
-end
-
-gen_cmd["Loop"] = function(self, cmd, func)
-    local body = self:generate_cmd(func, cmd.body)
-    return (util.render([[
-        while (1) {
-            ${body}
-        }
-    ]], {
-        body = body
-    }))
-end
-
-gen_cmd["For"] = function(self, cmd, func)
-    local typ = func.vars[cmd.dst].typ
-
+gen_cmd["ForPrep"] = function(self, cmd, func)
+    local typ = func.vars[cmd.dst_i].typ
     local macro
     if     typ._tag == "types.T.Integer" then
-        macro = "PALLENE_INT_FOR_LOOP"
+        macro = "PALLENE_INT_FOR_PREP"
     elseif typ._tag == "types.T.Float" then
-        macro = "PALLENE_FLT_FOR_LOOP"
+        macro = "PALLENE_FLT_FOR_PREP"
     else
         tagged_union.error(typ._tag)
     end
 
     return (util.render([[
-        ${macro}_BEGIN($x, $start, $limit, $step)
-        {
-            $body
-        }
-        ${macro}_END
+        ${macro}($i, $cond, $iter, $count, $start, $limit, $step)
     ]], {
         macro = macro,
-        x     = self:c_var(cmd.dst),
+        i     = self:c_var(cmd.dst_i),
+        cond  = self:c_var(cmd.dst_cond),
+        iter  = self:c_var(cmd.dst_iter),
+        count = self:c_var(cmd.dst_count),
         start = self:c_value(cmd.src_start),
         limit = self:c_value(cmd.src_limit),
         step  = self:c_value(cmd.src_step),
-        body  = self:generate_cmd(func, cmd.body)
     }))
+end
+
+gen_cmd["ForStep"] = function(self, cmd, func)
+    local typ = func.vars[cmd.dst_i].typ
+
+    local macro
+    if     typ._tag == "types.T.Integer" then
+        macro = "PALLENE_INT_FOR_STEP"
+    elseif typ._tag == "types.T.Float" then
+        macro = "PALLENE_FLT_FOR_STEP"
+    else
+        tagged_union.error(typ._tag)
+    end
+
+    return (util.render([[
+        ${macro}($i, $cond, $iter, $count, $start, $limit, $step)
+    ]], {
+        macro = macro,
+        i     = self:c_var(cmd.dst_i),
+        cond  = self:c_var(cmd.dst_cond),
+        iter  = self:c_var(cmd.dst_iter),
+        count = self:c_var(cmd.dst_count),
+        start = self:c_value(cmd.src_start),
+        limit = self:c_value(cmd.src_limit),
+        step  = self:c_value(cmd.src_step),
+    }))
+end
+
+gen_cmd["Jmp"] = function(self, cmd, _func)
+    return "goto " .. self:c_label(cmd.target) .. ";"
+end
+
+gen_cmd["JmpIf"] = function(self, cmd, _func)
+    return util.render("if($v) {goto $t;} else {goto $f;}", {
+        v = self:c_value(cmd.src_cond),
+        t = self:c_label(cmd.target_true),
+        f = self:c_label(cmd.target_false),
+    })
 end
 
 gen_cmd["CheckGC"] = function(self, cmd, func)
     return util.render([[ luaC_condGC(L, ${update_stack_top}, (void)0); ]], {
         update_stack_top = self:update_stack_top(func, cmd) })
+end
+
+function Coder:generate_blocks(func)
+    local out = {}
+    for block_id,block in ipairs(func.blocks) do
+        table.insert(out, util.render("$label:\n", {
+                label = self:c_label(block_id),
+        }))
+        for _,cmd in ipairs(block.cmds) do
+            if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_id + 1 then
+                local cmd_str = self:generate_cmd(func, cmd) .. "\n"
+                table.insert(out, cmd_str)
+            end
+        end
+    end
+    return table.concat(out)
 end
 
 function Coder:generate_cmd(func, cmd)

@@ -121,83 +121,12 @@ end
 local function Cmd(cmd)
     local tag = cmd._tag
 
-    -- Control-flow commands (potentially multi-line)
-
+    local lhs
     if     tag == "ir.Cmd.Nop" then
-        return ""
-    elseif tag == "ir.Cmd.Seq" then
-        local parts = {}
-        for i, child in ipairs(cmd.cmds) do
-            parts[i] = Cmd(child)
-        end
-        return table.concat(parts, "\n")
+        return "nop"
     elseif tag == "ir.Cmd.Return" then
         return "return " .. comma_concat(Vals(cmd.srcs))
-    elseif tag == "ir.Cmd.ir.Cmd.Break" then
-        return "break"
-    elseif tag == "ir.Cmd.Loop" then
-        return util.render([[
-            loop {
-                $body
-            }
-        ]], {
-            body = Cmd(cmd.body)
-        })
-    elseif tag == "ir.Cmd.If" then
-        local cond  = Val(cmd.src_condition)
-        local then_ = Cmd(cmd.then_)
-        local else_ = Cmd(cmd.else_)
-
-        local A = (then_ ~= "")
-        local B = (else_ ~= "")
-
-        local tmpl
-        if A and (not B) then
-            tmpl = [[
-                if $cond {
-                    $then_
-                }
-            ]]
-        elseif (not A) and B then
-            tmpl = [[
-                if not $cond {
-                    $else_
-                }
-            ]]
-        else
-            tmpl = [[
-                if $cond {
-                    $then_
-                } else {
-                    $else_
-                }
-            ]]
-        end
-
-        return util.render(tmpl, {
-            cond = cond,
-            then_ = then_,
-            else_ = else_,
-        })
-
-      elseif tag == "ir.Cmd.For" then
-        return util.render([[
-            for $v = $a, $b, $c {
-                $body
-            }
-        ]], {
-            v = Var(cmd.dst),
-            a = Val(cmd.src_start),
-            b = Val(cmd.src_limit),
-            c = Val(cmd.src_step),
-            body = Cmd(cmd.body),
-        })
-    end
-
-    -- Leaf commands (single line)
-
-    local lhs
-    if     tag == "ir.Cmd.SetArr"      then lhs = Bracket(cmd.src_arr, cmd.src_i)
+    elseif tag == "ir.Cmd.SetArr"      then lhs = Bracket(cmd.src_arr, cmd.src_i)
     elseif tag == "ir.Cmd.SetTable"    then lhs = Bracket(cmd.src_tab, cmd.src_k)
     elseif tag == "ir.Cmd.SetField"    then lhs = Field(cmd.src_rec, cmd.field_name)
     elseif tag == "ir.Cmd.InitUpvalues" then lhs = Val(cmd.src_f) .. ".upvalues"
@@ -221,8 +150,10 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.InitUpvalues" then rhs = comma_concat(Vals(cmd.srcs))
     elseif tag == "ir.Cmd.CallStatic" then
         rhs = "CallStatic ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
-    elseif tag == "ir.Cmd.CallDyn" then
-        rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.CallDyn" then rhs = "CallDyn ".. Call(Val(cmd.src_f), Vals(cmd.srcs))
+    elseif tag == "ir.Cmd.JmpIf" then
+        rhs = "jmpIf " .. Val(cmd.src_cond) .. ", " .. cmd.target_true .. ", " .. cmd.target_false
+    elseif tag == "ir.Cmd.Jmp" then rhs = "jmp " .. cmd.target
     elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
         local name = tagged_union.consname(cmd._tag)
         rhs = Call(name, Vals(ir.get_srcs(cmd)))
@@ -235,6 +166,29 @@ local function Cmd(cmd)
     end
 end
 
+local function print_block(block, block_id)
+    local parts = {}
+    local space = "    "
+    for i, cmd in ipairs(block.cmds) do
+        if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_id + 1 then
+            parts[i] = space .. Cmd(cmd)
+        end
+    end
+    local str = table.concat(parts, "\n")
+    return #str > 0 and str .. "\n" or ""
+end
+
+local function print_block_list(blocks)
+    local parts = {}
+    for i, b in ipairs(blocks) do
+        parts[i] = util.render(
+                "  $num:\n$body",
+                {num = tostring(i), body = print_block(b, i)})
+    end
+    return table.concat(parts)
+end
+
+
 local function print_ir(module)
     local parts = {}
     for f_id, func in ipairs(module.functions) do
@@ -243,15 +197,21 @@ local function print_ir(module)
             vs[i] = i
         end
 
-        table.insert(parts, util.render([[
-            function $proto {
-                $body
-            }]], {
-            proto = Call(Fun(f_id), Vars(vs)),
-            body  = Cmd(func.body),
+        local rs = {}
+        for i,v in ipairs(func.ret_vars) do
+            rs[i] = Var(v)
+        end
+        local rets = (#rs > 0) and (': ' .. comma_concat(rs)) or ""
+
+        local body = print_block_list(func.blocks)
+
+        table.insert(parts, util.render(
+            "function $proto {\n$body}\n", {
+            proto = Call(Fun(f_id), Vars(vs), Vars(rets)) .. rets,
+            body  = body,
         }))
     end
-    return C.reformat(table.concat(parts, "\n\n"))
+    return table.concat(parts, "\n")
 end
 
 return print_ir

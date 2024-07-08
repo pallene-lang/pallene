@@ -31,6 +31,8 @@ define_union("Var", {
     GlobalVar  = {"id"},
 })
 
+local BlockBuilder = util.Class()
+
 local ToIR = util.Class()
 
 -- The Lua interpreter uses a byte sized number to refer to upvalues, and
@@ -66,7 +68,7 @@ function to_ir.FuncInfo(f_id, func)
     return {
         loc_id_of_decl   = {},   -- { ast.Decl => integer }
         upval_id_of_decl = {},   -- { ast.Decl => integer }
-        func             = func, -- ast.Exp.Lambda
+        func             = func, -- ir.Function
         f_id             = f_id  -- integer
     }
 end
@@ -74,6 +76,68 @@ end
 --
 --
 --
+
+function BlockBuilder:init(block_list)
+    self.block_list = block_list -- { ir.BasicBlock }
+    self.ret_list = {}           -- { block_id } ids of blocks that come from return statements
+    self.break_stack = {}        -- { { block_id } } we keep track of blocks that come from break
+                                 -- statements so we can reference them when leaving a loop
+end
+
+function BlockBuilder:finish_block()
+    local list = self.block_list
+    local b = list[#list]
+    local jump = ir.get_jump(b)
+    if not jump then
+        self:append_cmd(ir.Cmd.Jmp(#list + 1))
+    end
+    table.insert(list, ir.BasicBlock())
+    return #list
+end
+
+function BlockBuilder:start_block_list()
+    table.insert(self.block_list, ir.BasicBlock())
+end
+
+function BlockBuilder:finish_block_list()
+    local last_id = #self.block_list
+    for _, ret_id in ipairs(self.ret_list) do
+        local ret_block = self.block_list[ret_id]
+        local jump = assert(ir.get_jump(ret_block))
+        jump.target = last_id
+    end
+end
+
+function BlockBuilder:append_cmd(cmd)
+    local block = self.block_list[#self.block_list]
+    table.insert(block.cmds, cmd)
+    return cmd
+end
+
+function BlockBuilder:last_block_id()
+    return #self.block_list
+end
+
+function BlockBuilder:is_last_block_uninitialized()
+    local last = self.block_list[#self.block_list]
+    return #last.cmds == 0
+end
+
+function BlockBuilder:enter_loop()
+    local break_blocks = {}
+    table.insert(self.break_stack, break_blocks)
+end
+
+function BlockBuilder:exit_loop(break_destination)
+    assert(#self.break_stack > 0)
+    local break_blocks = table.remove(self.break_stack)
+    for _, index in ipairs(break_blocks) do
+        local block = self.block_list[index]
+        local jump = ir.get_jump(block)
+        assert(jump)
+        jump.target = break_destination
+    end
+end
 
 function ToIR:init()
     -- Module-level variables
@@ -98,9 +162,14 @@ function ToIR:enter_function(f_id)
 
     self.func           = func_info.func
     self.loc_id_of_decl = func_info.loc_id_of_decl
+
+    local block_builder = BlockBuilder.new(self.func.blocks)
+    block_builder:start_block_list()
+
+    return block_builder
 end
 
-function ToIR:exit_function(cmds)
+function ToIR:exit_function(block_builder)
     -- Create temporary destination variables for any unused function return values.
     for _, call_exp in ipairs(self.call_exps) do
         local dsts = self.dsts_of_call[call_exp]
@@ -112,7 +181,7 @@ function ToIR:exit_function(cmds)
         end
     end
 
-    self.func.body = ir.Cmd.Seq(cmds)
+    block_builder:finish_block_list()
 
     table.remove(self.func_stack, #self.func_stack)
     local current_func = self.func_stack[#self.func_stack]
@@ -208,14 +277,14 @@ end
 -- This must be called while generating IR for the `$init` function.
 -- @param func_or_var An ir.Function or ir.Variable representing the to-be-exported value.
 -- @param loc_id Local variable ID of the to-be-exported function or variable in `$init`.
-function ToIR:export_local(cmds, func_or_var, loc_id)
+function ToIR:export_local(bb, func_or_var, loc_id)
     assert(#self.func_stack == 1)
 
     local tv = ir.Value.LocalVar(self.module.loc_id_of_exports)
     local kv = ir.Value.String(assert(func_or_var.name))
     local fv = ir.Value.LocalVar(loc_id)
     local src_typ = assert(func_or_var.typ)
-    table.insert(cmds, ir.Cmd.SetTable(func_or_var.loc, src_typ, tv, kv, fv))
+    bb:append_cmd(ir.Cmd.SetTable(func_or_var.loc, src_typ, tv, kv, fv))
 end
 
 function ToIR:convert_toplevel(prog_ast)
@@ -226,8 +295,7 @@ function ToIR:convert_toplevel(prog_ast)
     self.captured_vals_of_func[init_func] = {}
 
     -- Initialize the module-level variables
-    self:enter_function(1)
-    local cmds = {}
+    local bb = self:enter_function(1)
 
     local n_exports = 0
     for _, tl_node in ipairs(prog_ast) do
@@ -269,7 +337,7 @@ function ToIR:convert_toplevel(prog_ast)
     for _, tl_node in ipairs(prog_ast) do
         if tl_node._tag == "ast.Toplevel.Stats" then
             for _, stat in ipairs(tl_node.stats) do
-                self:convert_stat(cmds, stat)
+                self:convert_stat(bb, stat)
             end
         else
             -- skip
@@ -279,80 +347,140 @@ function ToIR:convert_toplevel(prog_ast)
     -- Initialize the module exports as a lua table
     local exports_type  = types.T.Table({})
     self.module.loc_id_of_exports = ir.add_local(self.func, "$exports", exports_type)
-    table.insert(cmds, ir.Cmd.NewTable(self.func.loc,  self.module.loc_id_of_exports, ir.Value.Integer(n_exports)))
-    table.insert(cmds, ir.Cmd.CheckGC())
+    bb:append_cmd(ir.Cmd.NewTable(self.func.loc,
+                                  self.module.loc_id_of_exports,
+                                  ir.Value.Integer(n_exports)))
+    bb:append_cmd(ir.Cmd.CheckGC())
 
     -- export the functions
     for _, f_id in ipairs(self.module.exported_functions) do
         local func   = self.module.functions[f_id]
         local loc_id = assert(self.loc_id_of_exported_func[f_id])
-        self:export_local(cmds, func, loc_id)
+        self:export_local(bb, func, loc_id)
     end
 
     -- export module variables
     for _, loc_id in ipairs(self.module.exported_globals) do
         local var  = self.func.vars[loc_id]
-        self:export_local(cmds, var, loc_id)
+        self:export_local(bb, var, loc_id)
     end
 
     local v_exports = ir.Value.LocalVar(self.module.loc_id_of_exports)
-    table.insert(cmds, ir.Cmd.Return(self.func.loc, { v_exports }))
+    ir.add_ret_vars(self.func)
+    self:insert_return(bb, self.func.loc, {v_exports})
 
-    self:exit_function(cmds)
+    self:exit_function(bb)
 
     return self.module
 end
 
+function ToIR:insert_return(bb, loc, src_list)
+    assert(#src_list <= #self.func.ret_vars)
+    for i,src in ipairs(src_list) do
+        local v = self.func.ret_vars[i]
+        bb:append_cmd(ir.Cmd.Move(loc, v, src))
+    end
+    table.insert(bb.ret_list, bb:last_block_id())
+    bb:finish_block()
+end
 
-function ToIR:convert_stats(cmds, stats)
+
+function ToIR:convert_stats(bb, stats)
     for i = 1, #stats do
-        self:convert_stat(cmds, stats[i])
+        self:convert_stat(bb, stats[i])
     end
 end
 
--- Converts a typechecked ast.Stat into a list of ir.Cmd
--- The converted ir.Cmd nodes are appended to the @cmds list
-function ToIR:convert_stat(cmds, stat)
+-- Converts a typechecked ast.Stat into commands inside basic blocks
+function ToIR:convert_stat(bb, stat)
     local tag = stat._tag
     if     tag == "ast.Stat.Block" then
-        self:convert_stats(cmds, stat.stats)
+        self:convert_stats(bb, stat.stats)
 
     elseif tag == "ast.Stat.While" then
-        local body = {}
-        local cond     = self:exp_to_value(body, stat.condition)
-        local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Nop(), ir.Cmd.Break()))
-        self:convert_stat(body, stat.block)
-        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+        bb:enter_loop()
+        local loop_begin = bb:finish_block()
+        local cond     = self:exp_to_value(bb, stat.condition)
+        local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
+        local step_test_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, cond_bool, nil, nil))
+        local loop_body = bb:finish_block()
+        self:convert_stat(bb, stat.block)
+        bb:append_cmd(ir.Cmd.Jmp(loop_begin))
+        local after_loop = bb:finish_block()
+        step_test_jmpIf.target_true  = loop_body
+        step_test_jmpIf.target_false = after_loop
+        bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Repeat" then
-        local body = {}
-        self:convert_stat(body, stat.block)
-        local cond     = self:exp_to_value(body, stat.condition)
-        local condBool = self:value_is_truthy(body, stat.condition, cond)
-        table.insert(body, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Break(), ir.Cmd.Nop()))
-        table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+        bb:enter_loop()
+        local loop_begin = bb:finish_block()
+        self:convert_stat(bb, stat.block)
+        local cond     = self:exp_to_value(bb, stat.condition)
+        local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
+        local loop_end_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, cond_bool, nil, nil))
+        local after_loop = bb:finish_block()
+        loop_end_jmpIf.target_true  = after_loop
+        loop_end_jmpIf.target_false = loop_begin
+        bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.If" then
-        local cond     = self:exp_to_value(cmds, stat.condition)
-        local condBool = self:value_is_truthy(cmds, stat.condition, cond)
-        local then_ = {}; self:convert_stat(then_, stat.then_)
-        local else_ = {}; self:convert_stat(else_, stat.else_)
-        table.insert(cmds, ir.Cmd.If(stat.loc, condBool, ir.Cmd.Seq(then_), ir.Cmd.Seq(else_)))
+        local cond = self:exp_to_value(bb, stat.condition)
+        local cond_bool = self:value_is_truthy(bb, stat.condition, cond)
+        local if_begin_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, cond_bool, nil, nil))
+        local then_begin = bb:finish_block()
+        self:convert_stat(bb, stat.then_)
+        local then_end_jmp = bb:append_cmd(ir.Cmd.Jmp(nil))
+        local else_begin = bb:finish_block()
+        self:convert_stat(bb, stat.else_)
+        -- Only insert a new block if last block isn't empty. This saves us from having a bunch of
+        -- trailing empty blocks when making a chain of "elseif" statements
+        if not bb:is_last_block_uninitialized() then
+            bb:finish_block()
+        end
+        local if_end = bb:last_block_id()
+
+        if_begin_jmpIf.target_true  = then_begin
+        if_begin_jmpIf.target_false = else_begin
+        then_end_jmp.target = if_end
 
     elseif tag == "ast.Stat.ForNum" then
-        local start = self:exp_to_value(cmds, stat.start)
-        local limit = self:exp_to_value(cmds, stat.limit)
-        local step  = self:exp_to_value(cmds, stat.step)
+        local start = self:exp_to_value(bb, stat.start)
+        local limit = self:exp_to_value(bb, stat.limit)
+        local step  = self:exp_to_value(bb, stat.step)
 
         local decl = stat.decl
         local v = ir.add_local(self.func, decl.name, decl._type)
+        local v_type = decl._type
         self.loc_id_of_decl[decl] = v
 
-        local body = {}
-        self:convert_stat(body, stat.block)
+        local count = ir.add_local(self.func, false, v_type)
+        local iter = ir.add_local(self.func, false, v_type)
+        local cond_enter = ir.add_local(self.func, false, types.T.Boolean())
+        local cond_loop = ir.add_local(self.func, false, types.T.Boolean())
 
-        table.insert(cmds, ir.Cmd.For(stat.loc, v, start, limit, step, ir.Cmd.Seq(body)))
+        local init_for = ir.Cmd.ForPrep(
+                stat.loc, v, cond_enter, iter, count,
+                start, limit, step)
+        local iter_for = ir.Cmd.ForStep(
+                stat.loc, v, cond_loop, iter, count,
+                start, limit, step)
+
+        bb:append_cmd(init_for)
+        bb:enter_loop()
+        local before_loop_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_enter), nil, nil))
+        local loop_begin = bb:finish_block()
+        self:convert_stat(bb, stat.block)
+        bb:append_cmd(iter_for)
+        local step_test_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_loop), nil, nil))
+        local after_loop = bb:finish_block()
+
+        before_loop_jmpIf.target_true  = loop_begin
+        before_loop_jmpIf.target_false = after_loop
+
+        step_test_jmpIf.target_true  = after_loop
+        step_test_jmpIf.target_false = loop_begin
+
+        bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.ForIn" then
         local decls = stat.decls
@@ -365,7 +493,10 @@ function ToIR:convert_stat(cmds, stat)
             e1.exp.var._def._tag == "typechecker.Def.Builtin" and
             e1.exp.var._def.id == "ipairs")
 
-
+        bb:enter_loop()
+        local step_test_jmpIf -- ir.Cmd.JmpIf of block that tests if it should break loop
+        local after_loop           -- first block outside loop after loop body
+        local after_step_test      -- first block after block that tests loop breaking
         if is_ipairs then
             -- `ipairs` are desugared down to regular for-loops
             -- ```
@@ -397,53 +528,53 @@ function ToIR:convert_stat(cmds, stat)
             local arr =  ipairs_args[1]
             assert(types.equals(arr._type, types.T.Array(types.T.Any())))
             local v_arr = ir.add_local(self.func, "$xs", arr._type)
-            self:exp_to_assignment(cmds, v_arr, arr)
+            self:exp_to_assignment(bb, v_arr, arr)
 
             -- local i_num: integer = 1
             local v_inum = ir.add_local(self.func, "$"..decls[1].name.."_num", types.T.Integer())
             local start = ir.Value.Integer(1)
-            table.insert(cmds, ir.Cmd.Move(stat.loc, v_inum, start))
+            bb:append_cmd(ir.Cmd.Move(stat.loc, v_inum, start))
 
-            -- body of the while loop.
-            local body = {}
+            local loop_begin = bb:finish_block()
 
             -- x_dyn = xs[i_num]
             local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any())
             local src_arr =  ir.Value.LocalVar(v_arr)
             local src_i =  ir.Value.LocalVar(v_inum)
-            table.insert(body, ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
+            bb:append_cmd(ir.Cmd.GetArr(stat.loc, types.T.Any(), v_x_dyn, src_arr, src_i))
 
             -- if x_dyn == nil then break end
-            local v_cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
-            table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond_checknil, ir.Value.LocalVar(v_x_dyn)))
-            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond_checknil), ir.Cmd.Break(), ir.Cmd.Nop()))
+            local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
+            bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_x_dyn)))
+            step_test_jmpIf= bb:append_cmd(
+                    ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_checknil), nil, nil))
+            after_step_test = bb:finish_block()
 
             -- local i: T1 = i_num as T1
             local v_i = ir.add_local(self.func, decls[1].name, decls[1]._type)
             self.loc_id_of_decl[decls[1]] = v_i
             if decls[1]._type._tag == "types.T.Integer" then
-                table.insert(body, ir.Cmd.Move(stat.loc, v_i, ir.Value.LocalVar(v_inum)))
+                bb:append_cmd(ir.Cmd.Move(stat.loc, v_i, ir.Value.LocalVar(v_inum)))
             else
-                table.insert(body, ir.Cmd.ToDyn(stat.loc, types.T.Integer(), v_i, ir.Value.LocalVar(v_inum)))
+                bb:append_cmd(ir.Cmd.ToDyn(stat.loc, types.T.Integer(), v_i, ir.Value.LocalVar(v_inum)))
             end
 
             -- local x = x_dyn as T2
             local v_x = ir.add_local(self.func, decls[2].name, decls[2]._type)
             self.loc_id_of_decl[decls[2]] = v_x
             if decls[2]._type._tag == "types.T.Any" then
-                table.insert(body, ir.Cmd.Move(stat.loc, v_x, ir.Value.LocalVar(v_x_dyn)))
+                bb:append_cmd(ir.Cmd.Move(stat.loc, v_x, ir.Value.LocalVar(v_x_dyn)))
             else
-                table.insert(body, ir.Cmd.FromDyn(stat.loc, decls[2]._type, v_x, ir.Value.LocalVar(v_x_dyn)))
+                bb:append_cmd(ir.Cmd.FromDyn(stat.loc, decls[2]._type, v_x, ir.Value.LocalVar(v_x_dyn)))
             end
 
             -- <loop body>
-            self:convert_stat(body, stat.block)
+            self:convert_stat(bb, stat.block)
             -- i_num = i_num + 1
             local loop_step = ir.Value.Integer(1)
-            table.insert(body, ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
-
-            table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
-
+            bb:append_cmd(ir.Cmd.Binop(stat.loc, v_inum, "IntAdd", ir.Value.LocalVar(v_inum), loop_step))
+            bb:append_cmd(ir.Cmd.Jmp(loop_begin))
+            after_loop = bb:finish_block()
         else
 
             -- Regular for-in loops are desugared into regurlar loops before compiling.
@@ -467,9 +598,9 @@ function ToIR:convert_stat(cmds, stat)
             -- ```
 
             local v_iter = ir.add_local(self.func, "$iter", exps[1]._type)
-            self:exp_to_assignment(cmds, v_iter, exps[1])
+            self:exp_to_assignment(bb, v_iter, exps[1])
             local v_state = ir.add_local(self.func, "$st", exps[2]._type)
-            self:exp_to_assignment(cmds, v_state, exps[2])
+            self:exp_to_assignment(bb, v_state, exps[2])
 
             local v_lhs_dyn = {}
             for _, decl in ipairs(decls) do
@@ -478,19 +609,20 @@ function ToIR:convert_stat(cmds, stat)
             end
 
             local v_ctrl = v_lhs_dyn[1]
-            self:exp_to_assignment(cmds, v_ctrl, exps[3])
+            self:exp_to_assignment(bb, v_ctrl, exps[3])
 
             --Body of the `while` loop.
-            local body = {}
-
+            local loop_begin = bb:finish_block()
             local itertype = exps[1]._type
             local args = { ir.Value.LocalVar(v_state), ir.Value.LocalVar(v_ctrl) }
-            table.insert(body, ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
+            bb:append_cmd(ir.Cmd.CallDyn(exps[1].loc, itertype, v_lhs_dyn, ir.Value.LocalVar(v_iter), args))
 
             -- if i == nil then break end
-            local v_cond = ir.add_local(self.func, false, types.T.Boolean())
-            table.insert(body, ir.Cmd.IsNil(stat.loc, v_cond, ir.Value.LocalVar(v_lhs_dyn[1])))
-            table.insert(body, ir.Cmd.If(stat.loc, ir.Value.LocalVar(v_cond), ir.Cmd.Break(), ir.Cmd.Nop()))
+            local cond_checknil = ir.add_local(self.func, false, types.T.Boolean())
+            bb:append_cmd(ir.Cmd.IsNil(stat.loc, cond_checknil, ir.Value.LocalVar(v_lhs_dyn[1])))
+            step_test_jmpIf = bb:append_cmd(
+                    ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_checknil), nil, nil))
+            after_step_test = bb:finish_block()
 
             -- cast loop LHS to annotated types.
             for i, decl in ipairs(decls) do
@@ -499,14 +631,19 @@ function ToIR:convert_stat(cmds, stat)
                 else
                     local v_typed = ir.add_local(self.func, decl.name, decl._type)
                     local val = ir.Value.LocalVar(v_lhs_dyn[i])
-                    table.insert(body, ir.Cmd.FromDyn(stat.loc, decl._type, v_typed, val))
+                    bb:append_cmd(ir.Cmd.FromDyn(stat.loc, decl._type, v_typed, val))
                     self.loc_id_of_decl[decl] = v_typed
                 end
             end
 
-            self:convert_stat(body, stat.block)
-            table.insert(cmds, ir.Cmd.Loop(ir.Cmd.Seq(body)))
+            self:convert_stat(bb, stat.block)
+            bb:append_cmd(ir.Cmd.Jmp(loop_begin))
+            after_loop = bb:finish_block()
         end
+
+        step_test_jmpIf.target_true  = after_loop
+        step_test_jmpIf.target_false = after_step_test
+        bb:exit_loop(after_loop)
 
     elseif tag == "ast.Stat.Assign" then
         local loc = stat.loc
@@ -527,7 +664,7 @@ function ToIR:convert_stat(cmds, stat)
         -- of the the assignment.  When that happens we need to save the value to a temporary
         -- variable before resolving the assignments.
         local function save_if_necessary(exp, i)
-            local val = self:exp_to_value(cmds, exp)
+            local val = self:exp_to_value(bb, exp)
             if  val._tag == "ir.Value.LocalVar" then
                 for j = i+1, #vars do
                     local var = vars[j]
@@ -536,7 +673,7 @@ function ToIR:convert_stat(cmds, stat)
                         self.loc_id_of_decl[var._def.decl] == val.id
                     then
                         local v = ir.add_local(self.func, false, exp._type)
-                        table.insert(cmds, ir.Cmd.Move(loc, v, val))
+                        bb:append_cmd(ir.Cmd.Move(loc, v, val))
                         return ir.Value.LocalVar(v)
                     end
                 end
@@ -612,13 +749,13 @@ function ToIR:convert_stat(cmds, stat)
                                      exp[i+1] and exp[i+1]._tag == "ast.Exp.ExtraRet")
                 local is_last = (i == #vars) or is_mulfun or is_extraret
                 if is_last and lhss[i] and lhss[i]._tag == "to_ir.LHS.Local" then
-                    self:exp_to_assignment(cmds, lhss[i].id, exp)
+                    self:exp_to_assignment(bb, lhss[i].id, exp)
                     vals[i] = false
                 else
                     vals[i] = save_if_necessary(exp, i)
                 end
             else
-                vals[i] = self:exp_to_value(cmds, exp)
+                vals[i] = self:exp_to_value(bb, exp)
             end
         end
 
@@ -628,14 +765,14 @@ function ToIR:convert_stat(cmds, stat)
             if val then
                 local ltag = lhs._tag
                 if     ltag == "to_ir.LHS.Local" then
-                    table.insert(cmds, ir.Cmd.Move(loc, lhs.id, val))
+                    bb:append_cmd(ir.Cmd.Move(loc, lhs.id, val))
                 elseif ltag == "to_ir.LHS.Array" then
-                    table.insert(cmds, ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val))
+                    bb:append_cmd(ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val))
                 elseif ltag == "to_ir.LHS.Table" then
                     local str = ir.Value.String(lhs.field)
-                    table.insert(cmds, ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val))
+                    bb:append_cmd(ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val))
                 elseif ltag == "to_ir.LHS.Record" then
-                    table.insert(cmds, ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val))
+                    bb:append_cmd(ir.Cmd.SetField(loc, lhs.typ, lhs.rec, lhs.field, val))
                 else
                     tagged_union.error(ltag)
                 end
@@ -651,25 +788,33 @@ function ToIR:convert_stat(cmds, stat)
         for i, exp in ipairs(stat.exps) do
             local decl = stat.decls[i]
             if decl then
-                self:exp_to_assignment(cmds, self.loc_id_of_decl[decl], exp)
+                self:exp_to_assignment(bb, self.loc_id_of_decl[decl], exp)
             else
                 -- Extra argument to RHS; compute it for side effects and discard result
-                local _ = self:exp_to_value(cmds, exp)
+                local _ = self:exp_to_value(bb, exp)
             end
         end
 
     elseif tag == "ast.Stat.Call" then
-        self:exp_to_assignment(cmds, false, stat.call_exp)
+        self:exp_to_assignment(bb, false, stat.call_exp)
 
     elseif tag == "ast.Stat.Return" then
         local vals = {}
         for i, exp in ipairs(stat.exps) do
-            vals[i] = self:exp_to_value(cmds, exp)
+            vals[i] = self:exp_to_value(bb, exp)
         end
-        table.insert(cmds, ir.Cmd.Return(stat.loc, vals))
+        self:insert_return(bb, stat.loc, vals)
 
     elseif tag == "ast.Stat.Break" then
-        table.insert(cmds, ir.Cmd.Break())
+        local id = bb:last_block_id()
+        bb:finish_block()
+        -- Each loop has a corresponding list of block indices that use a break statement. The
+        -- different lists are kept on a stack that follows the nesting of the loops. After the
+        -- generation of the blocks for a certain loop, we traverse the corresponding loop's list
+        -- and set the right target for the blocks.
+        assert(#bb.break_stack > 0)
+        local top_break_list = bb.break_stack[#bb.break_stack]
+        table.insert(top_break_list, id)
 
     elseif tag == "ast.Stat.Functions" then
 
@@ -696,7 +841,7 @@ function ToIR:convert_stat(cmds, stat)
 
             local dst  = self.loc_id_of_decl[func]
             local f_id = self.fun_id_of_exp[exp]
-            table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
+            bb:append_cmd(ir.Cmd.NewClosure(exp.loc, dst, f_id))
         end
 
         -- To support mutual recursion, upvalues are initialized *after* the closures
@@ -713,7 +858,7 @@ function ToIR:convert_stat(cmds, stat)
                 for _, val in ipairs(captured_vars) do
                     table.insert(srcs, val)
                 end
-                table.insert(cmds, ir.Cmd.InitUpvalues(func.loc, src_f, srcs, f_id))
+                bb:append_cmd(ir.Cmd.InitUpvalues(func.loc, src_f, srcs, f_id))
             end
         end
 
@@ -723,14 +868,13 @@ function ToIR:convert_stat(cmds, stat)
 end
 
 function ToIR:convert_func(lambda)
-    self:enter_function(self.fun_id_of_exp[lambda])
+    local block_builder = self:enter_function(self.fun_id_of_exp[lambda])
     for _, decl in ipairs(lambda.arg_decls) do
       self.loc_id_of_decl[decl] = ir.add_local(self.func, decl.name, decl._type)
     end
-
-    local f_cmds = {}
-    self:convert_stat(f_cmds, lambda.body)
-    self:exit_function(f_cmds)
+    ir.add_ret_vars(self.func)
+    self:convert_stat(block_builder, lambda.body)
+    self:exit_function(block_builder)
 end
 
 
@@ -836,8 +980,8 @@ local function type_specific_binop(op, typ1, typ2)
 end
 
 -- Converts a typechecked ast.Exp to a ir.Value. If necessary, will create a fresh variable, and add
--- intermediate computations to the @cmds list.
-function ToIR:exp_to_value(cmds, exp, is_recursive)
+-- intermediate computations to the cmds list.
+function ToIR:exp_to_value(bb, exp, is_recursive)
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
         return ir.Value.Nil()
@@ -894,7 +1038,7 @@ function ToIR:exp_to_value(cmds, exp, is_recursive)
         end
 
     elseif tag == "ast.Exp.Paren" then
-        return self:exp_to_value(cmds, exp.exp)
+        return self:exp_to_value(bb, exp.exp)
     end
 
     if is_recursive then
@@ -906,13 +1050,13 @@ function ToIR:exp_to_value(cmds, exp, is_recursive)
 
     -- Otherwise we need to create a temporary variable
     local v = ir.add_local(self.func, false, exp._type)
-    self:exp_to_assignment(cmds, v, exp)
+    self:exp_to_assignment(bb, v, exp)
     return ir.Value.LocalVar(v)
 end
 
--- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added to the @cmds list.
+-- Converts the assignment `dst = exp` into a list of ir.Cmd, which are added to the cmds list.
 -- If this is a function call, then dst may be false
-function ToIR:exp_to_assignment(cmds, dst, exp)
+function ToIR:exp_to_assignment(bb, dst, exp)
     local loc = exp.loc
     local tag = exp._tag
 
@@ -926,29 +1070,29 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local typ = exp._type
         if     typ._tag == "types.T.Array" then
             local n = ir.Value.Integer(#exp.fields)
-            table.insert(cmds, ir.Cmd.NewArr(loc, dst, n))
-            table.insert(cmds, ir.Cmd.CheckGC())
+            bb:append_cmd(ir.Cmd.NewArr(loc, dst, n))
+            bb:append_cmd(ir.Cmd.CheckGC())
             for i, field in ipairs(exp.fields) do
                 assert(field._tag == "ast.Field.List")
                 local av = ir.Value.LocalVar(dst)
                 local iv = ir.Value.Integer(i)
-                local vv = self:exp_to_value(cmds, field.exp)
+                local vv = self:exp_to_value(bb, field.exp)
                 local src_typ = field.exp._type
-                table.insert(cmds, ir.Cmd.SetArr(loc, src_typ, av, iv, vv))
+                bb:append_cmd(ir.Cmd.SetArr(loc, src_typ, av, iv, vv))
             end
 
         elseif typ._tag == "types.T.Table" then
             local n = ir.Value.Integer(#exp.fields)
-            table.insert(cmds, ir.Cmd.NewTable(loc, dst, n))
-            table.insert(cmds, ir.Cmd.CheckGC())
+            bb:append_cmd(ir.Cmd.NewTable(loc, dst, n))
+            bb:append_cmd(ir.Cmd.CheckGC())
             for _, field in ipairs(exp.fields) do
                 assert(field._tag == "ast.Field.Rec")
                 local tv = ir.Value.LocalVar(dst)
                 local kv = ir.Value.String(field.name)
-                local vv = self:exp_to_value(cmds, field.exp)
+                local vv = self:exp_to_value(bb, field.exp)
                 local src_typ = field.exp._type
                 local cmd = ir.Cmd.SetTable(loc, src_typ, tv, kv, vv)
-                table.insert(cmds, cmd)
+                bb:append_cmd(cmd)
             end
 
         elseif typ._tag == "types.T.Record" then
@@ -957,13 +1101,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 field_exps[field.name] = field.exp
             end
 
-            table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
-            table.insert(cmds, ir.Cmd.CheckGC())
+            bb:append_cmd(ir.Cmd.NewRecord(loc, typ, dst))
+            bb:append_cmd(ir.Cmd.CheckGC())
             for _, field_name in ipairs(typ.field_names) do
                 local f_exp = assert(field_exps[field_name])
                 local dv = ir.Value.LocalVar(dst)
-                local vv = self:exp_to_value(cmds, f_exp)
-                table.insert(cmds, ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
+                local vv = self:exp_to_value(bb, f_exp)
+                bb:append_cmd(ir.Cmd.SetField(exp.loc, typ, dv, field_name, vv))
             end
         elseif typ._tag == "types.T.Module" then
             -- Fallthrough to default
@@ -979,14 +1123,14 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         -- an initializer upon declaration.
         assert(typ.is_upvalue_box)
 
-        table.insert(cmds, ir.Cmd.NewRecord(loc, typ, dst))
-        table.insert(cmds, ir.Cmd.CheckGC())
+        bb:append_cmd(ir.Cmd.NewRecord(loc, typ, dst))
+        bb:append_cmd(ir.Cmd.CheckGC())
 
     elseif tag == "ast.Exp.Lambda" then
         local f_id = self:register_lambda(exp, "$lambda")
         self:convert_func(exp)
 
-        table.insert(cmds, ir.Cmd.NewClosure(exp.loc, dst, f_id))
+        bb:append_cmd(ir.Cmd.NewClosure(exp.loc, dst, f_id))
         local func = self.module.functions[f_id]
         local captured_vars = self.captured_vals_of_func[func]
         if #captured_vars >= 1 then
@@ -995,7 +1139,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             for _, upval in ipairs(captured_vars) do
                 table.insert(srcs, upval)
             end
-            table.insert(cmds, ir.Cmd.InitUpvalues(exp.loc, src_f, srcs, f_id))
+            bb:append_cmd(ir.Cmd.InitUpvalues(exp.loc, src_f, srcs, f_id))
         end
 
     elseif tag == "ast.Exp.ExtraRet" then
@@ -1029,13 +1173,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         if  def and def._tag == "typechecker.Def.Builtin" then
             f_val = false
         else
-            f_val = self:exp_to_value(cmds, exp.exp)
+            f_val = self:exp_to_value(bb, exp.exp)
         end
 
         -- Evaluate the function arguments
         local xs = {}
         for i, arg_exp in ipairs(exp.args) do
-            xs[i] = self:exp_to_value(cmds, arg_exp)
+            xs[i] = self:exp_to_value(bb, arg_exp)
         end
 
         -- Generate the function call command
@@ -1043,51 +1187,51 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             local bname = def.id
             if     bname == "io.write" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinIoWrite(loc, xs))
+                bb:append_cmd(ir.Cmd.BuiltinIoWrite(loc, xs))
             elseif bname == "math.abs" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathAbs(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathAbs(loc, dsts, xs))
             elseif bname == "math.ceil" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathCeil(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathCeil(loc, dsts, xs))
             elseif bname == "math.floor" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathFloor(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathFloor(loc, dsts, xs))
             elseif bname == "math.fmod" then
                 assert(#xs == 2)
-                table.insert(cmds, ir.Cmd.BuiltinMathFmod(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathFmod(loc, dsts, xs))
             elseif bname == "math.exp" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathExp(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathExp(loc, dsts, xs))
             elseif bname == "math.ln" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathLn(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathLn(loc, dsts, xs))
             elseif bname == "math.log" then
                 assert(#xs == 2)
-                table.insert(cmds, ir.Cmd.BuiltinMathLog(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathLog(loc, dsts, xs))
             elseif bname == "math.modf" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathModf(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathModf(loc, dsts, xs))
             elseif bname == "math.pow" then
                 assert(#xs == 2)
-                table.insert(cmds, ir.Cmd.BuiltinMathPow(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathPow(loc, dsts, xs))
             elseif bname == "math.sqrt" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinMathSqrt(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinMathSqrt(loc, dsts, xs))
             elseif bname == "string.char" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinStringChar(loc, dsts, xs))
-                table.insert(cmds, ir.Cmd.CheckGC())
+                bb:append_cmd(ir.Cmd.BuiltinStringChar(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.CheckGC())
             elseif bname == "string.sub" then
                 assert(#xs == 3)
-                table.insert(cmds, ir.Cmd.BuiltinStringSub(loc, dsts, xs))
-                table.insert(cmds, ir.Cmd.CheckGC())
+                bb:append_cmd(ir.Cmd.BuiltinStringSub(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.CheckGC())
             elseif bname == "type" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinType(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinType(loc, dsts, xs))
             elseif bname == "tostring" then
                 assert(#xs == 1)
-                table.insert(cmds, ir.Cmd.BuiltinTostring(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinTostring(loc, dsts, xs))
             else
                 tagged_union.error(bname)
             end
@@ -1096,9 +1240,9 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             -- CallStatic is used to call toplevel functions, which are always referenced
             -- as upvalues or local variables.
             assert(f_val._tag == "ir.Value.Upvalue" or f_val._tag == "ir.Value.LocalVar")
-            table.insert(cmds, ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
+            bb:append_cmd(ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
         else
-            table.insert(cmds, ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
+            bb:append_cmd(ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
         end
 
     elseif tag == "ast.Exp.Var" then
@@ -1111,7 +1255,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                 if var_info._tag == "to_ir.Var.LocalVar" or var_info._tag == "to_ir.Var.Upvalue" then
                     use_exp_to_value = true
                 elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                    table.insert(cmds, ir.Cmd.GetGlobal(loc, dst, var_info.id))
+                    bb:append_cmd(ir.Cmd.GetGlobal(loc, dst, var_info.id))
                 else
                     tagged_union.error(var_info._tag)
                 end
@@ -1120,16 +1264,16 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
             end
 
         elseif var._tag == "ast.Var.Bracket" then
-            local arr = self:exp_to_value(cmds, var.t)
-            local i   = self:exp_to_value(cmds, var.k)
+            local arr = self:exp_to_value(bb, var.t)
+            local i   = self:exp_to_value(bb, var.k)
             local dst_typ = var._type
-            table.insert(cmds, ir.Cmd.GetArr(loc, dst_typ, dst, arr, i))
+            bb:append_cmd(ir.Cmd.GetArr(loc, dst_typ, dst, arr, i))
 
         elseif var._tag == "ast.Var.Dot" then
               local typ = assert(var.exp._type)
               local field = var.name
               local cmd
-              local rec = self:exp_to_value(cmds, var.exp)
+              local rec = self:exp_to_value(bb, var.exp)
               if     typ._tag == "types.T.Table" then
                   local key = ir.Value.String(field)
                   local dst_typ = typ.fields[field]
@@ -1140,7 +1284,7 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
                   tagged_union.error(typ._tag)
               end
 
-              table.insert(cmds, cmd)
+              bb:append_cmd(cmd)
 
         else
             tagged_union.error(var._tag)
@@ -1149,63 +1293,63 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
     elseif tag == "ast.Exp.Unop" then
         local op = exp.op
         if op == "not" then
-            local e = self:exp_to_value(cmds, exp.exp)
-            local v = self:value_is_truthy(cmds, exp.exp, e)
-            table.insert(cmds, ir.Cmd.Unop(loc, dst, "BoolNot", v))
+            local e = self:exp_to_value(bb, exp.exp)
+            local v = self:value_is_truthy(bb, exp.exp, e)
+            bb:append_cmd(ir.Cmd.Unop(loc, dst, "BoolNot", v))
         else
             local irop = type_specific_unop(op, exp.exp._type)
-            local v = self:exp_to_value(cmds, exp.exp)
-            table.insert(cmds, ir.Cmd.Unop(loc, dst, irop, v))
+            local v = self:exp_to_value(bb, exp.exp)
+            bb:append_cmd(ir.Cmd.Unop(loc, dst, irop, v))
         end
 
     elseif tag == "ast.Exp.Concat" then
         local xs = {}
         for i, x_exp in ipairs(exp.exps) do
-            xs[i] = self:exp_to_value(cmds, x_exp)
+            xs[i] = self:exp_to_value(bb, x_exp)
         end
-        table.insert(cmds, ir.Cmd.Concat(loc, dst, xs))
-        table.insert(cmds, ir.Cmd.CheckGC())
+        bb:append_cmd(ir.Cmd.Concat(loc, dst, xs))
+        bb:append_cmd(ir.Cmd.CheckGC())
 
     elseif tag == "ast.Exp.Binop" then
         local op = exp.op
-        if     op == "and" then
-            self:exp_to_assignment(cmds, dst, exp.lhs)
+        if op == "and" then
+            self:exp_to_assignment(bb, dst, exp.lhs)
             local v = ir.Value.LocalVar(dst)
-            local condBool = self:value_is_truthy(cmds, exp.lhs, v)
-            local rhs_cmds = {}
-            self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
-            table.insert(cmds, ir.Cmd.If(exp.loc,
-                condBool,
-                ir.Cmd.Seq(rhs_cmds),
-                ir.Cmd.Seq({})))
+            local cond_bool = self:value_is_truthy(bb, exp.lhs, v)
+            local if_begin_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(loc, cond_bool, nil, nil))
+            local then_begin = bb:finish_block()
+            self:exp_to_assignment(bb, dst, exp.rhs)
+            local if_end = bb:finish_block()
+            if_begin_jmpIf.target_true  = then_begin
+            if_begin_jmpIf.target_false = if_end
 
-        elseif op == "or" then
-            self:exp_to_assignment(cmds, dst, exp.lhs)
-            local v = ir.Value.LocalVar(dst)
-            local condBool = self:value_is_truthy(cmds, exp.lhs, v)
-            local rhs_cmds = {}
-            self:exp_to_assignment(rhs_cmds, dst, exp.rhs)
-            table.insert(cmds, ir.Cmd.If(exp.loc,
-                condBool,
-                ir.Cmd.Seq({}),
-                ir.Cmd.Seq(rhs_cmds)))
+            elseif op == "or" then
+                self:exp_to_assignment(bb, dst, exp.lhs)
+                local v = ir.Value.LocalVar(dst)
+                local cond_bool = self:value_is_truthy(bb, exp.lhs, v)
+                local if_begin_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(loc, cond_bool, nil, nil))
+                local begin_else = bb:finish_block()
+                self:exp_to_assignment(bb, dst, exp.rhs)
+                local if_end = bb:finish_block()
+                if_begin_jmpIf.target_true  = if_end
+                if_begin_jmpIf.target_false = begin_else
 
         elseif op == ".." then
             -- Flatten (a .. (b .. (c .. d))) into (a .. b .. c .. d)
             local xs = {}
             while exp._tag == "ast.Exp.Binop" and exp.op == ".." do
-                table.insert(xs, self:exp_to_value(cmds, exp.lhs))
+                table.insert(xs, self:exp_to_value(bb, exp.lhs))
                 exp = exp.rhs
             end
-            table.insert(xs, self:exp_to_value(cmds, exp))
+            table.insert(xs, self:exp_to_value(bb, exp))
 
-            table.insert(cmds, ir.Cmd.Concat(loc, dst, xs))
+            bb:append_cmd(ir.Cmd.Concat(loc, dst, xs))
 
         else
             local irop = type_specific_binop(op, exp.lhs._type, exp.rhs._type)
-            local v1 = self:exp_to_value(cmds, exp.lhs)
-            local v2 = self:exp_to_value(cmds, exp.rhs)
-            table.insert(cmds, ir.Cmd.Binop(loc, dst, irop, v1, v2))
+            local v1 = self:exp_to_value(bb, exp.lhs)
+            local v2 = self:exp_to_value(bb, exp.rhs)
+            bb:append_cmd(ir.Cmd.Binop(loc, dst, irop, v1, v2))
         end
 
     elseif tag == "ast.Exp.Cast" then
@@ -1213,13 +1357,13 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         local src_typ = exp.exp._type
         if src_typ._tag == dst_typ._tag then
             -- Do-nothing cast
-            self:exp_to_assignment(cmds, dst, exp.exp)
+            self:exp_to_assignment(bb, dst, exp.exp)
         else
-            local v = self:exp_to_value(cmds, exp.exp)
+            local v = self:exp_to_value(bb, exp.exp)
             if     dst_typ._tag == "types.T.Any" then
-                table.insert(cmds, ir.Cmd.ToDyn(loc, src_typ, dst, v))
+                bb:append_cmd(ir.Cmd.ToDyn(loc, src_typ, dst, v))
             elseif src_typ._tag == "types.T.Any" then
-                table.insert(cmds, ir.Cmd.FromDyn(loc, dst_typ, dst, v))
+                bb:append_cmd(ir.Cmd.FromDyn(loc, dst_typ, dst, v))
             else
                 error(string.format("error casting from type '%s' to '%s'",
                         types.tostring(src_typ), types.tostring(dst_typ)))
@@ -1227,28 +1371,28 @@ function ToIR:exp_to_assignment(cmds, dst, exp)
         end
 
     elseif tag == "ast.Exp.ToFloat" then
-        local v = self:exp_to_value(cmds, exp.exp)
-        table.insert(cmds, ir.Cmd.ToFloat(loc, dst, v))
+        local v = self:exp_to_value(bb, exp.exp)
+        bb:append_cmd(ir.Cmd.ToFloat(loc, dst, v))
 
     else
         use_exp_to_value = true
     end
 
     if use_exp_to_value then
-        local value = self:exp_to_value(cmds, exp, true)
-        table.insert(cmds, ir.Cmd.Move(loc, dst, value))
+        local value = self:exp_to_value(bb, exp, true)
+        bb:append_cmd(ir.Cmd.Move(loc, dst, value))
     end
 end
 
 -- Returns a boolean value corresponding to whether exp is truthy.
--- As usual, may add intermediate cmds to the @cmds list
-function ToIR:value_is_truthy(cmds, exp, val)
+-- As usual, may add intermediate cmds to the cmds list
+function ToIR:value_is_truthy(bb, exp, val)
     local typ = exp._type
     if typ._tag == "types.T.Boolean" then
         return val
     elseif typ._tag == "types.T.Any" then
         local b = ir.add_local(self.func, false, types.T.Boolean())
-        table.insert(cmds, ir.Cmd.IsTruthy(exp.loc, b, val))
+        bb:append_cmd(ir.Cmd.IsTruthy(exp.loc, b, val))
         return ir.Value.LocalVar(b)
     elseif tagged_union.tag_is_type(typ) then
         -- Cannot be tested for truthyness

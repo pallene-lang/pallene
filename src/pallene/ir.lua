@@ -51,7 +51,8 @@ function ir.Function(loc, name, typ)
         captured_vars = {},   -- list of ir.VarDecl
         f_id_of_upvalue = {}, -- { u_id => integer }
         f_id_of_local = {},   -- { v_id => integer }
-        body = false,         -- ir.Cmd
+        blocks = {},          -- { ir.BasicBlock }
+        ret_vars = {},        -- { v_id }, list of return variables
     }
 end
 
@@ -101,6 +102,13 @@ function ir.arg_var(func, i)
     local narg = #func.typ.arg_types
     assert(1 <= i and i <= narg)
     return i
+end
+
+function ir.add_ret_vars(func)
+    for _,typ in ipairs(func.typ.ret_types) do
+        local var = ir.add_local(func, false, typ)
+        table.insert(func.ret_vars, var)
+    end
 end
 
 --
@@ -186,15 +194,14 @@ local ir_cmd_constructors = {
     --
     -- Control flow
     --
-    Nop     = {},
-    Seq     = {"cmds"},
+    ForPrep    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
+                  "src_start", "src_limit", "src_step"},
 
-    Return  = {"loc", "srcs"},
-    Break   = {},
-    Loop    = {"body"},
+    ForStep    = {"loc", "dst_i", "dst_cond", "dst_iter", "dst_count",
+                  "src_start", "src_limit", "src_step"},
 
-    If      = {"loc", "src_condition", "then_", "else_"},
-    For     = {"loc", "dst", "src_start", "src_limit", "src_step", "body"},
+    Jmp        = {"target"},
+    JmpIf      = {"loc", "src_cond", "target_true", "target_false"},
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -258,136 +265,172 @@ function ir.get_dsts(cmd)
     return dsts
 end
 
--- Iterate over the cmds with a pre-order traversal.
-function ir.iter(root_cmd)
+function ir.BasicBlock()
+    return {
+        cmds = {},           -- list of ir.Cmd
+    }
+end
 
-    local function go(cmd)
-        coroutine.yield(cmd)
+local function is_jump(cmd)
+    return cmd._tag == "ir.Cmd.Jmp" or cmd._tag == "ir.Cmd.JmpIf"
+end
 
-        local tag = cmd._tag
-        if     tag == "ir.Cmd.Seq" then
-            for _, c in ipairs(cmd.cmds) do
-                go(c)
+function ir.get_jump(block)
+    local cmd = block.cmds[#block.cmds]
+    if not cmd or not is_jump(cmd) then
+        return false
+    end
+    return cmd
+end
+
+function ir.get_successor_list(block_list)
+    local succ_list = {}    -- { block_id -> { block_id } }
+    for i = 1, #block_list do
+        succ_list[i] = {}
+    end
+    for block_i, block in ipairs(block_list) do
+        local block_succs = succ_list[block_i]
+        local jump = ir.get_jump(block)
+        if jump then
+            if jump._tag == "ir.Cmd.Jmp" then
+                table.insert(block_succs, jump.target)
+            elseif jump._tag == "ir.Cmd.JmpIf" then
+                table.insert(block_succs, jump.target_true)
+                table.insert(block_succs, jump.target_false)
+            else
+                assert(false, "not a jump command")
             end
-        elseif tag == "ir.Cmd.If" then
-            go(cmd.then_)
-            go(cmd.else_)
-        elseif tag == "ir.Cmd.Loop" then
-            go(cmd.body)
-        elseif tag == "ir.Cmd.For" then
-            go(cmd.body)
-        else
-            -- no recursion needed
+        end
+    end
+    return succ_list
+end
+
+function ir.get_predecessor_list(block_list)
+    local pred_list = {}    -- { block_id -> { block_id } }
+    for i = 1, #block_list do
+        pred_list[i] = {}
+    end
+    for block_i, block in ipairs(block_list) do
+        local jump = ir.get_jump(block)
+        if jump then
+            if jump._tag == "ir.Cmd.Jmp" then
+                table.insert(pred_list[jump.target], block_i)
+            elseif jump._tag == "ir.Cmd.JmpIf" then
+                table.insert(pred_list[jump.target_true ], block_i)
+                table.insert(pred_list[jump.target_false], block_i)
+            else
+                assert(false, "not a jump command")
+            end
+        end
+    end
+    return pred_list
+end
+
+-- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
+-- returned list might be smaller than the block list.
+function ir.get_successor_depth_search_topological_sort(successor_list)
+    local order = {}
+    local visited = {}
+    for i,_ in ipairs(successor_list) do
+        visited[i] = false
+    end
+    local function depth_search(block_i)
+        if not visited[block_i] then
+            visited[block_i] = true
+            local block_succs = successor_list[block_i]
+            for _,succ in ipairs(block_succs) do
+                depth_search(succ)
+            end
+            order[#order + 1] = block_i
         end
     end
 
-    return coroutine.wrap(function()
-        go(root_cmd)
-    end)
+    depth_search(1) -- start at "enter" block
+    -- The actual block order is the reverse of what was calculated so far. We could have calculated
+    -- the right order from the start, but the existence of unreacheable blocks makes it harder than
+    -- usual (hence why we're doing it this way).
+    local reverse_order = {}
+    for i = #order, 1, -1 do
+        table.insert(reverse_order, order[i])
+    end
+
+    return reverse_order
 end
 
-function ir.flatten_cmd(root_cmd)
+-- Returns list of block indices. Unreacheable blocks won't appear on the list, which means the
+-- returned list might be smaller than the block list.
+function ir.get_predecessor_depth_search_topological_sort(predecessor_list)
+    local order = {}
+    local visited = {}
+    for i,_ in ipairs(predecessor_list) do
+        visited[i] = false
+    end
+    local function depth_search(block_i)
+        if not visited[block_i] then
+            visited[block_i] = true
+            local block_preds = predecessor_list[block_i]
+            for _,pred in ipairs(block_preds) do
+                depth_search(pred)
+            end
+            order[#order + 1] = block_i
+        end
+    end
+
+    depth_search(#predecessor_list) -- start at "exit" block
+    -- The actual block order is the reverse of what was calculated so far. We could have calculated
+    -- the right order from the start, but the existence of unreacheable blocks makes it harder than
+    -- usual (hence why we're doing it this way).
+    local reverse_order = {}
+    for i = #order, 1, -1 do
+        table.insert(reverse_order, order[i])
+    end
+
+    return reverse_order
+end
+
+-- Iterate over the cmds of basic blocks using a naive ordering.
+function ir.iter(block_list)
+    local function go()
+        for _,block in ipairs(block_list) do
+            for _, cmd in ipairs(block.cmds) do
+                coroutine.yield(cmd)
+            end
+        end
+    end
+    return coroutine.wrap(function() go() end)
+end
+
+function ir.flatten_cmd(block_list)
     local res = {}
-    for cmd in ir.iter(root_cmd) do
-        table.insert(res, cmd)
+    for _,block in ipairs(block_list) do
+        for _,cmd in ipairs(block.cmds) do
+            table.insert(res, cmd)
+        end
     end
     return res
 end
 
--- Transform an ir.Cmd, via a mapping function that modifies individual nodes.
--- Returns the new root node. Child nodes are modified in-place.
--- If the mapping function returns a falsy value, the original version of the node is kept.
-function ir.map_cmd(root_cmd, f)
-    local function go(cmd)
-        -- Transform child nodes recursively
-        local tag = cmd._tag
-        if     tag == "ir.Cmd.Seq" then
-            for i = 1, #cmd.cmds do
-                cmd.cmds[i] = go(cmd.cmds[i])
-            end
-        elseif tag == "ir.Cmd.If" then
-            cmd.then_ = go(cmd.then_)
-            cmd.else_ = go(cmd.else_)
-        elseif tag == "ir.Cmd.Loop" then
-            cmd.body = go(cmd.body)
-        elseif tag == "ir.Cmd.For" then
-            cmd.body = go(cmd.body)
-        else
-            -- no child nodes
-        end
-
-        -- Transform parent node
-        return f(cmd) or cmd
-    end
-    return go(root_cmd)
-end
-
--- Remove some kinds of silly control flow
---   - Empty If
---   - if statements w/ constant condition
---   - Nop and Seq statements inside Seq
---   - Seq commands w/ no statements
---   - Seq commans w/ only one element
-function ir.clean(cmd)
-    local tag = cmd._tag
-    if tag == "ir.Cmd.Nop" then
-        return cmd
-
-    elseif tag == "ir.Cmd.Seq" then
-        local out = {}
-        for _, c in ipairs(cmd.cmds) do
-            c = ir.clean(c)
-            if c._tag == "ir.Cmd.Nop" then
-                -- skip
-            elseif c._tag == "ir.Cmd.Seq" then
-                for _, cc in ipairs(c.cmds) do
-                    table.insert(out, cc)
-                end
+-- Remove jumps that are never taken
+function ir.clean(func)
+    for _, block in ipairs(func.blocks) do
+        local jump = ir.get_jump(block)
+        if jump and jump._tag == "ir.Cmd.JmpIf" and jump.src_cond._tag == "ir.Value.Bool" then
+            assert(type(jump.src_cond.value) == "boolean")
+            local new_jump
+            if jump.src_cond.value then
+                new_jump = ir.Cmd.Jmp(jump.target_true)
             else
-                table.insert(out, c)
+                new_jump = ir.Cmd.Jmp(jump.target_false)
             end
+            table.remove(block.cmds)
+            table.insert(block.cmds, new_jump)
         end
-        if     #out == 0 then
-            return ir.Cmd.Nop()
-        elseif #out == 1 then
-            return out[1]
-        else
-            return ir.Cmd.Seq(out)
-        end
-
-    elseif tag == "ir.Cmd.If" then
-        local v = cmd.src_condition
-        cmd.then_ = ir.clean(cmd.then_)
-        cmd.else_ = ir.clean(cmd.else_)
-        local t_empty = (cmd.then_._tag == "ir.Cmd.Nop")
-        local e_empty = (cmd.else_._tag == "ir.Cmd.Nop")
-
-        if t_empty and e_empty then
-            return ir.Cmd.Nop()
-        elseif v._tag == "ir.Value.Bool" and v.value == true then
-            return cmd.then_
-        elseif v._tag == "ir.Value.Bool" and v.value == false then
-            return cmd.else_
-        else
-            return cmd
-        end
-
-    elseif tag == "ir.Cmd.Loop" then
-        cmd.body = ir.clean(cmd.body)
-        return cmd
-
-    elseif tag == "ir.Cmd.For" then
-        cmd.body = ir.clean(cmd.body)
-        return cmd
-
-    else
-        return cmd
     end
 end
 
 function ir.clean_all(module)
     for _, func in ipairs(module.functions) do
-        func.body = ir.clean(func.body)
+        ir.clean(func)
     end
 end
 
