@@ -424,7 +424,7 @@ function Coder:pallene_entry_point_declaration(f_id)
     for i = 2, #ret_types do
         local typ  = ret_types[i]
         local name = self:c_ret_var(i)
-        table.insert(args, {ctype(typ).."*", name, ""})
+        table.insert(args, {ctype(typ).." *", name, ""})
     end
 
     local arg_lines = {}
