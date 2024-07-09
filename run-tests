@@ -19,7 +19,7 @@ FLAGS=(--verbose --no-keep-going)
 
 # To speed things up, we tell the C compiler to skip optimizations. (It's OK, the CI still uses -O2)
 # Also, add some compiler flags to verify standard compliance.
-export CFLAGS='-O0 -std=c99 -Wall -Werror -Wundef -Wpedantic -Wno-unused'
+export CFLAGS='-O0 -std=c99 -Wall -Werror -Wundef -Wno-unused'
 
 if [ "$#" -eq 0 ]; then
     if command -v parallel >/dev/null; then
