@@ -465,9 +465,7 @@ function Coder:pallene_entry_point_definition(f_id)
     local frameexit = ""
     if self.flags.use_traceback then
         table.insert(prologue, util.render([[
-            /**/
             PALLENE_C_FRAMEENTER(L, "$name");
-            /**/
         ]], {
             name = func.name
         }));
@@ -529,8 +527,8 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
             /**/
             ${body}
-            ${ret_mult}
             ${frameexit}
+            ${ret_mult}
             ${ret_stat}
         }
     ]], {
@@ -623,9 +621,7 @@ function Coder:lua_entry_point_definition(f_id)
     local cargs = nargs
     if self.flags.use_traceback then
         frameenter = util.render([[
-            /**/
             PALLENE_LUA_FRAMEENTER(L, $fun_name);
-            /**/
         ]], {
             fun_name = self:lua_entry_point_name(f_id),
         })
