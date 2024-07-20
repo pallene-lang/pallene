@@ -35,6 +35,15 @@ local tagged_union = require "pallene.tagged_union"
 
 local gc = {}
 
+local function FlowState()
+    return {
+        input  = {},  -- {var_id -> bool?} live variables at block start
+        output = {},  -- {var_id -> bool?} live variables at block end
+        kill   = {},  -- {var_id -> bool?} variables that are killed inside block
+        gen    = {},  -- {var_id -> bool?} variables that become live inside block
+    }
+end
+
 function gc.cmd_uses_gc(tag)
     assert(tagged_union.typename(tag) == "ir.Cmd")
     return tag == "ir.Cmd.CallStatic" or
@@ -42,51 +51,106 @@ function gc.cmd_uses_gc(tag)
            tag == "ir.Cmd.CheckGC"
 end
 
-local function flow_analysis(block_list, live_sets, gen_sets, kill_sets)
-    local function merge_live(A, B, gen_set, kill_set)
-        local changed = false
-        for v, _ in pairs(B) do
+local function copy_set(S)
+    local new_set = {}
+    for v,_ in pairs(S) do
+        new_set[v] = true
+    end
+    return new_set
+end
+
+local function flow_analysis(block_list, state_list)
+    local function apply_gen_kill_sets(flow_state)
+        local input = flow_state.input
+        local output = flow_state.output
+        local gen = flow_state.gen
+        local kill = flow_state.kill
+        local in_changed = false
+
+        for v, _ in pairs(output) do
             local val = true
-            if kill_set[v] then
+            if kill[v] then
                 val = nil
             end
-            local previous_val = A[v]
+            local previous_val = input[v]
             local new_val = previous_val or val
-            A[v] = new_val
-            changed = changed or (previous_val ~= new_val)
+            input[v] = new_val
+            in_changed = in_changed or (previous_val ~= new_val)
         end
-        for v, gen in pairs(gen_set) do
-            assert(gen ~= true or gen ~= kill_set[v], "gen and kill can't both be true")
-            local previous_val = A[v]
+
+        for v, g in pairs(gen) do
+            assert(g ~= true or g ~= kill[v], "gen and kill can't both be true")
+            local previous_val = input[v]
             local new_val = true
-            A[v] = new_val
-            changed = changed or (previous_val ~= new_val)
+            input[v] = new_val
+            in_changed = in_changed or (previous_val ~= new_val)
         end
-        return changed
+
+        for v, _ in pairs(input) do
+            if not output[v] and not gen[v] then
+                input[v] = nil
+                in_changed = true
+            end
+        end
+
+        return in_changed
     end
 
+    local function merge_live(input, output)
+        for v, _ in pairs(input) do
+            output[v] = true
+        end
+    end
+
+    local function empty_set(S)
+        for v,_ in pairs(S) do
+            S[v] = nil
+        end
+    end
+
+    local succ_list = ir.get_successor_list(block_list)
     local pred_list = ir.get_predecessor_list(block_list)
     local block_order = ir.get_predecessor_depth_search_topological_sort(pred_list)
 
-    local function block_analysis(block_i)
+    local dirty_flag = {} -- { block_id -> bool? } keeps track of modified blocks
+    for i = 1, #block_list do
+        dirty_flag[i] = true
+    end
+
+    local function update_block(block_i)
+        local block_succs = succ_list[block_i]
         local block_preds = pred_list[block_i]
-        local live = live_sets[block_i]
-        local gen  = gen_sets[block_i]
-        local kill = kill_sets[block_i]
-        local changed = false
-        for _,pred in ipairs(block_preds) do
-            local c = merge_live(live_sets[pred], live, gen, kill)
-            changed = c or changed
+        local state = state_list[block_i]
+
+        -- last block's output is supposed to be fixed
+        if block_i ~= #block_list then
+            empty_set(state.output)
+            for _,succ in ipairs(block_succs) do
+                local succ_in = state_list[succ].input
+                merge_live(succ_in, state.output)
+            end
         end
-        return changed
+
+        local in_changed = apply_gen_kill_sets(state)
+        if in_changed then
+            for _, pred in ipairs(block_preds) do
+                dirty_flag[pred] = true
+            end
+        end
     end
 
     repeat
-        local changed = false
+        local found_dirty_block = false
         for _,block_i in ipairs(block_order) do
-            changed = block_analysis(block_i) or changed
+            if dirty_flag[block_i] then
+                found_dirty_block = true
+                -- CAREFUL: we have to clean the dirty flag BEFORE updating the block or else we
+                -- will do the wrong thing for auto-referencing blocks
+                dirty_flag[block_i] = nil
+                update_block(block_i)
+            end
         end
-    until not changed
+    until not found_dirty_block
 end
 
 local function mark_gen_kill(cmd, gen_set, kill_set)
@@ -104,45 +168,34 @@ local function mark_gen_kill(cmd, gen_set, kill_set)
     end
 end
 
-local function make_gen_kill_sets(block)
-    local gen = {}
-    local kill = {}
+local function make_gen_kill_sets(block, flow_state)
     for i = #block.cmds, 1, -1 do
         local cmd = block.cmds[i]
-        mark_gen_kill(cmd, gen, kill)
+        mark_gen_kill(cmd, flow_state.gen, flow_state.kill)
     end
-    return gen, kill
 end
 
 function gc.compute_stack_slots(func)
-    -- initialize sets
 
-    -- variables with values that turn live in a given block w.r.t flow entering the block
-    local gen_sets =  {} -- { block_id -> { var_id -> bool? } }
+    local state_list = {} -- { FlowState }
 
-    -- variables with values that are killed in a given block w.r.t flow entering the block
-    local kill_sets = {} -- { block_id -> { var_id -> bool? } }
-
-    -- variables with values that are live at the end of a given block
-    local live_sets = {} -- { block_id -> { var_id -> bool? } }
-
-    for _,b in ipairs(func.blocks) do
-        local gen, kill = make_gen_kill_sets(b)
-        table.insert(kill_sets, kill)
-        table.insert(gen_sets, gen)
-        table.insert(live_sets, {})
+    -- initialize states
+    for block_i, block in ipairs(func.blocks) do
+        local fst = FlowState()
+        make_gen_kill_sets(block, fst)
+        state_list[block_i] = fst
     end
 
     -- set returned variables to "live" on exit block
     if #func.blocks > 0 then
-        local exit_live_set = live_sets[#func.blocks]
+        local exit_output = state_list[#func.blocks].output
         for _, var in ipairs(func.ret_vars) do
-            exit_live_set[var] = true
+            exit_output[var] = true
         end
     end
 
     -- 1) Find live variables at the end of each basic block
-    flow_analysis(func.blocks, live_sets, gen_sets, kill_sets)
+    flow_analysis(func.blocks, state_list)
 
     -- 2) Find which GC'd variables are live at each GC spot in the program and
     --    which  GC'd variables are live at the same time
@@ -159,7 +212,7 @@ function gc.compute_stack_slots(func)
     end
 
     for block_i, block in ipairs(func.blocks) do
-        local lives_block = live_sets[block_i]
+        local lives_block = copy_set(state_list[block_i].output)
         -- filter out non-GC'd variables from set
         for var_i, _ in pairs(lives_block) do
             local var = func.vars[var_i]
