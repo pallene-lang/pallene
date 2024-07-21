@@ -35,6 +35,13 @@ local tagged_union = require "pallene.tagged_union"
 
 local gc = {}
 
+function gc.cmd_uses_gc(tag)
+    assert(tagged_union.typename(tag) == "ir.Cmd")
+    return tag == "ir.Cmd.CallStatic" or
+           tag == "ir.Cmd.CallDyn" or
+           tag == "ir.Cmd.CheckGC"
+end
+
 local function flow_analysis(block_list, live_sets, gen_sets, kill_sets)
     local function merge_live(A, B, gen_set, kill_set)
         local changed = false
@@ -139,8 +146,17 @@ function gc.compute_stack_slots(func)
 
     -- 2) Find which GC'd variables are live at each GC spot in the program and
     --    which  GC'd variables are live at the same time
-    local live_gc_vars = {} -- { cmd => {var_id}? }
+    local live_gc_vars = {} -- { block_id => { cmd_id => {var_id}? } }
     local live_at_same_time = {} -- { var_id => { var_id => bool? }? }
+
+    -- initialize live_gc_vars
+    for _, block in ipairs(func.blocks) do
+        local live_on_cmds = {}
+        for cmd_i = 1, #block.cmds do
+            live_on_cmds[cmd_i] = false
+        end
+        table.insert(live_gc_vars, live_on_cmds)
+    end
 
     for block_i, block in ipairs(func.blocks) do
         local lives_block = live_sets[block_i]
@@ -166,16 +182,13 @@ function gc.compute_stack_slots(func)
                 end
             end
 
-            local tag = cmd._tag
-            if  tag == "ir.Cmd.CallStatic" or
-                tag == "ir.Cmd.CallDyn" or
-                tag == "ir.Cmd.CheckGC"
+            if gc.cmd_uses_gc(cmd._tag)
             then
                 local lives_cmd = {}
                 for var,_ in pairs(lives_block) do
                     table.insert(lives_cmd, var)
                 end
-                live_gc_vars[cmd] = lives_cmd
+                live_gc_vars[block_i][cmd_i] = lives_cmd
                 for var1,_ in pairs(lives_block) do
                     for var2,_ in pairs(lives_block) do
                         if not live_at_same_time[var1] then
