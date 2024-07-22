@@ -80,7 +80,7 @@ local function flow_analysis(block_list, state_list)
         end
     end
 
-    local function empty_set(S)
+    local function clear_set(S)
         for v,_ in pairs(S) do
             S[v] = nil
         end
@@ -102,7 +102,7 @@ local function flow_analysis(block_list, state_list)
 
         -- first block's input is supposed to be fixed
         if block_i ~= 1 then
-            empty_set(state.input)
+            clear_set(state.input)
             for _,pred in ipairs(block_preds) do
                 local pred_out = state_list[pred].output
                 merge_uninit(state.input, pred_out)
@@ -124,7 +124,7 @@ local function flow_analysis(block_list, state_list)
                 found_dirty_block = true
                 -- CAREFUL: we have to clean the dirty flag BEFORE updating the block or else we
                 -- will do the wrong thing for auto-referencing blocks
-                dirty_flag[block_i] = nil
+                dirty_flag[block_i] = false
                 update_block(block_i)
             end
         end

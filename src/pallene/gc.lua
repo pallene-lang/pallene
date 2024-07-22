@@ -79,7 +79,7 @@ local function flow_analysis(block_list, state_list)
         end
 
         for v, g in pairs(gen) do
-            assert(g ~= true or g ~= kill[v], "gen and kill can't both be true")
+            assert(not (g and kill[v]), "gen and kill can't both be true")
             local previous_val = input[v]
             local new_val = true
             input[v] = new_val
@@ -102,7 +102,7 @@ local function flow_analysis(block_list, state_list)
         end
     end
 
-    local function empty_set(S)
+    local function clear_set(S)
         for v,_ in pairs(S) do
             S[v] = nil
         end
@@ -124,7 +124,7 @@ local function flow_analysis(block_list, state_list)
 
         -- last block's output is supposed to be fixed
         if block_i ~= #block_list then
-            empty_set(state.output)
+            clear_set(state.output)
             for _,succ in ipairs(block_succs) do
                 local succ_in = state_list[succ].input
                 merge_live(succ_in, state.output)
@@ -146,7 +146,7 @@ local function flow_analysis(block_list, state_list)
                 found_dirty_block = true
                 -- CAREFUL: we have to clean the dirty flag BEFORE updating the block or else we
                 -- will do the wrong thing for auto-referencing blocks
-                dirty_flag[block_i] = nil
+                dirty_flag[block_i] = false
                 update_block(block_i)
             end
         end
