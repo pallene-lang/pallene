@@ -37,14 +37,14 @@ local gc = {}
 
 local function FlowState()
     return {
-        input  = {},  -- {var_id -> bool?} live variables at block start
-        output = {},  -- {var_id -> bool?} live variables at block end
-        kill   = {},  -- {var_id -> bool?} variables that are killed inside block
-        gen    = {},  -- {var_id -> bool?} variables that become live inside block
+        input  = {},  -- set of var_id, live variables at block start
+        output = {},  -- set of var_id, live variables at block end
+        kill   = {},  -- set of var_id, variables that are killed inside block
+        gen    = {},  -- set of var_id, variables that become live inside block
     }
 end
 
-function gc.cmd_uses_gc(tag)
+local function cmd_uses_gc(tag)
     assert(tagged_union.typename(tag) == "ir.Cmd")
     return tag == "ir.Cmd.CallStatic" or
            tag == "ir.Cmd.CallDyn" or
@@ -175,6 +175,16 @@ local function make_gen_kill_sets(block, flow_state)
     end
 end
 
+-- Returns information that is used for allocating variables into the Lua stack.
+-- The returned data is:
+--      * live_gc_vars:
+--          for each command, has a list of GC'd variables that are alive during that command.
+--      * live_at_same_time:
+--          for each GC'd variable, indicates what other GC'd variables are alive at the same time,
+--          that is, if both are alive during the same command for some command in the function.
+--      * max_frame_size:
+--          what's the maximum number of slots of the Lua stack used for storing GC'd variables
+--          during the function.
 function gc.compute_stack_slots(func)
 
     local state_list = {} -- { FlowState }
@@ -235,7 +245,7 @@ function gc.compute_stack_slots(func)
                 end
             end
 
-            if gc.cmd_uses_gc(cmd._tag)
+            if cmd_uses_gc(cmd._tag)
             then
                 local lives_cmd = {}
                 for var,_ in pairs(lives_block) do

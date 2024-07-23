@@ -15,9 +15,9 @@ local uninitialized = {}
 
 local function FlowState()
     return {
-        input  = {},  -- {var_id -> bool?} uninitialized variables at block start
-        output = {},  -- {var_id -> bool?} uninitialized variables at block end
-        kill   = {},  -- {var_id -> bool?} variables that are initialized inside block
+        input  = {},  -- set of var_id, uninitialized variables at block start
+        output = {},  -- set of var_id, uninitialized variables at block end
+        kill   = {},  -- set of var_id, variables that are initialized inside block
     }
 end
 

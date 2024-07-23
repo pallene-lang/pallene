@@ -984,9 +984,11 @@ end
 -- the stack top before a GC point so the GC can look at the right set of variables. We also need
 -- to do it before function calls because the stack-gowing logic relies on having the right "top".
 
-local function update_stack_top(gc_info)
+function Coder:update_stack_top(cmd_position)
+    local gc_info = self.gc[self.current_func]
+    local live_vars = gc_info.live_gc_vars[cmd_position.block_index][cmd_position.cmd_index]
     local offset = 0
-    for _, v_id in ipairs(gc_info.live_gc_vars) do
+    for _, v_id in ipairs(live_vars) do
         local slot = gc_info.slot_of_variable[v_id]
         offset = math.max(offset, slot + 1)
     end
@@ -1007,15 +1009,15 @@ end
 
 local gen_cmd = {}
 
-gen_cmd["Move"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local src = self:c_value(st.cmd.src)
+gen_cmd["Move"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local src = self:c_value(args.cmd.src)
     return (util.render([[ $dst = $src; ]], { dst = dst, src = src }))
 end
 
-gen_cmd["Unop"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local x = self:c_value(st.cmd.src)
+gen_cmd["Unop"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local x = self:c_value(args.cmd.src)
 
     -- For when we can directly translate to a C operator:
     local function unop(op)
@@ -1033,8 +1035,8 @@ gen_cmd["Unop"] = function(self, st)
             ${check_no_metatable}
             $dst = luaH_getn($x);
         ]], {
-            check_no_metatable = check_no_metatable(self, x, st.cmd.loc),
-            line = C.integer(st.cmd.loc.line),
+            check_no_metatable = check_no_metatable(self, x, args.cmd.loc),
+            line = C.integer(args.cmd.loc.line),
             dst = dst,
             x = x
         }))
@@ -1045,7 +1047,7 @@ gen_cmd["Unop"] = function(self, st)
             dst = dst, x = x }))
     end
 
-    local op = st.cmd.op
+    local op = args.cmd.op
     if     op == "ArrLen"  then return arr_len()
     elseif op == "StrLen"  then return str_len()
     elseif op == "IntNeg"  then return int_neg()
@@ -1057,10 +1059,10 @@ gen_cmd["Unop"] = function(self, st)
     end
 end
 
-gen_cmd["Binop"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local x = self:c_value(st.cmd.src1)
-    local y = self:c_value(st.cmd.src2)
+gen_cmd["Binop"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local x = self:c_value(args.cmd.src1)
+    local y = self:c_value(args.cmd.src2)
 
     -- For when we can be directly translate to a C operator:
     local function binop(op)
@@ -1082,7 +1084,7 @@ gen_cmd["Binop"] = function(self, st)
 
     -- For integer division and modulus:
     local function int_division(fname)
-        local line = st.cmd.loc.line
+        local line = args.cmd.loc.line
         return (util.render([[ $dst = $fname(L, $x, $y, PALLENE_SOURCE_FILE, $line); ]], {
             fname = fname,
             dst = dst,
@@ -1124,7 +1126,7 @@ gen_cmd["Binop"] = function(self, st)
             dst = dst, x = x, y = y, op = op }))
     end
 
-    local op = st.cmd.op
+    local op = args.cmd.op
     if     op == "IntAdd"    then return int_binop("+")
     elseif op == "IntSub"    then return int_binop("-")
     elseif op == "IntMul"    then return int_binop("*")
@@ -1180,11 +1182,11 @@ gen_cmd["Binop"] = function(self, st)
     end
 end
 
-gen_cmd["Concat"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
+gen_cmd["Concat"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
 
     local init_input_array = {}
-    for ix, srcv in ipairs(st.cmd.srcs) do
+    for ix, srcv in ipairs(args.cmd.srcs) do
         local src = self:c_value(srcv)
         table.insert(init_input_array,
             util.render([[ ss[$i] = $src; ]], {
@@ -1201,60 +1203,60 @@ gen_cmd["Concat"] = function(self, st)
         }
     ]], {
         dst = dst,
-        N = C.integer(#st.cmd.srcs),
+        N = C.integer(#args.cmd.srcs),
         init_input_array = table.concat(init_input_array, "\n"),
     }))
 end
 
-gen_cmd["ToFloat"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local v = self:c_value(st.cmd.src)
+gen_cmd["ToFloat"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local v = self:c_value(args.cmd.src)
     return util.render([[ $dst = (lua_Number) $v; ]], { dst = dst, v = v })
 end
 
-gen_cmd["ToDyn"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local src = self:c_value(st.cmd.src)
-    local src_typ = st.cmd.src_typ
+gen_cmd["ToDyn"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local src = self:c_value(args.cmd.src)
+    local src_typ = args.cmd.src_typ
     return (set_stack_slot(src_typ, "&"..dst, src))
 end
 
-gen_cmd["FromDyn"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local src = self:c_value(st.cmd.src)
-    local dst_typ = st.cmd.dst_typ
+gen_cmd["FromDyn"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local src = self:c_value(args.cmd.src)
+    local dst_typ = args.cmd.dst_typ
     return self:get_stack_slot(dst_typ, dst, "&"..src,
-        st.cmd.loc, "downcasted value")
+        args.cmd.loc, "downcasted value")
 end
 
-gen_cmd["IsTruthy"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local src = self:c_value(st.cmd.src)
+gen_cmd["IsTruthy"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local src = self:c_value(args.cmd.src)
     return (util.render([[ $dst = pallene_is_truthy(&$src); ]], {
         dst = dst, src = src }))
 end
 
-gen_cmd["IsNil"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local src = self:c_value(st.cmd.src)
+gen_cmd["IsNil"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local src = self:c_value(args.cmd.src)
     return (util.render([[ $dst = ttisnil(&$src); ]], {
         dst = dst, src = src }))
 end
 
-gen_cmd["NewArr"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local n   = self:c_value(st.cmd.src_size)
+gen_cmd["NewArr"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local n   = self:c_value(args.cmd.src_size)
     return (util.render([[ $dst = pallene_createtable(L, $n, 0); ]], {
         dst = dst, n = n,
     }))
 end
 
-gen_cmd["GetArr"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local arr = self:c_value(st.cmd.src_arr)
-    local i   = self:c_value(st.cmd.src_i)
-    local dst_typ = st.cmd.dst_typ
-    local line = C.integer(st.cmd.loc.line)
+gen_cmd["GetArr"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local arr = self:c_value(args.cmd.src_arr)
+    local i   = self:c_value(args.cmd.src_i)
+    local dst_typ = args.cmd.dst_typ
+    local line = C.integer(args.cmd.loc.line)
 
     return (util.render([[
         {
@@ -1267,16 +1269,16 @@ gen_cmd["GetArr"] = function(self, st)
         i = i,
         line = line,
         get_slot = self:get_luatable_slot(dst_typ, dst, "slot", arr,
-            st.cmd.loc, "array element"),
+            args.cmd.loc, "array element"),
     }))
 end
 
-gen_cmd["SetArr"] = function(self, st)
-    local arr = self:c_value(st.cmd.src_arr)
-    local i   = self:c_value(st.cmd.src_i)
-    local v   = self:c_value(st.cmd.src_v)
-    local src_typ = st.cmd.src_typ
-    local line = C.integer(st.cmd.loc.line)
+gen_cmd["SetArr"] = function(self, args)
+    local arr = self:c_value(args.cmd.src_arr)
+    local i   = self:c_value(args.cmd.src_i)
+    local v   = self:c_value(args.cmd.src_v)
+    local src_typ = args.cmd.src_typ
+    local line = C.integer(args.cmd.loc.line)
     return (util.render([[
         {
             pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
@@ -1292,23 +1294,23 @@ gen_cmd["SetArr"] = function(self, st)
     }))
 end
 
-gen_cmd["NewTable"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local n   = self:c_value(st.cmd.src_size)
+gen_cmd["NewTable"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local n   = self:c_value(args.cmd.src_size)
     return (util.render([[ $dst = pallene_createtable(L, 0, $n); ]], {
         dst = dst,
         n = n,
     }))
 end
 
-gen_cmd["GetTable"] = function(self, st)
-    local dst = self:c_var(st.cmd.dst)
-    local tab = self:c_value(st.cmd.src_tab)
-    local key = self:c_value(st.cmd.src_k)
-    local dst_typ = st.cmd.dst_typ
+gen_cmd["GetTable"] = function(self, args)
+    local dst = self:c_var(args.cmd.dst)
+    local tab = self:c_value(args.cmd.src_tab)
+    local key = self:c_value(args.cmd.src_k)
+    local dst_typ = args.cmd.dst_typ
 
-    assert(st.cmd.src_k._tag == "ir.Value.String")
-    local field_name = st.cmd.src_k.value
+    assert(args.cmd.src_k._tag == "ir.Value.String")
+    local field_name = args.cmd.src_k.value
 
     return util.render([[
         {
@@ -1320,18 +1322,18 @@ gen_cmd["GetTable"] = function(self, st)
         field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, st.cmd.loc, "table field"),
+        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, args.cmd.loc, "table field"),
     })
 end
 
-gen_cmd["SetTable"] = function(self, st)
-    local tab = self:c_value(st.cmd.src_tab)
-    local key = self:c_value(st.cmd.src_k)
-    local val = self:c_value(st.cmd.src_v)
-    local src_typ = st.cmd.src_typ
+gen_cmd["SetTable"] = function(self, args)
+    local tab = self:c_value(args.cmd.src_tab)
+    local key = self:c_value(args.cmd.src_k)
+    local val = self:c_value(args.cmd.src_v)
+    local src_typ = args.cmd.src_typ
 
-    assert(st.cmd.src_k._tag == "ir.Value.String")
-    local field_name = st.cmd.src_k.value
+    assert(args.cmd.src_k._tag == "ir.Value.String")
+    local field_name = args.cmd.src_k.value
 
     return util.render([[
         {
@@ -1360,22 +1362,22 @@ gen_cmd["SetTable"] = function(self, st)
     })
 end
 
-gen_cmd["NewRecord"] = function(self, st)
-    local rc = self.record_coders[st.cmd.rec_typ]
-    local rec = self:c_var(st.cmd.dst)
+gen_cmd["NewRecord"] = function(self, args)
+    local rc = self.record_coders[args.cmd.rec_typ]
+    local rec = self:c_var(args.cmd.dst)
     return (util.render([[$rec = $constructor(L, K);]] , {
             rec = rec,
             constructor = rc:constructor_name(),
         }))
 end
 
-gen_cmd["GetField"] = function(self, st)
-    local rec_typ = st.cmd.rec_typ
+gen_cmd["GetField"] = function(self, args)
+    local rec_typ = args.cmd.rec_typ
     local rc = self.record_coders[rec_typ]
 
-    local dst = self:c_var(st.cmd.dst)
-    local rec = self:c_value(st.cmd.src_rec)
-    local field_name = st.cmd.field_name
+    local dst = self:c_var(args.cmd.dst)
+    local rec = self:c_value(args.cmd.src_rec)
+    local field_name = args.cmd.field_name
 
     local f_typ = rec_typ.field_types[field_name]
     if types.is_gc(f_typ) then
@@ -1391,13 +1393,13 @@ gen_cmd["GetField"] = function(self, st)
     end
 end
 
-gen_cmd["SetField"] = function(self, st)
-    local rec_typ = st.cmd.rec_typ
+gen_cmd["SetField"] = function(self, args)
+    local rec_typ = args.cmd.rec_typ
     local rc = self.record_coders[rec_typ]
 
-    local rec = self:c_value(st.cmd.src_rec)
-    local v   = self:c_value(st.cmd.src_v)
-    local field_name = st.cmd.field_name
+    local rec = self:c_value(args.cmd.src_rec)
+    local v   = self:c_value(args.cmd.src_v)
+    local field_name = args.cmd.field_name
 
     local f_typ = rec_typ.field_types[field_name]
     if types.is_gc(f_typ) then
@@ -1409,8 +1411,8 @@ gen_cmd["SetField"] = function(self, st)
     end
 end
 
-gen_cmd["NewClosure"] = function (self, st)
-    local func = self.module.functions[st.cmd.f_id]
+gen_cmd["NewClosure"] = function (self, args)
+    local func = self.module.functions[args.cmd.f_id]
 
     -- The number of upvalues must fit inside a byte (the nupvalues in the ClosureHeader).
     -- However, we must check this limit ourselves, because luaF_newCclosure doesn't. If we have too
@@ -1427,19 +1429,19 @@ gen_cmd["NewClosure"] = function (self, st)
         }
     ]], {
         num_upvalues = C.integer(num_upvalues),
-        dst = self:c_var(st.cmd.dst),
-        lua_entry_point = self:lua_entry_point_name(st.cmd.f_id),
+        dst = self:c_var(args.cmd.dst),
+        lua_entry_point = self:lua_entry_point_name(args.cmd.f_id),
     })
 end
 
-gen_cmd["InitUpvalues"] = function(self, st)
-    local func = self.module.functions[st.cmd.f_id]
+gen_cmd["InitUpvalues"] = function(self, args)
+    local func = self.module.functions[args.cmd.f_id]
 
-    assert(st.cmd.src_f._tag == "ir.Value.LocalVar")
-    local cclosure = string.format("clCvalue(&%s)", self:c_var(st.cmd.src_f.id))
+    assert(args.cmd.src_f._tag == "ir.Value.LocalVar")
+    local cclosure = string.format("clCvalue(&%s)", self:c_var(args.cmd.src_f.id))
 
     local capture_upvalues = {}
-    for i, val in ipairs(st.cmd.srcs) do
+    for i, val in ipairs(args.cmd.srcs) do
         local typ   = func.captured_vars[i].typ
         local c_val = self:c_value(val)
         local upvalue_dst = string.format("&(ccl->upvalue[%s])", C.integer(i))
@@ -1463,35 +1465,35 @@ gen_cmd["InitUpvalues"] = function(self, st)
     })
 end
 
-gen_cmd["CallStatic"] = function(self, st)
+gen_cmd["CallStatic"] = function(self, args)
     local dsts = {}
-    for i, dst in ipairs(st.cmd.dsts) do
+    for i, dst in ipairs(args.cmd.dsts) do
         dsts[i] = dst and self:c_var(dst)
     end
     local xs = {}
-    for _, x in ipairs(st.cmd.srcs) do
+    for _, x in ipairs(args.cmd.srcs) do
         table.insert(xs, self:c_value(x))
     end
 
     local parts = {}
 
-    local f_val = st.cmd.src_f
+    local f_val = args.cmd.src_f
     local f_id, cclosure
     if f_val._tag == "ir.Value.Upvalue" then
-        f_id = assert(st.func.f_id_of_upvalue[f_val.id])
+        f_id = assert(args.func.f_id_of_upvalue[f_val.id])
         cclosure = string.format("clCvalue(&%s)", self:c_value(f_val))
     elseif f_val._tag == "ir.Value.LocalVar" then
-        f_id = assert(st.func.f_id_of_local[f_val.id])
+        f_id = assert(args.func.f_id_of_local[f_val.id])
         cclosure = string.format("clCvalue(&%s)", self:c_value(f_val))
     else
         tagged_union.error(f_val._tag)
     end
 
-    table.insert(parts, update_stack_top(st.gc_info))
+    table.insert(parts, self:update_stack_top(args.position))
 
     if self.flags.use_traceback then
         table.insert(parts, string.format("PALLENE_SETLINE(%d);\n",
-            st.func.loc and st.func.loc.line or 0))
+            args.func.loc and args.func.loc.line or 0))
     end
 
     table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs, nil))
@@ -1499,24 +1501,25 @@ gen_cmd["CallStatic"] = function(self, st)
     return table.concat(parts, "\n")
 end
 
-gen_cmd["CallDyn"] = function(self, st)
-    local f_typ = st.cmd.f_typ
+gen_cmd["CallDyn"] = function(self, args)
+    local f_typ = args.cmd.f_typ
     local dsts = {}
-    for i, dst in ipairs(st.cmd.dsts) do
+    for i, dst in ipairs(args.cmd.dsts) do
         dsts[i] = dst and self:c_var(dst)
     end
 
     local push_arguments = {}
-    table.insert(push_arguments, self:push_to_stack(f_typ, self:c_value(st.cmd.src_f)))
+    table.insert(push_arguments, self:push_to_stack(f_typ, self:c_value(args.cmd.src_f)))
     for i = 1, #f_typ.arg_types do
         local typ = f_typ.arg_types[i]
-        table.insert(push_arguments, self:push_to_stack(typ, self:c_value(st.cmd.srcs[i])))
+        table.insert(push_arguments, self:push_to_stack(typ, self:c_value(args.cmd.srcs[i])))
     end
 
     local pop_results = {}
     for i = #f_typ.ret_types, 1, -1 do
         local typ = f_typ.ret_types[i]
-        local get_slot = self:get_stack_slot(typ, dsts[i], "slot", st.cmd.loc, "return value #%d", i)
+        local get_slot =
+            self:get_stack_slot(typ, dsts[i], "slot", args.cmd.loc, "return value #%d", i)
         table.insert(pop_results, util.render([[
             {
                 L->top.p--;
@@ -1531,7 +1534,7 @@ gen_cmd["CallDyn"] = function(self, st)
     local setline = ""
     if self.flags.use_traceback then
         setline = util.render([[ PALLENE_SETLINE($line); ]], {
-            line = C.integer(st.func.loc and st.func.loc.line or 0)
+            line = C.integer(args.func.loc and args.func.loc.line or 0)
         })
     end
 
@@ -1543,7 +1546,7 @@ gen_cmd["CallDyn"] = function(self, st)
         ${pop_results}
         ${restore_stack}
     ]], {
-        update_stack_top = update_stack_top(st.gc_info),
+        update_stack_top = self:update_stack_top(args.position),
         push_arguments = table.concat(push_arguments, "\n"),
         setline = setline,
         pop_results = table.concat(pop_results, "\n"),
@@ -1553,43 +1556,43 @@ gen_cmd["CallDyn"] = function(self, st)
     })
 end
 
-gen_cmd["BuiltinIoWrite"] = function(self, st)
-    local v = self:c_value(st.cmd.srcs[1])
+gen_cmd["BuiltinIoWrite"] = function(self, args)
+    local v = self:c_value(args.cmd.srcs[1])
     return util.render([[ pallene_io_write(L, $v); ]], { v = v })
 end
 
-gen_cmd["BuiltinMathAbs"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
+gen_cmd["BuiltinMathAbs"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
     return util.render([[ $dst = l_mathop(fabs)($v); ]], { dst = dst, v = v })
 end
 
-gen_cmd["BuiltinMathCeil"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
-    local line = st.cmd.loc.line
+gen_cmd["BuiltinMathCeil"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    local line = args.cmd.loc.line
     return util.render([[ $dst = pallene_math_ceil(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
-gen_cmd["BuiltinMathFloor"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
-    local line = st.cmd.loc.line
+gen_cmd["BuiltinMathFloor"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    local line = args.cmd.loc.line
     return util.render([[ $dst = pallene_math_floor(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
-gen_cmd["BuiltinMathFmod"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local x = self:c_value(st.cmd.srcs[1])
-    local y = self:c_value(st.cmd.srcs[2])
+gen_cmd["BuiltinMathFmod"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local x = self:c_value(args.cmd.srcs[1])
+    local y = self:c_value(args.cmd.srcs[2])
     return util.render([[ $dst = l_mathop(fmod)($x, $y); ]], { dst = dst, x = x, y = y })
 end
 
-gen_cmd["BuiltinMathExp"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
+gen_cmd["BuiltinMathExp"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
     return util.render([[ $dst = l_mathop(exp)($v); ]], { dst = dst, v = v })
 end
 
@@ -1599,69 +1602,69 @@ end
 -- But for --emit-lua, we must do something to make the code work in pure Lua.
 -- For now, the easiest thing to do is inject math.ln = math.log at the top.
 -- A smarter routine would replace math.ln with math.log.
-gen_cmd["BuiltinMathLn"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
+gen_cmd["BuiltinMathLn"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
     return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
 end
 
-gen_cmd["BuiltinMathLog"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
-    local b = self:c_value(st.cmd.srcs[2])
+gen_cmd["BuiltinMathLog"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    local b = self:c_value(args.cmd.srcs[2])
     return util.render([[ $dst = pallene_math_log($v, $b); ]],
         { dst = dst, v = v, b = b })
 end
 
-gen_cmd["BuiltinMathModf"] = function(self, st)
-    local dst1 = self:c_var(st.cmd.dsts[1])
-    local dst2 = self:c_var(st.cmd.dsts[2])
-    local v = self:c_value(st.cmd.srcs[1])
-    local line = st.cmd.loc.line
+gen_cmd["BuiltinMathModf"] = function(self, args)
+    local dst1 = self:c_var(args.cmd.dsts[1])
+    local dst2 = self:c_var(args.cmd.dsts[2])
+    local v = self:c_value(args.cmd.srcs[1])
+    local line = args.cmd.loc.line
     return util.render([[ $dst1 = pallene_math_modf(L, PALLENE_SOURCE_FILE, $line, $v, &$dst2); ]], {
         dst1 = dst1, dst2 = dst2, v = v, line = C.integer(line) })
 end
 
-gen_cmd["BuiltinMathPow"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local x = self:c_value(st.cmd.srcs[1])
-    local y = self:c_value(st.cmd.srcs[2])
+gen_cmd["BuiltinMathPow"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local x = self:c_value(args.cmd.srcs[1])
+    local y = self:c_value(args.cmd.srcs[2])
     return util.render([[ $dst = l_mathop(pow)($x, $y); ]], { dst = dst, x = x, y = y })
 end
 
-gen_cmd["BuiltinMathSqrt"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
+gen_cmd["BuiltinMathSqrt"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
     return util.render([[ $dst = l_mathop(sqrt)($v); ]], { dst = dst, v = v })
 end
 
-gen_cmd["BuiltinStringChar"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
-    local line = st.cmd.loc.line
+gen_cmd["BuiltinStringChar"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    local line = args.cmd.loc.line
     return util.render([[ $dst = pallene_string_char(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, v = v, line = C.integer(line) })
 end
 
-gen_cmd["BuiltinStringSub"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local str = self:c_value(st.cmd.srcs[1])
-    local i   = self:c_value(st.cmd.srcs[2])
-    local j   = self:c_value(st.cmd.srcs[3])
+gen_cmd["BuiltinStringSub"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local str = self:c_value(args.cmd.srcs[1])
+    local i   = self:c_value(args.cmd.srcs[2])
+    local j   = self:c_value(args.cmd.srcs[3])
     return util.render([[ $dst = pallene_string_sub(L, $str, $i, $j); ]], {
         dst = dst, str = str, i = i, j = j })
 end
 
-gen_cmd["BuiltinType"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
+gen_cmd["BuiltinType"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
     return util.render([[ $dst = pallene_type_builtin(L, $v); ]], { dst = dst, v = v })
 end
 
-gen_cmd["BuiltinTostring"] = function(self, st)
-    local dst = self:c_var(st.cmd.dsts[1])
-    local v = self:c_value(st.cmd.srcs[1])
-    local line = st.cmd.loc.line
+gen_cmd["BuiltinTostring"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    local line = args.cmd.loc.line
     return util.render([[ $dst = pallene_tostring(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
         dst = dst, line = C.integer(line), v = v })
 end
@@ -1670,8 +1673,8 @@ end
 -- Control flow
 --
 
-gen_cmd["ForPrep"] = function(self, st)
-    local typ = st.func.vars[st.cmd.dst_i].typ
+gen_cmd["ForPrep"] = function(self, args)
+    local typ = args.func.vars[args.cmd.dst_i].typ
     local macro
     if     typ._tag == "types.T.Integer" then
         macro = "PALLENE_INT_FOR_PREP"
@@ -1685,18 +1688,18 @@ gen_cmd["ForPrep"] = function(self, st)
         ${macro}($i, $cond, $iter, $count, $start, $limit, $step)
     ]], {
         macro = macro,
-        i     = self:c_var(st.cmd.dst_i),
-        cond  = self:c_var(st.cmd.dst_cond),
-        iter  = self:c_var(st.cmd.dst_iter),
-        count = self:c_var(st.cmd.dst_count),
-        start = self:c_value(st.cmd.src_start),
-        limit = self:c_value(st.cmd.src_limit),
-        step  = self:c_value(st.cmd.src_step),
+        i     = self:c_var(args.cmd.dst_i),
+        cond  = self:c_var(args.cmd.dst_cond),
+        iter  = self:c_var(args.cmd.dst_iter),
+        count = self:c_var(args.cmd.dst_count),
+        start = self:c_value(args.cmd.src_start),
+        limit = self:c_value(args.cmd.src_limit),
+        step  = self:c_value(args.cmd.src_step),
     }))
 end
 
-gen_cmd["ForStep"] = function(self, st)
-    local typ = st.func.vars[st.cmd.dst_i].typ
+gen_cmd["ForStep"] = function(self, args)
+    local typ = args.func.vars[args.cmd.dst_i].typ
 
     local macro
     if     typ._tag == "types.T.Integer" then
@@ -1711,31 +1714,31 @@ gen_cmd["ForStep"] = function(self, st)
         ${macro}($i, $cond, $iter, $count, $start, $limit, $step)
     ]], {
         macro = macro,
-        i     = self:c_var(st.cmd.dst_i),
-        cond  = self:c_var(st.cmd.dst_cond),
-        iter  = self:c_var(st.cmd.dst_iter),
-        count = self:c_var(st.cmd.dst_count),
-        start = self:c_value(st.cmd.src_start),
-        limit = self:c_value(st.cmd.src_limit),
-        step  = self:c_value(st.cmd.src_step),
+        i     = self:c_var(args.cmd.dst_i),
+        cond  = self:c_var(args.cmd.dst_cond),
+        iter  = self:c_var(args.cmd.dst_iter),
+        count = self:c_var(args.cmd.dst_count),
+        start = self:c_value(args.cmd.src_start),
+        limit = self:c_value(args.cmd.src_limit),
+        step  = self:c_value(args.cmd.src_step),
     }))
 end
 
-gen_cmd["Jmp"] = function(self, st)
-    return "goto " .. self:c_label(st.cmd.target) .. ";"
+gen_cmd["Jmp"] = function(self, args)
+    return "goto " .. self:c_label(args.cmd.target) .. ";"
 end
 
-gen_cmd["JmpIf"] = function(self, st)
+gen_cmd["JmpIf"] = function(self, args)
     return util.render("if($v) {goto $t;} else {goto $f;}", {
-        v = self:c_value(st.cmd.src_cond),
-        t = self:c_label(st.cmd.target_true),
-        f = self:c_label(st.cmd.target_false),
+        v = self:c_value(args.cmd.src_cond),
+        t = self:c_label(args.cmd.target_true),
+        f = self:c_label(args.cmd.target_false),
     })
 end
 
-gen_cmd["CheckGC"] = function(self, st)
+gen_cmd["CheckGC"] = function(self, args)
     return util.render([[ luaC_condGC(L, ${update_stack_top}, (void)0); ]], {
-        update_stack_top = update_stack_top(st.gc_info) })
+        update_stack_top = self:update_stack_top(args.position) })
 end
 
 function Coder:generate_blocks(func)
@@ -1746,18 +1749,15 @@ function Coder:generate_blocks(func)
         }))
         for cmd_i,cmd in ipairs(block.cmds) do
             if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_i + 1 then
-                local gen_state = {
+                local gen_args = {
                     cmd = cmd,
                     func = func,
-                    gc_info = false,
+                    position = {
+                        block_index = block_i,
+                        cmd_index = cmd_i,
+                    },
                 }
-                if gc.cmd_uses_gc(cmd._tag) then
-                    gen_state.gc_info = {
-                        live_gc_vars = self.gc[func].live_gc_vars[block_i][cmd_i],
-                        slot_of_variable = self.gc[func].slot_of_variable,
-                    }
-                end
-                local cmd_str = self:generate_cmd(gen_state) .. "\n"
+                local cmd_str = self:generate_cmd(gen_args) .. "\n"
                 table.insert(out, cmd_str)
             end
         end
@@ -1765,16 +1765,17 @@ function Coder:generate_blocks(func)
     return table.concat(out)
 end
 
-function Coder:generate_cmd(gen_state)
-    local cmd = gen_state.cmd
-    local func = gen_state.func
+function Coder:generate_cmd(gen_args)
+    local cmd = gen_args.cmd
+    local func = gen_args.func
     assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
     local name = tagged_union.consname(cmd._tag)
     local f = assert(gen_cmd[name], "impossible")
-    local out = f(self, gen_state)
+    local out = f(self, gen_args)
 
+    local slot_of_variable = self.gc[func].slot_of_variable
     for _, v_id in ipairs(ir.get_dsts(cmd)) do
-        local n = self.gc[func].slot_of_variable[v_id]
+        local n = slot_of_variable[v_id]
         if n then
             local typ = func.vars[v_id].typ
             local slot = util.render([[s2v(base + $n)]], { n = C.integer(n) })
