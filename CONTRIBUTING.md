@@ -47,7 +47,18 @@ Flag                  | Effect
 ./run-tests -k        | Run all tests even if some tests are failing
 ./run-tests -o gtest  | The gtest output format might be easier to read if you are using print statements for debugging.
 
-For convenience, when the test script is run without any parameters, it also runs the linter at the end.
+For convenience, when the test script is run without any busted parameters, it also runs the linter at the end.
+
+#### Testing garbage collection
+
+Doing proper GC testing takes longer, so we have a special mode for doing that.
+For testing garbage collection more carefully, set the `EXTRACFLAGS`
+environment variable to "-DHARDMEMTESTS" for the `run-tests` script. For
+example:
+
+```sh
+$ EXTRACFLAGS="-DHARDMEMTESTS" ./run-tests
+```
 
 ### Running the benchmarks suite
 
