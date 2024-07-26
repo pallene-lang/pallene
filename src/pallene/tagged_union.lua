@@ -55,7 +55,7 @@ local function make_tag(mod_name, type_name, cons_name)
 end
 
 -- Create a tagged union constructor
--- @param module       Module table where the type is being defined
+-- @param mod_table    Module table where the type is being defined
 -- @param mod_name     Name of the module
 -- @param type_name    Name of the type
 -- @param constructors Name of the constructor => fields of the record
@@ -63,18 +63,24 @@ local function define_union(mod_table, mod_name, type_name, constructors)
     mod_table[type_name] = {}
     for cons_name, fields in pairs(constructors) do
         local tag = make_tag(mod_name, type_name, cons_name)
-        local function cons(...)
-            local args = table.pack(...)
-            if args.n ~= #fields then
-                error(string.format(
-                    "wrong number of arguments for %s. Expected %d but received %d.",
-                    cons_name, #fields, args.n))
+
+        local cons
+        if #fields == 0 then
+            cons = { _tag = tag }
+        else
+            cons = function(...)
+                local args = table.pack(...)
+                if args.n ~= #fields then
+                    error(string.format(
+                        "wrong number of arguments for %s. Expected %d but received %d.",
+                        cons_name, #fields, args.n))
+                end
+                local node = { _tag = tag }
+                for i, field in ipairs(fields) do
+                    node[field] = args[i]
+                end
+                return node
             end
-            local node = { _tag = tag }
-            for i, field in ipairs(fields) do
-                node[field] = args[i]
-            end
-            return node
         end
         mod_table[type_name][cons_name] = cons
     end
