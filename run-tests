@@ -1,11 +1,17 @@
 #!/bin/bash
 
-# HOW TO USE: This is a wrapper around busted. The command-line arguments are the same.
+# HOW TO USE: This is a wrapper around busted. Pass "gc" as the first argument for testing the
+# garbage collector. Except for "gc", the command-line arguments are the same of busted
 #
 # EXAMPLES:
 #   ./run-tests
 #   ./run-tests -k
 #   ./run-tests spec/coder_spec.lua
+#   ./run-tests gc
+#   ./run-tests gc -k
+
+test_gc=""
+[ "$1" = "gc" ] && test_gc="y" && shift
 
 echo "--- Test Suite ---"
 
@@ -19,7 +25,7 @@ FLAGS=(--verbose --no-keep-going)
 
 # To speed things up, we tell the C compiler to skip optimizations. (It's OK, the CI still uses -O2)
 # Also, add some compiler flags to verify standard compliance.
-export CFLAGS='-O0 -std=c99 -Wall -Werror -Wundef -Wpedantic -Wno-unused'
+export CFLAGS="-O0 -std=c99 -Wall -Werror -Wundef -Wpedantic -Wno-unused $EXTRACFLAGS"
 
 if [ "$#" -eq 0 ]; then
     if command -v parallel >/dev/null; then
