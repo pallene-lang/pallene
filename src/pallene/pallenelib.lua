@@ -47,7 +47,7 @@ return [==[
 #include <stdlib.h>
 
 /* Pallene Tracer for tracebacks (dynamically linked). */
-/* Look at https://github.com/pallene-lang/pallene-tracer for more info. */
+/* Look at `https://github.com/pallene-lang/pallene-tracer` for more info. */
 #include <ptracer.h>
 
 #define PALLENE_UNREACHABLE __builtin_unreachable()
@@ -55,37 +55,27 @@ return [==[
 /* PALLENE TRACER MACROS */
 
 /* Prepares finalizer function for Lua interface calls. */
-#define PALLENE_PREPARE_FINALIZER()                              \
-        setobj(L, s2v(L->top.p++), &K->uv[1].uv);                \
+#define PALLENE_PREPARE_FINALIZER()                                  \
+        setobj(L, s2v(L->top.p++), &K->uv[1].uv);                    \
         lua_toclose(L, -1)
 
-#define PALLENE_C_FRAMEENTER(L, name)                            \
-        pt_cont_t *cont = pvalue(&K->uv[0].uv);                  \
-        static pt_fn_details_t _details = {                      \
-            .fn_name  = name,                                    \
-            .filename = PALLENE_SOURCE_FILE                      \
-        };                                                       \
-        pt_frame_t _frame = {                                    \
-            .type = PALLENE_TRACER_FRAME_TYPE_C,                 \
-            .shared = {                                          \
-                .details = &_details                             \
-            }                                                    \
-        };                                                       \
-        pallene_tracer_frameenter(L, cont, &_frame)
+#define PALLENE_C_FRAMEENTER(L, name)                                \
+        pt_fnstack_t *fnstack = pvalue(&K->uv[0].uv);                \
+        static pt_fn_details_t _details =                            \
+            PALLENE_TRACER_FN_DETAILS(name, PALLENE_SOURCE_FILE);    \
+        pt_frame_t _frame =                                          \
+            PALLENE_TRACER_C_FRAME(_details);                        \
+        PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);
 
-#define PALLENE_LUA_FRAMEENTER(L, sig)                           \
-        pt_cont_t *cont = pvalue(&K->uv[0].uv);                  \
-        pt_frame_t _frame = {                                    \
-            .type = PALLENE_TRACER_FRAME_TYPE_LUA,               \
-            .shared = {                                          \
-                .frame_sig = sig                                 \
-            }                                                    \
-        };                                                       \
-        pallene_tracer_frameenter(L, cont, &_frame);             \
+#define PALLENE_LUA_FRAMEENTER(L, fnptr)                             \
+        pt_fnstack_t *fnstack = pvalue(&K->uv[0].uv);                \
+        pt_frame_t _frame =                                          \
+            PALLENE_TRACER_LUA_FRAME(fnptr);                         \
+        PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);              \
         PALLENE_PREPARE_FINALIZER()
 
-#define PALLENE_SETLINE(line)           pallene_tracer_setline(cont, line)
-#define PALLENE_FRAMEEXIT()             pallene_tracer_frameexit(cont)
+#define PALLENE_SETLINE(line)           PALLENE_TRACER_SETLINE(fnstack, line)
+#define PALLENE_FRAMEEXIT()             PALLENE_TRACER_FRAMEEXIT(fnstack)
 
 /* Type tags */
 static const char *pallene_type_name(lua_State *L, const TValue *v);

@@ -18,7 +18,6 @@ local c_compiler = {}
 
 local CC       = os.getenv("CC")       or "cc"
 local CFLAGS   = os.getenv("CFLAGS")   or "-O2"
-local SHLIBLOC = os.getenv("SHLIBLOC") or "/usr/local/lib"
 
 local function get_uname()
     local ok, err, uname = util.outputs_of_execute("uname -s")
@@ -63,7 +62,7 @@ function c_compiler.compile_o_to_so(in_filename, out_filename)
         "-o", util.shell_quote(out_filename),
         util.shell_quote(in_filename),
         "-lptracer",
-        "-Wl,-rpath="..SHLIBLOC,
+        "-Wl,-rpath=/usr/local/lib",
     })
 end
 
