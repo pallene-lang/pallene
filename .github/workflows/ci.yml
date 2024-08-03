@@ -50,10 +50,10 @@ jobs:
 
             - name: Install Pallene Tracer
               run: |
-                  git clone - https://github.com/pallene-lang/pallene-tracer
+                  git clone https://github.com/pallene-lang/pallene-tracer
                   cd pallene-tracer
                   sudo make install
-                  sudo luarocks make pallene-tracer-0.5.0a-1.rockspec
+                  luarocks --local make
 
             - name: Install Luacheck
               run: luarocks install --local luacheck
@@ -89,7 +89,7 @@ jobs:
                   git clone https://github.com/pallene-lang/pallene-tracer
                   cd pallene-tracer
                   sudo make install
-                  sudo luarocks --local make
+                  luarocks --local make
 
             - name: Build
               run: luarocks --local make
@@ -101,3 +101,4 @@ jobs:
               run: |
                   eval "$(luarocks path)"
                   busted -o gtest -v ./spec
+
