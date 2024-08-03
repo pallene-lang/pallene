@@ -48,13 +48,6 @@ jobs:
                   make
                   sudo make install
 
-            - name: Install Pallene Tracer
-              run: |
-                  git clone https://github.com/pallene-lang/pallene-tracer
-                  cd pallene-tracer
-                  sudo make install
-                  luarocks --local make
-
             - name: Install Luacheck
               run: luarocks install --local luacheck
 
