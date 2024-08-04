@@ -18,6 +18,7 @@ local c_compiler = {}
 
 local CC       = os.getenv("CC")       or "cc"
 local CFLAGS   = os.getenv("CFLAGS")   or "-O2"
+local PTLIBDIR = os.getenv("PTLIBDIR") or "/usr/local/lib"
 
 local function get_uname()
     local ok, err, uname = util.outputs_of_execute("uname -s")
@@ -54,16 +55,21 @@ function c_compiler.compile_c_to_o(in_filename, out_filename)
     })
 end
 
-function c_compiler.compile_o_to_so(in_filename, out_filename)
+function c_compiler.compile_o_to_so(in_filename, out_filename, _, _, flags)
     -- There is no need to add the '-x' flag when compiling an object file without a '.o' extension.
     -- According to GCC, any file name with no recognized suffix is treated as an object file.
-    return run_cc({
+    local command = {
         CFLAGS_SHARED,
         "-o", util.shell_quote(out_filename),
         util.shell_quote(in_filename),
-        "-lptracer",
-        "-Wl,-rpath=/usr/local/lib",
-    })
+    }
+
+    if flags.pt_dynamic or not flags.use_traceback then
+        table.insert(command, "-lptracer")
+        table.insert(command, "-Wl,-rpath="..PTLIBDIR)
+    end
+
+    return run_cc(command)
 end
 
 return c_compiler

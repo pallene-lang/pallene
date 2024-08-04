@@ -46,33 +46,49 @@ return [==[
 #include <stdbool.h>
 #include <stdlib.h>
 
-/* Pallene Tracer for tracebacks (dynamically linked). */
+/* Pallene Tracer for function call tracebacks. */
 /* Look at `https://github.com/pallene-lang/pallene-tracer` for more info. */
 #include <ptracer.h>
 
 #define PALLENE_UNREACHABLE __builtin_unreachable()
 
-/* PALLENE TRACER MACROS */
+/* PALLENE TRACER HELPER MACROS */
 
+#ifdef PT_DEBUG
 /* Prepares finalizer function for Lua interface calls. */
-#define PALLENE_PREPARE_FINALIZER()                                  \
-        setobj(L, s2v(L->top.p++), &K->uv[1].uv);                    \
-        lua_toclose(L, -1)
+#define PALLENE_PREPARE_FINALIZER()                              \
+    setobj(L, s2v(L->top.p++), &K->uv[1].uv);                    \
+    lua_toclose(L, -1)
 
-#define PALLENE_C_FRAMEENTER(L, name)                                \
-        pt_fnstack_t *fnstack = pvalue(&K->uv[0].uv);                \
-        static pt_fn_details_t _details =                            \
-            PALLENE_TRACER_FN_DETAILS(name, PALLENE_SOURCE_FILE);    \
-        pt_frame_t _frame =                                          \
-            PALLENE_TRACER_C_FRAME(_details);                        \
-        PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);
+#define PALLENE_GET_FNSTACK()                                    \
+    pt_fnstack_t *fnstack = pvalue(&K->uv[0].uv)
 
-#define PALLENE_LUA_FRAMEENTER(L, fnptr)                             \
-        pt_fnstack_t *fnstack = pvalue(&K->uv[0].uv);                \
-        pt_frame_t _frame =                                          \
-            PALLENE_TRACER_LUA_FRAME(fnptr);                         \
-        PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);              \
-        PALLENE_PREPARE_FINALIZER()
+#define PALLENE_PREPARE_C_FRAME(name)                            \
+    PALLENE_GET_FNSTACK();                                       \
+    static pt_fn_details_t _details =                            \
+        PALLENE_TRACER_FN_DETAILS(name, PALLENE_SOURCE_FILE);    \
+    pt_frame_t _frame =                                          \
+        PALLENE_TRACER_C_FRAME(_details)
+
+#define PALLENE_PREPARE_LUA_FRAME(fnptr)                         \
+    PALLENE_GET_FNSTACK();                                       \
+    pt_frame_t _frame =                                          \
+        PALLENE_TRACER_LUA_FRAME(fnptr)
+
+#else
+#define PALLENE_PREPARE_FINALIZER()
+#define PALLENE_PREPARE_C_FRAME(name)
+#define PALLENE_PREPARE_LUA_FRAME(fnptr)
+#endif // PT_DEBUG
+
+#define PALLENE_C_FRAMEENTER(L, name)                            \
+    PALLENE_PREPARE_C_FRAME(name);                               \
+    PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);
+
+#define PALLENE_LUA_FRAMEENTER(L, fnptr)                         \
+    PALLENE_PREPARE_LUA_FRAME(fnptr);                            \
+    PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);              \
+    PALLENE_PREPARE_FINALIZER()
 
 #define PALLENE_SETLINE(line)           PALLENE_TRACER_SETLINE(fnstack, line)
 #define PALLENE_FRAMEEXIT()             PALLENE_TRACER_FRAMEEXIT(fnstack)
@@ -96,7 +112,6 @@ static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file,
 static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_array_metatable_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L);
-static l_noret pallene_runtime_callstack_overflow_error(lua_State *L);
 
 /* Arithmetic operators */
 static lua_Integer pallene_int_divi(lua_State *L, lua_Integer m, lua_Integer n, const char* file, int line);
@@ -243,11 +258,6 @@ static l_noret pallene_runtime_array_metatable_error(lua_State *L, const char* f
 static l_noret pallene_runtime_cant_grow_stack_error(lua_State *L)
 {
     luaL_error(L, "stack overflow");
-    PALLENE_UNREACHABLE;
-}
-
-static l_noret pallene_runtime_callstack_overflow_error(lua_State *L) {
-    luaL_error(L, "pallene callstack overflow");
     PALLENE_UNREACHABLE;
 }
 
