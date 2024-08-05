@@ -1778,12 +1778,6 @@ function Coder:generate_module_header()
     if self.flags.use_traceback then
         table.insert(out, "/* Enable Pallene Tracer debugging. */")
         table.insert(out, "#define PT_DEBUG")
-
-        if not self.flags.pt_dynamic then
-            table.insert(out, "/* Inlining for maximum performance during debugging. */")
-            table.insert(out, "#define PT_INLINE")
-            table.insert(out, "#define PT_IMPLEMENTATION")
-        end
     end
     table.insert(out, "")
 
