@@ -456,7 +456,7 @@ function Coder:pallene_entry_point_definition(f_id)
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
 
     table.insert(prologue, util.render([[
-        PALLENE_C_FRAMEENTER(L, "$name");
+        PALLENE_C_FRAMEENTER("$name");
     ]], {
         name = func.name
     }));
@@ -610,7 +610,7 @@ function Coder:lua_entry_point_definition(f_id)
         cargs = cargs + 1
     end
     local frameenter = util.render([[
-        PALLENE_LUA_FRAMEENTER(L, $fun_name);
+        PALLENE_LUA_FRAMEENTER($fun_name);
     ]], {
         fun_name = self:lua_entry_point_name(f_id),
     })

@@ -81,13 +81,13 @@ return [==[
 #define PALLENE_PREPARE_LUA_FRAME(fnptr)
 #endif // PT_DEBUG
 
-#define PALLENE_C_FRAMEENTER(L, name)                            \
+#define PALLENE_C_FRAMEENTER(name)                               \
     PALLENE_PREPARE_C_FRAME(name);                               \
-    PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);
+    PALLENE_TRACER_FRAMEENTER(fnstack, &_frame);
 
-#define PALLENE_LUA_FRAMEENTER(L, fnptr)                         \
+#define PALLENE_LUA_FRAMEENTER(fnptr)                            \
     PALLENE_PREPARE_LUA_FRAME(fnptr);                            \
-    PALLENE_TRACER_FRAMEENTER(L, fnstack, &_frame);              \
+    PALLENE_TRACER_FRAMEENTER(fnstack, &_frame);                 \
     PALLENE_PREPARE_FINALIZER()
 
 #define PALLENE_SETLINE(line)           PALLENE_TRACER_SETLINE(fnstack, line)
