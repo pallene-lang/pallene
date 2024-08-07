@@ -5,6 +5,7 @@
 
 local ir = require "pallene.ir"
 local types = require "pallene.types"
+local tagged_union = require "pallene.tagged_union"
 
 -- GARBAGE COLLECTION
 -- ==================
@@ -18,8 +19,8 @@ local types = require "pallene.types"
 -- have already been saved by the caller.
 --
 -- As an optimization, we don't save values to the Lua stack if the associated variable dies before
--- it reaches a potential garbage collection site. The current analysis is pretty simple, and there
--- are many ways to make it more precise. So we don't forget, I'm listing some of the ideas here...
+-- it reaches a potential garbage collection site. The current implementation uses flow analysis to
+-- find live variables. So we don't forget, I'm listing here some ideas to improve the analysis ...
 -- But it should be said that we don't know if implementing them would be worth the trouble.
 --
 --   1) Insert fewer checkGC calls in our functions, or move the checkGC calls to places with fewer
@@ -28,77 +29,244 @@ local types = require "pallene.types"
 --   2) Identify functions that don't call the GC (directly or indirectly) and don't treat calls to
 --      them as potential GC sites. (Function inlining might mitigate this for small functions)
 --
---   3) Use a flow-based liveliness analysis to precisely identify the commands that a variable
---      appears live at, instead of approximating with first definition and last use.
---
---   4) Use SSA form or some form of reaching definitions analysis so that we we only need to mirror
+--   3) Use SSA form or some form of reaching definitions analysis so that we we only need to mirror
 --      the writes that reach a GC site, instead of always mirroring all writes to a variable if one
 --      of them reaches a GC site.
 
 local gc = {}
 
-function gc.compute_stack_slots(func)
+local function FlowState()
+    return {
+        input  = {},  -- set of var_id, live variables at block start
+        output = {},  -- set of var_id, live variables at block end
+        kill   = {},  -- set of var_id, variables that are killed inside block
+        gen    = {},  -- set of var_id, variables that become live inside block
+    }
+end
 
-    local flat_cmds = ir.flatten_cmd(func.blocks)
+local function cmd_uses_gc(tag)
+    assert(tagged_union.typename(tag) == "ir.Cmd")
+    return tag == "ir.Cmd.CallStatic" or
+           tag == "ir.Cmd.CallDyn" or
+           tag == "ir.Cmd.CheckGC"
+end
 
-    -- 1) Compute approximated live intervals for GC variables defined by the function. Function
-    -- parameters are only counted if they are redefined, since their original value was already
-    -- saved by the caller. Also note that we only care about variables, not about upvalues.
-    -- The latter are already exposed to the GC via the function closures.
+local function copy_set(S)
+    local new_set = {}
+    for v,_ in pairs(S) do
+        new_set[v] = true
+    end
+    return new_set
+end
 
-    local defined_variables = {} -- { var_id }, sorted by first definition
-    local last_use          = {} -- { var_id => integer }
-    local first_definition  = {} -- { var_id => integer }
+local function flow_analysis(block_list, state_list)
+    local function apply_gen_kill_sets(flow_state)
+        local input = flow_state.input
+        local output = flow_state.output
+        local gen = flow_state.gen
+        local kill = flow_state.kill
+        local in_changed = false
 
-    for i, cmd in ipairs(flat_cmds) do
-        for _, val in ipairs(ir.get_srcs(cmd)) do
-            if val._tag == "ir.Value.LocalVar" then
-                local v_id = val.id
-                last_use[v_id] = i
+        for v, _ in pairs(output) do
+            local val = true
+            if kill[v] then
+                val = nil
+            end
+            local previous_val = input[v]
+            local new_val = previous_val or val
+            input[v] = new_val
+            in_changed = in_changed or (previous_val ~= new_val)
+        end
+
+        for v, g in pairs(gen) do
+            assert(not (g and kill[v]), "gen and kill can't both be true")
+            local previous_val = input[v]
+            local new_val = true
+            input[v] = new_val
+            in_changed = in_changed or (previous_val ~= new_val)
+        end
+
+        for v, _ in pairs(input) do
+            if not output[v] and not gen[v] then
+                input[v] = nil
+                in_changed = true
             end
         end
-        for _, v_id in ipairs(ir.get_dsts(cmd)) do
-            local typ = func.vars[v_id].typ
-            if types.is_gc(typ) and not first_definition[v_id] then
-                first_definition[v_id] = i
-                table.insert(defined_variables, v_id)
+
+        return in_changed
+    end
+
+    local function merge_live(input, output)
+        for v, _ in pairs(input) do
+            output[v] = true
+        end
+    end
+
+    local function clear_set(S)
+        for v,_ in pairs(S) do
+            S[v] = nil
+        end
+    end
+
+    local succ_list = ir.get_successor_list(block_list)
+    local pred_list = ir.get_predecessor_list(block_list)
+    local block_order = ir.get_predecessor_depth_search_topological_sort(pred_list)
+
+    local dirty_flag = {} -- { block_id -> bool? } keeps track of modified blocks
+    for i = 1, #block_list do
+        dirty_flag[i] = true
+    end
+
+    local function update_block(block_i)
+        local block_succs = succ_list[block_i]
+        local block_preds = pred_list[block_i]
+        local state = state_list[block_i]
+
+        -- last block's output is supposed to be fixed
+        if block_i ~= #block_list then
+            clear_set(state.output)
+            for _,succ in ipairs(block_succs) do
+                local succ_in = state_list[succ].input
+                merge_live(succ_in, state.output)
+            end
+        end
+
+        local in_changed = apply_gen_kill_sets(state)
+        if in_changed then
+            for _, pred in ipairs(block_preds) do
+                dirty_flag[pred] = true
             end
         end
     end
 
-    -- 2) Find which variables are live at each GC spot in the program.
+    repeat
+        local found_dirty_block = false
+        for _,block_i in ipairs(block_order) do
+            if dirty_flag[block_i] then
+                found_dirty_block = true
+                -- CAREFUL: we have to clean the dirty flag BEFORE updating the block or else we
+                -- will do the wrong thing for auto-referencing blocks
+                dirty_flag[block_i] = false
+                update_block(block_i)
+            end
+        end
+    until not found_dirty_block
+end
 
-    local live_gc_vars = {} -- { cmd => {var_id}? }
-    for i, cmd in ipairs(flat_cmds) do
-        local tag = cmd._tag
-        if
-            tag == "ir.Cmd.CallStatic" or
-            tag == "ir.Cmd.CallDyn" or
-            tag == "ir.Cmd.CheckGC"
-        then
-            live_gc_vars[cmd] = {}
-            for _, v_id in ipairs(defined_variables) do
-                local a = first_definition[v_id]
-                local b = last_use[v_id]
-                if a and b and a < i and i <= b then
-                    table.insert(live_gc_vars[cmd], v_id)
+local function mark_gen_kill(cmd, gen_set, kill_set)
+    assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
+    for _, dst in ipairs(ir.get_dsts(cmd)) do
+        gen_set[dst] = nil
+        kill_set[dst] = true
+    end
+
+    for _, src in ipairs(ir.get_srcs(cmd)) do
+        if src._tag == "ir.Value.LocalVar" then
+            gen_set[src.id] = true
+            kill_set[src.id] = nil
+        end
+    end
+end
+
+local function make_gen_kill_sets(block, flow_state)
+    for i = #block.cmds, 1, -1 do
+        local cmd = block.cmds[i]
+        mark_gen_kill(cmd, flow_state.gen, flow_state.kill)
+    end
+end
+
+-- Returns information that is used for allocating variables into the Lua stack.
+-- The returned data is:
+--      * live_gc_vars:
+--          for each command, has a list of GC'd variables that are alive during that command.
+--      * live_at_same_time:
+--          for each GC'd variable, indicates what other GC'd variables are alive at the same time,
+--          that is, if both are alive during the same command for some command in the function.
+--      * max_frame_size:
+--          what's the maximum number of slots of the Lua stack used for storing GC'd variables
+--          during the function.
+function gc.compute_stack_slots(func)
+
+    local state_list = {} -- { FlowState }
+
+    -- initialize states
+    for block_i, block in ipairs(func.blocks) do
+        local fst = FlowState()
+        make_gen_kill_sets(block, fst)
+        state_list[block_i] = fst
+    end
+
+    -- set returned variables to "live" on exit block
+    if #func.blocks > 0 then
+        local exit_output = state_list[#func.blocks].output
+        for _, var in ipairs(func.ret_vars) do
+            exit_output[var] = true
+        end
+    end
+
+    -- 1) Find live variables at the end of each basic block
+    flow_analysis(func.blocks, state_list)
+
+    -- 2) Find which GC'd variables are live at each GC spot in the program and
+    --    which  GC'd variables are live at the same time
+    local live_gc_vars = {} -- { block_id => { cmd_id => {var_id}? } }
+    local live_at_same_time = {} -- { var_id => { var_id => bool? }? }
+
+    -- initialize live_gc_vars
+    for _, block in ipairs(func.blocks) do
+        local live_on_cmds = {}
+        for cmd_i = 1, #block.cmds do
+            live_on_cmds[cmd_i] = false
+        end
+        table.insert(live_gc_vars, live_on_cmds)
+    end
+
+    for block_i, block in ipairs(func.blocks) do
+        local lives_block = copy_set(state_list[block_i].output)
+        -- filter out non-GC'd variables from set
+        for var_i, _ in pairs(lives_block) do
+            local var = func.vars[var_i]
+            if not types.is_gc(var.typ) then
+                lives_block[var_i] = nil
+            end
+        end
+        for cmd_i = #block.cmds, 1, -1 do
+            local cmd = block.cmds[cmd_i]
+            assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
+            for _, dst in ipairs(ir.get_dsts(cmd)) do
+                lives_block[dst] = nil
+            end
+            for _, src in ipairs(ir.get_srcs(cmd)) do
+                if src._tag == "ir.Value.LocalVar" then
+                    local typ = func.vars[src.id].typ
+                    if types.is_gc(typ) then
+                        lives_block[src.id] = true
+                    end
+                end
+            end
+
+            if cmd_uses_gc(cmd._tag)
+            then
+                local lives_cmd = {}
+                for var,_ in pairs(lives_block) do
+                    table.insert(lives_cmd, var)
+                end
+                live_gc_vars[block_i][cmd_i] = lives_cmd
+                for var1,_ in pairs(lives_block) do
+                    for var2,_ in pairs(lives_block) do
+                        if not live_at_same_time[var1] then
+                            live_at_same_time[var1] = {}
+                        end
+                        live_at_same_time[var1][var2] = true
+                    end
                 end
             end
         end
     end
 
-    local variable_is_live_at_gc = {}  -- { var_id => boolean }
-    for v_id = 1, #func.vars do
-        variable_is_live_at_gc[v_id] = false
-    end
-    for _, v_ids in pairs(live_gc_vars) do
-        for _, v_id in ipairs(v_ids) do
-            variable_is_live_at_gc[v_id] = true
-        end
-    end
-
     -- 3) Allocate variables to Lua stack slots, ensuring that variables with overlapping lifetimes
-    -- different stack slots. IMPORTANT: stack slots are 0-based. The C we generate prefers that.
+    -- get different stack slots. IMPORTANT: stack slots are 0-based. The C we generate prefers
+    -- that.
 
     local max_frame_size = 0
     local slot_of_variable = {} -- { var_id => integer? }
@@ -107,21 +275,22 @@ function gc.compute_stack_slots(func)
         slot_of_variable[v_id] = false
     end
 
-    local n = 0
-    local stack = { } -- { var_id }
-    for _, v_id in ipairs(defined_variables) do
-        if variable_is_live_at_gc[v_id] then
-            local def = first_definition[v_id]
-            while n > 0 and last_use[stack[n]] <= def do
-                stack[n] = nil
-                n = n - 1
+    for v1, set in pairs(live_at_same_time) do
+        local taken_slots = {}  -- { stack_slot => bool? }
+        for v2,_ in pairs(set) do
+            local v2_slot = slot_of_variable[v2]
+            if v2_slot then
+                taken_slots[v2_slot] = true
             end
-
-            n = n + 1
-            slot_of_variable[v_id] = n-1
-            stack[n] = v_id
-            max_frame_size = math.max(max_frame_size, n)
         end
+        for slot = 0, #func.vars do
+            if not taken_slots[slot] then
+                slot_of_variable[v1] = slot
+                max_frame_size = math.max(max_frame_size, slot + 1)
+                break
+            end
+        end
+        assert(slot_of_variable[v1], "should always find a slot")
     end
 
     return {
@@ -130,5 +299,6 @@ function gc.compute_stack_slots(func)
         slot_of_variable = slot_of_variable,
     }
 end
+
 
 return gc

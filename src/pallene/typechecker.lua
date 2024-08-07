@@ -168,7 +168,7 @@ end
 function Typechecker:from_ast_type(ast_typ)
     local tag = ast_typ._tag
     if     tag == "ast.Type.Nil" then
-        return types.T.Nil()
+        return types.T.Nil
 
     elseif tag == "ast.Type.Name" then
         local name = ast_typ.name
@@ -229,11 +229,11 @@ function Typechecker:check_program(prog_ast)
     local module_name = prog_ast.module_name
 
     -- 1) Add primitive types to the symbol table
-    self:add_type_symbol("any",     types.T.Any())
-    self:add_type_symbol("boolean", types.T.Boolean())
-    self:add_type_symbol("float",   types.T.Float())
-    self:add_type_symbol("integer", types.T.Integer())
-    self:add_type_symbol("string",  types.T.String())
+    self:add_type_symbol("any",     types.T.Any)
+    self:add_type_symbol("boolean", types.T.Boolean)
+    self:add_type_symbol("float",   types.T.Float)
+    self:add_type_symbol("integer", types.T.Integer)
+    self:add_type_symbol("string",  types.T.String)
 
     -- 2) Add builtins to symbol table.
     -- The order does not matter because they are distinct.
@@ -247,7 +247,7 @@ function Typechecker:check_program(prog_ast)
             local id = mod_name .. "." .. fun_name
             symbols[fun_name] = typechecker.Symbol.Value(typ, typechecker.Def.Builtin(id))
         end
-        local typ = (mod_name == "string") and types.T.String() or false
+        local typ = (mod_name == "string") and types.T.String or false
         self:add_module_symbol(mod_name, typ, symbols)
     end
 
@@ -423,10 +423,10 @@ function Typechecker:check_stat(stat, is_toplevel)
 
         local decl_types = {}
         for _ = 1, #stat.decls do
-            table.insert(decl_types, types.T.Any())
+            table.insert(decl_types, types.T.Any)
         end
 
-        local itertype = types.T.Function({ types.T.Any(), types.T.Any() }, decl_types)
+        local itertype = types.T.Function({ types.T.Any, types.T.Any }, decl_types)
         rhs[1] = self:check_exp_synthesize(rhs[1])
         local iteratorfn = rhs[1]
 
@@ -712,7 +712,7 @@ function Typechecker:check_var(var)
                 "expected array but found %s in indexed expression",
                 types.tostring(arr_type))
         end
-        var.k = self:check_exp_verify(var.k, types.T.Integer(), "array index")
+        var.k = self:check_exp_verify(var.k, types.T.Integer, "array index")
         var._type = arr_type.elem
 
     else
@@ -793,19 +793,19 @@ function Typechecker:check_exp_synthesize(exp)
 
     local tag = exp._tag
     if     tag == "ast.Exp.Nil" then
-        exp._type = types.T.Nil()
+        exp._type = types.T.Nil
 
     elseif tag == "ast.Exp.Bool" then
-        exp._type = types.T.Boolean()
+        exp._type = types.T.Boolean
 
     elseif tag == "ast.Exp.Integer" then
-        exp._type = types.T.Integer()
+        exp._type = types.T.Integer
 
     elseif tag == "ast.Exp.Float" then
-        exp._type = types.T.Float()
+        exp._type = types.T.Float
 
     elseif tag == "ast.Exp.String" then
-        exp._type = types.T.String()
+        exp._type = types.T.String
 
     elseif tag == "ast.Exp.InitList" then
         type_error(exp.loc, "missing type hint for initializer")
@@ -827,7 +827,7 @@ function Typechecker:check_exp_synthesize(exp)
                     "trying to take the length of a %s instead of an array or string",
                     types.tostring(t))
             end
-            exp._type = types.T.Integer()
+            exp._type = types.T.Integer
         elseif op == "-" then
             if t._tag ~= "types.T.Integer" and t._tag ~= "types.T.Float" then
                 type_error(exp.loc,
@@ -841,10 +841,10 @@ function Typechecker:check_exp_synthesize(exp)
                     "trying to bitwise negate a %s instead of an integer",
                     types.tostring(t))
             end
-            exp._type = types.T.Integer()
+            exp._type = types.T.Integer
         elseif op == "not" then
             check_type_is_condition(exp.exp, "'not' operator")
-            exp._type = types.T.Boolean()
+            exp._type = types.T.Boolean
         else
             tagged_union.error(op)
         end
@@ -868,7 +868,7 @@ function Typechecker:check_exp_synthesize(exp)
                     "cannot compare %s and %s using %s",
                     types.tostring(t1), types.tostring(t2), op)
             end
-            exp._type = types.T.Boolean()
+            exp._type = types.T.Boolean
 
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
             if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Integer") or
@@ -886,7 +886,7 @@ function Typechecker:check_exp_synthesize(exp)
                     "cannot compare %s and %s using %s",
                     types.tostring(t1), types.tostring(t2), op)
             end
-            exp._type = types.T.Boolean()
+            exp._type = types.T.Boolean
 
         elseif op == "+" or op == "-" or op == "*" or op == "%" or op == "//" then
             if not is_numeric_type(t1) then
@@ -903,11 +903,11 @@ function Typechecker:check_exp_synthesize(exp)
             if t1._tag == "types.T.Integer" and
                t2._tag == "types.T.Integer"
             then
-                exp._type = types.T.Integer()
+                exp._type = types.T.Integer
             else
                 exp.lhs = self:coerce_numeric_exp_to_float(exp.lhs)
                 exp.rhs = self:coerce_numeric_exp_to_float(exp.rhs)
-                exp._type = types.T.Float()
+                exp._type = types.T.Float
             end
 
         elseif op == "/" or op == "^" then
@@ -924,7 +924,7 @@ function Typechecker:check_exp_synthesize(exp)
 
             exp.lhs = self:coerce_numeric_exp_to_float(exp.lhs)
             exp.rhs = self:coerce_numeric_exp_to_float(exp.rhs)
-            exp._type = types.T.Float()
+            exp._type = types.T.Float
 
         elseif op == ".." then
             -- The arguments to '..' must be a strings. We do not allow "any" because Pallene does
@@ -935,7 +935,7 @@ function Typechecker:check_exp_synthesize(exp)
             if t2._tag ~= "types.T.String" then
                 type_error(exp.loc, "cannot concatenate with %s value", types.tostring(t2))
             end
-            exp._type = types.T.String()
+            exp._type = types.T.String
 
         elseif op == "and" or op == "or" then
             check_type_is_condition(exp.lhs, "first operand of '%s'", op)
@@ -953,7 +953,7 @@ function Typechecker:check_exp_synthesize(exp)
                     "right-hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(t2))
             end
-            exp._type = types.T.Integer()
+            exp._type = types.T.Integer
 
         else
             tagged_union.error(op)
@@ -987,7 +987,7 @@ function Typechecker:check_exp_synthesize(exp)
 
     elseif tag == "ast.Exp.ToFloat" then
         assert(exp.exp._type._tag == "types.T.Integer")
-        exp._type = types.T.Float()
+        exp._type = types.T.Float
 
     else
         tagged_union.error(tag)
