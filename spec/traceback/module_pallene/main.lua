@@ -16,12 +16,4 @@ function lua_1()
     pallene_alt.alternate_everyday_fn(lua_2)
 end
 
--- Should be local.
--- Making it global so that it is visible in the traceback.
--- luacheck: globals wrapper
-function wrapper()
-    pallene.normal_everyday_fn(lua_1)
-end
-
--- luacheck: globals pallene_tracer_debug_traceback
-xpcall(wrapper, pallene_tracer_debug_traceback)
+pallene.normal_everyday_fn(lua_1)

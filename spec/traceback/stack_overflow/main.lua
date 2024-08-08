@@ -10,10 +10,4 @@ function please_dont_overflow()
     so.no_overflow(please_dont_overflow)
 end
 
--- luacheck: globals wrapper
-function wrapper()
-    please_dont_overflow()
-end
-
--- luacheck: globals pallene_tracer_debug_traceback
-xpcall(wrapper, pallene_tracer_debug_traceback)
+please_dont_overflow()
