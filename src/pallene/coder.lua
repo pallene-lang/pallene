@@ -214,10 +214,7 @@ end
 -- these cases instead of invoking the metatable operations, which may impair program optimization
 -- even if they are never called.
 local function check_no_metatable(self, src, loc)
-    local setline = ""
-    if self.flags.use_traceback then
-        setline = string.format("PALLENE_SETLINE(%d);", loc.line)
-    end
+    local setline = string.format("PALLENE_SETLINE(%d);", loc.line)
 
     return (util.render([[
         if ($src->metatable) {
@@ -254,10 +251,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
 
-        local setline = ""
-        if self.flags.use_traceback then
-            setline = string.format("PALLENE_SETLINE(%d);", loc.line)
-        end
+        local setline = string.format("PALLENE_SETLINE(%d);", loc.line)
 
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
@@ -461,18 +455,12 @@ function Coder:pallene_entry_point_definition(f_id)
     local max_frame_size = self.gc[func].max_frame_size
     local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
 
-    local setline = ""
-    local frameexit = ""
-    if self.flags.use_traceback then
-        table.insert(prologue, util.render([[
-            PALLENE_C_FRAMEENTER(L, "$name");
-        ]], {
-            name = func.name
-        }));
-
-        setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
-        frameexit = "PALLENE_FRAMEEXIT();"
-    end
+    table.insert(prologue, util.render([[
+        PALLENE_C_FRAMEENTER("$name");
+    ]], {
+        name = func.name
+    }));
+    local setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
 
     if slots_needed > 0 then
         table.insert(prologue, util.render([[
@@ -527,7 +515,7 @@ function Coder:pallene_entry_point_definition(f_id)
             ${prologue}
             /**/
             ${body}
-            ${frameexit}
+            PALLENE_FRAMEEXIT();
             ${ret_mult}
             ${ret_stat}
         }
@@ -537,7 +525,6 @@ function Coder:pallene_entry_point_definition(f_id)
         prologue = table.concat(prologue, "\n"),
         body = body,
         ret_mult = ret_mult,
-        frameexit = frameexit,
         ret_stat = ret_stat,
     }))
 end
@@ -615,22 +602,18 @@ function Coder:lua_entry_point_definition(f_id)
         Udata *K = uvalue(&func->upvalue[0]);
     ]]
 
-    local frameenter = ""
-    local frameexit  = ""
     local nargs = #arg_types
+    -- We will be having our call-stack finalizer object on top of our stack when debugging mode is
+    -- enabled
     local cargs = nargs
     if self.flags.use_traceback then
-        frameenter = util.render([[
-            PALLENE_LUA_FRAMEENTER(L, $fun_name);
-        ]], {
-            fun_name = self:lua_entry_point_name(f_id),
-        })
-        -- It's as simple as popping the finalizer.
-        frameexit = "lua_pop(L, 1);"
-
-        -- We will be having our finalizer on top of our stack.
         cargs = cargs + 1
     end
+    local frameenter = util.render([[
+        PALLENE_LUA_FRAMEENTER($fun_name);
+    ]], {
+        fun_name = self:lua_entry_point_name(f_id),
+    })
 
     local arity_check = util.render([[
         int nargs = lua_gettop(L);
@@ -694,7 +677,6 @@ function Coder:lua_entry_point_definition(f_id)
             /**/
             ${ret_decls}
             ${call_pallene}
-            ${lua_fexit}
             ${push_results}
             return $nresults;
         }
@@ -708,7 +690,6 @@ function Coder:lua_entry_point_definition(f_id)
         ret_decls = table.concat(ret_decls, "\n"),
         call_pallene = call_pallene,
         push_results = table.concat(push_results, "\n"),
-        lua_fexit = frameexit,
         nresults = C.integer(#ret_types)
     }))
 end
@@ -728,11 +709,9 @@ define_union("Constant", {
 
 function Coder:init_upvalues()
 
-    -- If we are using tracebacks
-    if self.flags.use_traceback then
-        table.insert(self.constants, coder.Constant.DebugUserdata)
-        table.insert(self.constants, coder.Constant.DebugMetatable)
-    end
+    -- Debug traceback constants
+    table.insert(self.constants, coder.Constant.DebugUserdata)
+    table.insert(self.constants, coder.Constant.DebugMetatable)
 
     -- Metatables
     for _, typ in ipairs(self.module.record_types) do
@@ -1490,11 +1469,8 @@ gen_cmd["CallStatic"] = function(self, args)
     end
 
     table.insert(parts, self:update_stack_top(args.position))
-
-    if self.flags.use_traceback then
-        table.insert(parts, string.format("PALLENE_SETLINE(%d);\n",
-            args.func.loc and args.func.loc.line or 0))
-    end
+    table.insert(parts, string.format("PALLENE_SETLINE(%d);\n",
+        args.func.loc and args.func.loc.line or 0))
 
     table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs, nil))
     table.insert(parts, self:restorestack())
@@ -1531,12 +1507,9 @@ gen_cmd["CallDyn"] = function(self, args)
         }))
     end
 
-    local setline = ""
-    if self.flags.use_traceback then
-        setline = util.render([[ PALLENE_SETLINE($line); ]], {
-            line = C.integer(args.func.loc and args.func.loc.line or 0)
-        })
-    end
+    local setline = util.render([[ PALLENE_SETLINE($line); ]], {
+        line = C.integer(args.func.loc and args.func.loc.line or 0)
+    })
 
     return util.render([[
         ${update_stack_top}
@@ -1808,6 +1781,10 @@ function Coder:generate_module_header()
     table.insert(out, "/* This file was generated by the Pallene compiler. Do not edit by hand */")
     table.insert(out, "")
     table.insert(out, string.format("#define PALLENE_SOURCE_FILE %s", C.string(self.filename)))
+    if self.flags.use_traceback then
+        table.insert(out, "/* Enable Pallene Tracer debugging. */")
+        table.insert(out, "#define PT_DEBUG")
+    end
     table.insert(out, "")
 
     table.insert(out, "/* ------------------------ */")

@@ -34,7 +34,7 @@ do
     )
 
     -- No Pallene tracebacks
-    p:flag("--use-traceback", "Use function traceback for debugging")
+    p:flag("--use-traceback",    "Enable call-stack tracing")
 
     p:option("-O", "Optimization level")
         :args(1):convert(tonumber)
