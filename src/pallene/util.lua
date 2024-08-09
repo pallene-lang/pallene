@@ -77,8 +77,13 @@ function util.set_file_contents(file_name, contents)
 end
 
 -- Quotes a command-line argument according to POSIX shell syntax.
+-- Uses a whitelist of safe chars to avoid quoting too much
 function util.shell_quote(str)
-    return "'" .. string.gsub(str, "'", "'\\''") .. "'"
+    if string.match(str, "^[%w./_-]+$") then
+        return str
+    else
+        return "'" .. string.gsub(str, "'", "'\\''") .. "'"
+    end
 end
 
 function util.execute(cmd)

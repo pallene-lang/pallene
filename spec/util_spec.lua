@@ -8,6 +8,18 @@ local util = require "pallene.util"
 
 describe("Pallene utils", function()
 
+    it("can quote special shell chars", function()
+        assert.equals([[' ']], util.shell_quote([[ ]]))
+        assert.equals([['$']], util.shell_quote([[$]]))
+        assert.equals([['"']], util.shell_quote([["]]))
+        assert.equals([['a'\''b']], util.shell_quote([[a'b]]))
+    end)
+
+    it("does not quote clean shell chars", function()
+        assert.equals("foo/bar.txt", util.shell_quote("foo/bar.txt"))
+        assert.equals("100", util.shell_quote("100"))
+    end)
+
     it("returns error when a file doesn't exist", function()
         local filename = "does_not_exist.pln"
         local ok, err = util.get_file_contents(filename)
