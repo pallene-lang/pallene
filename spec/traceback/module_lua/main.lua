@@ -25,12 +25,4 @@ function lua_3(sum)
     error "Any normal error from Lua!"
 end
 
--- Should be local.
--- Making it global so that it is visible in the traceback.
--- luacheck: globals wrapper
-function wrapper()
-    another_module.call_lua_callback(lua_1)
-end
-
--- luacheck: globals pallene_tracer_debug_traceback
-xpcall(wrapper, pallene_tracer_debug_traceback)
+another_module.call_lua_callback(lua_1)

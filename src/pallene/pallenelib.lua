@@ -48,6 +48,7 @@ return [==[
 
 /* Pallene Tracer for function call tracebacks. */
 /* Look at `https://github.com/pallene-lang/pallene-tracer` for more info. */
+#define  PT_IMPLEMENTATION
 #include <ptracer.h>
 
 #define PALLENE_UNREACHABLE __builtin_unreachable()
