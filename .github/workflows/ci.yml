@@ -81,7 +81,8 @@ jobs:
               run: |
                   git clone https://github.com/pallene-lang/pallene-tracer
                   cd pallene-tracer
-                  sudo make install LUA_DIR=/usr/local
+                  make LUA_PREFIX=/usr/local
+                  sudo make install
 
             - name: Build
               run: luarocks --local make
