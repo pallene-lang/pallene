@@ -23,7 +23,7 @@ on:
         branches: [ master ]
 
 env:
-    LUA_VERSION: 5.4.6-2
+    LUA_VERSION: 5.4.7
     LUAROCKS_VERSION: 3.9.0
 
 jobs:
@@ -81,7 +81,8 @@ jobs:
               run: |
                   git clone https://github.com/pallene-lang/pallene-tracer
                   cd pallene-tracer
-                  sudo make install LUA_DIR=/usr/local
+                  make LUA_PREFIX=/usr/local
+                  sudo make install
 
             - name: Build
               run: luarocks --local make
@@ -93,4 +94,3 @@ jobs:
               run: |
                   eval "$(luarocks path)"
                   busted -o gtest -v ./spec
-

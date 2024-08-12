@@ -596,7 +596,7 @@ static TString *pallene_tostring(lua_State *L, const char* file, int line, TValu
             return luaS_newlstr(L, buff, len);
         }
         case LUA_TSTRING:
-            return luaS_new(L, svalue(&v));
+            return luaS_new(L, getstr(tsvalue(&v)));
         case LUA_TBOOLEAN:
             return luaS_new(L, ((pallene_is_truthy(&v)) ? "true" : "false"));
         default: {
