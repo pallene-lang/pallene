@@ -79,7 +79,7 @@ jobs:
 
             - name: Install Pallene Tracer
               run: |
-                  git clone https://github.com/pallene-lang/pallene-tracer
+                  git clone --depth 1 https://github.com/pallene-lang/pallene-tracer --branch 0.5.0a
                   cd pallene-tracer
                   make LUA_PREFIX=/usr/local
                   sudo make install
