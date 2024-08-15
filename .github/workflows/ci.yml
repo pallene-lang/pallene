@@ -25,6 +25,7 @@ on:
 env:
     LUA_VERSION: 5.4.7
     LUAROCKS_VERSION: 3.9.0
+    PT_VERSION: 0.5.0a
 
 jobs:
     lint:
@@ -79,7 +80,7 @@ jobs:
 
             - name: Install Pallene Tracer
               run: |
-                  git clone https://github.com/pallene-lang/pallene-tracer
+                  git clone --depth 1 https://github.com/pallene-lang/pallene-tracer --branch ${{env.PT_VERSION}}
                   cd pallene-tracer
                   make LUA_PREFIX=/usr/local
                   sudo make install
