@@ -34,7 +34,6 @@ jobs:
                   ./install.sh lua
                   ./install.sh rocks
 
-              run: |
             - name: Install Luacheck
               run: luarocks install --local luacheck
 
