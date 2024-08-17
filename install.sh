@@ -3,6 +3,11 @@
 # Please refer to the LICENSE and AUTHORS files for details
 # SPDX-License-Identifier: MIT
 
+####
+# One script to rule them all, one script to find them,
+# one script to bring them all and in the ease-of-use bind them.
+####
+
 # Versions
 LUA_VERSION=5.4.7
 LUAROCKS_VERSION=3.9.1
