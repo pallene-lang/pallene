@@ -20,13 +20,8 @@ mkdir -p $CLONE_DIR
 # Current working directory
 CURR_DIR=$(pwd)
 
-# Whether to install Pallene locally
-SUPERUSER=sudo
-LOCAL_FLAG=
-if [ "${PALLENE_LOCAL:-0}" -eq 1 ]; then
-    SUPERUSER=
-    LOCAL_FLAG=--local
-fi
+# Where to install/locate Lua
+LUA_PREFIX=${LUA_PREFIX:-/usr/local}
 
 # Function to display usage
 usage() {
@@ -37,18 +32,31 @@ usage() {
     echo "  rocks    - Install LuaRocks"
     echo "  ptracer  - Install Pallene Tracer"
     echo
-    echo "Use MYCFLAGS environment variable to pass flags to Lua Internals:"
-    echo "  MYCFLAGS=-DLUAI_ASSERT ./install.sh lua"
+    echo "Lua Internals:"
+    echo "  Use LUA_CFLAGS, LUA_LDFLAGS, LUA_LIBS and LUA_OBJS to pass flags:"
+    echo "    LUA_MYCFLAGS=-DLUAI_ASSERT ./install.sh lua; or"
+    echo "    LUA_CFLAGS=-fsanitize=address LUA_LDFLAGS=-lasan ./install.sh lua; to enable Address Sanitization"
     echo
-    echo "Use PALLENE_TRACER_TESTS=1 to run Pallene Tracer tests after installation:"
-    echo "  PALLENE_TRACER_TESTS=1 ./install.sh ptracer"
+    echo "  Use LUA_PLAT to define Lua platform. Defualt is 'linux'."
+    echo "  Available platforms: guess aix bsd c89 freebsd generic ios linux linux-readline macosx mingw posix solaris"
+    echo "    e.g. LUA_PLAT=linux-readline ./install.sh lua"
     echo
-    echo "Use PALLENE_LOCAL=1 to install Pallene locally with '--local' flag in LuaRocks:"
-    echo "  PALLENE_LOCAL=1 ./install.sh pallene"
+    echo "  Use LUA_PREFIX to provide Lua install prefix. Default is '/usr/local'."
+    echo "    e.g. LUA_PREFIX=/usr/local ./install.sh lua"
     echo
-    echo "Use PALLENE_TESTS=1 to run Pallene tests after installation:"
-    echo "  PALLENE_TESTS=1 ./install.sh pallene"
-    exit $1
+    echo "Pallene Tracer:"
+    echo "  Use PT_TESTS=1 to run Pallene Tracer tests after installation, e.g."
+    echo "    PT_TESTS=1 ./install.sh ptracer"
+    echo
+    echo "  Use PT_LDFLAGS to pass LDFLAGS to Pallene Tracer Makefile, e.g."
+    echo "    PT_LDFLAGS=-lasan ./install.sh ptracer; if Lua is built with Address Sanitizer"
+    echo
+    echo "Pallene:"
+    echo "  Use PALLENE_LOCAL=1 to install Pallene locally with '--local' flag in LuaRocks:"
+    echo "    PALLENE_LOCAL=1 ./install.sh pallene"
+    echo
+    echo "  Use PALLENE_TESTS=1 to run Pallene tests after installation:"
+    echo "    PALLENE_TESTS=1 ./install.sh pallene"
 }
 
 # Install Lua Internals
@@ -56,8 +64,9 @@ install_lua_internals() {
     cd $CLONE_DIR
     wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/$LUA_VERSION.tar.gz | tar xzf -
     cd lua-internals-$LUA_VERSION
-    make linux MYCFLAGS=$MYCFLAGS -j$(nproc)
-    sudo make install
+    make clean
+    make ${LUA_PLAT:-linux} MYCFLAGS="$LUA_CFLAGS" MYLDFLAGS="$LUA_LDFLAGS" MYLIBS="$LUA_LIBS" MYOBJS="$LUA_OBJS" -j$(nproc)
+    sudo make install INSTALL_TOP=$LUA_PREFIX
     cd $CURR_DIR
 }
 
@@ -66,7 +75,7 @@ install_luarocks() {
     cd $CLONE_DIR
     wget -O - https://luarocks.org/releases/luarocks-$LUAROCKS_VERSION.tar.gz | tar xzf -
     cd luarocks-$LUAROCKS_VERSION
-    ./configure --with-lua=/usr/local
+    ./configure --with-lua=$LUA_PREFIX
     make -j$(nproc)
     sudo make install
     cd $CURR_DIR
@@ -77,10 +86,10 @@ install_ptracer() {
     cd $CLONE_DIR
     git clone --depth 1 https://github.com/pallene-lang/pallene-tracer --branch $PT_VERSION
     cd pallene-tracer
-    make LUA_PREFIX=/usr/local
-    sudo make install
+    make clean
+    sudo make install LUA_PREFIX=$LUA_PREFIX LDFLAGS="$PT_LDFLAGS"
 
-    if [ "${PALLENE_TRACER_TESTS:-0}" -eq 1 ]; then
+    if [ "${PT_TESTS:-0}" -eq 1 ]; then
         ./run-tests
     fi
 
@@ -90,7 +99,13 @@ install_ptracer() {
 # Install Pallene
 install_pallene() {
     eval "$(luarocks path)"
-    $SUPERUSER luarocks $LOCAL_FLAG make
+
+    # Local installation
+    if [ "${PALLENE_LOCAL:-0}" -eq 1 ]; then
+        luarocks --local make
+    else
+        sudo luarocks make
+    fi
 
     # Run tests
     if [ "${PALLENE_TESTS:-0}" -eq 1 ]; then
@@ -124,13 +139,14 @@ case "$1" in
         install_pallene
         ;;
     --help)
-        usage 0
+        usage
         ;;
     -h)
-        usage 0
+        usage
         ;;
     *)
-        usage 1
+        usage
+        exit 1
         ;;
 esac
 
