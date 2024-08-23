@@ -271,13 +271,13 @@ function ir.BasicBlock()
     }
 end
 
-local function is_jump(cmd)
+function ir.is_jump(cmd)
     return cmd._tag == "ir.Cmd.Jmp" or cmd._tag == "ir.Cmd.JmpIf"
 end
 
 function ir.get_jump(block)
     local cmd = block.cmds[#block.cmds]
-    if not cmd or not is_jump(cmd) then
+    if not cmd or not ir.is_jump(cmd) then
         return false
     end
     return cmd

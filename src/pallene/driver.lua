@@ -12,6 +12,7 @@ local c_compiler = require "pallene.c_compiler"
 local typechecker = require "pallene.typechecker"
 local assignment_conversion = require "pallene.assignment_conversion"
 local constant_propagation = require "pallene.constant_propagation"
+local gc = require "pallene.gc"
 local coder = require "pallene.coder"
 local Lexer = require "pallene.Lexer"
 local parser = require "pallene.parser"
@@ -91,6 +92,7 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
 
     if opt_level > 0 then
         module, errs = constant_propagation.run(module)
+        module, errs = gc.optimize_gc_checks(module)
         if not module then return abort() end
         if stop_after == "constant_propagation" then return module end
     end
@@ -111,7 +113,7 @@ local function compile_pallene_to_c(pallene_filename, c_filename, mod_name, opt_
     end
 
     local c_code
-    c_code, errs = coder.generate(module, mod_name, pallene_filename, flags)
+    c_code, errs = coder.generate(module, mod_name, pallene_filename, opt_level, flags)
     if not c_code then
         return false, errs
     end

@@ -23,8 +23,8 @@ local define_union = tagged_union.in_namespace(coder, "coder")
 local Coder
 local RecordCoder
 
-function coder.generate(module, modname, pallene_filename, flags)
-    local c = Coder.new(module, modname, pallene_filename, flags)
+function coder.generate(module, modname, pallene_filename, opt_level, flags)
+    local c = Coder.new(module, modname, pallene_filename, opt_level, flags)
     local code = c:generate_module_header() .. c:generate_module_body()
     return code, {}
 end
@@ -57,10 +57,11 @@ end
 --
 
 Coder = util.Class()
-function Coder:init(module, modname, filename, flags)
+function Coder:init(module, modname, filename, opt_level, flags)
     self.module = module
     self.modname = modname
     self.filename = filename
+    self.opt_level = opt_level
     self.flags = flags
 
     self.current_func = false
@@ -77,7 +78,7 @@ function Coder:init(module, modname, filename, flags)
         self.record_coders[typ] = RecordCoder.new(self, typ)
     end
 
-    self.gc = {} -- (see gc.compute_stack_slots)
+    self.gc = {} -- { func => gc_info } see gc.compute_gc_info
     self.max_lua_call_stack_usage = {} -- func => integer
     self:init_gc()
 end
@@ -923,7 +924,7 @@ end
 function Coder:init_gc()
 
     for _, func in ipairs(self.module.functions) do
-        self.gc[func] = gc.compute_gc_info(func)
+        self.gc[func] = gc.compute_gc_info(func, self.opt_level)
     end
 
     for _, func in ipairs(self.module.functions) do
@@ -1743,9 +1744,14 @@ function Coder:generate_cmd(gen_args)
     local out = f(self, gen_args)
 
     local slot_of_variable = self.gc[func].slot_of_variable
+    local vars_to_mirror = self.gc[func].vars_to_mirror
+    local cmd_pos = gen_args.position
+    local mirror_set = vars_to_mirror and
+            vars_to_mirror[cmd_pos.block_index][cmd_pos.cmd_index] or false
     for _, v_id in ipairs(ir.get_dsts(cmd)) do
         local n = slot_of_variable[v_id]
-        if n then
+        local mirror = mirror_set and mirror_set[v_id] or true
+        if n and mirror then
             local typ = func.vars[v_id].typ
             local slot = util.render([[s2v(base + $n)]], { n = C.integer(n) })
             out = out .. "\n" .. set_stack_slot(typ, slot, self:c_var(v_id))
