@@ -81,8 +81,8 @@ describe("Pallene lexer", function()
         assert_lex("~=",  {"~="},          {})
         assert_lex("~~=", {"~", "~="},     {})
         assert_lex("->-", {"->", "-"},     {})
-        assert_lex("---", {"COMMENT"},     {"-"})
-        assert_lex("-->", {"COMMENT"},     {">"})
+        assert_lex("---", {},{})
+        assert_lex("-->", {},{})
     end)
 
     it("can lex some integers", function()
@@ -245,25 +245,17 @@ describe("Pallene lexer", function()
     end)
 
     it("can lex some short comments", function()
-        assert_lex("if--then\nelse", {"if", "COMMENT", "else"}, {"then\n"})
+        assert_lex("if--then\nelse", {"if", "else"}, {})
     end)
 
     it("can lex short comments that go until the end of the file", function()
-        assert_lex("--aaaa", {"COMMENT"}, {"aaaa"})
+        assert_lex("--aaaa", {}, {})
     end)
 
     it("can lex long comments", function()
-        assert_lex("if--[[a\n\n\n]]else",
-            {"if", "COMMENT", "else"},
-            {"a\n\n\n"})
-
-        assert_lex("--[[\nreturn 1\n--]]10",
-            {"COMMENT", "NUMBER"},
-            {"return 1\n--", 10})
-
-        assert_lex("---[[\nreturn 1\n--]]10",
-            {"COMMENT", "return", "NUMBER", "COMMENT"},
-            {"-[[\n", 1, "]]10"})
+        assert_lex("if--[[a\n\n\n]]else", {"if", "else"}, {})
+        assert_lex("--[[\nreturn 1\n--]]10", {"NUMBER"}, {10})
+        assert_lex("---[[\nreturn 1\n--]]10", {"return", "NUMBER"},{1})
     end)
 
     it("catches unexpected symbols", function()

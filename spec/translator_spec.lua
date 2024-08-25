@@ -192,22 +192,6 @@ return m
 ]])
     end)
 
-    it("Keep comments that appear after the colon in a top-level variable type annotation", function ()
-        assert_translation(
-[[
-local m: module = {}
-local xs: -- This is a comment.
-    integer = 10
-return m
-]],
-[[
-local m = {}
-local xs-- This is a comment.
- = 10
-return m
-]])
-    end)
-
     it("Keep comments that appear outside type annotations", function ()
         assert_translation([[
 -- Knock knock
@@ -224,12 +208,12 @@ return m
 [[
 -- Knock knock
 local m = {}
-local x-- Who's there?
--- Baby Yoda
+local x
+
  = { 5, 3, 19 } -- Baby Yoda who?
 -- Baby Yoda one for me. XD
-local xs-- This is a comment.
--- This is another comment.
+local xs
+
  = { 5, 3, 19 }
 return m
 ]])
@@ -246,8 +230,8 @@ return m
 ]],
 [[
 local m = {}
-local xs-- This is a comment.
--- This is another comment.
+local xs
+
  = { 5, 3, 19 }
 return m
 ]])

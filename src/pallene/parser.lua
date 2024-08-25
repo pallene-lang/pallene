@@ -33,7 +33,6 @@ function Parser:init(lexer)
     -- Info for the Lua backend
     self.region_depth = 0     -- Are we inside a type annotation?
     self.type_regions = {}    -- Sequence of pairs. Ranges of type annotations in program.
-    self.comment_regions = {} -- Sequence of pairs. Ranges of comments in the program.
 
     -- Better error messages for missing "end" tokens (inspired by Luacheck and Rust)
     self.curr_line   = 0
@@ -46,16 +45,10 @@ function Parser:init(lexer)
 end
 
 function Parser:advance()
-    local tok, err
-    repeat
-        tok, err = self.lexer:next()
-        if not tok then
-            self:abort_with_syntax_error(self.lexer:loc(), "%s", err)
-        end
-        if tok.name == "COMMENT" then
-            table.insert(self.comment_regions, { tok.loc.pos, tok.end_pos })
-        end
-    until tok.name ~= "COMMENT"
+    local tok, err = self.lexer:next()
+    if not tok then
+        self:abort_with_syntax_error(self.lexer:loc(), "%s", err)
+    end
 
     self.prev = self.next
     self.next = self.look
@@ -307,7 +300,7 @@ function Parser:Program()
 
     local end_loc = self.next.loc
     return ast.Program.Program(
-        start_loc, end_loc, modname, tls, self.type_regions, self.comment_regions)
+        start_loc, end_loc, modname, tls, self.type_regions)
 end
 
 local is_allowed_toplevel = Set [[
