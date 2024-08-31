@@ -280,7 +280,7 @@ function Lexer:next()
         if not name then
             return false, value
         end
-    until name ~= "SPACE"
+    until name ~= "SPACE" and name ~= "COMMENT"
 
     return {
         name = name,

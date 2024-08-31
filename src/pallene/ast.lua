@@ -9,7 +9,7 @@ local tagged_union = require "pallene.tagged_union"
 local define_union = tagged_union.in_namespace(ast, "ast")
 
 define_union("Program", {
-    Program = {"loc", "ret_loc", "module_name", "tls", "type_regions", "comment_regions"}
+    Program = {"loc", "ret_loc", "module_name", "tls", "type_regions"}
 })
 
 define_union("Type", {
