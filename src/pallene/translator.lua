@@ -56,15 +56,13 @@ function Translator:erase_region(start_index, stop_index)
     self.last_index = stop_index + 1
 end
 
--- This is a workaround to handle math.log built-in optimizations.
-function Translator:prepend_compatibility_code()
-    -- Note: We do not add a newline after this code injection in order to
-    -- preserve line number parity with the original .pln file.
-    -- It looks ugly, but correct line numbers are more useful.
-    self.partials[1] = "math.ln = math.log; " .. self.partials[1]
-end
-
 function translator.translate(input, prog_ast)
+
+    -- Compatibility shim for math.ln
+    -- Technically, this is not perfect, because it can replace inside comments & strings.
+    -- But I think that's a fair tradeoff until implement optional arguments for math.log.
+    input = input:gsub("%f[%w_]math[.]ln%f[^%w_]", "math.log")
+
     local instance = Translator.new(input)
 
     -- Erase all type regions
@@ -76,9 +74,6 @@ function translator.translate(input, prog_ast)
 
     -- Whatever characters that were not included in the partials should be added.
     instance:add_previous(#input)
-
-    -- This prepends any compatibility shims we need.
-    instance:prepend_compatibility_code()
 
     return table.concat(instance.partials)
 end
