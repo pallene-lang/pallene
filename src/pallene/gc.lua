@@ -66,13 +66,14 @@ local function compute_stack_slots(func)
         end
     end
 
-    local function process_cmd(flow_state, block_i, cmd_i)
+    local function compute_gen_kill(block_i, cmd_i)
         local cmd = func.blocks[block_i].cmds[cmd_i]
         assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
+        local gk = flow.GenKill()
         for _, dst in ipairs(ir.get_dsts(cmd)) do
             local typ = func.vars[dst].typ
             if types.is_gc(typ) then
-                flow.kill_value(flow_state, dst)
+                flow.kill_value(gk, dst)
             end
         end
 
@@ -80,14 +81,15 @@ local function compute_stack_slots(func)
             if src._tag == "ir.Value.LocalVar" then
                 local typ = func.vars[src.id].typ
                 if types.is_gc(typ) then
-                    flow.gen_value(flow_state, src.id)
+                    flow.gen_value(gk, src.id)
                 end
             end
         end
+        return gk
     end
 
-    local flow_info = flow.FlowInfo(flow.Order.Backwards, process_cmd, init_start)
-    local blocks_flow_states = flow.flow_analysis(func.blocks, flow_info)
+    local flow_info = flow.FlowInfo(flow.Order.Backwards, compute_gen_kill, init_start)
+    local sets_list = flow.flow_analysis(func.blocks, flow_info)
 
     -- 2) Find which GC'd variables are live at each GC spot in the program and
     --    which  GC'd variables are live at the same time
@@ -104,18 +106,18 @@ local function compute_stack_slots(func)
     end
 
     for block_i, block in ipairs(func.blocks) do
-        local lives_block = flow.make_apply_state(blocks_flow_states[block_i])
+        local lives_block = sets_list[block_i]
         for cmd_i = #block.cmds, 1, -1 do
             local cmd = block.cmds[cmd_i]
             flow.update_set(lives_block, flow_info, block_i, cmd_i)
             if cmd_uses_gc(cmd) then
                 local lives_cmd = {}
-                for var,_ in pairs(lives_block.set) do
+                for var,_ in pairs(lives_block) do
                     table.insert(lives_cmd, var)
                 end
                 live_gc_vars[block_i][cmd_i] = lives_cmd
-                for var1,_ in pairs(lives_block.set) do
-                    for var2,_ in pairs(lives_block.set) do
+                for var1,_ in pairs(lives_block) do
+                    for var2,_ in pairs(lives_block) do
                         if not live_at_same_time[var1] then
                             live_at_same_time[var1] = {}
                         end
