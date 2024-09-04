@@ -107,7 +107,7 @@ static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v);
 /* Runtime errors */
 static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line,
                                 const char *expected_type_name, const TValue *received_type, const char *description_fmt, ...);
-static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received);
+static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int min_nargs, int max_nargs, int received);
 static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line);
@@ -223,12 +223,29 @@ static l_noret pallene_runtime_tag_check_error(
     PALLENE_UNREACHABLE;
 }
 
-static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received)
+static l_noret pallene_runtime_arity_error(
+    lua_State *L,
+    const char *name,
+    int min_nargs,
+    int max_nargs,
+    int received)
 {
-    luaL_error(L,
-        "wrong number of arguments to function '%s', expected %d but received %d",
-        name, expected, received
-    );
+    if (min_nargs == max_nargs) {
+        luaL_error(L,
+            "wrong number of arguments to function '%s', expected %d but received %d",
+            name, min_nargs, received
+        );
+    } else if (received < min_nargs) {
+        luaL_error(L,
+            "wrong number of arguments to function '%s', expected at least %d but received %d",
+            name, min_nargs, received
+        );
+    } else { /* received > max_nargs */
+        luaL_error(L,
+            "wrong number of arguments to function '%s', expected at most %d but received %d",
+            name, max_nargs, received
+        );
+    }
     PALLENE_UNREACHABLE;
 }
 

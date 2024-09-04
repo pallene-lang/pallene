@@ -746,22 +746,57 @@ function Typechecker:check_fun_call(exp, is_stat)
     assert(exp._tag == "ast.Exp.CallFunc")
 
     exp.exp = self:check_exp_synthesize(exp.exp)
+    self:expand_function_returns(exp.args)
 
+    --
+    -- 1) Check the type of the function
+    --
     local f_type = exp.exp._type
     if f_type._tag ~= "types.T.Function" then
         type_error(exp.loc,
             "attempting to call a %s value",
-            types.tostring(exp.exp._type))
+            types.tostring(f_type))
     end
 
-    self:expand_function_returns(exp.args)
-    if #f_type.arg_types ~= #exp.args then
-        type_error(exp.loc,
-            "function expects %d argument(s) but received %d",
-            #f_type.arg_types, #exp.args)
+    --
+    -- 2) Check the number of arguments
+    --
+    local min_nargs  = types.number_of_mandatory_args(f_type.arg_types)
+    local full_nargs = #f_type.arg_types
+    local original_nargs = #exp.args
+    local adjusted_nargs = math.max(original_nargs, full_nargs)
+
+    if not (min_nargs <= original_nargs and original_nargs <= full_nargs) then
+        if min_nargs == full_nargs then
+            type_error(exp.loc,
+                "function expects %d argument(s) but received %d",
+                min_nargs, original_nargs)
+        else
+            type_error(exp.loc,
+                "function expects %d to %d argument(s) but received %d",
+                min_nargs, full_nargs, original_nargs)
+        end
     end
 
-    for i = 1, #exp.args do
+    --
+    -- 3) Set missing optional arguments to nil, but remember the original count
+    --
+    -- CallStatic wants to generate code that includes those nil args, while CallDyn does not.
+    --
+
+    exp._original_nargs = original_nargs
+    for i = original_nargs + 1, full_nargs do
+        exp.args[i] = ast.Exp.Nil(exp.loc)
+    end
+
+    --
+    -- 4) Check the type of the arguments
+    --
+    -- This also upcasts any optional nils that we might have just inserted.
+    --
+
+    assert(adjusted_nargs == #exp.args)
+    for i = 1, adjusted_nargs do
         exp.args[i] = self:check_exp_verify(
             exp.args[i], f_type.arg_types[i],
             "argument %d of call to function", i)

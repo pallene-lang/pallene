@@ -424,6 +424,28 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("Optional arguments", function()
+        compile([[
+            function m.optarg(x:any, y:any): integer
+                local x:integer = x or (10 as any)
+                local y:integer = y or (20 as any)
+                return x+y
+            end
+
+            function m.call0(): integer
+                return m.optarg()
+            end
+
+            function m.call1(x:integer): integer
+                return m.optarg(x)
+            end
+
+            function m.call2(x:integer, y:integer): integer
+                return m.optarg(x,y)
+            end
+        ]])
+    end)
+
     describe("Unary Operators /", function()
 
         local tests = {

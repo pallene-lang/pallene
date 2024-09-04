@@ -247,4 +247,19 @@ function types.tostring(t)
     end
 end
 
+local function is_optional(t)
+    return t._tag == 'types.T.Any' or t._tag == "types.T.Nil"
+end
+
+-- The rightmost arguments to a function may be optional.
+-- Input: list of argument types
+-- Output: number of parameter that are mandatory.
+function types.number_of_mandatory_args(argtypes)
+    local n = #argtypes
+    while 1 <= n and is_optional(argtypes[n]) do
+        n = n - 1
+    end
+    return n
+end
+
 return types
