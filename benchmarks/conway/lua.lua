@@ -1,4 +1,4 @@
-math.ln = math.log; local m = {}
+local m = {}
 
 local ALIVE = "*"
 local DEAD  = " "

@@ -1606,23 +1606,11 @@ gen_cmd["BuiltinMathExp"] = function(self, args)
     return util.render([[ $dst = l_mathop(exp)($v); ]], { dst = dst, v = v })
 end
 
--- We are introducing math.ln as a workaround for 1 param math.log
--- Because Pallene currently cannot handle optional parameters,
--- we've decided to introduce math.ln as a replacement for single param log(x).
--- But for --emit-lua, we must do something to make the code work in pure Lua.
--- For now, the easiest thing to do is inject math.ln = math.log at the top.
--- A smarter routine would replace math.ln with math.log.
-gen_cmd["BuiltinMathLn"] = function(self, args)
-    local dst = self:c_var(args.cmd.dsts[1])
-    local v = self:c_value(args.cmd.srcs[1])
-    return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
-end
-
 gen_cmd["BuiltinMathLog"] = function(self, args)
     local dst = self:c_var(args.cmd.dsts[1])
     local v = self:c_value(args.cmd.srcs[1])
     local b = self:c_value(args.cmd.srcs[2])
-    return util.render([[ $dst = pallene_math_log($v, $b); ]],
+    return util.render([[ $dst = pallene_math_log(L, $v, $b); ]],
         { dst = dst, v = v, b = b })
 end
 

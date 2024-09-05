@@ -1,4 +1,4 @@
-math.ln = math.log; local m = {}
+local m = {}
 
 function m.new(x, y)
     return { x, y }

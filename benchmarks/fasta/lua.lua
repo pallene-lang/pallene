@@ -1,4 +1,4 @@
-math.ln = math.log; local m = {}
+local m = {}
 
 local IM   = 139968
 local IA   = 3877

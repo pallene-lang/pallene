@@ -1207,9 +1207,6 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             elseif bname == "math.exp" then
                 assert(#xs == 1)
                 bb:append_cmd(ir.Cmd.BuiltinMathExp(loc, dsts, xs))
-            elseif bname == "math.ln" then
-                assert(#xs == 1)
-                bb:append_cmd(ir.Cmd.BuiltinMathLn(loc, dsts, xs))
             elseif bname == "math.log" then
                 assert(#xs == 2)
                 bb:append_cmd(ir.Cmd.BuiltinMathLog(loc, dsts, xs))

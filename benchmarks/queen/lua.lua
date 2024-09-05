@@ -1,4 +1,4 @@
-math.ln = math.log; local m = {}
+local m = {}
 
 -- check whether position (n,c) is free from attacks
 local function isplaceok (a, n, c)
