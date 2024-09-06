@@ -1,4 +1,4 @@
-math.ln = math.log; local m = {}
+local m = {}
 
 -- Return A[i][j], for the infinite matrix A
 --

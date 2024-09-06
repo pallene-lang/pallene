@@ -107,7 +107,7 @@ static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v);
 /* Runtime errors */
 static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line,
                                 const char *expected_type_name, const TValue *received_type, const char *description_fmt, ...);
-static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received);
+static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int min_nargs, int max_nargs, int received);
 static l_noret pallene_runtime_divide_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_mod_by_zero_error(lua_State *L, const char* file, int line);
 static l_noret pallene_runtime_number_to_integer_error(lua_State *L, const char* file, int line);
@@ -134,7 +134,7 @@ static TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache);
 static lua_Integer pallene_checked_float_to_int(lua_State *L, const char* file, int line, lua_Number d);
 static lua_Integer pallene_math_ceil(lua_State *L, const char* file, int line, lua_Number n);
 static lua_Integer pallene_math_floor(lua_State *L, const char* file, int line, lua_Number n);
-static lua_Number  pallene_math_log(lua_Integer x, lua_Integer base);
+static lua_Number  pallene_math_log(lua_State *L, lua_Number x, TValue optbase);
 static lua_Integer pallene_math_modf(lua_State *L, const char* file, int line, lua_Number n, lua_Number* out);
 
 /* Other builtins */
@@ -223,12 +223,29 @@ static l_noret pallene_runtime_tag_check_error(
     PALLENE_UNREACHABLE;
 }
 
-static l_noret pallene_runtime_arity_error(lua_State *L, const char *name, int expected, int received)
+static l_noret pallene_runtime_arity_error(
+    lua_State *L,
+    const char *name,
+    int min_nargs,
+    int max_nargs,
+    int received)
 {
-    luaL_error(L,
-        "wrong number of arguments to function '%s', expected %d but received %d",
-        name, expected, received
-    );
+    if (min_nargs == max_nargs) {
+        luaL_error(L,
+            "wrong number of arguments to function '%s', expected %d but received %d",
+            name, min_nargs, received
+        );
+    } else if (received < min_nargs) {
+        luaL_error(L,
+            "wrong number of arguments to function '%s', expected at least %d but received %d",
+            name, min_nargs, received
+        );
+    } else { /* received > max_nargs */
+        luaL_error(L,
+            "wrong number of arguments to function '%s', expected at most %d but received %d",
+            name, max_nargs, received
+        );
+    }
     PALLENE_UNREACHABLE;
 }
 
@@ -493,16 +510,31 @@ static lua_Integer pallene_math_floor(lua_State *L, const char* file, int line, 
 /* Based on math_log from lmathlib.c
  * The C compiler should be able to get rid of the if statement if this function is inlined
  * and the base parameter is a compile-time constant */
-static lua_Number pallene_math_log(lua_Integer x, lua_Integer base)
+static lua_Number pallene_math_log(lua_State *L, lua_Number x, TValue optbase)
 {
-    if (base == l_mathop(10.0)) {
-        return l_mathop(log10)(x);
-#if !defined(LUA_USE_C89)
-    } else if (base == l_mathop(2.0)) {
-        return l_mathop(log2)(x);
-#endif
+
+    if (ttisnil(&optbase)) {
+        return l_mathop(log)(x);
     } else {
-        return l_mathop(log)(x)/l_mathop(log)(base);
+        lua_Number base;
+        if (ttisfloat(&optbase)) {
+            base = fltvalue(&optbase);
+        } else if (ttisinteger(&optbase)) {
+            base = cast(lua_Number, ivalue(&optbase));
+        } else {
+            luaL_error(L, "math log expects a number");
+            PALLENE_UNREACHABLE;
+        }
+
+        if (base == l_mathop(10.0)) {
+            return l_mathop(log10)(x);
+#if !defined(LUA_USE_C89)
+        } else if (base == l_mathop(2.0)) {
+            return l_mathop(log2)(x);
+#endif
+        } else {
+            return l_mathop(log)(x)/l_mathop(log)(base);
+        }
     }
 }
 

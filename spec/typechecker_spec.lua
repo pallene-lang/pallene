@@ -858,7 +858,7 @@ end)
 
 describe("Table constructor", function()
 
-    describe("for arrrays", function()
+    describe("for arrays", function()
 
         it("must not contain named fields", function()
             assert_error([[

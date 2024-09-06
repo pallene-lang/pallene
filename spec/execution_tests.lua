@@ -424,6 +424,28 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("Optional arguments", function()
+        compile([[
+            function m.optarg(x:any, y:any): integer
+                local x:integer = x or (10 as any)
+                local y:integer = y or (20 as any)
+                return x+y
+            end
+
+            function m.call0(): integer
+                return m.optarg()
+            end
+
+            function m.call1(x:integer): integer
+                return m.optarg(x)
+            end
+
+            function m.call2(x:integer, y:integer): integer
+                return m.optarg(x,y)
+            end
+        ]])
+    end)
+
     describe("Unary Operators /", function()
 
         local tests = {
@@ -1616,18 +1638,20 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    describe("math.ln builtin", function()
+    describe("math.log 1-arg builtin", function()
         compile([[
             function m.natural_log(x: float): float
-                return math.ln(x)
+                return math.log(x)
             end
         ]])
 
         it("works on positive numbers", function()
             run_test([[
-                assert(0.0 == test.natural_log(1.0))
-                assert(0.693 == tonumber(string.format("%.3f", test.natural_log(2.0))))
-                assert(2.303 == tonumber(string.format("%.3f", test.natural_log(10.0))))
+                local e = math.exp(1)
+                assert("0.000" == string.format("%.3f", test.natural_log(1.0 )))
+                assert("0.693" == string.format("%.3f", test.natural_log(2.0 )))
+                assert("1.000" == string.format("%.3f", test.natural_log(e   )))
+                assert("2.303" == string.format("%.3f", test.natural_log(10.0)))
             ]])
         end)
 
@@ -1646,7 +1670,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    describe("math.log builtin", function()
+    describe("math.log 2-arg builtin", function()
         compile([[
             function m.math_log(x: float, base: float): float
                 return math.log(x, base)

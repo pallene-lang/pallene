@@ -593,58 +593,98 @@ function Coder:lua_entry_point_definition(f_id)
 
     self.current_func = func
 
-    -- We unconditionally initialize the `K` userdata here, in case one of the tag checking tests
-    -- needs to use it. We don't bother to make this initialization conditional because in the case
-    -- that really matters (small leaf functions that don't use `K`) the C compiler can optimize this
-    -- read away after inlining the Pallene entry point.
-    local init_global_userdata = [[
+    -- 1) Adjust input arguments
+    --
+    -- Raises an error if the number of arguments is incorrect
+    -- Fills missing optional arguments with nil
+
+    local adjust_arguments
+    do
+        local min_nargs   = types.number_of_mandatory_args(arg_types)
+        local max_nargs   = #arg_types
+
+        local tmpl
+        if min_nargs == max_nargs then
+            tmpl = [[
+                int nargs = lua_gettop(L);
+                if (nargs != $min_nargs) {
+                    pallene_runtime_arity_error(L, $fname, $min_nargs, $max_nargs, nargs);
+                }
+            ]]
+        else
+            tmpl = [[
+                int nargs = lua_gettop(L);
+                if (nargs < $min_nargs || nargs > $max_nargs) {
+                    pallene_runtime_arity_error(L, $fname, $min_nargs, $max_nargs, nargs);
+                }
+                for (; nargs < $max_nargs; nargs++) {
+                    ${push_nil}
+                }
+            ]]
+        end
+
+        adjust_arguments = util.render(tmpl, {
+            fname       = C.string(fname),
+            min_nargs   = C.integer(min_nargs),
+            max_nargs   = C.integer(max_nargs),
+            push_nil    = self:push_to_stack(types.T.Nil, false)
+        })
+    end
+
+    -- 2) Initialize stack pointer and constant table
+    --
+    -- We unconditionally initialize K, in case the tag checks need it. This is in theory
+    -- inneficient if we're a leaf function that doesn't actually need it. However, in these
+    -- cases GCC often inlines the Pallene entry point and can see they are unused.
+    local init_pointers = [[
+        StackValue *base = L->ci->func.p;
         CClosure *func = clCvalue(s2v(base));
         Udata *K = uvalue(&func->upvalue[0]);
     ]]
 
-    local nargs = #arg_types
-    -- We will be having our call-stack finalizer object on top of our stack when debugging mode is
-    -- enabled
-    local cargs = nargs
-    if self.flags.use_traceback then
-        cargs = cargs + 1
-    end
-    local frameenter = util.render([[
-        PALLENE_LUA_FRAMEENTER($fun_name);
-    ]], {
-        fun_name = self:lua_entry_point_name(f_id),
-    })
+    -- 3) Debug mode frameenter
+    --
+    -- Must be after we adjust optional args, because it pushes a finalizer object to the stack.
+    -- Must be after we initialize K, because we get the finalizer from there
+    -- Must be before we type check the arguments, because that can throw errors.
 
-    local arity_check = util.render([[
-        int nargs = lua_gettop(L);
-        if (l_unlikely(nargs != $cargs)) {
-            pallene_runtime_arity_error(L, $fname, $nargs, nargs);
-        }
-    ]], {
-        cargs = C.integer(cargs),
-        nargs = C.integer(nargs),
-        fname = C.string(fname),
-    })
+    local debug_frameenter =
+        self.flags.use_traceback
+        and ("PALLENE_LUA_FRAMEENTER(" .. self:lua_entry_point_name(f_id) .. ");")
+        or  ""
 
-    local arg_vars  = {}
-    local arg_decls = {}
+    -- 4) Type check input arguments
+    --
+    -- Checks that they all have the right type
+    -- Assigns each one to a local variable
 
-    for i, typ in ipairs(arg_types) do
-        local name = self:c_var(i)
-        table.insert(arg_vars, name)
-        table.insert(arg_decls, C.declaration(ctype(typ), name)..";")
+    local arg_vars = {}
+    for i = 1, #arg_types do
+        table.insert(arg_vars, self:c_var(i))
     end
 
-    local init_args = {}
+    local unbox_arguments = {}
+    do
 
-    for i, typ in ipairs(arg_types) do
-        local name = func.vars[i].name
-        local dst = arg_vars[i]
-        local src = string.format("s2v(base + %s)", C.integer(i))
-        table.insert(init_args,
-            self:get_stack_slot(typ, dst, src,
-                func.loc, "argument '%s'", C.string(name)))
+        table.insert(unbox_arguments, "/**/")
+
+        for i, typ in ipairs(arg_types) do
+            table.insert(unbox_arguments, C.declaration(ctype(typ), arg_vars[i])..";")
+        end
+
+        table.insert(unbox_arguments, "/**/")
+
+        for i, typ in ipairs(arg_types) do
+            local dst = arg_vars[i]
+            local src = string.format("s2v(base + %s)", C.integer(i))
+            table.insert(unbox_arguments,
+                self:get_stack_slot(
+                    typ, dst, src, func.loc,
+                    "argument '%s'", C.string(func.vars[i].name)))
+        end
     end
+
+    -- 5) Call the Pallene entry point
 
     local ret_vars  = {}
     local ret_decls = {}
@@ -654,26 +694,28 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(ret_vars, f_id, "func", arg_vars,
+    local call_pallene = self:call_pallene_function(
+        ret_vars, f_id, "func", arg_vars,
         self:lua_entry_point_name(f_id))
+
+    -- 6) Push the results to the Lua stack
 
     local push_results = {}
     for i, typ in ipairs(ret_types) do
         table.insert(push_results, self:push_to_stack(typ, ret_vars[i]))
     end
 
+    -- TODO
+    -- checkstack to ensure there's space to push optional arguments and to push return values
+
     return (util.render([[
         ${fun_decl}
         {
-            StackValue *base = L->ci->func.p;
-            ${init_global_userdata}
-            ${lua_fenter}
+            ${adjust_arguments}
             /**/
-            ${arity_check}
-            /**/
-            ${arg_decls}
-            /**/
-            ${init_args}
+            ${init_pointers}
+            ${debug_frameenter}
+            ${unbox_arguments}
             /**/
             ${ret_decls}
             ${call_pallene}
@@ -682,14 +724,13 @@ function Coder:lua_entry_point_definition(f_id)
         }
     ]], {
         fun_decl = self:lua_entry_point_declaration(f_id),
-        init_global_userdata = init_global_userdata,
-        lua_fenter = frameenter,
-        arity_check = arity_check,
-        arg_decls = table.concat(arg_decls, "\n"),
-        init_args = table.concat(init_args, "\n/**/\n"),
-        ret_decls = table.concat(ret_decls, "\n"),
-        call_pallene = call_pallene,
-        push_results = table.concat(push_results, "\n"),
+        adjust_arguments = adjust_arguments,
+        init_pointers    = init_pointers,
+        debug_frameenter = debug_frameenter,
+        unbox_arguments  = table.concat(unbox_arguments, "\n"),
+        ret_decls        = table.concat(ret_decls, "\n"),
+        call_pallene     = call_pallene,
+        push_results     = table.concat(push_results, "\n"),
         nresults = C.integer(#ret_types)
     }))
 end
@@ -1482,7 +1523,7 @@ gen_cmd["CallDyn"] = function(self, args)
 
     local push_arguments = {}
     table.insert(push_arguments, self:push_to_stack(f_typ, self:c_value(args.cmd.src_f)))
-    for i = 1, #f_typ.arg_types do
+    for i = 1, #args.cmd.srcs do
         local typ = f_typ.arg_types[i]
         table.insert(push_arguments, self:push_to_stack(typ, self:c_value(args.cmd.srcs[i])))
     end
@@ -1519,7 +1560,7 @@ gen_cmd["CallDyn"] = function(self, args)
         push_arguments = table.concat(push_arguments, "\n"),
         setline = setline,
         pop_results = table.concat(pop_results, "\n"),
-        nargs = C.integer(#f_typ.arg_types),
+        nargs = C.integer(#args.cmd.srcs),
         nrets = C.integer(#f_typ.ret_types),
         restore_stack = self:restorestack(),
     })
@@ -1565,23 +1606,11 @@ gen_cmd["BuiltinMathExp"] = function(self, args)
     return util.render([[ $dst = l_mathop(exp)($v); ]], { dst = dst, v = v })
 end
 
--- We are introducing math.ln as a workaround for 1 param math.log
--- Because Pallene currently cannot handle optional parameters,
--- we've decided to introduce math.ln as a replacement for single param log(x).
--- But for --emit-lua, we must do something to make the code work in pure Lua.
--- For now, the easiest thing to do is inject math.ln = math.log at the top.
--- A smarter routine would replace math.ln with math.log.
-gen_cmd["BuiltinMathLn"] = function(self, args)
-    local dst = self:c_var(args.cmd.dsts[1])
-    local v = self:c_value(args.cmd.srcs[1])
-    return util.render([[ $dst = l_mathop(log)($v); ]], { dst = dst, v = v })
-end
-
 gen_cmd["BuiltinMathLog"] = function(self, args)
     local dst = self:c_var(args.cmd.dsts[1])
     local v = self:c_value(args.cmd.srcs[1])
     local b = self:c_value(args.cmd.srcs[2])
-    return util.render([[ $dst = pallene_math_log($v, $b); ]],
+    return util.render([[ $dst = pallene_math_log(L, $v, $b); ]],
         { dst = dst, v = v, b = b })
 end
 

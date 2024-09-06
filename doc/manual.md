@@ -484,7 +484,6 @@ The Pallene compiler has builtins for the following math library functions and c
  * math.floor(x)
  * math.fmod(x, y)
  * math.huge
- * math.ln(x)
  * math.log(x, base)
  * math.maxinteger
  * math.mininteger
@@ -494,9 +493,6 @@ The Pallene compiler has builtins for the following math library functions and c
  * math.sqrt(x)
 
 All the functions currently require float arguments. The compiler will reject integer arguments.
-
-At this time, math.log requires two parameters, and the compiler will reject one parameter calls.
-So as a workaround, use math.ln in place of the one parameter math.log.
 
 math.modf returns two values, an integer and a float. One minor difference from Lua is that Lua
 may return a float for the first value if some reason it cannot return an integer, such as if
@@ -610,4 +606,3 @@ As usual, {A} means 0 or more As, and \[A\] means an optional A.
         '&' | '~' | '|' | '>>' | '<<' | '..' |
         '<' | '<=' | '>' | '>=' | '==' | '~=' |
         and | or
-

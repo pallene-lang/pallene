@@ -1176,14 +1176,18 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             f_val = self:exp_to_value(bb, exp.exp)
         end
 
-        -- Evaluate the function arguments
-        local xs = {}
-        for i, arg_exp in ipairs(exp.args) do
-            xs[i] = self:exp_to_value(bb, arg_exp)
+        local function evaluate_args(nargs)
+            local xs = {}
+            for i = 1, nargs do
+                xs[i] = self:exp_to_value(bb, exp.args[i])
+            end
+            return xs
         end
 
         -- Generate the function call command
         if     def and def._tag == "typechecker.Def.Builtin" then
+            local xs = evaluate_args(#exp.args)
+
             local bname = def.id
             if     bname == "io.write" then
                 assert(#xs == 1)
@@ -1203,9 +1207,6 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             elseif bname == "math.exp" then
                 assert(#xs == 1)
                 bb:append_cmd(ir.Cmd.BuiltinMathExp(loc, dsts, xs))
-            elseif bname == "math.ln" then
-                assert(#xs == 1)
-                bb:append_cmd(ir.Cmd.BuiltinMathLn(loc, dsts, xs))
             elseif bname == "math.log" then
                 assert(#xs == 2)
                 bb:append_cmd(ir.Cmd.BuiltinMathLog(loc, dsts, xs))
@@ -1240,8 +1241,10 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             -- CallStatic is used to call toplevel functions, which are always referenced
             -- as upvalues or local variables.
             assert(f_val._tag == "ir.Value.Upvalue" or f_val._tag == "ir.Value.LocalVar")
+            local xs = evaluate_args(#exp.args)
             bb:append_cmd(ir.Cmd.CallStatic(loc, f_typ, dsts, f_val, xs))
         else
+            local xs = evaluate_args(exp._original_nargs)
             bb:append_cmd(ir.Cmd.CallDyn(loc, f_typ, dsts, f_val, xs))
         end
 

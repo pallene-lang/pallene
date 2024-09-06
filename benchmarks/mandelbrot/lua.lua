@@ -1,4 +1,4 @@
-math.ln = math.log; local m = {}
+local m = {}
 
 function m.mandelbrot(N)
     local bits  = 0
