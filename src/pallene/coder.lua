@@ -147,17 +147,17 @@ local function set_stack_slot(typ, dst_slot, value)
     return (util.render(tmpl, { dst = dst_slot, src = value }))
 end
 
-local function gc_barrier(typ, value, parent)
+local function opt_gc_barrier(typ, value, parent)
     if types.is_gc(typ) then
-        local tmpl
         if typ._tag == "types.T.Any" or typ._tag == "types.T.Function" then
-            tmpl = "luaC_barrierback(L, obj2gco($p), &$v);"
+            local tmpl = "luaC_barrierback(L, obj2gco($p), &$v);"
+            return util.render(tmpl, { p = parent, v = value })
         else
-            tmpl = "pallene_barrierback_unboxed(L, obj2gco($p), obj2gco($v));"
+            local tmpl = "pallene_barrierback_unboxed(L, obj2gco($p), obj2gco($v));"
+            return util.render(tmpl, { p = parent, v = value })
         end
-        return util.render(tmpl, { p = parent, v = value })
     else
-        return ""
+        return nil
     end
 end
 
@@ -166,17 +166,15 @@ end
 local function set_heap_slot(typ, dst_slot, value, parent)
     local lines = {}
     table.insert(lines, set_stack_slot(typ, dst_slot, value))
-    table.insert(lines, gc_barrier(typ, value, parent))
+    table.insert(lines, opt_gc_barrier(typ, value, parent))
     return concat_lines(lines)
 end
 
 function Coder:push_to_stack(typ, value)
-    return (util.render([[
-        ${set_stack_slot}
-        L->top.p++;
-    ]],{
-        set_stack_slot = set_stack_slot(typ, "s2v(L->top.p)", value),
-    }))
+    local lines = {}
+    table.insert(lines, set_stack_slot(typ, "s2v(L->top.p)", value))
+    table.insert(lines, "L->top.p++;")
+    return concat_lines(lines)
 end
 
 --
@@ -255,16 +253,20 @@ end
 
 function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
 
-    local check_tag
-    if typ._tag == "types.T.Any" then
-        check_tag = ""
-    else
+    local cmds = {}
+
+    --
+    -- 1) Check the type of the tag
+    --
+
+    if typ._tag ~= "types.T.Any" then
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
 
         local setline = string.format("PALLENE_SETLINE(%s);", C.integer(loc.line))
 
-        check_tag = util.render([[
+
+        table.insert(cmds, util.render([[
             if (l_unlikely(!$test)) {
                 ${setline}
                 pallene_runtime_tag_check_error(L,
@@ -281,16 +283,15 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
             description_fmt = C.string(description_fmt),
             opt_comma = (#extra_args == 0 and "" or ", "),
             extra_args = table.concat(extra_args, ", "),
-        })
+        }))
     end
 
-    return (util.render([[
-        $check_tag
-        $get_slot
-    ]], {
-        check_tag = check_tag,
-        get_slot  = unchecked_get_slot(typ, dst, slot)
-    }))
+    --
+    -- Get the slot
+    --
+
+    table.insert(cmds, unchecked_get_slot(typ, dst, slot))
+    return concat_lines(cmds)
 end
 
 
@@ -471,8 +472,7 @@ function Coder:pallene_entry_point_definition(f_id)
         end
 
         table.insert(parts, C.comment(comment))
-        table.insert(parts, self:pallene_entry_point_declaration(f_id))
-        table.insert(parts, "{")
+        table.insert(parts, self:pallene_entry_point_declaration(f_id) .. " {")
     end
 
     --
@@ -857,9 +857,10 @@ function RecordCoder:declarations()
 
     assert(self.prim_count >= 0)
     assert(self.gc_count >= 0)
+    assert(self.gc_count <= 65535) -- USHRT_MAX
 
     -- Comment
-    table.insert(declarations, C.comment(self.record_typ.name) .. "\n\n")
+    table.insert(declarations, C.comment(self.record_typ.name))
 
     -- Struct for the primitive fields.
     -- (C does not allow empty structs so we skip in that case)
@@ -901,31 +902,34 @@ function RecordCoder:declarations()
         }))
     end
 
+    --
     -- Constructor
-    local set_metatable
-    if self.record_typ.is_upvalue_box then
-        set_metatable = ""
-    else
-        set_metatable = util.render("rec->metatable = hvalue($mt_slot);",
-            { mt_slot = self.owner:metatable_upvalue_slot(self.record_typ) })
-    end
+    --
 
-    table.insert(declarations, util.render([[
-        static Udata *${constructor_name}(lua_State *L, Udata *K)
-        {
- #if $nvalues > USHRT_MAX
- #error "Record type is too large"
- #endif
-            Udata *rec = luaS_newudata(L, $prims_sizeof, $nvalues);
-            $set_metatable
-            return rec;
-        }
-    ]], {
-        constructor_name = self:constructor_name(),
-        prims_sizeof = self:prims_sizeof(),
-        nvalues = C.integer(self.gc_count),
-        set_metatable = set_metatable,
-    }))
+    do
+        local constructor = {}
+
+        table.insert(constructor, util.render(
+            "static Udata *${constructor_name}(lua_State *L, Udata *K)",
+            { constructor_name = self:constructor_name() }))
+
+        table.insert(constructor, "{")
+
+        table.insert(constructor, util.render(
+            "Udata *rec = luaS_newudata(L, $np, $ngc);",
+            { np = self:prims_sizeof(), ngc = C.integer(self.gc_count) }))
+
+        if not self.record_typ.is_upvalue_box then
+            table.insert(constructor, util.render(
+                "rec->metatable = hvalue($mt_slot);",
+                { mt_slot = self.owner:metatable_upvalue_slot(self.record_typ)} ))
+        end
+
+        table.insert(constructor, "return rec;")
+        table.insert(constructor, "}")
+
+        table.insert(declarations, concat_lines(constructor))
+    end
 
     return concat_lines(declarations, "\n\n")
 end
@@ -1345,15 +1349,15 @@ gen_cmd["SetTable"] = function(self, args)
     assert(args.cmd.src_k._tag == "ir.Value.String")
     local field_name = args.cmd.src_k.value
 
-    return util.render([[
-        {
+    local parts = {}
+    table.insert(parts, "{")
+
+    table.insert(parts, util.render([[
             TValue keyv; ${init_keyv}
             TValue valv; ${init_valv}
             static int cache = -1;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
             luaH_finishset(L, $tab, &keyv, slot, &valv);
-            ${barrier};
-        }
     ]], {
         field_len = tostring(#field_name),
         tab = tab,
@@ -1364,8 +1368,11 @@ gen_cmd["SetTable"] = function(self, args)
         -- Here we use set_stack_slot slot on a heap object, because
         -- we call the barrier by hand outside the if statement.
         set_slot = set_stack_slot(src_typ, "slot", val),
-        barrier = gc_barrier(src_typ, val, tab),
-    })
+    }))
+
+    table.insert(parts, opt_gc_barrier(src_typ, val, tab))
+    table.insert(parts, "}")
+    return concat_lines(parts)
 end
 
 gen_cmd["NewRecord"] = function(self, args)
@@ -1816,9 +1823,11 @@ function Coder:generate_module_body()
         table.insert(out, self:pallene_entry_point_declaration(f_id) .. ";")
     end
 
+    local lua_entry_protos = {}
     for f_id = 1, #self.module.functions do
-        table.insert(out, self:lua_entry_point_declaration(f_id) .. ";")
+        table.insert(lua_entry_protos, self:lua_entry_point_declaration(f_id) .. ";")
     end
+    table.insert(out, concat_lines(lua_entry_protos))
 
     table.insert(out, section_comment("Pallene Entry Points"))
     for f_id = 1, #self.module.functions do
@@ -1896,6 +1905,9 @@ function Coder:generate_luaopen_function()
     -- checks that the Lua version didn't change behind our backs, after the Pallene module was
     -- compiled. For example, if you update the Lua library but don't recompile the Pallene module.
 
+
+    assert(#self.constants <= 65535) -- USHRT_MAX
+
     return (util.render([[
         int ${name}(lua_State *L)
         {
@@ -1905,10 +1917,6 @@ function Coder:generate_luaopen_function()
             luaL_checkcoreversion(L);
 
             /* Constants */
-
-#if $n_upvalues > USHRT_MAX
-#error "Too many string literals or record types"
-#endif
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
 
