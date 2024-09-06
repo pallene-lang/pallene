@@ -29,6 +29,17 @@ function coder.generate(module, modname, pallene_filename, flags)
     return code, {}
 end
 
+-- This helper function concatenates a list of lines, which may or may not be terminated with "\n".
+-- In this situation, a simple table.concat("\n") or table.concat("") won't suffice.
+local function concat_lines(strs, separator)
+    separator = separator or "\n"
+    local fixed = {}
+    for i = 1, #strs do
+        fixed[i] = strs[i]:gsub("%s*$", "")
+    end
+    return table.concat(fixed, separator)
+end
+
 --
 -- #C-variables
 --
@@ -156,7 +167,7 @@ local function set_heap_slot(typ, dst_slot, value, parent)
     local lines = {}
     table.insert(lines, set_stack_slot(typ, dst_slot, value))
     table.insert(lines, gc_barrier(typ, value, parent))
-    return table.concat(lines, "\n")
+    return concat_lines(lines)
 end
 
 function Coder:push_to_stack(typ, value)
@@ -214,7 +225,7 @@ end
 -- these cases instead of invoking the metatable operations, which may impair program optimization
 -- even if they are never called.
 local function check_no_metatable(self, src, loc)
-    local setline = string.format("PALLENE_SETLINE(%d);", loc.line)
+    local setline = string.format("PALLENE_SETLINE(%s);", C.integer(loc.line))
 
     return (util.render([[
         if ($src->metatable) {
@@ -251,7 +262,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
         assert(not typ.is_upvalue_box)
         local extra_args = table.pack(...)
 
-        local setline = string.format("PALLENE_SETLINE(%d);", loc.line)
+        local setline = string.format("PALLENE_SETLINE(%s);", C.integer(loc.line))
 
         check_tag = util.render([[
             if (l_unlikely(!$test)) {
@@ -317,7 +328,7 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
         }))
     end
 
-    return table.concat(parts, "\n")
+    return concat_lines(parts)
 end
 
 --
@@ -435,7 +446,7 @@ function Coder:pallene_entry_point_declaration(f_id)
         )]], { -- no whitespace after ")"
             ret_type = ret_type,
             name = self:pallene_entry_point_name(f_id),
-            args = table.concat(arg_lines, "\n"),
+            args = concat_lines(arg_lines),
         }))
 end
 
@@ -445,88 +456,95 @@ function Coder:pallene_entry_point_definition(f_id)
 
     self.current_func = func
 
-    local name_comment = func.name
-    if func.loc then
-        name_comment = name_comment .. " " .. func.loc:show_line()
+    local parts = {}
+
+    --
+    -- Function declaration
+    --
+
+    do
+        local comment
+        if func.loc then
+            comment = func.name .. (func.loc and " " .. func.loc:show_line() or "")
+        else
+            comment = func.name
+        end
+
+        table.insert(parts, C.comment(comment))
+        table.insert(parts, self:pallene_entry_point_declaration(f_id))
+        table.insert(parts, "{")
     end
 
-    local prologue = {}
+    --
+    -- Prologue
+    --
 
-    local max_frame_size = self.gc[func].max_frame_size
-    local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
+    do
+        local max_frame_size = self.gc[func].max_frame_size
+        local slots_needed = max_frame_size + self.max_lua_call_stack_usage[func]
+        local linenum = func.loc and func.loc.line or 0
 
-    table.insert(prologue, util.render([[
-        PALLENE_C_FRAMEENTER("$name");
-    ]], {
-        name = func.name
-    }));
-    local setline = string.format("PALLENE_SETLINE(%d);", func.loc and func.loc.line or 0)
+        local frameenter = string.format("PALLENE_C_FRAMEENTER(%s);", C.string(func.name))
+        local setline = string.format("PALLENE_SETLINE(%s);", C.integer(linenum))
 
-    if slots_needed > 0 then
-        table.insert(prologue, util.render([[
-            if (!lua_checkstack(L, $n)) {
-                ${setline}
-                pallene_runtime_cant_grow_stack_error(L);
-            }
-        ]], {
-            n    = C.integer(slots_needed),
-            setline = setline,
-        }))
-    end
-    table.insert(prologue, "StackValue *base = L->top.p;");
-    table.insert(prologue, self:savestack())
-    table.insert(prologue, "/**/")
+        table.insert(parts, frameenter)
+        if slots_needed > 0 then
+            table.insert(parts, util.render([[
+                if (!lua_checkstack(L, $n)) {
+                    ${setline}
+                    pallene_runtime_cant_grow_stack_error(L);
+                }
+            ]], {
+                n = C.integer(slots_needed),
+                setline = setline,
+            }))
+        end
+        table.insert(parts, "StackValue *base = L->top.p;");
+        table.insert(parts, self:savestack())
+        table.insert(parts, "")
 
-    for v_id = #arg_types + 1, #func.vars do
-        -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
-        -- "Any". Nils and Booleans only set the type tag of the TValue and leave the "._value"
-        -- field uninitialized and the C compiler doesn't like that because it means that a setobj
-        -- may read from uninitialized memory.
-        local typ, c_name, comment = self:prepare_local_var(func, v_id)
-        local decl = C.declaration(ctype(typ), c_name)
-        local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
-        table.insert(prologue, decl..initializer..";"..comment)
-    end
-
-    local body = self:generate_blocks(func)
-
-    -- We assign the dsts from right to left, in order to match Lua's semantics when a
-    -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
-    -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
-    local returns = {}
-    for i = #func.ret_vars, 2, -1 do
-        local var = self:c_var(func.ret_vars[i])
-        table.insert(returns,
-            util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
+        for v_id = #arg_types + 1, #func.vars do
+            -- To avoid -Wmaybe-uninitialized warnings we have to initialize our local variables of type
+            -- "Any". Nils and Booleans only set the type tag of the TValue and leave the "._value"
+            -- field uninitialized and the C compiler doesn't like that because it means that a setobj
+            -- may read from uninitialized memory.
+            local typ, c_name, comment = self:prepare_local_var(func, v_id)
+            local decl = C.declaration(ctype(typ), c_name)
+            local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
+            table.insert(parts, decl..initializer..";"..comment)
+        end
     end
 
-    local ret_mult = table.concat(returns, "\n")
+    --
+    -- Function body
+    --
 
-    local ret_stat
-    if #func.ret_vars > 0 then
-        ret_stat = "return " .. self:c_var(func.ret_vars[1]) .. ";"
-    else
-        ret_stat = "return;"
+    table.insert(parts, "")
+    table.insert(parts, self:generate_blocks(func))
+
+    --
+    -- Return
+    --
+
+    do
+        -- We assign the dsts from right to left, in order to match Lua's semantics when a
+        -- destination variable appears more than once in the LHS. For example, in `x,x = f()`.
+        -- For a more in-depth discussion, see the implementation of ast.Stat.Assign in to_ir.lua
+        for i = #func.ret_vars, 2, -1 do
+            local var = self:c_var(func.ret_vars[i])
+            table.insert(parts,
+                util.render([[ *$reti = $v; ]], { reti = self:c_ret_var(i), v = var }))
+        end
+
+        if #func.ret_vars > 0 then
+            table.insert(parts, "return " .. self:c_var(func.ret_vars[1]) .. ";")
+        else
+            table.insert(parts, "return;")
+        end
     end
 
-    return (util.render([[
-        ${name_comment}
-        ${fun_decl} {
-            ${prologue}
-            /**/
-            ${body}
-            PALLENE_FRAMEEXIT();
-            ${ret_mult}
-            ${ret_stat}
-        }
-    ]], {
-        name_comment = C.comment(name_comment),
-        fun_decl = self:pallene_entry_point_declaration(f_id),
-        prologue = table.concat(prologue, "\n"),
-        body = body,
-        ret_mult = ret_mult,
-        ret_stat = ret_stat,
-    }))
+    table.insert(parts, "}")
+    return concat_lines(parts)
 end
 
 function Coder:call_pallene_function(dsts, f_id, cclosure, xs)
@@ -593,12 +611,17 @@ function Coder:lua_entry_point_definition(f_id)
 
     self.current_func = func
 
+    local parts = {}
+
+    -- 0) Function declaration
+    table.insert(parts, self:lua_entry_point_declaration(f_id))
+    table.insert(parts, "{")
+
     -- 1) Adjust input arguments
     --
     -- Raises an error if the number of arguments is incorrect
     -- Fills missing optional arguments with nil
 
-    local adjust_arguments
     do
         local min_nargs   = types.number_of_mandatory_args(arg_types)
         local max_nargs   = #arg_types
@@ -623,12 +646,12 @@ function Coder:lua_entry_point_definition(f_id)
             ]]
         end
 
-        adjust_arguments = util.render(tmpl, {
+        table.insert(parts, util.render(tmpl, {
             fname       = C.string(fname),
             min_nargs   = C.integer(min_nargs),
             max_nargs   = C.integer(max_nargs),
             push_nil    = self:push_to_stack(types.T.Nil, false)
-        })
+        }))
     end
 
     -- 2) Initialize stack pointer and constant table
@@ -636,11 +659,12 @@ function Coder:lua_entry_point_definition(f_id)
     -- We unconditionally initialize K, in case the tag checks need it. This is in theory
     -- inneficient if we're a leaf function that doesn't actually need it. However, in these
     -- cases GCC often inlines the Pallene entry point and can see they are unused.
-    local init_pointers = [[
+
+    table.insert(parts, [[
         StackValue *base = L->ci->func.p;
         CClosure *func = clCvalue(s2v(base));
         Udata *K = uvalue(&func->upvalue[0]);
-    ]]
+    ]])
 
     -- 3) Debug mode frameenter
     --
@@ -648,10 +672,9 @@ function Coder:lua_entry_point_definition(f_id)
     -- Must be after we initialize K, because we get the finalizer from there
     -- Must be before we type check the arguments, because that can throw errors.
 
-    local debug_frameenter =
-        self.flags.use_traceback
-        and ("PALLENE_LUA_FRAMEENTER(" .. self:lua_entry_point_name(f_id) .. ");")
-        or  ""
+    if self.flags.use_traceback then
+        table.insert(parts, "PALLENE_LUA_FRAMEENTER(" .. self:lua_entry_point_name(f_id) .. ");")
+    end
 
     -- 4) Type check input arguments
     --
@@ -663,76 +686,43 @@ function Coder:lua_entry_point_definition(f_id)
         table.insert(arg_vars, self:c_var(i))
     end
 
-    local unbox_arguments = {}
-    do
+    for i, typ in ipairs(arg_types) do
+        table.insert(parts, C.declaration(ctype(typ), arg_vars[i])..";")
+    end
 
-        table.insert(unbox_arguments, "/**/")
-
-        for i, typ in ipairs(arg_types) do
-            table.insert(unbox_arguments, C.declaration(ctype(typ), arg_vars[i])..";")
-        end
-
-        table.insert(unbox_arguments, "/**/")
-
-        for i, typ in ipairs(arg_types) do
-            local dst = arg_vars[i]
-            local src = string.format("s2v(base + %s)", C.integer(i))
-            table.insert(unbox_arguments,
-                self:get_stack_slot(
-                    typ, dst, src, func.loc,
-                    "argument '%s'", C.string(func.vars[i].name)))
-        end
+    for i, typ in ipairs(arg_types) do
+        local dst = arg_vars[i]
+        local src = string.format("s2v(base + %s)", C.integer(i))
+        table.insert(parts,
+            self:get_stack_slot(
+                typ, dst, src, func.loc,
+                "argument '%s'", C.string(func.vars[i].name)))
     end
 
     -- 5) Call the Pallene entry point
 
     local ret_vars  = {}
-    local ret_decls = {}
     for i, typ in ipairs(ret_types) do
         local ret = string.format("ret%d", i)
         table.insert(ret_vars, ret)
-        table.insert(ret_decls, C.declaration(ctype(typ), ret)..";")
+        table.insert(parts, C.declaration(ctype(typ), ret)..";")
     end
 
-    local call_pallene = self:call_pallene_function(
-        ret_vars, f_id, "func", arg_vars,
-        self:lua_entry_point_name(f_id))
+    table.insert(parts,
+        self:call_pallene_function(
+            ret_vars, f_id, "func", arg_vars,
+            self:lua_entry_point_name(f_id)) )
 
     -- 6) Push the results to the Lua stack
 
-    local push_results = {}
     for i, typ in ipairs(ret_types) do
-        table.insert(push_results, self:push_to_stack(typ, ret_vars[i]))
+        -- TODO checkstack to ensure there's enough space
+        table.insert(parts, self:push_to_stack(typ, ret_vars[i]))
     end
 
-    -- TODO
-    -- checkstack to ensure there's space to push optional arguments and to push return values
-
-    return (util.render([[
-        ${fun_decl}
-        {
-            ${adjust_arguments}
-            /**/
-            ${init_pointers}
-            ${debug_frameenter}
-            ${unbox_arguments}
-            /**/
-            ${ret_decls}
-            ${call_pallene}
-            ${push_results}
-            return $nresults;
-        }
-    ]], {
-        fun_decl = self:lua_entry_point_declaration(f_id),
-        adjust_arguments = adjust_arguments,
-        init_pointers    = init_pointers,
-        debug_frameenter = debug_frameenter,
-        unbox_arguments  = table.concat(unbox_arguments, "\n"),
-        ret_decls        = table.concat(ret_decls, "\n"),
-        call_pallene     = call_pallene,
-        push_results     = table.concat(push_results, "\n"),
-        nresults = C.integer(#ret_types)
-    }))
+    table.insert(parts, string.format("return %s;", C.integer(#ret_types)))
+    table.insert(parts, "}")
+    return concat_lines(parts)
 end
 
 --
@@ -869,7 +859,7 @@ function RecordCoder:declarations()
     assert(self.gc_count >= 0)
 
     -- Comment
-    table.insert(declarations, C.comment(self.record_typ.name) .. "\n")
+    table.insert(declarations, C.comment(self.record_typ.name) .. "\n\n")
 
     -- Struct for the primitive fields.
     -- (C does not allow empty structs so we skip in that case)
@@ -894,7 +884,7 @@ function RecordCoder:declarations()
             } $struct_name;
         ]], {
             struct_name = struct_name,
-            field_lines = table.concat(field_lines, "\n"),
+            field_lines = concat_lines(field_lines),
         }))
 
         table.insert(declarations, util.render([[
@@ -937,7 +927,7 @@ function RecordCoder:declarations()
         set_metatable = set_metatable,
     }))
 
-    return table.concat(declarations, "\n/**/\n")
+    return concat_lines(declarations, "\n\n")
 end
 
 function RecordCoder:get_prim_lvalue(rec_cvar, field_name)
@@ -1224,7 +1214,7 @@ gen_cmd["Concat"] = function(self, args)
     ]], {
         dst = dst,
         N = C.integer(#args.cmd.srcs),
-        init_input_array = table.concat(init_input_array, "\n"),
+        init_input_array = concat_lines(init_input_array),
     }))
 end
 
@@ -1469,15 +1459,13 @@ gen_cmd["InitUpvalues"] = function(self, args)
     end
 
     return util.render([[
-        /**/
         {
             CClosure* ccl = $cclosure;
             $capture_upvalues
         }
-        /**/
     ]], {
         cclosure = cclosure,
-        capture_upvalues = table.concat(capture_upvalues, "\n"),
+        capture_upvalues = concat_lines(capture_upvalues),
     })
 end
 
@@ -1506,12 +1494,12 @@ gen_cmd["CallStatic"] = function(self, args)
     end
 
     table.insert(parts, self:update_stack_top(args.position))
-    table.insert(parts, string.format("PALLENE_SETLINE(%d);\n",
-        args.func.loc and args.func.loc.line or 0))
+    table.insert(parts, string.format("PALLENE_SETLINE(%s);",
+        C.integer(args.func.loc and args.func.loc.line or 0)))
 
     table.insert(parts, self:call_pallene_function(dsts, f_id, cclosure, xs, nil))
     table.insert(parts, self:restorestack())
-    return table.concat(parts, "\n")
+    return concat_lines(parts)
 end
 
 gen_cmd["CallDyn"] = function(self, args)
@@ -1557,9 +1545,9 @@ gen_cmd["CallDyn"] = function(self, args)
         ${restore_stack}
     ]], {
         update_stack_top = self:update_stack_top(args.position),
-        push_arguments = table.concat(push_arguments, "\n"),
+        push_arguments = concat_lines(push_arguments),
         setline = setline,
-        pop_results = table.concat(pop_results, "\n"),
+        pop_results = concat_lines(pop_results),
         nargs = C.integer(#args.cmd.srcs),
         nrets = C.integer(#f_typ.ret_types),
         restore_stack = self:restorestack(),
@@ -1741,26 +1729,22 @@ end
 
 function Coder:generate_blocks(func)
     local out = {}
-    for block_i,block in ipairs(func.blocks) do
-        table.insert(out, util.render("$label:\n", {
-                label = self:c_label(block_i),
-        }))
+    for block_i, block in ipairs(func.blocks) do
+        table.insert(out, self:c_label(block_i) .. ":")
         for cmd_i,cmd in ipairs(block.cmds) do
             if cmd._tag ~= "ir.Cmd.Jmp" or cmd.target ~= block_i + 1 then
-                local gen_args = {
+                table.insert(out, self:generate_cmd({
                     cmd = cmd,
                     func = func,
                     position = {
                         block_index = block_i,
                         cmd_index = cmd_i,
                     },
-                }
-                local cmd_str = self:generate_cmd(gen_args) .. "\n"
-                table.insert(out, cmd_str)
+                }))
             end
         end
     end
-    return table.concat(out)
+    return concat_lines(out)
 end
 
 function Coder:generate_cmd(gen_args)
@@ -1769,7 +1753,9 @@ function Coder:generate_cmd(gen_args)
     assert(tagged_union.typename(cmd._tag) == "ir.Cmd")
     local name = tagged_union.consname(cmd._tag)
     local f = assert(gen_cmd[name], "impossible")
-    local out = f(self, gen_args)
+
+    local out = {}
+    table.insert(out, f(self, gen_args))
 
     local slot_of_variable = self.gc[func].slot_of_variable
     for _, v_id in ipairs(ir.get_dsts(cmd)) do
@@ -1777,11 +1763,11 @@ function Coder:generate_cmd(gen_args)
         if n then
             local typ = func.vars[v_id].typ
             local slot = util.render([[s2v(base + $n)]], { n = C.integer(n) })
-            out = out .. "\n" .. set_stack_slot(typ, slot, self:c_var(v_id))
+            table.insert(out, set_stack_slot(typ, slot, self:c_var(v_id)))
         end
     end
 
-    return out
+    return concat_lines(out)
 end
 
 --
@@ -1791,12 +1777,11 @@ end
 local function section_comment(msg)
     local ruler = string.rep("-", #msg)
     local lines = {}
-    table.insert(lines, "/**/")
     table.insert(lines, "/* " .. ruler .. " */")
     table.insert(lines, "/* " .. msg   .. " */")
     table.insert(lines, "/* " .. ruler .. " */")
-    table.insert(lines, "/**/")
-    return table.concat(lines, "\n")
+    table.insert(lines, "")
+    return concat_lines(lines)
 end
 
 function Coder:generate_module_header()
@@ -1810,15 +1795,10 @@ function Coder:generate_module_header()
         table.insert(out, "/* Enable Pallene Tracer debugging. */")
         table.insert(out, "#define PT_DEBUG")
     end
-    table.insert(out, "")
-
-    table.insert(out, "/* ------------------------ */")
-    table.insert(out, "/* Pallene standard library */")
-    table.insert(out, "/* ------------------------ */")
-    table.insert(out, "")
+    table.insert(out, section_comment("Pallene standard library"))
     table.insert(out, pallenelib)
 
-    return table.concat(out, "\n")
+    return concat_lines(out)
 end
 
 function Coder:generate_module_body()
@@ -1852,7 +1832,7 @@ function Coder:generate_module_body()
 
     table.insert(out, self:generate_luaopen_function())
 
-    return C.reformat(table.concat(out, "\n/**/\n"))
+    return C.reformat(concat_lines(out, "\n\n"))
 end
 
 function Coder:generate_luaopen_function()
@@ -1895,7 +1875,6 @@ function Coder:generate_luaopen_function()
         if not is_upvalue_box then
             table.insert(init_constants, util.render([[
                 lua_setiuservalue(L, globals, $ix);
-                /**/
             ]], {
                 ix = C.integer(ix),
             }))
@@ -1920,37 +1899,30 @@ function Coder:generate_luaopen_function()
     return (util.render([[
         int ${name}(lua_State *L)
         {
-
             #if LUA_VERSION_RELEASE_NUM != 50407
             #error "Lua version must be exactly 5.4.7"
             #endif
-
             luaL_checkcoreversion(L);
 
-            /**/
             /* Constants */
-            /**/
 
 #if $n_upvalues > USHRT_MAX
 #error "Too many string literals or record types"
 #endif
             lua_newuserdatauv(L, 0, $n_upvalues);
             int globals = lua_gettop(L);
-            /**/
+
             ${init_constants}
 
-            /**/
             /* Toplevel Module Code */
-            /**/
 
             ${init_initializers}
-
             return 1;
         }
     ]], {
         name = "luaopen_" .. self.modname,
         n_upvalues = C.integer(#self.constants),
-        init_constants = table.concat(init_constants, "\n"),
+        init_constants = concat_lines(init_constants),
         init_initializers = init_initializers,
     }))
 end

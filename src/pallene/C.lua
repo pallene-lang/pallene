@@ -144,22 +144,8 @@ end
 function C.reformat(input)
     local out = {}
     local depth = 0
-    local previous_line = nil
     for line in input:gmatch("([^\n]*)") do
         line = line:match("^%s*(.-)%s*$")
-
-        -- We ignore blank lines in the input because most of them are garbage produced by the code
-        -- generator. However, sometimes we want to intentionally leave a blank line for formatting
-        -- purposes. To do that, use a line that is just an empty C comment: /**/
-        if line == "" then
-            goto continue
-        end
-        if line == "/**/" then
-            line = ""
-        end
-        if line == "" and previous_line == "" then
-            goto continue
-        end
 
         local nspaces
         if line:match("^#") then
@@ -181,10 +167,6 @@ function C.reformat(input)
         table.insert(out, string.rep(" ", nspaces))
         table.insert(out, line)
         table.insert(out, "\n")
-
-        previous_line = line
-
-        ::continue::
     end
     assert(depth == 0, "Unbalanced indentation at end of file.")
     return table.concat(out)
