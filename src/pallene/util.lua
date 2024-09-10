@@ -10,37 +10,34 @@ function util.abort(msg)
     os.exit(1)
 end
 
--- Barebones string-based template function for generating C/Lua code. Replaces $VAR and ${VAR}
--- placeholders in the `code` template by the corresponding strings in the `substs` table.
+-- String templates for C and Lua code.
+-- Replaces $VAR and ${VAR} placeholders in the `code` string, with values from `substs`.
 --
--- Don't call this function in tail-call position, wrap the call in parens if necessary. This way if
--- there is an error you will get an accurate line number in the stack trace instead of just
--- "(...tail calls...)"
+-- Don't call this function in tail-call position; wrap the call in parens if necessary.
+-- This way you can get an useful line number if there is a template error.
 function util.render(code, substs)
-    local err
-    local out = string.gsub(code, "%$({?)([A-Za-z_][A-Za-z_0-9]*)(}?)",
-        function(a, k, b)
-            if a == "{" and b == "" then
-                err = "unmatched ${ in template"
-                return ""
-            end
+    return (string.gsub(code,
+        "%$({?)([A-Za-z_][A-Za-z_0-9]*)(}?)",
+        function(open, k,close)
             local v = substs[k]
+
+            if open == "{" and close == "" then
+                error("unclosed ${ in template")
+            end
             if not v then
-                err = "missing template variable " .. k
-                return ""
-            elseif type(v) ~= "string" then
-                err = "template variable is not a string " .. k
-                return ""
+                error("missing template variable " .. k)
             end
-            if a == "" and b == "}" then
-                v = v .. b
+            if type(v) ~= "string" then
+                error("template variable is not a string " .. k)
             end
-            return v
-        end)
-    if err then
-        error(err)
-    end
-    return out
+
+            if open == "" then
+                return v .. close
+            else
+                return v
+            end
+        end
+    ))
 end
 
 --
