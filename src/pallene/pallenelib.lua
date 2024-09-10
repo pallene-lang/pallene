@@ -101,9 +101,6 @@ static int pallene_is_record(const TValue *v, const TValue *meta_table);
 static int pallene_bvalue(TValue *obj);
 static void pallene_setbvalue(TValue *obj, int b);
 
-/* Garbage Collection */
-static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v);
-
 /* Runtime errors */
 static l_noret pallene_runtime_tag_check_error(lua_State *L, const char* file, int line,
                                 const char *expected_type_name, const TValue *received_type, const char *description_fmt, ...);
@@ -178,16 +175,6 @@ static void pallene_setbvalue(TValue *obj, int b)
         setbtvalue(obj);
     } else {
         setbfvalue(obj);
-    }
-}
-
-/* We must call a GC write barrier whenever we set "v" as an element of "p", in order to preserve
- * the color invariants of the incremental GC. This function is a specialization of luaC_barrierback
- * for when we already know the type of the child object and have an untagged pointer to it. */
-static void pallene_barrierback_unboxed(lua_State *L, GCObject *p, GCObject *v)
-{
-    if (isblack(p) && iswhite(v)) {
-        luaC_barrierback_(L, p);
     }
 }
 
