@@ -153,7 +153,7 @@ local function opt_gc_barrier(typ, value, parent)
             local tmpl = "luaC_barrierback(L, obj2gco($p), &$v);"
             return util.render(tmpl, { p = parent, v = value })
         else
-            local tmpl = "pallene_barrierback_unboxed(L, obj2gco($p), obj2gco($v));"
+            local tmpl = "luaC_objbarrierback(L, obj2gco($p), obj2gco($v));"
             return util.render(tmpl, { p = parent, v = value })
         end
     else
