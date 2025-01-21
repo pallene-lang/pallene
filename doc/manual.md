@@ -79,7 +79,7 @@ local y: float = i * 1.0
 ### Strings
 
 Pallene also has a `string` type, for Lua strings.
-The syntax for string literals is the same as in Lua
+The syntax for string literals is the same as in Lua.
 You can use single quotes, double quotes, or `[[`.
 
 The primitive operators that operate on strings are the concatenation operator `..`,  the length operator `#`, and the comparison operators (`==`, `~=`, `<`, `>`, `<=`, `>=`).
