@@ -137,7 +137,7 @@ p.x = 30
 print(p.x) --> 30
 ```
 
-In the current version of Pallene, the length of the field should be at max `LUAI_MAXSHORTLEN` characters.
+In the current version of Pallene, the length of the field identifier should be at most `LUAI_MAXSHORTLEN` characters.
 In Lua 5.4, the default value for this constant is 40 characters.
 
 ### Functions
