@@ -196,7 +196,7 @@ As an example, consider the same `sum_list` function from above written without 
 local function iter(arr: {any}, prev: integer): (any, any)
     local i = prev + 1
     local x = arr[i]
-    if x == (nil as any) then
+    if x == nil as any then
         return nil, nil
     end
 
@@ -262,8 +262,8 @@ Pallene also allows you to downcast from `any` to other types.
 This is checked at run-time, and may result in a run-time type error.
 
 ```lua
-local v = (17 as any)
-local s = (v as string)  -- run-time error: v is not a string
+local v = 17 as any
+local s = v as string  -- run-time error: v is not a string
 ```
 
 The `any` type allows for a limited form of dynamic typing.
@@ -282,7 +282,7 @@ The reason for this is that, for performance, Pallene must know at compile-time 
 
 ```lua
 local function f(x: any, y: any): integer
-    return (x as integer) + (y as integer)
+    return x as integer + y as integer
 end
 ```
 
@@ -407,7 +407,7 @@ For expressions the colon is already used for method calls, so Pallene uses the 
 
 ```lua
 function foo(x : any) : integer
-   local y: integer = (x as integer)
+   local y: integer = x as integer
    return y + y
 end
 ```
