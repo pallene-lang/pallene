@@ -958,7 +958,7 @@ end
 function Coder:init_gc()
 
     for _, func in ipairs(self.module.functions) do
-        self.gc[func] = gc.compute_stack_slots(func)
+        self.gc[func] = gc.compute_gc_info(func)
     end
 
     for _, func in ipairs(self.module.functions) do
