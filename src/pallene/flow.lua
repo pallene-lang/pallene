@@ -20,7 +20,7 @@
 -- processing the block's commands. Each block also has a "kill" and a "gen" set that help transform
 -- the "start" set into the "finish" set. The "kill" set contains the values that will be removed
 -- from the running set while "gen" (as in "generate") contains the values that will be added to it.
--- The flow analysis algorithm's input is a collection of "kill" and "gen" sets for each block and
+-- The flow analysis algorithm's inputs are "kill" and "gen" sets for each block and
 -- the initial values for the "start" sets of each block. During it's runtime, the algorithm updates
 -- the "start" and "finish" sets in a loop until they all converge to some value. The algorithm
 -- requires a loop because a block's "start" set depends on the "finish" set of it's predecessors or
@@ -50,7 +50,6 @@
 --
 --     3.1) Inside the loop that iterates over a block's commands, call "flow.update_set" to update
 --     the set.
-
 
 local flow = {}
 
@@ -197,6 +196,10 @@ local function make_state_list(block_list, flow_info)
     return state_list
 end
 
+-- Does flow analysis on a list of ir.BasicBlock objects. "block_list" is the list of blocks and
+-- "flow_info" is an object of type flow.FlowInfo which contains information about how the flow
+-- analysis will be done. The function returns the list of starting sets, each set in the list
+-- corresponds to the basic block indexed by the same value.
 function flow.flow_analysis(block_list, flow_info)
                                -- ({ir.BasicBlock}, flow.FlowInfo) -> { block_id -> set }
     local state_list = make_state_list(block_list, flow_info)
@@ -267,6 +270,10 @@ function flow.flow_analysis(block_list, flow_info)
     return block_start_list
 end
 
+-- Updates a set "set" according to the "compute_gen_kill" function inside a ir.FlowInfo object
+-- "flow_info". "block_i" and "cmd_i" are the coordinates of the ir.Cmd object that will be used to
+-- update the set, "block_i" is the index of the block and "cmd_i" is the index of the command
+-- inside the block's list of commands.
 function flow.update_set(set, flow_info, block_i, cmd_i) -- (set, flow.FlowInfo, block_id) -> void
     local gk = flow_info.compute_gen_kill(block_i, cmd_i)
     for v,_ in pairs(gk.gen) do
