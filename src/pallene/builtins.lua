@@ -32,6 +32,12 @@ builtins.modules = {
         modf  = T.Function({ T.Float }, { T.Integer, T.Float }),
         pow   = T.Function({ T.Float, T.Float }, { T.Float }),
         sqrt  = T.Function({ T.Float }, { T.Float }),
+        sin   = T.Function({ T.Float }, { T.Float }),
+        cos   = T.Function({ T.Float }, { T.Float }),
+        tan   = T.Function({ T.Float }, { T.Float }),
+        asin  = T.Function({ T.Float }, { T.Float }),
+        acos  = T.Function({ T.Float }, { T.Float }),
+        atan  = T.Function({ T.Float, T.Float }, { T.Float }),
         -- constant numbers
         huge        = T.Float,
         mininteger  = T.Integer,

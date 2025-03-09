@@ -1799,6 +1799,226 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("math.sin builtin", function()
+        compile([[
+            function m.sine(x: float): float
+                return math.sin(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.sine(0.0))
+                assert(1.0 == test.sine(math.pi / 2.0))
+                assert(-1.0 == test.sine(math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.sine(math.pi)))
+                assert(1e-9 > math.abs(test.sine(2.0 * math.pi)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(0.0 == test.sine(-0.0))
+                assert(-1.0 == test.sine(-math.pi / 2.0))
+                assert(1.0 == test.sine(-math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.sine(-math.pi)))
+                assert(1e-9 > math.abs(test.sine(-2.0 * math.pi)))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.sine(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.cos builtin", function()
+        compile([[
+            function m.cosine(x: float): float
+                return math.cos(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1.0 == test.cosine(0.0))
+                assert(-1.0 == test.cosine(math.pi))
+                assert(1.0 == test.cosine(2.0 * math.pi))
+                assert(1e-9 > math.abs(test.cosine(math.pi / 2.0)))
+                assert(1e-9 > math.abs(test.cosine(math.pi * 3.0 / 2.0)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(1.0 == test.cosine(-0.0))
+                assert(-1.0 == test.cosine(-math.pi))
+                assert(1.0 == test.cosine(-2.0 * math.pi))
+                assert(1e-9 > math.abs(test.cosine(-math.pi / 2.0)))
+                assert(1e-9 > math.abs(test.cosine(-math.pi * 3.0 / 2.0)))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.cosine(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.tan builtin", function()
+        compile([[
+            function m.tangent(x: float): float
+                return math.tan(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.tangent(0.0))
+                assert(1e9 < test.tangent(math.pi / 2.0))
+                assert(1e9 < test.tangent(math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.tangent(math.pi)))
+                assert(1e-9 > math.abs(test.tangent(2.0 * math.pi)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-0.0 == test.tangent(-0.0))
+                assert(-1e9 > test.tangent(-math.pi / 2.0))
+                assert(-1e9 > test.tangent(-math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.tangent(-math.pi)))
+                assert(1e-9 > math.abs(test.tangent(-2.0 * math.pi)))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.tangent(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.asin builtin", function()
+        compile([[
+            function m.arcsine(x: float): float
+                return math.asin(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.arcsine(0.0))
+                assert(math.pi / 2.0 == test.arcsine(1.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(0.0 == test.arcsine(-0.0))
+                assert(-math.pi / 2.0 == test.arcsine(-1.0))
+            ]])
+        end)
+
+        it("returns NaN when out of range", function()
+            run_test([[
+                local x = test.arcsine(1.1)
+                assert(x ~= x)
+                local x = test.arcsine(-1.1)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.arcsine(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.acos builtin", function()
+        compile([[
+            function m.arccosine(x: float): float
+                return math.acos(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(math.pi / 2.0 == test.arccosine(0.0))
+                assert(0.0 == test.arccosine(1.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(math.pi / 2.0 == test.arccosine(-0.0))
+                assert(math.pi == test.arccosine(-1.0))
+            ]])
+        end)
+
+        it("returns NaN when out of range", function()
+            run_test([[
+                local x = test.arccosine(1.1)
+                assert(x ~= x)
+                local x = test.arccosine(-1.1)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.arccosine(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.atan builtin", function()
+        compile([[
+            function m.arctangent(y: float, x: float): float
+                return math.atan(y, x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.arctangent(0.0, 0.0))
+                assert(0.0 == test.arctangent(0.0, 1.0))
+                assert(math.pi / 4.0 == test.arctangent(1.0, 1.0))
+                assert(math.pi / 2.0 == test.arctangent(1.0, 0.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-0.0 == test.arctangent(-0.0, 0.0))
+                assert(math.pi == test.arctangent(0.0, -0.0))
+                assert(math.pi == test.arctangent(0.0, -1.0))
+                assert(-math.pi == test.arctangent(-0.0, -0.0))
+                assert(-math.pi == test.arctangent(-0.0, -1.0))
+                assert(-math.pi / 4.0 == test.arctangent(-1.0, 1.0))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.arctangent(1.0, 0.0 / 0.0)
+                assert(x ~= x)
+                local x = test.arctangent(0.0 / 0.0, 1.0)
+                assert(x ~= x)
+                local x = test.arctangent(0.0 / 0.0, 0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
     describe("string.char builtin", function()
         compile([[
             function m.chr(x: integer): string
