@@ -1663,9 +1663,11 @@ end
 
 gen_cmd["BuiltinMathAtan"] = function(self, args)
     local dst = self:c_var(args.cmd.dsts[1])
-    local x = self:c_value(args.cmd.srcs[1])
-    local y = self:c_value(args.cmd.srcs[2])
-    return util.render([[ $dst = l_mathop(atan2)($x, $y); ]], { dst = dst, x = x, y = y })
+    local y = self:c_value(args.cmd.srcs[1])
+    local x = self:c_value(args.cmd.srcs[2])
+    --return util.render([[ $dst = l_mathop(atan2)($y, $x); ]],
+    return util.render([[ $dst = pallene_math_atan(L, $y, $x); ]],
+        { dst = dst, y = y, x = x })
 end
 
 gen_cmd["BuiltinStringChar"] = function(self, args)

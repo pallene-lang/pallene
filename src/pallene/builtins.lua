@@ -37,7 +37,7 @@ builtins.modules = {
         tan   = T.Function({ T.Float }, { T.Float }),
         asin  = T.Function({ T.Float }, { T.Float }),
         acos  = T.Function({ T.Float }, { T.Float }),
-        atan  = T.Function({ T.Float, T.Float }, { T.Float }),
+        atan  = T.Function({ T.Float, T.Any }, { T.Float }),
         -- constant numbers
         huge        = T.Float,
         mininteger  = T.Integer,

@@ -1980,6 +1980,37 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("math.atan 1-arg builtin", function()
+        compile([[
+            function m.math_atan1(v: float): float
+                return math.atan(v)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_atan1(0.0))
+                assert(math.pi / 4.0 == test.math_atan1(1.0))
+                assert(math.pi / 2.0 == test.math_atan1(1.0 / 0.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-0.0 == test.math_atan1(-0.0))
+                assert(-math.pi / 4.0 == test.math_atan1(-1.0))
+                assert(-math.pi / 2.0 == test.math_atan1(-1.0 / 0.0))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_atan1(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
     describe("math.atan 2-arg builtin", function()
         compile([[
             function m.math_atan2(y: float, x: float): float
