@@ -79,6 +79,14 @@ This will also download and install the necessary Lua libraries.
 luarocks make pallene-dev-1.rockspec
 ```
 
+If you used non-standard install locations in the previous steps, you may have to specify them.
+
+```sh
+export CPATH=/usr/local/include
+luarocks make pallene-dev-1.rockspec PTRACER_DIR=/usr/local
+
+```
+
 ## Using Pallene
 
 To compile a `foo.pln` file to a `foo.so` module, call `pallenec` as follows.
