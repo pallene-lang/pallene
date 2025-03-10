@@ -84,7 +84,6 @@ If you used non-standard install locations in the previous steps, you may have t
 ```sh
 export CPATH=/usr/local/include
 luarocks make pallene-dev-1.rockspec PTRACER_DIR=/usr/local
-
 ```
 
 ## Using Pallene
