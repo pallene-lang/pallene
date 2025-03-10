@@ -21,11 +21,13 @@ You can do so using LuaRocks; for full instructions see our [`.luacheckrc`](.lua
 
 ### Running the test suite
 
-We use [Busted](http://olivinelabs.com/busted/) to run our test suite.
-It can be installed using LuaRocks:
+We use [Busted](http://olivinelabs.com/busted/) to run our test suite
+and [Luacheck](https://github.com/lunarmodules/luacheck) for linting.
+They can both be installed using LuaRocks:
 
 ```sh
-$ luarocks install busted
+luarocks install busted
+luarocks install luacheck
 ```
 
 To run the test suite, run the `./run-tests` script in this project's root directory.
