@@ -24,6 +24,7 @@ git clone https://www.github.com/pallene-lang/lua-internals/
 cd lua-internals
 make guess -j4
 sudo make install
+cd -
 ```
 
 If you are on Linux and would like the up arrow to work in the Lua REPL,
@@ -48,6 +49,7 @@ cd luarocks-3.11.1
 ./configure --with-lua=/usr/local
 make
 sudo make install
+cd -
 ```
 
 By default, Luarocks installs packages into /usr/local, which requires sudo.
