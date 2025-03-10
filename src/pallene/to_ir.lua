@@ -1219,6 +1219,24 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             elseif bname == "math.sqrt" then
                 assert(#xs == 1)
                 bb:append_cmd(ir.Cmd.BuiltinMathSqrt(loc, dsts, xs))
+            elseif bname == "math.sin" then
+                assert(#xs == 1)
+                bb:append_cmd(ir.Cmd.BuiltinMathSin(loc, dsts, xs))
+            elseif bname == "math.cos" then
+                assert(#xs == 1)
+                bb:append_cmd(ir.Cmd.BuiltinMathCos(loc, dsts, xs))
+            elseif bname == "math.tan" then
+                assert(#xs == 1)
+                bb:append_cmd(ir.Cmd.BuiltinMathTan(loc, dsts, xs))
+            elseif bname == "math.asin" then
+                assert(#xs == 1)
+                bb:append_cmd(ir.Cmd.BuiltinMathAsin(loc, dsts, xs))
+            elseif bname == "math.acos" then
+                assert(#xs == 1)
+                bb:append_cmd(ir.Cmd.BuiltinMathAcos(loc, dsts, xs))
+            elseif bname == "math.atan" then
+                assert(#xs == 2)
+                bb:append_cmd(ir.Cmd.BuiltinMathAtan(loc, dsts, xs))
             elseif bname == "string.char" then
                 assert(#xs == 1)
                 bb:append_cmd(ir.Cmd.BuiltinStringChar(loc, dsts, xs))

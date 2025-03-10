@@ -493,6 +493,12 @@ The Pallene compiler has builtins for the following math library functions and c
  * math.pi
  * math.pow(x, y)
  * math.sqrt(x)
+ * math.sin(x)
+ * math.cos(x)
+ * math.tan(x)
+ * math.asin(x)
+ * math.acos(x)
+ * math.atan(y, x)
 
 All the functions currently require float arguments. The compiler will reject integer arguments.
 
@@ -502,6 +508,10 @@ the result is NaN (which only exists in floating point). In Pallene, the first v
 converted to an integer unless the conversion fails, in which case a runtime error is raised.
 This is also true of the return values for math.ceil and math.floor, where Pallene will always
 return an integer or raise a runtime error.
+
+The second arguments to math.log and math.atan are optional, just as in Lua. Note that due to
+optional arguments being representable only with type `any`, these optional arguments are not
+type checked at compile time.
 
 ## Pallene to Lua translator
 

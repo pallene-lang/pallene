@@ -1799,6 +1799,257 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
+    describe("math.sin builtin", function()
+        compile([[
+            function m.math_sin(x: float): float
+                return math.sin(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_sin(0.0))
+                assert(1.0 == test.math_sin(math.pi / 2.0))
+                assert(-1.0 == test.math_sin(math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.math_sin(math.pi)))
+                assert(1e-9 > math.abs(test.math_sin(2.0 * math.pi)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(0.0 == test.math_sin(-0.0))
+                assert(-1.0 == test.math_sin(-math.pi / 2.0))
+                assert(1.0 == test.math_sin(-math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.math_sin(-math.pi)))
+                assert(1e-9 > math.abs(test.math_sin(-2.0 * math.pi)))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_sin(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.cos builtin", function()
+        compile([[
+            function m.math_cos(x: float): float
+                return math.cos(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(1.0 == test.math_cos(0.0))
+                assert(-1.0 == test.math_cos(math.pi))
+                assert(1.0 == test.math_cos(2.0 * math.pi))
+                assert(1e-9 > math.abs(test.math_cos(math.pi / 2.0)))
+                assert(1e-9 > math.abs(test.math_cos(math.pi * 3.0 / 2.0)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(1.0 == test.math_cos(-0.0))
+                assert(-1.0 == test.math_cos(-math.pi))
+                assert(1.0 == test.math_cos(-2.0 * math.pi))
+                assert(1e-9 > math.abs(test.math_cos(-math.pi / 2.0)))
+                assert(1e-9 > math.abs(test.math_cos(-math.pi * 3.0 / 2.0)))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_cos(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.tan builtin", function()
+        compile([[
+            function m.math_tan(x: float): float
+                return math.tan(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_tan(0.0))
+                assert(1e9 < test.math_tan(math.pi / 2.0))
+                assert(1e9 < test.math_tan(math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.math_tan(math.pi)))
+                assert(1e-9 > math.abs(test.math_tan(2.0 * math.pi)))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-0.0 == test.math_tan(-0.0))
+                assert(-1e9 > test.math_tan(-math.pi / 2.0))
+                assert(-1e9 > test.math_tan(-math.pi * 3.0 / 2.0))
+                assert(1e-9 > math.abs(test.math_tan(-math.pi)))
+                assert(1e-9 > math.abs(test.math_tan(-2.0 * math.pi)))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_tan(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.asin builtin", function()
+        compile([[
+            function m.math_asin(x: float): float
+                return math.asin(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_asin(0.0))
+                assert(math.pi / 2.0 == test.math_asin(1.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(0.0 == test.math_asin(-0.0))
+                assert(-math.pi / 2.0 == test.math_asin(-1.0))
+            ]])
+        end)
+
+        it("returns NaN when out of range", function()
+            run_test([[
+                local x = test.math_asin(1.1)
+                assert(x ~= x)
+                local x = test.math_asin(-1.1)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_asin(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.acos builtin", function()
+        compile([[
+            function m.math_acos(x: float): float
+                return math.acos(x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(math.pi / 2.0 == test.math_acos(0.0))
+                assert(0.0 == test.math_acos(1.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(math.pi / 2.0 == test.math_acos(-0.0))
+                assert(math.pi == test.math_acos(-1.0))
+            ]])
+        end)
+
+        it("returns NaN when out of range", function()
+            run_test([[
+                local x = test.math_acos(1.1)
+                assert(x ~= x)
+                local x = test.math_acos(-1.1)
+                assert(x ~= x)
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_acos(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.atan 1-arg builtin", function()
+        compile([[
+            function m.math_atan1(v: float): float
+                return math.atan(v)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_atan1(0.0))
+                assert(math.pi / 4.0 == test.math_atan1(1.0))
+                assert(math.pi / 2.0 == test.math_atan1(1.0 / 0.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-0.0 == test.math_atan1(-0.0))
+                assert(-math.pi / 4.0 == test.math_atan1(-1.0))
+                assert(-math.pi / 2.0 == test.math_atan1(-1.0 / 0.0))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_atan1(0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
+    describe("math.atan 2-arg builtin", function()
+        compile([[
+            function m.math_atan2(y: float, x: float): float
+                return math.atan(y, x)
+            end
+        ]])
+
+        it("works on positive numbers", function()
+            run_test([[
+                assert(0.0 == test.math_atan2(0.0, 0.0))
+                assert(0.0 == test.math_atan2(0.0, 1.0))
+                assert(math.pi / 4.0 == test.math_atan2(1.0, 1.0))
+                assert(math.pi / 2.0 == test.math_atan2(1.0, 0.0))
+            ]])
+        end)
+
+        it("works on negative numbers", function()
+            run_test([[
+                assert(-0.0 == test.math_atan2(-0.0, 0.0))
+                assert(math.pi == test.math_atan2(0.0, -0.0))
+                assert(math.pi == test.math_atan2(0.0, -1.0))
+                assert(-math.pi == test.math_atan2(-0.0, -0.0))
+                assert(-math.pi == test.math_atan2(-0.0, -1.0))
+                assert(-math.pi / 4.0 == test.math_atan2(-1.0, 1.0))
+            ]])
+        end)
+
+        it("returns NaN on NaN", function()
+            run_test([[
+                local x = test.math_atan2(1.0, 0.0 / 0.0)
+                assert(x ~= x)
+                local x = test.math_atan2(0.0 / 0.0, 1.0)
+                assert(x ~= x)
+                local x = test.math_atan2(0.0 / 0.0, 0.0 / 0.0)
+                assert(x ~= x)
+            ]])
+        end)
+    end)
+
     describe("string.char builtin", function()
         compile([[
             function m.chr(x: integer): string

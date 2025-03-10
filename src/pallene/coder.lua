@@ -1631,6 +1631,45 @@ gen_cmd["BuiltinMathSqrt"] = function(self, args)
     return util.render([[ $dst = l_mathop(sqrt)($v); ]], { dst = dst, v = v })
 end
 
+gen_cmd["BuiltinMathSin"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(sin)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathCos"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(cos)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathTan"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(tan)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathAsin"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(asin)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathAcos"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    return util.render([[ $dst = l_mathop(acos)($v); ]], { dst = dst, v = v })
+end
+
+gen_cmd["BuiltinMathAtan"] = function(self, args)
+    local dst = self:c_var(args.cmd.dsts[1])
+    local y = self:c_value(args.cmd.srcs[1])
+    local x = self:c_value(args.cmd.srcs[2])
+    --return util.render([[ $dst = l_mathop(atan2)($y, $x); ]],
+    return util.render([[ $dst = pallene_math_atan(L, $y, $x); ]],
+        { dst = dst, y = y, x = x })
+end
+
 gen_cmd["BuiltinStringChar"] = function(self, args)
     local dst = self:c_var(args.cmd.dsts[1])
     local v = self:c_value(args.cmd.srcs[1])

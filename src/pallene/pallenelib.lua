@@ -535,6 +535,25 @@ static lua_Integer pallene_math_modf(
     return pallene_checked_float_to_int(L, file, line, ip);
 }
 
+/* Based on math_atan from lmathlib.c */
+static lua_Number pallene_math_atan(lua_State *L, lua_Number y, TValue optx)
+{
+    lua_Number x;
+    if (ttisnil(&optx)) {
+        x = 1;
+    } else {
+        if (ttisfloat(&optx)) {
+            x = fltvalue(&optx);
+        } else if (ttisinteger(&optx)) {
+            x = cast(lua_Number, ivalue(&optx));
+        } else {
+            luaL_error(L, "math atan expects a number");
+            PALLENE_UNREACHABLE;
+        }
+    }
+    return l_mathop(atan2)(y, x);
+}
+
 static TString* pallene_string_char(lua_State *L, const char* file, int line, lua_Integer c)
 {
     if (l_castS2U(c) > UCHAR_MAX) {
