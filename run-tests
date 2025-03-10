@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # HOW TO USE: This is a wrapper around busted. Pass "gc" as the first argument for testing the
 # garbage collector. Except for "gc", the command-line arguments are the same of busted
@@ -16,7 +16,7 @@ echo "--- Test Suite ---"
 # Ctrl-C multiple times and one of those Ctrl-C's will likely kill the busted process itself,
 # meaning that the "teardown" routines are not run. On the other hand, with --no-keep-going we only
 # need to press Ctrl-C once and busted usually gets to exit gracefully.
-FLAGS=(--verbose --no-keep-going)
+FLAGS="--verbose --no-keep-going"
 
 # To speed things up, we tell the C compiler to skip optimizations. (It's OK, the CI still uses -O2)
 # Also, add some compiler flags to verify standard compliance.
@@ -24,15 +24,15 @@ export CFLAGS="-O0 -std=c99 -Wall -Werror -Wundef -Wno-unused $EXTRACFLAGS"
 
 if [ "$#" -eq 0 ]; then
     if command -v parallel >/dev/null; then
-        parallel busted -o utfTerminal "${FLAGS[@]}" ::: spec/*_spec.lua
+        parallel busted -o utfTerminal ${FLAGS} ::: spec/*_spec.lua
     else
         echo "GNU Parallel is not installed. Running the test suite in single threaded mode..."
-        busted "${FLAGS[@]}"
+        busted ${FLAGS}
     fi
     # By default, also run the linter because the CI cares about that.
     ./run-lint --quiet
 else
     # If we are running tests for a single spec file, then we do not use GNU Parallel. This way the
     # progress updates after each test, instead of all at once at end.
-    busted "${FLAGS[@]}" "$@"
+    busted ${FLAGS} "$@"
 fi
