@@ -86,6 +86,13 @@ export CPATH=/usr/local/include
 luarocks make pallene-dev-1.rockspec PTRACER_DIR=/usr/local
 ```
 
+To avoid specifying PTRACER_DIR every time you run Luarocks, you can add it to the config.
+
+```
+luarocks config PTRACER_DIR /usr/local
+luarocks make pallene-dev-1.rockspec
+```
+
 ## Using Pallene
 
 To compile a `foo.pln` file to a `foo.so` module, call `pallenec` as follows.
