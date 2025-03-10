@@ -33,8 +33,8 @@ luarocks install luacheck
 To run the test suite, run the `./run-tests` script in this project's root directory.
 
 ```sh
-$ ./run-tests                       # Run all tests
-$ ./run-tests spec/parser_spec.lua  # Run just one of the test suite files
+./run-tests                       # Run all tests
+./run-tests spec/parser_spec.lua  # Run just one of the test suite files
 ```
 
 **Tip:** We recommend having [GNU parallel](https://www.gnu.org/software/parallel/) installed.
@@ -59,7 +59,7 @@ environment variable to "-DHARDMEMTESTS" for the `run-tests` script. For
 example:
 
 ```sh
-$ EXTRACFLAGS="-DHARDMEMTESTS" ./run-tests
+EXTRACFLAGS="-DHARDMEMTESTS" ./run-tests
 ```
 
 ### Running the benchmarks suite
