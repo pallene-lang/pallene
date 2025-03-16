@@ -21,18 +21,20 @@ You can do so using LuaRocks; for full instructions see our [`.luacheckrc`](.lua
 
 ### Running the test suite
 
-We use [Busted](http://olivinelabs.com/busted/) to run our test suite.
-It can be installed using LuaRocks:
+We use [Busted](http://olivinelabs.com/busted/) to run our test suite
+and [Luacheck](https://github.com/lunarmodules/luacheck) for linting.
+They can both be installed using LuaRocks:
 
 ```sh
-$ luarocks install busted
+luarocks install busted
+luarocks install luacheck
 ```
 
 To run the test suite, run the `./run-tests` script in this project's root directory.
 
 ```sh
-$ ./run-tests                       # Run all tests
-$ ./run-tests spec/parser_spec.lua  # Run just one of the test suite files
+./run-tests                       # Run all tests
+./run-tests spec/parser_spec.lua  # Run just one of the test suite files
 ```
 
 **Tip:** We recommend having [GNU parallel](https://www.gnu.org/software/parallel/) installed.
@@ -57,7 +59,7 @@ environment variable to "-DHARDMEMTESTS" for the `run-tests` script. For
 example:
 
 ```sh
-$ EXTRACFLAGS="-DHARDMEMTESTS" ./run-tests
+EXTRACFLAGS="-DHARDMEMTESTS" ./run-tests
 ```
 
 ### Running the benchmarks suite

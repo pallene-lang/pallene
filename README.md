@@ -24,6 +24,7 @@ git clone https://www.github.com/pallene-lang/lua-internals/
 cd lua-internals
 make guess -j4
 sudo make install
+cd -
 ```
 
 If you are on Linux and would like the up arrow to work in the Lua REPL,
@@ -42,12 +43,13 @@ To build Luarocks, unpack the sources and run `configure`, `make`, and `make ins
 In the configure step, use `--with-lua` to point to our special Lua.
 
 ```sh
-wget https://luarocks.org/releases/luarocks-3.9.1.tar.gz
-tar xf luarocks-3.9.1.tar.gz
-cd luarocks-3.9.1
+wget https://luarocks.org/releases/luarocks-3.11.1.tar.gz
+tar xf luarocks-3.11.1.tar.gz
+cd luarocks-3.11.1
 ./configure --with-lua=/usr/local
 make
 sudo make install
+cd -
 ```
 
 By default, Luarocks installs packages into /usr/local, which requires sudo.
@@ -64,12 +66,30 @@ Remember that in order for the local rocks tree to work, you must to set the PAT
 eval "$(luarocks path)"
 ```
 
+### Install the Pallene Tracer
+
+Refer to the README at https://github.com/pallene-lang/pallene-tracer
+
 ### Install Pallene
 
 Finally, we can use Luarocks to build and install the Pallene compiler.
 This will also download and install the necessary Lua libraries.
 
 ```sh
+luarocks make pallene-dev-1.rockspec
+```
+
+If you used non-standard install locations in the previous steps, you may have to specify them.
+
+```sh
+export CPATH=/usr/local/include
+luarocks make pallene-dev-1.rockspec PTRACER_DIR=/usr/local
+```
+
+To avoid specifying PTRACER_DIR every time you run Luarocks, you can add it to the config.
+
+```
+luarocks config PTRACER_DIR /usr/local
 luarocks make pallene-dev-1.rockspec
 ```
 
