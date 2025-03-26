@@ -34,6 +34,21 @@ It needs to say `Lua 5.x.x with core API`.
 If it doesn't have the "with core API",
 that means you're using the default Lua instead of the special Lua.
 
+### Install Pallene Tracer
+
+For debugging purposes, Pallene uses a tool called Pallene Tracer, which is required to trace function calls throughout
+Pallene and Lua environments. You must clone and compile Pallene Tracer from its repository
+[pallene-tracer](https://github.com/pallene-lang/pallene-tracer). You need to use a specific version, `0.5.0a`.
+
+```sh
+git clone https://www.github.com/pallene-lang/pallene-tracer --depth 1 --branch 0.5.0a
+cd pallene-tracer
+make LUA_PREFIX=/usr/local
+sudo make install
+```
+
+Here, `LUA_PREFIX=/usr/local` is used to point to the patched Lua for Pallene.
+
 ### Install Luarocks
 
 The next step is to get the Luarocks package manager.
