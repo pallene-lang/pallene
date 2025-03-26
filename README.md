@@ -81,10 +81,6 @@ Remember that in order for the local rocks tree to work, you must to set the PAT
 eval "$(luarocks path)"
 ```
 
-### Install the Pallene Tracer
-
-Refer to the README at https://github.com/pallene-lang/pallene-tracer
-
 ### Install Pallene
 
 Finally, we can use Luarocks to build and install the Pallene compiler.
