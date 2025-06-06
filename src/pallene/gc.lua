@@ -88,7 +88,8 @@ local function compute_stack_slots(func)
         return gk
     end
 
-    local flow_info = flow.FlowInfo(flow.Order.Backwards, compute_gen_kill, init_start)
+    local flow_info = flow.FlowInfo(
+        flow.Order.Backwards, compute_gen_kill, init_start)
     local sets_list = flow.flow_analysis(func.blocks, flow_info)
 
     -- 2) Find which GC'd variables are live at each GC spot in the program and
@@ -160,12 +161,116 @@ local function compute_stack_slots(func)
     return live_gc_vars, max_frame_size, slot_of_variable
 end
 
+local function Definition(block_i, cmd_i, var_i)
+    return {
+        block_i = block_i,
+        cmd_i   = cmd_i,
+        var_i   = var_i,
+    }
+end
+
+local function make_definition_list(func)
+    local def_list = {}  -- { Definition }
+    local cmd_def_map  = {}  -- { block_id => { cmd_id => {definition_id} } }
+    local var_def_map  = {}  -- { var_id => {definition_id}? }
+    for var_i, var in ipairs(func.vars) do
+        if types.is_gc(var.typ) then
+            var_def_map[var_i] = {}
+        else
+            var_def_map[var_i] = false
+        end
+    end
+    for block_i, block in ipairs(func.blocks) do
+        local block_map = {}
+        cmd_def_map[block_i] = block_map
+        for cmd_i, cmd in ipairs(block.cmds) do
+            local cmd_map = {}
+            block_map[cmd_i] = cmd_map
+            for _, dst in ipairs(ir.get_dsts(cmd)) do
+                local typ = func.vars[dst].typ
+                if types.is_gc(typ) then
+                    local def = Definition(block_i,cmd_i,dst)
+                    table.insert(def_list, def)
+                    local def_id = #def_list
+                    table.insert(cmd_map, def_id)
+
+                    local var_defs = var_def_map[dst]
+                    table.insert(var_defs, def_id)
+                end
+            end
+        end
+    end
+    return def_list, cmd_def_map, var_def_map
+end
+
+local function compute_vars_to_mirror(func)
+
+    -- 1) Register definitions of GC'd variables
+    local def_list, cmd_def_map, var_def_map = make_definition_list(func)
+
+    -- 2) Find reaching definitions for each basic block
+    local function init_start(_start_set, _block_index)
+    end
+
+    local function compute_gen_kill(block_i, cmd_i)
+        local cmd = func.blocks[block_i].cmds[cmd_i]
+        local gk = flow.GenKill()
+        for _, dst in ipairs(ir.get_dsts(cmd)) do
+            local typ = func.vars[dst].typ
+            if types.is_gc(typ) then
+                local var_defs = var_def_map[dst]
+                for _, def_id in ipairs(var_defs) do
+                    flow.kill_value(gk, def_id)
+                end
+            end
+        end
+        local current_defs = cmd_def_map[block_i][cmd_i]
+        if current_defs then
+            for _, def in ipairs(current_defs) do
+                flow.gen_value(gk, def)
+            end
+        end
+        return gk
+    end
+
+    local flow_info = flow.FlowInfo(
+        flow.Order.Forward, compute_gen_kill, init_start)
+    local sets_list = flow.flow_analysis(func.blocks, flow_info)
+
+    -- 3) Find which definitions reach commands that might call the GC, that is, which definitions
+    -- writes have to be mirroed to the stack
+    local vars_to_mirror = {}  -- { block_id => { cmd_id => set of var_i } }
+    for block_i, block in ipairs(func.blocks) do
+        local block_defs = {}
+        vars_to_mirror[block_i] = block_defs
+        for cmd_i = 1, #block.cmds do
+            block_defs[cmd_i] = {}
+        end
+    end
+    for block_i, block in ipairs(func.blocks) do
+        local defs_block = sets_list[block_i]
+        for cmd_i, cmd in ipairs(block.cmds) do
+            flow.update_set(defs_block, flow_info, block_i, cmd_i)
+            if cmd_uses_gc(cmd) then
+                for def_i, _ in pairs(defs_block) do
+                    local def = def_list[def_i]
+                    vars_to_mirror[def.block_i][def.cmd_i][def.var_i] = true
+                end
+            end
+        end
+    end
+
+    return vars_to_mirror
+end
+
 function gc.compute_gc_info(func)
     local live_gc_vars, max_frame_size, slot_of_variable = compute_stack_slots(func)
+    local vars_to_mirror = compute_vars_to_mirror(func)
     return {
         live_gc_vars = live_gc_vars,
         max_frame_size = max_frame_size,
         slot_of_variable = slot_of_variable,
+        vars_to_mirror = vars_to_mirror,
     }
 end
 

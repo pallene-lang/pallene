@@ -88,7 +88,7 @@ function Coder:init(module, modname, filename, flags)
         self.record_coders[typ] = RecordCoder.new(self, typ)
     end
 
-    self.gc = {} -- (see gc.compute_stack_slots)
+    self.gc = {} -- { func => gc_info } see gc.compute_gc_info
     self.max_lua_call_stack_usage = {} -- func => integer
     self:init_gc()
 end
@@ -1265,6 +1265,20 @@ gen_cmd["NewArr"] = function(self, args)
     }))
 end
 
+gen_cmd["RenormArr"] = function(self, args)
+    local arr = self:c_value(args.cmd.src_arr)
+    local i   = self:c_value(args.cmd.src_i)
+    local line = C.integer(args.cmd.loc.line)
+
+    return (util.render([[
+        pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
+    ]], {
+        arr = arr,
+        i = i,
+        line = line,
+    }))
+end
+
 gen_cmd["GetArr"] = function(self, args)
     local dst = self:c_var(args.cmd.dst)
     local arr = self:c_value(args.cmd.src_arr)
@@ -1274,7 +1288,6 @@ gen_cmd["GetArr"] = function(self, args)
 
     return (util.render([[
         {
-            pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
             TValue *slot = &$arr->array[$i - 1];
             $get_slot
         }
@@ -1295,7 +1308,6 @@ gen_cmd["SetArr"] = function(self, args)
     local line = C.integer(args.cmd.loc.line)
     return (util.render([[
         {
-            pallene_renormalize_array(L, $arr, $i, PALLENE_SOURCE_FILE, $line);
             TValue *slot = &$arr->array[$i - 1];
             ${set_heap_slot}
         }
@@ -1766,6 +1778,10 @@ gen_cmd["JmpIf"] = function(self, args)
         t = self:c_label(args.cmd.target_true),
         f = self:c_label(args.cmd.target_false),
     })
+end
+
+gen_cmd["Nop"] = function()
+    return ""
 end
 
 gen_cmd["CheckGC"] = function(self, args)
