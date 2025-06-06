@@ -122,9 +122,7 @@ local function Cmd(cmd)
     local tag = cmd._tag
 
     local lhs
-    if     tag == "ir.Cmd.Nop" then
-        return "nop"
-    elseif tag == "ir.Cmd.Return" then
+    if tag == "ir.Cmd.Return" then
         return "return " .. comma_concat(Vals(cmd.srcs))
     elseif tag == "ir.Cmd.SetArr"      then lhs = Bracket(cmd.src_arr, cmd.src_i)
     elseif tag == "ir.Cmd.SetTable"    then lhs = Bracket(cmd.src_tab, cmd.src_k)
@@ -154,6 +152,7 @@ local function Cmd(cmd)
     elseif tag == "ir.Cmd.JmpIf" then
         rhs = "jmpIf " .. Val(cmd.src_cond) .. ", " .. cmd.target_true .. ", " .. cmd.target_false
     elseif tag == "ir.Cmd.Jmp" then rhs = "jmp " .. cmd.target
+    elseif tag == "ir.Cmd.Nop" then rhs = "nop"
     elseif tagged_union.typename(cmd._tag) == "ir.Cmd" then
         local name = tagged_union.consname(cmd._tag)
         rhs = Call(name, Vals(ir.get_srcs(cmd)))

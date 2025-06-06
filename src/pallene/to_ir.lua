@@ -77,11 +77,13 @@ end
 --
 --
 
-function BlockBuilder:init(block_list)
-    self.block_list = block_list -- { ir.BasicBlock }
-    self.ret_list = {}           -- { block_id } ids of blocks that come from return statements
-    self.break_stack = {}        -- { { block_id } } we keep track of blocks that come from break
-                                 -- statements so we can reference them when leaving a loop
+function BlockBuilder:init(block_list, for_loop_list)
+    self.block_list = block_list   -- { ir.BasicBlock }
+    self.ret_list = {}             -- { block_id } ids of blocks that come from return statements
+    self.break_stack = {}          -- { { block_id } } we keep track of blocks that come from break
+                                   -- statements so we can reference them when leaving a loop
+    self.loop_list = for_loop_list -- { ir.ForLoop }
+    self.loop_stack = {}
 end
 
 function BlockBuilder:finish_block()
@@ -114,6 +116,16 @@ function BlockBuilder:append_cmd(cmd)
     return cmd
 end
 
+function BlockBuilder:append_get_arr(loc, dst_typ, dst, arr, i)
+    self:append_cmd(ir.Cmd.RenormArr(loc, arr, i))
+    self:append_cmd(ir.Cmd.GetArr(loc, dst_typ, dst, arr, i))
+end
+
+function BlockBuilder:append_set_arr(loc, src_typ, arr, i, val)
+    self:append_cmd(ir.Cmd.RenormArr(loc, arr, i))
+    self:append_cmd(ir.Cmd.SetArr(loc, src_typ, arr, i, val))
+end
+
 function BlockBuilder:last_block_id()
     return #self.block_list
 end
@@ -137,6 +149,29 @@ function BlockBuilder:exit_loop(break_destination)
         assert(jump)
         jump.target = break_destination
     end
+end
+
+function BlockBuilder:enter_for_loop(prep_cmd)
+    self:enter_loop()
+    local loop = ir.ForLoop()
+    assert(prep_cmd._tag == "ir.Cmd.ForPrep")
+    local step = prep_cmd.src_step
+    loop.step_is_positive = (step._tag == "ir.Value.Integer" and step.value > 0)
+    loop.prep_block_id = #self.block_list
+    loop.body_first_block_id = loop.prep_block_id + 1
+    loop.iteration_variable_id = prep_cmd.dst_i
+    loop.limit_value = prep_cmd.src_limit
+    loop.loc = prep_cmd.loc
+    table.insert(self.loop_stack, loop)
+end
+
+function BlockBuilder:exit_for_loop(break_destination)
+    assert(#self.loop_stack > 0)
+    local loop = table.remove(self.loop_stack)
+    assert(#self.block_list > 1)
+    loop.body_last_block_id = #self.block_list - 1
+    table.insert(self.loop_list, loop)
+    self:exit_loop(break_destination)
 end
 
 function ToIR:init()
@@ -163,7 +198,7 @@ function ToIR:enter_function(f_id)
     self.func           = func_info.func
     self.loc_id_of_decl = func_info.loc_id_of_decl
 
-    local block_builder = BlockBuilder.new(self.func.blocks)
+    local block_builder = BlockBuilder.new(self.func.blocks, self.func.for_loops)
     block_builder:start_block_list()
 
     return block_builder
@@ -466,7 +501,7 @@ function ToIR:convert_stat(bb, stat)
                 start, limit, step)
 
         bb:append_cmd(init_for)
-        bb:enter_loop()
+        bb:enter_for_loop(init_for)
         local before_loop_jmpIf = bb:append_cmd(ir.Cmd.JmpIf(stat.loc, ir.Value.LocalVar(cond_enter), nil, nil))
         local loop_begin = bb:finish_block()
         self:convert_stat(bb, stat.block)
@@ -480,7 +515,7 @@ function ToIR:convert_stat(bb, stat)
         step_test_jmpIf.target_true  = after_loop
         step_test_jmpIf.target_false = loop_begin
 
-        bb:exit_loop(after_loop)
+        bb:exit_for_loop(after_loop)
 
     elseif tag == "ast.Stat.ForIn" then
         local decls = stat.decls
@@ -541,7 +576,7 @@ function ToIR:convert_stat(bb, stat)
             local v_x_dyn = ir.add_local(self.func, "$"..decls[2].name.."_dyn", types.T.Any)
             local src_arr =  ir.Value.LocalVar(v_arr)
             local src_i =  ir.Value.LocalVar(v_inum)
-            bb:append_cmd(ir.Cmd.GetArr(stat.loc, types.T.Any, v_x_dyn, src_arr, src_i))
+            bb:append_get_arr(stat.loc, types.T.Any, v_x_dyn, src_arr, src_i)
 
             -- if x_dyn == nil then break end
             local cond_checknil = ir.add_local(self.func, false, types.T.Boolean)
@@ -767,7 +802,7 @@ function ToIR:convert_stat(bb, stat)
                 if     ltag == "to_ir.LHS.Local" then
                     bb:append_cmd(ir.Cmd.Move(loc, lhs.id, val))
                 elseif ltag == "to_ir.LHS.Array" then
-                    bb:append_cmd(ir.Cmd.SetArr(loc, lhs.typ, lhs.arr, lhs.i, val))
+                    bb:append_set_arr(loc, lhs.typ, lhs.arr, lhs.i, val)
                 elseif ltag == "to_ir.LHS.Table" then
                     local str = ir.Value.String(lhs.field)
                     bb:append_cmd(ir.Cmd.SetTable(loc, lhs.typ, lhs.t, str, val))
@@ -1078,7 +1113,7 @@ function ToIR:exp_to_assignment(bb, dst, exp)
                 local iv = ir.Value.Integer(i)
                 local vv = self:exp_to_value(bb, field.exp)
                 local src_typ = field.exp._type
-                bb:append_cmd(ir.Cmd.SetArr(loc, src_typ, av, iv, vv))
+                bb:append_set_arr(loc, src_typ, av, iv, vv)
             end
 
         elseif typ._tag == "types.T.Table" then
@@ -1288,7 +1323,7 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             local arr = self:exp_to_value(bb, var.t)
             local i   = self:exp_to_value(bb, var.k)
             local dst_typ = var._type
-            bb:append_cmd(ir.Cmd.GetArr(loc, dst_typ, dst, arr, i))
+            bb:append_get_arr(loc, dst_typ, dst, arr, i)
 
         elseif var._tag == "ast.Var.Dot" then
               local typ = assert(var.exp._type)

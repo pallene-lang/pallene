@@ -42,6 +42,18 @@ function ir.VarDecl(name, typ)
     }
 end
 
+function ir.ForLoop()
+    return {
+        step_is_positive = false,      -- boolean
+        prep_block_id = false,         -- block_id
+        body_first_block_id = false,   -- block_id
+        body_last_block_id = false,    -- block_id
+        iteration_variable_id = false, -- v_id
+        limit_value = false,           -- ir.Value
+        loc = false,                   -- Location
+    }
+end
+
 function ir.Function(loc, name, typ)
     return {
         loc = loc,            -- Location
@@ -53,6 +65,7 @@ function ir.Function(loc, name, typ)
         f_id_of_local = {},   -- { v_id => integer }
         blocks = {},          -- { ir.BasicBlock }
         ret_vars = {},        -- { v_id }, list of return variables
+        for_loops = {},       -- { ir.ForLoop }
     }
 end
 
@@ -125,6 +138,15 @@ define_union("Value", {
     Upvalue    = {"id"},
 })
 
+function ir.is_constant(value)
+    local tag = value._tag
+    return tag == "ir.Value.Nil" or
+           tag == "ir.Value.Bool" or
+           tag == "ir.Value.Integer" or
+           tag == "ir.Value.Float" or
+           tag == "ir.Value.String"
+end
+
 -- define_union("Cmd"
 local ir_cmd_constructors = {
     -- [IMPORTANT] Please use this naming convention:
@@ -148,6 +170,7 @@ local ir_cmd_constructors = {
 
     -- Arrays
     NewArr     = {"loc", "dst", "src_size"},
+    RenormArr  = {"loc", "src_arr", "src_i"}, -- renormalize array
 
     GetArr     = {"loc", "dst_typ", "dst", "src_arr", "src_i"},
     SetArr     = {"loc", "src_typ",        "src_arr", "src_i", "src_v"},
@@ -208,6 +231,8 @@ local ir_cmd_constructors = {
 
     Jmp        = {"target"},
     JmpIf      = {"loc", "src_cond", "target_true", "target_false"},
+
+    Nop = {}, -- does nothing
 
     -- Garbage Collection (appears after memory allocations)
     CheckGC = {},
@@ -277,13 +302,13 @@ function ir.BasicBlock()
     }
 end
 
-local function is_jump(cmd)
+function ir.is_jump(cmd)
     return cmd._tag == "ir.Cmd.Jmp" or cmd._tag == "ir.Cmd.JmpIf"
 end
 
 function ir.get_jump(block)
     local cmd = block.cmds[#block.cmds]
-    if not cmd or not is_jump(cmd) then
+    if not cmd or not ir.is_jump(cmd) then
         return false
     end
     return cmd
@@ -394,29 +419,41 @@ function ir.get_predecessor_depth_search_topological_sort(predecessor_list)
     return reverse_order
 end
 
--- Iterate over the cmds of basic blocks using a naive ordering.
-function ir.iter(block_list)
-    local function go()
-        for _,block in ipairs(block_list) do
-            for _, cmd in ipairs(block.cmds) do
-                coroutine.yield(cmd)
+-- Inserts a block into a given index on a function's block list and updates block index references
+-- accordingly.
+function ir.insert_block(func, new_block, index)
+    assert(index > 0)
+    for _, block in ipairs(func.blocks) do
+        for _, cmd in ipairs(block.cmds) do
+            if cmd._tag == "ir.Cmd.Jmp" then
+                cmd.target = cmd.target + (cmd.target >= index and 1 or 0)
+            elseif cmd._tag == "ir.Cmd.JmpIf" then
+                cmd.target_true = cmd.target_true + (cmd.target_true >= index and 1 or 0)
+                cmd.target_false = cmd.target_false + (cmd.target_false >= index and 1 or 0)
             end
         end
     end
-    return coroutine.wrap(function() go() end)
-end
 
-function ir.flatten_cmd(block_list)
-    local res = {}
-    for _,block in ipairs(block_list) do
-        for _,cmd in ipairs(block.cmds) do
-            table.insert(res, cmd)
+    for _, loop in ipairs(func.for_loops) do
+        loop.prep_block_id = loop.prep_block_id + (loop.prep_block_id >= index and 1 or 0)
+        loop.body_first_block_id = loop.body_first_block_id + (loop.body_first_block_id >= index and 1 or 0)
+        loop.body_last_block_id = loop.body_last_block_id + (loop.body_last_block_id >= index and 1 or 0)
+    end
+
+    local offset = index - 1
+    for _, cmd in ipairs(new_block.cmds) do
+        if cmd._tag == "ir.Cmd.Jmp" then
+            cmd.target = cmd.target + offset
+        elseif cmd._tag == "ir.Cmd.JmpIf" then
+            cmd.target_true = cmd.target_true + offset
+            cmd.target_false = cmd.target_false + offset
         end
     end
-    return res
+
+    table.insert(func.blocks, index, new_block)
 end
 
--- Remove jumps that are never taken
+-- Remove jumps that are never taken.
 function ir.clean(func)
     for _, block in ipairs(func.blocks) do
         local jump = ir.get_jump(block)
