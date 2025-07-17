@@ -19,6 +19,7 @@ local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
 local translator = require "pallene.translator"
+local type_extractor = require "pallene.type_extractor"
 
 local driver = {}
 
@@ -144,6 +145,7 @@ end
 --    compile("pln", "so", "foo.pln") --> outputs "foo.so"
 --    compile("pln", "c", "foo.pln")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)      --> outputs "foo.so"
+--    compile("pln", "ptf", "foo.pln") --> outputs "foo.ptf"
 --
 
 local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
@@ -173,6 +175,31 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     return true, {}
 end
 
+local function compile_pln_to_ptf(input_ext, output_ext, input_file_name, base_name)
+    assert(input_ext == "pln")
+
+    local input, err = driver.load_input(input_file_name)
+    if not input then
+        return false, { err }
+    end
+
+    local prog_ast, errs = driver.compile_internal(input_file_name, input, "typechecker")
+    if not prog_ast then
+        return false, errs
+    end
+
+    local ptf_code
+    ptf_code, errs = type_extractor.generate_type_declarations(prog_ast)
+    if not ptf_code then
+        return false, errs
+    end
+    table.insert(ptf_code, "")
+    ptf_code = table.concat(ptf_code, "\n")
+
+    assert(util.set_file_contents(base_name .. "." .. output_ext, ptf_code))
+    return true, {}
+end
+
 
 -- Compile the contents of [input_file_name] with extension [input_ext].
 -- Writes the resulting output to [output_file_name] with extension [output_ext].
@@ -191,6 +218,8 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
 
     if output_ext == "lua" then
         return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
+    elseif output_ext == "ptf" then
+        return compile_pln_to_ptf(input_ext, output_ext, input_file_name, output_base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")
