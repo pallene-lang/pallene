@@ -11,7 +11,6 @@ local primitives_type_names = {
     ["types.T.Any"]         = "any",
 }
 
-
 local format_type
 
 local function format_ast_type(type)
@@ -95,6 +94,20 @@ format_type = function(type)
     end
 end
 
+local function create_function_type(funcstat)
+    local decls = {}
+    for i, arg_decl in ipairs(funcstat.value.arg_decls) do
+        local arg_type = arg_decl.type
+        table.insert(decls, arg_type)
+    end
+    local function_type = {
+        _tag = "types.T.Function",
+        arg_types = decls,
+        ret_types = funcstat.ret_types,
+    }
+    return function_type
+end
+
 local function typeof_tls(node, typedefs)
     if node._tag == "ast.Toplevel.Typealias" then
         local type_name = node.name
@@ -122,7 +135,8 @@ local function typeof_tls(node, typedefs)
                 local funcs = stat.funcs
                 for _, func in ipairs(funcs) do
                     if func.module then
-                        table.insert(typedefs, string.format("%s: %s", func.name, format_type(func._type)))
+                        local func_type = create_function_type(func)
+                        table.insert(typedefs, string.format("%s: %s", func.name, format_type(func_type)))
                     end
                 end
             elseif stat._tag == "ast.Stat.Decl" then
