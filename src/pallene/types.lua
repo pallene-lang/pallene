@@ -25,9 +25,11 @@ define_union("T", {
         "is_upvalue_box" -- whether this is an artificial upvalue record
                          --  (check assignment_conversion.lua)
     },
+    Alias    = {"name", "type"},
 })
 
 function types.is_gc(t)
+    local t = types.expand_typealias(t)
     local tag = t._tag
     if     tag == "types.T.Nil" or
            tag == "types.T.Boolean" or
@@ -51,6 +53,7 @@ function types.is_gc(t)
 end
 
 function types.is_condition(t)
+    local t = types.expand_typealias(t)
     local tag = t._tag
     if     tag == "types.T.Any" or
            tag == "types.T.Boolean"
@@ -75,6 +78,7 @@ function types.is_condition(t)
 end
 
 function types.is_indexable(t)
+    local t = types.expand_typealias(t)
     local tag = t._tag
     if     tag == "types.T.Table" or
            tag == "types.T.Record"
@@ -98,6 +102,7 @@ function types.is_indexable(t)
 end
 
 function types.indices(t)
+    local t = types.expand_typealias(t)
     local tag = t._tag
     if     tag == "types.T.Table" then
         return t.fields
@@ -115,6 +120,8 @@ function types.indices(t)
 end
 
 function types.equals(t1, t2)
+    local t1 = types.expand_typealias(t1)
+    local t2 = types.expand_typealias(t2)
     local tag1 = t1._tag
     local tag2 = t2._tag
 
@@ -197,6 +204,8 @@ end
 -- We forbid type casts that are 100% guaranteed to fail, e.g. int=>string.
 -- This is looser than the consistency requirement from gradual typing.
 function types.consistent(t1, t2)
+    local t1 = types.expand_typealias(t1)
+    local t2 = types.expand_typealias(t2)
     return (
         t1._tag == "types.T.Any" or
         t2._tag == "types.T.Any" or
@@ -242,12 +251,15 @@ function types.tostring(t)
 
     elseif tag == "types.T.Record" then
         return t.name
+    elseif tag == "types.T.Alias" then
+        return string.format("%s[aka %s]", t.name, types.tostring(types.expand_typealias(t.type)))
     else
         tagged_union.error(tag)
     end
 end
 
 local function is_optional(t)
+    local t = types.expand_typealias(t)
     return t._tag == 'types.T.Any' or t._tag == "types.T.Nil"
 end
 
@@ -260,6 +272,14 @@ function types.number_of_mandatory_args(argtypes)
         n = n - 1
     end
     return n
+end
+
+function types.expand_typealias(type)
+    if type._tag == "types.T.Alias" then
+        return types.expand_typealias(type.type)
+    else
+        return type
+    end
 end
 
 return types

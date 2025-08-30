@@ -77,7 +77,8 @@ end
 
 local function check_type_is_condition(exp, fmt, ...)
     local typ = exp._type
-    if typ._tag ~= "types.T.Boolean" and typ._tag ~= "types.T.Any" then
+    local aliased = types.expand_typealias(typ)
+    if aliased._tag ~= "types.T.Boolean" and aliased._tag ~= "types.T.Any" then
         type_error(exp.loc,
             "expression passed to %s has type %s. Expected boolean or any.",
             string.format(fmt, ...),
@@ -263,7 +264,10 @@ function Typechecker:check_program(prog_ast)
             end
 
         elseif tag == "ast.Toplevel.Typealias" then
-            self:add_type_symbol(tl_node.name, self:from_ast_type(tl_node.type))
+            self:add_type_symbol(
+                tl_node.name,
+                types.T.Alias(tl_node.name, self:from_ast_type(tl_node.type))
+            )
 
         elseif tag == "ast.Toplevel.Record" then
             local field_names = {}
@@ -379,10 +383,11 @@ function Typechecker:check_stat(stat, is_toplevel)
             "numeric for-loop initializer")
 
         local loop_type = stat.decl._type
+        local loop_aliased_type = types.expand_typealias(loop_type)
 
 
-        if  loop_type._tag ~= "types.T.Integer" and
-            loop_type._tag ~= "types.T.Float"
+        if  loop_aliased_type._tag ~= "types.T.Integer" and
+            loop_aliased_type._tag ~= "types.T.Float"
         then
             type_error(stat.decl.loc,
                 "expected integer or float but found %s in for-loop control variable '%s'",
@@ -390,9 +395,9 @@ function Typechecker:check_stat(stat, is_toplevel)
         end
 
         if not stat.step then
-            if     loop_type._tag == "types.T.Integer" then
+            if     loop_aliased_type._tag == "types.T.Integer" then
                 stat.step = ast.Exp.Integer(stat.limit.loc, 1)
-            elseif loop_type._tag == "types.T.Float" then
+            elseif loop_aliased_type._tag == "types.T.Float" then
                 stat.step = ast.Exp.Float(stat.limit.loc, 1.0)
             else
                 assert(false)
@@ -429,12 +434,13 @@ function Typechecker:check_stat(stat, is_toplevel)
         local itertype = types.T.Function({ types.T.Any, types.T.Any }, decl_types)
         rhs[1] = self:check_exp_synthesize(rhs[1])
         local iteratorfn = rhs[1]
+        local iteratorfn_aliased_type = types.expand_typealias(iteratorfn._type)
 
         if not types.equals(iteratorfn._type, itertype) then
-            if iteratorfn._type._tag == "types.T.Function" and
-               #decl_types ~= #iteratorfn._type.ret_types then
+            if iteratorfn_aliased_type._tag == "types.T.Function" and
+               #decl_types ~= #iteratorfn_aliased_type.ret_types then
                 type_error(iteratorfn.loc, "expected %d variable(s) in for loop but found %d",
-                    #iteratorfn._type.ret_types, #decl_types)
+                    #iteratorfn_aliased_type.ret_types, #decl_types)
             else
                 type_error(iteratorfn.loc, "expected %s but found %s in loop iterator",
                     types.tostring(itertype), types.tostring(iteratorfn._type))
@@ -444,23 +450,23 @@ function Typechecker:check_stat(stat, is_toplevel)
         rhs[2] = self:check_exp_synthesize(rhs[2])
         rhs[3] = self:check_exp_synthesize(rhs[3])
 
-        if rhs[2]._type._tag ~= "types.T.Any" then
+        if types.expand_typealias(rhs[2]._type)._tag ~= "types.T.Any" then
             type_error(rhs[2].loc, "expected any but found %s in loop state value",
                 types.tostring(rhs[2]._type))
         end
 
-        if rhs[3]._type._tag ~= "types.T.Any" then
+        if types.expand_typealias(rhs[3]._type)._tag ~= "types.T.Any" then
             type_error(rhs[2].loc, "expected any but found %s in loop control value",
             types.tostring(rhs[3]._type))
         end
 
-        if #stat.decls ~= #iteratorfn._type.ret_types then
+        if #stat.decls ~= #iteratorfn_aliased_type.ret_types then
             type_error(stat.decls[1].loc, "expected %d values, but function returns %d",
-                       #stat.decls, #iteratorfn._type.ret_types)
+                       #stat.decls, #iteratorfn_aliased_type.ret_types)
         end
 
         self.symbol_table:with_block(function()
-            local ret_types = iteratorfn._type.ret_types
+            local ret_types = iteratorfn_aliased_type.ret_types
             for i, decl in ipairs(stat.decls) do
                 if decl.type then
                     decl._type = self:from_ast_type(decl.type)
@@ -707,7 +713,8 @@ function Typechecker:check_var(var)
     elseif tag == "ast.Var.Bracket" then
         var.t = self:check_exp_synthesize(var.t)
         local arr_type = var.t._type
-        if arr_type._tag ~= "types.T.Array" then
+        local arr_aliased_type = types.expand_typealias(arr_type)
+        if arr_aliased_type._tag ~= "types.T.Array" then
             type_error(var.t.loc,
                 "expected array but found %s in indexed expression",
                 types.tostring(arr_type))
@@ -722,20 +729,21 @@ function Typechecker:check_var(var)
 end
 
 local function is_numeric_type(typ)
+    local typ = types.expand_typealias(typ)
     return typ._tag == "types.T.Integer" or typ._tag == "types.T.Float"
 end
 
 function Typechecker:coerce_numeric_exp_to_float(exp)
-    local tag = exp._type._tag
-    if     tag == "types.T.Float" then
+    local aliased_tag = types.expand_typealias(exp._type)._tag
+    if     aliased_tag == "types.T.Float" then
         return exp
-    elseif tag == "types.T.Integer" then
+    elseif aliased_tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
-    elseif tagged_union.typename(tag) == "types.T" then
+    elseif tagged_union.typename(aliased_tag) == "types.T" then
         -- Cannot be coerced to float
         assert(false)
     else
-        tagged_union.error(tag)
+        tagged_union.error(exp._tag)
     end
 end
 
@@ -752,7 +760,8 @@ function Typechecker:check_fun_call(exp, is_stat)
     -- 1) Check the type of the function
     --
     local f_type = exp.exp._type
-    if f_type._tag ~= "types.T.Function" then
+    local f_aliased_type = types.expand_typealias(f_type)
+    if f_aliased_type._tag ~= "types.T.Function" then
         type_error(exp.loc,
             "attempting to call a %s value",
             types.tostring(f_type))
@@ -761,8 +770,8 @@ function Typechecker:check_fun_call(exp, is_stat)
     --
     -- 2) Check the number of arguments
     --
-    local min_nargs  = types.number_of_mandatory_args(f_type.arg_types)
-    local full_nargs = #f_type.arg_types
+    local min_nargs  = types.number_of_mandatory_args(f_aliased_type.arg_types)
+    local full_nargs = #f_aliased_type.arg_types
     local original_nargs = #exp.args
     local adjusted_nargs = math.max(original_nargs, full_nargs)
 
@@ -798,20 +807,20 @@ function Typechecker:check_fun_call(exp, is_stat)
     assert(adjusted_nargs == #exp.args)
     for i = 1, adjusted_nargs do
         exp.args[i] = self:check_exp_verify(
-            exp.args[i], f_type.arg_types[i],
+            exp.args[i], f_aliased_type.arg_types[i],
             "argument %d of call to function", i)
     end
 
-    if #f_type.ret_types == 0 then
+    if #f_aliased_type.ret_types == 0 then
         if is_stat then
             exp._type = false
         else
             type_error(exp.loc, "calling a void function where a value is expected")
         end
     else
-        exp._type = f_type.ret_types[1]
+        exp._type = f_aliased_type.ret_types[1]
     end
-    exp._types = f_type.ret_types
+    exp._types = f_aliased_type.ret_types
 
     return exp
 end
@@ -855,23 +864,24 @@ function Typechecker:check_exp_synthesize(exp)
     elseif tag == "ast.Exp.Unop" then
         exp.exp = self:check_exp_synthesize(exp.exp)
         local t = exp.exp._type
+        local t_aliased = types.expand_typealias(t)
         local op = exp.op
         if op == "#" then
-            if t._tag ~= "types.T.Array" and t._tag ~= "types.T.String" then
+            if t_aliased._tag ~= "types.T.Array" and t_aliased._tag ~= "types.T.String" then
                 type_error(exp.loc,
                     "trying to take the length of a %s instead of an array or string",
                     types.tostring(t))
             end
             exp._type = types.T.Integer
         elseif op == "-" then
-            if t._tag ~= "types.T.Integer" and t._tag ~= "types.T.Float" then
+            if t_aliased._tag ~= "types.T.Integer" and t_aliased._tag ~= "types.T.Float" then
                 type_error(exp.loc,
                     "trying to negate a %s instead of a number",
                     types.tostring(t))
             end
             exp._type = t
         elseif op == "~" then
-            if t._tag ~= "types.T.Integer" then
+            if t_aliased._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "trying to bitwise negate a %s instead of an integer",
                     types.tostring(t))
@@ -889,10 +899,12 @@ function Typechecker:check_exp_synthesize(exp)
         exp.rhs = self:check_exp_synthesize(exp.rhs)
         local t1 = exp.lhs._type
         local t2 = exp.rhs._type
+        local t1_aliased = types.expand_typealias(t1)
+        local t2_aliased = types.expand_typealias(t2)
         local op = exp.op
         if op == "==" or op == "~=" then
-            if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
-               (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
+            if (t1_aliased._tag == "types.T.Integer" and t2_aliased._tag == "types.T.Float") or
+               (t1_aliased._tag == "types.T.Float"   and t2_aliased._tag == "types.T.Integer") then
                 -- TODO if we implement this then we should use the same logic as luaV_equalobj.
                 -- Don't just cast to float! That is not accurate for large integers.
                 type_error(exp.loc,
@@ -906,12 +918,12 @@ function Typechecker:check_exp_synthesize(exp)
             exp._type = types.T.Boolean
 
         elseif op == "<" or op == ">" or op == "<=" or op == ">=" then
-            if (t1._tag == "types.T.Integer" and t2._tag == "types.T.Integer") or
-               (t1._tag == "types.T.Float"   and t2._tag == "types.T.Float") or
-               (t1._tag == "types.T.String"  and t2._tag == "types.T.String") then
+            if (t1_aliased._tag == "types.T.Integer" and t2_aliased._tag == "types.T.Integer") or
+               (t1_aliased._tag == "types.T.Float"   and t2_aliased._tag == "types.T.Float") or
+               (t1_aliased._tag == "types.T.String"  and t2_aliased._tag == "types.T.String") then
                -- OK
-            elseif (t1._tag == "types.T.Integer" and t2._tag == "types.T.Float") or
-                   (t1._tag == "types.T.Float"   and t2._tag == "types.T.Integer") then
+            elseif (t1_aliased._tag == "types.T.Integer" and t2_aliased._tag == "types.T.Float") or
+                   (t1_aliased._tag == "types.T.Float"   and t2_aliased._tag == "types.T.Integer") then
                 -- Note: if we implement this then we should use the same logic as LTintfloat,
                 -- LEintfloat and so on, from lvm.c. Just casting to float is not enough!
                 type_error(exp.loc,
@@ -935,8 +947,8 @@ function Typechecker:check_exp_synthesize(exp)
                     types.tostring(t2))
             end
 
-            if t1._tag == "types.T.Integer" and
-               t2._tag == "types.T.Integer"
+            if t1_aliased._tag == "types.T.Integer" and
+               t2_aliased._tag == "types.T.Integer"
             then
                 exp._type = types.T.Integer
             else
@@ -964,10 +976,10 @@ function Typechecker:check_exp_synthesize(exp)
         elseif op == ".." then
             -- The arguments to '..' must be a strings. We do not allow "any" because Pallene does
             -- not allow concatenating integers or objects that implement tostring()
-            if t1._tag ~= "types.T.String" then
+            if t1_aliased._tag ~= "types.T.String" then
                 type_error(exp.loc, "cannot concatenate with %s value", types.tostring(t1))
             end
-            if t2._tag ~= "types.T.String" then
+            if t2_aliased._tag ~= "types.T.String" then
                 type_error(exp.loc, "cannot concatenate with %s value", types.tostring(t2))
             end
             exp._type = types.T.String
@@ -978,12 +990,12 @@ function Typechecker:check_exp_synthesize(exp)
             exp._type = t2
 
         elseif op == "|" or op == "&" or op == "~" or op == "<<" or op == ">>" then
-            if t1._tag ~= "types.T.Integer" then
+            if t1_aliased._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "left-hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(t1))
             end
-            if t2._tag ~= "types.T.Integer" then
+            if t2_aliased._tag ~= "types.T.Integer" then
                 type_error(exp.loc,
                     "right-hand side of bitwise expression is a %s instead of an integer",
                     types.tostring(t2))
@@ -1044,11 +1056,12 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
     if not expected_type then
         error("expected_type is required")
     end
+    local expected_aliased_type = types.expand_typealias(expected_type)
 
     local tag = exp._tag
     if tag == "ast.Exp.InitList" then
 
-        if expected_type._tag == "types.T.Array" then
+        if expected_aliased_type._tag == "types.T.Array" then
             for _, field in ipairs(exp.fields) do
                 local ftag = field._tag
                 if ftag == "ast.Field.Rec" then
@@ -1063,7 +1076,7 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
                     tagged_union.error(ftag)
                 end
             end
-        elseif expected_type._tag == "types.T.Module" then
+        elseif expected_aliased_type._tag == "types.T.Module" then
             -- Fallthrough to default
 
         elseif types.is_indexable(expected_type) then
@@ -1110,16 +1123,16 @@ function Typechecker:check_exp_verify(exp, expected_type, errmsg_fmt, ...)
 
     elseif tag == "ast.Exp.Lambda" then
 
-        if expected_type._tag ~= "types.T.Function" then
+        if expected_aliased_type._tag ~= "types.T.Function" then
             type_error(exp.loc, "incorrect type hint for lambda")
-        elseif #expected_type.arg_types ~= #exp.arg_decls then
-            type_error(exp.loc, "expected %d parameter(s) but found %d", #expected_type.arg_types, #exp.arg_decls)
+        elseif #expected_aliased_type.arg_types ~= #exp.arg_decls then
+            type_error(exp.loc, "expected %d parameter(s) but found %d", #expected_aliased_type.arg_types, #exp.arg_decls)
         end
 
-        table.insert(self.ret_types_stack, expected_type.ret_types)
+        table.insert(self.ret_types_stack, expected_aliased_type.ret_types)
         self.symbol_table:with_block(function()
             for i, decl in ipairs(exp.arg_decls) do
-                decl._type = assert(expected_type.arg_types[i])
+                decl._type = assert(expected_aliased_type.arg_types[i])
                 self:add_value_symbol(decl.name, decl._type, typechecker.Def.Variable(decl))
             end
             self:check_stat(exp.body, false)

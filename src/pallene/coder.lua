@@ -47,6 +47,7 @@ end
 -- @param typ : types.T
 -- @returns the correspoinding C type, as a string.
 local function ctype(typ)
+    local typ = types.expand_typealias(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "int"
     elseif tag == "types.T.Boolean"  then return "char"
@@ -99,6 +100,7 @@ end
 
 -- @param src_slot: The TValue* to read from
 local function lua_value(typ, src_slot)
+    local typ = types.expand_typealias(typ)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
@@ -129,6 +131,7 @@ end
 -- Set a TValue* slot that is in the Lua or C stack.
 -- @param typ: type of source value
 local function set_stack_slot(typ, dst_slot, value)
+    local typ = types.expand_typealias(typ)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "setnilvalue($dst);"
@@ -148,6 +151,7 @@ local function set_stack_slot(typ, dst_slot, value)
 end
 
 local function opt_gc_barrier(typ, value, parent)
+    -- TODO: Expand typealias
     if types.is_gc(typ) then
         if typ._tag == "types.T.Any" or typ._tag == "types.T.Function" then
             local tmpl = "luaC_barrierback(L, obj2gco($p), &$v);"
@@ -182,6 +186,7 @@ end
 --
 
 local function pallene_type_tag(typ)
+    local typ = types.expand_typealias(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "nil"
     elseif tag == "types.T.Boolean"  then return "boolean"
@@ -198,6 +203,7 @@ local function pallene_type_tag(typ)
 end
 
 function Coder:test_tag(typ, slot)
+    local typ = types.expand_typealias(typ)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "ttisnil($slot)"
@@ -304,6 +310,7 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
 
     -- Lua calls the __index metamethod when it reads from an empty field. We want to avoid that in
     -- Pallene, so we raise an error instead.
+    -- TODO: Expand typealias
     if typ._tag == "types.T.Any" or typ._tag == "types.T.Nil" then
         table.insert(parts, util.render([[
             if (isempty($slot)) {
@@ -318,6 +325,7 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
     -- Another tricky thing about holes in Lua 5.4 is that they actually contain "empty", a special kind
     -- of nil. When reading them, they must be converted to regular nils, just like how the "rawget"
     -- function in lapi.c does.
+    -- TODO: Expand typealias
     if typ._tag == "types.T.Any" then
         table.insert(parts, util.render([[
             if (isempty($slot)) {
@@ -510,6 +518,7 @@ function Coder:pallene_entry_point_definition(f_id)
             -- may read from uninitialized memory.
             local typ, c_name, comment = self:prepare_local_var(func, v_id)
             local decl = C.declaration(ctype(typ), c_name)
+            -- TODO: Expand type alias
             local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
             table.insert(parts, decl..initializer..";"..comment)
         end
@@ -1720,6 +1729,7 @@ end
 gen_cmd["ForPrep"] = function(self, args)
     local typ = args.func.vars[args.cmd.dst_i].typ
     local macro
+    -- TODO: Expand typealias
     if     typ._tag == "types.T.Integer" then
         macro = "PALLENE_INT_FOR_PREP"
     elseif typ._tag == "types.T.Float" then
@@ -1746,6 +1756,7 @@ gen_cmd["ForStep"] = function(self, args)
     local typ = args.func.vars[args.cmd.dst_i].typ
 
     local macro
+    -- TODO: Expand typealias
     if     typ._tag == "types.T.Integer" then
         macro = "PALLENE_INT_FOR_STEP"
     elseif typ._tag == "types.T.Float" then
