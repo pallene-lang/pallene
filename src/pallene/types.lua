@@ -282,4 +282,40 @@ function types.expand_typealias(type)
     end
 end
 
+-- This metatable adds the possibility for the actual-nominal type pair
+-- to be accessed through table fields instead of indexes
+local ACTUAL_NOMINAL_MT = {
+    __index = function(tbl, key)
+        if key == "actual" then
+            return tbl[1]
+        elseif key == "nominal" then
+            return tbl[2]
+        end
+        return nil
+    end
+}
+
+-- Returns a table with the following fields:
+-- * actual (index 1): the resolved type
+-- * nominal (index 2): the declared type
+--
+-- Since it has indexes, it can either be deconstructed
+--
+-- i.e.:
+-- ```
+-- local actual, nominal = table.unpack(types.resolve_type(some_type))
+-- ```
+-- or be accessed directly via the table fields
+--
+-- i.e.:
+-- ```
+-- local detailed_type = types.resolve_type(some_type)
+-- local actual = detailed_type.actual
+-- local nominal = detailed_type.nominal
+-- ```
+function types.resolve_type(type)
+    local actual_nominal_pair = {types.expand_typealias(type), type}
+    return setmetatable(actual_nominal_pair, ACTUAL_NOMINAL_MT)
+end
+
 return types
