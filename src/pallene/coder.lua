@@ -47,7 +47,6 @@ end
 -- @param typ : types.T
 -- @returns the correspoinding C type, as a string.
 local function ctype(typ)
-    local typ = types.expand_typealias(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "int"
     elseif tag == "types.T.Boolean"  then return "char"
@@ -100,7 +99,6 @@ end
 
 -- @param src_slot: The TValue* to read from
 local function lua_value(typ, src_slot)
-    local typ = types.expand_typealias(typ)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "0"
@@ -131,7 +129,6 @@ end
 -- Set a TValue* slot that is in the Lua or C stack.
 -- @param typ: type of source value
 local function set_stack_slot(typ, dst_slot, value)
-    local typ = types.expand_typealias(typ)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "setnilvalue($dst);"
@@ -151,7 +148,6 @@ local function set_stack_slot(typ, dst_slot, value)
 end
 
 local function opt_gc_barrier(typ, value, parent)
-    local typ = types.expand_typealias(typ)
     if types.is_gc(typ) then
         if typ._tag == "types.T.Any" or typ._tag == "types.T.Function" then
             local tmpl = "luaC_barrierback(L, obj2gco($p), &$v);"
@@ -186,7 +182,6 @@ end
 --
 
 local function pallene_type_tag(typ)
-    local typ = types.expand_typealias(typ)
     local tag = typ._tag
     if     tag == "types.T.Nil"      then return "nil"
     elseif tag == "types.T.Boolean"  then return "boolean"
@@ -203,7 +198,6 @@ local function pallene_type_tag(typ)
 end
 
 function Coder:test_tag(typ, slot)
-    local typ = types.expand_typealias(typ)
     local tmpl
     local tag = typ._tag
     if     tag == "types.T.Nil"      then tmpl = "ttisnil($slot)"
@@ -304,7 +298,6 @@ end
 function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
 
     local parts = {}
-    local typ = types.expand_typealias(typ)
 
     table.insert(parts,
         self:get_stack_slot(typ, dst, slot, loc, description_fmt, ...))
@@ -516,7 +509,6 @@ function Coder:pallene_entry_point_definition(f_id)
             -- field uninitialized and the C compiler doesn't like that because it means that a setobj
             -- may read from uninitialized memory.
             local typ, c_name, comment = self:prepare_local_var(func, v_id)
-            typ = types.expand_typealias(typ)
             local decl = C.declaration(ctype(typ), c_name)
             local initializer = (typ._tag == "types.T.Any") and " = {{0},0}" or ""
             table.insert(parts, decl..initializer..";"..comment)
@@ -1727,7 +1719,6 @@ end
 
 gen_cmd["ForPrep"] = function(self, args)
     local typ = args.func.vars[args.cmd.dst_i].typ
-    typ = types.expand_typealias(typ)
     local macro
     if     typ._tag == "types.T.Integer" then
         macro = "PALLENE_INT_FOR_PREP"
@@ -1753,7 +1744,6 @@ end
 
 gen_cmd["ForStep"] = function(self, args)
     local typ = args.func.vars[args.cmd.dst_i].typ
-    typ = types.expand_typealias(typ)
     local macro
     if     typ._tag == "types.T.Integer" then
         macro = "PALLENE_INT_FOR_STEP"

@@ -45,11 +45,9 @@ local function ir_error(loc, fmt, ...)
     trycatch.error("to_ir", msg)
 end
 
-local expand_type_aliases = util.expand_type_aliases
-
 function to_ir.convert(prog_ast)
     assert(prog_ast._tag == "ast.Program.Program")
-    expand_type_aliases(prog_ast, {})
+    local prog_ast = util.expand_type_aliases(prog_ast)
     local ok, ret = trycatch.pcall(function()
         return ToIR.new():convert_toplevel(prog_ast.tls)
     end)
