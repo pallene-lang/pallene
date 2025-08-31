@@ -729,17 +729,17 @@ function Typechecker:check_var(var)
 end
 
 local function is_numeric_type(typ)
-    local typ = types.expand_typealias(typ)
-    return typ._tag == "types.T.Integer" or typ._tag == "types.T.Float"
+    local actual_type = types.expand_typealias(typ)
+    return actual_type._tag == "types.T.Integer" or actual_type._tag == "types.T.Float"
 end
 
 function Typechecker:coerce_numeric_exp_to_float(exp)
-    local aliased_tag = types.expand_typealias(exp._type)._tag
-    if     aliased_tag == "types.T.Float" then
+    local actual_tag = types.expand_typealias(exp._type)._tag
+    if     actual_tag == "types.T.Float" then
         return exp
-    elseif aliased_tag == "types.T.Integer" then
+    elseif actual_tag == "types.T.Integer" then
         return self:check_exp_synthesize(ast.Exp.ToFloat(exp.loc, exp))
-    elseif tagged_union.typename(aliased_tag) == "types.T" then
+    elseif tagged_union.typename(actual_tag) == "types.T" then
         -- Cannot be coerced to float
         assert(false)
     else

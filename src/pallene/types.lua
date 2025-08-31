@@ -28,9 +28,9 @@ define_union("T", {
     Alias    = {"name", "type"},
 })
 
-function types.is_gc(t)
-    local t = types.expand_typealias(t)
-    local tag = t._tag
+function types.is_gc(typ)
+    local actual_type = types.expand_typealias(typ)
+    local tag = actual_type._tag
     if     tag == "types.T.Nil" or
            tag == "types.T.Boolean" or
            tag == "types.T.Integer" or
@@ -52,9 +52,9 @@ function types.is_gc(t)
     end
 end
 
-function types.is_condition(t)
-    local t = types.expand_typealias(t)
-    local tag = t._tag
+function types.is_condition(typ)
+    local actual_type = types.expand_typealias(typ)
+    local tag = actual_type._tag
     if     tag == "types.T.Any" or
            tag == "types.T.Boolean"
     then
@@ -77,9 +77,9 @@ function types.is_condition(t)
 
 end
 
-function types.is_indexable(t)
-    local t = types.expand_typealias(t)
-    local tag = t._tag
+function types.is_indexable(typ)
+    local actual_type = types.expand_typealias(typ)
+    local tag = actual_type._tag
     if     tag == "types.T.Table" or
            tag == "types.T.Record"
     then
@@ -101,14 +101,14 @@ function types.is_indexable(t)
     end
 end
 
-function types.indices(t)
-    local t = types.expand_typealias(t)
-    local tag = t._tag
+function types.indices(typ)
+    local actual_type = types.expand_typealias(typ)
+    local tag = actual_type._tag
     if     tag == "types.T.Table" then
-        return t.fields
+        return actual_type.fields
 
     elseif tag == "types.T.Record" then
-        return t.field_types
+        return actual_type.field_types
 
     elseif tagged_union.typename(tag) == "types.T" then
         -- Not indexable
@@ -120,10 +120,10 @@ function types.indices(t)
 end
 
 function types.equals(t1, t2)
-    local t1 = types.expand_typealias(t1)
-    local t2 = types.expand_typealias(t2)
-    local tag1 = t1._tag
-    local tag2 = t2._tag
+    local rt1 = types.expand_typealias(t1)
+    local rt2 = types.expand_typealias(t2)
+    local tag1 = rt1._tag
+    local tag2 = rt2._tag
 
     assert(tagged_union.typename(tag1) == "types.T")
     assert(tagged_union.typename(tag2) == "types.T")
@@ -141,11 +141,11 @@ function types.equals(t1, t2)
         return true
 
     elseif tag1 == "types.T.Array" then
-        return types.equals(t1.elem, t2.elem)
+        return types.equals(rt1.elem, rt2.elem)
 
     elseif tag1 == "types.T.Table" then
-        local f1 = t1.fields
-        local f2 = t2.fields
+        local f1 = rt1.fields
+        local f2 = rt2.fields
 
         for name in pairs(f1) do
             if not f2[name] then
@@ -168,22 +168,22 @@ function types.equals(t1, t2)
         return true
 
     elseif tag1 == "types.T.Function" then
-        if #t1.arg_types ~= #t2.arg_types then
+        if #rt1.arg_types ~= #rt2.arg_types then
             return false
         end
 
-        for i = 1, #t1.arg_types do
-            if not types.equals(t1.arg_types[i], t2.arg_types[i]) then
+        for i = 1, #rt1.arg_types do
+            if not types.equals(rt1.arg_types[i], rt2.arg_types[i]) then
                 return false
             end
         end
 
-        if #t1.ret_types ~= #t2.ret_types then
+        if #rt1.ret_types ~= #rt2.ret_types then
             return false
         end
 
-        for i = 1, #t1.ret_types do
-            if not types.equals(t1.ret_types[i], t2.ret_types[i]) then
+        for i = 1, #rt1.ret_types do
+            if not types.equals(rt1.ret_types[i], rt2.ret_types[i]) then
                 return false
             end
         end
@@ -192,7 +192,7 @@ function types.equals(t1, t2)
 
     elseif tag1 == "types.T.Record" then
         -- Record types are nominal
-        return t1 == t2
+        return rt1 == rt2
 
     else
         return tagged_union.error(tag1,
@@ -204,12 +204,12 @@ end
 -- We forbid type casts that are 100% guaranteed to fail, e.g. int=>string.
 -- This is looser than the consistency requirement from gradual typing.
 function types.consistent(t1, t2)
-    local t1 = types.expand_typealias(t1)
-    local t2 = types.expand_typealias(t2)
+    local rt1 = types.expand_typealias(t1)
+    local rt2 = types.expand_typealias(t2)
     return (
-        t1._tag == "types.T.Any" or
-        t2._tag == "types.T.Any" or
-        t1._tag == t2._tag)
+        rt1._tag == "types.T.Any" or
+        rt2._tag == "types.T.Any" or
+        rt1._tag == rt2._tag)
 end
 
 local function join_type_list(list)
@@ -258,9 +258,9 @@ function types.tostring(t)
     end
 end
 
-local function is_optional(t)
-    local t = types.expand_typealias(t)
-    return t._tag == 'types.T.Any' or t._tag == "types.T.Nil"
+local function is_optional(typ)
+    local actual_type = types.expand_typealias(typ)
+    return actual_type._tag == 'types.T.Any' or actual_type._tag == "types.T.Nil"
 end
 
 -- The rightmost arguments to a function may be optional.
@@ -274,6 +274,9 @@ function types.number_of_mandatory_args(argtypes)
     return n
 end
 
+-- Recursively expand/resolve all type aliases until we reach a non-alias type.
+-- Input: a type belonging to the types.T namespace
+-- Output: a non-alias type
 function types.expand_typealias(type)
     if type._tag == "types.T.Alias" then
         return types.expand_typealias(type.type)

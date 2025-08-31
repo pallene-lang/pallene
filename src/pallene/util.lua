@@ -148,7 +148,7 @@ function util.expand_type_aliases(ast_node, visited)
             this[k] = util.expand_type_aliases(v, visited)
         end
     end
-    
+
     return this
 end
 

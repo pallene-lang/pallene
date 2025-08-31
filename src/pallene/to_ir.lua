@@ -47,9 +47,9 @@ end
 
 function to_ir.convert(prog_ast)
     assert(prog_ast._tag == "ast.Program.Program")
-    local prog_ast = util.expand_type_aliases(prog_ast)
+    local alias_free_prog_ast = util.expand_type_aliases(prog_ast)
     local ok, ret = trycatch.pcall(function()
-        return ToIR.new():convert_toplevel(prog_ast.tls)
+        return ToIR.new():convert_toplevel(alias_free_prog_ast.tls)
     end)
 
     if not ok then
