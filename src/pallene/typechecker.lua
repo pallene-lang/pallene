@@ -156,10 +156,30 @@ function Typechecker:export_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(tagged_union.typename(typ._tag) == "types.T")
     assert(self.module_symbol)
-    if self.module_symbol.symbols[name] then
-        type_error(loc_of_def(def), "multiple definitions for module field '%s'", name)
-    end
+    self:check_exported_symbol_shadowing(name, loc_of_def(def))
     self.module_symbol.symbols[name] = typechecker.Symbol.Value(typ, def)
+end
+
+function Typechecker:export_type_symbol(name, typ, loc)
+    assert(type(name) == "string")
+    assert(tagged_union.typename(typ._tag) == "types.T")
+    assert(self.module_symbol)
+    self:check_exported_symbol_shadowing(name, loc)
+    self.module_symbol.symbols[name] = typechecker.Symbol.Type(typ)
+end
+
+function Typechecker:check_exported_symbol_shadowing(name, loc)
+    assert(type(name) == "string")
+    local sym = self.module_symbol.symbols[name]
+    if sym then
+        if sym._tag == "typechecker.Symbol.Type" then
+            type_error(loc, "the type '%s' is being shadowed", name)
+        elseif sym._tag == "typechecker.Symbol.Value" then
+            type_error(loc, "the module field '%s' is being shadowed", name)
+        elseif sym._tag == "typechecker.Symbol.Module" then
+            type_error(loc, "the module variable '%s' is being shadowed", name)
+        end
+    end
 end
 
 --
@@ -263,10 +283,9 @@ function Typechecker:check_program(prog_ast)
             end
 
         elseif tag == "ast.Toplevel.Typealias" then
-            self:add_type_symbol(
-                tl_node.name,
-                types.T.Alias(tl_node.name, self:from_ast_type(tl_node.type))
-            )
+            local typ = types.T.Alias(tl_node.name, self:from_ast_type(tl_node.type))
+            self:export_type_symbol(tl_node.name, typ, tl_node.loc)
+            self:add_type_symbol(tl_node.name, typ)
 
         elseif tag == "ast.Toplevel.Record" then
             local field_names = {}
@@ -281,6 +300,7 @@ function Typechecker:check_program(prog_ast)
             end
 
             local typ = types.T.Record(tl_node.name, field_names, field_types, false)
+            self:export_type_symbol(tl_node.name, typ, tl_node.loc)
             self:add_type_symbol(tl_node.name, typ)
 
             tl_node._type = typ
