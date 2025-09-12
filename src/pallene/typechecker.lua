@@ -156,7 +156,7 @@ function Typechecker:export_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(tagged_union.typename(typ._tag) == "types.T")
     assert(self.module_symbol)
-    self:check_exported_symbol_shadowing(name, loc_of_def(def))
+    self:assert_exported_symbol_unused(name, loc_of_def(def))
     self.module_symbol.symbols[name] = typechecker.Symbol.Value(typ, def)
 end
 
@@ -164,11 +164,11 @@ function Typechecker:export_type_symbol(name, typ, loc)
     assert(type(name) == "string")
     assert(tagged_union.typename(typ._tag) == "types.T")
     assert(self.module_symbol)
-    self:check_exported_symbol_shadowing(name, loc)
+    self:assert_exported_symbol_unused(name, loc)
     self.module_symbol.symbols[name] = typechecker.Symbol.Type(typ)
 end
 
-function Typechecker:check_exported_symbol_shadowing(name, loc)
+function Typechecker:assert_exported_symbol_unused(name, loc)
     assert(type(name) == "string")
     local sym = self.module_symbol.symbols[name]
     if sym then
