@@ -5,8 +5,6 @@
 
 local type_extractor = require "pallene.type_extractor"
 local driver = require "pallene.driver"
-local types = require "pallene.types"
-local util = require "pallene.util"
 
 -- Helper function to parse source code and get the AST
 local function get_ast(code)
@@ -21,25 +19,25 @@ end
 local function assert_type_declarations(source_code, expected_declarations)
     local ast = get_ast(source_code)
     local declarations = type_extractor.generate_type_declarations(ast)
- 
+
     assert.same(expected_declarations, declarations)
 end
 
 describe("Type extractor", function()
-    
+
     it("can extract type aliases for primitive types", function()
         local source = [[
             local m: module = {}
-            
+
             typealias MyInt = integer
             typealias MyFloat = float
             typealias MyString = string
             typealias MyBool = boolean
             typealias MyNil = nil
-            
+
             return m
         ]]
-        
+
         local expected = {
             "typealias MyInt = integer",
             "typealias MyFloat = float",
@@ -47,105 +45,105 @@ describe("Type extractor", function()
             "typealias MyBool = boolean",
             "typealias MyNil = nil"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can extract type aliases for array types", function()
         local source = [[
             local m: module = {}
-            
+
             typealias IntArray = {integer}
             typealias StringArray = {string}
             typealias NestedArray = {{integer}}
-            
+
             return m
         ]]
-        
+
         local expected = {
             "typealias IntArray = {integer}",
             "typealias StringArray = {string}",
             "typealias NestedArray = {{integer}}"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can extract type aliases for table types", function()
         local source = [[
             local m: module = {}
-            
+
             typealias Point = {x: integer, y: integer}
             typealias Person = {name: string, age: integer}
-            
+
             return m
         ]]
-        
+
         local expected = {
             "typealias Point = {x: integer, y: integer}",
             "typealias Person = {name: string, age: integer}"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can extract type aliases for function types", function()
         local source = [[
             local m: module = {}
-            
+
             typealias IntFunc = (integer) -> integer
             typealias MixedFunc = (integer, string) -> boolean
-            
+
             return m
         ]]
-        
+
         local expected = {
             "typealias IntFunc = (integer) -> integer",
             "typealias MixedFunc = (integer, string) -> boolean"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can extract record declarations", function()
         local source = [[
             local m: module = {}
-            
+
             record Point
                 x: integer
                 y: integer
             end
-            
+
             record Person
                 name: string
                 age: integer
             end
-            
+
             return m
         ]]
-        
+
         local expected = {
             "record Point: x: integer; y: integer",
             "record Person: name: string; age: integer"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("should not extract local variable declarations", function()
         local source = [[
             local m: module = {}
-            
+
             local counter: integer = 0
             local message: string = "Hello"
-            
+
             function m.get_counter(): integer
                 return counter
             end
-            
+
             return m
         ]]
-        
+
         local expected = {
             "get_counter: () -> integer"
         }
@@ -156,19 +154,19 @@ describe("Type extractor", function()
     it("can extract module field assignments", function()
         local source = [[
             local m: module = {}
-            
+
             local counter: integer = 0
 
             m.counter = counter
             m.message = "Hello"
-            
+
             function m.get_counter(): integer
                 return counter
             end
-            
+
             return m
         ]]
-        
+
         local expected = {
             "counter: integer",
             "message: string",
@@ -177,15 +175,15 @@ describe("Type extractor", function()
 
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can extract function declarations", function()
         local source = [[
             local m: module = {}
-            
+
             function m.add(a: integer, b: integer): integer
                 return a + b
             end
-            
+
             local function greet(name: string): string
                 return "Hello, " .. name
             end
@@ -194,7 +192,7 @@ describe("Type extractor", function()
             m.double = function(x)
                 return x * 2
             end as (integer) -> integer
-            
+
             return m
         ]]
 
@@ -203,54 +201,54 @@ describe("Type extractor", function()
             "greet: (string) -> string",
             "double: (integer) -> integer"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can handle complex nested types", function()
         local source = [[
             local m: module = {}
-            
+
             typealias Point = {x: integer, y: integer}
             typealias PointArray = {Point}
-            
+
             typealias PointManager = {
                 points: PointArray,
                 getPoint: (integer) -> Point
             }
-            
+
             return m
         ]]
-        
+
         local expected = {
             "typealias Point = {x: integer, y: integer}",
             "typealias PointArray = {Point}",
             "typealias PointManager = {points: PointArray, getPoint: (integer) -> Point}"
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
+
     it("can handle combinations of different declarations", function()
         local source = [[
             local m: module = {}
-            
+
             typealias Point = {x: integer, y: integer}
-            
+
             record Circle
                 center: Point
                 radius: float
             end
-            
+
             function m.create_circle(x: integer, y: integer, r: float): Circle
                 local p: Point = {x = x, y = y}
                 local c: Circle = {center = p, radius = r}
                 return c
             end
-            
+
             return m
         ]]
-        
+
         local expected = {
             "typealias Point = {x: integer, y: integer}",
             "record Circle: center: Point; radius: float",
@@ -298,13 +296,13 @@ describe("Type extractor", function()
 
             return m
         ]]
-        
+
         local expected = {
             "filter_gen: ((any) -> boolean) -> ({any}) -> {any}",
             "reducef: ((float, float) -> float, float, {float}) -> float",
             "reduce: ((any, any) -> any, any, {any}) -> any",
         }
-        
+
         assert_type_declarations(source, expected)
     end)
 
@@ -324,12 +322,12 @@ describe("Type extractor", function()
 
             return m
         ]]
-        
+
         local expected = {
             "typealias MappingI = (integer, any) -> any",
             "imap: (MappingI, {any}) -> {any}",
         }
-        
+
         assert_type_declarations(source, expected)
     end)
 
@@ -350,12 +348,12 @@ describe("Type extractor", function()
 
             return m
         ]]
-        
+
         local expected = {
             "typealias MappingI = (integer, any) -> any",
             "imap: (MappingI, {any}) -> {any}",
         }
-        
+
         assert_type_declarations(source, expected)
     end)
 
@@ -376,14 +374,13 @@ describe("Type extractor", function()
 
             return m
         ]]
-        
+
         local expected = {
             "typealias MappingI = (integer, any) -> any",
             "imap: (MappingI, {any}) -> {any}",
         }
-        
+
         assert_type_declarations(source, expected)
     end)
-    
-end)
 
+end)

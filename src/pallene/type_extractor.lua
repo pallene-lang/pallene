@@ -1,3 +1,8 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
 local tagged_union = require "pallene.tagged_union"
 
 local type_extractor = {}
@@ -89,7 +94,7 @@ end
 
 local function create_function_type(funcstat)
     local decls = {}
-    for i, arg_decl in ipairs(funcstat.value.arg_decls) do
+    for _, arg_decl in ipairs(funcstat.value.arg_decls) do
         local arg_type = arg_decl.type
         table.insert(decls, arg_type)
     end
@@ -120,7 +125,7 @@ local function typeof_tls(node, typedefs)
         for _, stat in ipairs(stats) do
             if stat._tag == "ast.Stat.Assign" then
                 local vars = stat.vars
-                for i, var in ipairs(vars) do
+                for _, var in ipairs(vars) do
                     local type = var._type
                     table.insert(typedefs, string.format("%s: %s", var.name, format_type(type)))
                 end
