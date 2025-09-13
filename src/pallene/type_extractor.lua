@@ -13,6 +13,25 @@ local primitives_type_names = {
 
 local format_type
 
+
+-- Used for both ast.Type and types.T Function
+local function format_function(func)
+    local arg_types = func.arg_types
+    local ret_types = func.ret_types
+    local arg_strs  = {}
+    local ret_strs  = {}
+    for _, arg_type in ipairs(arg_types) do
+        table.insert(arg_strs, format_type(arg_type))
+    end
+    for _, ret_type in ipairs(ret_types) do
+        table.insert(ret_strs, format_type(ret_type))
+    end
+    local argstr = table.concat(arg_strs, ', ')
+    local retlist = table.concat(ret_strs, ', ')
+    local retstr = (#ret_strs > 1) and '(' .. retlist .. ')' or retlist
+    return string.format("(%s) -> %s", argstr, retstr)
+end
+
 local function format_ast_type(type)
     local cons = tagged_union.consname(type._tag)
     if cons == "Nil" then
@@ -28,20 +47,7 @@ local function format_ast_type(type)
         end
         return "{" .. table.concat(fields, ", ") .. "}"
     elseif cons == "Function" then
-        local arg_types = type.arg_types
-        local ret_types = type.ret_types
-        local arg_strs  = {}
-        local ret_strs  = {}
-        for _, arg_type in ipairs(arg_types) do
-            table.insert(arg_strs, format_type(arg_type))
-        end
-        for _, ret_type in ipairs(ret_types) do
-            table.insert(ret_strs, format_type(ret_type))
-        end
-        local argstr = table.concat(arg_strs, ', ')
-        local retlist = table.concat(ret_strs, ', ')
-        local retstr = (#ret_strs > 1) and '(' .. retlist .. ')' or retlist
-        return string.format("(%s) -> %s", argstr, retstr)
+        return format_function(type)
     else
         error("Unknown ast.Type: " .. tostring(type._tag))
     end
@@ -50,20 +56,7 @@ end
 local function format_types_t(type)
     local cons = tagged_union.consname(type._tag)
     if cons == "Function" then
-        local arg_types = type.arg_types
-        local ret_types = type.ret_types
-        local arg_strs  = {}
-        local ret_strs  = {}
-        for _, arg_type in ipairs(arg_types) do
-            table.insert(arg_strs, format_type(arg_type))
-        end
-        for _, ret_type in ipairs(ret_types) do
-            table.insert(ret_strs, format_type(ret_type))
-        end
-        local argstr = table.concat(arg_strs, ', ')
-        local retlist = table.concat(ret_strs, ', ')
-        local retstr = (#ret_strs > 1) and '(' .. retlist .. ')' or retlist
-        return string.format("(%s) -> %s", argstr, retstr)
+        return format_function(type)
     elseif cons == "Table" then
         local fields = {}
         for name, field_type in pairs(type.fields) do
