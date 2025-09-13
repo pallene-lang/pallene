@@ -383,4 +383,128 @@ describe("Type extractor", function()
         assert_type_declarations(source, expected)
     end)
 
+    it("emits a typealias for MYTYPE", function()
+        local source = [[
+            local m: module = {}
+
+            typealias MYTYPE = (integer) -> boolean
+
+            return m
+        ]]
+        local expected = {
+            "typealias MYTYPE = (integer) -> boolean",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
+    it("emits function type for module function declaration", function()
+        local source = [[
+            local m: module = {}
+
+            function m.is_pair(n: integer): boolean
+                return n % 2 == 0
+            end
+
+            return m
+        ]]
+        local expected = {
+            "is_pair: (integer) -> boolean",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
+    it("emits function type for field assigned from local function", function()
+        local source = [[
+            local m: module = {}
+
+            local function is_pair_local(n: integer): boolean
+                return n % 2 == 0
+            end
+
+            m.is_pair_field = is_pair_local
+
+            return m
+        ]]
+        local expected = {
+            "is_pair_field: (integer) -> boolean",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
+    it("emits alias name for field assigned from cast to alias", function()
+        local source = [[
+            local m: module = {}
+
+            typealias MYTYPE = (integer) -> boolean
+
+            local function is_pair_local(n: integer): boolean
+                return n % 2 == 0
+            end
+
+            m.is_pair_field_cast = is_pair_local as MYTYPE
+
+            return m
+        ]]
+        local expected = {
+            "typealias MYTYPE = (integer) -> boolean",
+            "is_pair_field_cast: MYTYPE",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
+    it("emits alias name for field assigned from alias-typed local (hint)", function()
+        local source = [[
+            local m: module = {}
+
+            typealias MYTYPE = (integer) -> boolean
+
+            local is_pair_lambda_hint: MYTYPE = function (n) return n % 2 == 0 end
+
+            m.is_pair_from_lambda_hint = is_pair_lambda_hint
+
+            return m
+        ]]
+        local expected = {
+            "typealias MYTYPE = (integer) -> boolean",
+            "is_pair_from_lambda_hint: MYTYPE",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
+    it("emits alias name for field assigned from alias-cast local (cast)", function()
+        local source = [[
+            local m: module = {}
+
+            typealias MYTYPE = (integer) -> boolean
+
+            local is_pair_lambda_cast = function (n) return n % 2 == 0 end as MYTYPE
+
+            m.is_pair_from_lambda_cast = is_pair_lambda_cast
+
+            return m
+        ]]
+        local expected = {
+            "typealias MYTYPE = (integer) -> boolean",
+            "is_pair_from_lambda_cast: MYTYPE",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
+    it("emits alias name for field assigned from direct cast expression", function()
+        local source = [[
+            local m: module = {}
+
+            typealias MYTYPE = (integer) -> boolean
+
+            m.is_pair_from_cast_expression = function (n) return n % 2 == 0 end as MYTYPE
+
+            return m
+        ]]
+        local expected = {
+            "typealias MYTYPE = (integer) -> boolean",
+            "is_pair_from_cast_expression: MYTYPE",
+        }
+        assert_type_declarations(source, expected)
+    end)
+
 end)
