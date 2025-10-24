@@ -1,0 +1,48 @@
+#!/bin/bash
+eval "$(luarocks path)"
+export PATH="$(pwd)/src/bin/:$PATH"
+export LUA_PATH="$(pwd)/src/?.lua;$LUA_PATH"
+export CFLAGS='-O2 -std=c99 -Wall -Werror -Wundef -Wpedantic -Wno-unused'
+
+function count_stack_saves() {
+    file="$1"
+    grep -Eo 'set[^\n]*\( *L *, *s2v\( *base' "$file" | wc -l
+}
+
+function is_in() {
+    element="$1"
+    shift
+    list="$*"
+    found=false
+    for e in $list; do
+        [ "$e" = "$element" ] && found=true && break
+    done
+    $found
+}
+
+if [ "$1" = "test" ]; then
+    shift
+    ./run-tests "$@"
+elif [ "$1" = "testgc" ]; then
+    shift
+    EXTRACFLAGS="-DHARDMEMTESTS" ./run-tests "$@"
+else
+
+    file="$1"
+    shift
+
+    lint_cmd="./run-lint -q"
+    run_cmd="lua lua_$file.lua"
+    flags=''
+    is_in c      $* && flags="$flags --emit-c" && run_cmd=true
+    is_in ir     $* && flags="$flags --print-ir"
+    is_in O0     $* && flags="$flags -O0"
+    is_in trace  $* && flags="$flags --use-traceback"
+    is_in gc     $* && CFLAGS='-O4 -DHARDMEMTESTS'
+    is_in nolint $* && lint_cmd=true
+    is_in norun  $* && run_cmd=true
+
+    $lint_cmd &&
+        pallenec $flags "$file".pln &&
+        $run_cmd
+fi
