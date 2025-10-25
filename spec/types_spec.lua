@@ -119,6 +119,21 @@ describe("Pallene types", function()
             local t2 = types.T.Record("P", {}, {}, false)
             assert.falsy(types.equals(t1, t2))
         end)
+
+        it("is true for similar type aliases", function()
+            local ta1 = types.T.Alias("A", types.T.Integer)
+            local ta2 = types.T.Alias("B", types.T.Integer)
+            assert.truthy(types.equals(ta1, ta2))
+        end)
+
+        it("should expand type aliases", function()
+            local ta = types.T.Alias("A", types.T.Integer)
+
+            assert.truthy(types.equals(
+                ta,
+                types.T.Integer
+            ))
+        end)
     end)
 
     describe("consistency", function()
@@ -161,5 +176,50 @@ describe("Pallene types", function()
                 types.T.Function({types.T.Integer},{types.T.Integer})
             ))
         end)
+
+        it("should be true for type aliases whose types are consistent", function()
+            local ta1 = types.T.Alias("A", types.T.Any)
+            local ta2 = types.T.Alias("B", types.T.Integer)
+            local ta3 = types.T.Alias("C", types.T.String)
+
+            assert.truthy(types.consistent(ta1, ta2))
+            assert.truthy(types.consistent(ta1, ta3))
+            assert.falsy(types.consistent(ta2, ta3))
+        end)
+
+        it("should expand type aliases", function()
+            local ta = types.T.Alias("A", types.T.Integer)
+
+            assert.truthy(types.consistent(
+                ta,
+                types.T.Integer
+            ))
+
+            assert.falsy(types.consistent(
+                ta,
+                types.T.String
+            ))
+        end)
     end)
+
+    describe("type aliases", function()
+
+        it("should recursively expand type aliases", function()
+            local ta1 = types.T.Alias("A", types.T.Integer)
+            local ta2 = types.T.Alias("B", ta1)
+            local ta3 = types.T.Alias("C", ta2)
+
+            assert.truthy(types.expand_typealias(ta3) == types.T.Integer)
+        end)
+
+        it("should be considered equal to the expanded type", function()
+            local ta1 = types.T.Alias("A", types.T.Integer)
+
+            assert.truthy(types.equals(
+                ta1,
+                types.T.Integer
+            ))
+        end)
+    end)
+
 end)
