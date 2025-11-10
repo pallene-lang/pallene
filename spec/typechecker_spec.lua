@@ -92,27 +92,27 @@ describe("Module", function()
         assert_error([[
             function m.f() end
             function m.f() end
-        ]], "multiple definitions for module field 'f'")
+        ]], "the module field 'f' is being shadowed")
     end)
 
     it("forbids repeated exported names (function / variable)", function()
         assert_error([[
             function m.f() end
             m.f = 1
-        ]], "multiple definitions for module field 'f'")
+        ]], "the module field 'f' is being shadowed")
     end)
 
     it("forbids repeated exported names (variable / variable)", function()
         assert_error([[
             m.x = 10
             m.x = 20
-        ]], "multiple definitions for module field 'x'")
+        ]], "the module field 'x' is being shadowed")
     end)
 
     it("forbids repeated exported names (in multiple assignment)", function()
         assert_error([[
             m.x, m.x = 10, 20
-        ]], "multiple definitions for module field 'x'")
+        ]], "the module field 'x' is being shadowed")
     end)
 
     it("ensures that exported variables are not in scope in their initializers", function()
@@ -142,6 +142,37 @@ describe("Typealias", function()
         ]], "'t' is not a type")
     end)
 
+    it("must not be shadowed by other typealias names", function()
+        assert_error([[
+            typealias point = {x: integer, y: integer}
+            typealias point = {x: float, y: float}
+        ]], "the type 'point' is being shadowed")
+    end)
+
+    it("must not be shadowed by record names", function()
+        assert_error([[
+            typealias point = {x: float, y: float}
+            record point
+                x: integer
+                y: integer
+            end
+        ]], "the type 'point' is being shadowed")
+    end)
+
+    it("must not be shadowed by module field names", function()
+        assert_error([[
+            typealias x = integer
+            m.x = 10
+        ]], "the type 'x' is being shadowed")
+    end)
+
+    it("must not be shadowed by function names", function()
+        assert_error([[
+            typealias f = integer
+            function m.f() end
+        ]], "the type 'f' is being shadowed")
+    end)
+
 end)
 
 describe("Record declaration", function()
@@ -153,6 +184,49 @@ describe("Record declaration", function()
                 x: float
             end
         ]], "duplicate field name 'x' in record type")
+    end)
+
+    it("must not be shadowed by other record names", function()
+        assert_error([[
+            record Point
+                x: integer
+                y: integer
+            end
+            record Point
+                x: float
+                y: float
+            end
+        ]], "the type 'Point' is being shadowed")
+    end)
+
+    it("must not be shadowed by typealias names", function()
+        assert_error([[
+            record Point
+                x: integer
+                y: integer
+            end
+            typealias Point = {x: float, y: float}
+        ]], "the type 'Point' is being shadowed")
+    end)
+
+    it("must not be shadowed by module field names", function()
+        assert_error([[
+            record P
+                x: integer
+                y: integer
+            end
+            m.P = 10
+        ]], "the type 'P' is being shadowed")
+    end)
+
+    it("must not be shadowed by function names", function()
+        assert_error([[
+            record P
+                x: integer
+                y: integer
+            end
+            function m.P() end
+        ]], "the type 'P' is being shadowed")
     end)
 
 end)
@@ -193,6 +267,71 @@ describe("Function declaration", function()
                 return 5319
             end
         ]], "function 'f' was not forward declared")
+    end)
+
+    it("must not be shadowed by typealias names", function()
+        assert_error([[
+            function m.f() end
+            typealias f = integer
+        ]], "the module field 'f' is being shadowed")
+    end)
+
+    it("must not be shadowed by record names", function()
+        assert_error([[
+            function m.f() end
+            record f
+                x: integer
+                y: integer
+            end
+        ]], "the module field 'f' is being shadowed")
+    end)
+
+    it("must not be shadowed by module field names", function()
+        assert_error([[
+            function m.f() end
+            m.f = 10
+        ]], "the module field 'f' is being shadowed")
+    end)
+
+    it("must not be shadowed by function names", function()
+        assert_error([[
+            function m.f() end
+            function m.f() end
+        ]], "the module field 'f' is being shadowed")
+    end)
+
+end)
+
+describe("Module fields", function()
+
+    it("must not be shadowed by typealias names", function()
+        assert_error([[
+            m.x = 10
+            typealias x = integer
+        ]], "the module field 'x' is being shadowed")
+    end)
+
+    it("must not be shadowed by record names", function()
+        assert_error([[
+            m.x = 10
+            record x
+                y: integer
+            end
+        ]], "the module field 'x' is being shadowed")
+    end)
+
+    it("must not be shadowed by function names", function()
+        assert_error([[
+            m.f = 10
+            function m.f() end
+        ]], "the module field 'f' is being shadowed")
+    end)
+
+    it("must not be shadowed by module field names", function()
+        assert_error([[
+            m.x = 10
+            m.x = 20
+        ]], "the module field 'x' is being shadowed")
     end)
 
 end)

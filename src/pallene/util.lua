@@ -126,4 +126,30 @@ function util.Class()
     return cls
 end
 
+function util.expand_type_aliases(ast_node, visited)
+    local types = require "pallene.types"
+    visited = visited or {}
+
+    if visited[ast_node] then
+        return visited[ast_node]
+    end
+
+    local this = types.expand_typealias(ast_node)
+
+    visited[this] = this
+    if this ~= ast_node then
+        -- If the node was replaced by expand_typealias, then we need to
+        -- make sure that we don't visit it again.
+        visited[ast_node] = this
+    end
+
+    for k, v in pairs(this) do
+        if type(v) == "table" then
+            this[k] = util.expand_type_aliases(v, visited)
+        end
+    end
+
+    return this
+end
+
 return util
