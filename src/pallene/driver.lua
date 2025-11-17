@@ -218,8 +218,8 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
 
     if output_ext == "lua" then
         return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
-    elseif output_ext == "ptf" then
-        return compile_pln_to_ptf(input_ext, output_ext, input_file_name, output_base_name)
+    -- elseif output_ext == "ptf" then
+    --     return compile_pln_to_ptf(input_ext, output_ext, input_file_name, output_base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")
@@ -248,6 +248,10 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
 
         for i = first_step+1, last_step-1 do
             os.remove(file_names[i])
+        end
+
+        if ok and input_ext == "pln" and output_ext == "so" then
+            ok, errs = compile_pln_to_ptf("pln", "ptf", input_file_name, output_base_name)
         end
 
         return ok, errs
