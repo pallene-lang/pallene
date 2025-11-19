@@ -12,6 +12,10 @@ define_union("Program", {
     Program = {"loc", "ret_loc", "module_name", "tls", "type_regions"}
 })
 
+define_union("TypeFile", {
+    Decls = { "loc", "module_name", "decls" }
+})
+
 define_union("Type", {
     Nil      = {"loc"},
     Name     = {"loc", "name"},
