@@ -905,4 +905,59 @@ describe("Parser /", function()
         end)
 
     end)
+
+    describe("Type declaration file", function()
+
+        local tdf = [[
+                typealias A = integer
+                record B
+                    x: A
+                end
+                f: (A) -> B
+                g: (A, (A) -> B) -> (B, A)
+                typealias C = { x: A, y: B }
+            ]]
+            
+        it("It should parse correctly", function()
+            local ast, errs = driver.compile_internal("__test__.ptf", tdf, "ast")
+
+            assert(ast)
+            assert.falsy(errs)
+            assert(ast._tag == "ast.TypeFile.Decls")
+
+            local nodes_expected = {
+                {ast.decls[1]._tag, "ast.Toplevel.Typealias"},
+                {ast.decls[2]._tag, "ast.Toplevel.Record"},
+                {ast.decls[3]._tag, "ast.Decl.Decl"},
+                {ast.decls[4]._tag, "ast.Decl.Decl"},
+                {ast.decls[5]._tag, "ast.Toplevel.Typealias"},
+            }
+
+            for i, node in ipairs(nodes_expected) do
+                local actual, expected = table.unpack(node)
+                assert.are.equal(expected, actual)
+            end
+        end)
+
+        it("It should typecheck", function()
+            ast, errs = driver.compile_internal("__test__.ptf", tdf, "typechecker")
+
+            assert(ast)
+            assert(ast._tag == "ast.TypeFile.Decls")
+            
+            local nodes_types_expected = {
+                {ast.decls[1]._type._tag, "types.T.Alias"},
+                {ast.decls[2]._type._tag, "types.T.Record"},
+                {ast.decls[3]._type._tag, "types.T.Function"},
+                {ast.decls[4]._type._tag, "types.T.Function"},
+                {ast.decls[5]._type._tag, "types.T.Alias"},
+            }
+
+            for i, node in ipairs(nodes_types_expected) do
+                local actual, expected = table.unpack(node)
+                assert.are.equal(expected, actual)
+            end
+        end)
+    end)
+
 end)

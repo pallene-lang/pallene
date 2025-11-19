@@ -200,6 +200,11 @@ local is_toplevel_first = Union({
     is_stat_first,
 })
 
+local is_type_declaration_file_first = Union({
+    is_toplevel_keyword,
+    Set 'NAME',
+})
+
 --
 -- Toplevel
 --
@@ -301,6 +306,34 @@ function Parser:Program()
     local end_loc = self.next.loc
     return ast.Program.Program(
         start_loc, end_loc, modname, tls, self.type_regions)
+end
+
+function Parser:TypeDeclarationFile(modname)
+
+    local start_loc = self.next.loc
+
+    -- type declarations
+    local decls = {}
+
+    while self:peek(is_type_declaration_file_first) do
+        if (self:peek(is_toplevel_keyword)) then
+            local tl = self:Toplevel()
+            table.insert(decls, tl)
+        elseif self:peek("NAME") then
+            local decl = self:Decl()
+            if not decl.type then
+                self:recoverable_syntax_error(decl.loc,
+                    "type annotation expected in type declaration file")
+            end
+            table.insert(decls, decl)
+        else
+            self:unexpected_token_error("a type declaration")
+        end
+    end
+
+    return ast.TypeFile.Decls(
+        start_loc, modname, decls
+    )
 end
 
 local is_allowed_toplevel = Set [[
@@ -1171,8 +1204,16 @@ function parser.parse(lexer)
 
     local p = Parser.new(lexer)
 
+    local name, ext = util.split_ext(lexer.file_name)
     local ok, ret = trycatch.pcall(function()
-        return p:Program()
+        if (ext == "pln") then
+            return p:Program()
+        elseif (ext == "ptf") then
+            return p:TypeDeclarationFile(name)
+        else
+            p:abort_with_syntax_error(lexer.loc,
+                "unknown file extension '%s'; expected '.pln' or '.ptf'", ext)
+        end
     end)
 
     -- Re-throw internal errors
