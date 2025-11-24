@@ -906,7 +906,7 @@ describe("Parser /", function()
 
     end)
 
-    describe("Type declaration file", function()
+    describe("Type declaration file / ", function()
 
         local tdf = [[
                 typealias A = integer
@@ -915,46 +915,55 @@ describe("Parser /", function()
                 end
                 f: (A) -> B
                 g: (A, (A) -> B) -> (B, A)
+                tbl: { f1: integer, f2: B }
+                constant: float
                 typealias C = { x: A, y: B }
             ]]
-            
-        it("It should parse correctly", function()
-            local ast, errs = driver.compile_internal("__test__.ptf", tdf, "ast")
 
+        it("should be parsed correctly", function()
+            local ast, errs = driver.compile_internal("__test__.d.pln", tdf, "ast")
+
+            --assert(ast, table.concat(errs, "\n"))
             assert(ast)
             assert.falsy(errs)
             assert(ast._tag == "ast.TypeFile.Decls")
 
             local nodes_expected = {
-                {ast.decls[1]._tag, "ast.Toplevel.Typealias"},
-                {ast.decls[2]._tag, "ast.Toplevel.Record"},
-                {ast.decls[3]._tag, "ast.Decl.Decl"},
-                {ast.decls[4]._tag, "ast.Decl.Decl"},
-                {ast.decls[5]._tag, "ast.Toplevel.Typealias"},
+                "ast.Toplevel.Typealias",
+                "ast.Toplevel.Record",
+                "ast.Decl.Decl",
+                "ast.Decl.Decl",
+                "ast.Decl.Decl",
+                "ast.Decl.Decl",
+                "ast.Toplevel.Typealias"
             }
 
-            for i, node in ipairs(nodes_expected) do
-                local actual, expected = table.unpack(node)
+            for i, expected in ipairs(nodes_expected) do
+                local actual = ast.decls[i]._tag
                 assert.are.equal(expected, actual)
             end
         end)
 
-        it("It should typecheck", function()
-            ast, errs = driver.compile_internal("__test__.ptf", tdf, "typechecker")
+        -- TODO: Move this test to the type checker
+        it("should have the _type field added to nodes", function()
+            local ast, errs = driver.compile_internal("__test__.d.pln", tdf, "typechecker")
 
             assert(ast)
+            assert.falsy(errs)
             assert(ast._tag == "ast.TypeFile.Decls")
-            
+
             local nodes_types_expected = {
-                {ast.decls[1]._type._tag, "types.T.Alias"},
-                {ast.decls[2]._type._tag, "types.T.Record"},
-                {ast.decls[3]._type._tag, "types.T.Function"},
-                {ast.decls[4]._type._tag, "types.T.Function"},
-                {ast.decls[5]._type._tag, "types.T.Alias"},
+                "types.T.Alias",
+                "types.T.Record",
+                "types.T.Function",
+                "types.T.Function",
+                "types.T.Table",
+                "types.T.Float",
+                "types.T.Alias",
             }
 
-            for i, node in ipairs(nodes_types_expected) do
-                local actual, expected = table.unpack(node)
+            for i, expected in ipairs(nodes_types_expected) do
+                local actual = ast.decls[i]._type._tag
                 assert.are.equal(expected, actual)
             end
         end)

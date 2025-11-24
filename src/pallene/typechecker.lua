@@ -54,11 +54,11 @@ local Typechecker = util.Class()
 -- On failure, returns false and a list of compilation errors
 function typechecker.check(prog_ast)
     local ok, ret = trycatch.pcall(function()
-        local typechecker = Typechecker.new()
+        local type_checker = Typechecker.new()
         if prog_ast._tag == "ast.Program.Program" then
-            return typechecker:check_program(prog_ast)
+            return type_checker:check_program(prog_ast)
         elseif prog_ast._tag == "ast.TypeFile.Decls" then
-            return typechecker:check_type_file(prog_ast)
+            return type_checker:check_type_file(prog_ast)
         else
             error("unexpected AST root: " .. tostring(prog_ast._tag))
         end
@@ -327,7 +327,6 @@ end
 function Typechecker:check_type_file(prog_ast)
 
     assert(prog_ast._tag == "ast.TypeFile.Decls")
-    local module_name = prog_ast.module_name
 
     -- 1) Add primitive types to the symbol table
     self:add_type_symbol("any",     types.T.Any)
