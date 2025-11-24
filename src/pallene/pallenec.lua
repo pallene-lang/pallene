@@ -76,13 +76,12 @@ end
 local function do_print_types()
     local module = compile_up_to("typechecker")
 
-    local ptf_code
-    ptf_code = type_extractor.generate_type_declarations(module)
+    local d_pln_code
+    d_pln_code = type_extractor.generate_type_declarations(module)
 
-    table.insert(ptf_code, "")
-    ptf_code = table.concat(ptf_code, "\n")
-
-    io.stdout:write(ptf_code)
+    table.insert(d_pln_code, "")
+    d_pln_code = table.concat(d_pln_code, "\n")
+    io.stdout:write(d_pln_code)
 end
 
 function pallenec.main()

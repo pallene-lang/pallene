@@ -25,7 +25,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
     local file_lua    = modname..".lua"
     local file_script = modname.."script.lua"
     local file_output = modname.."output.txt"
-    local file_ptf    = modname..".ptf"
+    local file_d_pln    = modname..".d.pln"
 
     local function compile(body)
         local code = util.render([[
@@ -53,7 +53,7 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         os.remove(file_lua)
         os.remove(file_script)
         os.remove(file_output)
-        os.remove(file_ptf)
+        os.remove(file_d_pln)
     end)
 
     local assert_test_output = function (expected)

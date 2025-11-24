@@ -25,6 +25,9 @@ for file in \
     examples/*/*.lua  \
     examples/*/*.pln
 do
+    case "$file" in
+        *.d.pln) continue ;;
+    esac
     if grep -n "[$space$tab]$" "$file"; then
         # Forbid trailing whitespace because some editors like to automatically delete it.
         # Such whitespace can cause spurious diffs later down the road, when someone is working on

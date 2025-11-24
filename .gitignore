@@ -1,7 +1,7 @@
 *.o
 *.a
 *.so
-*.ptf
+*.d.pln
 
 # lua
 vm/src/lua

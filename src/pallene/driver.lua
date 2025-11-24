@@ -145,7 +145,7 @@ end
 --    compile("pln", "so", "foo.pln") --> outputs "foo.so"
 --    compile("pln", "c", "foo.pln")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)      --> outputs "foo.so"
---    compile("pln", "ptf", "foo.pln") --> outputs "foo.ptf"
+--    compile("pln", "d.pln", "foo.pln") --> outputs "foo.d.pln"
 --
 
 local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
@@ -175,7 +175,7 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     return true, {}
 end
 
-local function compile_pln_to_ptf(input_ext, output_ext, input_file_name, base_name)
+local function compile_pln_to_d_pln(input_ext, output_ext, input_file_name, base_name)
     assert(input_ext == "pln")
 
     local input, err = driver.load_input(input_file_name)
@@ -188,15 +188,15 @@ local function compile_pln_to_ptf(input_ext, output_ext, input_file_name, base_n
         return false, errs
     end
 
-    local ptf_code
-    ptf_code, errs = type_extractor.generate_type_declarations(prog_ast)
-    if not ptf_code then
+    local d_pln_code
+    d_pln_code, errs = type_extractor.generate_type_declarations(prog_ast)
+    if not d_pln_code then
         return false, errs
     end
-    table.insert(ptf_code, "")
-    ptf_code = table.concat(ptf_code, "\n")
+    table.insert(d_pln_code, "")
+    d_pln_code = table.concat(d_pln_code, "\n")
 
-    assert(util.set_file_contents(base_name .. "." .. output_ext, ptf_code))
+    assert(util.set_file_contents(base_name .. "." .. output_ext, d_pln_code))
     return true, {}
 end
 
@@ -218,8 +218,6 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
 
     if output_ext == "lua" then
         return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
-    -- elseif output_ext == "ptf" then
-    --     return compile_pln_to_ptf(input_ext, output_ext, input_file_name, output_base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")
@@ -251,7 +249,7 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
         end
 
         if ok and input_ext == "pln" and output_ext == "so" then
-            ok, errs = compile_pln_to_ptf("pln", "ptf", input_file_name, output_base_name)
+            ok, errs = compile_pln_to_d_pln("pln", "d.pln", input_file_name, output_base_name)
         end
 
         return ok, errs
