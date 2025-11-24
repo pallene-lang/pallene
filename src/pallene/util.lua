@@ -49,6 +49,56 @@ function util.split_ext(file_name)
     return name, ext
 end
 
+--- Return a list consisting of the base name and all extensions of a file
+--- e.g. "file.d.pln" -> { "pln", "d", "file" }
+---
+--- @param file_name string
+--- @return [string]
+---
+function util.split_all_ext(file_name)
+    local name, ext = util.split_ext(file_name)
+    if not ext then
+        return {file_name, "d", "ab"}
+    else
+        local exts = util.split_all_ext(name)
+        table.insert(exts, ext)
+        return exts
+    end
+end
+
+local recognized_extensions = {
+    ["pln"]   = true,
+    ["d.pln"] = true,
+    ["c"]    = true,
+    ["lua"]   = true,
+    ["so"]    = true,
+}
+
+--- Splits the file name into two parts: the base name, the Pallene extensions.
+--- If the file is not known to Pallene, returns nil.
+---
+---
+--- e.g.
+--- - "file.pln"   -> "file", "pln"
+--- - "file.d.pln" -> "file", "d.pln"
+--- - "dotted.file.d.pln" -> "dotted.file", "d.pln"
+--- - "file.txt"   -> nil
+---
+---@param file_name string
+---@return string | nil
+---@return string | nil
+---
+function util.split_pallene_ext(file_name)
+    local parts = util.split_all_ext(file_name)
+    if #parts >= 3 and parts[#parts] == "pln" and parts[#parts - 1] == "d" then
+        local base_name = table.concat(parts, ".", 1, #parts - 2)
+        return base_name, "d.pln"
+    elseif #parts >= 2 and recognized_extensions[parts[#parts]] then
+        local base_name = table.concat(parts, ".", 1, #parts - 1)
+        return base_name, parts[#parts]
+    end
+end
+
 function util.get_file_contents(file_name)
     local f, err = io.open(file_name, "r")
     if not f then
@@ -125,6 +175,10 @@ function util.Class()
 
     return cls
 end
+
+--
+-- General purpose utilities
+--
 
 function util.expand_type_aliases(ast_node, visited)
     local types = require "pallene.types"
