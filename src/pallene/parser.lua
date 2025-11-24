@@ -1204,15 +1204,20 @@ function parser.parse(lexer)
 
     local p = Parser.new(lexer)
 
-    local name, ext = util.split_ext(lexer.file_name)
+    local filename = lexer.file_name
+    local name, ext = util.split_pallene_ext(filename)
     local ok, ret = trycatch.pcall(function()
         if (ext == "pln") then
             return p:Program()
-        elseif (ext == "ptf") then
+        elseif (ext == "d.pln") then
             return p:TypeDeclarationFile(name)
         else
-            p:abort_with_syntax_error(lexer.loc,
-                "unknown file extension '%s'; expected '.pln' or '.ptf'", ext)
+            local msg = string.format(
+                "file-error: unknown file extension in '%s'; expected '.pln' or '.d.pln'",
+                filename
+            )
+            table.insert(p.errors, msg)
+            trycatch.error("file-error")
         end
     end)
 
