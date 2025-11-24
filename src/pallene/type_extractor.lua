@@ -148,6 +148,21 @@ local function typeof_tls(node, typedefs)
     end
 end
 
+--- Generates type declarations for all exported types from a Pallene program's AST.
+---
+--- This function traverses the AST of a Pallene program and outputs type declarations
+--- for all exported types, including typealiases, records, functions, and module fields.
+--- The output is intended for use in type declaration files (`.d.pln`).
+---
+--- The type declaration syntax follows Pallene's type declaration syntax conventions.
+---
+--- **Note:** This function differs from `types.tostring()` in two key ways:
+--- 1. It outputs type declarations rather than user-friendly type representations
+--- 2. It traverses the entire AST, while `types.tostring()` only works with `types.T` types
+---
+--- **Returns**
+---
+--- A list of strings where each string represents a type declaration
 function type_extractor.generate_type_declarations(prog_ast)
     local typedefs = {}
     for _, node in ipairs(prog_ast.tls) do
