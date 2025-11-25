@@ -26,6 +26,7 @@ define_union("T", {
                          --  (check assignment_conversion.lua)
     },
     Alias    = {"name", "type"},
+    Module   = {}
 })
 
 function types.is_gc(typ)

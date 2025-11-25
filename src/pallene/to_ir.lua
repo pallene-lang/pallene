@@ -1054,6 +1054,9 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                     -- See https://github.com/pallene-lang/pallene/issues/337
                     error("not implemented")
                 end
+            elseif def._tag == "typechecker.Def.Import" then
+                -- TODO: Handle module imported fields
+                return ir.Value.Nil -- added just so the compiler don't break while this case is not implemented
             else
                 tagged_union.error(def._tag)
             end
@@ -1287,6 +1290,12 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             elseif bname == "tostring" then
                 assert(#xs == 1)
                 bb:append_cmd(ir.Cmd.BuiltinTostring(loc, dsts, xs))
+            elseif bname == "require" then
+                assert(#xs == 1)
+                -- TODO
+                -- something like bb:append_cmd(ir.Cmd.BuiltinRequire(loc, dsts, xs))
+                -- maybe also bb:append_cmd(ir.Cmd.CheckGC)
+                -- have to check
             else
                 tagged_union.error(bname)
             end
