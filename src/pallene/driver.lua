@@ -24,7 +24,7 @@ local type_extractor = require "pallene.type_extractor"
 local driver = {}
 
 local function check_source_filename(argv0, file_name, expected_ext)
-    local name, ext = util.split_ext(file_name)
+    local name, ext = util.split_pallene_ext(file_name)
     if ext ~= expected_ext then
         local msg = string.format("%s: %s does not have a .%s extension",
             argv0, file_name, expected_ext)
@@ -200,6 +200,25 @@ local function compile_pln_to_d_pln(input_ext, output_ext, input_file_name, base
     return true, {}
 end
 
+function driver.parse_type_file(path)
+    local base_name, err = check_source_filename("pallenec", path, "d.pln")
+     if not base_name then
+        return false, { err }
+    end
+    local input, err = util.get_file_contents(path)
+    if not input then
+        return false, { err }
+    end
+
+    local ast
+    ast, err = driver.compile_internal(path, input, "typechecker")
+    if not ast then
+        return false, { err }
+    end
+
+    return ast, {}
+end
+
 
 -- Compile the contents of [input_file_name] with extension [input_ext].
 -- Writes the resulting output to [output_file_name] with extension [output_ext].
@@ -218,6 +237,8 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
 
     if output_ext == "lua" then
         return compile_pln_to_lua(input_ext, output_ext, input_file_name, output_base_name)
+    elseif output_ext == "d.pln" then
+        return compile_pln_to_d_pln(input_ext, output_ext, input_file_name, output_base_name)
     else
         local first_step = step_index[input_ext]  or error("invalid extension")
         local last_step  = step_index[output_ext] or error("invalid extension")

@@ -58,7 +58,7 @@ end
 function util.split_all_ext(file_name)
     local name, ext = util.split_ext(file_name)
     if not ext then
-        return {file_name, "d", "ab"}
+        return { file_name }
     else
         local exts = util.split_all_ext(name)
         table.insert(exts, ext)
