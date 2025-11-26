@@ -451,6 +451,30 @@ function Typechecker:is_the_module_variable(exp)
         (self.module_symbol == self.symbol_table:find_symbol(exp.var.name)))
 end
 
+
+local function is_require_call(exp)
+    return exp._tag         == "ast.Exp.CallFunc" and
+           exp.exp._tag     == "ast.Exp.Var"      and
+           exp.exp.var._tag == "ast.Var.Name"     and
+           exp.exp.var.name == "require"
+end
+
+function Typechecker:check_require_exp(stat, is_toplevel)
+    local exps = stat.exps
+    if not exps then return end
+    for _, exp in ipairs(exps) do
+        if is_require_call(exp) then
+            if stat._tag ~= "ast.Stat.Decl" or not is_toplevel then
+                type_error(exp.loc, "require can only be used in a toplevel declaration")
+            elseif #exps ~= 1 then
+                type_error(exp.loc, "require must be the only expression in its statement")
+            else
+                exp._valid_require = true
+            end
+        end
+    end
+end
+
 function Typechecker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
@@ -464,6 +488,7 @@ function Typechecker:check_stat(stat, is_toplevel)
                 decl._type = self:from_ast_type(decl.type)
             end
         else
+            self:check_require_exp(stat, is_toplevel)
             self:expand_function_returns(stat.exps)
             local m = #stat.decls
             local n = #stat.exps
@@ -881,6 +906,10 @@ end
 -- Void functions in an expression context are a constant source of headaches.
 function Typechecker:check_fun_call(exp, is_stat)
     assert(exp._tag == "ast.Exp.CallFunc")
+
+    if is_require_call(exp) and not exp._valid_require then 
+        type_error(exp.loc, "require can only be used in a toplevel declaration")
+    end
 
     exp.exp = self:check_exp_synthesize(exp.exp)
     self:expand_function_returns(exp.args)
