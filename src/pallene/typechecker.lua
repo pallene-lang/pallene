@@ -470,6 +470,7 @@ function Typechecker:check_require_exp(stat, is_toplevel)
                 type_error(exp.loc, "require must be the only expression in its statement")
             else
                 exp._valid_require = true
+                return true
             end
         end
     end
@@ -479,6 +480,7 @@ function Typechecker:check_stat(stat, is_toplevel)
     local tag = stat._tag
     if     tag == "ast.Stat.Decl" then
 
+        local has_require
         if #stat.exps == 0 then
             for _, decl in ipairs(stat.decls) do
                 if not decl.type then
@@ -488,7 +490,7 @@ function Typechecker:check_stat(stat, is_toplevel)
                 decl._type = self:from_ast_type(decl.type)
             end
         else
-            self:check_require_exp(stat, is_toplevel)
+            has_require = self:check_require_exp(stat, is_toplevel)
             self:expand_function_returns(stat.exps)
             local m = #stat.decls
             local n = #stat.exps
@@ -503,6 +505,42 @@ function Typechecker:check_stat(stat, is_toplevel)
             for i = m + 1, n do
                 stat.exps[i] = self:check_exp_synthesize(stat.exps[i])
             end
+        end
+
+        if has_require then
+            local localname = stat.decls[1].name
+            local module_name = stat.exps[1].args[1].value
+            print("importing module '" .. module_name .. "' as '" .. localname .. "'")
+
+            local driver = require "pallene.driver"
+            local ast, errs = driver.parser_type_file(string.format("%s.d.pln", module_name))
+            --print ((require'tableutils').ptable(ast))
+            if not ast then
+                type_error(stat.loc, "could not find module '%s'", module_name)
+            end
+
+            local symbols = {}
+            for _, decl in ipairs(ast.decls) do
+                if decl._tag == "ast.Toplevel.Typealias" or
+                   decl._tag == "ast.Toplevel.Record"    then
+                    symbols[decl.name] = typechecker.Symbol.Type(decl._type)
+                else
+                    symbols[decl.name] = typechecker.Symbol.Value(decl._type, typechecker.Def.Import(module_name, decl.name))
+                end
+                print(string.format("Adding %s to the symbol table", localname .. '.' .. decl.name))
+            end
+            self:add_module_symbol(localname, false, symbols)
+            --[[
+            local module_symbols = {}
+            local module_typ = types.T.Module
+
+            self:add_module_symbol(module_name, module_typ, module_symbols)
+
+            for _, decl in ipairs(stat.decls) do
+                self:add_value_symbol(decl.name, module_typ,
+                    typechecker.Def.Import(module_name, decl.name))
+            end
+            return]]
         end
 
         for _, decl in ipairs(stat.decls) do
