@@ -200,6 +200,45 @@ local is_toplevel_first = Union({
     is_stat_first,
 })
 
+local function is_require_call(exp)
+    return exp._tag         == "ast.Exp.CallFunc" and
+           exp.exp._tag     == "ast.Exp.Var"      and
+           exp.exp.var._tag == "ast.Var.Name"     and
+           exp.exp.var.name == "require"
+end
+
+local function has_require_exp(stat)
+    local exps = stat.exps
+    if not exps then return false end
+    for _, exp in ipairs(exps) do
+        if is_require_call(exp) then
+            return true
+        end
+    end
+    return false
+end
+
+function Parser:convert_decl_to_require(stat)
+    local decl = stat.decls[1]
+    local exp  = stat.exps[1]
+    if #stat.decls > 1 or #stat.exps > 1 then
+        self:recoverable_syntax_error(stat.loc,
+            "cannot use a multiple-assignment in require statements")
+    end
+    assert(decl._tag == "ast.Decl.Decl")
+    if decl.type then
+        self:recoverable_syntax_error(decl.loc,
+            "type annotation is not allowed at require statements")
+    end
+    assert(is_require_call(exp))
+    if #exp.args ~= 1 then
+        self:recoverable_syntax_error(exp.loc,
+            "require() must be called with exactly one argument")
+    end
+    local module_name = exp.args[1]
+    return ast.Toplevel.Require(stat.loc, decl.name, module_name)
+end
+
 --
 -- Toplevel
 --
@@ -247,13 +286,17 @@ function Parser:Program()
         table.insert(tls, tl)
 
         if tl._tag == "ast.Toplevel.Stats" then
-            for _, stat in ipairs(tl.stats) do
+            for i, stat in ipairs(tl.stats) do
                 if stat._tag == "ast.Stat.Assign" then
                     for _, var in ipairs(stat.vars) do
                         if var._tag ~= "ast.Var.Dot" then
                             self:recoverable_syntax_error(var.loc,
                                 "toplevel assignments are only possible with module fields")
                         end
+                    end
+                elseif stat._tag == "ast.Stat.Decl" then
+                    if has_require_exp(stat) then
+                        tl.stats[i] = self:convert_decl_to_require(stat)
                     end
                 end
             end
