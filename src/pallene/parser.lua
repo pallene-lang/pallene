@@ -241,7 +241,7 @@ function Parser:convert_decl_to_require(stat)
             "require() must be called with exactly one argument")
     end
     local module_name = exp.args[1]
-    return ast.Toplevel.Require(stat.loc, decl.name, module_name)
+    return ast.Stat.Require(stat.loc, decl.name, module_name)
 end
 
 --
