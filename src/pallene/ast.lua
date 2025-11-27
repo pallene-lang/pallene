@@ -20,11 +20,12 @@ define_union("TypeFile", {
 })
 
 define_union("Type", {
-    Nil      = {"loc"},
-    Name     = {"loc", "name"},
-    Array    = {"loc", "subtype"},
-    Table    = {"loc", "fields"},
-    Function = {"loc", "arg_types", "ret_types"},
+    Nil           = {"loc"},
+    Name          = {"loc", "name"},
+    Array         = {"loc", "subtype"},
+    Table         = {"loc", "fields"},
+    Function      = {"loc", "arg_types", "ret_types"},
+    QualifiedName = {"loc", "module", "name"},
 })
 
 define_union("Toplevel", {

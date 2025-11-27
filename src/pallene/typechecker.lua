@@ -231,6 +231,25 @@ function Typechecker:from_ast_type(ast_typ)
             tagged_union.error(stag)
         end
 
+    elseif tag == "ast.Type.QualifiedName" then
+        local mod, name = ast_typ.module, ast_typ.name
+        local mod_sym = self.symbol_table:find_symbol(mod)
+
+        if not mod_sym then
+            type_error(ast_typ.loc, "module '%s' is not declared", mod)
+        elseif mod_sym._tag ~= "typechecker.Symbol.Module" then
+            type_error(ast_typ.loc, "'%s' is not a module", mod)
+        end
+
+        local type_sym = mod_sym.symbols[name]
+        if not type_sym then
+            type_error(ast_typ.loc, "type '%s.%s' is not declared", mod, name)
+        elseif type_sym._tag ~= "typechecker.Symbol.Type" then
+            type_error(ast_typ.loc, "'%s.%s' is not a type", mod, name)
+        else
+            return type_sym.typ
+        end
+
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
         return types.T.Array(subtype)
