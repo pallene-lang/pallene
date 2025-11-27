@@ -286,6 +286,9 @@ function Parser:Program()
         table.insert(tls, tl)
 
         if tl._tag == "ast.Toplevel.Stats" then
+            -- This variable will always be decremented at the end of the loop.
+            -- It remaining 1 means that we are at a sequence of require statements.
+            local require_stmt_allowed = 1
             for i, stat in ipairs(tl.stats) do
                 if stat._tag == "ast.Stat.Assign" then
                     for _, var in ipairs(stat.vars) do
@@ -296,9 +299,16 @@ function Parser:Program()
                     end
                 elseif stat._tag == "ast.Stat.Decl" then
                     if has_require_exp(stat) then
-                        tl.stats[i] = self:convert_decl_to_require(stat)
+                        if require_stmt_allowed > 0 then
+                            tl.stats[i] = self:convert_decl_to_require(stat)
+                            require_stmt_allowed = require_stmt_allowed + 1
+                        else
+                            self:recoverable_syntax_error(stat.loc,
+                                "require statements must appear after the module declaration and before any other toplevel statements")
+                        end
                     end
                 end
+                require_stmt_allowed = require_stmt_allowed - 1
             end
 
             local last = tl.stats[#tl.stats]
