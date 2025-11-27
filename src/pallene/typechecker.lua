@@ -360,6 +360,8 @@ function Typechecker:check_type_file(prog_ast)
 
     assert(prog_ast._tag == "ast.TypeFile.Decls")
 
+    local modname = prog_ast.modname
+
     -- 1) Add primitive types to the symbol table
     self:add_type_symbol("any",     types.T.Any)
     self:add_type_symbol("boolean", types.T.Boolean)
@@ -372,8 +374,7 @@ function Typechecker:check_type_file(prog_ast)
         local tag = decl._tag
 
         if tag == "ast.TypeFile.Typealias" then
-            local typ = types.T.Alias(decl.name, self:from_ast_type(decl.type))
-            -- self:export_type_symbol(decl.name, typ, decl.loc)
+            local typ = types.T.Alias(modname .. "." .. decl.name, self:from_ast_type(decl.type))
             self:add_type_symbol(decl.name, typ)
             decl._type = typ
 
@@ -389,7 +390,7 @@ function Typechecker:check_type_file(prog_ast)
                 field_types[field_name] = self:from_ast_type(field_decl.type)
             end
 
-            local typ = types.T.Record(decl.name, field_names, field_types, false)
+            local typ = types.T.Record(modname .. '.' .. decl.name, field_names, field_types, false)
             self:add_type_symbol(decl.name, typ)
 
             decl._type = typ
