@@ -713,6 +713,9 @@ function Typechecker:check_stat(stat, is_toplevel)
             func.value = self:check_exp_verify(func.value, func._type, "toplevel function")
         end
 
+    elseif tag == "ast.Toplevel.Require" then
+        -- ok
+        -- TODO: import the module and add its symbols to the symbol table
     else
         tagged_union.error(tag)
     end
