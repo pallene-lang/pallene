@@ -220,6 +220,25 @@ function Typechecker:from_ast_type(ast_typ)
             tagged_union.error(stag)
         end
 
+    elseif tag == "ast.Type.QualifiedName" then
+        local mod, name = ast_typ.module, ast_typ.name
+        local mod_sym = self.symbol_table:find_symbol(mod)
+
+        if not mod_sym then
+            type_error(ast_typ.loc, "module '%s' is not declared", mod)
+        elseif mod_sym._tag ~= "typechecker.Symbol.Module" then
+            type_error(ast_typ.loc, "'%s' is not a module", mod)
+        end
+
+        local type_sym = mod_sym.symbols[name]
+        if not type_sym then
+            type_error(ast_typ.loc, "type '%s.%s' is not declared", mod, name)
+        elseif type_sym._tag ~= "typechecker.Symbol.Type" then
+            type_error(ast_typ.loc, "'%s.%s' is not a type", mod, name)
+        else
+            return type_sym.typ
+        end
+
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
         return types.T.Array(subtype)
@@ -261,6 +280,19 @@ function Typechecker:check_program(prog_ast)
     self:add_type_symbol("float",   types.T.Float)
     self:add_type_symbol("integer", types.T.Integer)
     self:add_type_symbol("string",  types.T.String)
+
+    --[[
+
+    TODO: remove this example
+    -- this is how to add a module symbol with fields (the first arg to Import is the actual module name
+    -- while the string passed to add_module_symbol is the name used for the var that holds the imported module)
+
+    self:add_module_symbol("a", false, {
+        ["a_value"] = typechecker.Symbol.Value(types.T.Integer, typechecker.Def.Import("a", "a_value")),
+        ["a_type"] = typechecker.Symbol.Type(types.T.Integer)
+     })
+
+    --]]
 
     -- 2) Add builtins to symbol table.
     -- The order does not matter because they are distinct.

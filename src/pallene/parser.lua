@@ -446,7 +446,12 @@ function Parser:SimpleType()
 
     elseif self:peek("NAME") then
         local tok = self:advance()
-        return ast.Type.Name(tok.loc, tok.value)
+        local name = ast.Type.Name(tok.loc, tok.value)
+        if self:try(".") then
+            local id = self:e("NAME")
+            name = ast.Type.QualifiedName(tok.loc, name.name, id.value)
+        end
+        return name
 
     elseif self:peek("{") then
         local open = self:advance()
