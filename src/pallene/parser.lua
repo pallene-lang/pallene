@@ -356,7 +356,7 @@ function Parser:Program()
         start_loc, end_loc, modname, tls, self.type_regions)
 end
 
-function Parser:TypeDeclarationFile(modname)
+function Parser:TypeDeclarationFile(module_name)
 
     local start_loc = self.next.loc
 
@@ -386,7 +386,7 @@ function Parser:TypeDeclarationFile(modname)
     end
 
     return ast.TypeFile.TypeFile(
-        start_loc, modname, decls
+        start_loc, module_name, decls
     )
 end
 

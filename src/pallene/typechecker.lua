@@ -232,23 +232,7 @@ function Typechecker:from_ast_type(ast_typ)
         end
 
     elseif tag == "ast.Type.QualifiedName" then
-        local mod, name = ast_typ.module, ast_typ.name
-        local mod_sym = self.symbol_table:find_symbol(mod)
-
-        if not mod_sym then
-            type_error(ast_typ.loc, "module '%s' is not declared", mod)
-        elseif mod_sym._tag ~= "typechecker.Symbol.Module" then
-            type_error(ast_typ.loc, "'%s' is not a module", mod)
-        end
-
-        local type_sym = mod_sym.symbols[name]
-        if not type_sym then
-            type_error(ast_typ.loc, "type '%s.%s' is not declared", mod, name)
-        elseif type_sym._tag ~= "typechecker.Symbol.Type" then
-            type_error(ast_typ.loc, "'%s.%s' is not a type", mod, name)
-        else
-            return type_sym.typ
-        end
+        return self:try_access_qualified_type(ast_typ)
 
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
@@ -358,7 +342,7 @@ function Typechecker:check_type_file(prog_ast)
 
     assert(prog_ast._tag == "ast.TypeFile.TypeFile")
 
-    local modname = prog_ast.modname
+    local module_name = prog_ast.module_name
 
     -- 1) Add primitive types to the symbol table
     self:add_type_symbol("any",     types.T.Any)
@@ -372,7 +356,7 @@ function Typechecker:check_type_file(prog_ast)
         local tag = decl._tag
 
         if tag == "ast.TypeFile.Typealias" then
-            local typ = types.T.Alias(modname .. "." .. decl.name, self:from_ast_type(decl.type))
+            local typ = types.T.Alias(module_name .. "." .. decl.name, self:from_ast_type(decl.type))
             self:add_type_symbol(decl.name, typ)
             decl._type = typ
 
@@ -388,7 +372,7 @@ function Typechecker:check_type_file(prog_ast)
                 field_types[field_name] = self:from_ast_type(field_decl.type)
             end
 
-            local typ = types.T.Record(modname .. '.' .. decl.name, field_names, field_types, false)
+            local typ = types.T.Record(module_name .. '.' .. decl.name, field_names, field_types, false)
             self:add_type_symbol(decl.name, typ)
 
             decl._type = typ
@@ -737,7 +721,6 @@ function Typechecker:check_stat(stat, is_toplevel)
             else
                 symbols[decl.name] = typechecker.Symbol.Value(decl._type, typechecker.Def.Import(module_name, decl.name))
             end
-            print(string.format("Adding %s to the symbol table", localname .. '.' .. decl.name))
         end
         self:add_module_symbol(localname, false, symbols)
     else
@@ -745,6 +728,36 @@ function Typechecker:check_stat(stat, is_toplevel)
     end
 
     return stat
+end
+
+--
+-- If the given type named is of the form x.y.z, check for its existence and return the corresponding types.T
+--
+function Typechecker:try_access_qualified_type(qualified_type)
+    assert(qualified_type._tag == "ast.Type.QualifiedName")
+
+    local mod, type = qualified_type.module, qualified_type.name
+
+    local mod_sym = self.symbol_table:find_symbol(mod)
+    if not mod_sym then
+        type_error(qualified_type.loc, "module '%s' is not declared", mod)
+    elseif mod_sym._tag ~= "typechecker.Symbol.Module" then
+        type_error(qualified_type.loc, "'%s' is not a module", mod)
+    end
+
+    local type_sym = mod_sym.symbols[type]
+    if not type_sym then
+        type_error(qualified_type.loc, "type '%s.%s' is not declared", mod, type)
+    elseif type_sym._tag ~= "typechecker.Symbol.Type" then
+        type_error(qualified_type.loc, "'%s.%s' is not a type", mod, type)
+    end
+
+    local typ = type_sym.typ
+
+    assert(typ._tag == "types.T.Alias" or typ._tag == "types.T.Record",
+        "only types.T.Alias and types.T.Record can be qualified types")
+
+    return typ
 end
 
 --
