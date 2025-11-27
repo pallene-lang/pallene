@@ -510,11 +510,10 @@ function Typechecker:check_stat(stat, is_toplevel)
         if has_require then
             local localname = stat.decls[1].name
             local module_name = stat.exps[1].args[1].value
-            print("importing module '" .. module_name .. "' as '" .. localname .. "'")
+            print("Importing module '" .. module_name .. "' as '" .. localname .. "'")
 
             local driver = require "pallene.driver"
-            local ast, errs = driver.parser_type_file(string.format("%s.d.pln", module_name))
-            --print ((require'tableutils').ptable(ast))
+            local ast, errs = driver.parse_type_file(string.format("%s.d.pln", module_name))
             if not ast then
                 type_error(stat.loc, "could not find module '%s'", module_name)
             end
@@ -548,6 +547,8 @@ function Typechecker:check_stat(stat, is_toplevel)
                 self:add_value_symbol(decl.name, decl._type, typechecker.Def.Variable(decl))
             end
         end
+
+        print ((require'tableutils').ptable(self.symbol_table))
 
     elseif tag == "ast.Stat.Block" then
         self.symbol_table:with_block(function()

@@ -219,6 +219,7 @@ local ir_cmd_constructors = {
     BuiltinStringSub  = {"loc", "dsts", "srcs"},
     BuiltinType       = {"loc", "dsts", "srcs"},
     BuiltinTostring   = {"loc", "dsts", "srcs"},
+    BuiltinRequire    = {"loc", "dsts", "srcs"},
 
     --
     -- Control flow

@@ -1713,6 +1713,15 @@ gen_cmd["BuiltinTostring"] = function(self, args)
         dst = dst, line = C.integer(line), v = v })
 end
 
+gen_cmd["BuiltinRequire"] = function(self, args)
+    print("BuiltinRequire: ", args.cmd.dsts[1], args.cmd.srcs[1])
+    local dst = self:c_var(args.cmd.dsts[1])
+    local v = self:c_value(args.cmd.srcs[1])
+    local line = args.cmd.loc.line
+    return util.render([[ $dst = pallene_tostring(L, PALLENE_SOURCE_FILE, $line, $v); ]], {
+        dst = dst, line = C.integer(line), v = v })
+end
+
 --
 -- Control flow
 --

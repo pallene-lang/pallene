@@ -358,6 +358,9 @@ function ToIR:convert_toplevel(prog_ast)
                             ir.add_exported_function(self.module, f_id)
                         end
                     end
+
+                elseif stag == "ast.Stat.Decl" then
+                    --
                 end
             end
         elseif tag == "ast.Toplevel.Typealias" then
@@ -1293,7 +1296,7 @@ function ToIR:exp_to_assignment(bb, dst, exp)
             elseif bname == "require" then
                 assert(#xs == 1)
                 -- TODO
-                -- something like bb:append_cmd(ir.Cmd.BuiltinRequire(loc, dsts, xs))
+                bb:append_cmd(ir.Cmd.BuiltinRequire(loc, dsts, xs))
                 -- maybe also bb:append_cmd(ir.Cmd.CheckGC)
                 -- have to check
             else
