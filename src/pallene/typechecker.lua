@@ -783,7 +783,11 @@ function Typechecker:check_var(var)
     if     tag == "ast.Var.Name" then
         local sym = self.symbol_table:find_symbol(var.name)
         if not sym then
-            type_error(var.loc, "variable '%s' is not declared", var.name)
+            if var.name == "require" then
+                type_error(var.loc, "calls to require are only allowed in toplevel declarations", var.name)
+            else
+                type_error(var.loc, "variable '%s' is not declared", var.name)
+            end
         end
 
         local stag = sym._tag
