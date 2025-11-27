@@ -136,7 +136,7 @@ define_union("Def", {
     Variable = { "decl" }, -- ast.Decl
     Function = { "func" }, -- ast.FuncStat
     Builtin  = { "id"   }, -- string
---  Import   = { ??? },
+    Import   = { "module", "field" }, -- string, string
 })
 
 local function loc_of_def(def)
@@ -711,9 +711,34 @@ function Typechecker:check_stat(stat, is_toplevel)
             func.value = self:check_exp_verify(func.value, func._type, "toplevel function")
         end
 
-    elseif tag == "ast.Toplevel.Require" then
-        -- ok
-        -- TODO: import the module and add its symbols to the symbol table
+    elseif tag == "ast.Stat.Require" then
+        -- TODO: improve this section
+        local localname = stat.local_name
+        local require_arg = stat.module_name
+        if require_arg._tag ~= "ast.Exp.String" then
+            type_error(require_arg.loc, "require argument must be a string literal")
+        end
+        local module_name = require_arg.value
+
+        local driver = require "pallene.driver"
+        local type_ast, errs = driver.parse_type_file(string.format("%s.d.pln", module_name))
+
+        if not type_ast then
+            -- TODO this is not a type error. Need to change this
+            type_error(stat.loc, "could not find module '%s'", module_name)
+        end
+
+        local symbols = {}
+        for _, decl in ipairs(type_ast.decls) do
+            if decl._tag == "ast.Toplevel.Typealias" or
+                decl._tag == "ast.Toplevel.Record"    then
+                symbols[decl.name] = typechecker.Symbol.Type(decl._type)
+            else
+                symbols[decl.name] = typechecker.Symbol.Value(decl._type, typechecker.Def.Import(module_name, decl.name))
+            end
+            print(string.format("Adding %s to the symbol table", localname .. '.' .. decl.name))
+        end
+        self:add_module_symbol(localname, false, symbols)
     else
         tagged_union.error(tag)
     end

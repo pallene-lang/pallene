@@ -898,6 +898,9 @@ function ToIR:convert_stat(bb, stat)
             end
         end
 
+    elseif tag == "ast.Stat.Require" then
+        -- TODO: implement module requires
+
     else
         tagged_union.error(tag)
     end
@@ -1054,6 +1057,9 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                     -- See https://github.com/pallene-lang/pallene/issues/337
                     error("not implemented")
                 end
+            elseif def._tag == "typechecker.Def.Import" then
+                -- TODO: Handle module imported fields
+                return ir.Value.Nil -- added just so the compiler don't break while this case is not implemented
             else
                 tagged_union.error(def._tag)
             end
