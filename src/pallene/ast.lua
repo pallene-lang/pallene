@@ -32,6 +32,7 @@ define_union("Toplevel", {
     Stats     = {"loc", "stats"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
+    Require   = {"loc", "local_name", "arg_module_name"},
 })
 
 define_union("Decl", {
@@ -51,7 +52,6 @@ define_union("Stat", {
     Return    = {"loc", "exps"},
     Break     = {"loc"},
     Functions = {"loc", "declared_names", "funcs"}, -- For mutual recursion (see parser.lua)
-    Require   = {"loc", "local_name", "module_name"},
 })
 
 define_union("FuncStat", {

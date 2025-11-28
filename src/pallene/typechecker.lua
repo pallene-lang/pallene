@@ -264,6 +264,50 @@ function Typechecker:from_ast_type(ast_typ)
     end
 end
 
+function Typechecker:load_required_ast(tl_require)
+    assert(tl_require._tag == "ast.Toplevel.Require")
+    local require_arg = tl_require.arg_module_name
+
+    if require_arg._tag ~= "ast.Exp.String" then
+        type_error(require_arg.loc, "require argument must be a string literal")
+    end
+
+    local module_name = require_arg.value
+
+    local driver = require "pallene.driver"
+    local type_ast, _ = driver.parse_type_file(string.format("%s.d.pln", module_name))
+
+    -- TODO: Reporting error
+    if not type_ast then
+        local msg = string.format("file error:" .. require_arg.loc:format_error( "could not find module '%s'", module_name))
+        table.insert(self.errors, msg)
+        trycatch.error("file-error")
+    end
+
+    assert(type_ast._tag == "ast.TypeFile.TypeFile")
+
+    return type_ast
+end
+
+function Typechecker:import_symbols(tl_require)
+    local req_ast = self:load_required_ast(tl_require)
+
+    local symbols = {}
+    local local_name, module_name = tl_require.local_name, tl_require.arg_module_name.value
+    for _, decl in ipairs(req_ast.decls) do
+        local tag = decl._tag
+        if tag == "ast.TypeFile.Typealias" or
+            tag == "ast.TypeFile.Record"    then
+            symbols[decl.name] = typechecker.Symbol.Type(decl._type)
+        elseif tag == "ast.TypeFile.Decl" then
+            symbols[decl.name] = typechecker.Symbol.Value(decl._type, typechecker.Def.Import(module_name, decl.name))
+        else
+            tagged_union.error(tag)
+        end
+    end
+    self:add_module_symbol(local_name, false, symbols)
+end
+
 function Typechecker:check_program(prog_ast)
 
     assert(prog_ast._tag == "ast.Program.Program")
@@ -325,6 +369,9 @@ function Typechecker:check_program(prog_ast)
             self:add_type_symbol(tl_node.name, typ)
 
             tl_node._type = typ
+
+        elseif tag == "ast.Toplevel.Require" then
+            self:import_symbols(tl_node)
 
         else
             tagged_union.error(tag)
@@ -696,33 +743,6 @@ function Typechecker:check_stat(stat, is_toplevel)
             func.value = self:check_exp_verify(func.value, func._type, "toplevel function")
         end
 
-    elseif tag == "ast.Stat.Require" then
-        -- TODO: improve this section
-        local localname = stat.local_name
-        local require_arg = stat.module_name
-        if require_arg._tag ~= "ast.Exp.String" then
-            type_error(require_arg.loc, "require argument must be a string literal")
-        end
-        local module_name = require_arg.value
-
-        local driver = require "pallene.driver"
-        local type_ast, errs = driver.parse_type_file(string.format("%s.d.pln", module_name))
-
-        if not type_ast then
-            -- TODO this is not a type error. Need to change this
-            type_error(stat.loc, "could not find module '%s'", module_name)
-        end
-
-        local symbols = {}
-        for _, decl in ipairs(type_ast.decls) do
-            if decl._tag == "ast.Toplevel.Typealias" or
-                decl._tag == "ast.Toplevel.Record"    then
-                symbols[decl.name] = typechecker.Symbol.Type(decl._type)
-            else
-                symbols[decl.name] = typechecker.Symbol.Value(decl._type, typechecker.Def.Import(module_name, decl.name))
-            end
-        end
-        self:add_module_symbol(localname, false, symbols)
     else
         tagged_union.error(tag)
     end

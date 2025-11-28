@@ -143,6 +143,8 @@ local function typeof_tls(node, typedefs)
                 error("Unknown statement type: " .. tostring(stat._tag))
             end
         end
+    elseif node._tag == "ast.Toplevel.Require" then
+        -- do nothing
     else
         error("Unknown node type: " .. tostring(node._tag))
     end
