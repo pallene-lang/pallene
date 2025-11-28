@@ -240,13 +240,100 @@ function Parser:convert_decl_to_require(stat)
         self:recoverable_syntax_error(exp.loc,
             "require() must be called with exactly one argument")
     end
-    local module_name = exp.args[1]
-    return ast.Stat.Require(stat.loc, decl.name, module_name)
+    local arg_module_name = exp.args[1]
+    return ast.Toplevel.Require(stat.loc, decl.name, arg_module_name)
 end
 
 --
 -- Toplevel
 --
+
+--[[
+function Parser:separate_requires(tl_stats)
+    assert(tl_stats._tag == "ast.Toplevel.Stats")
+    local result = {}
+    local i = 1
+    local stats = tl_stats.stats
+
+    while i <= #stats do
+        -- Collect non-require statements
+        local non_requires = {}
+        while i <= #stats and not has_require_exp(stats[i]) do
+            table.insert(non_requires, stats[i])
+            i = i + 1
+        end
+
+        -- Add them as a single Stats toplevel if any
+        if #non_requires > 0 then
+            table.insert(result, ast.Toplevel.Stats(non_requires[1].loc, non_requires))
+        end
+
+        -- Process require statement if present
+        if i <= #stats and has_require_exp(stats[i]) then
+            local require_stmt = self:convert_decl_to_require(stats[i])
+            table.insert(result, require_stmt)
+            i = i + 1
+        end
+    end
+
+    return result
+end
+--]]
+
+function Parser:separate_requires_from_tl_stats(tl_stats)
+    assert(tl_stats._tag == "ast.Toplevel.Stats")
+    local tls = {}
+    local stats_group = {}
+
+    local function commit_stats()
+        if #stats_group > 0 then
+            local stats_tl = ast.Toplevel.Stats(stats_group[1].loc, stats_group)
+            table.insert(tls, stats_tl)
+            stats_group = {}
+        end
+    end
+
+    for _, stat in ipairs(tl_stats.stats) do
+        if has_require_exp(stat) then
+            commit_stats()
+            local require_stmt = self:convert_decl_to_require(stat)
+            table.insert(tls, require_stmt)
+        else
+            table.insert(stats_group, stat)
+        end
+    end
+
+    commit_stats()
+
+    return tls
+end
+
+function Parser:tls_emerge_requires(tls)
+    local result = {}
+    local require_allowed = true
+
+    for _, tl in ipairs(tls) do
+        if tl._tag == "ast.Toplevel.Stats" then
+            local separated_tls = self:separate_requires_from_tl_stats(tl)
+
+            for _, sep_tl in ipairs(separated_tls) do
+                if sep_tl._tag == "ast.Toplevel.Require" then
+                    if not require_allowed then
+                        self:recoverable_syntax_error(sep_tl.loc,
+                            "require statements must appear before any other toplevel statements")
+                    end
+                else
+                    require_allowed = false
+                end
+                table.insert(result, sep_tl)
+            end
+        else
+            table.insert(result, tl)
+            require_allowed = false
+        end
+    end
+    return result
+end
 
 function Parser:Program()
 
@@ -302,16 +389,6 @@ function Parser:Program()
                                 "toplevel assignments are only possible with module fields")
                         end
                     end
-                elseif stat._tag == "ast.Stat.Decl" then
-                    if has_require_exp(stat) then
-                        if require_stmt_allowed > 0 then
-                            tl.stats[i] = self:convert_decl_to_require(stat)
-                            require_stmt_allowed = require_stmt_allowed + 1
-                        else
-                            self:recoverable_syntax_error(stat.loc,
-                                "require statements must appear after the module declaration and before any other toplevel statements")
-                        end
-                    end
                 end
                 require_stmt_allowed = require_stmt_allowed - 1
             end
@@ -323,6 +400,8 @@ function Parser:Program()
             end
         end
     end
+
+    tls = self:tls_emerge_requires(tls)
 
     -- return <modname>
     if return_stat then

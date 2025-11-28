@@ -49,7 +49,7 @@ function to_ir.convert(prog_ast)
     assert(prog_ast._tag == "ast.Program.Program")
     local alias_free_prog_ast = util.expand_type_aliases(prog_ast)
     local ok, ret = trycatch.pcall(function()
-        return ToIR.new():convert_toplevel(alias_free_prog_ast.tls)
+        return ToIR.new():convert_toplevel(alias_free_prog_ast.tls, alias_free_prog_ast.imported)
     end)
 
     if not ok then
@@ -323,8 +323,7 @@ function ToIR:export_local(bb, func_or_var, loc_id)
     bb:append_cmd(ir.Cmd.SetTable(func_or_var.loc, src_typ, tv, kv, fv))
 end
 
-function ToIR:convert_toplevel(prog_ast)
-
+function ToIR:convert_toplevel(prog_ast, imported)
     -- Create the $init function (it must have ID = 1)
     local id = ir.add_function(self.module, false, "$init", types.T.Function({}, {types.T.Table({})}))
     local init_func = self.module.functions[id]
@@ -365,6 +364,9 @@ function ToIR:convert_toplevel(prog_ast)
         elseif tag == "ast.Toplevel.Record" then
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
+        elseif tag == "ast.Toplevel.Require" then
+            -- TODO implement require
+            ir_error(tl_node.loc, "require statements are not implemented yet")
         else
             tagged_union.error(tag)
         end
@@ -897,9 +899,6 @@ function ToIR:convert_stat(bb, stat)
                 bb:append_cmd(ir.Cmd.InitUpvalues(func.loc, src_f, srcs, f_id))
             end
         end
-
-    elseif tag == "ast.Stat.Require" then
-        -- TODO: implement module requires
 
     else
         tagged_union.error(tag)
