@@ -5,6 +5,12 @@
 
 local util = require "pallene.util"
 
+local function file_exists(name)
+   local f = io.open(name, "r")
+   return f ~= nil and io.close(f)
+end
+
+
 describe("pallenec", function()
     before_each(function()
         util.set_file_contents("__test__.pln", [[
@@ -29,7 +35,9 @@ describe("pallenec", function()
         os.remove("__test__.c")
         os.remove("__test__.s")
         os.remove("__test__.so")
+        os.remove("__test__.d.pln")
         os.remove("__test__flag__.so")
+        os.remove("__test__flag__.d.pln")
         os.remove("__test__script__.lua")
         os.remove("__test__script__flag__.lua")
     end)
@@ -60,5 +68,12 @@ describe("pallenec", function()
         local ok, err, _, abort_msg = util.outputs_of_execute("pallenec --emit-c --emit-lua __test__.pln")
         assert.is_false(ok, err)
         assert(string.find(abort_msg, "Error: option '--emit-lua' can not be used together with option '--emit-c'", nil, true))
+    end)
+
+    it("Can extract type declarations", function()
+        assert(util.execute("pallenec __test__.pln"))
+        assert(file_exists("__test__.d.pln"))
+        local types = util.get_file_contents("__test__.d.pln")
+        assert.equals("f: (integer) -> integer\n", types)
     end)
 end)

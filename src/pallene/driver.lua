@@ -19,6 +19,7 @@ local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
 local translator = require "pallene.translator"
+local type_extractor = require "pallene.type_extractor"
 
 local driver = {}
 
@@ -144,6 +145,7 @@ end
 --    compile("pln", "so", "foo.pln") --> outputs "foo.so"
 --    compile("pln", "c", "foo.pln")  --> outputs "foo.c"
 --    compile("c", "so", "foo.c)      --> outputs "foo.so"
+--    compile("pln", "d.pln", "foo.pln") --> outputs "foo.d.pln"
 --
 
 local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_name)
@@ -170,6 +172,31 @@ local function compile_pln_to_lua(input_ext, output_ext, input_file_name, base_n
     local translation = translator.translate(input, prog_ast)
 
     assert(util.set_file_contents(base_name .. "." .. output_ext, translation))
+    return true, {}
+end
+
+local function compile_pln_to_d_pln(input_ext, output_ext, input_file_name, base_name)
+    assert(input_ext == "pln")
+
+    local input, err = driver.load_input(input_file_name)
+    if not input then
+        return false, { err }
+    end
+
+    local prog_ast, errs = driver.compile_internal(input_file_name, input, "typechecker")
+    if not prog_ast then
+        return false, errs
+    end
+
+    local d_pln_code
+    d_pln_code, errs = type_extractor.generate_type_declarations(prog_ast)
+    if not d_pln_code then
+        return false, errs
+    end
+    table.insert(d_pln_code, "")
+    d_pln_code = table.concat(d_pln_code, "\n")
+
+    assert(util.set_file_contents(base_name .. "." .. output_ext, d_pln_code))
     return true, {}
 end
 
@@ -219,6 +246,10 @@ function driver.compile(argv0, opt_level, input_ext, output_ext,
 
         for i = first_step+1, last_step-1 do
             os.remove(file_names[i])
+        end
+
+        if ok and input_ext == "pln" and output_ext == "so" then
+            ok, errs = compile_pln_to_d_pln("pln", "d.pln", input_file_name, output_base_name)
         end
 
         return ok, errs
