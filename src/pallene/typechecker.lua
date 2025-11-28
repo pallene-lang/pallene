@@ -309,19 +309,6 @@ function Typechecker:check_program(prog_ast)
     self:add_type_symbol("integer", types.T.Integer)
     self:add_type_symbol("string",  types.T.String)
 
-    --[[
-
-    TODO: remove this example
-    -- this is how to add a module symbol with fields (the first arg to Import is the actual module name
-    -- while the string passed to add_module_symbol is the name used for the var that holds the imported module)
-
-    self:add_module_symbol("a", false, {
-        ["a_value"] = typechecker.Symbol.Value(types.T.Integer, typechecker.Def.Import("a", "a_value")),
-        ["a_type"] = typechecker.Symbol.Type(types.T.Integer)
-     })
-
-    --]]
-
     -- 2) Add builtins to symbol table.
     -- The order does not matter because they are distinct.
     for name, typ in pairs(builtins.functions) do

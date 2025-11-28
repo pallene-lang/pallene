@@ -248,38 +248,6 @@ end
 -- Toplevel
 --
 
---[[
-function Parser:separate_requires(tl_stats)
-    assert(tl_stats._tag == "ast.Toplevel.Stats")
-    local result = {}
-    local i = 1
-    local stats = tl_stats.stats
-
-    while i <= #stats do
-        -- Collect non-require statements
-        local non_requires = {}
-        while i <= #stats and not has_require_exp(stats[i]) do
-            table.insert(non_requires, stats[i])
-            i = i + 1
-        end
-
-        -- Add them as a single Stats toplevel if any
-        if #non_requires > 0 then
-            table.insert(result, ast.Toplevel.Stats(non_requires[1].loc, non_requires))
-        end
-
-        -- Process require statement if present
-        if i <= #stats and has_require_exp(stats[i]) then
-            local require_stmt = self:convert_decl_to_require(stats[i])
-            table.insert(result, require_stmt)
-            i = i + 1
-        end
-    end
-
-    return result
-end
---]]
-
 function Parser:separate_requires_from_tl_stats(tl_stats)
     assert(tl_stats._tag == "ast.Toplevel.Stats")
     local tls = {}
