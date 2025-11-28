@@ -21,7 +21,7 @@ define_union("Type", {
 })
 
 define_union("Toplevel", {
-    Stats     = {"loc", "stats"},
+    Stat     =  {"loc", "stat"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
 })

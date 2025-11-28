@@ -246,24 +246,28 @@ function Parser:Program()
         local tl = self:Toplevel()
         table.insert(tls, tl)
 
-        if tl._tag == "ast.Toplevel.Stats" then
-            for _, stat in ipairs(tl.stats) do
-                if stat._tag == "ast.Stat.Assign" then
-                    for _, var in ipairs(stat.vars) do
-                        if var._tag ~= "ast.Var.Dot" then
-                            self:recoverable_syntax_error(var.loc,
-                                "toplevel assignments are only possible with module fields")
-                        end
+        if tl._tag == "ast.Toplevel.Stat" then
+            local stat = tl.stat
+            if stat._tag == "ast.Stat.Assign" then
+                for _, var in ipairs(stat.vars) do
+                    if var._tag ~= "ast.Var.Dot" then
+                        self:recoverable_syntax_error(var.loc,
+                            "toplevel assignments are only possible with module fields")
                     end
                 end
             end
-
-            local last = tl.stats[#tl.stats]
-            if last and last._tag == "ast.Stat.Return" then
-                return_stat = table.remove(tl.stats)
-                break
-            end
         end
+    end
+
+    tls = self:find_letrecs(tls)
+
+    local last = tls[#tls]
+    if  last                             and
+        last._tag == "ast.Toplevel.Stat" and
+        last.stat._tag == "ast.Stat.Return"
+    then
+        local stat = table.remove(tls).stat
+        return_stat = stat
     end
 
     -- return <modname>
@@ -294,6 +298,7 @@ function Parser:Program()
             local what = (modname or "<modname>")
             self:recoverable_syntax_error(loc, "must end by returning the module table; return %s", what)
         else
+            -- we probably shouldn't get here
             self:unexpected_token_error("a toplevel element")
         end
     end
@@ -335,18 +340,17 @@ function Parser:Toplevel()
         self:region_end()
         return ast.Toplevel.Record(start.loc, id.value, fields)
 
-    else
-        local stats = self:StatList()
+    elseif self:peek(is_stat_first) then
+        local stat = self:ToplevelStat()
 
-        for _, stat in ipairs(stats) do
-            if not is_allowed_toplevel[stat._tag] then
-                self:recoverable_syntax_error(stat.loc,
-                    "toplevel statements can only be Returns, Declarations or Assignments")
-            end
+        if not is_allowed_toplevel[stat._tag] then
+            self:recoverable_syntax_error(stat.loc,
+                "toplevel statements can only be Returns, Declarations or Assignments")
         end
 
-        local loc = stats[1] and stats[1].loc
-        return ast.Toplevel.Stats(loc, stats)
+        return ast.Toplevel.Stat(stat.loc, stat)
+    else
+        self:unexpected_token_error("a toplevel element")
     end
 end
 
@@ -487,30 +491,34 @@ end
 --   function f() end
 --   function g() end
 
-local function is_forward_function_declaration(stats, i)
-    local first = stats[i]
+local function is_tl_stat_tag(tl)
+    return (tl._tag == "ast.Toplevel.Stat")
+end
+
+local function is_forward_function_declaration(tls, i)
+    local first = is_tl_stat_tag(tls[i]) and tls[i].stat
     if not (first and first._tag == "ast.Stat.Decl") then return false end
     if #first.exps > 0 then return false end
 
-    local funcs_stat = stats[i+1]
+    local funcs_stat = is_tl_stat_tag(tls[i+1]) and tls[i+1].stat
     if not (funcs_stat and funcs_stat._tag == "ast.Stat.Functions") then return false end
     if next(funcs_stat.declared_names) then return false end
 
     return true
 end
 
-function Parser:find_letrecs(stats)
+function Parser:find_letrecs(tls)
     local out = {}
 
-    local N = #stats
+    local N = #tls
     local i = 1
     while i <= N do
 
-        local loc = stats[i].loc
+        local loc = tls[i].loc
 
         local forw_decls
-        if is_forward_function_declaration(stats, i) then
-            forw_decls = stats[i].decls
+        if is_forward_function_declaration(tls, i) then
+            forw_decls = tls[i].stat.decls
             i = i + 1
         else
             forw_decls = {}
@@ -518,7 +526,7 @@ function Parser:find_letrecs(stats)
 
         local funcs = {}
         while i <= N do
-            local stat = stats[i]
+            local stat = is_tl_stat_tag(tls[i]) and tls[i].stat
             if not (stat and stat._tag == "ast.Stat.Functions") then break end
             if next(stat.declared_names) then break end
             for _, func in ipairs(stat.funcs) do
@@ -564,7 +572,7 @@ function Parser:find_letrecs(stats)
 
         else
             -- Other statements
-            table.insert(out, stats[i])
+            table.insert(out, tls[i])
             i = i + 1
         end
     end
@@ -586,6 +594,16 @@ function Parser:StatList()
         if stat._tag == "ast.Stat.Return" then break end
     end
     return self:find_letrecs(list)
+end
+
+function Parser:ToplevelStat()
+    repeat until not self:try(";") -- consume leading semicolons
+
+    if self:peek(is_stat_first) then
+        return self:Stat()
+    end
+
+    self:unexpected_token_error("a toplevel statement")
 end
 
 function Parser:Block()
