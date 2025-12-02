@@ -928,13 +928,13 @@ describe("Parser /", function()
             assert(ast._tag == "ast.TypeFile.Decls")
 
             local nodes_expected = {
-                "ast.Toplevel.Typealias",
-                "ast.Toplevel.Record",
-                "ast.Decl.Decl",
-                "ast.Decl.Decl",
-                "ast.Decl.Decl",
-                "ast.Decl.Decl",
-                "ast.Toplevel.Typealias"
+                "ast.TypeFile.Typealias",
+                "ast.TypeFile.Record",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Typealias"
             }
 
             for i, expected in ipairs(nodes_expected) do

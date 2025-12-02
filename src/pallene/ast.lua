@@ -13,7 +13,10 @@ define_union("Program", {
 })
 
 define_union("TypeFile", {
-    Decls = { "loc", "module_name", "decls" }
+    Decls     = { "loc", "module_name", "decls" },
+    Typealias = { "loc", "name", "type" },
+    Record    = { "loc", "name", "field_decls" },
+    Decl      = { "loc", "name", "type" },
 })
 
 define_union("Type", {
