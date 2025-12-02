@@ -335,37 +335,17 @@ function Typechecker:check_type_file(prog_ast)
     self:add_type_symbol("integer", types.T.Integer)
     self:add_type_symbol("string",  types.T.String)
 
-    -- 2) Add builtins to symbol table.
-    -- The order does not matter because they are distinct.
-    -- for name, typ in pairs(builtins.functions) do
-    --     self:add_value_symbol(name, typ, typechecker.Def.Builtin(name))
-    -- end
-
-    -- for mod_name, funs in pairs(builtins.modules) do
-    --     local symbols = {}
-    --     for fun_name, typ in pairs(funs) do
-    --         local id = mod_name .. "." .. fun_name
-    --         symbols[fun_name] = typechecker.Symbol.Value(typ, typechecker.Def.Builtin(id))
-    --     end
-    --     local typ = (mod_name == "string") and types.T.String or false
-    --     self:add_module_symbol(mod_name, typ, symbols)
-    -- end
-
-    -- 3) Add the module name.
-    -- self.module_symbol = self:add_module_symbol(module_name, false, {})
-
     -- Check toplevel
     for _, decl in ipairs(prog_ast.decls) do
         local tag = decl._tag
 
-        if tag == "ast.Toplevel.Typealias" then
+        if tag == "ast.TypeFile.Typealias" then
             local typ = types.T.Alias(decl.name, self:from_ast_type(decl.type))
             -- self:export_type_symbol(decl.name, typ, decl.loc)
             self:add_type_symbol(decl.name, typ)
             decl._type = typ
 
-
-        elseif tag == "ast.Toplevel.Record" then
+        elseif tag == "ast.TypeFile.Record" then
             local field_names = {}
             local field_types = {}
             for _, field_decl in ipairs(decl.field_decls) do
@@ -378,18 +358,15 @@ function Typechecker:check_type_file(prog_ast)
             end
 
             local typ = types.T.Record(decl.name, field_names, field_types, false)
-            -- self:export_type_symbol(decl.name, typ, decl.loc)
             self:add_type_symbol(decl.name, typ)
 
             decl._type = typ
 
-        elseif tag == "ast.Decl.Decl" then
+        elseif tag == "ast.TypeFile.Decl" then
             local typ = self:from_ast_type(decl.type)
-            -- self:export_value_symbol(decl.name, typ, decl)
             decl._type = typ
         else
-            print("tag not ".. "ast.Decl.Decl" .. ". intead, got " .. tag)
-            tagged_union.error(tag.."tag not ".. "ast.Decl.Decl" .. ". intead, got " .. tag)
+            tagged_union.error(tag)
         end
     end
 

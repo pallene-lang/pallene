@@ -318,6 +318,11 @@ function Parser:TypeDeclarationFile(modname)
     while self:peek(is_type_declaration_file_first) do
         if (self:peek(is_toplevel_keyword)) then
             local tl = self:Toplevel()
+            if tl._tag == "ast.Toplevel.Typealias" then
+                tl = ast.TypeFile.Typealias(tl.loc, tl.name, tl.type)
+            elseif tl._tag == "ast.Toplevel.Record" then
+                tl = ast.TypeFile.Record(tl.loc, tl.name, tl.field_decls)
+            end
             table.insert(decls, tl)
         elseif self:peek("NAME") then
             local decl = self:Decl()
@@ -325,6 +330,7 @@ function Parser:TypeDeclarationFile(modname)
                 self:recoverable_syntax_error(decl.loc,
                     "type annotation expected in type declaration file")
             end
+            decl = ast.TypeFile.Decl(decl.loc, decl.name, decl.type)
             table.insert(decls, decl)
         else
             self:unexpected_token_error("a type declaration")
