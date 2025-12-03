@@ -54,18 +54,29 @@ local Typechecker = util.Class()
 -- On failure, returns false and a list of compilation errors
 function typechecker.check(prog_ast)
     local ok, ret = trycatch.pcall(function()
-        local type_checker = Typechecker.new()
-        if prog_ast._tag == "ast.Program.Program" then
-            return type_checker:check_program(prog_ast)
-        elseif prog_ast._tag == "ast.TypeFile.Decls" then
-            return type_checker:check_type_file(prog_ast)
-        else
-            error("unexpected AST root: " .. tostring(prog_ast._tag))
-        end
+        return Typechecker.new():check_program(prog_ast)
     end)
     if ok then
         prog_ast = ret
         return prog_ast, {}
+    else
+        if ret.tag == "typechecker" then
+            local err_msg = ret.msg
+            return false, { err_msg }
+        else
+            -- Internal error; re-throw
+            error(ret)
+        end
+    end
+end
+
+function typechecker.check_type_file(type_decl_ast)
+    local ok, ret = trycatch.pcall(function()
+        return Typechecker.new():check_type_file(type_decl_ast)
+    end)
+    if ok then
+        type_decl_ast = ret
+        return type_decl_ast, {}
     else
         if ret.tag == "typechecker" then
             local err_msg = ret.msg

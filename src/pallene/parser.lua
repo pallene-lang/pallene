@@ -200,11 +200,6 @@ local is_toplevel_first = Union({
     is_stat_first,
 })
 
-local is_type_declaration_file_first = Union({
-    is_toplevel_keyword,
-    Set 'NAME',
-})
-
 --
 -- Toplevel
 --
@@ -315,7 +310,7 @@ function Parser:TypeDeclarationFile(modname)
     -- type declarations
     local decls = {}
 
-    while self:peek(is_type_declaration_file_first) do
+    while not self:peek("EOF") do
         if (self:peek(is_toplevel_keyword)) then
             local tl = self:Toplevel()
             if tl._tag == "ast.Toplevel.Typealias" then
@@ -1211,7 +1206,7 @@ function parser.parse(lexer)
     local p = Parser.new(lexer)
 
     local filename = lexer.file_name
-    local name, ext = util.split_pallene_ext(filename)
+    local name, ext = util.split_ext(filename)
     local ok, ret = trycatch.pcall(function()
         if (ext == "pln") then
             return p:Program()

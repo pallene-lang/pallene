@@ -24,7 +24,7 @@ local type_extractor = require "pallene.type_extractor"
 local driver = {}
 
 local function check_source_filename(argv0, file_name, expected_ext)
-    local name, ext = util.split_pallene_ext(file_name)
+    local name, ext = util.split_ext(file_name)
     if ext ~= expected_ext then
         local msg = string.format("%s: %s does not have a .%s extension",
             argv0, file_name, expected_ext)
@@ -73,7 +73,14 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     if not prog_ast then return abort() end
     if stop_after == "ast" then return prog_ast end
 
-    prog_ast, errs = typechecker.check(prog_ast)
+    local _, ext = util.split_ext(filename)
+    if ext == "pln" then
+        prog_ast, errs = typechecker.check(prog_ast)
+    elseif ext == "d.pln" then
+        prog_ast, errs = typechecker.check_type_file(prog_ast)
+    else
+        error("cannot compile file with extension ." .. tostring(ext))
+    end
     if not prog_ast then return abort() end
     if stop_after == "typechecker" then return prog_ast end
 

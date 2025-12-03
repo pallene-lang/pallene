@@ -966,6 +966,29 @@ describe("Parser /", function()
                 assert.are.equal(expected, actual)
             end
         end)
+
+        it("can be empty", function()
+            local ast, errs = driver.compile_internal("__test__.d.pln", "", "ast")
+
+            assert(ast)
+            assert.falsy(errs)
+            assert(ast._tag == "ast.TypeFile.Decls")
+            assert.are.equal(0, #ast.decls)
+        end)
+
+        it("should report unexpected token errors", function()
+            local unexpected_token = "#"
+            local file_content = tdf .. "\n" .. unexpected_token
+
+            local type_file_ast, errors = driver.compile_internal("__test__.d.pln", file_content, "ast")
+
+            assert.falsy(type_file_ast)
+            assert.truthy(string.find(
+                errors[1],
+                string.format("unexpected '%s' while trying to parse a type declaration", unexpected_token)
+            , 1, true))
+        end)
+
     end)
 
 end)
