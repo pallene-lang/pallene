@@ -925,7 +925,7 @@ describe("Parser /", function()
 
             assert(ast)
             assert.falsy(errs)
-            assert(ast._tag == "ast.TypeFile.Decls")
+            assert(ast._tag == "ast.TypeFile.TypeFile")
 
             local nodes_expected = {
                 "ast.TypeFile.Typealias",
@@ -949,7 +949,7 @@ describe("Parser /", function()
 
             assert(ast)
             assert.falsy(errs)
-            assert(ast._tag == "ast.TypeFile.Decls")
+            assert(ast._tag == "ast.TypeFile.TypeFile")
 
             local nodes_types_expected = {
                 "types.T.Alias",
@@ -972,7 +972,7 @@ describe("Parser /", function()
 
             assert(ast)
             assert.falsy(errs)
-            assert(ast._tag == "ast.TypeFile.Decls")
+            assert(ast._tag == "ast.TypeFile.TypeFile")
             assert.are.equal(0, #ast.decls)
         end)
 

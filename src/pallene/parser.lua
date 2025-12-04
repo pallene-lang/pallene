@@ -332,7 +332,7 @@ function Parser:TypeDeclarationFile(modname)
         end
     end
 
-    return ast.TypeFile.Decls(
+    return ast.TypeFile.TypeFile(
         start_loc, modname, decls
     )
 end

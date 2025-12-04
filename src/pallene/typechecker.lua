@@ -337,7 +337,7 @@ end
 
 function Typechecker:check_type_file(prog_ast)
 
-    assert(prog_ast._tag == "ast.TypeFile.Decls")
+    assert(prog_ast._tag == "ast.TypeFile.TypeFile")
 
     -- 1) Add primitive types to the symbol table
     self:add_type_symbol("any",     types.T.Any)
