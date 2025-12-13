@@ -921,7 +921,7 @@ describe("Parser /", function()
             ]]
 
         it("should be parsed correctly", function()
-            local ast, errs = driver.compile_internal("__test__.d.pln", tdf, "ast")
+            local ast, errs = driver.compile_internal_d_pln("__test__.d.pln", tdf)
 
             assert(ast)
             assert.falsy(errs)
@@ -945,7 +945,7 @@ describe("Parser /", function()
 
         -- TODO: Move this test to the type checker
         it("should have the _type field added to nodes", function()
-            local ast, errs = driver.compile_internal("__test__.d.pln", tdf, "typechecker")
+            local ast, errs = driver.compile_internal_d_pln("__test__.d.pln", tdf)
 
             assert(ast)
             assert.falsy(errs)
@@ -968,7 +968,7 @@ describe("Parser /", function()
         end)
 
         it("can be empty", function()
-            local ast, errs = driver.compile_internal("__test__.d.pln", "", "ast")
+            local ast, errs = driver.compile_internal_d_pln("__test__.d.pln", "")
 
             assert(ast)
             assert.falsy(errs)
@@ -980,7 +980,7 @@ describe("Parser /", function()
             local unexpected_token = "#"
             local file_content = tdf .. "\n" .. unexpected_token
 
-            local type_file_ast, errors = driver.compile_internal("__test__.d.pln", file_content, "ast")
+            local type_file_ast, errors = driver.compile_internal_d_pln("__test__.d.pln", file_content, "ast")
 
             assert.falsy(type_file_ast)
             assert.truthy(string.find(

@@ -73,14 +73,7 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     if not prog_ast then return abort() end
     if stop_after == "ast" then return prog_ast end
 
-    local _, ext = util.split_ext(filename)
-    if ext == "pln" then
-        prog_ast, errs = typechecker.check(prog_ast)
-    elseif ext == "d.pln" then
-        prog_ast, errs = typechecker.check_type_file(prog_ast)
-    else
-        error("cannot compile file with extension ." .. tostring(ext))
-    end
+    prog_ast, errs = typechecker.check(prog_ast)
     if not prog_ast then return abort() end
     if stop_after == "typechecker" then return prog_ast end
 
@@ -207,7 +200,32 @@ local function compile_pln_to_d_pln(input_ext, output_ext, input_file_name, base
     return true, {}
 end
 
-function driver.parse_type_file(path)
+function driver.compile_internal_d_pln(filename, input, stop_after)
+    stop_after = stop_after or "typechecker"
+
+    local errs
+
+    local function abort()
+        if type(errs) == "string" then errs = { errs } end
+        table.insert(errs, "compilation aborted due to previous error")
+        return false, errs
+    end
+
+    local lexer = Lexer.new(filename, input)
+    if stop_after == "lexer" then return lexer end
+
+    local ast
+    ast, errs = parser.parse_type_file(lexer)
+    if not ast then return abort() end
+    if stop_after == "ast" then return ast end
+
+    ast, errs = typechecker.check_type_file(ast)
+    if not ast then return abort() end
+    if stop_after == "typechecker" then return ast end
+    error("impossible")
+end
+
+function driver.compile_type_file(path)
     local base_name, err = check_source_filename("pallenec", path, "d.pln")
      if not base_name then
         return false, { err }
@@ -218,7 +236,7 @@ function driver.parse_type_file(path)
     end
 
     local ast
-    ast, err = driver.compile_internal(path, input, "typechecker")
+    ast, err = driver.compile_internal_d_pln(path, input)
     if not ast then
         return false, { err }
     end
