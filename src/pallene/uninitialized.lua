@@ -39,7 +39,7 @@ function uninitialized.verify_variables(module)
                     -- `SetField` instructions can count as initializers when the target is an
                     -- upvalue box. This is because upvalue boxes are allocated, but not initialized
                     -- upon declaration.
-                    if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box then
+                    if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box and src == cmd.src_rec then
                         flow.kill_value(gk, src.id)
                     end
                 end
@@ -63,18 +63,23 @@ function uninitialized.verify_variables(module)
             local uninit = sets_list[block_i]
             for cmd_i, cmd in ipairs(block.cmds) do
                 local loc = cmd.loc
-                flow.update_set(uninit, flow_info, block_i, cmd_i)
                 for _, src in ipairs(ir.get_srcs(cmd)) do
                     local v = src.id
                     if src._tag == "ir.Value.LocalVar" and uninit[v] then
-                        if not reported_variables[v] then
-                            reported_variables[v] = true
-                            local name = assert(func.vars[v].name)
-                            table.insert(errors, loc:format_error(
-                                "error: variable '%s' is used before being initialized", name))
+                        local is_upvalue_init = (cmd._tag == "ir.Cmd.SetField" and
+                                                 cmd.rec_typ.is_upvalue_box and
+                                                 src == cmd.src_rec)
+                        if not is_upvalue_init then
+                            if not reported_variables[v] then
+                                reported_variables[v] = true
+                                local name = assert(func.vars[v].name)
+                                table.insert(errors, loc:format_error(
+                                    "error: variable '%s' is used before being initialized", name))
+                            end
                         end
                     end
                 end
+                flow.update_set(uninit, flow_info, block_i, cmd_i)
             end
         end
 

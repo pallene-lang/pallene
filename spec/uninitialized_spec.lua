@@ -161,4 +161,32 @@ describe("Uninitialized variable analysis: ", function()
             return m
         ]], "variable 'x' is used before being initialized")
     end)
+
+    it("catches use of uninitialized variable in its own initialization", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo(): integer
+                local x: integer
+                x = x + 1
+                return x
+            end
+            return m
+        ]], "variable 'x' is used before being initialized")
+    end)
+
+    it("catches use of uninitialized variable when assigned to an upvalue box", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo(): integer
+                local x: integer
+                local function g()
+                    x = 1
+                end
+                local y: integer
+                x = y
+                return x
+            end
+            return m
+        ]], "variable 'y' is used before being initialized")
+    end)
 end)
