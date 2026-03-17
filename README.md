@@ -67,7 +67,7 @@ sudo make install
 cd -
 ```
 
-By default, Luarocks installs packages into /usr/local, which requires sudo.
+By default, Luarocks installs packages into `/usr/local`, which requires sudo.
 If you prefer to install to your home directory by default, enable the `local_by_default` setting.
 
 ```sh
