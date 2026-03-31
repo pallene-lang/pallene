@@ -905,4 +905,90 @@ describe("Parser /", function()
         end)
 
     end)
+
+    describe("Type declaration file / ", function()
+
+        local tdf = [[
+                typealias A = integer
+                record B
+                    x: A
+                end
+                f: (A) -> B
+                g: (A, (A) -> B) -> (B, A)
+                tbl: { f1: integer, f2: B }
+                constant: float
+                typealias C = { x: A, y: B }
+            ]]
+
+        it("should be parsed correctly", function()
+            local ast, errs = driver.compile_internal_d_pln("__test__.d.pln", tdf)
+
+            assert(ast)
+            assert.falsy(errs)
+            assert(ast._tag == "ast.TypeFile.TypeFile")
+
+            local nodes_expected = {
+                "ast.TypeFile.Typealias",
+                "ast.TypeFile.Record",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Decl",
+                "ast.TypeFile.Typealias"
+            }
+
+            for i, expected in ipairs(nodes_expected) do
+                local actual = ast.decls[i]._tag
+                assert.are.equal(expected, actual)
+            end
+        end)
+
+        -- TODO: Move this test to the type checker
+        it("should have the _type field added to nodes", function()
+            local ast, errs = driver.compile_internal_d_pln("__test__.d.pln", tdf)
+
+            assert(ast)
+            assert.falsy(errs)
+            assert(ast._tag == "ast.TypeFile.TypeFile")
+
+            local nodes_types_expected = {
+                "types.T.Alias",
+                "types.T.Record",
+                "types.T.Function",
+                "types.T.Function",
+                "types.T.Table",
+                "types.T.Float",
+                "types.T.Alias",
+            }
+
+            for i, expected in ipairs(nodes_types_expected) do
+                local actual = ast.decls[i]._type._tag
+                assert.are.equal(expected, actual)
+            end
+        end)
+
+        it("can be empty", function()
+            local ast, errs = driver.compile_internal_d_pln("__test__.d.pln", "")
+
+            assert(ast)
+            assert.falsy(errs)
+            assert(ast._tag == "ast.TypeFile.TypeFile")
+            assert.are.equal(0, #ast.decls)
+        end)
+
+        it("should report unexpected token errors", function()
+            local unexpected_token = "#"
+            local file_content = tdf .. "\n" .. unexpected_token
+
+            local type_file_ast, errors = driver.compile_internal_d_pln("__test__.d.pln", file_content, "ast")
+
+            assert.falsy(type_file_ast)
+            assert.truthy(string.find(
+                errors[1],
+                string.format("unexpected '%s' while trying to parse a type declaration", unexpected_token)
+            , 1, true))
+        end)
+
+    end)
+
 end)

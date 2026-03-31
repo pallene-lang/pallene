@@ -45,7 +45,7 @@ end
 --
 
 function util.split_ext(file_name)
-    local name, ext = string.match(file_name, "(.*)%.(.*)")
+    local name, ext = string.match(file_name, "(.-)%.(.*)")
     return name, ext
 end
 
@@ -125,6 +125,10 @@ function util.Class()
 
     return cls
 end
+
+--
+-- General purpose utilities
+--
 
 function util.expand_type_aliases(ast_node, visited)
     local types = require "pallene.types"

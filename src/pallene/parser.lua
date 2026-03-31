@@ -303,6 +303,40 @@ function Parser:Program()
         start_loc, end_loc, modname, tls, self.type_regions)
 end
 
+function Parser:TypeDeclarationFile(modname)
+
+    local start_loc = self.next.loc
+
+    -- type declarations
+    local decls = {}
+
+    while not self:peek("EOF") do
+        if (self:peek(is_toplevel_keyword)) then
+            local tl = self:Toplevel()
+            if tl._tag == "ast.Toplevel.Typealias" then
+                tl = ast.TypeFile.Typealias(tl.loc, tl.name, tl.type)
+            elseif tl._tag == "ast.Toplevel.Record" then
+                tl = ast.TypeFile.Record(tl.loc, tl.name, tl.field_decls)
+            end
+            table.insert(decls, tl)
+        elseif self:peek("NAME") then
+            local decl = self:Decl()
+            if not decl.type then
+                self:recoverable_syntax_error(decl.loc,
+                    "type annotation expected in type declaration file")
+            end
+            decl = ast.TypeFile.Decl(decl.loc, decl.name, decl.type)
+            table.insert(decls, decl)
+        else
+            self:unexpected_token_error("a type declaration")
+        end
+    end
+
+    return ast.TypeFile.TypeFile(
+        start_loc, modname, decls
+    )
+end
+
 local is_allowed_toplevel = Set [[
     ast.Stat.Decl
     ast.Stat.Assign
@@ -1173,6 +1207,29 @@ function parser.parse(lexer)
 
     local ok, ret = trycatch.pcall(function()
         return p:Program()
+    end)
+
+    -- Re-throw internal errors
+    if not ok and ret.tag ~= "syntax-error" then
+        error(ret)
+    end
+
+    if p.errors[1] then
+        -- Had syntax errors
+        return false, p.errors
+    else
+        -- No syntax errors
+        assert(ok)
+        local prog_ast = ret
+        return prog_ast, {}
+    end
+end
+
+function parser.parse_type_file(lexer)
+    local p = Parser.new(lexer)
+
+    local ok, ret = trycatch.pcall(function()
+        return p:TypeDeclarationFile()
     end)
 
     -- Re-throw internal errors

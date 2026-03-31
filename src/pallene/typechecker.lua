@@ -70,6 +70,24 @@ function typechecker.check(prog_ast)
     end
 end
 
+function typechecker.check_type_file(type_decl_ast)
+    local ok, ret = trycatch.pcall(function()
+        return Typechecker.new():check_type_file(type_decl_ast)
+    end)
+    if ok then
+        type_decl_ast = ret
+        return type_decl_ast, {}
+    else
+        if ret.tag == "typechecker" then
+            local err_msg = ret.msg
+            return false, { err_msg }
+        else
+            -- Internal error; re-throw
+            error(ret)
+        end
+    end
+end
+
 local function type_error(loc, fmt, ...)
     local msg = "type error: " .. loc:format_error(fmt, ...)
     trycatch.error("typechecker", msg)
@@ -312,6 +330,55 @@ function Typechecker:check_program(prog_ast)
 
     if self.module_symbol ~= self.symbol_table:find_symbol(module_name) then
         type_error(prog_ast.ret_loc, "the module variable '%s' is being shadowed", module_name)
+    end
+
+    return prog_ast
+end
+
+function Typechecker:check_type_file(prog_ast)
+
+    assert(prog_ast._tag == "ast.TypeFile.TypeFile")
+
+    -- 1) Add primitive types to the symbol table
+    self:add_type_symbol("any",     types.T.Any)
+    self:add_type_symbol("boolean", types.T.Boolean)
+    self:add_type_symbol("float",   types.T.Float)
+    self:add_type_symbol("integer", types.T.Integer)
+    self:add_type_symbol("string",  types.T.String)
+
+    -- Check toplevel
+    for _, decl in ipairs(prog_ast.decls) do
+        local tag = decl._tag
+
+        if tag == "ast.TypeFile.Typealias" then
+            local typ = types.T.Alias(decl.name, self:from_ast_type(decl.type))
+            -- self:export_type_symbol(decl.name, typ, decl.loc)
+            self:add_type_symbol(decl.name, typ)
+            decl._type = typ
+
+        elseif tag == "ast.TypeFile.Record" then
+            local field_names = {}
+            local field_types = {}
+            for _, field_decl in ipairs(decl.field_decls) do
+                local field_name = field_decl.name
+                if field_types[field_name] then
+                    type_error(decl.loc, "duplicate field name '%s' in record type", field_name)
+                end
+                table.insert(field_names, field_name)
+                field_types[field_name] = self:from_ast_type(field_decl.type)
+            end
+
+            local typ = types.T.Record(decl.name, field_names, field_types, false)
+            self:add_type_symbol(decl.name, typ)
+
+            decl._type = typ
+
+        elseif tag == "ast.TypeFile.Decl" then
+            local typ = self:from_ast_type(decl.type)
+            decl._type = typ
+        else
+            tagged_union.error(tag)
+        end
     end
 
     return prog_ast
