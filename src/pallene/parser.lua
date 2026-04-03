@@ -1332,7 +1332,7 @@ function parser.parse_type_file(lexer)
     local p = Parser.new(lexer)
 
     local ok, ret = trycatch.pcall(function()
-        return p:TypeDeclarationFile()
+        return p:TypeDeclarationFile(lexer.file_name)
     end)
 
     -- Re-throw internal errors

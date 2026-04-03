@@ -275,7 +275,7 @@ function Typechecker:load_required_ast(tl_require)
     local module_name = require_arg.value
 
     local driver = require "pallene.driver"
-    local type_ast, _ = driver.parse_type_file(string.format("%s.d.pln", module_name))
+    local type_ast, _ = driver.compile_type_file(string.format("%s.d.pln", module_name))
 
     -- TODO: Reporting error
     if not type_ast then
