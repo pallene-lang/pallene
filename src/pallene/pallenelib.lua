@@ -464,7 +464,8 @@ static TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache)
     if (len <= LUAI_MAXSHORTLEN) {
         return pallene_getshortstr(t, key, cache);
     } else {
-        return cast(TValue *, luaH_getstr(t, key));
+        TValue idx;
+        return cast(TValue *, luaH_getstr(t, key, &idx));
     }
 }
 
