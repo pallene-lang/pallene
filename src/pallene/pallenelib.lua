@@ -421,7 +421,7 @@ static void pallene_renormalize_array(
     const char* file,int line
 ){
     lua_Unsigned ui = (lua_Unsigned) i - 1;
-    if (l_unlikely(ui >= arr->alimit)) {
+    if (l_unlikely(ui >= arr->asize)) {
         pallene_grow_array(L, file, line, arr, ui);
     }
 }
