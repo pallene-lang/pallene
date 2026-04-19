@@ -1966,8 +1966,8 @@ function Coder:generate_luaopen_function()
     return (util.render([[
         int ${name}(lua_State *L)
         {
-            #if LUA_VERSION_RELEASE_NUM != 50407
-            #error "Lua version must be exactly 5.4.7"
+            #if LUA_VERSION_RELEASE_NUM != 50500
+            #error "Lua version must be exactly 5.0.0"
             #endif
             luaL_checkcoreversion(L);
 
