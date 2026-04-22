@@ -1058,7 +1058,7 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                 end
             elseif def._tag == "typechecker.Def.Import" then
                 -- TODO: Handle module imported fields
-                return ir.Value.Nil -- added just so the compiler don't break while this case is not implemented
+                error("not implemented")
             else
                 tagged_union.error(def._tag)
             end
