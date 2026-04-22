@@ -365,8 +365,8 @@ function ToIR:convert_toplevel(prog_ast)
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
         elseif tag == "ast.Toplevel.Require" then
-            -- TODO implement require
-            ir_error(tl_node.loc, "require statements are not implemented yet")
+            local module_name = tl_node.module_name_exp.value
+            table.insert(self.module.imported_modules, module_name)
         else
             tagged_union.error(tag)
         end
@@ -1057,8 +1057,7 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                     error("not implemented")
                 end
             elseif def._tag == "typechecker.Def.Import" then
-                -- TODO: Handle module imported fields
-                error("not implemented")
+                return ir.Value.ModuleField(def.module, def.field)
             else
                 tagged_union.error(def._tag)
             end
