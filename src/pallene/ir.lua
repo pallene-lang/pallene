@@ -137,7 +137,7 @@ define_union("Value", {
     String     = {"value"},
     LocalVar   = {"id"},
     Upvalue    = {"id"},
-    ModuleField = {"module_name", "field_name"},
+    Module     = {"module_name"},
 })
 
 function ir.is_constant(value)

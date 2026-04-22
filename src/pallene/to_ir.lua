@@ -1057,7 +1057,14 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                     error("not implemented")
                 end
             elseif def._tag == "typechecker.Def.Import" then
-                return ir.Value.ModuleField(def.module, def.field)
+                local dst_v = ir.add_local(self.func, false, var._type)
+                bb:append_cmd(ir.Cmd.GetTable(
+                    var.loc,
+                    var._type,
+                    dst_v,
+                    ir.Value.Module(def.module),
+                    ir.Value.String(def.field)))
+                return ir.Value.LocalVar(dst_v)
             else
                 tagged_union.error(def._tag)
             end
