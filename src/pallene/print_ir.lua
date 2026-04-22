@@ -47,6 +47,7 @@ local function Val(val)
     elseif tag == "ir.Value.String"   then return C.string(val.value)
     elseif tag == "ir.Value.LocalVar" then return Var(val.id)
     elseif tag == "ir.Value.Upvalue"  then return Upval(val.id)
+    elseif tag == "ir.Value.Module"   then return string.format([[Module("%s")]], val.module_name)
     else
         tagged_union.error(tag)
     end
