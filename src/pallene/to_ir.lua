@@ -1057,27 +1057,22 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                     error("not implemented")
                 end
             elseif def._tag == "typechecker.Def.Import" then
-                local dst_v = ir.add_local(self.func, false, var._type)
-                bb:append_cmd(ir.Cmd.GetTable(
-                    var.loc,
-                    var._type,
-                    dst_v,
-                    ir.Value.Module(def.module),
-                    ir.Value.String(def.field)))
-                return ir.Value.LocalVar(dst_v)
+                -- Fallthrough to default (handled in exp_to_assignment)
             else
                 tagged_union.error(def._tag)
             end
 
-            local var_info = self:resolve_variable(decl)
-            if var_info._tag == "to_ir.Var.LocalVar" then
-                return ir.Value.LocalVar(var_info.id)
-            elseif var_info._tag == "to_ir.Var.Upvalue" then
-                return ir.Value.Upvalue(var_info.id)
-            elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                -- Fallthrough to default
-            else
-                tagged_union.error(var_info._tag)
+            if decl then
+                local var_info = self:resolve_variable(decl)
+                if var_info._tag == "to_ir.Var.LocalVar" then
+                    return ir.Value.LocalVar(var_info.id)
+                elseif var_info._tag == "to_ir.Var.Upvalue" then
+                    return ir.Value.Upvalue(var_info.id)
+                elseif var_info._tag == "to_ir.Var.GlobalVar" then
+                    -- Fallthrough to default
+                else
+                    tagged_union.error(var_info._tag)
+                end
             end
 
         else
@@ -1327,6 +1322,10 @@ function ToIR:exp_to_assignment(bb, dst, exp)
                 else
                     tagged_union.error(var_info._tag)
                 end
+            elseif def._tag == "typechecker.Def.Import" then
+                local mod = ir.Value.Module(def.module)
+                local key = ir.Value.String(def.field)
+                bb:append_cmd(ir.Cmd.GetTable(loc, var._type, dst, mod, key))
             else
                 use_exp_to_value = true
             end
