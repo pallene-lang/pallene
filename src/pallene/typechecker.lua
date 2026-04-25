@@ -275,16 +275,18 @@ function Typechecker:load_required_ast(tl_require)
     local module_name = require_arg.value
 
     local driver = require "pallene.driver"
-    local type_ast, _ = driver.compile_type_file(string.format("%s.d.pln", module_name))
+    local type_ast, err = driver.compile_type_file(string.format("%s.d.pln", module_name))
 
-    -- TODO: Reporting error
     if not type_ast then
-        local msg = string.format("file error:" .. require_arg.loc:format_error( "could not find module '%s'", module_name))
-        table.insert(self.errors, msg)
-        trycatch.error("file-error")
+        local errs = table.concat(err, "\n")
+        util.abort("error: "
+            .. require_arg.loc:format_error("could not load module '%s'", module_name)
+            .. "\n"
+            .. errs
+        )
+    else
+        assert(type_ast._tag == "ast.TypeFile.TypeFile")
     end
-
-    assert(type_ast._tag == "ast.TypeFile.TypeFile")
 
     return type_ast
 end
