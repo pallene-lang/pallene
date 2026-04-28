@@ -235,8 +235,7 @@ function Parser:convert_decl_to_require(stat)
         self:recoverable_syntax_error(exp.loc,
             "require() must be called with exactly one argument")
     end
-    local arg_module_name = exp.args[1]
-    return ast.Toplevel.Require(stat.loc, decl.name, arg_module_name)
+    return ast.Toplevel.Require(stat.loc, decl, exp.args[1])
 end
 
 --

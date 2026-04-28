@@ -32,7 +32,7 @@ define_union("Toplevel", {
     Stats     = {"loc", "stats"},
     Typealias = {"loc", "name", "type",},
     Record    = {"loc", "name", "field_decls"},
-    Require   = {"loc", "local_name", "arg_module_name"},
+    Require   = {"loc", "local_name_decl", "module_name_exp"},
 })
 
 define_union("Decl", {

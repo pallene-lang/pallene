@@ -266,7 +266,7 @@ end
 
 function Typechecker:load_required_ast(tl_require)
     assert(tl_require._tag == "ast.Toplevel.Require")
-    local require_arg = tl_require.arg_module_name
+    local require_arg = tl_require.module_name_exp
 
     if require_arg._tag ~= "ast.Exp.String" then
         type_error(require_arg.loc, "require argument must be a string literal")
@@ -295,7 +295,7 @@ function Typechecker:import_symbols(tl_require)
     local req_ast = self:load_required_ast(tl_require)
 
     local symbols = {}
-    local local_name, module_name = tl_require.local_name, tl_require.arg_module_name.value
+    local local_name, module_name = tl_require.local_name_decl.name, tl_require.module_name_exp.value
     for _, decl in ipairs(req_ast.decls) do
         local tag = decl._tag
         if tag == "ast.TypeFile.Typealias" or
