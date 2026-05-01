@@ -284,7 +284,7 @@ function Parser:tls_emerge_requires(tls)
                 if sep_tl._tag == "ast.Toplevel.Require" then
                     if not require_allowed then
                         self:recoverable_syntax_error(sep_tl.loc,
-                            "require statements must appear before any other toplevel statements")
+                            "require statements must appear before any other toplevel statement")
                     end
                 else
                     require_allowed = false

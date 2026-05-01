@@ -906,6 +906,120 @@ describe("Parser /", function()
 
     end)
 
+    --
+    -- Require
+    --
+
+    describe("Require statements", function()
+
+        it("produces an ast.Toplevel.Require node", function()
+            local prog_ast = assert_parses_successfuly([[
+                local m = {}
+                local foo = require("bar")
+                return m
+            ]])
+            local tl = prog_ast.tls[1]
+            assert_is_subset({
+                _tag = "ast.Toplevel.Require",
+                local_name_decl = { _tag = "ast.Decl.Decl", name = "foo" },
+                module_name_exp = { _tag = "ast.Exp.String", value = "bar" },
+            }, tl)
+        end)
+
+        it("allows multiple requires at the top", function()
+            local prog_ast = assert_parses_successfuly([[
+                local m = {}
+                local a = require("mod_a")
+                local b = require("mod_b")
+                return m
+            ]])
+            assert_is_subset({ _tag = "ast.Toplevel.Require" }, prog_ast.tls[1])
+            assert_is_subset({ _tag = "ast.Toplevel.Require" }, prog_ast.tls[2])
+        end)
+
+        it("forbids require after a function definition", function()
+            assert_program_error([[
+                local m = {}
+                function m.f() end
+                local foo = require("bar")
+                return m
+            ]], "require statements must appear before any other toplevel statement")
+        end)
+
+        it("forbids require after a record definition", function()
+            assert_program_error([[
+                local m = {}
+                record R
+                    x: integer
+                end
+                local foo = require("bar")
+                return m
+            ]], "require statements must appear before any other toplevel statement")
+        end)
+
+        it("forbids require after a typealias definition", function()
+            assert_program_error([[
+                local m = {}
+                typealias T = integer
+                local foo = require("bar")
+                return m
+            ]], "require statements must appear before any other toplevel statement")
+        end)
+
+        it("forbids type annotation in require", function()
+            assert_program_error([[
+                local m = {}
+                local foo: integer = require("bar")
+                return m
+            ]], "type annotation is not allowed at require statements")
+        end)
+
+        it("forbids multiple assignment in require", function()
+            assert_program_error([[
+                local m = {}
+                local a, b = require("x"), require("y")
+                return m
+            ]], "cannot use a multiple-assignment in require statements")
+        end)
+
+        it("forbids require with no arguments", function()
+            assert_program_error([[
+                local m = {}
+                local foo = require()
+                return m
+            ]], "require() must be called with exactly one argument")
+        end)
+
+        it("forbids require with multiple arguments", function()
+            assert_program_error([[
+                local m = {}
+                local foo = require("a", "b")
+                return m
+            ]], "require() must be called with exactly one argument")
+        end)
+
+    end)
+
+    --
+    -- Qualified type names
+    --
+
+    describe("Qualified type names", function()
+
+        it("parses mod.Type as QualifiedName", function()
+            assert_type_ast("mod.MyType", {
+                _tag = "ast.Type.QualifiedName",
+                module = "mod",
+                name = "MyType",
+            })
+        end)
+
+    end)
+
+    --
+    -- Type declaration file
+    --
+
     describe("Type declaration file / ", function()
 
         local tdf = [[
