@@ -278,12 +278,10 @@ function Typechecker:load_required_ast(tl_require)
     local type_ast, err = driver.compile_type_file(string.format("%s.d.pln", module_name))
 
     if not type_ast then
-        local errs = table.concat(err, "\n")
-        util.abort("error: "
-            .. require_arg.loc:format_error("could not load module '%s'", module_name)
-            .. "\n"
-            .. errs
-        )
+        local msg = "error: " ..
+            require_arg.loc:format_error("could not load module '%s'", module_name)
+        table.insert(err, 1, msg)
+        trycatch.error("typechecker", table.concat(err, "\n"))
     else
         assert(type_ast._tag == "ast.TypeFile.TypeFile")
     end

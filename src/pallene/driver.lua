@@ -207,7 +207,6 @@ function driver.compile_internal_d_pln(filename, input, stop_after)
 
     local function abort()
         if type(errs) == "string" then errs = { errs } end
-        table.insert(errs, "compilation aborted due to previous error")
         return false, errs
     end
 
