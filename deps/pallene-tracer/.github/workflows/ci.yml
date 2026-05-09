@@ -1,0 +1,62 @@
+# This is the configuration file for our CI via Github Actions.
+#
+# The result of all executions of the github actions is logged in the "Actions" tab at the top of
+# the repository. If the jobs aren't running as they should, check there to see if you didn't
+# introduce a syntax error in the YAML file or something like that.
+#
+# Useful reference:
+#   - https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions
+#   - https://github.com/actions/checkout
+
+name: Github Actions CI
+
+# Github Actions can be infuriatingly obtuse at times. I don't know exactly why we need both the
+# push and the pull_request events. It's wasteful, but at least does what we want.
+#
+# - only push:         doesn't run checks if an external fork opens a pull request
+# - only pull_request: doesn't work with caching
+# - both events:       runs the same checks twice, wasting compute time
+on:
+    push:
+        branches: [ main ]
+    pull_request:
+        branches: [ main ]
+
+env:
+    LUA_VERSION: 5.4.7
+    LUAROCKS_VERSION: 3.9.0
+
+jobs:
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Install Lua
+              run: |
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  cd lua-${{env.LUA_VERSION}}
+                  make linux
+                  sudo make install
+
+            - name: Install Luarocks
+              run: |
+                  wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
+                  cd luarocks-${{env.LUAROCKS_VERSION}}
+                  ./configure --with-lua=/usr/local
+                  make
+                  sudo make install
+
+            - name: Build
+              run: |
+                  make all && sudo make install
+
+            - name: Install Busted
+              run: luarocks --local install busted
+
+            - name: Run Tests
+              run: |
+                  eval "$(luarocks path)"
+                  busted -o gtest -v ./spec
+
