@@ -59,7 +59,7 @@ install: library
 
 uninstall:
 	rm -rf $(INCDIR)/ptracer.h
-	rm -rf $(BINDIR)/pt-run
+	rm -rf $(BINDIR)/pallene-lua
 
 clean:
 	rm -rf pallene-lua examples/*/*.so spec/tracebacks/*/*.so
