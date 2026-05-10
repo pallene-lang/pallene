@@ -25,7 +25,6 @@ on:
 env:
     LUA_VERSION: 5.4.7
     LUAROCKS_VERSION: 3.9.0
-    PT_VERSION: 0.5.0a
 
 jobs:
     lint:
@@ -63,12 +62,11 @@ jobs:
         steps:
             - uses: actions/checkout@v2
 
-            - name: Install Lua
-              run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
-                  make linux
-                  sudo make install
+            - name: Build Pallene
+              run: make
+
+            - name: Install Pallene
+              run: sudo make install
 
             - name: Install Luarocks
               run: |
@@ -78,16 +76,6 @@ jobs:
                   make
                   sudo make install
 
-            - name: Install Pallene Tracer
-              run: |
-                  git clone --depth 1 https://github.com/pallene-lang/pallene-tracer --branch ${{env.PT_VERSION}}
-                  cd pallene-tracer
-                  make LUA_PREFIX=/usr/local
-                  sudo make install
-
-            - name: Build
-              run: luarocks --local make
-
             - name: Install Busted
               run: luarocks --local install busted
 
@@ -95,3 +83,4 @@ jobs:
               run: |
                   eval "$(luarocks path)"
                   busted -o gtest -v ./spec
+
