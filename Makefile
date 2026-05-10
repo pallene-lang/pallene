@@ -16,6 +16,9 @@ clean:
 LUA_VERSION = 5.4
 INSTALL_PREFIX = /usr/local
 
+RM = rm -f 
+RM_DIR = rm -rf
+
 install:
 	cd ./deps/lua-internals  && $(MAKE) install INSTALL_TOP=$(INSTALL_PREFIX)
 	cd ./deps/pallene-tracer && $(MAKE) install PREFIX=$(INSTALL_PREFIX)
@@ -26,4 +29,15 @@ install:
 
 	cp -r ./src/pallene      $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)
 	cp    ./src/bin/pallenec $(INSTALL_PREFIX)/bin
+
+uninstall:
+	cd ./deps/lua-internals  && $(MAKE) uninstall INSTALL_TOP=$(INSTALL_PREFIX)
+	cd ./deps/pallene-tracer && $(MAKE) uninstall PREFIX=$(INSTALL_PREFIX)
+
+	$(RM) $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/argparse.lua
+	$(RM) $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/re.lua
+	$(RM) $(INSTALL_PREFIX)/lib/lua/$(LUA_VERSION)/lpeg.so
+
+	$(RM_DIR) $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/pallene
+	$(RM) $(INSTALL_PREFIX)/bin/pallenec
 
