@@ -1,0 +1,10 @@
+#! /bin/sh
+
+PREFIX="$(dirname $(realpath $0))"
+
+export PATH="$PREFIX/deps/lua-internals/src:$PATH"
+export LUA_PATH="$PREFIX/src/?.lua;$PREFIX/src/lpeg/?.lua;$LUA_PATH"
+export CFLAGS="-I$PREFIX/deps/lua-internals/src -I$PREFIX/deps/pallene-tracer"
+
+lua -e "package.cpath=\"$PREFIX/src/lpeg/?.so;\"..package.cpath" $PREFIX/src/bin/pallenec "$@"
+

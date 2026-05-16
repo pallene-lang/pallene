@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# HOW TO USE: This is a wrapper around busted. The command-line arguments are the same.
+#
+# EXAMPLES:
+#   ./run-tests
+#   ./run-tests -k
+#   ./run-tests spec/traceback_spec.lua
+make tests && busted --verbose --no-keep-going "$@"

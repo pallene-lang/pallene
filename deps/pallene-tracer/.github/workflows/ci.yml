@@ -18,25 +18,25 @@ name: Github Actions CI
 # - both events:       runs the same checks twice, wasting compute time
 on:
     push:
-        branches: [ master ]
+        branches: [ main ]
     pull_request:
-        branches: [ master ]
+        branches: [ main ]
 
 env:
     LUA_VERSION: 5.4.7
     LUAROCKS_VERSION: 3.9.0
 
 jobs:
-    lint:
-        name: Lint
+    test:
+        name: Test
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  cd lua-${{env.LUA_VERSION}}
                   make linux
                   sudo make install
 
@@ -48,33 +48,9 @@ jobs:
                   make
                   sudo make install
 
-            - name: Install Luacheck
-              run: luarocks install --local luacheck
-
-            - name: Run Luacheck
+            - name: Build
               run: |
-                  eval "$(luarocks path)"
-                  ./run-lint
-
-    test:
-        name: Test
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-
-            - name: Build Pallene
-              run: make
-
-            - name: Install Pallene
-              run: sudo make install
-
-            - name: Install Luarocks
-              run: |
-                  wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
-                  cd luarocks-${{env.LUAROCKS_VERSION}}
-                  ./configure --with-lua=/usr/local
-                  make
-                  sudo make install
+                  make all && sudo make install
 
             - name: Install Busted
               run: luarocks --local install busted
