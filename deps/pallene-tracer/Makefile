@@ -37,7 +37,7 @@ PTLUA_LDLIBS  = -llua -lm
 .PHONY: library examples tests all install uninstall clean
 
 library: \
-	pt-lua
+	pallene-lua
 
 examples: library \
 	examples/fibonacci/fibonacci.so
@@ -54,7 +54,7 @@ tests: library \
 all: library examples tests
 
 install: library
-	$(INSTALL_EXEC) pt-lua $(BINDIR)
+	$(INSTALL_EXEC) pallene-lua $(BINDIR)
 	$(INSTALL_DATA) ptracer.h $(INCDIR)
 
 uninstall:
@@ -62,12 +62,12 @@ uninstall:
 	rm -rf $(BINDIR)/pt-run
 
 clean:
-	rm -rf pt-lua examples/*/*.so spec/tracebacks/*/*.so
+	rm -rf pallene-lua examples/*/*.so spec/tracebacks/*/*.so
 
 %.so: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(LIBFLAG) $< -o $@
 
-pt-lua: pt-lua.c ptracer.h
+pallene-lua: pt-lua.c ptracer.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(PTLUA_LDFLAGS) $< -o $@ $(PTLUA_LDLIBS)
 
 examples/fibonacci/fibonacci.so:           examples/fibonacci/fibonacci.c           ptracer.h
