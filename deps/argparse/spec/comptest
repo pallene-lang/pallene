@@ -1,0 +1,39 @@
+#!/usr/bin/env lua
+
+local argparse = require "argparse"
+
+local parser = argparse()
+   :add_help_command()
+   :add_complete_command()
+   :add_complete()
+
+parser:flag "-v --verbose"
+   :description "Set the verbosity level."
+   :count "*"
+
+parser:option "-f --files"
+   :description "A description with illegal \"' characters."
+   :args "+"
+
+local install = parser:command "install i"
+   :description "Install a rock."
+
+install:option "--deps-mode"
+   :choices {"all", "one", "order", "none"}
+
+install:flag "--no-doc"
+   :description "Install without documentation."
+
+local admin = parser:command "admin"
+   :description "Rock server administration interface."
+   :add_help_command()
+
+local admin_add = admin:command "add"
+   :description "Add a rock to a server."
+admin_add:argument "rock"
+
+local admin_remove = admin:command "remove"
+   :description "Remove a rock from  a server."
+admin_remove:argument "rock"
+
+parser:parse()
