@@ -13,3 +13,8 @@
 - **Tag:** `0.7.1`
 - **Commit ID:** `27967d7b52295ea7885671af734332038c132837`
 
+## `deps/lpeg`
+
+- **Source code:** [lpeg-1.1.0.tar.gz](https://www.inf.puc-rio.br/~roberto/lpeg/lpeg-1.1.0.tar.gz)
+- **Version:** `1.1.0`
+
