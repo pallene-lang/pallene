@@ -10,3 +10,5 @@ vm/src/luac
 # Files from the Pallene test suite
 # These can appear if the test runner is abruptly interrupted with SIGINT
 __test__*
+
+config.mk
