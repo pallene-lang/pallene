@@ -1,6 +1,6 @@
 # This is the configuration file for our CI via Github Actions.
 #
-# The result of all executions of the github actions is logged in the "Actions" tab at the top of
+# The result of all executions of the Github Actions is logged in the "Actions" tab at the top of
 # the repository. If the jobs aren't running as they should, check there to see if you didn't
 # introduce a syntax error in the YAML file or something like that.
 #
@@ -25,7 +25,6 @@ on:
 env:
     LUA_VERSION: 5.4.7
     LUAROCKS_VERSION: 3.9.0
-    PT_VERSION: 0.5.0a
 
 jobs:
     lint:
@@ -70,6 +69,14 @@ jobs:
                   make linux
                   sudo make install
 
+            - name: Build Pallene
+              run: |
+                  ./configure
+                  make
+
+            - name: Install Pallene
+              run: sudo make install
+
             - name: Install Luarocks
               run: |
                   wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
@@ -77,16 +84,6 @@ jobs:
                   ./configure --with-lua=/usr/local
                   make
                   sudo make install
-
-            - name: Install Pallene Tracer
-              run: |
-                  git clone --depth 1 https://github.com/pallene-lang/pallene-tracer --branch ${{env.PT_VERSION}}
-                  cd pallene-tracer
-                  make LUA_PREFIX=/usr/local
-                  sudo make install
-
-            - name: Build
-              run: luarocks --local make
 
             - name: Install Busted
               run: luarocks --local install busted
