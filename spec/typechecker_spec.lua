@@ -143,7 +143,7 @@ end)
 
 describe("Require", function()
 
-    it("forbids require calls inside function bodies", function()
+    it("forbids require calls as expressions", function()
         assert_error([[
             function m.f()
                 local x = require("foo")
@@ -153,10 +153,7 @@ describe("Require", function()
 
     it("forbids require calls as expressions", function()
         assert_error([[
-            local function foo(m: any) end
-            function m.f()
-                foo(require("bar"))
-            end
+            m.x = require("foo")
         ]], "calls to require are only allowed in toplevel declarations")
     end)
 

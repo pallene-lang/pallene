@@ -937,6 +937,20 @@ describe("Parser /", function()
             assert_is_subset({ _tag = "ast.Toplevel.Require" }, prog_ast.tls[2])
         end)
 
+        it("allows require argument without parenthesis", function()
+            local prog_ast = assert_parses_successfuly([[
+                local m = {}
+                local foo = require "bar"
+                return m
+            ]])
+            local tl = prog_ast.tls[1]
+            assert_is_subset({
+                _tag = "ast.Toplevel.Require",
+                local_name_decl = { _tag = "ast.Decl.Decl", name = "foo" },
+                module_name_exp = { _tag = "ast.Exp.String", value = "bar" },
+            }, tl)
+        end)
+
         it("forbids require after a function definition", function()
             assert_program_error([[
                 local m = {}
