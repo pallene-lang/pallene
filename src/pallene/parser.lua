@@ -219,6 +219,7 @@ local function has_require_exp(stat)
 end
 
 function Parser:convert_decl_to_require(stat)
+    assert(stat._tag == "ast.Stat.Decl")
     local decl = stat.decls[1]
     local exp  = stat.exps[1]
     if #stat.decls > 1 or #stat.exps > 1 then
@@ -256,10 +257,13 @@ function Parser:separate_requires_from_tl_stats(tl_stats)
     end
 
     for _, stat in ipairs(tl_stats.stats) do
-        if has_require_exp(stat) then
+        if stat._tag == "ast.Stat.Decl" and has_require_exp(stat) then
             commit_stats()
             local require_stmt = self:convert_decl_to_require(stat)
             table.insert(tls, require_stmt)
+        elseif stat._tag == "ast.Stat.Assign" and has_require_exp(stat) then
+            self:recoverable_syntax_error(stat.loc,
+                "calls to require are only allowed in toplevel declarations")
         else
             table.insert(stats_group, stat)
         end

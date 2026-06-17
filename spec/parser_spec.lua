@@ -951,6 +951,14 @@ describe("Parser /", function()
             }, tl)
         end)
 
+        it("forbids require as toplevel assignment", function()
+            assert_program_error([[
+                local m = {}
+                m.foo = require("bar")
+                return m
+            ]], "calls to require are only allowed in toplevel declarations")
+        end)
+
         it("forbids require after a function definition", function()
             assert_program_error([[
                 local m = {}
