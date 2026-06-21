@@ -161,6 +161,9 @@ end
 function Typechecker:add_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(tagged_union.typename(typ._tag) == "types.T")
+    if name == "require" then
+        type_error(loc_of_def(def), "shadowing of 'require' is not allowed")
+    end
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Value(typ, def))
 end
 
@@ -294,6 +297,9 @@ function Typechecker:import_symbols(tl_require)
 
     local symbols = {}
     local local_name, module_name = tl_require.local_name_decl.name, tl_require.module_name_exp.value
+    if local_name == "require" then
+        type_error(tl_require.local_name_decl.loc, "shadowing of 'require' is not allowed")
+    end
     for _, decl in ipairs(req_ast.decls) do
         local tag = decl._tag
         if tag == "ast.TypeFile.Typealias" or

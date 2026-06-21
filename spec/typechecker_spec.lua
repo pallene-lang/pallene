@@ -165,6 +165,46 @@ describe("Require", function()
         ]], "require argument must be a string literal")
     end)
 
+    it("forbids shadowing require as local variable declaration", function()
+        assert_error([[
+            local require: integer
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a local function", function()
+        assert_error([[
+            local function require()
+                local require: integer = 1
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+
+    it("forbids shadowing require as a function parameter", function()
+        assert_error([[
+            function m.f(require: integer): integer
+                return require
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a for-loop variable", function()
+        assert_error([[
+            function m.f()
+                for require = 1, 10 do end
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    -- TODO: this is breaking because we are not treating this case correctly
+    it("forbids assigning to require", function()
+        assert_error([[
+            local function f()
+                require = 10
+            end
+        ]], "assignment to 'require' is not allowed")
+    end)
+
     local dep_filename = "__require_dep__.d.pln"
 
     local function write_type_file(fname, content)
