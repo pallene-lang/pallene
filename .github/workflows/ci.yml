@@ -18,9 +18,13 @@ name: Github Actions CI
 # - both events:       runs the same checks twice, wasting compute time
 on:
     push:
-        branches: [ master ]
+        branches:
+          - master
+          - vendor
     pull_request:
-        branches: [ master ]
+        branches:
+          - master
+          - vendor
 
 env:
     LUA_VERSION: 5.4.7
