@@ -1,5 +1,11 @@
 ## Vendored Dependencies
 
+## `deps/lua-internals`
+
+- **Source:** [pallene-lang/lua-internals](https://github.com/pallene-lang/lua-internals.git/)
+- **Branch:** `main`
+- **Commit:** `4197fc71a7967436d117e3eb17c2aa04a5a5fd57`
+
 ## `deps/pallene-tracer`
 
 - **Source code:** [pallene-lang/pallene-tracer](https://www.github.com/pallene-lang/pallene-tracer.git/)
