@@ -200,6 +200,8 @@ function Typechecker:assert_exported_symbol_unused(name, loc)
         elseif sym._tag == "typechecker.Symbol.Module" then
             type_error(loc, "the module variable '%s' is being shadowed", name)
         end
+    elseif name == "require" then
+        type_error(loc, "shadowing of 'require' is not allowed")
     end
 end
 
@@ -847,7 +849,7 @@ function Typechecker:check_var(var)
         local sym = self.symbol_table:find_symbol(var.name)
         if not sym then
             if var.name == "require" then
-                type_error(var.loc, "calls to require are only allowed in toplevel declarations", var.name)
+                type_error(var.loc, "the use of 'require' is forbidden here", var.name)
             else
                 type_error(var.loc, "variable '%s' is not declared", var.name)
             end

@@ -142,27 +142,38 @@ end)
 --
 
 describe("Require", function()
-
-    it("forbids require calls as expressions", function()
-        assert_error([[
-            function m.f()
-                local x = require("foo")
-            end
-        ]], "calls to require are only allowed in toplevel declarations")
-    end)
-
-    it("forbids require calls as expressions", function()
+    it("forbids require calls in toplevel assignments", function()
         assert_error([[
             m.x = require("foo")
         ]], "calls to require are only allowed in toplevel declarations")
     end)
 
     it("forbids non-string argument", function()
-        -- Compile only to typechecker; the parser will produce a Toplevel.Require
-        -- with a non-string exp which the typechecker should reject.
         assert_error([[
-            local x = require(42)
+            local x = require(1)
         ]], "require argument must be a string literal")
+    end)
+
+    it("forbids require calls as expressions", function()
+        assert_error([[
+            function m.f()
+                local x = require("foo")
+            end
+        ]], "the use of 'require' is forbidden here")
+    end)
+
+    it("forbids using require as value", function()
+        assert_error([[
+            local x = require
+        ]], "the use of 'require' is forbidden here")
+    end)
+
+    it("forbids assigning to require", function()
+        assert_error([[
+            local function f()
+                require = 1
+            end
+        ]], "the use of 'require' is forbidden here")
     end)
 
     it("forbids shadowing require as local variable declaration", function()
@@ -178,7 +189,6 @@ describe("Require", function()
             end
         ]], "shadowing of 'require' is not allowed")
     end)
-
 
     it("forbids shadowing require as a function parameter", function()
         assert_error([[
@@ -196,13 +206,18 @@ describe("Require", function()
         ]], "shadowing of 'require' is not allowed")
     end)
 
-    -- TODO: this is breaking because we are not treating this case correctly
-    it("forbids assigning to require", function()
+    it("forbids shadowing require as a typealias name", function()
         assert_error([[
-            local function f()
-                require = 10
+            typealias require = integer
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a record name", function()
+        assert_error([[
+            record require
+                x: integer
             end
-        ]], "assignment to 'require' is not allowed")
+        ]], "shadowing of 'require' is not allowed")
     end)
 
     local dep_filename = "__require_dep__.d.pln"
