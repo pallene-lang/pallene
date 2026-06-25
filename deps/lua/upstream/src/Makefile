@@ -26,7 +26,7 @@ MYLIBS=
 MYOBJS=
 
 # Special flags for compiler modules; -Os reduces code size.
-CMCFLAGS=
+CMCFLAGS= 
 
 # == END OF USER SETTINGS -- NO NEED TO CHANGE ANYTHING BELOW THIS LINE =======
 
@@ -50,7 +50,7 @@ ALL_A= $(LUA_A)
 # Targets start here.
 default: $(PLAT)
 
-all:	$(ALL_T) luacore.h
+all:	$(ALL_T)
 
 o:	$(ALL_O)
 
@@ -70,7 +70,7 @@ test:
 	./$(LUA_T) -v
 
 clean:
-	$(RM) $(ALL_T) $(ALL_O) luacore.h
+	$(RM) $(ALL_T) $(ALL_O)
 
 depend:
 	@$(CC) $(CFLAGS) -MM l*.c
@@ -221,10 +221,5 @@ lvm.o: lvm.c lprefix.h lua.h luaconf.h ldebug.h lstate.h lobject.h \
  ltable.h lvm.h ljumptab.h
 lzio.o: lzio.c lprefix.h lua.h luaconf.h llimits.h lmem.h lstate.h \
  lobject.h ltm.h lzio.h
-
-# The prerequisites must in the same order that we want in the output.
-CORE_HEADERS=llimits.h lctype.h lopcodes.h lmem.h lobject.h lzio.h ltable.h lfunc.h ltm.h lparser.h llex.h lundump.h lstate.h lcode.h ldebug.h lapi.h ldo.h lgc.h lvm.h lstring.h
-luacore.h: gen-lua-core-h.awk $(CORE_HEADERS)
-	awk -f gen-lua-core-h.awk $(CORE_HEADERS) > $@
 
 # (end of Makefile)
