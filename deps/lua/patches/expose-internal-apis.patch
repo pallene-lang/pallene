@@ -1,0 +1,126 @@
+diff -ruN lua-5.4.7/Makefile lua-internals/Makefile
+--- lua-5.4.7/Makefile	2024-05-08 21:47:12.000000000 +0000
++++ lua-internals/Makefile	2026-06-25 09:32:15.449976644 +0000
+@@ -40,7 +40,7 @@
+ 
+ # What to install.
+ TO_BIN= lua luac
+-TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp
++TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp luacore.h
+ TO_LIB= liblua.a
+ TO_MAN= lua.1 luac.1
+ 
+diff -ruN lua-5.4.7/src/Makefile lua-internals/src/Makefile
+--- lua-5.4.7/src/Makefile	2023-02-03 10:43:14.000000000 +0000
++++ lua-internals/src/Makefile	2026-06-25 09:32:15.454376644 +0000
+@@ -50,7 +50,7 @@
+ # Targets start here.
+ default: $(PLAT)
+ 
+-all:	$(ALL_T)
++all:	$(ALL_T) luacore.h
+ 
+ o:	$(ALL_O)
+ 
+@@ -70,7 +70,7 @@
+ 	./$(LUA_T) -v
+ 
+ clean:
+-	$(RM) $(ALL_T) $(ALL_O)
++	$(RM) $(ALL_T) $(ALL_O) luacore.h
+ 
+ depend:
+ 	@$(CC) $(CFLAGS) -MM l*.c
+@@ -222,4 +222,9 @@
+ lzio.o: lzio.c lprefix.h lua.h luaconf.h llimits.h lmem.h lstate.h \
+  lobject.h ltm.h lzio.h
+ 
++# The prerequisites must in the same order that we want in the output.
++CORE_HEADERS=llimits.h lctype.h lopcodes.h lmem.h lobject.h lzio.h ltable.h lfunc.h ltm.h lparser.h llex.h lundump.h lstate.h lcode.h ldebug.h lapi.h ldo.h lgc.h lvm.h lstring.h
++luacore.h: $(CORE_HEADERS)
++	awk -f gen-lua-core-h.awk $(CORE_HEADERS) > $@
++
+ # (end of Makefile)
+diff -ruN lua-5.4.7/src/lauxlib.c lua-internals/src/lauxlib.c
+--- lua-5.4.7/src/lauxlib.c	2024-06-13 22:15:09.000000000 +0000
++++ lua-internals/src/lauxlib.c	2026-06-25 09:32:15.455645641 +0000
+@@ -1124,3 +1124,12 @@
+                   (LUAI_UACNUMBER)ver, (LUAI_UACNUMBER)v);
+ }
+ 
++
++LUALIB_API void luaL_checkcoreversion_ (lua_State *L, lua_Number ver, size_t sz) {
++  lua_Number v = LUA_VERSION_RELEASE_NUM;
++  if (sz != LUAL_NUMSIZES)  /* check numeric types */
++    luaL_error(L, "core and library have incompatible numeric types");
++  else if (v != ver)
++    luaL_error(L, "version mismatch: app. needs %f, Lua core provides %f",
++                  (LUAI_UACNUMBER)ver, (LUAI_UACNUMBER)v);
++}
+diff -ruN lua-5.4.7/src/lauxlib.h lua-internals/src/lauxlib.h
+--- lua-5.4.7/src/lauxlib.h	2024-06-13 22:15:09.000000000 +0000
++++ lua-internals/src/lauxlib.h	2026-06-25 09:32:15.455645641 +0000
+@@ -47,6 +47,10 @@
+ #define luaL_checkversion(L)  \
+ 	  luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES)
+ 
++LUALIB_API void (luaL_checkcoreversion_) (lua_State *L, lua_Number ver, size_t sz);
++#define luaL_checkcoreversion(L)  \
++	  luaL_checkcoreversion_(L, LUA_VERSION_RELEASE_NUM, LUAL_NUMSIZES)
++
+ LUALIB_API int (luaL_getmetafield) (lua_State *L, int obj, const char *e);
+ LUALIB_API int (luaL_callmeta) (lua_State *L, int obj, const char *e);
+ LUALIB_API const char *(luaL_tolstring) (lua_State *L, int idx, size_t *len);
+diff -ruN lua-5.4.7/src/lua.h lua-internals/src/lua.h
+--- lua-5.4.7/src/lua.h	2024-06-13 22:15:10.000000000 +0000
++++ lua-internals/src/lua.h	2026-06-25 09:32:15.458776644 +0000
+@@ -24,7 +24,7 @@
+ #define LUA_VERSION_RELEASE_NUM		(LUA_VERSION_NUM * 100 + 7)
+ 
+ #define LUA_VERSION	"Lua " LUA_VERSION_MAJOR "." LUA_VERSION_MINOR
+-#define LUA_RELEASE	LUA_VERSION "." LUA_VERSION_RELEASE
++#define LUA_RELEASE	LUA_VERSION "." LUA_VERSION_RELEASE " with core API"
+ #define LUA_COPYRIGHT	LUA_RELEASE "  Copyright (C) 1994-2024 Lua.org, PUC-Rio"
+ #define LUA_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
+ 
+diff -ruN lua-5.4.7/src/luaconf.h lua-internals/src/luaconf.h
+--- lua-5.4.7/src/luaconf.h	2024-06-13 22:15:10.000000000 +0000
++++ lua-internals/src/luaconf.h	2026-06-25 09:32:15.458776644 +0000
+@@ -320,12 +320,7 @@
+ ** give a warning about it. To avoid these warnings, change to the
+ ** default definition.
+ */
+-#if defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+-    defined(__ELF__)		/* { */
+-#define LUAI_FUNC	__attribute__((visibility("internal"))) extern
+-#else				/* }{ */
+-#define LUAI_FUNC	extern
+-#endif				/* } */
++#define LUAI_FUNC	LUA_API
+ 
+ #define LUAI_DDEC(dec)	LUAI_FUNC dec
+ #define LUAI_DDEF	/* empty */
+diff -ruN lua-5.4.7/src/lvm.c lua-internals/src/lvm.c
+--- lua-5.4.7/src/lvm.c	2024-06-13 22:15:10.000000000 +0000
++++ lua-internals/src/lvm.c	2026-06-25 09:32:15.458776644 +0000
+@@ -398,6 +398,10 @@
+   }
+ }
+ 
++int luaV_strcmp(const TString *ls, const TString *rs) {
++    return l_strcmp(ls, rs);
++}
++
+ 
+ /*
+ ** Check whether integer 'i' is less than float 'f'. If 'i' has an
+diff -ruN lua-5.4.7/src/lvm.h lua-internals/src/lvm.h
+--- lua-5.4.7/src/lvm.h	2024-06-13 22:15:10.000000000 +0000
++++ lua-internals/src/lvm.h	2026-06-25 09:32:15.458776644 +0000
+@@ -138,4 +138,6 @@
+ LUAI_FUNC lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y);
+ LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
+ 
++LUAI_FUNC int luaV_strcmp(const TString *ls, const TString *rs);
++
+ #endif
