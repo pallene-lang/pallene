@@ -12,39 +12,19 @@ Compared to LuaJIT, Pallene aims to offer more predictable run-time performance.
 
 ## Building and Installing Pallene
 
-Pallene requires a special version of Lua, which you will need to build and install from source.
+Before you are able to build and install Pallene, you'll need to run the
+configure script.
 
-First, you must download and compile Lua from [our other repository](https://github.com/pallene-lang/lua-internals).
-This version of Lua is patched to expose some additional C APIs that Pallene needs.
-
-```sh
-git clone https://github.com/pallene-lang/lua-internals/
-cd lua-internals
-make guess -j4  # guess will auto-detect your platform
-sudo make install
-cd -
-```
-
-If you are on Linux and would like the up arrow to work in the Lua REPL,
-then run `make linux-readline` instead of `make guess`.
-After Lua is installed, run `lua -v` to check if you have the right version.
-It needs to say `Lua 5.x.x with core API`.
-If it doesn't have the "with core API", that means you're using the default
-Lua instead of the special Lua.
-
-Next, you'll want to build the rest of Pallene's dependencies. All of them
-are vendored inside the Pallene repository. Before you run `make`, you'll
-need to run the configure script.
-
-You can modify the installation location via the configure script. See
-`./configure --help` for details. The default location is `/usr/local`.
+You can also, optionally, modify the installation location via the configure
+script. See `./configure --help` for details. The default location is
+`/usr/local`.
 
 ```sh
 ./configure
 make
 ```
 
-Finally, to install Pallene and all of its dependencies:
+To install Pallene and all of its dependencies:
 
 ```sh
 sudo make install

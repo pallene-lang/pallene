@@ -11,9 +11,10 @@ include config.mk
 
 # Standard targets
 
-all: pallene-tracer lpeg
+all: lua-internals pallene-tracer lpeg
 
 clean:
+	cd ./deps/lua-internals  && $(MAKE) clean
 	cd ./deps/pallene-tracer && $(MAKE) clean
 	cd ./deps/lpeg           && $(MAKE) clean
 
@@ -31,6 +32,7 @@ install: all
 	mkdir -p $(INSTALL_PREFIX)/lib/lua/$(LUA_VERSION)
 
 	# Install all the dependencies first.
+	cd deps/lua-internals  && $(MAKE) install INSTALL_TOP=$(INSTALL_PREFIX)
 	cd deps/pallene-tracer && $(MAKE) install PREFIX=$(INSTALL_PREFIX)
 
 	# Note that we have to manually copy these over because
@@ -49,6 +51,7 @@ install: all
 
 uninstall:
 	# Uninstall all the dependencies.
+	cd ./deps/lua-internals  && $(MAKE) uninstall INSTALL_TOP=$(INSTALL_PREFIX)
 	cd ./deps/pallene-tracer && $(MAKE) uninstall PREFIX=$(INSTALL_PREFIX)
 	$(RM)     $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/argparse.lua
 	$(RM)     $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/re.lua
@@ -61,15 +64,18 @@ uninstall:
 	# Uninstall the wrapper shell script (inspired by LuaRocks).
 	$(RM) $(INSTALL_PREFIX)/bin/pallenec
 
-.PHONY: all clean distclean install uninstall pallene-tracer lpeg
+.PHONY: all clean distclean install uninstall pallene-tracer lpeg lua-internals
 
 # Compilation
 
-pallene-tracer:
-	cd ./deps/pallene-tracer  && $(MAKE)
+lua-internals:
+	cd ./deps/lua-internals   && $(MAKE)
 
-lpeg:
-	cd ./deps/lpeg            && $(MAKE)
+pallene-tracer: lua-internals
+	cd ./deps/pallene-tracer  && $(MAKE) LUA_PREFIX="../lua-internals" LUA_BINDIR="../lua-internals/src" LUA_INCDIR="../lua-internals/src" LUA_LIBDIR="../lua-internals/src"
+
+lpeg: lua-internals
+	cd ./deps/lpeg            && $(MAKE) LUADIR="../lua-internals/src"
 
 config.mk:
 	@echo You must run ./configure before make
