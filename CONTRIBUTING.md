@@ -154,3 +154,49 @@ Then you must also build the Pallene module with address sanitizer
 ```sh
 CFLAGS='-fsanitize=address -g' pallenec --compile-c foo.c
 ```
+
+## Updating Vendored Dependencies
+
+This section will teach you how to update the vendored dependencies.
+
+### Updating Lua
+
+Pallene requires a Lua build with certain internal APIs exposed. We do this by
+having patch files that modify stock Lua.
+
+Here's how to update Lua:
+
+```sh
+#
+# Note that all these steps are to be done manually. This is not a shell
+# script.
+#
+# Replace $VERSION with whatever version you're upgrading to.
+#
+
+cd deps/lua
+
+# First, we have to update the stock Lua.
+wget -O - "https://www.lua.org/ftp/lua-$VERSION.tar.gz" | tar -xz
+# We do this so as to remove files that existed in the old version
+# but were deleted in the newer versions.
+rm -rf upstream/*
+cp -r lua-$VERSION/* upstream/
+rm -rf lua-$VERSION/
+
+# We make a copy of the stock Lua directory to make our changes in.
+cp -r upstream/ upstream-patched/
+
+# We can now make the necessary changes to expose the internal APIs...
+cd upstream-patched/ && $EDITOR .
+
+# Now that we've made the changes, we can create a patch file for our changes.
+cd ..
+diff -ruN upstream/ upstream-patched/ > patches/expose-internal-apis.patch
+
+# Delete the directory deps/lua/upstream-patched since we don't need it anymore.
+rm -rf upstream-patched/
+
+# NOTE: If you have changed the name of the patch file, you'll have to change the name
+# in the root Makefile as well.
+```
