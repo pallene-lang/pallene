@@ -207,7 +207,6 @@ function driver.compile_internal_d_pln(filename, input, stop_after)
 
     local function abort()
         if type(errs) == "string" then errs = { errs } end
-        table.insert(errs, "compilation aborted due to previous error")
         return false, errs
     end
 
@@ -235,10 +234,9 @@ function driver.compile_type_file(path)
         return false, { err }
     end
 
-    local ast
-    ast, err = driver.compile_internal_d_pln(path, input)
+    local ast, errs = driver.compile_internal_d_pln(path, input)
     if not ast then
-        return false, { err }
+        return false, errs
     end
 
     return ast, {}

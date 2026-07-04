@@ -389,6 +389,9 @@ function Converter:visit_stat(stat)
 
     elseif  tag == "ast.Stat.Break" then
         -- empty
+    elseif  tag == "ast.Stat.Require" then
+        -- Require statements only accepts string literals,
+        -- so there is no expression to visit.
     else
         tagged_union.error(tag)
     end

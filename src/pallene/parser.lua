@@ -200,9 +200,108 @@ local is_toplevel_first = Union({
     is_stat_first,
 })
 
+local function is_require_call(exp)
+    return exp._tag         == "ast.Exp.CallFunc" and
+           exp.exp._tag     == "ast.Exp.Var"      and
+           exp.exp.var._tag == "ast.Var.Name"     and
+           exp.exp.var.name == "require"
+end
+
+local function has_require_exp(stat)
+    local exps = stat.exps
+    if not exps then return false end
+    for _, exp in ipairs(exps) do
+        if is_require_call(exp) then
+            return true
+        end
+    end
+    return false
+end
+
+function Parser:convert_decl_to_require(stat)
+    assert(stat._tag == "ast.Stat.Decl")
+    local decl = stat.decls[1]
+    local exp  = stat.exps[1]
+    if #stat.decls > 1 or #stat.exps > 1 then
+        self:recoverable_syntax_error(stat.loc,
+            "cannot use a multiple-assignment in require statements")
+    end
+    assert(decl._tag == "ast.Decl.Decl")
+    if decl.type then
+        self:recoverable_syntax_error(decl.loc,
+            "type annotation is not allowed at require statements")
+    end
+    assert(is_require_call(exp))
+    if #exp.args ~= 1 then
+        self:recoverable_syntax_error(exp.loc,
+            "require() must be called with exactly one argument")
+    end
+    return ast.Toplevel.Require(stat.loc, decl, exp.args[1])
+end
+
 --
 -- Toplevel
 --
+
+function Parser:separate_requires_from_tl_stats(tl_stats)
+    assert(tl_stats._tag == "ast.Toplevel.Stats")
+    local tls = {}
+    local stats_group = {}
+
+    local function commit_stats()
+        if #stats_group > 0 then
+            local stats_tl = ast.Toplevel.Stats(stats_group[1].loc, stats_group)
+            table.insert(tls, stats_tl)
+            stats_group = {}
+        end
+    end
+
+    for _, stat in ipairs(tl_stats.stats) do
+        if stat._tag == "ast.Stat.Decl" and has_require_exp(stat) then
+            commit_stats()
+            local require_stmt = self:convert_decl_to_require(stat)
+            table.insert(tls, require_stmt)
+        elseif stat._tag == "ast.Stat.Assign" and has_require_exp(stat) then
+            self:recoverable_syntax_error(stat.loc,
+                "calls to require are only allowed in toplevel declarations")
+        else
+            table.insert(stats_group, stat)
+        end
+    end
+
+    commit_stats()
+
+    return tls
+end
+
+-- This function rebuilds the list of toplevel statements, bringing the require statements from the Stats toplevels
+-- into their own toplevels and ensuring that they appear before any other toplevel statements.
+function Parser:tls_emerge_requires(tls)
+    local result = {}
+    local require_allowed = true
+
+    for _, tl in ipairs(tls) do
+        if tl._tag == "ast.Toplevel.Stats" then
+            local separated_tls = self:separate_requires_from_tl_stats(tl)
+
+            for _, sep_tl in ipairs(separated_tls) do
+                if sep_tl._tag == "ast.Toplevel.Require" then
+                    if not require_allowed then
+                        self:recoverable_syntax_error(sep_tl.loc,
+                            "require statements must appear before any other toplevel statement")
+                    end
+                else
+                    require_allowed = false
+                end
+                table.insert(result, sep_tl)
+            end
+        else
+            table.insert(result, tl)
+            require_allowed = false
+        end
+    end
+    return result
+end
 
 function Parser:Program()
 
@@ -266,6 +365,8 @@ function Parser:Program()
         end
     end
 
+    tls = self:tls_emerge_requires(tls)
+
     -- return <modname>
     if return_stat then
         if #return_stat.exps ~= 1 then
@@ -303,7 +404,7 @@ function Parser:Program()
         start_loc, end_loc, modname, tls, self.type_regions)
 end
 
-function Parser:TypeDeclarationFile(modname)
+function Parser:TypeDeclarationFile(module_name)
 
     local start_loc = self.next.loc
 
@@ -333,7 +434,7 @@ function Parser:TypeDeclarationFile(modname)
     end
 
     return ast.TypeFile.TypeFile(
-        start_loc, modname, decls
+        start_loc, module_name, decls
     )
 end
 
@@ -441,7 +542,12 @@ function Parser:SimpleType()
 
     elseif self:peek("NAME") then
         local tok = self:advance()
-        return ast.Type.Name(tok.loc, tok.value)
+        local name = ast.Type.Name(tok.loc, tok.value)
+        if self:try(".") then
+            local id = self:e("NAME")
+            name = ast.Type.QualifiedName(tok.loc, name.name, id.value)
+        end
+        return name
 
     elseif self:peek("{") then
         local open = self:advance()
@@ -1229,7 +1335,7 @@ function parser.parse_type_file(lexer)
     local p = Parser.new(lexer)
 
     local ok, ret = trycatch.pcall(function()
-        return p:TypeDeclarationFile()
+        return p:TypeDeclarationFile(lexer.file_name)
     end)
 
     -- Re-throw internal errors

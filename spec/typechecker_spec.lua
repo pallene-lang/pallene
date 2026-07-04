@@ -34,6 +34,20 @@ local function assert_error(body, expected_err)
     assert.match(expected_err, errs, 1, true)
 end
 
+local function assert_errors(body, expected_err)
+    local module, errs = run_typechecker(util.render([[
+        local m: module = {}
+        $body
+        return m
+    ]], {
+        body = body
+    }))
+    assert.falsy(module)
+    for _, err in ipairs(expected_err) do
+        assert.match(err, errs, 1, true)
+    end
+end
+
 --
 -- Type
 --
@@ -119,6 +133,236 @@ describe("Module", function()
         assert_error([[
             m.x = m.x
         ]], "module field 'x' does not exist")
+    end)
+
+end)
+
+--
+-- Require
+--
+
+describe("Require", function()
+    it("forbids require calls in toplevel assignments", function()
+        assert_error([[
+            m.x = require("foo")
+        ]], "calls to require are only allowed in toplevel declarations")
+    end)
+
+    it("forbids non-string argument", function()
+        assert_error([[
+            local x = require(1)
+        ]], "require argument must be a string literal")
+    end)
+
+    it("forbids require calls as expressions", function()
+        assert_error([[
+            function m.f()
+                local x = require("foo")
+            end
+        ]], "the use of 'require' is forbidden here")
+    end)
+
+    it("forbids using require as value", function()
+        assert_error([[
+            local x = require
+        ]], "the use of 'require' is forbidden here")
+    end)
+
+    it("forbids assigning to require", function()
+        assert_error([[
+            local function f()
+                require = 1
+            end
+        ]], "the use of 'require' is forbidden here")
+    end)
+
+    it("forbids shadowing require as local variable declaration", function()
+        assert_error([[
+            local require: integer
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a local function", function()
+        assert_error([[
+            local function require()
+                local require: integer = 1
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a function parameter", function()
+        assert_error([[
+            function m.f(require: integer): integer
+                return require
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a for-loop variable", function()
+        assert_error([[
+            function m.f()
+                for require = 1, 10 do end
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a typealias name", function()
+        assert_error([[
+            typealias require = integer
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    it("forbids shadowing require as a record name", function()
+        assert_error([[
+            record require
+                x: integer
+            end
+        ]], "shadowing of 'require' is not allowed")
+    end)
+
+    local dep_filename = "__require_dep__.d.pln"
+
+    local function write_type_file(fname, content)
+        local f = assert(io.open(fname, "w"))
+        f:write(content)
+        f:close()
+    end
+
+    describe("with valid .d.pln files", function()
+        setup(function()
+            local dep_content = [[
+                typealias MyInt = integer
+                record Point
+                    x: integer
+                    y: integer
+                end
+                add: (integer, integer) -> integer
+            ]]
+            write_type_file(dep_filename, dep_content)
+        end)
+
+        teardown(function()
+            os.remove(dep_filename)
+        end)
+
+        it("imports types from a .d.pln file", function()
+            local module, errs = run_typechecker(util.render([[
+                local m: module = {}
+                local dep = require("__require_dep__")
+                local x: dep.Point = { x = 1, y = 2 }
+                return m
+            ]], {}))
+            assert.truthy(module, errs)
+        end)
+
+        it("imports typealias from a .d.pln file", function()
+            local module, errs = run_typechecker(util.render([[
+                local m: module = {}
+                local dep = require("__require_dep__")
+                local x: dep.MyInt = 42
+                return m
+            ]], {}))
+            assert.truthy(module, errs)
+        end)
+
+        it("imports value declarations from a .d.pln file", function()
+            local module, errs = run_typechecker(util.render([[
+                local m: module = {}
+                local dep = require("__require_dep__")
+                local x: integer = dep.add(1, 2)
+                return m
+            ]], {}))
+            assert.truthy(module, errs)
+        end)
+
+        it("rejects access to non-existent module field", function()
+            assert_error([[
+                local dep = require("__require_dep__")
+                local x = dep.nonexistent
+            ]], "module field 'nonexistent' does not exist")
+        end)
+
+        it("rejects access to non-existent module type", function()
+            assert_error([[
+                local dep = require("__require_dep__")
+                local x: dep.NonExistingType = nil
+            ]], "type 'dep.NonExistingType' is not declared")
+        end)
+    end)
+
+    describe("with invalid .d.pln files", function()
+
+        setup(function()
+            local dep_content = "" -- empty string as each test will write its own content
+            write_type_file(dep_filename, dep_content)
+        end)
+
+        teardown(function()
+            os.remove(dep_filename)
+        end)
+
+        it("reports parsing errors in .d.pln files", function()
+            local dep_content = [[
+                typealias MyInt = integer
+                a = 10
+            ]]
+            write_type_file(dep_filename, dep_content)
+            local errors = {
+                "could not load module '__require_dep__'",
+                "type annotation expected in type declaration file",
+                "unexpected '=' while trying to parse a type declaration"
+            }
+            assert_errors([[
+                local dep = require("__require_dep__")
+            ]], errors)
+        end)
+
+        it("reports type errors from invalid .d.pln files", function()
+            local dep_content = [[
+                typealias MyInt = int3ger
+            ]]
+            write_type_file(dep_filename, dep_content)
+            local errors = {
+                "could not load module '__require_dep__'",
+                "type 'int3ger' is not declared"
+            }
+            assert_errors([[
+                local dep = require("__require_dep__")
+            ]], errors)
+        end)
+    end)
+
+    it("reports error when .d.pln file does not exist", function()
+        local errors = {
+            "could not load module '__nonexistent_module__'",
+            "No such file or directory"
+        }
+        assert_errors([[
+            local dep = require("__nonexistent_module__")
+        ]], errors)
+    end)
+end)
+
+describe("Qualified types", function()
+
+    it("rejects undeclared module in qualified type", function()
+        assert_error([[
+            local x: undeclared_mod.Foo = 1
+        ]], "module 'undeclared_mod' is not declared")
+    end)
+
+    it("rejects non-module name in qualified type", function()
+        assert_error([[
+            local y = 10
+            local x: y.Foo = 1
+        ]], "'y' is not a module")
+    end)
+
+    it("rejects undeclared type in module", function()
+        -- Use the string module which is always available
+        assert_error([[
+            local x: string.Nonexistent = "hi"
+        ]], "type 'string.Nonexistent' is not declared")
     end)
 
 end)

@@ -136,7 +136,7 @@ define_union("Def", {
     Variable = { "decl" }, -- ast.Decl
     Function = { "func" }, -- ast.FuncStat
     Builtin  = { "id"   }, -- string
---  Import   = { ??? },
+    Import   = { "module", "field" }, -- string, string
 })
 
 local function loc_of_def(def)
@@ -161,6 +161,9 @@ end
 function Typechecker:add_value_symbol(name, typ, def)
     assert(type(name) == "string")
     assert(tagged_union.typename(typ._tag) == "types.T")
+    if name == "require" then
+        type_error(loc_of_def(def), "shadowing of 'require' is not allowed")
+    end
     return self.symbol_table:add_symbol(name, typechecker.Symbol.Value(typ, def))
 end
 
@@ -197,6 +200,8 @@ function Typechecker:assert_exported_symbol_unused(name, loc)
         elseif sym._tag == "typechecker.Symbol.Module" then
             type_error(loc, "the module variable '%s' is being shadowed", name)
         end
+    elseif name == "require" then
+        type_error(loc, "shadowing of 'require' is not allowed")
     end
 end
 
@@ -231,6 +236,9 @@ function Typechecker:from_ast_type(ast_typ)
             tagged_union.error(stag)
         end
 
+    elseif tag == "ast.Type.QualifiedName" then
+        return self:try_access_qualified_type(ast_typ)
+
     elseif tag == "ast.Type.Array" then
         local subtype = self:from_ast_type(ast_typ.subtype)
         return types.T.Array(subtype)
@@ -259,6 +267,53 @@ function Typechecker:from_ast_type(ast_typ)
     else
         tagged_union.error(tag)
     end
+end
+
+function Typechecker:load_required_ast(tl_require)
+    assert(tl_require._tag == "ast.Toplevel.Require")
+    local require_arg = tl_require.module_name_exp
+
+    if require_arg._tag ~= "ast.Exp.String" then
+        type_error(require_arg.loc, "require argument must be a string literal")
+    end
+
+    local module_name = require_arg.value
+
+    local driver = require "pallene.driver"
+    local type_ast, err = driver.compile_type_file(string.format("%s.d.pln", module_name))
+
+    if not type_ast then
+        local msg = "error: " ..
+            require_arg.loc:format_error("could not load module '%s'", module_name)
+        table.insert(err, 1, msg)
+        trycatch.error("typechecker", table.concat(err, "\n"))
+    else
+        assert(type_ast._tag == "ast.TypeFile.TypeFile")
+    end
+
+    return type_ast
+end
+
+function Typechecker:import_symbols(tl_require)
+    local req_ast = self:load_required_ast(tl_require)
+
+    local symbols = {}
+    local local_name, module_name = tl_require.local_name_decl.name, tl_require.module_name_exp.value
+    if local_name == "require" then
+        type_error(tl_require.local_name_decl.loc, "shadowing of 'require' is not allowed")
+    end
+    for _, decl in ipairs(req_ast.decls) do
+        local tag = decl._tag
+        if tag == "ast.TypeFile.Typealias" or
+            tag == "ast.TypeFile.Record"    then
+            symbols[decl.name] = typechecker.Symbol.Type(decl._type)
+        elseif tag == "ast.TypeFile.Decl" then
+            symbols[decl.name] = typechecker.Symbol.Value(decl._type, typechecker.Def.Import(module_name, decl.name))
+        else
+            tagged_union.error(tag)
+        end
+    end
+    self:add_module_symbol(local_name, false, symbols)
 end
 
 function Typechecker:check_program(prog_ast)
@@ -323,6 +378,9 @@ function Typechecker:check_program(prog_ast)
 
             tl_node._type = typ
 
+        elseif tag == "ast.Toplevel.Require" then
+            self:import_symbols(tl_node)
+
         else
             tagged_union.error(tag)
         end
@@ -339,6 +397,8 @@ function Typechecker:check_type_file(prog_ast)
 
     assert(prog_ast._tag == "ast.TypeFile.TypeFile")
 
+    local module_name = prog_ast.module_name
+
     -- 1) Add primitive types to the symbol table
     self:add_type_symbol("any",     types.T.Any)
     self:add_type_symbol("boolean", types.T.Boolean)
@@ -351,8 +411,7 @@ function Typechecker:check_type_file(prog_ast)
         local tag = decl._tag
 
         if tag == "ast.TypeFile.Typealias" then
-            local typ = types.T.Alias(decl.name, self:from_ast_type(decl.type))
-            -- self:export_type_symbol(decl.name, typ, decl.loc)
+            local typ = types.T.Alias(module_name .. "." .. decl.name, self:from_ast_type(decl.type))
             self:add_type_symbol(decl.name, typ)
             decl._type = typ
 
@@ -368,7 +427,7 @@ function Typechecker:check_type_file(prog_ast)
                 field_types[field_name] = self:from_ast_type(field_decl.type)
             end
 
-            local typ = types.T.Record(decl.name, field_names, field_types, false)
+            local typ = types.T.Record(module_name .. '.' .. decl.name, field_names, field_types, false)
             self:add_type_symbol(decl.name, typ)
 
             decl._type = typ
@@ -700,6 +759,36 @@ function Typechecker:check_stat(stat, is_toplevel)
 end
 
 --
+-- If the given type named is of the form x.y.z, check for its existence and return the corresponding types.T
+--
+function Typechecker:try_access_qualified_type(qualified_type)
+    assert(qualified_type._tag == "ast.Type.QualifiedName")
+
+    local mod, type = qualified_type.module, qualified_type.name
+
+    local mod_sym = self.symbol_table:find_symbol(mod)
+    if not mod_sym then
+        type_error(qualified_type.loc, "module '%s' is not declared", mod)
+    elseif mod_sym._tag ~= "typechecker.Symbol.Module" then
+        type_error(qualified_type.loc, "'%s' is not a module", mod)
+    end
+
+    local type_sym = mod_sym.symbols[type]
+    if not type_sym then
+        type_error(qualified_type.loc, "type '%s.%s' is not declared", mod, type)
+    elseif type_sym._tag ~= "typechecker.Symbol.Type" then
+        type_error(qualified_type.loc, "'%s.%s' is not a type", mod, type)
+    end
+
+    local typ = type_sym.typ
+
+    assert(typ._tag == "types.T.Alias" or typ._tag == "types.T.Record",
+        "only types.T.Alias and types.T.Record can be qualified types")
+
+    return typ
+end
+
+--
 -- If the given var is of the form x.y.z, try to convert it to a Var.Name
 --
 function Typechecker:try_flatten_to_qualified_name(outer_var)
@@ -759,7 +848,11 @@ function Typechecker:check_var(var)
     if     tag == "ast.Var.Name" then
         local sym = self.symbol_table:find_symbol(var.name)
         if not sym then
-            type_error(var.loc, "variable '%s' is not declared", var.name)
+            if var.name == "require" then
+                type_error(var.loc, "the use of 'require' is forbidden here", var.name)
+            else
+                type_error(var.loc, "variable '%s' is not declared", var.name)
+            end
         end
 
         local stag = sym._tag
