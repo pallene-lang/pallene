@@ -28,7 +28,6 @@ define_union("LHS", {
 define_union("Var", {
     LocalVar   = {"id"},
     Upvalue    = {"id"},
-    GlobalVar  = {"id"},
 })
 
 local BlockBuilder = util.Class()
@@ -1068,8 +1067,6 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                 return ir.Value.LocalVar(var_info.id)
             elseif var_info._tag == "to_ir.Var.Upvalue" then
                 return ir.Value.Upvalue(var_info.id)
-            elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                -- Fallthrough to default
             else
                 tagged_union.error(var_info._tag)
             end
@@ -1316,8 +1313,6 @@ function ToIR:exp_to_assignment(bb, dst, exp)
 
                 if var_info._tag == "to_ir.Var.LocalVar" or var_info._tag == "to_ir.Var.Upvalue" then
                     use_exp_to_value = true
-                elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                    bb:append_cmd(ir.Cmd.GetGlobal(loc, dst, var_info.id))
                 else
                     tagged_union.error(var_info._tag)
                 end
