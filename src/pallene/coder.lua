@@ -1369,7 +1369,10 @@ gen_cmd["SetTable"] = function(self, args)
             TValue valv; ${init_valv}
             static int cache = -1;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
-            luaH_finishset(L, $tab, &keyv, slot, &valv);
+            int hres = luaH_pset($tab, &keyv, &valv);
+            if (hres != HOK)
+                luaH_finishset(L, $tab, s2v(L->top.p - 2),
+                                s2v(L->top.p - 1), hres);
     ]], {
         field_len = tostring(#field_name),
         tab = tab,
@@ -1966,8 +1969,8 @@ function Coder:generate_luaopen_function()
     return (util.render([[
         int ${name}(lua_State *L)
         {
-            #if LUA_VERSION_RELEASE_NUM != 50407
-            #error "Lua version must be exactly 5.4.7"
+            #if LUA_VERSION_RELEASE_NUM != 50500
+            #error "Lua version must be exactly 5.0.0"
             #endif
             luaL_checkcoreversion(L);
 
