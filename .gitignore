@@ -12,3 +12,6 @@ vm/src/luac
 __test__*
 
 config.mk
+
+deps/lua/downstream
+

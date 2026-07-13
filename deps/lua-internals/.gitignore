@@ -1,8 +1,0 @@
-*.so
-*.o
-*.a
-
-lua
-luac
-
-luacore.h
