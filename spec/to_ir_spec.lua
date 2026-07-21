@@ -8,7 +8,7 @@ local util = require "pallene.util"
 
 local function convert_to_ir(src)
     local module, errs = driver.compile_internal("__test__.pln", src, "ir")
-    return module, table.concat(errs, "\n")
+    return module, table.concat(errs or {}, "\n")
 end
 
 local function assert_error(code, expected_error)
@@ -55,6 +55,35 @@ describe("IR Generator", function()
             captures = captures
         })
         assert_error(code, "too many upvalues (limit is 200)")
+    end)
+
+    describe("Require statement", function()
+        local function write_type_file(fname, content)
+            local f = assert(io.open(fname, "w"))
+            f:write(content)
+            f:close()
+        end
+
+        local dep_filename = "dep.d.pln"
+
+        setup(function()
+            local dep_content = ""
+            write_type_file(dep_filename, dep_content)
+        end)
+
+        teardown(function()
+            os.remove(dep_filename)
+        end)
+
+        it("adds the required module to the list of imported modules by actual name", function()
+            local module, err = convert_to_ir([[
+                local m: module = {}
+                local other_name = require "dep"
+                return m
+            ]])
+            assert.truthy(module)
+            assert.same({"dep"}, module.imported_modules)
+        end)
     end)
 
 end)
