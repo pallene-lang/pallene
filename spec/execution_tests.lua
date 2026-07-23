@@ -3489,13 +3489,13 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             compile(util.render([[
                 local dep = require($dep)
                 local dep2 = require($dep)
-                function m.inc_import_count(): {integer} return {dep.import_count, dep2.import_count} end
+                function m.import_counts(): {integer} return {dep.import_count, dep2.import_count} end
             ]], { dep = string.format("%q", dep) }))
 
             it("is initialized exactly once", function()
                 run_test([[
-                    assert(test.inc_import_count()[1] == 1)
-                    assert(test.inc_import_count()[2] == 1)
+                    assert(test.import_counts()[1] == 1)
+                    assert(test.import_counts()[2] == 1)
                 ]])
             end)
         end)
@@ -3529,36 +3529,40 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
             local mod_a = modname.."_a"
             local mod_b = modname.."_b"
             build_module(mod_b, [[
-                local local_val = 7
-                function m.get(): integer return local_val end
-                function m.mutate_and_get(new: integer): integer
-                    local old = local_val
-                    local_val = new
+                local _val = 7
+                m.b_val = _val
+                function m.get_local(): integer return _val end
+                function m.get_and_mutate(new: integer): integer
+                    local old = _val
+                    _val = new
                     return old
                 end
             ]])
             build_module(mod_a, util.render([[
                 local b = require($mod_b)
-                m.a_val = b.mutate_and_get(0) * 2
+                m.b_val = b.b_val
+                m.a_val = b.get_and_mutate(0)
             ]], { mod_b = string.format("%q", mod_b) }))
             compile(util.render([[
                 local b = require($mod_b)
                 local a = require($mod_a)
-                function m.get_from_a(): integer return a.a_val end
-                function m.get_from_b(): integer return b.get() end
+                m.a_val = a.a_val
+                m.b_val = b.b_val
+                function m.get_local_from_b(): integer return b.get_local() end
+                function m.get_b_from_a(): integer return a.b_val end
             ]], { mod_a = string.format("%q", mod_a), mod_b = string.format("%q", mod_b) }))
 
-            it("resolves a chain of requires through toplevel initializers", function()
-                run_test([[ assert(test.get_from_a() == 14) ]])
+            it("initializes an exported field from a transitively required module", function()
+                run_test([[
+                    assert(test.b_val == 7)
+                    assert(test.get_b_from_a() == 7)
+                    assert(test.a_val == 7)
+                ]])
             end)
 
-            it("changing the upstream value should affect downstream values", function()
-                -- In this test we mutate the b's local_val as we initialize a.a_val.
-                -- When we later call b.get() we should get the updated value,
-                -- assuring that the module's state is shared across all modules that require it.
-                run_test([[ assert(test.get_from_b() == 0) ]])
+            it("shares a single module instance across the require chain", function()
+                run_test([[ assert(test.get_local_from_b() == 0) ]])
             end)
-
         end)
     end)
 end
