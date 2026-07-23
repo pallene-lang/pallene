@@ -365,8 +365,8 @@ function ToIR:convert_toplevel(prog_ast)
             local typ = tl_node._type
             self.rec_id_of_typ[typ] = ir.add_record_type(self.module, typ)
         elseif tag == "ast.Toplevel.Require" then
-            -- TODO implement require
-            ir_error(tl_node.loc, "require statements are not implemented yet")
+            local module_name = tl_node.module_name_exp.value
+            table.insert(self.module.imported_modules, module_name)
         else
             tagged_union.error(tag)
         end
@@ -1057,21 +1057,22 @@ function ToIR:exp_to_value(bb, exp, is_recursive)
                     error("not implemented")
                 end
             elseif def._tag == "typechecker.Def.Import" then
-                -- TODO: Handle module imported fields
-                error("not implemented")
+                -- Fallthrough to default (handled in exp_to_assignment)
             else
                 tagged_union.error(def._tag)
             end
 
-            local var_info = self:resolve_variable(decl)
-            if var_info._tag == "to_ir.Var.LocalVar" then
-                return ir.Value.LocalVar(var_info.id)
-            elseif var_info._tag == "to_ir.Var.Upvalue" then
-                return ir.Value.Upvalue(var_info.id)
-            elseif var_info._tag == "to_ir.Var.GlobalVar" then
-                -- Fallthrough to default
-            else
-                tagged_union.error(var_info._tag)
+            if decl then
+                local var_info = self:resolve_variable(decl)
+                if var_info._tag == "to_ir.Var.LocalVar" then
+                    return ir.Value.LocalVar(var_info.id)
+                elseif var_info._tag == "to_ir.Var.Upvalue" then
+                    return ir.Value.Upvalue(var_info.id)
+                elseif var_info._tag == "to_ir.Var.GlobalVar" then
+                    -- Fallthrough to default
+                else
+                    tagged_union.error(var_info._tag)
+                end
             end
 
         else
@@ -1321,6 +1322,10 @@ function ToIR:exp_to_assignment(bb, dst, exp)
                 else
                     tagged_union.error(var_info._tag)
                 end
+            elseif def._tag == "typechecker.Def.Import" then
+                local mod = ir.Value.Module(def.module)
+                local key = ir.Value.String(def.field)
+                bb:append_cmd(ir.Cmd.GetTable(loc, var._type, dst, mod, key))
             else
                 use_exp_to_value = true
             end

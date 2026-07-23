@@ -79,6 +79,7 @@ function Coder:init(module, modname, filename, flags)
     self.constants = {} -- { coder.Constant }
     self.k_slot_of_metatable = {} -- typ  => integer
     self.k_slot_of_string    = {} -- str  => integer
+    self.k_slot_of_module    = {} -- module_name => integer
     self:init_upvalues()
 
     self.record_ids    = {}      -- types.T.Record => integer
@@ -374,6 +375,8 @@ function Coder:c_value(value)
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
         return self:c_upval(value.id)
+    elseif tag == "ir.Value.Module" then
+        return lua_value(types.T.Table({}), self:module_upvalue_slot(value.module_name))
     else
         tagged_union.error(tag)
     end
@@ -734,6 +737,7 @@ end
 define_union("Constant", {
     Metatable = {"typ"},
     String = {"str"},
+    Module = {"module_name"},
     DebugUserdata = {},
     DebugMetatable = {},
 })
@@ -768,6 +772,14 @@ function Coder:init_upvalues()
             end
         end
     end
+
+    -- Imported Modules
+    for _, module_name in ipairs(self.module.imported_modules) do
+        if not self.k_slot_of_module[module_name] then
+            table.insert(self.constants, coder.Constant.Module(module_name))
+            self.k_slot_of_module[module_name] = #self.constants
+        end
+    end
 end
 
 local function upvalue_slot(ix)
@@ -781,6 +793,11 @@ end
 
 function Coder:string_upvalue_slot(str)
     local ix = assert(self.k_slot_of_string[str])
+    return upvalue_slot(ix)
+end
+
+function Coder:module_upvalue_slot(module_name)
+    local ix = assert(self.k_slot_of_module[module_name])
     return upvalue_slot(ix)
 end
 
@@ -1921,6 +1938,13 @@ function Coder:generate_luaopen_function()
             table.insert(init_constants, util.render([[
                 lua_pushstring(L, $str);]], {
                     str = C.string(upv.str)
+                }))
+        elseif tag == "coder.Constant.Module" then
+            table.insert(init_constants, util.render([[
+                lua_getglobal(L, "require");
+                lua_pushstring(L, $module_name);
+                lua_call(L, 1, 1);]], {
+                    module_name = C.string(upv.module_name)
                 }))
         -- Will be used if compiling with `--use-traceback`
         elseif tag == "coder.Constant.DebugUserdata" then
