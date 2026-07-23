@@ -1,3 +1,4 @@
+---@diagnostic disable: redundant-parameter
 -- Copyright (c) 2021, The Pallene Developers
 -- Pallene is licensed under the MIT license.
 -- Please refer to the LICENSE and AUTHORS files for details
@@ -45,6 +46,31 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 compile_file(file_pln, code)
             end)
         end
+    end
+
+    -- Build a module that the main test module can `require`. Call this in dependency order (the
+    -- deepest module first) so that each ".d.pln" exists before a module that requires it is built.
+    local function build_module(name, body)
+        local pln  = name..".pln"
+        local code = util.render([[
+            local m: module = {}
+            $body
+            return m
+        ]], {
+            body = body,
+        })
+        setup(function()
+            compile_file(pln, code)
+            local cmd = string.format("pallenec --emit-types %s", util.shell_quote(pln))
+            local ok, _, _, errmsg = util.outputs_of_execute(cmd)
+            assert(ok, errmsg)
+        end)
+        teardown(function()
+            os.remove(pln)
+            os.remove(name..".d.pln")
+            os.remove(name..".so")
+            os.remove(name..".lua")
+        end)
     end
 
     teardown(function()
@@ -3418,6 +3444,121 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
                 local s = string.rep("a", 64)
                 assert(s == test.rets(64, "a", g))
             ]])
+        end)
+    end)
+
+    describe("Require /", function()
+
+        describe("imported values /", function()
+            local dep = modname.."_dep"
+            build_module(dep, [[
+                m.num = 1
+                function m.add(a: integer, b: integer): integer return a + b end
+                function m.parenthesize(s: string): string return "(" .. s .. ")" end
+            ]])
+            compile(util.render([[
+                local dep = require($dep)
+                function m.call(): integer return dep.add(20, 22) end
+                function m.read(): integer return dep.num end
+                function m.gc(): string return dep.parenthesize("hi") end
+            ]], { dep = string.format("%q", dep) }))
+
+            it("calls an imported function", function()
+                run_test([[ assert(test.call() == 42) ]])
+            end)
+
+            it("reads an imported scalar variable", function()
+                run_test([[ assert(test.read() == 1) ]])
+            end)
+
+            it("handles imported functions over gc values", function()
+                run_test([[ assert(test.gc() == "(hi)") ]])
+            end)
+        end)
+
+        describe("imported module /", function()
+            local dep = modname.."_dep"
+            build_module(dep, [[
+                local _import_count = 0
+                function m.inc_import_count(): integer
+                    _import_count = _import_count + 1
+                    return _import_count
+                end
+                m.import_count = m.inc_import_count()
+            ]])
+            compile(util.render([[
+                local dep = require($dep)
+                local dep2 = require($dep)
+                function m.inc_import_count(): {integer} return {dep.import_count, dep2.import_count} end
+            ]], { dep = string.format("%q", dep) }))
+
+            it("is initialized exactly once", function()
+                run_test([[
+                    assert(test.inc_import_count()[1] == 1)
+                    assert(test.inc_import_count()[2] == 1)
+                ]])
+            end)
+        end)
+
+        describe("multiple modules /", function()
+            local first  = modname.."_dep_a"
+            local second = modname.."_dep_b"
+            build_module(first,  [[ 
+                m.factor = 1
+                function m.getnum(): integer return 1 end
+            ]])
+            build_module(second, [[
+                m.factor = 2
+                function m.getnum(): integer return 2 end
+            ]])
+            compile(util.render([[
+                local a = require($first)
+                local b = require($second)
+                function m.sum(): integer return a.getnum() * a.factor + b.getnum() * b.factor end
+            ]], {
+                first  = string.format("%q", first),
+                second = string.format("%q", second),
+            }))
+
+            it("imports from two different modules", function()
+                run_test([[ assert(test.sum() == 5) ]])
+            end)
+        end)
+
+        describe("transitive requires /", function()
+            local mod_a = modname.."_a"
+            local mod_b = modname.."_b"
+            build_module(mod_b, [[
+                local local_val = 7
+                function m.get(): integer return local_val end
+                function m.mutate_and_get(new: integer): integer
+                    local old = local_val
+                    local_val = new
+                    return old
+                end
+            ]])
+            build_module(mod_a, util.render([[
+                local b = require($mod_b)
+                m.a_val = b.mutate_and_get(0) * 2
+            ]], { mod_b = string.format("%q", mod_b) }))
+            compile(util.render([[
+                local b = require($mod_b)
+                local a = require($mod_a)
+                function m.get_from_a(): integer return a.a_val end
+                function m.get_from_b(): integer return b.get() end
+            ]], { mod_a = string.format("%q", mod_a), mod_b = string.format("%q", mod_b) }))
+
+            it("resolves a chain of requires through toplevel initializers", function()
+                run_test([[ assert(test.get_from_a() == 14) ]])
+            end)
+
+            it("changing the upstream value should affect downstream values", function()
+                -- In this test we mutate the b's local_val as we initialize a.a_val.
+                -- When we later call b.get() we should get the updated value,
+                -- assuring that the module's state is shared across all modules that require it.
+                run_test([[ assert(test.get_from_b() == 0) ]])
+            end)
+
         end)
     end)
 end
