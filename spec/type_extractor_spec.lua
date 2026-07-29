@@ -123,8 +123,8 @@ describe("Type extractor", function()
         ]]
 
         local expected = {
-            "record Point: x: integer; y: integer",
-            "record Person: name: string; age: integer"
+            "record Point x: integer; y: integer end",
+            "record Person name: string; age: integer end"
         }
 
         assert_type_declarations(source, expected)
@@ -251,7 +251,7 @@ describe("Type extractor", function()
 
         local expected = {
             "typealias Point = {x: integer, y: integer}",
-            "record Circle: center: Point; radius: float",
+            "record Circle center: Point; radius: float end",
             "create_circle: (integer, integer, float) -> Circle"
         }
         assert_type_declarations(source, expected)
