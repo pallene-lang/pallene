@@ -24,10 +24,14 @@ CFLAGS   = -DPT_DEBUG -g -std=c99 -pedantic -Wall -Wextra -Wformat-security
 # Explicitly mention which Lua headers to capture
 CPPFLAGS = -I$(LUA_INCDIR) -I.
 LIBFLAG  = -fPIC -shared
+SO_LDFLAGS = -L$(LUA_LIBDIR) -llua
 
 # The -Wl,-E tells the linker to not throw away unused Lua API symbols.
 # We need them for Lua modules that are dynamically linked via require
-PTLUA_LDFLAGS = -L$(LUA_LIBDIR) -Wl,-E
+# Note: the xcode (macos) linker uses -export-dynamic instead of -E.
+# To build on macos, use make EXPFLAG=-export-dynamic
+EXPFLAG = -E
+PTLUA_LDFLAGS = -L$(LUA_LIBDIR) -Wl,$(EXPFLAG)
 PTLUA_LDLIBS  = -llua -lm
 
 # ===================
@@ -37,7 +41,7 @@ PTLUA_LDLIBS  = -llua -lm
 .PHONY: library examples tests all install uninstall clean
 
 library: \
-	pallene-lua
+	pt-lua
 
 examples: library \
 	examples/fibonacci/fibonacci.so
@@ -54,21 +58,25 @@ tests: library \
 all: library examples tests
 
 install: library
-	$(INSTALL_EXEC) pallene-lua $(BINDIR)
+	$(INSTALL_EXEC) pt-lua $(BINDIR)
 	$(INSTALL_DATA) ptracer.h $(INCDIR)
 
 uninstall:
 	rm -rf $(INCDIR)/ptracer.h
-	rm -rf $(BINDIR)/pallene-lua
+	rm -rf $(BINDIR)/pt-lua
 
 clean:
-	rm -rf pallene-lua examples/*/*.so spec/tracebacks/*/*.so
+	rm -rf pt-lua.c
+	rm -rf pt-lua examples/*/*.so spec/tracebacks/*/*.so
+	rm -rf pt-lua.dSYM spec/tracebacks/*/*.dSYM examples/*/*.dSYM
 
 %.so: %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(LIBFLAG) $< -o $@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(SO_LDFLAGS) $(LIBFLAG) $< -o $@
 
-pallene-lua: pt-lua.c ptracer.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(PTLUA_LDFLAGS) $< -o $@ $(PTLUA_LDLIBS)
+pt-lua: lua.c ptracer.h
+	cp lua.c pt-lua.c
+	patch pt-lua.c < replace-traceback.patch
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(PTLUA_LDFLAGS) -DLUA_PROGNAME=\"pt-lua\" $@.c -o $@ $(PTLUA_LDLIBS)
 
 examples/fibonacci/fibonacci.so:           examples/fibonacci/fibonacci.c           ptracer.h
 spec/tracebacks/anon_lua/module.so:        spec/tracebacks/anon_lua/module.c        ptracer.h
