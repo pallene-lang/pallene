@@ -1,52 +1,12 @@
 /*
- * Copyright (c) 2024, The Pallene Developers
- * Pallene Tracer is licensed under the MIT license.
- * Please refer to the LICENSE and AUTHORS files for details
- * SPDX-License-Identifier: MIT
- */
-
-/* THIS FILE IS A DEEP-COPY OF `lua.c` (lua interpreter frontend) WITH OUR CUSTOM DEBUG TRACEBACK
-   FUNCTION BEING THE DEFAULT ONE. */
-
-/* Lua Authors: Roberto Ierusalimschy, Waldemar Celes, Luiz Henrique de Figueiredo */
+** $Id: lua.c $
+** Lua stand-alone interpreter
+** See Copyright Notice in lua.h
+*/
 
 #define lua_c
 
-/** lprefix.h **/
-/*
-** Allows POSIX/XSI stuff
-*/
-#if !defined(LUA_USE_C89)       /* { */
-
-#if !defined(_XOPEN_SOURCE)
-#define _XOPEN_SOURCE           600
-#elif _XOPEN_SOURCE == 0
-#undef _XOPEN_SOURCE  /* use -D_XOPEN_SOURCE=0 to undefine it */
-#endif
-
-/*
-** Allows manipulation of large files in gcc and some other compilers
-*/
-#if !defined(LUA_32BITS) && !defined(_FILE_OFFSET_BITS)
-#define _LARGEFILE_SOURCE       1
-#define _FILE_OFFSET_BITS       64
-#endif
-
-#endif                          /* } */
-
-/** lprefix.h end **/
-
-
-/*
-** Windows stuff
-*/
-#if defined(_WIN32)     /* { */
-
-#if !defined(_CRT_SECURE_NO_WARNINGS)
-#define _CRT_SECURE_NO_WARNINGS  /* avoid warnings about ISO C functions */
-#endif
-
-#endif                  /* } */
+#include "lprefix.h"
 
 
 #include <stdio.h>
@@ -60,34 +20,16 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-#define PT_IMPLEMENTATION
-#include "ptracer.h"
-
-
-/* Traceback ellipsis top threshold. How many frames should we print
-   first to trigger ellipsis? */
-#ifndef PT_LUA_TRACEBACK_TOP_THRESHOLD
-#define PT_LUA_TRACEBACK_TOP_THRESHOLD           10
-#endif // PT_LUA_TRACEBACK_TOP_THRESHOLD
-
-/* This should always be 2 fewer than top threshold, for symmetry.
-   Becuase we will always have 2 tail frames lingering around at
-   at the end which is not captured by '_countlevels'. Lua also
-   do it like this. */
-#ifndef PT_LUA_TRACEBACK_BOTTOM_THRESHOLD
-#define PT_LUA_TRACEBACK_BOTTOM_THRESHOLD        8
-#endif // PT_RUN_TRACEBACK_BOTTOM_THRESHOLD
-
 
 #if !defined(LUA_PROGNAME)
-#define LUA_PROGNAME            "pt-lua"
+#define LUA_PROGNAME		"lua"
 #endif
 
 #if !defined(LUA_INIT_VAR)
-#define LUA_INIT_VAR            "LUA_INIT"
+#define LUA_INIT_VAR		"LUA_INIT"
 #endif
 
-#define LUA_INITVARVERSION      LUA_INIT_VAR LUA_VERSUFFIX
+#define LUA_INITVARVERSION	LUA_INIT_VAR LUA_VERSUFFIX
 
 
 static lua_State *globalL = NULL;
@@ -113,246 +55,6 @@ static void setsignal (int sig, void (*handler)(int)) {
 #define setsignal            signal
 
 #endif                               /* } */
-
-
-/* ---------------- PALLENE TRACER CODE ---------------- */
-
-/* Global table name deduction. Can we find a function name? */
-static bool findfield(lua_State *L, int fn_idx, int level) {
-  if(level == 0 || !lua_istable(L, -1))
-    return false;
-
-  lua_pushnil(L);  /* Initial key. */
-
-  while(lua_next(L, -2)) {
-    /* We are only interested in String keys. */
-    if(lua_type(L, -2) == LUA_TSTRING) {
-      /* Avoid "_G" recursion in global table. The global table is also part of
-         global table :). */
-      if(!strcmp(lua_tostring(L, -2), "_G")) {
-        /* Remove value and continue. */
-        lua_pop(L, 1);
-        continue;
-      }
-
-      /* Is it the function we are looking for? */
-      if(lua_rawequal(L, fn_idx, -1)) {
-        /* Remove value and keep name. */
-        lua_pop(L, 1);
-        return true;
-      }
-      /* If not go one level deeper and get the value recursively. */
-      else if(findfield(L, fn_idx, level - 1)) {
-        /* Remove the table but keep name. */
-        lua_remove(L, -2);
-
-        /* Add a "." in between. */
-        lua_pushliteral(L, ".");
-        lua_insert(L, -2);
-
-        /* Concatenate last 3 values, resulting "table.some_func". */
-        lua_concat(L, 3);
-
-        return true;
-      }
-    }
-
-    /* Pop the value. */
-    lua_pop(L, 1);
-  }
-
-  return false;
-}
-
-
-/* Pushes a function name if found in the global table and returns true.
-   Returns false otherwise. */
-/* Expects the function to be pushed in the stack. */
-static bool pushglobalfuncname(lua_State *L) {
-  int top = lua_gettop(L);
-
-  /* Start from the global table. */
-  lua_pushglobaltable(L);
-
-  if(findfield(L, top, 2)) {
-    lua_remove(L, -2);
-    return true;
-  }
-
-  lua_pop(L, 1);
-  return false;
-}
-
-
-/* Returns the maximum number of levels in Lua stack. */
-static int countlevels(lua_State *L) {
-  lua_Debug ar;
-  int li = 1, le = 1;
-
-  /* Find an upper bound */
-  while (lua_getstack(L, le, &ar)) {
-    li = le, le *= 2;
-  }
-
-  /* Do a binary search */
-  while (li < le) {
-    int m = (li + le) / 2;
-
-    if (lua_getstack(L, m, &ar)) li = m + 1;
-    else le = m;
-  }
-
-  return le - 1;
-}
-
-
-/* Counts the number of white and black frames in the Pallene call stack. */
-static void countframes(pt_fnstack_t *fnstack, int *mwhite, int *mblack) {
-  *mwhite = *mblack = 0;
-
-  for(int i = 0; i < fnstack->count; i++) {
-    *mwhite += (fnstack->stack[i].type == PALLENE_TRACER_FRAME_TYPE_C);
-    *mblack += (fnstack->stack[i].type == PALLENE_TRACER_FRAME_TYPE_LUA);
-  }
-}
-
-
-/* This function is called by `debugtraceback` function decides whether to print the stack frame info string
-   pushed onto the Lua stack. The function is also responsible for printing ellipsis (skipped frames). If we
-   are skipping frames, the current frame pushed in stack is not printed. */
-/* Pops the frame string from the Lua stack. */
-/* pframes = Amount of printed frames; current count, nframes = Number of total frames to be printed. */
-static void render(lua_State *L, luaL_Buffer *buf, int pframes, int nframes) {
-  /* Should we print? Are we at any point in top or bottom printing threshold? */
-  bool should_print = (pframes <= PT_LUA_TRACEBACK_TOP_THRESHOLD)
-    || ((nframes - pframes) <= PT_LUA_TRACEBACK_BOTTOM_THRESHOLD);
-
-  if(should_print)
-    luaL_addvalue(buf);
-  else {
-    /* The frame string pushed onto the stack. We are not printing it, so just pop it out. */
-    lua_pop(L, 1);
-
-    /* Have we escaped the threshold to skip frames? */
-    if(pframes == PT_LUA_TRACEBACK_TOP_THRESHOLD + 1) {
-      lua_pushfstring(L, "\n\n    ... (Skipped %d frames) ...\n",
-        nframes - (PT_LUA_TRACEBACK_TOP_THRESHOLD
-        + PT_LUA_TRACEBACK_BOTTOM_THRESHOLD));
-      luaL_addvalue(buf);
-    }
-  }
-}
-
-
-/* Pallene Tracer explicit traceback function to show Pallene call-stack
-   tracebacks. */
-int debugtraceback(lua_State *L, const char* msg) {
-  lua_getfield(L, LUA_REGISTRYINDEX, PALLENE_TRACER_CONTAINER_ENTRY);
-  pt_fnstack_t *fnstack = (pt_fnstack_t *) lua_touserdata(L, -1);
-  pt_frame_t *stack = fnstack->stack;
-  /* The point where we are in the Pallene stack. */
-  int index = fnstack->count - 1;
-  lua_pop(L, 1);
-
-  /* Max number of white and black frames. */
-  int mwhite, mblack;
-  countframes(fnstack, &mwhite, &mblack);
-  /* Max levels of Lua stack. */
-  int mlevel = countlevels(L);
-
-  /* Total frames we are going to print. */
-  /* Black frames are used for switching and we will start from
-     Lua stack level 1. */
-  int nframes = mlevel + mwhite - mblack - 1;
-  /* Amount of frames printed. */
-  int pframes = 0;
-
-  luaL_Buffer buf;
-  luaL_buffinit(L, &buf);
-  lua_pushfstring(L, "%s\nstack traceback:", msg);
-  luaL_addvalue(&buf);
-
-  lua_Debug ar;
-  int level = 1;
-  const char *tname;
-
-  while(lua_getstack(L, level++, &ar)) {
-    /* Get information regarding the frame: name, source, linenumbers etc. */
-    lua_getinfo(L, "Slnf", &ar);
-
-    /* If the frame is a C frame. */
-    if(lua_iscfunction(L, -1)) {
-      if(index >= 0) {
-        /* Check whether this frame is tracked (C interface frames). */
-        int check = index;
-        while(stack[check].type != PALLENE_TRACER_FRAME_TYPE_LUA)
-          check--;
-
-        /* If the frame matches, we switch to printing Pallene frames. */
-        if(lua_tocfunction(L, -1) == stack[check].shared.c_fnptr) {
-          lua_pop(L, 1);  /* the function */
-
-          /* Now print all the frames in Pallene stack. */
-          for(; index > check; index--) {
-            lua_pushfstring(L, "\n    %s:%d: in function '%s'",
-              stack[index].shared.details->filename,
-              stack[index].line, stack[index].shared.details->fn_name);
-            pframes++;  /* We are printing the frame regardless of frame visibility. */
-            render(L, &buf, pframes, nframes);
-          }
-
-          /* 'check' idx is guaranteed to be a Lua interface frame.
-             Which is basically our 'stack' index at this point. So,
-             we simply ignore the Lua interface frame. */
-          index--;
-
-          /* We are done. */
-          continue;
-        }
-      }
-
-      /* Then it's an untracked C frame. */
-      if(pushglobalfuncname(L)) {
-        tname = lua_tostring(L, -1);
-        lua_pop(L, 1);
-      } else tname = "<?>";
-
-      lua_pop(L, 1);  /* the function */
-      lua_pushfstring(L, "\n    C: in function '%s'", tname);
-      pframes++;
-      render(L, &buf, pframes, nframes);
-    } else {
-      /* It's a Lua frame. */
-
-      /* Do we have a name? */
-      if(*ar.namewhat != '\0') {
-        lua_pushfstring(L, "function '%s'", ar.name);
-        tname = lua_tostring(L, -1);
-        lua_pop(L, 1);
-      }
-      /* Is it the main chunk? */
-      else if(*ar.what == 'm')
-        tname = "<main>";
-      /* Can we deduce the name from the global table? */
-      else if(pushglobalfuncname(L)) {
-        lua_pushfstring(L, "function '%s'", lua_tostring(L, -1));
-        tname = lua_tostring(L, -1);
-        lua_pop(L, 2);
-      } else tname = "function '<?>'";
-
-      lua_pop(L, 1);  /* the function */
-      lua_pushfstring(L, "\n    %s:%d: in %s", ar.short_src,
-        ar.currentline, tname);
-      pframes++;
-      render(L, &buf, pframes, nframes);
-    }
-  }
-
-  luaL_pushresult(&buf);
-  return 1;
-}
-
-/* ---------------- PALLENE TRACER CODE END ---------------- */
 
 
 /*
@@ -440,12 +142,7 @@ static int msghandler (lua_State *L) {
       msg = lua_pushfstring(L, "(error object is a %s value)",
                                luaL_typename(L, 1));
   }
-  // luaL_traceback(L, L, msg, 1);  /* append a standard traceback */
-
-  /* -------- PALLENE TRACER CODE -------- */
-  debugtraceback(L, msg);  /* Our custom debug traceback function */
-  /* -------- PALLENE TRACER CODE END -------- */
-
+  luaL_traceback(L, L, msg, 1);  /* append a standard traceback */
   return 1;  /* return the traceback */
 }
 
@@ -572,11 +269,11 @@ static int handle_script (lua_State *L, char **argv) {
 
 
 /* bits of various argument indicators in 'args' */
-#define has_error       1       /* bad option */
-#define has_i           2       /* -i */
-#define has_v           4       /* -v */
-#define has_e           8       /* -e */
-#define has_E           16      /* -E */
+#define has_error	1	/* bad option */
+#define has_i		2	/* -i */
+#define has_v		4	/* -v */
+#define has_e		8	/* -e */
+#define has_E		16	/* -E */
 
 
 /*
@@ -696,12 +393,12 @@ static int handle_luainit (lua_State *L) {
 */
 
 #if !defined(LUA_PROMPT)
-#define LUA_PROMPT              "> "
-#define LUA_PROMPT2             ">> "
+#define LUA_PROMPT		"> "
+#define LUA_PROMPT2		">> "
 #endif
 
 #if !defined(LUA_MAXINPUT)
-#define LUA_MAXINPUT            512
+#define LUA_MAXINPUT		512
 #endif
 
 
@@ -709,28 +406,28 @@ static int handle_luainit (lua_State *L) {
 ** lua_stdin_is_tty detects whether the standard input is a 'tty' (that
 ** is, whether we're running lua interactively).
 */
-#if !defined(lua_stdin_is_tty)  /* { */
+#if !defined(lua_stdin_is_tty)	/* { */
 
-#if defined(LUA_USE_POSIX)      /* { */
+#if defined(LUA_USE_POSIX)	/* { */
 
 #include <unistd.h>
-#define lua_stdin_is_tty()      isatty(0)
+#define lua_stdin_is_tty()	isatty(0)
 
-#elif defined(LUA_USE_WINDOWS)  /* }{ */
+#elif defined(LUA_USE_WINDOWS)	/* }{ */
 
 #include <io.h>
 #include <windows.h>
 
-#define lua_stdin_is_tty()      _isatty(_fileno(stdin))
+#define lua_stdin_is_tty()	_isatty(_fileno(stdin))
 
-#else                           /* }{ */
+#else				/* }{ */
 
 /* ISO C definition */
-#define lua_stdin_is_tty()      1  /* assume stdin is a tty */
+#define lua_stdin_is_tty()	1  /* assume stdin is a tty */
 
-#endif                          /* } */
+#endif				/* } */
 
-#endif                          /* } */
+#endif				/* } */
 
 
 /*
@@ -739,29 +436,29 @@ static int handle_luainit (lua_State *L) {
 ** lua_saveline defines how to "save" a read line in a "history".
 ** lua_freeline defines how to free a line read by lua_readline.
 */
-#if !defined(lua_readline)      /* { */
+#if !defined(lua_readline)	/* { */
 
-#if defined(LUA_USE_READLINE)   /* { */
+#if defined(LUA_USE_READLINE)	/* { */
 
 #include <readline/readline.h>
 #include <readline/history.h>
-#define lua_initreadline(L)     ((void)L, rl_readline_name="lua")
-#define lua_readline(L,b,p)     ((void)L, ((b)=readline(p)) != NULL)
-#define lua_saveline(L,line)    ((void)L, add_history(line))
-#define lua_freeline(L,b)       ((void)L, free(b))
+#define lua_initreadline(L)	((void)L, rl_readline_name="lua")
+#define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != NULL)
+#define lua_saveline(L,line)	((void)L, add_history(line))
+#define lua_freeline(L,b)	((void)L, free(b))
 
-#else                           /* }{ */
+#else				/* }{ */
 
 #define lua_initreadline(L)  ((void)L)
 #define lua_readline(L,b,p) \
         ((void)L, fputs(p, stdout), fflush(stdout),  /* show prompt */ \
         fgets(b, LUA_MAXINPUT, stdin) != NULL)  /* get line */
-#define lua_saveline(L,line)    { (void)L; (void)line; }
-#define lua_freeline(L,b)       { (void)L; (void)b; }
+#define lua_saveline(L,line)	{ (void)L; (void)line; }
+#define lua_freeline(L,b)	{ (void)L; (void)b; }
 
-#endif                          /* } */
+#endif				/* } */
 
-#endif                          /* } */
+#endif				/* } */
 
 
 /*
@@ -780,8 +477,8 @@ static const char *get_prompt (lua_State *L, int firstline) {
 }
 
 /* mark in error messages for incomplete statements */
-#define EOFMARK         "<eof>"
-#define marklen         (sizeof(EOFMARK)/sizeof(char) - 1)
+#define EOFMARK		"<eof>"
+#define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
 
 /*
@@ -979,12 +676,6 @@ int main (int argc, char **argv) {
     return EXIT_FAILURE;
   }
   lua_gc(L, LUA_GCSTOP);  /* stop GC while building state */
-
-  /* -------- PALLENE TRACER CODE -------- */
-  (void) pallene_tracer_init(L);  /* initialize pallene tracer */
-  lua_pop(L, 1);  /* We do not need the finalizer object here */
-  /* -------- PALLENE TRACER CODE END -------- */
-
   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
   lua_pushinteger(L, argc);  /* 1st argument */
   lua_pushlightuserdata(L, argv); /* 2nd argument */
@@ -994,3 +685,4 @@ int main (int argc, char **argv) {
   lua_close(L);
   return (result && status == LUA_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+

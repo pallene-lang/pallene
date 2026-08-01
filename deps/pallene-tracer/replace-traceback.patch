@@ -1,0 +1,41 @@
+--- lua.c	2026-07-17 10:01:15.863747553 +0000
++++ pt-lua.c	2026-07-17 10:14:51.159725361 +0000
+@@ -20,6 +20,8 @@
+ #include "lauxlib.h"
+ #include "lualib.h"
+ 
++#define PT_IMPLEMENTATION
++#include "ptracer.h"
+ 
+ #if !defined(LUA_PROGNAME)
+ #define LUA_PROGNAME		"lua"
+@@ -142,7 +144,7 @@
+       msg = lua_pushfstring(L, "(error object is a %s value)",
+                                luaL_typename(L, 1));
+   }
+-  luaL_traceback(L, L, msg, 1);  /* append a standard traceback */
++  debugtraceback(L, msg);  /* Our custom debug traceback function */
+   return 1;  /* return the traceback */
+ }
+ 
+@@ -676,6 +678,15 @@
+     return EXIT_FAILURE;
+   }
+   lua_gc(L, LUA_GCSTOP);  /* stop GC while building state */
++
++  (void) pallene_tracer_init(L);  /* initialize pallene tracer */
++  lua_pop(L, 1);  /* We do not need the finalizer object here */
++
++  /* supply the message handler function with custom tracebacks. */
++  /* it is safe to set globals at this point, because no code has been run yet. */
++  lua_pushcfunction(L, msghandler);
++  lua_setglobal(L, "pallene_tracer_errhandler");
++
+   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
+   lua_pushinteger(L, argc);  /* 1st argument */
+   lua_pushlightuserdata(L, argv); /* 2nd argument */
+@@ -685,4 +696,3 @@
+   lua_close(L);
+   return (result && status == LUA_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
+ }
+-
