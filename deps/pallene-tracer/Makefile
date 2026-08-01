@@ -41,7 +41,7 @@ PTLUA_LDLIBS  = -llua -lm
 .PHONY: library examples tests all install uninstall clean
 
 library: \
-	pt-lua
+	pallene-lua
 
 examples: library \
 	examples/fibonacci/fibonacci.so
@@ -58,25 +58,25 @@ tests: library \
 all: library examples tests
 
 install: library
-	$(INSTALL_EXEC) pt-lua $(BINDIR)
+	$(INSTALL_EXEC) pallene-lua $(BINDIR)
 	$(INSTALL_DATA) ptracer.h $(INCDIR)
 
 uninstall:
 	rm -rf $(INCDIR)/ptracer.h
-	rm -rf $(BINDIR)/pt-lua
+	rm -rf $(BINDIR)/pallene-lua
 
 clean:
 	rm -rf pt-lua.c
-	rm -rf pt-lua examples/*/*.so spec/tracebacks/*/*.so
-	rm -rf pt-lua.dSYM spec/tracebacks/*/*.dSYM examples/*/*.dSYM
+	rm -rf pallene-lua examples/*/*.so spec/tracebacks/*/*.so
+	rm -rf pallene-lua.dSYM spec/tracebacks/*/*.dSYM examples/*/*.dSYM
 
 %.so: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(SO_LDFLAGS) $(LIBFLAG) $< -o $@
 
-pt-lua: lua.c ptracer.h
+pallene-lua: lua.c ptracer.h
 	cp lua.c pt-lua.c
 	patch pt-lua.c < replace-traceback.patch
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(PTLUA_LDFLAGS) -DLUA_PROGNAME=\"pt-lua\" $@.c -o $@ $(PTLUA_LDLIBS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(PTLUA_LDFLAGS) -DLUA_PROGNAME=\"pallene-lua\" pt-lua.c -o $@ $(PTLUA_LDLIBS)
 
 examples/fibonacci/fibonacci.so:           examples/fibonacci/fibonacci.c           ptracer.h
 spec/tracebacks/anon_lua/module.so:        spec/tracebacks/anon_lua/module.c        ptracer.h

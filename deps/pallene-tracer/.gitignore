@@ -2,6 +2,6 @@
 *.a
 *.so
 
-pt-lua
+pallene-lua
 pt-lua.c
 
