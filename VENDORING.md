@@ -9,8 +9,8 @@
 ## `deps/pallene-tracer`
 
 - **Source code:** [pallene-lang/pallene-tracer](https://www.github.com/pallene-lang/pallene-tracer.git/)
-- **Tag:** `0.5.0a`
-- **Commit ID:** `9c3758bc48733d5b1bc4f950c426d9142d548a2b`
+- **Tag:** `0.6.0`
+- **Commit ID:** `90e08dc71736386f53cd1ba1ea12331a55d8479d`
 
 ## `deps/argparse`
 
