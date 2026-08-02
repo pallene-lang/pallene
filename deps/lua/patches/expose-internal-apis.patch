@@ -1,6 +1,6 @@
 diff -ruN upstream/Makefile upstream-patched/Makefile
 --- upstream/Makefile	2025-06-26 13:04:37.000000000 +0000
-+++ upstream-patched/Makefile	2026-08-02 10:14:20.033489866 +0000
++++ upstream-patched/Makefile	2026-08-02 10:32:13.228760635 +0000
 @@ -40,7 +40,7 @@
  
  # What to install.
@@ -12,7 +12,7 @@ diff -ruN upstream/Makefile upstream-patched/Makefile
  
 diff -ruN upstream/src/Makefile upstream-patched/src/Makefile
 --- upstream/src/Makefile	2025-07-07 00:19:14.000000000 +0000
-+++ upstream-patched/src/Makefile	2026-08-02 10:15:46.914507517 +0000
++++ upstream-patched/src/Makefile	2026-08-02 10:35:24.788930287 +0000
 @@ -50,7 +50,7 @@
  # Targets start here.
  default: $(PLAT)
@@ -36,14 +36,14 @@ diff -ruN upstream/src/Makefile upstream-patched/src/Makefile
   lobject.h ltm.h lzio.h lmem.h
  
 +# The prerequisites must in the same order that we want in the output.
-+CORE_HEADERS=llimits.h lctype.h lopcodes.h lmem.h lobject.h lzio.h ltable.h lfunc.h ltm.h lparser.h llex.h lundump.h lstate.h lcode.h ldebug.h lapi.h ldo.h lgc.h lvm.h lstring.h
++CORE_HEADERS=llimits.h lctype.h lobject.h lopcodes.h lmem.h lobject.h lzio.h ltable.h lfunc.h ltm.h lparser.h llex.h lundump.h lstate.h lcode.h ldebug.h lapi.h ldo.h lgc.h lvm.h lstring.h
 +luacore.h: gen-lua-core-h.awk $(CORE_HEADERS)
 +	awk -f gen-lua-core-h.awk $(CORE_HEADERS) > $@
 +
  # (end of Makefile)
 diff -ruN upstream/src/lauxlib.c upstream-patched/src/lauxlib.c
 --- upstream/src/lauxlib.c	2025-12-15 10:44:39.000000000 +0000
-+++ upstream-patched/src/lauxlib.c	2026-08-02 10:14:20.034087345 +0000
++++ upstream-patched/src/lauxlib.c	2026-08-02 10:32:13.229528200 +0000
 @@ -1200,3 +1200,11 @@
                    (LUAI_UACNUMBER)ver, (LUAI_UACNUMBER)v);
  }
@@ -58,7 +58,7 @@ diff -ruN upstream/src/lauxlib.c upstream-patched/src/lauxlib.c
 +}
 diff -ruN upstream/src/lauxlib.h upstream-patched/src/lauxlib.h
 --- upstream/src/lauxlib.h	2025-12-15 10:44:39.000000000 +0000
-+++ upstream-patched/src/lauxlib.h	2026-08-02 10:14:20.034355879 +0000
++++ upstream-patched/src/lauxlib.h	2026-08-02 10:32:13.229836446 +0000
 @@ -47,6 +47,10 @@
  #define luaL_checkversion(L)  \
  	  luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES)
@@ -72,7 +72,7 @@ diff -ruN upstream/src/lauxlib.h upstream-patched/src/lauxlib.h
  LUALIB_API const char *(luaL_tolstring) (lua_State *L, int idx, size_t *len);
 diff -ruN upstream/src/llimits.h upstream-patched/src/llimits.h
 --- upstream/src/llimits.h	2025-12-15 10:44:39.000000000 +0000
-+++ upstream-patched/src/llimits.h	2026-08-02 10:14:20.034581477 +0000
++++ upstream-patched/src/llimits.h	2026-08-02 10:32:13.230034117 +0000
 @@ -312,12 +312,7 @@
  */
  #if !defined(LUAI_FUNC)
@@ -89,7 +89,7 @@ diff -ruN upstream/src/llimits.h upstream-patched/src/llimits.h
  #define LUAI_DDEF	/* empty */
 diff -ruN upstream/src/lua.h upstream-patched/src/lua.h
 --- upstream/src/lua.h	2025-12-15 10:44:40.000000000 +0000
-+++ upstream-patched/src/lua.h	2026-08-02 10:14:20.034828564 +0000
++++ upstream-patched/src/lua.h	2026-08-02 10:32:13.230194007 +0000
 @@ -517,7 +517,7 @@
  #define LUA_VERSION_RELEASE	LUAI_TOSTR(LUA_VERSION_RELEASE_N)
  
@@ -101,7 +101,7 @@ diff -ruN upstream/src/lua.h upstream-patched/src/lua.h
  /******************************************************************************
 diff -ruN upstream/src/lvm.c upstream-patched/src/lvm.c
 --- upstream/src/lvm.c	2025-12-15 10:44:40.000000000 +0000
-+++ upstream-patched/src/lvm.c	2026-08-02 10:14:20.035255865 +0000
++++ upstream-patched/src/lvm.c	2026-08-02 10:32:13.230479843 +0000
 @@ -1969,4 +1969,8 @@
    }
  }
@@ -113,7 +113,7 @@ diff -ruN upstream/src/lvm.c upstream-patched/src/lvm.c
  /* }================================================================== */
 diff -ruN upstream/src/lvm.h upstream-patched/src/lvm.h
 --- upstream/src/lvm.h	2025-12-15 10:44:40.000000000 +0000
-+++ upstream-patched/src/lvm.h	2026-08-02 10:14:20.035560133 +0000
++++ upstream-patched/src/lvm.h	2026-08-02 10:32:13.230906610 +0000
 @@ -133,4 +133,6 @@
  LUAI_FUNC lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y);
  LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
