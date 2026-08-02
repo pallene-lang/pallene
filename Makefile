@@ -74,7 +74,7 @@ deps/lua/downstream: ./deps/lua/upstream
 	cp -r ./deps/lua/upstream ./deps/lua/downstream
 	cp ./deps/lua/patches/gen-lua-core-h.awk ./deps/lua/downstream/src
 	cd ./deps/lua/downstream && patch -p1 < ../patches/expose-internal-apis.patch
-	cd ./deps/lua/downstream && $(MAKE) LUA_T=plua LUAC_T=pluac
+	cd ./deps/lua/downstream && $(MAKE) LUA_T=plua LUAC_T=pluac MYCFLAGS=-DLUA_COMPAT_MATHLIB
 
 downstream: deps/lua/downstream
 
