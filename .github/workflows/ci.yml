@@ -35,10 +35,15 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
-                  make linux
+                  cd deps/lua
+                  cp -r upstream upstream-for-install
+                  cd upstream-for-install
+                  patch -p1 < ../patches/expose-internal-apis.patch
+                  cp ../patches/gen-lua-core-h.awk src
+                  make linux -j4
                   sudo make install
+                  cd ..
+                  rm -rf upstream-for-install
 
             - name: Install Luarocks
               run: |
@@ -64,10 +69,15 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
-                  make linux
+                  cd deps/lua
+                  cp -r upstream upstream-for-install
+                  cd upstream-for-install
+                  patch -p1 < ../patches/expose-internal-apis.patch
+                  cp ../patches/gen-lua-core-h.awk src
+                  make linux -j4
                   sudo make install
+                  cd ..
+                  rm -rf upstream-for-install
 
             - name: Build Pallene
               run: |
