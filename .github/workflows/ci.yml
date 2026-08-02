@@ -44,6 +44,8 @@ jobs:
                   sudo make install
                   cd ..
                   rm -rf upstream-for-install
+                  which lua
+                  which luac
 
             - name: Install Luarocks
               run: |
