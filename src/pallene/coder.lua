@@ -1288,7 +1288,9 @@ gen_cmd["GetArr"] = function(self, args)
 
     return (util.render([[
         {
-            TValue *slot = &$arr->array[$i - 1];
+            TValue slotv;
+            arr2obj($arr, $i - 1, &slotv);
+            TValue *slot = &slotv;
             $get_slot
         }
     ]], {
@@ -1308,7 +1310,9 @@ gen_cmd["SetArr"] = function(self, args)
     local line = C.integer(args.cmd.loc.line)
     return (util.render([[
         {
-            TValue *slot = &$arr->array[$i - 1];
+            TValue slotv;
+            arr2obj($arr, $i - 1, &slotv);
+            TValue *slot = &slotv;
             ${set_heap_slot}
         }
     ]], {
