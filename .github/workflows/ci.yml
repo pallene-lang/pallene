@@ -24,7 +24,7 @@ on:
 
 env:
     LUA_VERSION: 5.5.0
-    LUAROCKS_VERSION: 3.9.0
+    LUAROCKS_VERSION: 3.13.0
 
 jobs:
     lint:
