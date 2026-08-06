@@ -1311,16 +1311,18 @@ gen_cmd["SetArr"] = function(self, args)
     return (util.render([[
         {
             TValue slotv;
-            arr2obj($arr, $i - 1, &slotv);
-            TValue *slot = &slotv;
-            ${set_heap_slot}
+            $set_slotv
+            obj2arr($arr, $i - 1, &slotv);
+            $barrier
         }
     ]], {
         arr = arr,
         i = i,
         v = v,
         line = line,
-        set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
+        set_slotv = set_stack_slot(src_typ, "&slotv", v),
+        -- We need a write barrier because we are writing to a heap slot.
+        barrier = opt_gc_barrier(src_typ, v, arr) or "",
     }))
 end
 
