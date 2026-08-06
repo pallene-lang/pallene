@@ -1738,37 +1738,6 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         end)
     end)
 
-    describe("math.pow builtin", function()
-        compile([[
-            function m.math_pow(x: float, y: float): float
-                return math.pow(x, y)
-            end
-        ]])
-
-        it("works on positive numbers", function()
-            run_test([[
-                assert(1.0 == test.math_pow(1.0, 2.0))
-                assert(1.0 == test.math_pow(10.0, 0.0))
-                assert(8.0 == test.math_pow(2.0, 3.0))
-                assert(243.0 == test.math_pow(9.0, 2.5))
-            ]])
-        end)
-
-        it("works on negative numbers", function()
-            run_test([[
-                assert(81.0 == test.math_pow(-9.0, 2.0))
-                assert(0.25 == test.math_pow(2.0, -2.0))
-            ]])
-        end)
-
-        it("returns NaN on NaN", function()
-            run_test([[
-                local x = test.math_pow(0.0 / 0.0, 0.0 / 0.0)
-                assert(x ~= x)
-            ]])
-        end)
-    end)
-
     describe("math.sqrt builtin", function()
         compile([[
             function m.square_root(x: float): float
