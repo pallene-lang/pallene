@@ -56,7 +56,7 @@ jobs:
                   sudo make install
 
             - name: Install Luacheck
-              run: luarocks install --local luacheck
+              run: luarocks install --local luacheck --dev
 
             - name: Run Luacheck
               run: |
