@@ -159,6 +159,32 @@ CFLAGS='-fsanitize=address -g' pallenec --compile-c foo.c
 
 This section will teach you how to update the vendored dependencies.
 
+### Guidelines for PRs
+
+When a PR updates a vendored dependency in `deps/`, its first commit
+must contain nothing but the unmodified upstream sources, with the
+upstream version and commit hash recorded in the commit message. Files
+we deliberately exclude (e.g. upstream tests, docs, CI config)
+may be deleted in this commit; nothing else may be changed.
+
+Everything else goes in later commits: reapplying our patch series,
+build system integration, modifying Pallene to account for the new dependency,
+and updating `VENDORING.md`.
+
+`VENDORING.md` is the source of truth for what we vendor. It lists every
+dependency under `deps/` with:
+
+- Name
+- Upstream source URL
+- Version (release tag or the version string)
+- Commit hash, and the branch it was taken from, if vendored from a Git checkout
+
+Update `VENDORING.md` in the same PR whenever anything under `deps/`
+changes—adding a dependency, removing one, or upgrading one.
+
+The tests must pass and the linter must not complain for the latest
+commit in the PR. It is OK if intermediate commits do not pass.
+
 ### Updating Lua
 
 Pallene requires a Lua build with certain internal APIs exposed. We do this by
@@ -200,3 +226,4 @@ rm -rf upstream-patched/
 # NOTE: If you have changed the name of the patch file, you'll have to change the name
 # in the root Makefile as well.
 ```
+
