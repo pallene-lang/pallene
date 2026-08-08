@@ -51,7 +51,7 @@ install: all
 
 uninstall:
 	# Uninstall all the dependencies.
-	cd ./deps/lua/downstream  && $(MAKE) uninstall INSTALL_TOP=$(INSTALL_PREFIX)
+	cd ./deps/lua/downstream  && $(MAKE) uninstall INSTALL_TOP=$(INSTALL_PREFIX) TO_BIN="plua pluac"
 	cd ./deps/pallene-tracer && $(MAKE) uninstall PREFIX=$(INSTALL_PREFIX)
 	$(RM)     $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/argparse.lua
 	$(RM)     $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/re.lua
