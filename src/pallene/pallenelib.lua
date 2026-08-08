@@ -618,20 +618,10 @@ static TString *pallene_type_builtin(lua_State *L, TValue v) {
 
 /* Based on function luaL_tolstring */
 static TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
-    #define MAXNUMBER2STR	50
-    int len;
-    char buff[MAXNUMBER2STR];
+    char buff[LUA_N2SBUFFSZ];
     switch (ttype(&v)) {
         case LUA_TNUMBER: {
-            if (ttisinteger(&v)) {
-                len = lua_integer2str(buff, MAXNUMBER2STR, ivalue(&v));
-            } else {
-                len = lua_number2strx(L, buff, MAXNUMBER2STR, "%" LUA_NUMBER_FRMLEN "a", fltvalue(&v));
-                if (buff[strspn(buff, "-0123456789")] == '\0') {  /* looks like an int? */
-                  buff[len++] = lua_getlocaledecpoint();
-                  buff[len++] = '0';  /* adds '.0' to result */
-                }
-            }
+            int len = luaO_tostringbuff(&v, buff);
             return luaS_newlstr(L, buff, len);
         }
         case LUA_TSTRING:
