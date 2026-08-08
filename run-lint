@@ -4,6 +4,7 @@ space=' '
 tab='	'
 
 red='\033[1;31m'
+yellow='\033[1;33m'
 green='\033[1;32m'
 reset='\033[0m'
 
@@ -12,6 +13,10 @@ ok=yes
 error() {
     printf "${red}ERROR${reset} %s\n" "$*"
     ok=no
+}
+
+warn() {
+    printf "${yellow}WARNING${reset} %s\n" "$*"
 }
 
 echo "--- Lua Lint ---"
@@ -56,5 +61,19 @@ fi
 if [ "$ok" != yes ]; then
     exit 1
 fi
+echo
+
+echo "--- Vendoring ---"
+
+committed=$(git show --pretty=format: --name-only HEAD -- deps)
+if [ -n "$committed" ]; then
+    warn "Files under deps/ touched by the most recent commit. Remember to also update VENDORING.md."
+fi
+
+uncommitted=$(git status --porcelain -- deps)
+if [ -n "$uncommitted" ]; then
+    warn "Files under deps/ modified in the working tree or staged in the index. Remember to also update VENDORING.md."
+fi
 
 printf "${green}OK${reset}\n"
+
