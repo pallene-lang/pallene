@@ -40,6 +40,8 @@ jobs:
             - name: Install Lua
               run: |
                   wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  pwd
+                  ls -l
                   cd lua-${{env.LUA_VERISON}}
                   make
                   sudo make install
