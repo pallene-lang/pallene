@@ -39,7 +39,7 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}.tar.gz | tar xzf -
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
                   cd lua-${{env.LUA_VERISON}}
                   make
                   sudo make install
@@ -68,7 +68,7 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}.tar.gz | tar xzf -
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
                   cd lua-${{env.LUA_VERISON}}
                   make
                   sudo make install
