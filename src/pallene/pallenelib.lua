@@ -421,7 +421,7 @@ static void pallene_renormalize_array(
     const char* file,int line
 ){
     lua_Unsigned ui = (lua_Unsigned) i - 1;
-    if (l_unlikely(ui >= arr->alimit)) {
+    if (l_unlikely(ui >= arr->asize)) {
         pallene_grow_array(L, file, line, arr, ui);
     }
 }
@@ -464,7 +464,8 @@ static TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache)
     if (len <= LUAI_MAXSHORTLEN) {
         return pallene_getshortstr(t, key, cache);
     } else {
-        return cast(TValue *, luaH_getstr(t, key));
+        TValue idx;
+        return cast(TValue *, luaH_getstr(t, key, &idx));
     }
 }
 
@@ -617,20 +618,10 @@ static TString *pallene_type_builtin(lua_State *L, TValue v) {
 
 /* Based on function luaL_tolstring */
 static TString *pallene_tostring(lua_State *L, const char* file, int line, TValue v) {
-    #define MAXNUMBER2STR	50
-    int len;
-    char buff[MAXNUMBER2STR];
+    char buff[LUA_N2SBUFFSZ];
     switch (ttype(&v)) {
         case LUA_TNUMBER: {
-            if (ttisinteger(&v)) {
-                len = lua_integer2str(buff, MAXNUMBER2STR, ivalue(&v));
-            } else {
-                len = lua_number2str(buff, MAXNUMBER2STR, fltvalue(&v));
-                if (buff[strspn(buff, "-0123456789")] == '\0') {  /* looks like an int? */
-                  buff[len++] = lua_getlocaledecpoint();
-                  buff[len++] = '0';  /* adds '.0' to result */
-                }
-            }
+            int len = luaO_tostringbuff(&v, buff);
             return luaS_newlstr(L, buff, len);
         }
         case LUA_TSTRING:

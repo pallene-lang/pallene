@@ -1047,7 +1047,7 @@ gen_cmd["Unop"] = function(self, args)
     local function arr_len()
         return (util.render([[
             ${check_no_metatable}
-            $dst = luaH_getn($x);
+            $dst = luaH_getn(L, $x);
         ]], {
             check_no_metatable = check_no_metatable(self, x, args.cmd.loc),
             line = C.integer(args.cmd.loc.line),
@@ -1288,7 +1288,9 @@ gen_cmd["GetArr"] = function(self, args)
 
     return (util.render([[
         {
-            TValue *slot = &$arr->array[$i - 1];
+            TValue slotv;
+            arr2obj($arr, $i - 1, &slotv);
+            TValue *slot = &slotv;
             $get_slot
         }
     ]], {
@@ -1308,15 +1310,19 @@ gen_cmd["SetArr"] = function(self, args)
     local line = C.integer(args.cmd.loc.line)
     return (util.render([[
         {
-            TValue *slot = &$arr->array[$i - 1];
-            ${set_heap_slot}
+            TValue slotv;
+            $set_slotv
+            obj2arr($arr, $i - 1, &slotv);
+            $barrier
         }
     ]], {
         arr = arr,
         i = i,
         v = v,
         line = line,
-        set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
+        set_slotv = set_stack_slot(src_typ, "&slotv", v),
+        -- We need a write barrier because we are writing to a heap slot.
+        barrier = opt_gc_barrier(src_typ, v, arr) or "",
     }))
 end
 
@@ -1369,7 +1375,10 @@ gen_cmd["SetTable"] = function(self, args)
             TValue valv; ${init_valv}
             static int cache = -1;
             TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
-            luaH_finishset(L, $tab, &keyv, slot, &valv);
+            int hres = luaH_pset($tab, &keyv, &valv);
+            if (hres != HOK)
+                luaH_finishset(L, $tab, s2v(L->top.p - 2),
+                                s2v(L->top.p - 1), hres);
     ]], {
         field_len = tostring(#field_name),
         tab = tab,
@@ -1966,8 +1975,8 @@ function Coder:generate_luaopen_function()
     return (util.render([[
         int ${name}(lua_State *L)
         {
-            #if LUA_VERSION_RELEASE_NUM != 50407
-            #error "Lua version must be exactly 5.4.7"
+            #if LUA_VERSION_RELEASE_NUM != 50500
+            #error "Lua version must be exactly 5.5.0"
             #endif
             luaL_checkcoreversion(L);
 

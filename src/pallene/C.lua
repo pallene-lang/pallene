@@ -144,8 +144,8 @@ end
 function C.reformat(input)
     local out = {}
     local depth = 0
-    for line in input:gmatch("([^\n]*)") do
-        line = line:match("^%s*(.-)%s*$")
+    for _line in input:gmatch("([^\n]*)") do
+        local line = _line:match("^%s*(.-)%s*$")
 
         local nspaces
         if line:match("^#") then
