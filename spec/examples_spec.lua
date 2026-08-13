@@ -3,6 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+local benchlib = require "benchmarks.benchlib"
 local util = require "pallene.util"
 
 local function assert_example(example, expected_output)
@@ -11,7 +12,7 @@ local function assert_example(example, expected_output)
     assert(ok, err)
 
     local luafile = util.shell_quote("examples/"..example.."/main.lua")
-    local ok, err, output, _ = util.outputs_of_execute("lua "..luafile)
+    local ok, err, output, _ = util.outputs_of_execute(benchlib.PALLENE_LUA.." "..luafile)
     assert(ok, err)
     assert.are.same(expected_output, output)
 end
