@@ -35,8 +35,8 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  cd lua-${{env.LUA_VERSION}}
                   make linux
                   sudo make install
 
@@ -64,8 +64,8 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  cd lua-${{env.LUA_VERSION}}
                   make linux
                   sudo make install
 
