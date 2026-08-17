@@ -37,7 +37,7 @@ jobs:
               run: |
                   wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
                   cd lua-${{env.LUA_VERSION}}
-                  make linux
+                  make -j$(nproc) linux
                   sudo make install
 
             - name: Install Luarocks
@@ -45,7 +45,7 @@ jobs:
                   wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
                   cd luarocks-${{env.LUAROCKS_VERSION}}
                   ./configure --with-lua=/usr/local
-                  make
+                  make -j$(nproc)
                   sudo make install
 
             - name: Install Luacheck
@@ -66,13 +66,13 @@ jobs:
               run: |
                   wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
                   cd lua-${{env.LUA_VERSION}}
-                  make linux
+                  make -j$(nproc) linux
                   sudo make install
 
             - name: Build Pallene
               run: |
                   ./configure
-                  make
+                  make -j$(nproc)
 
             - name: Install Pallene
               run: sudo make install
@@ -82,7 +82,7 @@ jobs:
                   wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
                   cd luarocks-${{env.LUAROCKS_VERSION}}
                   ./configure --with-lua=/usr/local
-                  make
+                  make -j$(nproc)
                   sudo make install
 
             - name: Install Busted
