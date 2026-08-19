@@ -32,7 +32,8 @@ sudo make install
 
 ## Using Pallene
 
-Installing Pallene will put two binaries&mdash;`pallenec` and `pallene-lua`&mdash;on your `PATH`.
+Installing Pallene will put `pallenec` and `pallene-lua` on your `PATH`, along with the `plua`
+and `pluac` binaries that Pallene uses internally.
 `pallenec` is for compiling Pallene programs and `pallene-lua` is for running Lua programs
 that load Pallene modules.
 
