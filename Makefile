@@ -69,7 +69,6 @@ uninstall:
 # Compilation
 
 deps/lua/downstream: ./deps/lua/upstream
-	pwd
 	$(RM_DIR) ./deps/lua/downstream
 	cp -r ./deps/lua/upstream ./deps/lua/downstream
 	cp ./deps/lua/patches/gen-lua-core-h.awk ./deps/lua/downstream/src
