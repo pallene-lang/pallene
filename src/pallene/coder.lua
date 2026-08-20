@@ -295,7 +295,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
 end
 
 
-function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
+function Coder:get_luatable_slot(typ, dst, slot, tab, tag, loc, description_fmt, ...)
 
     local parts = {}
 
@@ -306,11 +306,11 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
     -- Pallene, so we raise an error instead.
     if typ._tag == "types.T.Any" or typ._tag == "types.T.Nil" then
         table.insert(parts, util.render([[
-            if (isempty($slot)) {
+            if (tagisempty($tag)) {
                 ${check_no_metatable}
             }
         ]], {
-            slot = slot,
+            tag = tag,
             check_no_metatable = check_no_metatable(self, tab, loc),
         }))
     end
@@ -320,11 +320,11 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
     -- function in lapi.c does.
     if typ._tag == "types.T.Any" then
         table.insert(parts, util.render([[
-            if (isempty($slot)) {
+            if (tagisempty($tag)) {
                 setnilvalue(&$dst);
             }
         ]], {
-            slot = slot,
+            tag = tag,
             dst = dst,
         }))
     end
@@ -1342,19 +1342,17 @@ gen_cmd["GetTable"] = function(self, args)
     local dst_typ = args.cmd.dst_typ
 
     assert(args.cmd.src_k._tag == "ir.Value.String")
-    local field_name = args.cmd.src_k.value
 
     return util.render([[
         {
-            static int cache = -1;
-            TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
+            TValue slotv;
+            lu_byte tag = luaH_getstr($tab, $key, &slotv);
             ${get_slot}
         }
     ]], {
-        field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, args.cmd.loc, "table field"),
+        get_slot = self:get_luatable_slot(dst_typ, dst, "&slotv", tab, "tag", args.cmd.loc, "table field"),
     })
 end
 
@@ -1365,7 +1363,6 @@ gen_cmd["SetTable"] = function(self, args)
     local src_typ = args.cmd.src_typ
 
     assert(args.cmd.src_k._tag == "ir.Value.String")
-    local field_name = args.cmd.src_k.value
 
     local parts = {}
     table.insert(parts, "{")
@@ -1373,22 +1370,15 @@ gen_cmd["SetTable"] = function(self, args)
     table.insert(parts, util.render([[
             TValue keyv; ${init_keyv}
             TValue valv; ${init_valv}
-            static int cache = -1;
-            TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
-            int hres = luaH_pset($tab, &keyv, &valv);
-            if (hres != HOK)
-                luaH_finishset(L, $tab, s2v(L->top.p - 2),
-                                s2v(L->top.p - 1), hres);
+            int hres = luaH_psetstr($tab, $key, &valv);
+            if (hres != HOK) {
+                luaH_finishset(L, $tab, &keyv, &valv, hres);
+            }
     ]], {
-        field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        val = val,
         init_keyv = set_stack_slot(types.T.String, "&keyv", key),
         init_valv = set_stack_slot(src_typ, "&valv", val),
-        -- Here we use set_stack_slot slot on a heap object, because
-        -- we call the barrier by hand outside the if statement.
-        set_slot = set_stack_slot(src_typ, "slot", val),
     }))
 
     table.insert(parts, opt_gc_barrier(src_typ, val, tab))

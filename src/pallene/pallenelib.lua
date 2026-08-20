@@ -124,8 +124,7 @@ static TString *pallene_string_concatN(lua_State *L, size_t n, TString **ss);
 static Table *pallene_createtable(lua_State *L, lua_Integer narray, lua_Integer nrec);
 static void pallene_grow_array(lua_State *L, const char* file, int line, Table *arr, unsigned int ui);
 static void pallene_renormalize_array(lua_State *L,Table *arr, lua_Integer i, const char* file, int line);
-static TValue *pallene_getshortstr(Table *t, TString *key, int *restrict cache);
-static TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache);
+static void pallene_getstr(Table *t, TString *key, TValue *out);
 
 /* Math builtins */
 static lua_Integer pallene_checked_float_to_int(lua_State *L, const char* file, int line, lua_Number d);
@@ -426,47 +425,15 @@ static void pallene_renormalize_array(
     }
 }
 
-/* These specializations of luaH_getstr and luaH_getshortstr introduce two optimizations:
- *   - After inlining, the length of the string is a compile-time constant
- *   - getshortstr's table lookup uses an inline cache. */
-
-static const TValue PALLENE_ABSENTKEY = {ABSTKEYCONSTANT};
-
-static TValue *pallene_getshortstr(Table *t, TString *key, int *restrict cache)
+static void pallene_getstr(Table *t, TString *key, TValue *out)
 {
-    if (0 <= *cache && *cache < sizenode(t)) {
-       Node *n = gnode(t, *cache);
-       if (keyisshrstr(n) && eqshrstr(keystrval(n), key))
-           return gval(n);
+    lu_byte tag = luaH_getstr(t, key, out);
+    /*
+    if (tagisempty(tag)) {
+        // TODO...
+        printf("HELLO, HELLO!!!\n");
     }
-    Node *n = gnode(t, lmod(key->hash, sizenode(t)));
-    for (;;) {
-        if (keyisshrstr(n) && eqshrstr(keystrval(n), key)) {
-            *cache = n - gnode(t, 0);
-            return gval(n);
-        }
-        else {
-            int nx = gnext(n);
-            if (nx == 0) {
-                /* It is slightly better to have an invalid cache when we don't expect the cache to
-                 * hit. The code will be faster because getstr will jump straight to the key search
-                 * instead of trying to access a cache that we expect to be a miss. */
-                *cache = UINT_MAX;
-                return (TValue *)&PALLENE_ABSENTKEY;  /* not found */
-            }
-            n += nx;
-        }
-    }
-}
-
-static TValue *pallene_getstr(size_t len, Table *t, TString *key, int *cache)
-{
-    if (len <= LUAI_MAXSHORTLEN) {
-        return pallene_getshortstr(t, key, cache);
-    } else {
-        TValue idx;
-        return cast(TValue *, luaH_getstr(t, key, &idx));
-    }
+    */
 }
 
 /* Some Lua math functions return integer if the result fits in integer, or float if it doesn't.

@@ -1,0 +1,41 @@
+local m: module = {}
+
+typealias point = {x: integer, y: integer}
+
+function m.newpoint(): point
+	return {x = 10, y = 20}
+end
+
+function m.getx(p: point): integer
+	return p.x
+end
+
+function m.gety(p: point): integer
+return p.y
+end
+
+function m.setx(p: point, v: integer)
+p.x = v
+end
+
+function m.sety(p: point, v: integer)
+p.y = v
+end
+
+function m.getany(t: {x: any}): any
+return t.x
+end
+
+function m.setany(t: {x: any}, v: any)
+t.x = v
+end
+
+function m.getnil(t: {x: nil}): nil
+return t.x
+end
+
+function m.setnil(t: {x: nil})
+t.x = nil
+end
+
+return m

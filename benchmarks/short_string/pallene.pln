@@ -1,0 +1,23 @@
+local m: module = {}
+
+typealias point = {x: integer, y: integer}
+
+function m.setx(p: point, v: integer)
+	p.x = v
+end
+
+function m.sety(p: point, v: integer)
+	p.y = v
+end
+
+function m.test(p: point)
+    for i = 1, 10000000 do
+        m.setx(p, 30)
+        m.sety(p, 40)
+
+        p.x = 44
+        p.y = 34
+    end
+end
+
+return m
