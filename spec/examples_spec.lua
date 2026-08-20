@@ -17,6 +17,22 @@ local function assert_example(example, expected_output)
     assert.are.same(expected_output, output)
 end
 
+-- For multi module examples, the dependencies need to be compiled before the dependent modules
+-- so that the ".d.pln" files are available in the current directory. Hence, the `modules` argument
+-- must be a list in compilation order.
+local function assert_multi_module_example(example, modules, expected_output)
+    local dir = util.shell_quote("examples/"..example)
+    for _, module in ipairs(modules) do
+        local plnfile = util.shell_quote(module..".pln")
+        local ok, err = util.execute(string.format("cd %s && pallenec %s", dir, plnfile))
+        assert(ok, err)
+    end
+
+    local ok, err, output, _ = util.outputs_of_execute(string.format("cd %s && lua main.lua", dir))
+    assert(ok, err)
+    assert.are.same(expected_output, output)
+end
+
 it("Arithmetic", function()
     assert_example("arithmetic", [[
 1 + 2 = 3
@@ -54,5 +70,23 @@ end)
 it("Sum of Array", function()
     assert_example("sum_of_array", [[
 5.25 + 2.50 = 7.75
+]])
+end)
+
+it("Matrix", function()
+    assert_multi_module_example("matrix", {"vector", "matrix"}, [[
+The diagonal of the square is 1.4142
+Rotating pi/4 radians...
+(1.0, 1.0) -> (0.0, 1.4)
+(2.0, 1.0) -> (0.7, 2.1)
+(2.0, 2.0) -> (0.0, 2.8)
+(1.0, 2.0) -> (-0.7, 2.1)
+The diagonal of the (rotated) square is 1.4142
+Scaling 2x...
+(0.0, 1.4) -> (0.0, 2.8)
+(0.7, 2.1) -> (1.4, 4.2)
+(0.0, 2.8) -> (0.0, 5.7)
+(-0.7, 2.1) -> (-1.4, 4.2)
+The diagonal of the square (after rotation) is 2.8284
 ]])
 end)
