@@ -1,0 +1,5 @@
+#! /bin/bash
+
+find benchmarks -name *.so -exec rm {} \;
+find benchmarks -name *d.pln -exec rm {} \;
+
