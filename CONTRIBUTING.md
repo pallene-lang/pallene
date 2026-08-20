@@ -154,3 +154,8 @@ Then you must also build the Pallene module with address sanitizer
 ```sh
 CFLAGS='-fsanitize=address -g' pallenec --compile-c foo.c
 ```
+
+## Vendored dependencies
+
+You can learn more about the vendored dependencies in [VENDORING.md](deps/VENDORING.md).
+

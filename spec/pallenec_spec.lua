@@ -3,6 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+local benchlib = require "benchmarks.benchlib"
 local util = require "pallene.util"
 
 local function file_exists(name)
@@ -44,14 +45,16 @@ describe("pallenec", function()
 
     it("Can compile pallene files", function()
         assert(util.execute("pallenec __test__.pln"))
-        local ok, err, out, _ = util.outputs_of_execute("lua __test__script__.lua")
+        local ok, err, out, _ =
+            util.outputs_of_execute(benchlib.PALLENE_LUA.." __test__script__.lua")
         assert(ok, err)
         assert.equals("17\n", out)
     end)
 
     it("Can compile with --output flag", function()
         assert(util.execute("pallenec __test__.pln -o __test__flag__.so"))
-        local ok, err, out, _ = util.outputs_of_execute("lua __test__script__flag__.lua")
+        local ok, err, out, _ =
+            util.outputs_of_execute(benchlib.PALLENE_LUA.." __test__script__flag__.lua")
         assert(ok, err)
         assert.equals("17\n", out)
     end)
@@ -59,7 +62,8 @@ describe("pallenec", function()
     it("Can compile C files", function()
         assert(util.execute("pallenec --emit-c __test__.pln"))
         assert(util.execute("pallenec --compile-c __test__.c"))
-        local ok, err, out, _ = util.outputs_of_execute("lua __test__script__.lua")
+        local ok, err, out, _ =
+            util.outputs_of_execute(benchlib.PALLENE_LUA.." __test__script__.lua")
         assert(ok, err)
         assert.equals("17\n", out)
     end)

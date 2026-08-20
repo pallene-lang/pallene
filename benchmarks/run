@@ -6,7 +6,7 @@ local benchlib = require "benchmarks.benchlib"
 local p = argparse(arg[0], "Pallene benchmark runner")
 p:argument("benchmark_path", "Path to benchmark implementation"):args(1)
 p:argument("extra_params", "Additional parameters passed to benchmark"):args("*")
-p:option("--lua", "Lua interpreter to use"):default(benchlib.DEFAULT_LUA)
+p:option("--lua", "Lua interpreter to use"):default(benchlib.PALLENE_LUA)
 p:option("--mode", "Measurement method")
     :default("time")
     :choices(benchlib.MODE_NAMES)

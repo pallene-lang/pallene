@@ -1,0 +1,11 @@
+#! /bin/sh
+
+LUA_VERSION="5.4"
+PREFIX="$(dirname "$(realpath "$0")")"
+
+export LUA_PATH="$PREFIX/../share/lua/$LUA_VERSION/?.lua;$LUA_PATH"
+export LUA_CPATH="$PREFIX/../lib/lua/$LUA_VERSION/?.so;$LUA_CPATH"
+export CFLAGS="-I$PREFIX/../include/ $CFLAGS"
+
+"$PREFIX/plua" "$PREFIX/../share/lua/$LUA_VERSION/bin/pallenec" "$@"
+

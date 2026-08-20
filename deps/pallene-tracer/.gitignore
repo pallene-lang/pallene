@@ -3,3 +3,5 @@
 *.so
 
 pallene-lua
+pt-lua.c
+

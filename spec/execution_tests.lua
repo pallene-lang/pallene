@@ -3,6 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+local benchlib = require "benchmarks.benchlib"
 local util = require "pallene.util"
 
 --
@@ -89,7 +90,8 @@ function execution_tests.run(compile_file, backend, _ENV, only_compile)
         })))
 
         assert(util.execute(
-            string.format("lua %s > %s",
+            string.format("%s %s > %s",
+                benchlib.PALLENE_LUA,
                 util.shell_quote(file_script),
                 util.shell_quote(file_output))))
     end

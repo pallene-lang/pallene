@@ -3,6 +3,7 @@ local util = require "pallene.util"
 local benchlib = {}
 
 benchlib.DEFAULT_LUA = "lua"
+benchlib.PALLENE_LUA = "pallene-lua"
 
 -- @param lua_path:       Lua interpreter to use
 -- @param benchmark_path: Path to the benchmark file
@@ -201,7 +202,7 @@ function benchlib.find_benchmark(bench, impl)
             "ffi.lua",
         }
     else
-        lua_path = benchlib.DEFAULT_LUA
+        lua_path = benchlib.PALLENE_LUA
         candidates = {
             impl..".lua",
             impl..".pln",

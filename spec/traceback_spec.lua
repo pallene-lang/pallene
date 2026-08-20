@@ -3,6 +3,7 @@
 -- Please refer to the LICENSE and AUTHORS files for details
 -- SPDX-License-Identifier: MIT
 
+local benchlib = require "benchmarks.benchlib"
 local util = require "pallene.util"
 
 local function assert_test(test, expected_traceback)
@@ -19,7 +20,7 @@ local function assert_test(test, expected_traceback)
     end
 
     local luafile = util.shell_quote("spec/traceback/"..test.."/main.lua")
-    local ok, _, output_content, err_content = util.outputs_of_execute("pt-lua "..luafile)
+    local ok, _, output_content, err_content = util.outputs_of_execute(benchlib.PALLENE_LUA.." "..luafile)
     assert(not ok, output_content)
 
     -- Change error contents replacing numbers which most-likely to change
@@ -29,8 +30,7 @@ local function assert_test(test, expected_traceback)
 end
 
 it("Rectangle", function()
-    assert_test("rect", [[
-pt-lua: spec/traceback/rect/main.lua:N: file spec/traceback/rect/rect.pln: line N: wrong type for downcasted value, expected float but found string
+    assert_test("rect", benchlib.PALLENE_LUA..[[: spec/traceback/rect/main.lua:N: file spec/traceback/rect/rect.pln: line N: wrong type for downcasted value, expected float but found string
 stack traceback:
     spec/traceback/rect/rect.pln:N: in function 'universal_calc_area'
     spec/traceback/rect/rect.pln:N: in function 'area'
@@ -40,8 +40,7 @@ stack traceback:
 end)
 
 it("Multi-module Lua", function()
-    assert_test("module_lua", [[
-pt-lua: spec/traceback/module_lua/main.lua:N: Any normal error from Lua!
+    assert_test("module_lua", benchlib.PALLENE_LUA..[[: spec/traceback/module_lua/main.lua:N: Any normal error from Lua!
 stack traceback:
     C: in function 'error'
     spec/traceback/module_lua/main.lua:N: in function 'lua_3'
@@ -56,8 +55,7 @@ stack traceback:
 end)
 
 it("Multi-module Pallene", function()
-    assert_test("module_pallene", [[
-pt-lua: spec/traceback/module_pallene/main.lua:N: There's an error in everyday life. Alas!
+    assert_test("module_pallene", benchlib.PALLENE_LUA..[[: spec/traceback/module_pallene/main.lua:N: There's an error in everyday life. Alas!
 stack traceback:
     C: in function 'error'
     spec/traceback/module_pallene/main.lua:N: in function 'lua_2'
@@ -70,8 +68,7 @@ stack traceback:
 end)
 
 it("Depth recursion", function()
-    assert_test("depth_recursion", [[
-pt-lua: spec/traceback/depth_recursion/main.lua:N: Depth reached 0!
+    assert_test("depth_recursion", benchlib.PALLENE_LUA..[[: spec/traceback/depth_recursion/main.lua:N: Depth reached 0!
 stack traceback:
     C: in function 'error'
     spec/traceback/depth_recursion/main.lua:N: in function 'lua_fn'
@@ -91,8 +88,7 @@ stack traceback:
 end)
 
 it("Stack overflow", function()
-    assert_test("stack_overflow", [[
-pt-lua: C stack overflow
+    assert_test("stack_overflow", benchlib.PALLENE_LUA..[[: C stack overflow
 stack traceback:
     spec/traceback/stack_overflow/stack_overflow.pln:N: in function 'no_overflow'
     spec/traceback/stack_overflow/main.lua:N: in function 'please_dont_overflow'
@@ -121,8 +117,7 @@ stack traceback:
 end)
 
 it("Anonymous lua functions", function()
-    assert_test("anon_lua", [[
-pt-lua: spec/traceback/anon_lua/main.lua:N: Error from an anonymous Lua fn!
+    assert_test("anon_lua", benchlib.PALLENE_LUA..[[: spec/traceback/anon_lua/main.lua:N: Error from an anonymous Lua fn!
 stack traceback:
     C: in function 'error'
     spec/traceback/anon_lua/main.lua:N: in function '<?>'

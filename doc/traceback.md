@@ -12,10 +12,10 @@ pallenec foo.pln --use-traceback
 
 ## Generate Stack-trace
 
-Enabling function tracing in Pallene will only accumulate call-frames in Pallene Tracer call-stack, a separate self-maintained call-stack synchronous with Lua call-stack. To take advantage of the generated tracebacks, the Lua script has to be ran using Pallene Tracer Lua frontend, `pt-lua`.
+Enabling function tracing in Pallene will only accumulate call-frames in Pallene Tracer call-stack, a separate self-maintained call-stack synchronous with Lua call-stack. To take advantage of the generated tracebacks, the Lua script has to be ran using Pallene Tracer Lua frontend, `pallene-lua`.
 
 ```
-pt-lua main.lua args ...
+pallene-lua main.lua args ...
 ```
 
 ## Adoption of Pallene Tracer in Pallene

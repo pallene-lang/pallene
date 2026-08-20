@@ -1,6 +1,6 @@
 # This is the configuration file for our CI via Github Actions.
 #
-# The result of all executions of the github actions is logged in the "Actions" tab at the top of
+# The result of all executions of the Github Actions is logged in the "Actions" tab at the top of
 # the repository. If the jobs aren't running as they should, check there to see if you didn't
 # introduce a syntax error in the YAML file or something like that.
 #
@@ -25,7 +25,6 @@ on:
 env:
     LUA_VERSION: 5.4.7
     LUAROCKS_VERSION: 3.9.0
-    PT_VERSION: 0.5.0a
 
 jobs:
     lint:
@@ -36,9 +35,9 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
-                  make linux
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  cd lua-${{env.LUA_VERSION}}
+                  make -j$(nproc) linux
                   sudo make install
 
             - name: Install Luarocks
@@ -46,7 +45,7 @@ jobs:
                   wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
                   cd luarocks-${{env.LUAROCKS_VERSION}}
                   ./configure --with-lua=/usr/local
-                  make
+                  make -j$(nproc)
                   sudo make install
 
             - name: Install Luacheck
@@ -65,28 +64,26 @@ jobs:
 
             - name: Install Lua
               run: |
-                  wget -O - https://github.com/pallene-lang/lua-internals/archive/refs/tags/${{env.LUA_VERSION}}.tar.gz | tar xzf -
-                  cd lua-internals-${{env.LUA_VERSION}}
-                  make linux
+                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  cd lua-${{env.LUA_VERSION}}
+                  make -j$(nproc) linux
                   sudo make install
+
+            - name: Build Pallene
+              run: |
+                  ./configure
+                  make -j$(nproc)
+
+            - name: Install Pallene
+              run: sudo make install
 
             - name: Install Luarocks
               run: |
                   wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
                   cd luarocks-${{env.LUAROCKS_VERSION}}
                   ./configure --with-lua=/usr/local
-                  make
+                  make -j$(nproc)
                   sudo make install
-
-            - name: Install Pallene Tracer
-              run: |
-                  git clone --depth 1 https://github.com/pallene-lang/pallene-tracer --branch ${{env.PT_VERSION}}
-                  cd pallene-tracer
-                  make LUA_PREFIX=/usr/local
-                  sudo make install
-
-            - name: Build
-              run: luarocks --local make
 
             - name: Install Busted
               run: luarocks --local install busted
