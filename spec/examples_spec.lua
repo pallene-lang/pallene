@@ -28,7 +28,8 @@ local function assert_multi_module_example(example, modules, expected_output)
         assert(ok, err)
     end
 
-    local ok, err, output, _ = util.outputs_of_execute(string.format("cd %s && lua main.lua", dir))
+    local ok, err, output, _ = util.outputs_of_execute(
+        string.format("cd %s && %s main.lua", dir, benchlib.PALLENE_LUA))
     assert(ok, err)
     assert.are.same(expected_output, output)
 end
@@ -88,5 +89,15 @@ Scaling 2x...
 (0.0, 2.8) -> (0.0, 5.7)
 (-0.7, 2.1) -> (-1.4, 4.2)
 The diagonal of the square (after rotation) is 2.8284
+]])
+end)
+
+it("Statistics", function()
+    assert_multi_module_example("statistics", {"statistics"}, [[
+generated 200 numbers
+mean:   1070402315.79
+stddev: 603720989.62
+min:    50421
+max:    2143991059
 ]])
 end)
