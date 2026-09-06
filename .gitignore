@@ -8,6 +8,7 @@
 .AppleDouble
 .LSOverride
 ._*
+*.dSYM
 
 # lua
 vm/src/lua
