@@ -31,7 +31,7 @@ jobs:
         name: Lint
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v7
 
             - name: Install Lua
               run: |
@@ -57,32 +57,50 @@ jobs:
                   ./run-lint
 
     test:
-        name: Test
-        runs-on: ubuntu-latest
+        name: Test (${{ matrix.os }})
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, macos-latest]
         steps:
             - uses: actions/checkout@v2
 
+            # Lua's macosx target links -lreadline. Apple no longer ships it;
+            # Homebrew's keg is not on the default include/lib path.
+            - name: Install readline (macOS)
+              if: runner.os == 'macOS'
+              run: |
+                  brew install readline
+                  echo "C_INCLUDE_PATH=$(brew --prefix readline)/include" >> "$GITHUB_ENV"
+                  echo "LIBRARY_PATH=$(brew --prefix readline)/lib" >> "$GITHUB_ENV"
+
             - name: Install Lua
               run: |
-                  wget -O - https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
+                  curl -fsSL https://www.lua.org/ftp/lua-${{env.LUA_VERSION}}.tar.gz | tar xzf -
                   cd lua-${{env.LUA_VERSION}}
-                  make -j$(nproc) linux
+                  if [ "${{ runner.os }}" = macOS ]; then
+                      plat=macosx
+                  else
+                      plat=linux
+                  fi
+                  make -j"$(getconf _NPROCESSORS_ONLN)" "$plat"
                   sudo make install
 
             - name: Build Pallene
               run: |
                   ./configure
-                  make -j$(nproc)
+                  make -j"$(getconf _NPROCESSORS_ONLN)"
 
             - name: Install Pallene
               run: sudo make install
 
             - name: Install Luarocks
               run: |
-                  wget -O - https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
+                  curl -fsSL https://luarocks.org/releases/luarocks-${{env.LUAROCKS_VERSION}}.tar.gz | tar xzf -
                   cd luarocks-${{env.LUAROCKS_VERSION}}
                   ./configure --with-lua=/usr/local
-                  make -j$(nproc)
+                  make -j"$(getconf _NPROCESSORS_ONLN)"
                   sudo make install
 
             - name: Install Busted
