@@ -45,16 +45,16 @@ install: all
 	# Note that we have to manually copy these over because
 	# the Makefile for these projects do not provide an 'install'
 	# target.
-	$(INSTALL) -D deps/argparse/src/argparse.lua $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)
-	$(INSTALL) -D deps/lpeg/re.lua               $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)
-	$(INSTALL) -D deps/lpeg/lpeg.so              $(INSTALL_PREFIX)/lib/lua/$(LUA_VERSION)
+	$(INSTALL) deps/argparse/src/argparse.lua $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)
+	$(INSTALL) deps/lpeg/re.lua               $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)
+	$(INSTALL) deps/lpeg/lpeg.so              $(INSTALL_PREFIX)/lib/lua/$(LUA_VERSION)
 
 	# Install Pallene.
 	cp -r src/pallene/ $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/pallene
 	cp -r src/bin/     $(INSTALL_PREFIX)/share/lua/$(LUA_VERSION)/bin
 
 	# Install the wrapper shell script (inspired by LuaRocks).
-	$(INSTALL_PROGRAM) -D pallenec $(INSTALL_PREFIX)/bin
+	$(INSTALL_PROGRAM) pallenec $(INSTALL_PREFIX)/bin
 
 uninstall:
 	# Uninstall all the dependencies.
