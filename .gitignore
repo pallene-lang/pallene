@@ -3,6 +3,12 @@
 *.so
 *.d.pln
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
 # lua
 vm/src/lua
 vm/src/luac
