@@ -65,7 +65,7 @@ jobs:
             matrix:
                 os: [ubuntu-latest, macos-latest]
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v7
 
             # Lua's macosx target links -lreadline. Apple no longer ships it;
             # Homebrew's keg is not on the default include/lib path.
