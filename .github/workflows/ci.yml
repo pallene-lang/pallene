@@ -21,6 +21,7 @@ on:
         branches: [ master ]
     pull_request:
         branches: [ master ]
+    workflow_dispatch:
 
 env:
     LUA_VERSION: 5.4.7
