@@ -1,0 +1,41 @@
+-- Copyright (c) 2026, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+local m: module = {}
+
+local vector = require "vector"
+
+typealias Matrix = { vector.Vector }
+
+function m.mul_vector(a: Matrix, v: vector.Vector): vector.Vector
+    local result: vector.Vector = {}
+    for i = 1, #a do
+        result[i] = vector.dot(a[i], v)
+    end
+    return result
+end
+
+function m.transpose(a: Matrix): Matrix
+    local result: Matrix = {}
+    for j = 1, #a[1] do
+        local row: vector.Vector = {}
+        for i = 1, #a do
+            row[i] = a[i][j]
+        end
+        result[j] = row
+    end
+    return result
+end
+
+function m.mul(a: Matrix, b: Matrix): Matrix
+    local bt = m.transpose(b)
+    local result: Matrix = {}
+    for i = 1, #a do
+        result[i] = m.mul_vector(bt, a[i])
+    end
+    return result
+end
+
+return m

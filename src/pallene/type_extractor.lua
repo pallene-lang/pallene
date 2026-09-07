@@ -53,6 +53,8 @@ local function format_ast_type(type)
         return "{" .. table.concat(fields, ", ") .. "}"
     elseif cons == "Function" then
         return format_function(type)
+    elseif cons == "QualifiedName" then
+        return string.format("%s.%s", type.module, type.name)
     else
         error("Unknown ast.Type: " .. tostring(type._tag))
     end
@@ -119,7 +121,7 @@ local function typeof_tls(node, typedefs)
             local typestr = format_type(field.type)
             table.insert(field_strs, string.format("%s: %s", field.name, typestr))
         end
-        table.insert(typedefs, string.format("record %s: %s", type_name, table.concat(field_strs, "; ")))
+        table.insert(typedefs, string.format("record %s %s end", type_name, table.concat(field_strs, "; ")))
     elseif node._tag == "ast.Toplevel.Stats" then
         local stats = node.stats
         for _, stat in ipairs(stats) do

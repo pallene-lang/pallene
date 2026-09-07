@@ -1,0 +1,54 @@
+-- Copyright (c) 2026, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+local m: module = {}
+
+local random = require "random" -- random is a pure Lua module
+
+function m.sample(count: integer, seed: integer): { float }
+    return random.sample(count, seed)
+end
+
+function m.mean(xs: { float }): float
+    local sum = 0.0
+    for i = 1, #xs do
+        sum = sum + xs[i]
+    end
+    return sum / #xs
+end
+
+function m.stddev(xs: { float }): float
+    local avg = m.mean(xs)
+    local sum = 0.0
+    for i = 1, #xs do
+        local d = xs[i] - avg
+        sum = sum + d * d
+    end
+    return math.sqrt(sum / #xs)
+end
+
+function m.max(xs: { float }): float
+    local max = xs[1]
+    for i = 1, #xs do
+        local curr = xs[i]
+        if curr > max then
+            max = curr
+        end
+    end
+    return max
+end
+
+function m.min(xs: { float }): float
+    local min = xs[1]
+    for i = 1, #xs do
+        local curr = xs[i]
+        if curr < min then
+            min = curr
+        end
+    end
+    return min
+end
+
+return m
