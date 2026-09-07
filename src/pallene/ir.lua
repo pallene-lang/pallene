@@ -31,6 +31,7 @@ function ir.Module()
         functions          = {},  -- list of ir.Function
         exported_functions = {},  -- list of function ids
         exported_globals   = {},  -- list of variable ids
+        imported_modules   = {},  -- list of module name strings
         loc_id_of_exports  = nil, -- integer
     }
 end
@@ -136,6 +137,7 @@ define_union("Value", {
     String     = {"value"},
     LocalVar   = {"id"},
     Upvalue    = {"id"},
+    Module     = {"module_name"},
 })
 
 function ir.is_constant(value)
