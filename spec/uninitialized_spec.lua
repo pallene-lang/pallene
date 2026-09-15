@@ -78,6 +78,18 @@ describe("Uninitialized variable analysis: ", function()
         ]], "variable 'x' is used before being initialized")
     end)
 
+    it("catches use of uninitialized variable in assignment", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo(): integer
+                local a:integer
+                a = a + 1
+                return a
+            end
+            return m
+        ]], "variable 'a' is used before being initialized")
+    end)
+
     it("catches use of uninitialized variable inside \"if\"", function()
         assert_error([[
             local m: module = {}
