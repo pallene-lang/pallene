@@ -1,6 +1,6 @@
 #! /bin/sh
 
-LUA_VERSION="5.4"
+LUA_VERSION="5.5"
 PREFIX="$(dirname "$(realpath "$0")")"
 
 export LUA_PATH="$PREFIX/../share/lua/$LUA_VERSION/?.lua;$LUA_PATH"
