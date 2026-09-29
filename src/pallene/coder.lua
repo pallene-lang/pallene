@@ -79,7 +79,6 @@ function Coder:init(module, modname, filename, flags)
     self.constants = {} -- { coder.Constant }
     self.k_slot_of_metatable = {} -- typ  => integer
     self.k_slot_of_string    = {} -- str  => integer
-    self.k_slot_of_module    = {} -- module_name => integer
     self:init_upvalues()
 
     self.record_ids    = {}      -- types.T.Record => integer
@@ -296,7 +295,7 @@ function Coder:get_stack_slot(typ, dst, slot, loc, description_fmt, ...)
 end
 
 
-function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
+function Coder:get_luatable_slot(typ, dst, slot, tab, tag, loc, description_fmt, ...)
 
     local parts = {}
 
@@ -307,11 +306,11 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
     -- Pallene, so we raise an error instead.
     if typ._tag == "types.T.Any" or typ._tag == "types.T.Nil" then
         table.insert(parts, util.render([[
-            if (isempty($slot)) {
+            if (tagisempty($tag)) {
                 ${check_no_metatable}
             }
         ]], {
-            slot = slot,
+            tag = tag,
             check_no_metatable = check_no_metatable(self, tab, loc),
         }))
     end
@@ -321,11 +320,11 @@ function Coder:get_luatable_slot(typ, dst, slot, tab, loc, description_fmt, ...)
     -- function in lapi.c does.
     if typ._tag == "types.T.Any" then
         table.insert(parts, util.render([[
-            if (isempty($slot)) {
+            if (tagisempty($tag)) {
                 setnilvalue(&$dst);
             }
         ]], {
-            slot = slot,
+            tag = tag,
             dst = dst,
         }))
     end
@@ -375,8 +374,6 @@ function Coder:c_value(value)
         return self:c_var(value.id)
     elseif tag == "ir.Value.Upvalue" then
         return self:c_upval(value.id)
-    elseif tag == "ir.Value.Module" then
-        return lua_value(types.T.Table({}), self:module_upvalue_slot(value.module_name))
     else
         tagged_union.error(tag)
     end
@@ -737,7 +734,6 @@ end
 define_union("Constant", {
     Metatable = {"typ"},
     String = {"str"},
-    Module = {"module_name"},
     DebugUserdata = {},
     DebugMetatable = {},
 })
@@ -772,14 +768,6 @@ function Coder:init_upvalues()
             end
         end
     end
-
-    -- Imported Modules
-    for _, module_name in ipairs(self.module.imported_modules) do
-        if not self.k_slot_of_module[module_name] then
-            table.insert(self.constants, coder.Constant.Module(module_name))
-            self.k_slot_of_module[module_name] = #self.constants
-        end
-    end
 end
 
 local function upvalue_slot(ix)
@@ -793,11 +781,6 @@ end
 
 function Coder:string_upvalue_slot(str)
     local ix = assert(self.k_slot_of_string[str])
-    return upvalue_slot(ix)
-end
-
-function Coder:module_upvalue_slot(module_name)
-    local ix = assert(self.k_slot_of_module[module_name])
     return upvalue_slot(ix)
 end
 
@@ -1064,7 +1047,7 @@ gen_cmd["Unop"] = function(self, args)
     local function arr_len()
         return (util.render([[
             ${check_no_metatable}
-            $dst = luaH_getn($x);
+            $dst = luaH_getn(L, $x);
         ]], {
             check_no_metatable = check_no_metatable(self, x, args.cmd.loc),
             line = C.integer(args.cmd.loc.line),
@@ -1305,7 +1288,9 @@ gen_cmd["GetArr"] = function(self, args)
 
     return (util.render([[
         {
-            TValue *slot = &$arr->array[$i - 1];
+            TValue slotv;
+            arr2obj($arr, $i - 1, &slotv);
+            TValue *slot = &slotv;
             $get_slot
         }
     ]], {
@@ -1325,15 +1310,19 @@ gen_cmd["SetArr"] = function(self, args)
     local line = C.integer(args.cmd.loc.line)
     return (util.render([[
         {
-            TValue *slot = &$arr->array[$i - 1];
-            ${set_heap_slot}
+            TValue slotv;
+            $set_slotv
+            obj2arr($arr, $i - 1, &slotv);
+            $barrier
         }
     ]], {
         arr = arr,
         i = i,
         v = v,
         line = line,
-        set_heap_slot = set_heap_slot(src_typ, "slot", v, arr),
+        set_slotv = set_stack_slot(src_typ, "&slotv", v),
+        -- We need a write barrier because we are writing to a heap slot.
+        barrier = opt_gc_barrier(src_typ, v, arr) or "",
     }))
 end
 
@@ -1353,19 +1342,17 @@ gen_cmd["GetTable"] = function(self, args)
     local dst_typ = args.cmd.dst_typ
 
     assert(args.cmd.src_k._tag == "ir.Value.String")
-    local field_name = args.cmd.src_k.value
 
     return util.render([[
         {
-            static int cache = -1;
-            TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
+            TValue slotv;
+            lu_byte tag = luaH_getstr($tab, $key, &slotv);
             ${get_slot}
         }
     ]], {
-        field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        get_slot = self:get_luatable_slot(dst_typ, dst, "slot", tab, args.cmd.loc, "table field"),
+        get_slot = self:get_luatable_slot(dst_typ, dst, "&slotv", tab, "tag", args.cmd.loc, "table field"),
     })
 end
 
@@ -1376,7 +1363,6 @@ gen_cmd["SetTable"] = function(self, args)
     local src_typ = args.cmd.src_typ
 
     assert(args.cmd.src_k._tag == "ir.Value.String")
-    local field_name = args.cmd.src_k.value
 
     local parts = {}
     table.insert(parts, "{")
@@ -1384,19 +1370,15 @@ gen_cmd["SetTable"] = function(self, args)
     table.insert(parts, util.render([[
             TValue keyv; ${init_keyv}
             TValue valv; ${init_valv}
-            static int cache = -1;
-            TValue *slot = pallene_getstr($field_len, $tab, $key, &cache);
-            luaH_finishset(L, $tab, &keyv, slot, &valv);
+            int hres = luaH_psetstr($tab, $key, &valv);
+            if (hres != HOK) {
+                luaH_finishset(L, $tab, &keyv, &valv, hres);
+            }
     ]], {
-        field_len = tostring(#field_name),
         tab = tab,
         key = key,
-        val = val,
         init_keyv = set_stack_slot(types.T.String, "&keyv", key),
         init_valv = set_stack_slot(src_typ, "&valv", val),
-        -- Here we use set_stack_slot slot on a heap object, because
-        -- we call the barrier by hand outside the if statement.
-        set_slot = set_stack_slot(src_typ, "slot", val),
     }))
 
     table.insert(parts, opt_gc_barrier(src_typ, val, tab))
@@ -1939,13 +1921,6 @@ function Coder:generate_luaopen_function()
                 lua_pushstring(L, $str);]], {
                     str = C.string(upv.str)
                 }))
-        elseif tag == "coder.Constant.Module" then
-            table.insert(init_constants, util.render([[
-                lua_getglobal(L, "require");
-                lua_pushstring(L, $module_name);
-                lua_call(L, 1, 1);]], {
-                    module_name = C.string(upv.module_name)
-                }))
         -- Will be used if compiling with `--use-traceback`
         elseif tag == "coder.Constant.DebugUserdata" then
             table.insert(init_constants, [[
@@ -1990,8 +1965,8 @@ function Coder:generate_luaopen_function()
     return (util.render([[
         int ${name}(lua_State *L)
         {
-            #if LUA_VERSION_RELEASE_NUM != 50407
-            #error "Lua version must be exactly 5.4.7"
+            #if LUA_VERSION_RELEASE_NUM != 50500
+            #error "Lua version must be exactly 5.5.0"
             #endif
             luaL_checkcoreversion(L);
 
