@@ -67,7 +67,10 @@ function uninitialized.verify_variables(module)
                     local v = src.id
                     if src._tag == "ir.Value.LocalVar" and uninit[v] then
                         if not reported_variables[v]
-                            and not (cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box)
+                            and not (
+                                cmd._tag == "ir.Cmd.SetField" and
+                                cmd.rec_typ.is_upvalue_box and
+                                src == cmd.src_rec)
                         then
                             reported_variables[v] = true
                             local name = assert(func.vars[v].name)
