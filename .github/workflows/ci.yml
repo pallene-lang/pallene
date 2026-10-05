@@ -23,8 +23,8 @@ on:
         branches: [ master ]
 
 env:
-    LUA_VERSION: 5.4.7
-    LUAROCKS_VERSION: 3.9.0
+    LUA_VERSION: 5.5.0
+    LUAROCKS_VERSION: 3.13.0
 
 jobs:
     lint:
@@ -49,7 +49,7 @@ jobs:
                   sudo make install
 
             - name: Install Luacheck
-              run: luarocks install --local luacheck
+              run: luarocks install --local luacheck --dev
 
             - name: Run Luacheck
               run: |
