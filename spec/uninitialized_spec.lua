@@ -173,6 +173,22 @@ describe("Uninitialized variable analysis: ", function()
         ]], "variable 'y' is used before being initialized")
     end)
 
+    it("allows writing to uninitialized upvalue box", function ()
+        local module, errs = run_uninitialized([[
+            local m = {}
+            function m.foo()
+                local x: integer
+                x = 1
+                local function g()
+                    x = 2
+                end
+            end
+            return m
+        ]])
+        assert.truthy(module)
+        assert.same("", errs)
+    end)
+
     it("assumes that loops might not execute", function()
         assert_error([[
             local m: module = {}

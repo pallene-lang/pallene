@@ -66,6 +66,11 @@ function uninitialized.verify_variables(module)
                 for _, src in ipairs(ir.get_srcs(cmd)) do
                     local v = src.id
                     if src._tag == "ir.Value.LocalVar" and uninit[v] then
+                        -- The NewRecord that creates an upvalue box is ignored (see "Artificial
+                        -- initializers" above), so the box itself appears uninitialized. However,
+                        -- we only track the contents, not the box. A SetField writing to the box
+                        -- (src_rec) is the first initialization and should not be reported as a
+                        -- use.
                         if not reported_variables[v]
                             and not (
                                 cmd._tag == "ir.Cmd.SetField" and
