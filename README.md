@@ -63,6 +63,8 @@ pallenec test.pln
 
 For more compiler options, see `pallenec --help`.
 
+Read the [MANUAL](doc/manual.md) to learn how to use Pallene.
+
 ## Contributing
 
 If you want to contribute to Pallene, it is helpful to know how to run our test suite
