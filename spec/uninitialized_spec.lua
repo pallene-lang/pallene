@@ -7,7 +7,7 @@ local driver = require 'pallene.driver'
 
 local function run_uninitialized(code)
     local module, errs = driver.compile_internal("__test__.pln", code, "uninitialized")
-    return module, table.concat(errs, "\n")
+    return module, table.concat(errs or {}, "\n")
 end
 
 local function assert_error(code, expected_err)
@@ -78,6 +78,18 @@ describe("Uninitialized variable analysis: ", function()
         ]], "variable 'x' is used before being initialized")
     end)
 
+    it("catches use of uninitialized variable in assignment", function()
+        assert_error([[
+            local m: module = {}
+            function m.foo(): integer
+                local a:integer
+                a = a + 1
+                return a
+            end
+            return m
+        ]], "variable 'a' is used before being initialized")
+    end)
+
     it("catches use of uninitialized variable inside \"if\"", function()
         assert_error([[
             local m: module = {}
@@ -145,6 +157,36 @@ describe("Uninitialized variable analysis: ", function()
             end
             return m
         ]], "variable 'x' is used before being initialized")
+    end)
+
+    it("catches uninitialized value stored into upvalue", function ()
+        assert_error([[
+            local m = {}
+            function m.foo()
+                local x: integer
+                local y: integer
+                local function g()
+                    x = y
+                end
+            end
+            return m
+        ]], "variable 'y' is used before being initialized")
+    end)
+
+    it("allows writing to uninitialized upvalue box", function ()
+        local module, errs = run_uninitialized([[
+            local m = {}
+            function m.foo()
+                local x: integer
+                x = 1
+                local function g()
+                    x = 2
+                end
+            end
+            return m
+        ]])
+        assert.truthy(module)
+        assert.same("", errs)
     end)
 
     it("assumes that loops might not execute", function()
