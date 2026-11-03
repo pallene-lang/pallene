@@ -7,7 +7,7 @@ local driver = require 'pallene.driver'
 
 local function run_uninitialized(code)
     local module, errs = driver.compile_internal("__test__.pln", code, "uninitialized")
-    return module, table.concat(errs, "\n")
+    return module, table.concat(errs or {}, "\n")
 end
 
 local function assert_error(code, expected_err)
