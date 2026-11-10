@@ -242,6 +242,25 @@ The fields of a Pallene record can be directly accessed by Pallene functions usi
 From the point of view of Lua, Pallene records are opaque.
 If you want to allow Lua to read or write to a field, you shold export appropriate getter and setter functions.
 
+A table type with the same field names is a different type, and it is a real Lua table.
+Lua can create that table and pass it to an exported Pallene function:
+
+```lua
+typealias Point = {x: float, y: float}
+
+function m.norm2(p: Point): float
+    return p.x * p.x + p.y * p.y
+end
+```
+
+```lua
+point = require "point"
+point.norm2({x = 1.0, y = 2.0})
+```
+
+That call does not work if `Point` is a `record`.
+Lua cannot build a record with a table literal.
+
 ### Any
 
 Variables of type `any` can store any Lua or Pallene value.
